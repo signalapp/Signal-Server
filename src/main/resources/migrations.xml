@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-2.0.xsd">
+
+    <changeSet id="1" author="moxie">
+        <createTable tableName="accounts">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="number" type="varchar(255)">
+                <constraints unique="true" nullable="false"/>
+            </column>
+
+            <column name="auth_token" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="salt" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="signaling_key" type="varchar(255)"/>
+
+            <column name="gcm_id" type="text"/>
+
+            <column name="apn_id" type="text"/>
+
+            <column name="supports_sms" type="smallint" defaultValue="0"/>
+        </createTable>
+
+        <createTable tableName="pending_accounts">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="number" type="varchar(255)">
+                <constraints unique="true" nullable="false"/>
+            </column>
+
+            <column name="verification_code" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="keys">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="number" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="key_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="public_key" type="text">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="identity_key" type="text">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="last_resort" type="smallint" defaultValue="0"/>
+        </createTable>
+
+        <createIndex tableName="keys" indexName="keys_number_index">
+            <column name="number"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

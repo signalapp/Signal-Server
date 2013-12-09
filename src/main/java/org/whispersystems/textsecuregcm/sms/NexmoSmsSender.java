@@ -1,0 +1,92 @@
+/**
+ * Copyright (C) 2013 Open WhisperSystems
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+package org.whispersystems.textsecuregcm.sms;
+
+import com.yammer.metrics.Metrics;
+import com.yammer.metrics.core.Meter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.configuration.NexmoConfiguration;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.URLEncoder;
+import java.util.concurrent.TimeUnit;
+
+import org.whispersystems.textsecuregcm.sms.SenderFactory.VoxSender;
+import org.whispersystems.textsecuregcm.sms.SenderFactory.SmsSender;
+
+public class NexmoSmsSender implements SmsSender, VoxSender {
+
+  private final Meter  smsMeter = Metrics.newMeter(NexmoSmsSender.class, "sms", "delivered", TimeUnit.MINUTES);
+  private final Meter  voxMeter = Metrics.newMeter(NexmoSmsSender.class, "vox", "delivered", TimeUnit.MINUTES);
+  private final Logger logger   = LoggerFactory.getLogger(NexmoSmsSender.class);
+
+  private static final String NEXMO_SMS_URL =
+      "https://rest.nexmo.com/sms/json?api_key=%s&api_secret=%s&from=%s&to=%s&text=%s";
+
+  private static final String NEXMO_VOX_URL =
+      "https://rest.nexmo.com/tts/json?api_key=%s&api_secret=%s&to=%s&text=%s";
+
+  private final String apiKey;
+  private final String apiSecret;
+  private final String number;
+
+  public NexmoSmsSender(NexmoConfiguration config) {
+    this.apiKey    = config.getApiKey();
+    this.apiSecret = config.getApiSecret();
+    this.number    = config.getNumber();
+  }
+
+  @Override
+  public void deliverSmsVerification(String destination, String verificationCode) throws IOException {
+    URL url = new URL(String.format(NEXMO_SMS_URL, apiKey, apiSecret, number, destination,
+                                    URLEncoder.encode(SmsSender.VERIFICATION_TEXT + verificationCode, "UTF-8")));
+
+    URLConnection connection = url.openConnection();
+    connection.setDoInput(true);
+    connection.connect();
+
+    BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+    while (reader.readLine() != null) {}
+    reader.close();
+    smsMeter.mark();
+  }
+
+  @Override
+  public void deliverVoxVerification(String destination, String message) throws IOException {
+    URL url = new URL(String.format(NEXMO_VOX_URL, apiKey, apiSecret, destination,
+                                    URLEncoder.encode(VoxSender.VERIFICATION_TEXT + message, "UTF-8")));
+
+    URLConnection connection = url.openConnection();
+    connection.setDoInput(true);
+    connection.connect();
+
+    BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+    String line;
+    while ((line = reader.readLine()) != null) {
+      logger.debug(line);
+    }
+    reader.close();
+    voxMeter.mark();
+  }
+
+
+}
