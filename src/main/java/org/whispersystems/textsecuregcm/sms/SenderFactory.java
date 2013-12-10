@@ -49,9 +49,9 @@ public class SenderFactory {
   public VoxSender getVoxSender(String number) {
     if (nexmoSender.isPresent()) {
       return nexmoSender.get();
+    } else {
+      return twilioSender;
     }
-
-    throw new AssertionError("FIX ME!");
   }
 
   private boolean isTwilioDestination(String number) {

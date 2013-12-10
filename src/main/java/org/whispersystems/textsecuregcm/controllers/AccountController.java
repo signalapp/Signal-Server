@@ -29,6 +29,7 @@ import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.sms.SenderFactory;
+import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
@@ -40,9 +41,11 @@ import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
+import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -70,7 +73,6 @@ public class AccountController {
     this.rateLimiters    = rateLimiters;
     this.senderFactory   = smsSenderFactory;
   }
-
 
   @Timed
   @GET
@@ -180,6 +182,16 @@ public class AccountController {
   public void deleteApnRegistrationId(@Auth Account account) {
     account.setApnRegistrationId(null);
     accounts.update(account);
+  }
+
+  @Timed
+  @POST
+  @Path("/voice/twiml/{code}")
+  @Produces(MediaType.APPLICATION_XML)
+  public Response getTwiml(@PathParam("code") String encodedVerificationText) {
+    return Response.ok().entity(String.format(TwilioSmsSender.SAY_TWIML,
+                                              SenderFactory.VoxSender.VERIFICATION_TEXT +
+                                                  encodedVerificationText)).build();
   }
 
   private VerificationCode generateVerificationCode() {

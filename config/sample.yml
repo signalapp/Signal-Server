@@ -2,6 +2,7 @@ twilio:
   accountId: 
   accountToken:
   number:
+  localDomain: # The domain Twilio can call back to.
 
 # Optional. If specified, Nexmo will be used for non-US SMS and 
 # voice verification.

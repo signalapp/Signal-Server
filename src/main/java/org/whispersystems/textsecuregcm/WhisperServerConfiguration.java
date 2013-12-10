@@ -41,7 +41,7 @@ public class WhisperServerConfiguration extends Configuration {
   private TwilioConfiguration twilio;
 
   @JsonProperty
-  private NexmoConfiguration nexmo = new NexmoConfiguration();
+  private NexmoConfiguration nexmo;
 
   @NotNull
   @JsonProperty
