@@ -28,7 +28,7 @@ import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.sms.SenderFactory;
+import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -61,17 +61,17 @@ public class AccountController {
   private final PendingAccountsManager pendingAccounts;
   private final AccountsManager        accounts;
   private final RateLimiters           rateLimiters;
-  private final SenderFactory          senderFactory;
+  private final SmsSender              smsSender;
 
   public AccountController(PendingAccountsManager pendingAccounts,
                            AccountsManager accounts,
                            RateLimiters rateLimiters,
-                           SenderFactory smsSenderFactory)
+                           SmsSender smsSenderFactory)
   {
     this.pendingAccounts = pendingAccounts;
     this.accounts        = accounts;
     this.rateLimiters    = rateLimiters;
-    this.senderFactory   = smsSenderFactory;
+    this.smsSender       = smsSenderFactory;
   }
 
   @Timed
@@ -101,9 +101,9 @@ public class AccountController {
     pendingAccounts.store(number, verificationCode.getVerificationCode());
 
     if (transport.equals("sms")) {
-      senderFactory.getSmsSender(number).deliverSmsVerification(number, verificationCode.getVerificationCodeDisplay());
+      smsSender.deliverSmsVerification(number, verificationCode.getVerificationCodeDisplay());
     } else if (transport.equals("voice")) {
-      senderFactory.getVoxSender(number).deliverVoxVerification(number, verificationCode.getVerificationCodeSpeech());
+      smsSender.deliverVoxVerification(number, verificationCode.getVerificationCodeSpeech());
     }
 
     return Response.ok().build();
@@ -190,8 +190,7 @@ public class AccountController {
   @Produces(MediaType.APPLICATION_XML)
   public Response getTwiml(@PathParam("code") String encodedVerificationText) {
     return Response.ok().entity(String.format(TwilioSmsSender.SAY_TWIML,
-                                              SenderFactory.VoxSender.VERIFICATION_TEXT +
-                                                  encodedVerificationText)).build();
+                                              encodedVerificationText)).build();
   }
 
   private VerificationCode generateVerificationCode() {

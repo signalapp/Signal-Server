@@ -16,6 +16,7 @@
  */
 package org.whispersystems.textsecuregcm;
 
+import com.google.common.base.Optional;
 import com.yammer.dropwizard.Service;
 import com.yammer.dropwizard.config.Bootstrap;
 import com.yammer.dropwizard.config.Environment;
@@ -29,6 +30,7 @@ import org.skife.jdbi.v2.DBI;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.FederatedPeerAuthenticator;
 import org.whispersystems.textsecuregcm.auth.MultiBasicAuthProvider;
+import org.whispersystems.textsecuregcm.configuration.NexmoConfiguration;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.AttachmentController;
 import org.whispersystems.textsecuregcm.controllers.DirectoryController;
@@ -45,7 +47,9 @@ import org.whispersystems.textsecuregcm.providers.MemcachedClientFactory;
 import org.whispersystems.textsecuregcm.providers.RedisClientFactory;
 import org.whispersystems.textsecuregcm.providers.RedisHealthCheck;
 import org.whispersystems.textsecuregcm.push.PushSender;
-import org.whispersystems.textsecuregcm.sms.SenderFactory;
+import org.whispersystems.textsecuregcm.sms.NexmoSmsSender;
+import org.whispersystems.textsecuregcm.sms.SmsSender;
+import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -93,24 +97,26 @@ public class WhisperServerService extends Service<WhisperServerConfiguration> {
     MemcachedClient memcachedClient = new MemcachedClientFactory(config.getMemcacheConfiguration()).getClient();
     JedisPool       redisClient     = new RedisClientFactory(config.getRedisConfiguration()).getRedisClientPool();
 
-    DirectoryManager       directory              = new DirectoryManager(redisClient);
-    PendingAccountsManager pendingAccountsManager = new PendingAccountsManager(pendingAccounts, memcachedClient);
-    AccountsManager        accountsManager        = new AccountsManager(accounts, directory, memcachedClient);
-    AccountAuthenticator   accountAuthenticator   = new AccountAuthenticator(accountsManager);
-    FederatedClientManager federatedClientManager = new FederatedClientManager(config.getFederationConfiguration());
-    RateLimiters           rateLimiters           = new RateLimiters(config.getLimitsConfiguration(), memcachedClient);
-    SenderFactory          senderFactory          = new SenderFactory(config.getTwilioConfiguration(), config.getNexmoConfiguration());
-    UrlSigner              urlSigner              = new UrlSigner(config.getS3Configuration());
-    PushSender             pushSender             = new PushSender(config.getGcmConfiguration(),
-                                                                   config.getApnConfiguration(),
-                                                                   accountsManager, directory);
+    DirectoryManager         directory              = new DirectoryManager(redisClient);
+    PendingAccountsManager   pendingAccountsManager = new PendingAccountsManager(pendingAccounts, memcachedClient);
+    AccountsManager          accountsManager        = new AccountsManager(accounts, directory, memcachedClient);
+    AccountAuthenticator     accountAuthenticator   = new AccountAuthenticator(accountsManager                     );
+    FederatedClientManager   federatedClientManager = new FederatedClientManager(config.getFederationConfiguration());
+    RateLimiters             rateLimiters           = new RateLimiters(config.getLimitsConfiguration(), memcachedClient);
+    TwilioSmsSender          twilioSmsSender        = new TwilioSmsSender(config.getTwilioConfiguration());
+    Optional<NexmoSmsSender> nexmoSmsSender         = initializeNexmoSmsSender(config.getNexmoConfiguration());
+    SmsSender                smsSender              = new SmsSender(twilioSmsSender, nexmoSmsSender, config.getTwilioConfiguration().isInternational());
+    UrlSigner                urlSigner              = new UrlSigner(config.getS3Configuration());
+    PushSender               pushSender             = new PushSender(config.getGcmConfiguration(),
+                                                                     config.getApnConfiguration(),
+                                                                     accountsManager, directory);
 
     environment.addProvider(new MultiBasicAuthProvider<>(new FederatedPeerAuthenticator(config.getFederationConfiguration()),
                                                          FederatedPeer.class,
                                                          accountAuthenticator,
                                                          Account.class, "WhisperServer"));
 
-    environment.addResource(new AccountController(pendingAccountsManager, accountsManager, rateLimiters, senderFactory));
+    environment.addResource(new AccountController(pendingAccountsManager, accountsManager, rateLimiters, smsSender));
     environment.addResource(new DirectoryController(rateLimiters, directory));
     environment.addResource(new AttachmentController(rateLimiters, federatedClientManager, urlSigner));
     environment.addResource(new KeysController(rateLimiters, keys, federatedClientManager));
@@ -130,6 +136,14 @@ public class WhisperServerService extends Service<WhisperServerConfiguration> {
       GraphiteReporter.enable(15, TimeUnit.SECONDS,
                               config.getGraphiteConfiguration().getHost(),
                               config.getGraphiteConfiguration().getPort());
+    }
+  }
+
+  private Optional<NexmoSmsSender> initializeNexmoSmsSender(NexmoConfiguration configuration) {
+    if (configuration == null) {
+      return Optional.absent();
+    } else {
+      return Optional.of(new NexmoSmsSender(configuration));
     }
   }
 

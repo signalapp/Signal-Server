@@ -8,8 +8,7 @@ import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.sms.SenderFactory;
-import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
+import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
@@ -29,8 +28,7 @@ public class AccountControllerTest extends ResourceTest {
   private AccountsManager        accountsManager        = mock(AccountsManager.class       );
   private RateLimiters           rateLimiters           = mock(RateLimiters.class          );
   private RateLimiter            rateLimiter            = mock(RateLimiter.class           );
-  private TwilioSmsSender        twilioSmsSender        = mock(TwilioSmsSender.class       );
-  private SenderFactory          senderFactory          = mock(SenderFactory.class         );
+  private SmsSender              smsSender              = mock(SmsSender.class             );
 
   @Override
   protected void setUpResources() throws Exception {
@@ -41,12 +39,11 @@ public class AccountControllerTest extends ResourceTest {
     when(rateLimiters.getVerifyLimiter()).thenReturn(rateLimiter);
 
     when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of("1234"));
-    when(senderFactory.getSmsSender(SENDER)).thenReturn(twilioSmsSender);
 
     addResource(new AccountController(pendingAccountsManager,
                                       accountsManager,
                                       rateLimiters,
-                                      senderFactory));
+                                      smsSender));
   }
 
   @Test
@@ -57,7 +54,7 @@ public class AccountControllerTest extends ResourceTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    verify(twilioSmsSender).deliverSmsVerification(eq(SENDER), anyString());
+    verify(smsSender).deliverSmsVerification(eq(SENDER), anyString());
   }
 
   @Test

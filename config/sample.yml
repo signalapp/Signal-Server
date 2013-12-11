@@ -3,9 +3,12 @@ twilio:
   accountToken:
   number:
   localDomain: # The domain Twilio can call back to.
+  international: # Boolean specifying Twilio for international delivery
 
 # Optional. If specified, Nexmo will be used for non-US SMS and 
-# voice verification.
+# voice verification if twilio.international is false. Otherwise,
+# Nexmo, if specified, Nexmo will only be used as a fallback
+# for failed Twilio deliveries.
 nexmo:
   apiKey:
   apiSecret:

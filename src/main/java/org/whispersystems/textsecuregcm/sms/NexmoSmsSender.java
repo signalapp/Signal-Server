@@ -30,10 +30,7 @@ import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.util.concurrent.TimeUnit;
 
-import org.whispersystems.textsecuregcm.sms.SenderFactory.VoxSender;
-import org.whispersystems.textsecuregcm.sms.SenderFactory.SmsSender;
-
-public class NexmoSmsSender implements SmsSender, VoxSender {
+public class NexmoSmsSender {
 
   private final Meter  smsMeter = Metrics.newMeter(NexmoSmsSender.class, "sms", "delivered", TimeUnit.MINUTES);
   private final Meter  voxMeter = Metrics.newMeter(NexmoSmsSender.class, "vox", "delivered", TimeUnit.MINUTES);
@@ -55,10 +52,9 @@ public class NexmoSmsSender implements SmsSender, VoxSender {
     this.number    = config.getNumber();
   }
 
-  @Override
   public void deliverSmsVerification(String destination, String verificationCode) throws IOException {
     URL url = new URL(String.format(NEXMO_SMS_URL, apiKey, apiSecret, number, destination,
-                                    URLEncoder.encode(SmsSender.VERIFICATION_TEXT + verificationCode, "UTF-8")));
+                                    URLEncoder.encode(SmsSender.SMS_VERIFICATION_TEXT + verificationCode, "UTF-8")));
 
     URLConnection connection = url.openConnection();
     connection.setDoInput(true);
@@ -70,10 +66,9 @@ public class NexmoSmsSender implements SmsSender, VoxSender {
     smsMeter.mark();
   }
 
-  @Override
   public void deliverVoxVerification(String destination, String message) throws IOException {
     URL url = new URL(String.format(NEXMO_VOX_URL, apiKey, apiSecret, destination,
-                                    URLEncoder.encode(VoxSender.VERIFICATION_TEXT + message, "UTF-8")));
+                                    URLEncoder.encode(SmsSender.VOX_VERIFICATION_TEXT + message, "UTF-8")));
 
     URLConnection connection = url.openConnection();
     connection.setDoInput(true);
