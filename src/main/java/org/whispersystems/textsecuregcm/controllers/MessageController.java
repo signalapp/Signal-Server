@@ -60,6 +60,11 @@ import java.util.concurrent.TimeUnit;
 
 public class MessageController extends HttpServlet {
 
+  /**
+   * Generated
+   */
+  private static final long serialVersionUID = -2654965021780528769L;
+
   public static final String PATH = "/v1/messages/";
 
   private final Meter  successMeter = Metrics.newMeter(MessageController.class, "deliver_message", "success", TimeUnit.MINUTES);

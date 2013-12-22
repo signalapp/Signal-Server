@@ -16,12 +16,15 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
-import org.whispersystems.textsecuregcm.federation.NoSuchPeerException;
-
 import java.util.LinkedList;
 import java.util.List;
 
 public class NoSuchUserException extends Exception {
+
+  /**
+   * Generated
+   */
+  private static final long serialVersionUID = 6970827014842027686L;
 
   private List<String> missing;
 

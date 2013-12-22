@@ -20,6 +20,11 @@ import java.io.Serializable;
 
 public class LeakyBucket implements Serializable {
 
+  /**
+   * Generated
+   */
+  private static final long serialVersionUID = 6461415130959837348L;
+
   private final int    bucketSize;
   private final double leakRatePerMillis;
 

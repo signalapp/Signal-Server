@@ -18,6 +18,11 @@ package org.whispersystems.textsecuregcm.federation;
 
 
 public class NoSuchPeerException extends Exception {
+  /**
+   * Generated
+   */
+  private static final long serialVersionUID = 8406154788993393856L;
+
   public NoSuchPeerException(String name) {
     super(name);
   }

@@ -23,6 +23,11 @@ import java.io.Serializable;
 
 public class Account implements Serializable {
 
+  /**
+   * Generated
+   */
+  private static final long serialVersionUID = -8457124393606792456L;
+
   public static final int MEMCACHE_VERION = 1;
 
   private long    id;
