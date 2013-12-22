@@ -22,8 +22,6 @@ import com.yammer.dropwizard.auth.Authenticator;
 import com.yammer.dropwizard.auth.basic.BasicCredentials;
 import com.yammer.metrics.Metrics;
 import com.yammer.metrics.core.Meter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.FederationConfiguration;
 import org.whispersystems.textsecuregcm.federation.FederatedPeer;
 
@@ -40,8 +38,6 @@ public class FederatedPeerAuthenticator implements Authenticator<BasicCredential
   private final Meter authenticationSucceededMeter = Metrics.newMeter(FederatedPeerAuthenticator.class,
                                                                       "authentication", "succeeded",
                                                                       TimeUnit.MINUTES);
-
-  private final Logger logger = LoggerFactory.getLogger(FederatedPeerAuthenticator.class);
 
   private final List<FederatedPeer> peers;
 
