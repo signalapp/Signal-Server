@@ -22,8 +22,6 @@ import com.yammer.dropwizard.auth.Authenticator;
 import com.yammer.dropwizard.auth.basic.BasicCredentials;
 import com.yammer.metrics.Metrics;
 import com.yammer.metrics.core.Meter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 
@@ -38,8 +36,6 @@ public class AccountAuthenticator implements Authenticator<BasicCredentials, Acc
   private final Meter authenticationSucceededMeter = Metrics.newMeter(AccountAuthenticator.class,
                                                                       "authentication", "succeeded",
                                                                       TimeUnit.MINUTES);
-
-  private final Logger logger = LoggerFactory.getLogger(AccountAuthenticator.class);
 
   private final AccountsManager accountsManager;
 

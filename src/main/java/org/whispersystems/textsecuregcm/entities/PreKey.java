@@ -23,7 +23,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.validation.constraints.NotNull;
 import javax.xml.bind.annotation.XmlTransient;
-import java.io.Serializable;
 
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
 public class PreKey {

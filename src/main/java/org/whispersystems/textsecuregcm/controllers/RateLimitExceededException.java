@@ -17,6 +17,11 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 public class RateLimitExceededException extends Exception {
+  /**
+   * Generated
+   */
+  private static final long serialVersionUID = 2845547726352475251L;
+
   public RateLimitExceededException(String number) {
     super(number);
   }

@@ -16,11 +16,11 @@
  */
 package org.whispersystems.textsecuregcm.providers;
 
-import com.yammer.metrics.core.HealthCheck;
-import com.yammer.metrics.core.HealthCheck.Result;
+import java.security.SecureRandom;
+
 import net.spy.memcached.MemcachedClient;
 
-import java.security.SecureRandom;
+import com.yammer.metrics.core.HealthCheck;
 
 public class MemcacheHealthCheck extends HealthCheck {
 

@@ -18,4 +18,9 @@ package org.whispersystems.textsecuregcm.controllers;
 
 
 public class ValidationException extends Exception {
+
+  /**
+   * Generated
+   */
+  private static final long serialVersionUID = -263011552460407532L;
 }

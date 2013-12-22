@@ -25,12 +25,8 @@ import com.yammer.dropwizard.auth.Auth;
 import com.yammer.dropwizard.auth.Authenticator;
 import com.yammer.dropwizard.auth.basic.BasicAuthProvider;
 import com.yammer.dropwizard.auth.basic.BasicCredentials;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class MultiBasicAuthProvider<T1,T2> implements InjectableProvider<Auth, Parameter> {
-
-  private final Logger logger = LoggerFactory.getLogger(MultiBasicAuthProvider.class);
 
   private final BasicAuthProvider<T1> provider1;
   private final BasicAuthProvider<T2> provider2;

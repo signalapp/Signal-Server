@@ -108,7 +108,7 @@ public abstract class Accounts {
   public @interface AccountBinder {
     public static class AccountBinderFactory implements BinderFactory {
       @Override
-      public Binder build(Annotation annotation) {
+      public Binder<AccountBinder, Account> build(Annotation annotation) {
         return new Binder<AccountBinder, Account>() {
           @Override
           public void bind(SQLStatement<?> sql,

@@ -18,6 +18,11 @@ package org.whispersystems.textsecuregcm.auth;
 
 
 public class InvalidAuthorizationHeaderException extends Exception {
+  /**
+   * Generated
+   */
+  private static final long serialVersionUID = 2466218936376901486L;
+
   public InvalidAuthorizationHeaderException(String s) {
     super(s);
   }

@@ -88,7 +88,7 @@ public abstract class Keys {
   public @interface PreKeyBinder {
     public static class PreKeyBinderFactory implements BinderFactory {
       @Override
-      public Binder build(Annotation annotation) {
+      public Binder<PreKeyBinder, PreKey> build(Annotation annotation) {
         return new Binder<PreKeyBinder, PreKey>() {
           @Override
           public void bind(SQLStatement<?> sql, PreKeyBinder accountBinder, PreKey preKey)
