@@ -186,8 +186,9 @@ public class FederatedClient {
   private KeyStore initializeTrustStore(String name, String pemCertificate)
       throws CertificateException
   {
+	PEMReader reader=null;
     try {
-      PEMReader       reader      = new PEMReader(new InputStreamReader(new ByteArrayInputStream(pemCertificate.getBytes())));
+      reader = new PEMReader(new InputStreamReader(new ByteArrayInputStream(pemCertificate.getBytes())));
       X509Certificate certificate = (X509Certificate) reader.readObject();
 
       if (certificate == null) {
@@ -203,6 +204,14 @@ public class FederatedClient {
       throw new CertificateException(e);
     } catch (NoSuchAlgorithmException e) {
       throw new AssertionError(e);
+    } finally {
+    	if (reader!=null){
+    		try {
+				reader.close();
+			} catch (IOException e) {
+				logger.info("couldn't close PEMReader", e);
+			}
+    	}
     }
   }
 
