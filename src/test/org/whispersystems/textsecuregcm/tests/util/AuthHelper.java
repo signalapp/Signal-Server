@@ -15,6 +15,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class AuthHelper {
+  public static final long DEFAULT_DEVICE_ID = 1;
 
   public static final String VALID_NUMBER   = "+14150000000";
   public static final String VALID_PASSWORD = "foo";
@@ -29,7 +30,7 @@ public class AuthHelper {
 
     when(credentials.verify("foo")).thenReturn(true);
     when(account.getAuthenticationCredentials()).thenReturn(credentials);
-    when(accounts.get(VALID_NUMBER)).thenReturn(Optional.of(account));
+    when(accounts.get(VALID_NUMBER, DEFAULT_DEVICE_ID)).thenReturn(Optional.of(account));
 
     return new MultiBasicAuthProvider<>(new FederatedPeerAuthenticator(new FederationConfiguration()),
                                         FederatedPeer.class,
@@ -41,4 +42,7 @@ public class AuthHelper {
     return "Basic " + Base64.encodeBytes((number + ":" + password).getBytes());
   }
 
+  public static String getV2AuthHeader(String number, long deviceId, String password) {
+    return "Basic " + Base64.encodeBytes((number + "." + deviceId + ":" + password).getBytes());
+  }
 }

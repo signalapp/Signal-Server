@@ -51,7 +51,13 @@ public class AccountAuthenticator implements Authenticator<BasicCredentials, Acc
   public Optional<Account> authenticate(BasicCredentials basicCredentials)
       throws AuthenticationException
   {
-    Optional<Account> account = accountsManager.get(basicCredentials.getUsername());
+    AuthorizationHeader authorizationHeader;
+    try {
+      authorizationHeader = AuthorizationHeader.fromUserAndPassword(basicCredentials.getUsername(), basicCredentials.getPassword());
+    } catch (InvalidAuthorizationHeaderException iahe) {
+      return Optional.absent();
+    }
+    Optional<Account> account = accountsManager.get(authorizationHeader.getNumber(), authorizationHeader.getDeviceId());
 
     if (!account.isPresent()) {
       return Optional.absent();

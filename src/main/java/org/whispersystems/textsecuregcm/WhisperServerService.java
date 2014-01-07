@@ -57,6 +57,10 @@ import org.whispersystems.textsecuregcm.storage.DirectoryManager;
 import org.whispersystems.textsecuregcm.storage.Keys;
 import org.whispersystems.textsecuregcm.storage.PendingAccounts;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
+import org.whispersystems.textsecuregcm.storage.PendingDeviceRegistrations;
+import org.whispersystems.textsecuregcm.storage.PendingDevicesManager;
+import org.whispersystems.textsecuregcm.storage.StoredMessageManager;
+import org.whispersystems.textsecuregcm.storage.StoredMessages;
 import org.whispersystems.textsecuregcm.util.UrlSigner;
 import org.whispersystems.textsecuregcm.workers.DirectoryCommand;
 
@@ -90,18 +94,22 @@ public class WhisperServerService extends Service<WhisperServerConfiguration> {
     DBIFactory dbiFactory = new DBIFactory();
     DBI        jdbi       = dbiFactory.build(environment, config.getDatabaseConfiguration(), "postgresql");
 
-    Accounts        accounts        = jdbi.onDemand(Accounts.class);
-    PendingAccounts pendingAccounts = jdbi.onDemand(PendingAccounts.class);
-    Keys            keys            = jdbi.onDemand(Keys.class);
+    Accounts                   accounts        = jdbi.onDemand(Accounts.class);
+    PendingAccounts            pendingAccounts = jdbi.onDemand(PendingAccounts.class);
+    PendingDeviceRegistrations pendingDevices  = jdbi.onDemand(PendingDeviceRegistrations.class);
+    Keys                       keys            = jdbi.onDemand(Keys.class);
+    StoredMessages             storedMessages  = jdbi.onDemand(StoredMessages.class);
 
     MemcachedClient memcachedClient = new MemcachedClientFactory(config.getMemcacheConfiguration()).getClient();
     JedisPool       redisClient     = new RedisClientFactory(config.getRedisConfiguration()).getRedisClientPool();
 
     DirectoryManager         directory              = new DirectoryManager(redisClient);
     PendingAccountsManager   pendingAccountsManager = new PendingAccountsManager(pendingAccounts, memcachedClient);
+    PendingDevicesManager    pendingDevicesManager  = new PendingDevicesManager(pendingDevices, memcachedClient);
     AccountsManager          accountsManager        = new AccountsManager(accounts, directory, memcachedClient);
     AccountAuthenticator     accountAuthenticator   = new AccountAuthenticator(accountsManager                     );
     FederatedClientManager   federatedClientManager = new FederatedClientManager(config.getFederationConfiguration());
+    StoredMessageManager     storedMessageManager   = new StoredMessageManager(storedMessages);
     RateLimiters             rateLimiters           = new RateLimiters(config.getLimitsConfiguration(), memcachedClient);
     TwilioSmsSender          twilioSmsSender        = new TwilioSmsSender(config.getTwilioConfiguration());
     Optional<NexmoSmsSender> nexmoSmsSender         = initializeNexmoSmsSender(config.getNexmoConfiguration());
@@ -109,6 +117,7 @@ public class WhisperServerService extends Service<WhisperServerConfiguration> {
     UrlSigner                urlSigner              = new UrlSigner(config.getS3Configuration());
     PushSender               pushSender             = new PushSender(config.getGcmConfiguration(),
                                                                      config.getApnConfiguration(),
+                                                                     storedMessageManager,
                                                                      accountsManager, directory);
 
     environment.addProvider(new MultiBasicAuthProvider<>(new FederatedPeerAuthenticator(config.getFederationConfiguration()),
@@ -116,10 +125,11 @@ public class WhisperServerService extends Service<WhisperServerConfiguration> {
                                                          accountAuthenticator,
                                                          Account.class, "WhisperServer"));
 
-    environment.addResource(new AccountController(pendingAccountsManager, accountsManager, rateLimiters, smsSender));
+    environment.addResource(new AccountController(pendingAccountsManager, pendingDevicesManager, accountsManager, rateLimiters, smsSender));
     environment.addResource(new DirectoryController(rateLimiters, directory));
     environment.addResource(new AttachmentController(rateLimiters, federatedClientManager, urlSigner));
-    environment.addResource(new KeysController(rateLimiters, keys, federatedClientManager));
+    environment.addResource(new KeysController.V1(rateLimiters, keys, accountsManager, federatedClientManager));
+    environment.addResource(new KeysController.V2(rateLimiters, keys, accountsManager, federatedClientManager));
     environment.addResource(new FederationController(keys, accountsManager, pushSender, urlSigner));
 
     environment.addServlet(new MessageController(rateLimiters, accountAuthenticator,

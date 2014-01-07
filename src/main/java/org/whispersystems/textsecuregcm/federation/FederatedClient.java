@@ -38,6 +38,7 @@ import org.whispersystems.textsecuregcm.entities.ClientContacts;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
 import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.entities.RelayMessage;
+import org.whispersystems.textsecuregcm.entities.UnstructuredPreKeyList;
 import org.whispersystems.textsecuregcm.util.Base64;
 
 import javax.net.ssl.SSLContext;
@@ -99,12 +100,12 @@ public class FederatedClient {
     }
   }
 
-  public PreKey getKey(String destination)  {
+  public UnstructuredPreKeyList getKeys(String destination)  {
     try {
       WebResource resource = client.resource(peer.getUrl()).path(String.format(PREKEY_PATH, destination));
       return resource.accept(MediaType.APPLICATION_JSON)
                      .header("Authorization", authorizationHeader)
-                     .get(PreKey.class);
+                     .get(UnstructuredPreKeyList.class);
     } catch (UniformInterfaceException | ClientHandlerException e) {
       logger.warn("PreKey", e);
       return null;
@@ -139,14 +140,14 @@ public class FederatedClient {
     }
   }
 
-  public void sendMessage(String destination, OutgoingMessageSignal message)
+  public void sendMessage(String destination, long destinationDeviceId, OutgoingMessageSignal message)
       throws IOException, NoSuchUserException
   {
     try {
       WebResource    resource = client.resource(peer.getUrl()).path(RELAY_MESSAGE_PATH);
       ClientResponse response = resource.type(MediaType.APPLICATION_JSON)
                                         .header("Authorization", authorizationHeader)
-                                        .entity(new RelayMessage(destination, message.toByteArray()))
+                                        .entity(new RelayMessage(destination, destinationDeviceId, message.toByteArray()))
                                         .put(ClientResponse.class);
 
       if (response.getStatus() == 404) {

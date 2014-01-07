@@ -14,17 +14,17 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package textsecure;
+package org.whispersystems.textsecuregcm.storage;
 
-option java_package = "org.whispersystems.textsecuregcm.entities";
-option java_outer_classname = "MessageProtos";
+import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
 
-message OutgoingMessageSignal {
-  optional uint32 type = 1;
-  optional string source = 2;
-  optional string relay = 3;
-  repeated string destinations = 4;
-  repeated uint64 destinationDeviceIds = 7;
-  optional uint64 timestamp = 5;
-  optional bytes message = 6;
+public class StoredMessageManager {
+  StoredMessages storedMessages;
+  public StoredMessageManager(StoredMessages storedMessages) {
+    this.storedMessages = storedMessages;
+  }
+
+  public void storeMessage(Account account, EncryptedOutgoingMessage outgoingMessage) {
+    storedMessages.insert(account.getId(), outgoingMessage);
+  }
 }

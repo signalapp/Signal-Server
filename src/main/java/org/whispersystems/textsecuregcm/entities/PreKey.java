@@ -36,6 +36,10 @@ public class PreKey {
 
   @JsonProperty
   @NotNull
+  private long deviceId;
+
+  @JsonProperty
+  @NotNull
   private long    keyId;
 
   @JsonProperty
@@ -51,12 +55,13 @@ public class PreKey {
 
   public PreKey() {}
 
-  public PreKey(long id, String number, long keyId,
+  public PreKey(long id, String number, long deviceId, long keyId,
                 String publicKey, String identityKey,
                 boolean lastResort)
   {
     this.id          = id;
     this.number      = number;
+    this.deviceId    = deviceId;
     this.keyId       = keyId;
     this.publicKey   = publicKey;
     this.identityKey = identityKey;
@@ -112,5 +117,13 @@ public class PreKey {
 
   public void setLastResort(boolean lastResort) {
     this.lastResort = lastResort;
+  }
+
+  public void setDeviceId(long deviceId) {
+    this.deviceId = deviceId;
+  }
+
+  public long getDeviceId() {
+    return deviceId;
   }
 }

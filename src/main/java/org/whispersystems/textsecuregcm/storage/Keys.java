@@ -30,6 +30,7 @@ import org.skife.jdbi.v2.sqlobject.Transaction;
 import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import org.whispersystems.textsecuregcm.entities.PreKey;
+import org.whispersystems.textsecuregcm.entities.UnstructuredPreKeyList;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
@@ -38,48 +39,60 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.LinkedList;
 import java.util.List;
 
 public abstract class Keys {
 
-  @SqlUpdate("DELETE FROM keys WHERE number = :number")
-  abstract void removeKeys(@Bind("number") String number);
+  @SqlUpdate("DELETE FROM keys WHERE number = :number AND device_id = :device_id")
+  abstract void removeKeys(@Bind("number") String number, @Bind("device_id") long deviceId);
 
   @SqlUpdate("DELETE FROM keys WHERE id = :id")
   abstract void removeKey(@Bind("id") long id);
 
-  @SqlBatch("INSERT INTO keys (number, key_id, public_key, identity_key, last_resort) VALUES (:number, :key_id, :public_key, :identity_key, :last_resort)")
+  @SqlBatch("INSERT INTO keys (number, device_id, key_id, public_key, identity_key, last_resort) VALUES " +
+      "(:number, :device_id, :key_id, :public_key, :identity_key, :last_resort)")
   abstract void append(@PreKeyBinder List<PreKey> preKeys);
 
-  @SqlUpdate("INSERT INTO keys (number, key_id, public_key, identity_key, last_resort) VALUES (:number, :key_id, :public_key, :identity_key, :last_resort)")
+  @SqlUpdate("INSERT INTO keys (number, device_id, key_id, public_key, identity_key, last_resort) VALUES " +
+      "(:number, :device_id, :key_id, :public_key, :identity_key, :last_resort)")
   abstract void append(@PreKeyBinder PreKey preKey);
 
-  @SqlQuery("SELECT * FROM keys WHERE number = :number ORDER BY id LIMIT 1 FOR UPDATE")
+  @SqlQuery("SELECT * FROM keys WHERE number = :number AND device_id = :device_id ORDER BY key_id ASC FOR UPDATE")
   @Mapper(PreKeyMapper.class)
-  abstract PreKey retrieveFirst(@Bind("number") String number);
+  abstract PreKey retrieveFirst(@Bind("number") String number, @Bind("device_id") long deviceId);
 
   @Transaction(TransactionIsolationLevel.SERIALIZABLE)
-  public void store(String number, PreKey lastResortKey, List<PreKey> keys) {
+  public void store(String number, long deviceId, PreKey lastResortKey, List<PreKey> keys) {
     for (PreKey key : keys) {
       key.setNumber(number);
+      key.setDeviceId(deviceId);
     }
 
     lastResortKey.setNumber(number);
+    lastResortKey.setDeviceId(deviceId);
+    lastResortKey.setLastResort(true);
 
-    removeKeys(number);
+    removeKeys(number, deviceId);
     append(keys);
     append(lastResortKey);
   }
 
   @Transaction(TransactionIsolationLevel.SERIALIZABLE)
-  public PreKey get(String number) {
-    PreKey preKey = retrieveFirst(number);
-
-    if (preKey != null && !preKey.isLastResort()) {
-      removeKey(preKey.getId());
+  public UnstructuredPreKeyList get(String number, List<Account> accounts) {
+    List<PreKey> preKeys = new LinkedList<>();
+    for (Account account : accounts) {
+      PreKey preKey = retrieveFirst(number, account.getDeviceId());
+      if (preKey != null)
+        preKeys.add(preKey);
     }
 
-    return preKey;
+    for (PreKey preKey : preKeys) {
+      if (!preKey.isLastResort())
+        removeKey(preKey.getId());
+    }
+
+    return new UnstructuredPreKeyList(preKeys);
   }
 
   @BindingAnnotation(PreKeyBinder.PreKeyBinderFactory.class)
@@ -95,6 +108,7 @@ public abstract class Keys {
           {
             sql.bind("id", preKey.getId());
             sql.bind("number", preKey.getNumber());
+            sql.bind("device_id", preKey.getDeviceId());
             sql.bind("key_id", preKey.getKeyId());
             sql.bind("public_key", preKey.getPublicKey());
             sql.bind("identity_key", preKey.getIdentityKey());
@@ -111,7 +125,7 @@ public abstract class Keys {
     public PreKey map(int i, ResultSet resultSet, StatementContext statementContext)
         throws SQLException
     {
-      return new PreKey(resultSet.getLong("id"), resultSet.getString("number"),
+      return new PreKey(resultSet.getLong("id"), resultSet.getString("number"), resultSet.getLong("device_id"),
                          resultSet.getLong("key_id"), resultSet.getString("public_key"),
                          resultSet.getString("identity_key"),
                          resultSet.getInt("last_resort") == 1);

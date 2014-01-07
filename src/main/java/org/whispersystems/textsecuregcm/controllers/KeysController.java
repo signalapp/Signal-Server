@@ -22,10 +22,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.entities.PreKeyList;
+import org.whispersystems.textsecuregcm.entities.UnstructuredPreKeyList;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.federation.NoSuchPeerException;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Keys;
 
 import javax.validation.Valid;
@@ -39,21 +41,24 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import java.util.List;
 
 @Path("/v1/keys")
-public class KeysController {
+public abstract class KeysController {
 
   private final Logger logger = LoggerFactory.getLogger(AccountController.class);
 
   private final RateLimiters           rateLimiters;
   private final Keys                   keys;
+  private final AccountsManager        accountsManager;
   private final FederatedClientManager federatedClientManager;
 
-  public KeysController(RateLimiters rateLimiters, Keys keys,
+  public KeysController(RateLimiters rateLimiters, Keys keys, AccountsManager accountsManager,
                         FederatedClientManager federatedClientManager)
   {
     this.rateLimiters           = rateLimiters;
     this.keys                   = keys;
+    this.accountsManager        = accountsManager;
     this.federatedClientManager = federatedClientManager;
   }
 
@@ -61,32 +66,67 @@ public class KeysController {
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
   public void setKeys(@Auth Account account, @Valid PreKeyList preKeys)  {
-    keys.store(account.getNumber(), preKeys.getLastResortKey(), preKeys.getKeys());
+    keys.store(account.getNumber(), account.getDeviceId(), preKeys.getLastResortKey(), preKeys.getKeys());
   }
 
-  @Timed
-  @GET
-  @Path("/{number}")
-  @Produces(MediaType.APPLICATION_JSON)
-  public PreKey get(@Auth                Account account,
-                    @PathParam("number") String number,
-                    @QueryParam("relay") String relay)
-      throws RateLimitExceededException
+  public List<PreKey> getKeys(Account account, String number, String relay) throws RateLimitExceededException
   {
     rateLimiters.getPreKeysLimiter().validate(account.getNumber() + "__" + number);
 
     try {
-      PreKey key;
+      UnstructuredPreKeyList keyList;
 
-      if (relay == null) key = keys.get(number);
-      else               key = federatedClientManager.getClient(relay).getKey(number);
+      if (relay == null) {
+        keyList = keys.get(number, accountsManager.getAllByNumber(number));
+      } else {
+        keyList = federatedClientManager.getClient(relay).getKeys(number);
+      }
 
-      if (key == null) throw new WebApplicationException(Response.status(404).build());
-      else             return key;
+      if (keyList == null || keyList.getKeys().isEmpty()) throw new WebApplicationException(Response.status(404).build());
+      else                                                return keyList.getKeys();
     } catch (NoSuchPeerException e) {
       logger.info("No peer: " + relay);
       throw new WebApplicationException(Response.status(404).build());
     }
   }
 
+  @Path("/v1/keys")
+  public static class V1 extends KeysController {
+    public V1(RateLimiters rateLimiters, Keys keys, AccountsManager accountsManager, FederatedClientManager federatedClientManager)
+    {
+      super(rateLimiters, keys, accountsManager, federatedClientManager);
+    }
+
+    @Timed
+    @GET
+    @Path("/{number}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public PreKey get(@Auth                Account account,
+                      @PathParam("number") String number,
+                      @QueryParam("relay") String relay)
+        throws RateLimitExceededException
+    {
+      return super.getKeys(account, number, relay).get(0);
+    }
+  }
+
+  @Path("/v2/keys")
+  public static class V2 extends KeysController {
+    public V2(RateLimiters rateLimiters, Keys keys, AccountsManager accountsManager, FederatedClientManager federatedClientManager)
+    {
+      super(rateLimiters, keys, accountsManager, federatedClientManager);
+    }
+
+    @Timed
+    @GET
+    @Path("/{number}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public List<PreKey> get(@Auth                Account account,
+                      @PathParam("number") String number,
+                      @QueryParam("relay") String relay)
+        throws RateLimitExceededException
+    {
+      return super.getKeys(account, number, relay);
+    }
+  }
 }

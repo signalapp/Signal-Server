@@ -20,6 +20,7 @@ package org.whispersystems.textsecuregcm.storage;
 import com.google.common.base.Optional;
 import net.spy.memcached.MemcachedClient;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
+import org.whispersystems.textsecuregcm.util.NumberData;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.util.Iterator;
@@ -41,24 +42,36 @@ public class AccountsManager {
   }
 
   public long getCount() {
-    return accounts.getCount();
+    return accounts.getNumberCount();
   }
 
-  public List<Account> getAll(int offset, int length) {
-    return accounts.getAll(offset, length);
+  public List<NumberData> getAllNumbers(int offset, int length) {
+    return accounts.getAllNumbers(offset, length);
   }
 
-  public Iterator<Account> getAll() {
-    return accounts.getAll();
+  public Iterator<NumberData> getAllNumbers() {
+    return accounts.getAllNumbers();
   }
 
-  public void create(Account account) {
-    long id = accounts.create(account);
-
+  /** Creates a new Account and NumberData, clearing all existing accounts/data on the given number */
+  public void createResetNumber(Account account) {
+    long id = accounts.insertClearingNumber(account);
     account.setId(id);
 
     if (memcachedClient != null) {
-      memcachedClient.set(getKey(account.getNumber()), 0, account);
+      memcachedClient.set(getKey(account.getNumber(), account.getDeviceId()), 0, account);
+    }
+
+    updateDirectory(account);
+  }
+
+  /** Creates a new Account for an existing NumberData (setting the deviceId) */
+  public void createAccountOnExistingNumber(Account account) {
+    long id = accounts.insert(account);
+    account.setId(id);
+
+    if (memcachedClient != null) {
+      memcachedClient.set(getKey(account.getNumber(), account.getDeviceId()), 0, account);
     }
 
     updateDirectory(account);
@@ -66,25 +79,25 @@ public class AccountsManager {
 
   public void update(Account account) {
     if (memcachedClient != null) {
-      memcachedClient.set(getKey(account.getNumber()), 0, account);
+      memcachedClient.set(getKey(account.getNumber(), account.getDeviceId()), 0, account);
     }
 
     accounts.update(account);
     updateDirectory(account);
   }
 
-  public Optional<Account> get(String number) {
+  public Optional<Account> get(String number, long deviceId) {
     Account account = null;
 
     if (memcachedClient != null) {
-      account = (Account)memcachedClient.get(getKey(number));
+      account = (Account)memcachedClient.get(getKey(number, deviceId));
     }
 
     if (account == null) {
-      account = accounts.get(number);
+      account = accounts.get(number, deviceId);
 
       if (account != null && memcachedClient != null) {
-        memcachedClient.set(getKey(number), 0, account);
+        memcachedClient.set(getKey(number, deviceId), 0, account);
       }
     }
 
@@ -92,17 +105,31 @@ public class AccountsManager {
     else                 return Optional.absent();
   }
 
+  public List<Account> getAllByNumber(String number) {
+    return accounts.getAllByNumber(number);
+  }
+
   private void updateDirectory(Account account) {
-    if (account.getGcmRegistrationId() != null || account.getApnRegistrationId() != null) {
+    boolean active = account.getFetchesMessages() ||
+                     !Util.isEmpty(account.getApnRegistrationId()) || !Util.isEmpty(account.getGcmRegistrationId());
+    boolean supportsSms = account.getSupportsSms();
+
+    if (!active || !supportsSms) {
+      NumberData numberData = accounts.getNumberData(account.getNumber());
+      active = numberData.isActive();
+      supportsSms = numberData.isSupportsSms();
+    }
+
+    if (active) {
       byte[]        token         = Util.getContactToken(account.getNumber());
-      ClientContact clientContact = new ClientContact(token, null, account.getSupportsSms());
+      ClientContact clientContact = new ClientContact(token, null, supportsSms);
       directory.add(clientContact);
     } else {
       directory.remove(account.getNumber());
     }
   }
 
-  private String getKey(String number) {
-    return Account.class.getSimpleName() + Account.MEMCACHE_VERION + number;
+  private String getKey(String number, long accountId) {
+    return Account.class.getSimpleName() + Account.MEMCACHE_VERION + number + accountId;
   }
 }

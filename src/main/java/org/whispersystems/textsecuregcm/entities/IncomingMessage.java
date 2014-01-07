@@ -38,6 +38,9 @@ public class IncomingMessage {
   @JsonProperty
   private long   timestamp;
 
+  @JsonProperty
+  private long   destinationDeviceId = 1;
+
   public String getDestination() {
     return destination;
   }
@@ -52,5 +55,13 @@ public class IncomingMessage {
 
   public String getRelay() {
     return relay;
+  }
+
+  public long getDestinationDeviceId() {
+    return destinationDeviceId;
+  }
+
+  public void setDestinationDeviceId(long destinationDeviceId) {
+    this.destinationDeviceId = destinationDeviceId;
   }
 }

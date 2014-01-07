@@ -24,10 +24,28 @@ import java.io.IOException;
 
 public class AuthorizationHeader {
 
-  private final String user;
+  private final String number;
+  private final long accountId;
   private final String password;
 
-  public AuthorizationHeader(String header) throws InvalidAuthorizationHeaderException {
+  private AuthorizationHeader(String number, long accountId, String password) {
+    this.number = number;
+    this.accountId = accountId;
+    this.password = password;
+  }
+
+  public static AuthorizationHeader fromUserAndPassword(String user, String password) throws InvalidAuthorizationHeaderException {
+    try {
+    String[] numberAndId = user.split("\\.");
+    return new AuthorizationHeader(numberAndId[0],
+                                   numberAndId.length > 1 ? Long.parseLong(numberAndId[1]) : 1,
+                                   password);
+    } catch (NumberFormatException nfe) {
+      throw new InvalidAuthorizationHeaderException(nfe);
+    }
+  }
+
+  public static AuthorizationHeader fromFullHeader(String header) throws InvalidAuthorizationHeaderException {
     try {
       if (header == null) {
         throw new InvalidAuthorizationHeaderException("Null header");
@@ -55,16 +73,18 @@ public class AuthorizationHeader {
         throw new InvalidAuthorizationHeaderException("Badly formated credentials: " + concatenatedValues);
       }
 
-      this.user     = credentialParts[0];
-      this.password = credentialParts[1];
-
+      return fromUserAndPassword(credentialParts[0], credentialParts[1]);
     } catch (IOException ioe) {
       throw new InvalidAuthorizationHeaderException(ioe);
     }
   }
 
-  public String getUserName() {
-    return user;
+  public String getNumber() {
+    return number;
+  }
+
+  public long getDeviceId() {
+    return accountId;
   }
 
   public String getPassword() {

@@ -138,12 +138,13 @@ public class MessageController extends HttpServlet {
 
         try {
           for (Pair<IncomingMessage, OutgoingMessageSignal> messagePair : listPair) {
-            String destination = messagePair.first().getDestination();
-            String relay       = messagePair.first().getRelay();
+            String destination         = messagePair.first().getDestination();
+            long   destinationDeviceId = messagePair.first().getDestinationDeviceId();
+            String relay               = messagePair.first().getRelay();
 
             try {
-              if (Util.isEmpty(relay)) sendLocalMessage(destination, messagePair.second());
-              else                     sendRelayMessage(relay, destination, messagePair.second());
+              if (Util.isEmpty(relay)) sendLocalMessage(destination, destinationDeviceId, messagePair.second());
+              else                     sendRelayMessage(relay, destination, destinationDeviceId, messagePair.second());
               success.add(destination);
             } catch (NoSuchUserException e) {
               logger.debug("No such user", e);
@@ -168,18 +169,18 @@ public class MessageController extends HttpServlet {
     });
   }
 
-  private void sendLocalMessage(String destination, OutgoingMessageSignal outgoingMessage)
+  private void sendLocalMessage(String destination, long destinationDeviceId, OutgoingMessageSignal outgoingMessage)
       throws IOException, NoSuchUserException
   {
-    pushSender.sendMessage(destination, outgoingMessage);
+    pushSender.sendMessage(destination, destinationDeviceId, outgoingMessage);
   }
 
-  private void sendRelayMessage(String relay, String destination, OutgoingMessageSignal outgoingMessage)
+  private void sendRelayMessage(String relay, String destination, long destinationDeviceId, OutgoingMessageSignal outgoingMessage)
       throws IOException, NoSuchUserException
   {
     try {
       FederatedClient client = federatedClientManager.getClient(relay);
-      client.sendMessage(destination, outgoingMessage);
+      client.sendMessage(destination, destinationDeviceId, outgoingMessage);
     } catch (NoSuchPeerException e) {
       logger.info("No such peer", e);
       throw new NoSuchUserException(e);
@@ -208,6 +209,7 @@ public class MessageController extends HttpServlet {
 
       for (IncomingMessage sub : incomingMessages) {
         if (sub != incoming) {
+          outgoingMessage.setDestinationDeviceIds(index, sub.getDestinationDeviceId());
           outgoingMessage.setDestinations(index++, sub.getDestination());
         }
       }
@@ -263,8 +265,8 @@ public class MessageController extends HttpServlet {
 
   private Account authenticate(HttpServletRequest request) throws AuthenticationException {
     try {
-      AuthorizationHeader authorizationHeader = new AuthorizationHeader(request.getHeader("Authorization"));
-      BasicCredentials    credentials         = new BasicCredentials(authorizationHeader.getUserName(),
+      AuthorizationHeader authorizationHeader = AuthorizationHeader.fromFullHeader(request.getHeader("Authorization"));
+      BasicCredentials    credentials         = new BasicCredentials(authorizationHeader.getNumber() + "." + authorizationHeader.getDeviceId(),
                                                                      authorizationHeader.getPassword()  );
 
       Optional<Account> account = accountAuthenticator.authenticate(credentials);

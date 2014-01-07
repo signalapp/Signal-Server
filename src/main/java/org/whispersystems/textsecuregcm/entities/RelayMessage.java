@@ -33,6 +33,10 @@ public class RelayMessage {
   private String destination;
 
   @JsonProperty
+  @NotEmpty
+  private long destinationDeviceId;
+
+  @JsonProperty
   @NotNull
   @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
   @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
@@ -40,13 +44,17 @@ public class RelayMessage {
 
   public RelayMessage() {}
 
-  public RelayMessage(String destination, byte[] outgoingMessageSignal) {
+  public RelayMessage(String destination, long destinationDeviceId, byte[] outgoingMessageSignal) {
     this.destination           = destination;
     this.outgoingMessageSignal = outgoingMessageSignal;
   }
 
   public String getDestination() {
     return destination;
+  }
+
+  public long getDestinationDeviceId() {
+    return destinationDeviceId;
   }
 
   public byte[] getOutgoingMessageSignal() {

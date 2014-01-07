@@ -19,16 +19,15 @@ package org.whispersystems.textsecuregcm.storage;
 import org.skife.jdbi.v2.sqlobject.Bind;
 import org.skife.jdbi.v2.sqlobject.SqlQuery;
 import org.skife.jdbi.v2.sqlobject.SqlUpdate;
+import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
 
-public interface PendingAccounts {
+import java.util.List;
 
-  @SqlUpdate("WITH upsert AS (UPDATE pending_accounts SET verification_code = :verification_code WHERE number = :number RETURNING *) " +
-             "INSERT INTO pending_accounts (number, verification_code) SELECT :number, :verification_code WHERE NOT EXISTS (SELECT * FROM upsert)")
-  void insert(@Bind("number") String number, @Bind("verification_code") String verificationCode);
+public interface StoredMessages {
 
-  @SqlQuery("SELECT verification_code FROM pending_accounts WHERE number = :number")
-  String getCodeForNumber(@Bind("number") String number);
+  @SqlUpdate("INSERT INTO stored_messages (destination_id, encrypted_message) VALUES :destination_id, :encrypted_message")
+  void insert(@Bind("destination_id") long destinationAccountId, @Bind("encrypted_message") EncryptedOutgoingMessage encryptedOutgoingMessage);
 
-  @SqlUpdate("DELETE FROM pending_accounts WHERE number = :number")
-  void remove(@Bind("number") String number);
+  @SqlQuery("SELECT encrypted_message FROM stored_messages WHERE destination_id = :account_id")
+  List<EncryptedOutgoingMessage> getMessagesForAccountId(@Bind("account_id") long accountId);
 }

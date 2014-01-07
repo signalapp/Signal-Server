@@ -29,11 +29,13 @@ import org.whispersystems.textsecuregcm.entities.ClientContacts;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
 import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.entities.RelayMessage;
+import org.whispersystems.textsecuregcm.entities.UnstructuredPreKeyList;
 import org.whispersystems.textsecuregcm.federation.FederatedPeer;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Keys;
+import org.whispersystems.textsecuregcm.util.NumberData;
 import org.whispersystems.textsecuregcm.util.UrlSigner;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -86,16 +88,16 @@ public class FederationController {
   @GET
   @Path("/key/{number}")
   @Produces(MediaType.APPLICATION_JSON)
-  public PreKey getKey(@Auth                FederatedPeer peer,
+  public UnstructuredPreKeyList getKey(@Auth                FederatedPeer peer,
                        @PathParam("number") String number)
   {
-    PreKey preKey = keys.get(number);
+    UnstructuredPreKeyList preKeys = keys.get(number, accounts.getAllByNumber(number));
 
-    if (preKey == null) {
+    if (preKeys == null) {
       throw new WebApplicationException(Response.status(404).build());
     }
 
-    return preKey;
+    return preKeys;
   }
 
   @Timed
@@ -111,7 +113,7 @@ public class FederationController {
                                                           .setRelay(peer.getName())
                                                           .build();
 
-      pushSender.sendMessage(message.getDestination(), signal);
+      pushSender.sendMessage(message.getDestination(), message.getDestinationDeviceId(), signal);
     } catch (InvalidProtocolBufferException ipe) {
       logger.warn("ProtoBuf", ipe);
       throw new WebApplicationException(Response.status(400).build());
@@ -136,18 +138,15 @@ public class FederationController {
   public ClientContacts getUserTokens(@Auth                FederatedPeer peer,
                                       @PathParam("offset") int offset)
   {
-    List<Account>       accountList    = accounts.getAll(offset, ACCOUNT_CHUNK_SIZE);
+    List<NumberData>    numberList    = accounts.getAllNumbers(offset, ACCOUNT_CHUNK_SIZE);
     List<ClientContact> clientContacts = new LinkedList<>();
 
-    for (Account account : accountList) {
-      byte[]        token         = Util.getContactToken(account.getNumber());
-      ClientContact clientContact = new ClientContact(token, null, account.getSupportsSms());
+    for (NumberData number : numberList) {
+      byte[]        token         = Util.getContactToken(number.getNumber());
+      ClientContact clientContact = new ClientContact(token, null, number.isSupportsSms());
 
-      if (Util.isEmpty(account.getApnRegistrationId()) &&
-          Util.isEmpty(account.getGcmRegistrationId()))
-      {
+      if (!number.isActive())
         clientContact.setInactive(true);
-      }
 
       clientContacts.add(clientContact);
     }
