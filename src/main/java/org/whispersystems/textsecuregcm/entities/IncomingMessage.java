@@ -60,8 +60,4 @@ public class IncomingMessage {
   public long getDestinationDeviceId() {
     return destinationDeviceId;
   }
-
-  public void setDestinationDeviceId(long destinationDeviceId) {
-    this.destinationDeviceId = destinationDeviceId;
-  }
 }
