@@ -128,8 +128,7 @@ public class WhisperServerService extends Service<WhisperServerConfiguration> {
     environment.addResource(new AccountController(pendingAccountsManager, pendingDevicesManager, accountsManager, rateLimiters, smsSender));
     environment.addResource(new DirectoryController(rateLimiters, directory));
     environment.addResource(new AttachmentController(rateLimiters, federatedClientManager, urlSigner));
-    environment.addResource(new KeysController.V1(rateLimiters, keys, accountsManager, federatedClientManager));
-    environment.addResource(new KeysController.V2(rateLimiters, keys, accountsManager, federatedClientManager));
+    environment.addResource(new KeysController(rateLimiters, keys, accountsManager, federatedClientManager));
     environment.addResource(new FederationController(keys, accountsManager, pushSender, urlSigner));
 
     environment.addServlet(new MessageController(rateLimiters, accountAuthenticator,

@@ -56,8 +56,7 @@ public class KeyControllerTest extends ResourceTest {
     when(accounts.getAllByNumber(EXISTS_NUMBER)).thenReturn(Arrays.asList(fakeAccount[0], fakeAccount[1]));
     when(accounts.getAllByNumber(NOT_EXISTS_NUMBER)).thenReturn(new LinkedList<Account>());
 
-    addResource(new KeysController.V1(rateLimiters, keys, accounts, null));
-    addResource(new KeysController.V2(rateLimiters, keys, accounts, null));
+    addResource(new KeysController(rateLimiters, keys, accounts, null));
   }
 
   @Test
@@ -76,7 +75,7 @@ public class KeyControllerTest extends ResourceTest {
     verify(keys).get(eq(EXISTS_NUMBER), eq(Arrays.asList(fakeAccount)));
     verifyNoMoreInteractions(keys);
 
-    List<PreKey> results = client().resource(String.format("/v2/keys/%s", EXISTS_NUMBER))
+    List<PreKey> results = client().resource(String.format("/v1/keys/multikeys/%s", EXISTS_NUMBER))
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .get(new GenericType<List<PreKey>>(){});
 

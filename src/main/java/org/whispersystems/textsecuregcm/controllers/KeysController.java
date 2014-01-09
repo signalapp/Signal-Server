@@ -44,7 +44,7 @@ import javax.ws.rs.core.Response;
 import java.util.List;
 
 @Path("/v1/keys")
-public abstract class KeysController {
+public class KeysController {
 
   private final Logger logger = LoggerFactory.getLogger(AccountController.class);
 
@@ -90,43 +90,27 @@ public abstract class KeysController {
     }
   }
 
-  @Path("/v1/keys")
-  public static class V1 extends KeysController {
-    public V1(RateLimiters rateLimiters, Keys keys, AccountsManager accountsManager, FederatedClientManager federatedClientManager)
-    {
-      super(rateLimiters, keys, accountsManager, federatedClientManager);
-    }
-
-    @Timed
-    @GET
-    @Path("/{number}")
-    @Produces(MediaType.APPLICATION_JSON)
-    public PreKey get(@Auth                Account account,
-                      @PathParam("number") String number,
-                      @QueryParam("relay") String relay)
-        throws RateLimitExceededException
-    {
-      return super.getKeys(account, number, relay).get(0);
-    }
+  @Timed
+  @GET
+  @Path("/{number}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public PreKey get(@Auth                Account account,
+                    @PathParam("number") String number,
+                    @QueryParam("relay") String relay)
+      throws RateLimitExceededException
+  {
+    return getKeys(account, number, relay).get(0);
   }
 
-  @Path("/v2/keys")
-  public static class V2 extends KeysController {
-    public V2(RateLimiters rateLimiters, Keys keys, AccountsManager accountsManager, FederatedClientManager federatedClientManager)
-    {
-      super(rateLimiters, keys, accountsManager, federatedClientManager);
-    }
-
-    @Timed
-    @GET
-    @Path("/{number}")
-    @Produces(MediaType.APPLICATION_JSON)
-    public List<PreKey> get(@Auth                Account account,
-                      @PathParam("number") String number,
-                      @QueryParam("relay") String relay)
-        throws RateLimitExceededException
-    {
-      return super.getKeys(account, number, relay);
-    }
+  @Timed
+  @GET
+  @Path("/multikeys/{number}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public List<PreKey> getMultiDevice(@Auth                Account account,
+                                     @PathParam("number") String number,
+                                     @QueryParam("relay") String relay)
+      throws RateLimitExceededException
+  {
+    return getKeys(account, number, relay);
   }
 }
