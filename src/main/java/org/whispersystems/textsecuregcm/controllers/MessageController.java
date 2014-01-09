@@ -43,7 +43,7 @@ import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.IterablePair;
-import org.whispersystems.textsecuregcm.util.IterablePair.Pair;
+import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import javax.servlet.AsyncContext;
