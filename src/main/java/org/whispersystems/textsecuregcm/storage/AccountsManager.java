@@ -20,7 +20,6 @@ package org.whispersystems.textsecuregcm.storage;
 import com.google.common.base.Optional;
 import net.spy.memcached.MemcachedClient;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
-import org.whispersystems.textsecuregcm.util.NumberData;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.util.Iterator;
@@ -45,12 +44,12 @@ public class AccountsManager {
     return accounts.getNumberCount();
   }
 
-  public List<NumberData> getAllNumbers(int offset, int length) {
-    return accounts.getAllNumbers(offset, length);
+  public List<Account> getAllMasterAccounts(int offset, int length) {
+    return accounts.getAllFirstAccounts(offset, length);
   }
 
-  public Iterator<NumberData> getAllNumbers() {
-    return accounts.getAllNumbers();
+  public Iterator<Account> getAllMasterAccounts() {
+    return accounts.getAllFirstAccounts();
   }
 
   /** Creates a new Account and NumberData, clearing all existing accounts/data on the given number */
@@ -62,7 +61,7 @@ public class AccountsManager {
       memcachedClient.set(getKey(account.getNumber(), account.getDeviceId()), 0, account);
     }
 
-    updateDirectory(account, false);
+    updateDirectory(account);
   }
 
   /** Creates a new Account for an existing NumberData (setting the deviceId) */
@@ -74,7 +73,7 @@ public class AccountsManager {
       memcachedClient.set(getKey(account.getNumber(), account.getDeviceId()), 0, account);
     }
 
-    updateDirectory(account, true);
+    updateDirectory(account);
   }
 
   public void update(Account account) {
@@ -83,7 +82,7 @@ public class AccountsManager {
     }
 
     accounts.update(account);
-    updateDirectory(account, true);
+    updateDirectory(account);
   }
 
   public Optional<Account> get(String number, long deviceId) {
@@ -109,20 +108,13 @@ public class AccountsManager {
     return accounts.getAllByNumber(number);
   }
 
-  private void updateDirectory(Account account, boolean possiblyOtherAccounts) {
-    boolean active = account.getFetchesMessages() ||
-                     !Util.isEmpty(account.getApnRegistrationId()) || !Util.isEmpty(account.getGcmRegistrationId());
-    boolean supportsSms = account.getSupportsSms();
+  private void updateDirectory(Account account) {
+    if (account.getDeviceId() != 1)
+      return;
 
-    if (possiblyOtherAccounts && (!active || !supportsSms)) {
-      NumberData numberData = accounts.getNumberData(account.getNumber());
-      active = numberData.isActive();
-      supportsSms = numberData.isSupportsSms();
-    }
-
-    if (active) {
+    if (account.isActive()) {
       byte[]        token         = Util.getContactToken(account.getNumber());
-      ClientContact clientContact = new ClientContact(token, null, supportsSms);
+      ClientContact clientContact = new ClientContact(token, null, account.getSupportsSms());
       directory.add(clientContact);
     } else {
       directory.remove(account.getNumber());

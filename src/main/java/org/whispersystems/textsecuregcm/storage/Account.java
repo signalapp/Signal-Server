@@ -18,6 +18,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
+import org.whispersystems.textsecuregcm.util.Util;
 
 import java.io.Serializable;
 
@@ -130,5 +131,9 @@ public class Account implements Serializable {
 
   public boolean getFetchesMessages() {
     return fetchesMessages;
+  }
+
+  public boolean isActive() {
+    return getFetchesMessages() || !Util.isEmpty(getApnRegistrationId()) || !Util.isEmpty(getGcmRegistrationId());
   }
 }

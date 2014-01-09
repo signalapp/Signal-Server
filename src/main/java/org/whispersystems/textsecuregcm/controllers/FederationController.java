@@ -27,7 +27,6 @@ import org.whispersystems.textsecuregcm.entities.AttachmentUri;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.entities.ClientContacts;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
-import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.entities.RelayMessage;
 import org.whispersystems.textsecuregcm.entities.UnstructuredPreKeyList;
 import org.whispersystems.textsecuregcm.federation.FederatedPeer;
@@ -35,7 +34,6 @@ import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Keys;
-import org.whispersystems.textsecuregcm.util.NumberData;
 import org.whispersystems.textsecuregcm.util.UrlSigner;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -138,14 +136,14 @@ public class FederationController {
   public ClientContacts getUserTokens(@Auth                FederatedPeer peer,
                                       @PathParam("offset") int offset)
   {
-    List<NumberData>    numberList    = accounts.getAllNumbers(offset, ACCOUNT_CHUNK_SIZE);
+    List<Account>        numberList    = accounts.getAllMasterAccounts(offset, ACCOUNT_CHUNK_SIZE);
     List<ClientContact> clientContacts = new LinkedList<>();
 
-    for (NumberData number : numberList) {
-      byte[]        token         = Util.getContactToken(number.getNumber());
-      ClientContact clientContact = new ClientContact(token, null, number.isSupportsSms());
+    for (Account account : numberList) {
+      byte[]        token         = Util.getContactToken(account.getNumber());
+      ClientContact clientContact = new ClientContact(token, null, account.getSupportsSms());
 
-      if (!number.isActive())
+      if (!account.isActive())
         clientContact.setInactive(true);
 
       clientContacts.add(clientContact);

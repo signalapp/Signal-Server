@@ -29,7 +29,6 @@ import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 import org.skife.jdbi.v2.sqlobject.Transaction;
 import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
-import org.whispersystems.textsecuregcm.util.NumberData;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
@@ -53,13 +52,6 @@ public abstract class Accounts {
   public static final String APN_ID           = "apn_id";
   public static final String FETCHES_MESSAGES = "fetches_messages";
   public static final String SUPPORTS_SMS     = "supports_sms";
-
-
-  private static final String NUMBER_DATA_QUERY = "SELECT number, COUNT(" +
-            "CASE WHEN (" + GCM_ID + " IS NOT NULL OR " + APN_ID + " IS NOT NULL OR " + FETCHES_MESSAGES + " = 1) " +
-            "THEN 1 ELSE 0 END) AS active, COUNT(" +
-            "CASE WHEN " + SUPPORTS_SMS + " = 1 THEN 1 ELSE 0 END) AS " + SUPPORTS_SMS + " " +
-            "FROM accounts";
 
   @SqlUpdate("INSERT INTO accounts (" + NUMBER + ", " + DEVICE_ID + ", " + AUTH_TOKEN + ", " +
                                     SALT + ", " + SIGNALING_KEY + ", " + FETCHES_MESSAGES + ", " +
@@ -93,17 +85,13 @@ public abstract class Accounts {
   @SqlQuery("SELECT COUNT(DISTINCT " + NUMBER + ") from accounts")
   abstract long getNumberCount();
 
-  @Mapper(NumberDataMapper.class)
-  @SqlQuery(NUMBER_DATA_QUERY + " GROUP BY " + NUMBER + " OFFSET :offset LIMIT :limit")
-  abstract List<NumberData> getAllNumbers(@Bind("offset") int offset, @Bind("limit") int length);
+  @Mapper(AccountMapper.class)
+  @SqlQuery("SELECT * FROM accounts WHERE " + DEVICE_ID + " = 1 OFFSET :offset LIMIT :limit")
+  abstract List<Account> getAllFirstAccounts(@Bind("offset") int offset, @Bind("limit") int length);
 
-  @Mapper(NumberDataMapper.class)
-  @SqlQuery(NUMBER_DATA_QUERY + " GROUP BY " + NUMBER)
-  public abstract Iterator<NumberData> getAllNumbers();
-
-  @Mapper(NumberDataMapper.class)
-  @SqlQuery(NUMBER_DATA_QUERY + " WHERE " + NUMBER + " = :number GROUP BY " + NUMBER)
-  abstract NumberData getNumberData(@Bind("number") String number);
+  @Mapper(AccountMapper.class)
+  @SqlQuery("SELECT * FROM accounts WHERE " + DEVICE_ID + " = 1")
+  public abstract Iterator<Account> getAllFirstAccounts();
 
   @Mapper(AccountMapper.class)
   @SqlQuery("SELECT * FROM accounts WHERE " + NUMBER + " = :number")
@@ -127,16 +115,6 @@ public abstract class Accounts {
                          resultSet.getString(SIGNALING_KEY), resultSet.getString(GCM_ID),
                          resultSet.getString(APN_ID),
                          resultSet.getInt(SUPPORTS_SMS) == 1, resultSet.getInt(FETCHES_MESSAGES) == 1);
-    }
-  }
-
-  public static class NumberDataMapper implements ResultSetMapper<NumberData> {
-
-    @Override
-    public NumberData map(int i, ResultSet resultSet, StatementContext statementContext)
-        throws SQLException
-    {
-      return new NumberData(resultSet.getString("number"), resultSet.getInt("active") != 0, resultSet.getInt(SUPPORTS_SMS) != 0);
     }
   }
 
