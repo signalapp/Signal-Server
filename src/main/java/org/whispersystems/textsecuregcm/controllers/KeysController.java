@@ -16,6 +16,7 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
+import com.google.common.base.Optional;
 import com.yammer.dropwizard.auth.Auth;
 import com.yammer.metrics.annotation.Timed;
 import org.slf4j.Logger;
@@ -94,23 +95,15 @@ public class KeysController {
   @GET
   @Path("/{number}")
   @Produces(MediaType.APPLICATION_JSON)
-  public PreKey get(@Auth                Account account,
-                    @PathParam("number") String number,
-                    @QueryParam("relay") String relay)
+  public Response get(@Auth                    Account account,
+                      @PathParam("number")     String number,
+                      @QueryParam("multikeys") Optional<String> multikey,
+                      @QueryParam("relay")     String relay)
       throws RateLimitExceededException
   {
-    return getKeys(account, number, relay).get(0);
-  }
-
-  @Timed
-  @GET
-  @Path("/multikeys/{number}")
-  @Produces(MediaType.APPLICATION_JSON)
-  public List<PreKey> getMultiDevice(@Auth                Account account,
-                                     @PathParam("number") String number,
-                                     @QueryParam("relay") String relay)
-      throws RateLimitExceededException
-  {
-    return getKeys(account, number, relay);
+    if (!multikey.isPresent())
+      return Response.ok(getKeys(account, number, relay).get(0)).type(MediaType.APPLICATION_JSON).build();
+    else
+      return Response.ok(getKeys(account, number, relay)).type(MediaType.APPLICATION_JSON).build();
   }
 }

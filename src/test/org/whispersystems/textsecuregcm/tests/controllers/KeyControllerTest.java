@@ -75,7 +75,7 @@ public class KeyControllerTest extends ResourceTest {
     verify(keys).get(eq(EXISTS_NUMBER), eq(Arrays.asList(fakeAccount)));
     verifyNoMoreInteractions(keys);
 
-    List<PreKey> results = client().resource(String.format("/v1/keys/multikeys/%s", EXISTS_NUMBER))
+    List<PreKey> results = client().resource(String.format("/v1/keys/%s?multikeys", EXISTS_NUMBER))
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .get(new GenericType<List<PreKey>>(){});
 
