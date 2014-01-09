@@ -52,8 +52,10 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -191,6 +193,9 @@ public class MessageController extends HttpServlet {
                                                                 List<IncomingMessage> incomingMessages)
   {
     List<OutgoingMessageSignal> outgoingMessages = new LinkedList<>();
+    Set<String> destinations = new HashSet<>();
+    for (IncomingMessage incoming : incomingMessages)
+      destinations.add(incoming.getDestination());
 
     for (IncomingMessage incoming : incomingMessages) {
       OutgoingMessageSignal.Builder outgoingMessage = OutgoingMessageSignal.newBuilder();
@@ -207,10 +212,9 @@ public class MessageController extends HttpServlet {
 
       int index = 0;
 
-      for (IncomingMessage sub : incomingMessages) {
-        if (sub != incoming) {
-          outgoingMessage.setDestinationDeviceIds(index, sub.getDestinationDeviceId());
-          outgoingMessage.setDestinations(index++, sub.getDestination());
+      for (String destination : destinations) {
+        if (!destination.equals(incoming.getDestination())) {
+          outgoingMessage.setDestinations(index++, destination);
         }
       }
 

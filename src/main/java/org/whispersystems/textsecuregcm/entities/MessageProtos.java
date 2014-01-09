@@ -71,20 +71,6 @@ public final class MessageProtos {
     com.google.protobuf.ByteString
         getDestinationsBytes(int index);
 
-    // repeated uint64 destinationDeviceIds = 7;
-    /**
-     * <code>repeated uint64 destinationDeviceIds = 7;</code>
-     */
-    java.util.List<java.lang.Long> getDestinationDeviceIdsList();
-    /**
-     * <code>repeated uint64 destinationDeviceIds = 7;</code>
-     */
-    int getDestinationDeviceIdsCount();
-    /**
-     * <code>repeated uint64 destinationDeviceIds = 7;</code>
-     */
-    long getDestinationDeviceIds(int index);
-
     // optional uint64 timestamp = 5;
     /**
      * <code>optional uint64 timestamp = 5;</code>
@@ -189,27 +175,6 @@ public final class MessageProtos {
               message_ = input.readBytes();
               break;
             }
-            case 56: {
-              if (!((mutable_bitField0_ & 0x00000010) == 0x00000010)) {
-                destinationDeviceIds_ = new java.util.ArrayList<java.lang.Long>();
-                mutable_bitField0_ |= 0x00000010;
-              }
-              destinationDeviceIds_.add(input.readUInt64());
-              break;
-            }
-            case 58: {
-              int length = input.readRawVarint32();
-              int limit = input.pushLimit(length);
-              if (!((mutable_bitField0_ & 0x00000010) == 0x00000010) && input.getBytesUntilLimit() > 0) {
-                destinationDeviceIds_ = new java.util.ArrayList<java.lang.Long>();
-                mutable_bitField0_ |= 0x00000010;
-              }
-              while (input.getBytesUntilLimit() > 0) {
-                destinationDeviceIds_.add(input.readUInt64());
-              }
-              input.popLimit(limit);
-              break;
-            }
           }
         }
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -220,9 +185,6 @@ public final class MessageProtos {
       } finally {
         if (((mutable_bitField0_ & 0x00000008) == 0x00000008)) {
           destinations_ = new com.google.protobuf.UnmodifiableLazyStringList(destinations_);
-        }
-        if (((mutable_bitField0_ & 0x00000010) == 0x00000010)) {
-          destinationDeviceIds_ = java.util.Collections.unmodifiableList(destinationDeviceIds_);
         }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
@@ -388,29 +350,6 @@ public final class MessageProtos {
       return destinations_.getByteString(index);
     }
 
-    // repeated uint64 destinationDeviceIds = 7;
-    public static final int DESTINATIONDEVICEIDS_FIELD_NUMBER = 7;
-    private java.util.List<java.lang.Long> destinationDeviceIds_;
-    /**
-     * <code>repeated uint64 destinationDeviceIds = 7;</code>
-     */
-    public java.util.List<java.lang.Long>
-        getDestinationDeviceIdsList() {
-      return destinationDeviceIds_;
-    }
-    /**
-     * <code>repeated uint64 destinationDeviceIds = 7;</code>
-     */
-    public int getDestinationDeviceIdsCount() {
-      return destinationDeviceIds_.size();
-    }
-    /**
-     * <code>repeated uint64 destinationDeviceIds = 7;</code>
-     */
-    public long getDestinationDeviceIds(int index) {
-      return destinationDeviceIds_.get(index);
-    }
-
     // optional uint64 timestamp = 5;
     public static final int TIMESTAMP_FIELD_NUMBER = 5;
     private long timestamp_;
@@ -448,7 +387,6 @@ public final class MessageProtos {
       source_ = "";
       relay_ = "";
       destinations_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-      destinationDeviceIds_ = java.util.Collections.emptyList();
       timestamp_ = 0L;
       message_ = com.google.protobuf.ByteString.EMPTY;
     }
@@ -481,9 +419,6 @@ public final class MessageProtos {
       }
       if (((bitField0_ & 0x00000010) == 0x00000010)) {
         output.writeBytes(6, message_);
-      }
-      for (int i = 0; i < destinationDeviceIds_.size(); i++) {
-        output.writeUInt64(7, destinationDeviceIds_.get(i));
       }
       getUnknownFields().writeTo(output);
     }
@@ -522,15 +457,6 @@ public final class MessageProtos {
       if (((bitField0_ & 0x00000010) == 0x00000010)) {
         size += com.google.protobuf.CodedOutputStream
           .computeBytesSize(6, message_);
-      }
-      {
-        int dataSize = 0;
-        for (int i = 0; i < destinationDeviceIds_.size(); i++) {
-          dataSize += com.google.protobuf.CodedOutputStream
-            .computeUInt64SizeNoTag(destinationDeviceIds_.get(i));
-        }
-        size += dataSize;
-        size += 1 * getDestinationDeviceIdsList().size();
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -656,12 +582,10 @@ public final class MessageProtos {
         bitField0_ = (bitField0_ & ~0x00000004);
         destinations_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000008);
-        destinationDeviceIds_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000010);
         timestamp_ = 0L;
-        bitField0_ = (bitField0_ & ~0x00000020);
+        bitField0_ = (bitField0_ & ~0x00000010);
         message_ = com.google.protobuf.ByteString.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000020);
         return this;
       }
 
@@ -708,16 +632,11 @@ public final class MessageProtos {
           bitField0_ = (bitField0_ & ~0x00000008);
         }
         result.destinations_ = destinations_;
-        if (((bitField0_ & 0x00000010) == 0x00000010)) {
-          destinationDeviceIds_ = java.util.Collections.unmodifiableList(destinationDeviceIds_);
-          bitField0_ = (bitField0_ & ~0x00000010);
-        }
-        result.destinationDeviceIds_ = destinationDeviceIds_;
-        if (((from_bitField0_ & 0x00000020) == 0x00000020)) {
+        if (((from_bitField0_ & 0x00000010) == 0x00000010)) {
           to_bitField0_ |= 0x00000008;
         }
         result.timestamp_ = timestamp_;
-        if (((from_bitField0_ & 0x00000040) == 0x00000040)) {
+        if (((from_bitField0_ & 0x00000020) == 0x00000020)) {
           to_bitField0_ |= 0x00000010;
         }
         result.message_ = message_;
@@ -757,16 +676,6 @@ public final class MessageProtos {
           } else {
             ensureDestinationsIsMutable();
             destinations_.addAll(other.destinations_);
-          }
-          onChanged();
-        }
-        if (!other.destinationDeviceIds_.isEmpty()) {
-          if (destinationDeviceIds_.isEmpty()) {
-            destinationDeviceIds_ = other.destinationDeviceIds_;
-            bitField0_ = (bitField0_ & ~0x00000010);
-          } else {
-            ensureDestinationDeviceIdsIsMutable();
-            destinationDeviceIds_.addAll(other.destinationDeviceIds_);
           }
           onChanged();
         }
@@ -1077,79 +986,13 @@ public final class MessageProtos {
         return this;
       }
 
-      // repeated uint64 destinationDeviceIds = 7;
-      private java.util.List<java.lang.Long> destinationDeviceIds_ = java.util.Collections.emptyList();
-      private void ensureDestinationDeviceIdsIsMutable() {
-        if (!((bitField0_ & 0x00000010) == 0x00000010)) {
-          destinationDeviceIds_ = new java.util.ArrayList<java.lang.Long>(destinationDeviceIds_);
-          bitField0_ |= 0x00000010;
-         }
-      }
-      /**
-       * <code>repeated uint64 destinationDeviceIds = 7;</code>
-       */
-      public java.util.List<java.lang.Long>
-          getDestinationDeviceIdsList() {
-        return java.util.Collections.unmodifiableList(destinationDeviceIds_);
-      }
-      /**
-       * <code>repeated uint64 destinationDeviceIds = 7;</code>
-       */
-      public int getDestinationDeviceIdsCount() {
-        return destinationDeviceIds_.size();
-      }
-      /**
-       * <code>repeated uint64 destinationDeviceIds = 7;</code>
-       */
-      public long getDestinationDeviceIds(int index) {
-        return destinationDeviceIds_.get(index);
-      }
-      /**
-       * <code>repeated uint64 destinationDeviceIds = 7;</code>
-       */
-      public Builder setDestinationDeviceIds(
-          int index, long value) {
-        ensureDestinationDeviceIdsIsMutable();
-        destinationDeviceIds_.set(index, value);
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>repeated uint64 destinationDeviceIds = 7;</code>
-       */
-      public Builder addDestinationDeviceIds(long value) {
-        ensureDestinationDeviceIdsIsMutable();
-        destinationDeviceIds_.add(value);
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>repeated uint64 destinationDeviceIds = 7;</code>
-       */
-      public Builder addAllDestinationDeviceIds(
-          java.lang.Iterable<? extends java.lang.Long> values) {
-        ensureDestinationDeviceIdsIsMutable();
-        super.addAll(values, destinationDeviceIds_);
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>repeated uint64 destinationDeviceIds = 7;</code>
-       */
-      public Builder clearDestinationDeviceIds() {
-        destinationDeviceIds_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000010);
-        onChanged();
-        return this;
-      }
-
       // optional uint64 timestamp = 5;
       private long timestamp_ ;
       /**
        * <code>optional uint64 timestamp = 5;</code>
        */
       public boolean hasTimestamp() {
-        return ((bitField0_ & 0x00000020) == 0x00000020);
+        return ((bitField0_ & 0x00000010) == 0x00000010);
       }
       /**
        * <code>optional uint64 timestamp = 5;</code>
@@ -1161,7 +1004,7 @@ public final class MessageProtos {
        * <code>optional uint64 timestamp = 5;</code>
        */
       public Builder setTimestamp(long value) {
-        bitField0_ |= 0x00000020;
+        bitField0_ |= 0x00000010;
         timestamp_ = value;
         onChanged();
         return this;
@@ -1170,7 +1013,7 @@ public final class MessageProtos {
        * <code>optional uint64 timestamp = 5;</code>
        */
       public Builder clearTimestamp() {
-        bitField0_ = (bitField0_ & ~0x00000020);
+        bitField0_ = (bitField0_ & ~0x00000010);
         timestamp_ = 0L;
         onChanged();
         return this;
@@ -1182,7 +1025,7 @@ public final class MessageProtos {
        * <code>optional bytes message = 6;</code>
        */
       public boolean hasMessage() {
-        return ((bitField0_ & 0x00000040) == 0x00000040);
+        return ((bitField0_ & 0x00000020) == 0x00000020);
       }
       /**
        * <code>optional bytes message = 6;</code>
@@ -1197,7 +1040,7 @@ public final class MessageProtos {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000040;
+  bitField0_ |= 0x00000020;
         message_ = value;
         onChanged();
         return this;
@@ -1206,7 +1049,7 @@ public final class MessageProtos {
        * <code>optional bytes message = 6;</code>
        */
       public Builder clearMessage() {
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000020);
         message_ = getDefaultInstance().getMessage();
         onChanged();
         return this;
@@ -1238,12 +1081,11 @@ public final class MessageProtos {
   static {
     java.lang.String[] descriptorData = {
       "\n\033OutgoingMessageSignal.proto\022\ntextsecur" +
-      "e\"\234\001\n\025OutgoingMessageSignal\022\014\n\004type\030\001 \001(" +
-      "\r\022\016\n\006source\030\002 \001(\t\022\r\n\005relay\030\003 \001(\t\022\024\n\014dest" +
-      "inations\030\004 \003(\t\022\034\n\024destinationDeviceIds\030\007" +
-      " \003(\004\022\021\n\ttimestamp\030\005 \001(\004\022\017\n\007message\030\006 \001(\014" +
-      "B:\n)org.whispersystems.textsecuregcm.ent" +
-      "itiesB\rMessageProtos"
+      "e\"~\n\025OutgoingMessageSignal\022\014\n\004type\030\001 \001(\r" +
+      "\022\016\n\006source\030\002 \001(\t\022\r\n\005relay\030\003 \001(\t\022\024\n\014desti" +
+      "nations\030\004 \003(\t\022\021\n\ttimestamp\030\005 \001(\004\022\017\n\007mess" +
+      "age\030\006 \001(\014B:\n)org.whispersystems.textsecu" +
+      "regcm.entitiesB\rMessageProtos"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -1255,7 +1097,7 @@ public final class MessageProtos {
           internal_static_textsecure_OutgoingMessageSignal_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_textsecure_OutgoingMessageSignal_descriptor,
-              new java.lang.String[] { "Type", "Source", "Relay", "Destinations", "DestinationDeviceIds", "Timestamp", "Message", });
+              new java.lang.String[] { "Type", "Source", "Relay", "Destinations", "Timestamp", "Message", });
           return null;
         }
       };

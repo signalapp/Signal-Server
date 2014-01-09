@@ -46,6 +46,7 @@ public class RelayMessage {
 
   public RelayMessage(String destination, long destinationDeviceId, byte[] outgoingMessageSignal) {
     this.destination           = destination;
+    this.destinationDeviceId   = destinationDeviceId;
     this.outgoingMessageSignal = outgoingMessageSignal;
   }
 

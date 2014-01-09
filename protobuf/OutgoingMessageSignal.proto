@@ -24,7 +24,6 @@ message OutgoingMessageSignal {
   optional string source = 2;
   optional string relay = 3;
   repeated string destinations = 4;
-  repeated uint64 destinationDeviceIds = 7;
   optional uint64 timestamp = 5;
   optional bytes message = 6;
 }
