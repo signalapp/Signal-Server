@@ -36,10 +36,10 @@ public class AuthorizationHeader {
 
   public static AuthorizationHeader fromUserAndPassword(String user, String password) throws InvalidAuthorizationHeaderException {
     try {
-    String[] numberAndId = user.split("\\.");
-    return new AuthorizationHeader(numberAndId[0],
-                                   numberAndId.length > 1 ? Long.parseLong(numberAndId[1]) : 1,
-                                   password);
+      String[] numberAndId = user.split("\\.");
+      return new AuthorizationHeader(numberAndId[0],
+                                     numberAndId.length > 1 ? Long.parseLong(numberAndId[1]) : 1,
+                                     password);
     } catch (NumberFormatException nfe) {
       throw new InvalidAuthorizationHeaderException(nfe);
     }
