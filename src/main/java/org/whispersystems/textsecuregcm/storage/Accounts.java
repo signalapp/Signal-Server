@@ -54,6 +54,13 @@ public abstract class Accounts {
   public static final String FETCHES_MESSAGES = "fetches_messages";
   public static final String SUPPORTS_SMS     = "supports_sms";
 
+
+  private static final String NUMBER_DATA_QUERY = "SELECT number, COUNT(" +
+            "CASE WHEN (" + GCM_ID + " IS NOT NULL OR " + APN_ID + " IS NOT NULL OR " + FETCHES_MESSAGES + " = 1) " +
+            "THEN 1 ELSE 0 END) AS active, COUNT(" +
+            "CASE WHEN " + SUPPORTS_SMS + " = 1 THEN 1 ELSE 0 END) AS " + SUPPORTS_SMS + " " +
+            "FROM accounts";
+
   @SqlUpdate("INSERT INTO accounts (" + NUMBER + ", " + DEVICE_ID + ", " + AUTH_TOKEN + ", " +
                                     SALT + ", " + SIGNALING_KEY + ", " + FETCHES_MESSAGES + ", " +
                                     GCM_ID + ", " + APN_ID + ", " + SUPPORTS_SMS + ") " +
@@ -85,12 +92,6 @@ public abstract class Accounts {
 
   @SqlQuery("SELECT COUNT(DISTINCT " + NUMBER + ") from accounts")
   abstract long getNumberCount();
-
-  private static final String NUMBER_DATA_QUERY = "SELECT number, COUNT(" +
-            "CASE WHEN (" + GCM_ID + " IS NOT NULL OR " + APN_ID + " IS NOT NULL OR " + FETCHES_MESSAGES + " = 1) " +
-            "THEN 1 ELSE 0 END) AS active, COUNT(" +
-            "CASE WHEN " + SUPPORTS_SMS + " = 1 THEN 1 ELSE 0 END) AS " + SUPPORTS_SMS + " " +
-            "FROM accounts";
 
   @Mapper(NumberDataMapper.class)
   @SqlQuery(NUMBER_DATA_QUERY + " GROUP BY " + NUMBER + " OFFSET :offset LIMIT :limit")
