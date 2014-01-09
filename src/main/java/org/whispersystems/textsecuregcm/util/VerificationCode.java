@@ -69,4 +69,8 @@ public class VerificationCode {
   @VisibleForTesting public boolean equals(Object o) {
     return o instanceof VerificationCode && verificationCode.equals(((VerificationCode) o).verificationCode);
   }
+
+  public int hashCode() {
+    return Integer.parseInt(verificationCode);
+  }
 }

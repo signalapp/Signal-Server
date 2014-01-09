@@ -46,7 +46,7 @@ import java.util.List;
 @Path("/v1/keys")
 public class KeysController {
 
-  private final Logger logger = LoggerFactory.getLogger(AccountController.class);
+  private final Logger logger = LoggerFactory.getLogger(DeviceController.class);
 
   private final RateLimiters           rateLimiters;
   private final Keys                   keys;

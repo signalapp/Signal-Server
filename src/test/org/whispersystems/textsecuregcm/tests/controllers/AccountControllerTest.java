@@ -11,6 +11,7 @@ import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
+import org.whispersystems.textsecuregcm.controllers.DeviceController;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -48,8 +49,8 @@ public class AccountControllerTest extends ResourceTest {
 
   @Path("/v1/accounts")
   static class DumbVerificationAccountController extends AccountController {
-    public DumbVerificationAccountController(PendingAccountsManager pendingAccounts, PendingDevicesManager pendingDevices, AccountsManager accounts, RateLimiters rateLimiters, SmsSender smsSenderFactory) {
-      super(pendingAccounts, pendingDevices, accounts, rateLimiters, smsSenderFactory);
+    public DumbVerificationAccountController(PendingAccountsManager pendingAccounts, AccountsManager accounts, RateLimiters rateLimiters, SmsSender smsSenderFactory) {
+      super(pendingAccounts, accounts, rateLimiters, smsSenderFactory);
     }
 
     @Override
@@ -61,7 +62,6 @@ public class AccountControllerTest extends ResourceTest {
   private static final String SENDER = "+14152222222";
 
   private PendingAccountsManager            pendingAccountsManager = mock(PendingAccountsManager.class);
-  private PendingDevicesManager             pendingDevicesManager  = mock(PendingDevicesManager.class);
   private AccountsManager                   accountsManager        = mock(AccountsManager.class       );
   private RateLimiters                      rateLimiters           = mock(RateLimiters.class          );
   private RateLimiter                       rateLimiter            = mock(RateLimiter.class           );
@@ -77,8 +77,6 @@ public class AccountControllerTest extends ResourceTest {
 
     when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of("1234"));
 
-    when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of("5678901"));
-
     Mockito.doAnswer(new Answer() {
       @Override
       public Object answer(InvocationOnMock invocation) throws Throwable {
@@ -87,7 +85,7 @@ public class AccountControllerTest extends ResourceTest {
       }
     }).when(accountsManager).createAccountOnExistingNumber(any(Account.class));
 
-    addResource(new DumbVerificationAccountController(pendingAccountsManager, pendingDevicesManager, accountsManager, rateLimiters, smsSender));
+    addResource(new DumbVerificationAccountController(pendingAccountsManager, accountsManager, rateLimiters, smsSender));
   }
 
   @Test
@@ -131,30 +129,6 @@ public class AccountControllerTest extends ResourceTest {
     assertThat(response.getStatus()).isEqualTo(403);
 
     verifyNoMoreInteractions(accountsManager);
-  }
-
-  @Test
-  public void validDeviceRegisterTest() throws Exception {
-    VerificationCode deviceCode = client().resource("/v1/accounts/registerdevice")
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .get(VerificationCode.class);
-
-    assertThat(deviceCode).isEqualTo(new VerificationCode(5678901));
-
-    Long deviceId = client().resource(String.format("/v1/accounts/device/5678901"))
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-        .entity(new AccountAttributes("keykeykeykey", false, true))
-        .type(MediaType.APPLICATION_JSON_TYPE)
-        .put(Long.class);
-    assertThat(deviceId).isNotEqualTo(AuthHelper.DEFAULT_DEVICE_ID);
-
-    ArgumentCaptor<Account> newAccount = ArgumentCaptor.forClass(Account.class);
-    verify(accountsManager).createAccountOnExistingNumber(newAccount.capture());
-    assertThat(deviceId).isEqualTo(newAccount.getValue().getDeviceId());
-
-    ArgumentCaptor<String> number = ArgumentCaptor.forClass(String.class);
-    verify(pendingDevicesManager).remove(number.capture());
-    assertThat(number.getValue()).isEqualTo(AuthHelper.VALID_NUMBER);
   }
 
 }
