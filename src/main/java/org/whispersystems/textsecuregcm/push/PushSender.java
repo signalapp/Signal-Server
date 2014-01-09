@@ -106,7 +106,7 @@ public class PushSender {
     apnSender.sendMessage(account.getApnRegistrationId(), outgoingMessage);
   }
 
-  private void storeFetchedMessage(Account account, EncryptedOutgoingMessage outgoingMessage) {
+  private void storeFetchedMessage(Account account, EncryptedOutgoingMessage outgoingMessage) throws IOException {
     storedMessageManager.storeMessage(account, outgoingMessage);
   }
 }
