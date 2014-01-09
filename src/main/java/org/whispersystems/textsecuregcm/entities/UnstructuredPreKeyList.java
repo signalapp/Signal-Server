@@ -50,4 +50,11 @@ public class UnstructuredPreKeyList {
     }
     return true;
   }
+
+  public int hashCode() {
+    int ret = 0xFBA4C795 * keys.size();
+    for (PreKey key : keys)
+      ret ^= key.getPublicKey().hashCode();
+    return ret;
+  }
 }
