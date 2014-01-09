@@ -114,7 +114,7 @@
             </column>
 
             <column name="destination_id" type="bigint">
-                <constraints nullable="false" foreignKeyName="destination_fk" references="accounts(id)"/>
+                <constraints nullable="false" foreignKeyName="destination_fk" deleteCascade="true" references="accounts(id)"/>
             </column>
 
             <column name="encrypted_message" type="text">
