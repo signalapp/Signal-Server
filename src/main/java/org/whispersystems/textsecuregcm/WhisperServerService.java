@@ -20,6 +20,7 @@ import com.google.common.base.Optional;
 import com.yammer.dropwizard.Service;
 import com.yammer.dropwizard.config.Bootstrap;
 import com.yammer.dropwizard.config.Environment;
+import com.yammer.dropwizard.config.FilterBuilder;
 import com.yammer.dropwizard.db.DatabaseConfiguration;
 import com.yammer.dropwizard.jdbi.DBIFactory;
 import com.yammer.dropwizard.migrations.MigrationsBundle;
@@ -62,9 +63,11 @@ import org.whispersystems.textsecuregcm.storage.PendingDeviceRegistrations;
 import org.whispersystems.textsecuregcm.storage.PendingDevicesManager;
 import org.whispersystems.textsecuregcm.storage.StoredMessageManager;
 import org.whispersystems.textsecuregcm.storage.StoredMessages;
+import org.whispersystems.textsecuregcm.util.CORSHeaderFilter;
 import org.whispersystems.textsecuregcm.util.UrlSigner;
 import org.whispersystems.textsecuregcm.workers.DirectoryCommand;
 
+import java.io.IOException;
 import java.security.Security;
 import java.util.concurrent.TimeUnit;
 
@@ -142,6 +145,8 @@ public class WhisperServerService extends Service<WhisperServerConfiguration> {
 
     environment.addProvider(new IOExceptionMapper());
     environment.addProvider(new RateLimitExceededExceptionMapper());
+
+    environment.addFilter(new CORSHeaderFilter(), "/*");
 
     if (config.getGraphiteConfiguration().isEnabled()) {
       GraphiteReporter.enable(15, TimeUnit.SECONDS,
