@@ -36,6 +36,7 @@ import org.whispersystems.textsecuregcm.entities.AttachmentUri;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.entities.ClientContacts;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
+import org.whispersystems.textsecuregcm.entities.MessageResponse;
 import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.entities.RelayMessage;
 import org.whispersystems.textsecuregcm.entities.UnstructuredPreKeyList;
@@ -140,23 +141,21 @@ public class FederatedClient {
     }
   }
 
-  public void sendMessage(String destination, long destinationDeviceId, OutgoingMessageSignal message)
-      throws IOException, NoSuchUserException
+  public MessageResponse sendMessages(List<RelayMessage> messages)
+      throws IOException
   {
     try {
       WebResource    resource = client.resource(peer.getUrl()).path(RELAY_MESSAGE_PATH);
       ClientResponse response = resource.type(MediaType.APPLICATION_JSON)
                                         .header("Authorization", authorizationHeader)
-                                        .entity(new RelayMessage(destination, destinationDeviceId, message.toByteArray()))
+                                        .entity(messages)
                                         .put(ClientResponse.class);
-
-      if (response.getStatus() == 404) {
-        throw new NoSuchUserException("No remote user: " + destination);
-      }
 
       if (response.getStatus() != 200 && response.getStatus() != 204) {
         throw new IOException("Bad response: " + response.getStatus());
       }
+
+      return response.getEntity(MessageResponse.class);
     } catch (UniformInterfaceException | ClientHandlerException e) {
       logger.warn("sendMessage", e);
       throw new IOException(e);

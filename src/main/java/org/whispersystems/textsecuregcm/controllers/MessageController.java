@@ -35,26 +35,31 @@ import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
 import org.whispersystems.textsecuregcm.entities.MessageResponse;
+import org.whispersystems.textsecuregcm.entities.RelayMessage;
 import org.whispersystems.textsecuregcm.federation.FederatedClient;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.federation.NoSuchPeerException;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.IterablePair;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 
+import javax.annotation.Nullable;
 import javax.servlet.AsyncContext;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -99,14 +104,20 @@ public class MessageController extends HttpServlet {
 
       rateLimiters.getMessagesLimiter().validate(sender.getNumber());
 
+
+      Map<Pair<String, Long>, Account> accountCache = new HashMap<>();
+      List<String> numbersMissingDevices = new LinkedList<>();
+
       List<IncomingMessage>       incomingMessages = messages.getMessages();
       List<OutgoingMessageSignal> outgoingMessages = getOutgoingMessageSignals(sender.getNumber(),
-                                                                               incomingMessages);
+                                                                               incomingMessages,
+                                                                               accountCache,
+                                                                               numbersMissingDevices);
 
       IterablePair<IncomingMessage, OutgoingMessageSignal> listPair = new IterablePair<>(incomingMessages,
                                                                                          outgoingMessages);
 
-      handleAsyncDelivery(timerContext, req.startAsync(), listPair);
+      handleAsyncDelivery(timerContext, req.startAsync(), listPair, accountCache, numbersMissingDevices);
     } catch (AuthenticationException e) {
       failureMeter.mark();
       timerContext.stop();
@@ -129,32 +140,68 @@ public class MessageController extends HttpServlet {
 
   private void handleAsyncDelivery(final TimerContext timerContext,
                                    final AsyncContext context,
-                                   final IterablePair<IncomingMessage, OutgoingMessageSignal> listPair)
+                                   final IterablePair<IncomingMessage, OutgoingMessageSignal> listPair,
+                                   final Map<Pair<String, Long>, Account> accountCache,
+                                   final List<String> numbersMissingDevices)
   {
     executor.submit(new Runnable() {
       @Override
       public void run() {
         List<String>        success  = new LinkedList<>();
-        List<String>        failure  = new LinkedList<>();
+        List<String>        failure  = new LinkedList<>(numbersMissingDevices);
         HttpServletResponse response = (HttpServletResponse) context.getResponse();
 
         try {
+          Map<String, Set<Pair<IncomingMessage, OutgoingMessageSignal>>> relayMessages = new HashMap<>();
           for (Pair<IncomingMessage, OutgoingMessageSignal> messagePair : listPair) {
             String destination         = messagePair.first().getDestination();
             long   destinationDeviceId = messagePair.first().getDestinationDeviceId();
             String relay               = messagePair.first().getRelay();
 
+            if (Util.isEmpty(relay)) {
+              try {
+                pushSender.sendMessage(accountCache.get(new Pair<>(destination, destinationDeviceId)), messagePair.second());
+              } catch (NoSuchUserException e) {
+                logger.debug("No such user", e);
+                failure.add(destination);
+              }
+            } else {
+              Set<Pair<IncomingMessage, OutgoingMessageSignal>> messageSet = relayMessages.get(relay);
+              if (messageSet == null) {
+                messageSet = new HashSet<>();
+                relayMessages.put(relay, messageSet);
+              }
+              messageSet.add(messagePair);
+            }
+            success.add(destination);
+          }
+
+          for (Map.Entry<String, Set<Pair<IncomingMessage, OutgoingMessageSignal>>> messagesForRelay : relayMessages.entrySet()) {
             try {
-              if (Util.isEmpty(relay)) sendLocalMessage(destination, destinationDeviceId, messagePair.second());
-              else                     sendRelayMessage(relay, destination, destinationDeviceId, messagePair.second());
-              success.add(destination);
-            } catch (NoSuchUserException e) {
-              logger.debug("No such user", e);
-              failure.add(destination);
+              FederatedClient client = federatedClientManager.getClient(messagesForRelay.getKey());
+
+              List<RelayMessage> messages = new LinkedList<>();
+              for (Pair<IncomingMessage, OutgoingMessageSignal> message : messagesForRelay.getValue()) {
+                messages.add(new RelayMessage(message.first().getDestination(),
+                                              message.first().getDestinationDeviceId(),
+                                              message.second().toByteArray()));
+              }
+
+              MessageResponse relayResponse = client.sendMessages(messages);
+              for (String string : relayResponse.getSuccess())
+                success.add(string);
+              for (String string : relayResponse.getFailure())
+                failure.add(string);
+              for (String string : relayResponse.getNumbersMissingDevices())
+                numbersMissingDevices.add(string);
+            } catch (NoSuchPeerException e) {
+              logger.info("No such peer", e);
+              for (Pair<IncomingMessage, OutgoingMessageSignal> messagePair : messagesForRelay.getValue())
+                failure.add(messagePair.first().getDestination());
             }
           }
 
-          byte[] responseData = serializeResponse(new MessageResponse(success, failure));
+          byte[] responseData = serializeResponse(new MessageResponse(success, failure, numbersMissingDevices));
           response.setContentLength(responseData.length);
           response.getOutputStream().write(responseData);
           context.complete();
@@ -171,36 +218,33 @@ public class MessageController extends HttpServlet {
     });
   }
 
-  private void sendLocalMessage(String destination, long destinationDeviceId, OutgoingMessageSignal outgoingMessage)
-      throws IOException, NoSuchUserException
-  {
-    pushSender.sendMessage(destination, destinationDeviceId, outgoingMessage);
-  }
-
-  private void sendRelayMessage(String relay, String destination, long destinationDeviceId, OutgoingMessageSignal outgoingMessage)
-      throws IOException, NoSuchUserException
-  {
-    try {
-      FederatedClient client = federatedClientManager.getClient(relay);
-      client.sendMessage(destination, destinationDeviceId, outgoingMessage);
-    } catch (NoSuchPeerException e) {
-      logger.info("No such peer", e);
-      throw new NoSuchUserException(e);
-    }
-  }
-
-  private List<OutgoingMessageSignal> getOutgoingMessageSignals(String number,
-                                                                List<IncomingMessage> incomingMessages)
+  /**
+   * @param accountCache is a map from Pair<number, deviceId> to the account
+   */
+  @Nullable
+  private List<OutgoingMessageSignal> getOutgoingMessageSignals(String sourceNumber,
+                                                                List<IncomingMessage> incomingMessages,
+                                                                Map<Pair<String, Long>, Account> accountCache,
+                                                                List<String> numbersMissingDevices)
   {
     List<OutgoingMessageSignal> outgoingMessages = new LinkedList<>();
-    Set<String> destinations = new HashSet<>();
-    for (IncomingMessage incoming : incomingMessages)
-      destinations.add(incoming.getDestination());
+    //    #          local    deviceIds
+    Map<String, Pair<Boolean, Set<Long>>> destinations = new HashMap<>();
+    for (IncomingMessage incoming : incomingMessages) {
+      Pair<Boolean, Set<Long>> deviceIds = destinations.get(incoming.getDestination());
+      if (deviceIds == null) {
+        deviceIds = new Pair<Boolean, Set<Long>>(Util.isEmpty(incoming.getRelay()), new HashSet<Long>());
+        destinations.put(incoming.getDestination(), deviceIds);
+      }
+      deviceIds.second().add(incoming.getDestinationDeviceId());
+    }
+
+    pushSender.fillLocalAccountsCache(destinations, accountCache, numbersMissingDevices);
 
     for (IncomingMessage incoming : incomingMessages) {
       OutgoingMessageSignal.Builder outgoingMessage = OutgoingMessageSignal.newBuilder();
       outgoingMessage.setType(incoming.getType());
-      outgoingMessage.setSource(number);
+      outgoingMessage.setSource(sourceNumber);
 
       byte[] messageBody = getMessageBody(incoming);
 
@@ -212,7 +256,7 @@ public class MessageController extends HttpServlet {
 
       int index = 0;
 
-      for (String destination : destinations) {
+      for (String destination : destinations.keySet()) {
         if (!destination.equals(incoming.getDestination())) {
           outgoingMessage.setDestinations(index++, destination);
         }
