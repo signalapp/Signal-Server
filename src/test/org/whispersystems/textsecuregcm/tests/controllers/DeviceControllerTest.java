@@ -78,7 +78,7 @@ public class DeviceControllerTest extends ResourceTest {
         ((Device) invocation.getArguments()[0]).setDeviceId(2);
         return null;
       }
-    }).when(accountsManager).createAccountOnExistingNumber(any(Device.class));
+    }).when(accountsManager).provisionDevice(any(Device.class));
 
     addResource(new DumbVerificationDeviceController(pendingDevicesManager, accountsManager, rateLimiters));
   }
@@ -99,7 +99,7 @@ public class DeviceControllerTest extends ResourceTest {
     assertThat(deviceId).isNotEqualTo(AuthHelper.DEFAULT_DEVICE_ID);
 
     ArgumentCaptor<Device> newAccount = ArgumentCaptor.forClass(Device.class);
-    verify(accountsManager).createAccountOnExistingNumber(newAccount.capture());
+    verify(accountsManager).provisionDevice(newAccount.capture());
     assertThat(deviceId).isEqualTo(newAccount.getValue().getDeviceId());
 
     ArgumentCaptor<String> number = ArgumentCaptor.forClass(String.class);

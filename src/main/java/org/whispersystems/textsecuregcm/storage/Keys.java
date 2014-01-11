@@ -79,9 +79,9 @@ public abstract class Keys {
   }
 
   @Transaction(TransactionIsolationLevel.SERIALIZABLE)
-  public UnstructuredPreKeyList get(String number, List<Device> devices) {
+  public UnstructuredPreKeyList get(String number, Account account) {
     List<PreKey> preKeys = new LinkedList<>();
-    for (Device device : devices) {
+    for (Device device : account.getDevices()) {
       PreKey preKey = retrieveFirst(number, device.getDeviceId());
       if (preKey != null)
         preKeys.add(preKey);

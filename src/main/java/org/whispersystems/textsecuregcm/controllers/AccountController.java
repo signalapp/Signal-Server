@@ -31,6 +31,7 @@ import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
+import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
@@ -53,6 +54,7 @@ import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.util.Arrays;
 
 @Path("/v1/accounts")
 public class AccountController {
@@ -142,7 +144,7 @@ public class AccountController {
       device.setFetchesMessages(accountAttributes.getFetchesMessages());
       device.setDeviceId(0);
 
-      accounts.createResetNumber(device);
+      accounts.create(new Account(number, accountAttributes.getSupportsSms(), device));
 
       pendingAccounts.remove(number);
 

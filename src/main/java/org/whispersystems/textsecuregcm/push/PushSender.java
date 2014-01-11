@@ -16,6 +16,7 @@
  */
 package org.whispersystems.textsecuregcm.push;
 
+import com.google.common.base.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
@@ -23,6 +24,7 @@ import org.whispersystems.textsecuregcm.configuration.GcmConfiguration;
 import org.whispersystems.textsecuregcm.controllers.NoSuchUserException;
 import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager;
@@ -61,35 +63,6 @@ public class PushSender {
     this.apnSender            = new APNSender(apnConfiguration.getCertificate(), apnConfiguration.getKey());
   }
 
-  /**
-   * For each local destination in destinations, either adds all its accounts to accountCache or adds the number to
-   * numbersMissingDevices, if the deviceIds list don't match what is required.
-   * @param destinations Map from number to Pair&lt;localNumber, Set&lt;deviceIds&gt;&gt;
-   * @param accountCache Map from &lt;number, deviceId&gt; to account
-   * @param numbersMissingDevices list of numbers missing devices
-   */
-  public void fillLocalAccountsCache(Map<String, Pair<Boolean, Set<Long>>> destinations, Map<Pair<String, Long>, Device> accountCache, List<String> numbersMissingDevices) {
-    for (Map.Entry<String, Pair<Boolean, Set<Long>>> destination : destinations.entrySet()) {
-      if (destination.getValue().first()) {
-        String number = destination.getKey();
-        List<Device> deviceList = accounts.getAllByNumber(number);
-        Set<Long> deviceIdsIncluded = destination.getValue().second();
-        if (deviceList.size() != deviceIdsIncluded.size())
-          numbersMissingDevices.add(number);
-        else {
-          for (Device device : deviceList) {
-            if (!deviceIdsIncluded.contains(device.getDeviceId())) {
-              numbersMissingDevices.add(number);
-              break;
-            }
-          }
-          for (Device device : deviceList)
-            accountCache.put(new Pair<>(number, device.getDeviceId()), device);
-        }
-      }
-    }
-  }
-
   public void sendMessage(Device device, MessageProtos.OutgoingMessageSignal outgoingMessage)
       throws IOException, NoSuchUserException
   {
@@ -99,7 +72,7 @@ public class PushSender {
     if      (device.getGcmRegistrationId() != null) sendGcmMessage(device, message);
     else if (device.getApnRegistrationId() != null) sendApnMessage(device, message);
     else if (device.getFetchesMessages())           storeFetchedMessage(device, message);
-    else                                             throw new NoSuchUserException("No push identifier!");
+    else                                            throw new NoSuchUserException("No push identifier!");
   }
 
   private void sendGcmMessage(Device device, EncryptedOutgoingMessage outgoingMessage)

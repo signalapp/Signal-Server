@@ -14,6 +14,7 @@ import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
+import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
@@ -80,7 +81,7 @@ public class AccountControllerTest extends ResourceTest {
         ((Device)invocation.getArguments()[0]).setDeviceId(2);
         return null;
       }
-    }).when(accountsManager).createAccountOnExistingNumber(any(Device.class));
+    }).when(accountsManager).provisionDevice(any(Device.class));
 
     addResource(new DumbVerificationAccountController(pendingAccountsManager, accountsManager, rateLimiters, smsSender));
   }
@@ -107,7 +108,7 @@ public class AccountControllerTest extends ResourceTest {
 
     assertThat(response.getStatus()).isEqualTo(204);
 
-    verify(accountsManager).createResetNumber(isA(Device.class));
+    verify(accountsManager).create(isA(Account.class));
 
     ArgumentCaptor<String> number = ArgumentCaptor.forClass(String.class);
     verify(pendingAccountsManager).remove(number.capture());

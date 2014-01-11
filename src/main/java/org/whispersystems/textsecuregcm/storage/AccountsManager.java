@@ -20,10 +20,17 @@ package org.whispersystems.textsecuregcm.storage;
 import com.google.common.base.Optional;
 import net.spy.memcached.MemcachedClient;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
+import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
+import sun.util.logging.resources.logging_zh_CN;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class AccountsManager {
 
@@ -44,16 +51,17 @@ public class AccountsManager {
     return accounts.getNumberCount();
   }
 
-  public List<Device> getAllMasterAccounts(int offset, int length) {
-    return accounts.getAllFirstAccounts(offset, length);
+  public List<Device> getAllMasterDevices(int offset, int length) {
+    return accounts.getAllMasterDevices(offset, length);
   }
 
-  public Iterator<Device> getAllMasterAccounts() {
-    return accounts.getAllFirstAccounts();
+  public Iterator<Device> getAllMasterDevices() {
+    return accounts.getAllMasterDevices();
   }
 
-  /** Creates a new Device and NumberData, clearing all existing accounts/data on the given number */
-  public void createResetNumber(Device device) {
+  /** Creates a new Account (WITH ONE DEVICE), clearing all existing devices on the given number */
+  public void create(Account account) {
+    Device device = account.getDevices().iterator().next();
     long id = accounts.insertClearingNumber(device);
     device.setId(id);
 
@@ -64,8 +72,8 @@ public class AccountsManager {
     updateDirectory(device);
   }
 
-  /** Creates a new Device for an existing NumberData (setting the deviceId) */
-  public void createAccountOnExistingNumber(Device device) {
+  /** Creates a new Device for an existing Account */
+  public void provisionDevice(Device device) {
     long id = accounts.insert(device);
     device.setId(id);
 
@@ -104,8 +112,43 @@ public class AccountsManager {
     else                 return Optional.absent();
   }
 
-  public List<Device> getAllByNumber(String number) {
-    return accounts.getAllByNumber(number);
+  public Optional<Account> getAccount(String number) {
+    List<Device> devices = accounts.getAllByNumber(number);
+    if (devices.isEmpty())
+      return Optional.absent();
+    return Optional.of(new Account(number, devices.get(0).getSupportsSms(), devices));
+  }
+
+  private Map<String, Account> getAllAccounts(Set<String> numbers) {
+    //TODO: ONE QUERY
+    Map<String, Account> result = new HashMap<>();
+    for (String number : numbers) {
+      Optional<Account> account = getAccount(number);
+      if (account.isPresent())
+        result.put(number, account.get());
+    }
+    return result;
+  }
+
+  public Pair<Map<String, Account>, List<String>> getAccountsForDevices(Map<String, Set<Long>> destinations) {
+    List<String> numbersMissingDevices = new LinkedList<>();
+    Map<String, Account> localAccounts = getAllAccounts(destinations.keySet());
+
+    for (String number : destinations.keySet()) {
+      if (localAccounts.get(number) == null)
+        numbersMissingDevices.add(number);
+    }
+
+    Iterator<Account> localAccountIterator = localAccounts.values().iterator();
+    while (localAccountIterator.hasNext()) {
+      Account account = localAccountIterator.next();
+      if (!account.hasAllDeviceIds(destinations.get(account.getNumber()))) {
+        numbersMissingDevices.add(account.getNumber());
+        localAccountIterator.remove();
+      }
+    }
+
+    return new Pair<>(localAccounts, numbersMissingDevices);
   }
 
   private void updateDirectory(Device device) {

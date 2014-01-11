@@ -37,6 +37,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -78,22 +80,22 @@ public abstract class Accounts {
              "WHERE " + NUMBER + " = :number AND " + DEVICE_ID + " = :device_id")
   abstract void update(@AccountBinder Device device);
 
-  @Mapper(AccountMapper.class)
+  @Mapper(DeviceMapper.class)
   @SqlQuery("SELECT * FROM accounts WHERE " + NUMBER + " = :number AND " + DEVICE_ID + " = :device_id")
   abstract Device get(@Bind("number") String number, @Bind("device_id") long deviceId);
 
   @SqlQuery("SELECT COUNT(DISTINCT " + NUMBER + ") from accounts")
   abstract long getNumberCount();
 
-  @Mapper(AccountMapper.class)
+  @Mapper(DeviceMapper.class)
   @SqlQuery("SELECT * FROM accounts WHERE " + DEVICE_ID + " = 1 OFFSET :offset LIMIT :limit")
-  abstract List<Device> getAllFirstAccounts(@Bind("offset") int offset, @Bind("limit") int length);
+  abstract List<Device> getAllMasterDevices(@Bind("offset") int offset, @Bind("limit") int length);
 
-  @Mapper(AccountMapper.class)
+  @Mapper(DeviceMapper.class)
   @SqlQuery("SELECT * FROM accounts WHERE " + DEVICE_ID + " = 1")
-  public abstract Iterator<Device> getAllFirstAccounts();
+  public abstract Iterator<Device> getAllMasterDevices();
 
-  @Mapper(AccountMapper.class)
+  @Mapper(DeviceMapper.class)
   @SqlQuery("SELECT * FROM accounts WHERE " + NUMBER + " = :number")
   public abstract List<Device> getAllByNumber(@Bind("number") String number);
 
@@ -104,8 +106,7 @@ public abstract class Accounts {
     return insertStep(device);
   }
 
-  public static class AccountMapper implements ResultSetMapper<Device> {
-
+  public static class DeviceMapper implements ResultSetMapper<Device> {
     @Override
     public Device map(int i, ResultSet resultSet, StatementContext statementContext)
         throws SQLException

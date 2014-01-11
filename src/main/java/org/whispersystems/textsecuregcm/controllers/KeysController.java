@@ -27,6 +27,7 @@ import org.whispersystems.textsecuregcm.entities.UnstructuredPreKeyList;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.federation.NoSuchPeerException;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Keys;
@@ -78,7 +79,11 @@ public class KeysController {
       UnstructuredPreKeyList keyList;
 
       if (relay == null) {
-        keyList = keys.get(number, accountsManager.getAllByNumber(number));
+        Optional<Account> account = accountsManager.getAccount(number);
+        if (account.isPresent())
+          keyList = keys.get(number, account.get());
+        else
+          throw new WebApplicationException(Response.status(404).build());
       } else {
         keyList = federatedClientManager.getClient(relay).getKeys(number);
       }

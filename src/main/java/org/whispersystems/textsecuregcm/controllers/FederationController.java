@@ -17,6 +17,7 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 import com.amazonaws.HttpMethod;
+import com.google.common.base.Optional;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.yammer.dropwizard.auth.Auth;
 import com.yammer.metrics.annotation.Timed;
@@ -32,6 +33,7 @@ import org.whispersystems.textsecuregcm.entities.RelayMessage;
 import org.whispersystems.textsecuregcm.entities.UnstructuredPreKeyList;
 import org.whispersystems.textsecuregcm.federation.FederatedPeer;
 import org.whispersystems.textsecuregcm.push.PushSender;
+import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Keys;
@@ -93,15 +95,15 @@ public class FederationController {
   @Path("/key/{number}")
   @Produces(MediaType.APPLICATION_JSON)
   public UnstructuredPreKeyList getKey(@Auth                FederatedPeer peer,
-                       @PathParam("number") String number)
+                                       @PathParam("number") String number)
   {
-    UnstructuredPreKeyList preKeys = keys.get(number, accounts.getAllByNumber(number));
-
-    if (preKeys == null) {
+    Optional<Account> account = accounts.getAccount(number);
+    UnstructuredPreKeyList keyList = null;
+    if (account.isPresent())
+      keyList = keys.get(number, account.get());
+    if (!account.isPresent() || keyList.getKeys().isEmpty())
       throw new WebApplicationException(Response.status(404).build());
-    }
-
-    return preKeys;
+    return keyList;
   }
 
   @Timed
@@ -113,37 +115,38 @@ public class FederationController {
       throws IOException
   {
     try {
-      Map<String, Pair<Boolean, Set<Long>>> destinations = new HashMap<>();
-
+      Map<String, Set<Long>> localDestinations = new HashMap<>();
       for (RelayMessage message : messages) {
-        Pair<Boolean, Set<Long>> deviceIds = destinations.get(message.getDestination());
+        Set<Long> deviceIds = localDestinations.get(message.getDestination());
         if (deviceIds == null) {
-          deviceIds = new Pair<Boolean, Set<Long>>(true, new HashSet<Long>());
-          destinations.put(message.getDestination(), deviceIds);
+          deviceIds = new HashSet<>();
+          localDestinations.put(message.getDestination(), deviceIds);
         }
-        deviceIds.second().add(message.getDestinationDeviceId());
+        deviceIds.add(message.getDestinationDeviceId());
       }
 
-      Map<Pair<String, Long>, Device> accountCache = new HashMap<>();
-      List<String> numbersMissingDevices = new LinkedList<>();
-      pushSender.fillLocalAccountsCache(destinations, accountCache, numbersMissingDevices);
+      Pair<Map<String, Account>, List<String>> accountsForDevices = accounts.getAccountsForDevices(localDestinations);
 
-      List<String> success = new LinkedList<>();
-      List<String> failure = new LinkedList<>(numbersMissingDevices);
+      Map<String, Account> localAccounts         = accountsForDevices.first();
+      List<String>         numbersMissingDevices = accountsForDevices.second();
+      List<String>         success               = new LinkedList<>();
+      List<String>         failure               = new LinkedList<>(numbersMissingDevices);
 
       for (RelayMessage message : messages) {
-        Device device = accountCache.get(new Pair<>(message.getDestination(), message.getDestinationDeviceId()));
-        if (device == null)
+        Account destinationAccount = localAccounts.get(message.getDestination());
+        if (destinationAccount == null)
           continue;
+        Device device = destinationAccount.getDevice(message.getDestinationDeviceId());
         OutgoingMessageSignal signal = OutgoingMessageSignal.parseFrom(message.getOutgoingMessageSignal())
                                                             .toBuilder()
                                                             .setRelay(peer.getName())
                                                             .build();
         try {
           pushSender.sendMessage(device, signal);
+          success.add(device.getBackwardsCompatibleNumberEncoding());
         } catch (NoSuchUserException e) {
           logger.info("No such user", e);
-          failure.add(message.getDestination());
+          failure.add(device.getBackwardsCompatibleNumberEncoding());
         }
       }
 
@@ -169,7 +172,7 @@ public class FederationController {
   public ClientContacts getUserTokens(@Auth                FederatedPeer peer,
                                       @PathParam("offset") int offset)
   {
-    List<Device>        numberList    = accounts.getAllMasterAccounts(offset, ACCOUNT_CHUNK_SIZE);
+    List<Device>         numberList    = accounts.getAllMasterDevices(offset, ACCOUNT_CHUNK_SIZE);
     List<ClientContact> clientContacts = new LinkedList<>();
 
     for (Device device : numberList) {

@@ -125,15 +125,19 @@ public class Device implements Serializable {
     this.id = id;
   }
 
-  public void setFetchesMessages(boolean fetchesMessages) {
-    this.fetchesMessages = fetchesMessages;
+  public boolean isActive() {
+    return fetchesMessages || !Util.isEmpty(getApnRegistrationId()) || !Util.isEmpty(getGcmRegistrationId());
   }
 
   public boolean getFetchesMessages() {
     return fetchesMessages;
   }
 
-  public boolean isActive() {
-    return getFetchesMessages() || !Util.isEmpty(getApnRegistrationId()) || !Util.isEmpty(getGcmRegistrationId());
+  public void setFetchesMessages(boolean fetchesMessages) {
+    this.fetchesMessages = fetchesMessages;
+  }
+
+  public String getBackwardsCompatibleNumberEncoding() {
+    return deviceId == 1 ? number : (number + "." + deviceId);
   }
 }

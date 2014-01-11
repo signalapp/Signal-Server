@@ -1,5 +1,6 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
+import com.google.common.base.Optional;
 import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.GenericType;
 import com.yammer.dropwizard.testing.ResourceTest;
@@ -9,6 +10,7 @@ import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.entities.UnstructuredPreKeyList;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Keys;
@@ -31,6 +33,7 @@ public class KeyControllerTest extends ResourceTest {
   private final Keys   keys        = mock(Keys.class);
 
   Device[] fakeDevice;
+  Account existsAccount;
 
   @Override
   protected void setUpResources() {
@@ -43,17 +46,18 @@ public class KeyControllerTest extends ResourceTest {
     fakeDevice = new Device[2];
     fakeDevice[0] = mock(Device.class);
     fakeDevice[1] = mock(Device.class);
+    existsAccount = new Account(EXISTS_NUMBER, true, Arrays.asList(fakeDevice[0], fakeDevice[1]));
 
     when(rateLimiters.getPreKeysLimiter()).thenReturn(rateLimiter);
 
-    when(keys.get(eq(EXISTS_NUMBER), anyList())).thenReturn(new UnstructuredPreKeyList(Arrays.asList(SAMPLE_KEY, SAMPLE_KEY2)));
-    when(keys.get(eq(NOT_EXISTS_NUMBER), anyList())).thenReturn(null);
+    when(keys.get(eq(EXISTS_NUMBER), isA(Account.class))).thenReturn(new UnstructuredPreKeyList(Arrays.asList(SAMPLE_KEY, SAMPLE_KEY2)));
+    when(keys.get(eq(NOT_EXISTS_NUMBER), isA(Account.class))).thenReturn(null);
 
     when(fakeDevice[0].getDeviceId()).thenReturn(AuthHelper.DEFAULT_DEVICE_ID);
     when(fakeDevice[1].getDeviceId()).thenReturn((long) 2);
 
-    when(accounts.getAllByNumber(EXISTS_NUMBER)).thenReturn(Arrays.asList(fakeDevice[0], fakeDevice[1]));
-    when(accounts.getAllByNumber(NOT_EXISTS_NUMBER)).thenReturn(new LinkedList<Device>());
+    when(accounts.getAccount(EXISTS_NUMBER)).thenReturn(Optional.of(existsAccount));
+    when(accounts.getAccount(NOT_EXISTS_NUMBER)).thenReturn(Optional.<Account>absent());
 
     addResource(new KeysController(rateLimiters, keys, accounts, null));
   }
@@ -71,7 +75,7 @@ public class KeyControllerTest extends ResourceTest {
     assertThat(result.getId() == 0);
     assertThat(result.getNumber() == null);
 
-    verify(keys).get(eq(EXISTS_NUMBER), eq(Arrays.asList(fakeDevice)));
+    verify(keys).get(eq(EXISTS_NUMBER), eq(existsAccount));
     verifyNoMoreInteractions(keys);
 
     List<PreKey> results = client().resource(String.format("/v1/keys/%s?multikeys", EXISTS_NUMBER))
@@ -95,7 +99,7 @@ public class KeyControllerTest extends ResourceTest {
     assertThat(result.getId() == 1);
     assertThat(result.getNumber() == null);
 
-    verify(keys, times(2)).get(eq(EXISTS_NUMBER), eq(Arrays.asList(fakeDevice[0], fakeDevice[1])));
+    verify(keys, times(2)).get(eq(EXISTS_NUMBER), eq(existsAccount));
     verifyNoMoreInteractions(keys);
   }
 
@@ -106,8 +110,7 @@ public class KeyControllerTest extends ResourceTest {
         .get(ClientResponse.class);
 
     assertThat(response.getClientResponseStatus().getStatusCode()).isEqualTo(404);
-
-    verify(keys).get(NOT_EXISTS_NUMBER, new LinkedList<Device>());
+    verifyNoMoreInteractions(keys);
   }
 
   @Test
