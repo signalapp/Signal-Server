@@ -34,7 +34,6 @@ import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
-import org.whispersystems.textsecuregcm.storage.PendingDevicesManager;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
 
@@ -60,10 +59,10 @@ public class AccountController {
 
   private final Logger logger = LoggerFactory.getLogger(AccountController.class);
 
-  private final PendingAccountsManager     pendingAccounts;
-  private final AccountsManager            accounts;
-  private final RateLimiters               rateLimiters;
-  private final SmsSender                  smsSender;
+  private final PendingAccountsManager pendingAccounts;
+  private final AccountsManager        accounts;
+  private final RateLimiters           rateLimiters;
+  private final SmsSender              smsSender;
 
   public AccountController(PendingAccountsManager pendingAccounts,
                            AccountsManager accounts,

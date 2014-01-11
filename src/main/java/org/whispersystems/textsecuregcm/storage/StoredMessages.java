@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013 Open WhisperSystems
+ * Copyright (C) 2014 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -19,7 +19,6 @@ package org.whispersystems.textsecuregcm.storage;
 import org.skife.jdbi.v2.sqlobject.Bind;
 import org.skife.jdbi.v2.sqlobject.SqlQuery;
 import org.skife.jdbi.v2.sqlobject.SqlUpdate;
-import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
 
 import java.util.List;
 

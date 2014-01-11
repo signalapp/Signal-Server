@@ -61,11 +61,11 @@ public class AccountControllerTest extends ResourceTest {
 
   private static final String SENDER = "+14152222222";
 
-  private PendingAccountsManager            pendingAccountsManager = mock(PendingAccountsManager.class);
-  private AccountsManager                   accountsManager        = mock(AccountsManager.class       );
-  private RateLimiters                      rateLimiters           = mock(RateLimiters.class          );
-  private RateLimiter                       rateLimiter            = mock(RateLimiter.class           );
-  private SmsSender                         smsSender              = mock(SmsSender.class             );
+  private PendingAccountsManager pendingAccountsManager = mock(PendingAccountsManager.class);
+  private AccountsManager        accountsManager        = mock(AccountsManager.class       );
+  private RateLimiters           rateLimiters           = mock(RateLimiters.class          );
+  private RateLimiter            rateLimiter            = mock(RateLimiter.class           );
+  private SmsSender              smsSender              = mock(SmsSender.class             );
 
   @Override
   protected void setUpResources() throws Exception {

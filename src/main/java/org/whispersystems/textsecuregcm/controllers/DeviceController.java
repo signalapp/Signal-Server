@@ -51,9 +51,9 @@ public class DeviceController {
 
   private final Logger logger = LoggerFactory.getLogger(DeviceController.class);
 
-  private final PendingDevicesManager      pendingDevices;
-  private final AccountsManager            accounts;
-  private final RateLimiters               rateLimiters;
+  private final PendingDevicesManager pendingDevices;
+  private final AccountsManager       accounts;
+  private final RateLimiters          rateLimiters;
 
   public DeviceController(PendingDevicesManager pendingDevices,
                           AccountsManager accounts,
