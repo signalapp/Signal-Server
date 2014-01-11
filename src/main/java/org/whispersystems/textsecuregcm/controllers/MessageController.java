@@ -104,19 +104,19 @@ public class MessageController extends HttpServlet {
       rateLimiters.getMessagesLimiter().validate(sender.getNumber());
 
 
-      Map<Pair<String, Long>, Device> accountCache = new HashMap<>();
+      Map<Pair<String, Long>, Device> deviceCache = new HashMap<>();
       List<String> numbersMissingDevices = new LinkedList<>();
 
       List<IncomingMessage>       incomingMessages = messages.getMessages();
       List<OutgoingMessageSignal> outgoingMessages = getOutgoingMessageSignals(sender.getNumber(),
                                                                                incomingMessages,
-                                                                               accountCache,
+                                                                               deviceCache,
                                                                                numbersMissingDevices);
 
       IterablePair<IncomingMessage, OutgoingMessageSignal> listPair = new IterablePair<>(incomingMessages,
                                                                                          outgoingMessages);
 
-      handleAsyncDelivery(timerContext, req.startAsync(), listPair, accountCache, numbersMissingDevices);
+      handleAsyncDelivery(timerContext, req.startAsync(), listPair, deviceCache, numbersMissingDevices);
     } catch (AuthenticationException e) {
       failureMeter.mark();
       timerContext.stop();
@@ -140,7 +140,7 @@ public class MessageController extends HttpServlet {
   private void handleAsyncDelivery(final TimerContext timerContext,
                                    final AsyncContext context,
                                    final IterablePair<IncomingMessage, OutgoingMessageSignal> listPair,
-                                   final Map<Pair<String, Long>, Device> accountCache,
+                                   final Map<Pair<String, Long>, Device> deviceCache,
                                    final List<String> numbersMissingDevices)
   {
     executor.submit(new Runnable() {
@@ -159,7 +159,7 @@ public class MessageController extends HttpServlet {
 
             if (Util.isEmpty(relay)) {
               try {
-                pushSender.sendMessage(accountCache.get(new Pair<>(destination, destinationDeviceId)), messagePair.second());
+                pushSender.sendMessage(deviceCache.get(new Pair<>(destination, destinationDeviceId)), messagePair.second());
               } catch (NoSuchUserException e) {
                 logger.debug("No such user", e);
                 failure.add(destination);
@@ -218,12 +218,12 @@ public class MessageController extends HttpServlet {
   }
 
   /**
-   * @param accountCache is a map from Pair<number, deviceId> to the account
+   * @param deviceCache is a map from Pair<number, deviceId> to the account
    */
   @Nullable
   private List<OutgoingMessageSignal> getOutgoingMessageSignals(String sourceNumber,
                                                                 List<IncomingMessage> incomingMessages,
-                                                                Map<Pair<String, Long>, Device> accountCache,
+                                                                Map<Pair<String, Long>, Device> deviceCache,
                                                                 List<String> numbersMissingDevices)
   {
     List<OutgoingMessageSignal> outgoingMessages = new LinkedList<>();
@@ -238,7 +238,7 @@ public class MessageController extends HttpServlet {
       deviceIds.second().add(incoming.getDestinationDeviceId());
     }
 
-    pushSender.fillLocalAccountsCache(destinations, accountCache, numbersMissingDevices);
+    pushSender.fillLocalAccountsCache(destinations, deviceCache, numbersMissingDevices);
 
     for (IncomingMessage incoming : incomingMessages) {
       OutgoingMessageSignal.Builder outgoingMessage = OutgoingMessageSignal.newBuilder();
