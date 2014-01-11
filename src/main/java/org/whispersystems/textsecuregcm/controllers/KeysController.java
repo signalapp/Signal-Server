@@ -95,7 +95,7 @@ public class KeysController {
   @GET
   @Path("/{number}")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response get(@Auth Device device,
+  public Response get(@Auth                    Device device,
                       @PathParam("number")     String number,
                       @QueryParam("multikeys") Optional<String> multikey,
                       @QueryParam("relay")     String relay)

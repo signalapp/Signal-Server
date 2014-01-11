@@ -78,8 +78,8 @@ public class AttachmentController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{attachmentId}")
-  public Response redirectToAttachment(@Auth Device device,
-                                       @PathParam("attachmentId") long attachmentId,
+  public Response redirectToAttachment(@Auth                      Device device,
+                                       @PathParam("attachmentId") long   attachmentId,
                                        @QueryParam("relay")       String relay)
   {
     try {
