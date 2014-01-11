@@ -44,84 +44,84 @@ public class AccountsManager {
     return accounts.getNumberCount();
   }
 
-  public List<Account> getAllMasterAccounts(int offset, int length) {
+  public List<Device> getAllMasterAccounts(int offset, int length) {
     return accounts.getAllFirstAccounts(offset, length);
   }
 
-  public Iterator<Account> getAllMasterAccounts() {
+  public Iterator<Device> getAllMasterAccounts() {
     return accounts.getAllFirstAccounts();
   }
 
-  /** Creates a new Account and NumberData, clearing all existing accounts/data on the given number */
-  public void createResetNumber(Account account) {
-    long id = accounts.insertClearingNumber(account);
-    account.setId(id);
+  /** Creates a new Device and NumberData, clearing all existing accounts/data on the given number */
+  public void createResetNumber(Device device) {
+    long id = accounts.insertClearingNumber(device);
+    device.setId(id);
 
     if (memcachedClient != null) {
-      memcachedClient.set(getKey(account.getNumber(), account.getDeviceId()), 0, account);
+      memcachedClient.set(getKey(device.getNumber(), device.getDeviceId()), 0, device);
     }
 
-    updateDirectory(account);
+    updateDirectory(device);
   }
 
-  /** Creates a new Account for an existing NumberData (setting the deviceId) */
-  public void createAccountOnExistingNumber(Account account) {
-    long id = accounts.insert(account);
-    account.setId(id);
+  /** Creates a new Device for an existing NumberData (setting the deviceId) */
+  public void createAccountOnExistingNumber(Device device) {
+    long id = accounts.insert(device);
+    device.setId(id);
 
     if (memcachedClient != null) {
-      memcachedClient.set(getKey(account.getNumber(), account.getDeviceId()), 0, account);
+      memcachedClient.set(getKey(device.getNumber(), device.getDeviceId()), 0, device);
     }
 
-    updateDirectory(account);
+    updateDirectory(device);
   }
 
-  public void update(Account account) {
+  public void update(Device device) {
     if (memcachedClient != null) {
-      memcachedClient.set(getKey(account.getNumber(), account.getDeviceId()), 0, account);
+      memcachedClient.set(getKey(device.getNumber(), device.getDeviceId()), 0, device);
     }
 
-    accounts.update(account);
-    updateDirectory(account);
+    accounts.update(device);
+    updateDirectory(device);
   }
 
-  public Optional<Account> get(String number, long deviceId) {
-    Account account = null;
+  public Optional<Device> get(String number, long deviceId) {
+    Device device = null;
 
     if (memcachedClient != null) {
-      account = (Account)memcachedClient.get(getKey(number, deviceId));
+      device = (Device)memcachedClient.get(getKey(number, deviceId));
     }
 
-    if (account == null) {
-      account = accounts.get(number, deviceId);
+    if (device == null) {
+      device = accounts.get(number, deviceId);
 
-      if (account != null && memcachedClient != null) {
-        memcachedClient.set(getKey(number, deviceId), 0, account);
+      if (device != null && memcachedClient != null) {
+        memcachedClient.set(getKey(number, deviceId), 0, device);
       }
     }
 
-    if (account != null) return Optional.of(account);
+    if (device != null) return Optional.of(device);
     else                 return Optional.absent();
   }
 
-  public List<Account> getAllByNumber(String number) {
+  public List<Device> getAllByNumber(String number) {
     return accounts.getAllByNumber(number);
   }
 
-  private void updateDirectory(Account account) {
-    if (account.getDeviceId() != 1)
+  private void updateDirectory(Device device) {
+    if (device.getDeviceId() != 1)
       return;
 
-    if (account.isActive()) {
-      byte[]        token         = Util.getContactToken(account.getNumber());
-      ClientContact clientContact = new ClientContact(token, null, account.getSupportsSms());
+    if (device.isActive()) {
+      byte[]        token         = Util.getContactToken(device.getNumber());
+      ClientContact clientContact = new ClientContact(token, null, device.getSupportsSms());
       directory.add(clientContact);
     } else {
-      directory.remove(account.getNumber());
+      directory.remove(device.getNumber());
     }
   }
 
   private String getKey(String number, long accountId) {
-    return Account.class.getSimpleName() + Account.MEMCACHE_VERION + number + accountId;
+    return Device.class.getSimpleName() + Device.MEMCACHE_VERION + number + accountId;
   }
 }

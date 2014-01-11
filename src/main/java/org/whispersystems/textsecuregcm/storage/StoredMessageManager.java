@@ -27,11 +27,11 @@ public class StoredMessageManager {
     this.storedMessages = storedMessages;
   }
 
-  public void storeMessage(Account account, EncryptedOutgoingMessage outgoingMessage) throws IOException {
-    storedMessages.insert(account.getId(), outgoingMessage.serialize());
+  public void storeMessage(Device device, EncryptedOutgoingMessage outgoingMessage) throws IOException {
+    storedMessages.insert(device.getId(), outgoingMessage.serialize());
   }
 
-  public List<String> getStoredMessage(Account account) {
-    return storedMessages.getMessagesForAccountId(account.getId());
+  public List<String> getStoredMessage(Device device) {
+    return storedMessages.getMessagesForAccountId(device.getId());
   }
 }

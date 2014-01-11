@@ -58,15 +58,15 @@ public abstract class Accounts {
                                     GCM_ID + ", " + APN_ID + ", " + SUPPORTS_SMS + ") " +
              "VALUES (:number, :device_id, :auth_token, :salt, :signaling_key, :fetches_messages, :gcm_id, :apn_id, :supports_sms)")
   @GetGeneratedKeys
-  abstract long insertStep(@AccountBinder Account account);
+  abstract long insertStep(@AccountBinder Device device);
 
   @SqlQuery("SELECT " + DEVICE_ID + " FROM accounts WHERE " + NUMBER + " = :number ORDER BY " + DEVICE_ID + " DESC LIMIT 1 FOR UPDATE")
   abstract long getHighestDeviceId(@Bind("number") String number);
 
   @Transaction(TransactionIsolationLevel.SERIALIZABLE)
-  public long insert(@AccountBinder Account account) {
-    account.setDeviceId(getHighestDeviceId(account.getNumber()) + 1);
-    return insertStep(account);
+  public long insert(@AccountBinder Device device) {
+    device.setDeviceId(getHighestDeviceId(device.getNumber()) + 1);
+    return insertStep(device);
   }
 
   @SqlUpdate("DELETE FROM accounts WHERE " + NUMBER + " = :number RETURNING id")
@@ -76,41 +76,41 @@ public abstract class Accounts {
              SIGNALING_KEY + " = :signaling_key, " + GCM_ID + " = :gcm_id, " + APN_ID + " = :apn_id, " +
              FETCHES_MESSAGES + " = :fetches_messages, " + SUPPORTS_SMS + " = :supports_sms " +
              "WHERE " + NUMBER + " = :number AND " + DEVICE_ID + " = :device_id")
-  abstract void update(@AccountBinder Account account);
+  abstract void update(@AccountBinder Device device);
 
   @Mapper(AccountMapper.class)
   @SqlQuery("SELECT * FROM accounts WHERE " + NUMBER + " = :number AND " + DEVICE_ID + " = :device_id")
-  abstract Account get(@Bind("number") String number, @Bind("device_id") long deviceId);
+  abstract Device get(@Bind("number") String number, @Bind("device_id") long deviceId);
 
   @SqlQuery("SELECT COUNT(DISTINCT " + NUMBER + ") from accounts")
   abstract long getNumberCount();
 
   @Mapper(AccountMapper.class)
   @SqlQuery("SELECT * FROM accounts WHERE " + DEVICE_ID + " = 1 OFFSET :offset LIMIT :limit")
-  abstract List<Account> getAllFirstAccounts(@Bind("offset") int offset, @Bind("limit") int length);
+  abstract List<Device> getAllFirstAccounts(@Bind("offset") int offset, @Bind("limit") int length);
 
   @Mapper(AccountMapper.class)
   @SqlQuery("SELECT * FROM accounts WHERE " + DEVICE_ID + " = 1")
-  public abstract Iterator<Account> getAllFirstAccounts();
+  public abstract Iterator<Device> getAllFirstAccounts();
 
   @Mapper(AccountMapper.class)
   @SqlQuery("SELECT * FROM accounts WHERE " + NUMBER + " = :number")
-  public abstract List<Account> getAllByNumber(@Bind("number") String number);
+  public abstract List<Device> getAllByNumber(@Bind("number") String number);
 
   @Transaction(TransactionIsolationLevel.SERIALIZABLE)
-  public long insertClearingNumber(Account account) {
-    removeAccountsByNumber(account.getNumber());
-    account.setDeviceId(getHighestDeviceId(account.getNumber()) + 1);
-    return insertStep(account);
+  public long insertClearingNumber(Device device) {
+    removeAccountsByNumber(device.getNumber());
+    device.setDeviceId(getHighestDeviceId(device.getNumber()) + 1);
+    return insertStep(device);
   }
 
-  public static class AccountMapper implements ResultSetMapper<Account> {
+  public static class AccountMapper implements ResultSetMapper<Device> {
 
     @Override
-    public Account map(int i, ResultSet resultSet, StatementContext statementContext)
+    public Device map(int i, ResultSet resultSet, StatementContext statementContext)
         throws SQLException
     {
-      return new Account(resultSet.getLong(ID), resultSet.getString(NUMBER), resultSet.getLong(DEVICE_ID),
+      return new Device(resultSet.getLong(ID), resultSet.getString(NUMBER), resultSet.getLong(DEVICE_ID),
                          resultSet.getString(AUTH_TOKEN), resultSet.getString(SALT),
                          resultSet.getString(SIGNALING_KEY), resultSet.getString(GCM_ID),
                          resultSet.getString(APN_ID),
@@ -125,23 +125,23 @@ public abstract class Accounts {
     public static class AccountBinderFactory implements BinderFactory {
       @Override
       public Binder build(Annotation annotation) {
-        return new Binder<AccountBinder, Account>() {
+        return new Binder<AccountBinder, Device>() {
           @Override
           public void bind(SQLStatement<?> sql,
                            AccountBinder accountBinder,
-                           Account account)
+                           Device device)
           {
-            sql.bind(ID, account.getId());
-            sql.bind(NUMBER, account.getNumber());
-            sql.bind(DEVICE_ID, account.getDeviceId());
-            sql.bind(AUTH_TOKEN, account.getAuthenticationCredentials()
+            sql.bind(ID, device.getId());
+            sql.bind(NUMBER, device.getNumber());
+            sql.bind(DEVICE_ID, device.getDeviceId());
+            sql.bind(AUTH_TOKEN, device.getAuthenticationCredentials()
                                         .getHashedAuthenticationToken());
-            sql.bind(SALT, account.getAuthenticationCredentials().getSalt());
-            sql.bind(SIGNALING_KEY, account.getSignalingKey());
-            sql.bind(GCM_ID, account.getGcmRegistrationId());
-            sql.bind(APN_ID, account.getApnRegistrationId());
-            sql.bind(SUPPORTS_SMS, account.getSupportsSms() ? 1 : 0);
-            sql.bind(FETCHES_MESSAGES, account.getFetchesMessages() ? 1 : 0);
+            sql.bind(SALT, device.getAuthenticationCredentials().getSalt());
+            sql.bind(SIGNALING_KEY, device.getSignalingKey());
+            sql.bind(GCM_ID, device.getGcmRegistrationId());
+            sql.bind(APN_ID, device.getApnRegistrationId());
+            sql.bind(SUPPORTS_SMS, device.getSupportsSms() ? 1 : 0);
+            sql.bind(FETCHES_MESSAGES, device.getFetchesMessages() ? 1 : 0);
           }
         };
       }

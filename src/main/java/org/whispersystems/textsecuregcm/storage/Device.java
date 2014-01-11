@@ -22,7 +22,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 
 import java.io.Serializable;
 
-public class Account implements Serializable {
+public class Device implements Serializable {
 
   public static final int MEMCACHE_VERION = 1;
 
@@ -42,11 +42,11 @@ public class Account implements Serializable {
   private boolean supportsSms;
   private boolean fetchesMessages;
 
-  public Account() {}
+  public Device() {}
 
-  public Account(long id, String number, long deviceId, String hashedAuthenticationToken, String salt,
-                 String signalingKey, String gcmRegistrationId, String apnRegistrationId,
-                 boolean supportsSms, boolean fetchesMessages)
+  public Device(long id, String number, long deviceId, String hashedAuthenticationToken, String salt,
+                String signalingKey, String gcmRegistrationId, String apnRegistrationId,
+                boolean supportsSms, boolean fetchesMessages)
   {
     this.id                        = id;
     this.number                    = number;

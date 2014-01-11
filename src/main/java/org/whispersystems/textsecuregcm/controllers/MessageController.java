@@ -28,7 +28,7 @@ import com.yammer.metrics.core.Timer;
 import com.yammer.metrics.core.TimerContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
+import org.whispersystems.textsecuregcm.auth.DeviceAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.InvalidAuthorizationHeaderException;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
@@ -41,7 +41,7 @@ import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.federation.NoSuchPeerException;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.PushSender;
-import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.IterablePair;
 import org.whispersystems.textsecuregcm.util.Pair;
@@ -74,19 +74,19 @@ public class MessageController extends HttpServlet {
   private final Logger logger       = LoggerFactory.getLogger(MessageController.class);
 
   private final RateLimiters           rateLimiters;
-  private final AccountAuthenticator   accountAuthenticator;
+  private final DeviceAuthenticator deviceAuthenticator;
   private final PushSender             pushSender;
   private final FederatedClientManager federatedClientManager;
   private final ObjectMapper           objectMapper;
   private final ExecutorService        executor;
 
   public MessageController(RateLimiters rateLimiters,
-                           AccountAuthenticator accountAuthenticator,
+                           DeviceAuthenticator deviceAuthenticator,
                            PushSender pushSender,
                            FederatedClientManager federatedClientManager)
   {
     this.rateLimiters           = rateLimiters;
-    this.accountAuthenticator   = accountAuthenticator;
+    this.deviceAuthenticator = deviceAuthenticator;
     this.pushSender             = pushSender;
     this.federatedClientManager = federatedClientManager;
     this.objectMapper           = new ObjectMapper();
@@ -98,13 +98,13 @@ public class MessageController extends HttpServlet {
     TimerContext timerContext = timer.time();
 
     try {
-      Account             sender   = authenticate(req);
+      Device sender   = authenticate(req);
       IncomingMessageList messages = parseIncomingMessages(req);
 
       rateLimiters.getMessagesLimiter().validate(sender.getNumber());
 
 
-      Map<Pair<String, Long>, Account> accountCache = new HashMap<>();
+      Map<Pair<String, Long>, Device> accountCache = new HashMap<>();
       List<String> numbersMissingDevices = new LinkedList<>();
 
       List<IncomingMessage>       incomingMessages = messages.getMessages();
@@ -140,7 +140,7 @@ public class MessageController extends HttpServlet {
   private void handleAsyncDelivery(final TimerContext timerContext,
                                    final AsyncContext context,
                                    final IterablePair<IncomingMessage, OutgoingMessageSignal> listPair,
-                                   final Map<Pair<String, Long>, Account> accountCache,
+                                   final Map<Pair<String, Long>, Device> accountCache,
                                    final List<String> numbersMissingDevices)
   {
     executor.submit(new Runnable() {
@@ -223,7 +223,7 @@ public class MessageController extends HttpServlet {
   @Nullable
   private List<OutgoingMessageSignal> getOutgoingMessageSignals(String sourceNumber,
                                                                 List<IncomingMessage> incomingMessages,
-                                                                Map<Pair<String, Long>, Account> accountCache,
+                                                                Map<Pair<String, Long>, Device> accountCache,
                                                                 List<String> numbersMissingDevices)
   {
     List<OutgoingMessageSignal> outgoingMessages = new LinkedList<>();
@@ -310,13 +310,13 @@ public class MessageController extends HttpServlet {
     return messages;
   }
 
-  private Account authenticate(HttpServletRequest request) throws AuthenticationException {
+  private Device authenticate(HttpServletRequest request) throws AuthenticationException {
     try {
       AuthorizationHeader authorizationHeader = AuthorizationHeader.fromFullHeader(request.getHeader("Authorization"));
       BasicCredentials    credentials         = new BasicCredentials(authorizationHeader.getNumber() + "." + authorizationHeader.getDeviceId(),
                                                                      authorizationHeader.getPassword()  );
 
-      Optional<Account> account = accountAuthenticator.authenticate(credentials);
+      Optional<Device> account = deviceAuthenticator.authenticate(credentials);
 
       if (account.isPresent()) return account.get();
       else                     throw new AuthenticationException("Bad credentials");
@@ -332,7 +332,7 @@ public class MessageController extends HttpServlet {
 //  @POST
 //  @Consumes(MediaType.APPLICATION_JSON)
 //  @Produces(MediaType.APPLICATION_JSON)
-//  public MessageResponse sendMessage(@Auth Account sender, IncomingMessageList messages)
+//  public MessageResponse sendMessage(@Auth Device sender, IncomingMessageList messages)
 //      throws IOException
 //  {
 //    List<String>                success          = new LinkedList<>();

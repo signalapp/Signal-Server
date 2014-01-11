@@ -27,7 +27,7 @@ import org.whispersystems.textsecuregcm.auth.AuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.InvalidAuthorizationHeaderException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.PendingDevicesManager;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
@@ -66,14 +66,15 @@ public class DeviceController {
 
   @Timed
   @GET
+  @Path("/provisioning_code")
   @Produces(MediaType.APPLICATION_JSON)
-  public VerificationCode createDeviceToken(@Auth Account account)
+  public VerificationCode createDeviceToken(@Auth Device device)
       throws RateLimitExceededException
   {
-    rateLimiters.getVerifyLimiter().validate(account.getNumber()); //TODO: New limiter?
+    rateLimiters.getVerifyLimiter().validate(device.getNumber()); //TODO: New limiter?
 
     VerificationCode verificationCode = generateVerificationCode();
-    pendingDevices.store(account.getNumber(), verificationCode.getVerificationCode());
+    pendingDevices.store(device.getNumber(), verificationCode.getVerificationCode());
 
     return verificationCode;
   }
@@ -88,7 +89,7 @@ public class DeviceController {
                                 @Valid                          AccountAttributes accountAttributes)
       throws RateLimitExceededException
   {
-    Account account;
+    Device device;
     try {
       AuthorizationHeader header = AuthorizationHeader.fromFullHeader(authorizationHeader);
       String number              = header.getNumber();
@@ -104,24 +105,24 @@ public class DeviceController {
         throw new WebApplicationException(Response.status(403).build());
       }
 
-      account = new Account();
-      account.setNumber(number);
-      account.setAuthenticationCredentials(new AuthenticationCredentials(password));
-      account.setSignalingKey(accountAttributes.getSignalingKey());
-      account.setSupportsSms(accountAttributes.getSupportsSms());
-      account.setFetchesMessages(accountAttributes.getFetchesMessages());
+      device = new Device();
+      device.setNumber(number);
+      device.setAuthenticationCredentials(new AuthenticationCredentials(password));
+      device.setSignalingKey(accountAttributes.getSignalingKey());
+      device.setSupportsSms(accountAttributes.getSupportsSms());
+      device.setFetchesMessages(accountAttributes.getFetchesMessages());
 
-      accounts.createAccountOnExistingNumber(account);
+      accounts.createAccountOnExistingNumber(device);
 
       pendingDevices.remove(number);
 
-      logger.debug("Stored new device account...");
+      logger.debug("Stored new device device...");
     } catch (InvalidAuthorizationHeaderException e) {
       logger.info("Bad Authorization Header", e);
       throw new WebApplicationException(Response.status(401).build());
     }
 
-    return account.getDeviceId();
+    return device.getDeviceId();
   }
 
   @VisibleForTesting protected VerificationCode generateVerificationCode() {

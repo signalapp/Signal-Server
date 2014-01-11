@@ -1,13 +1,13 @@
 package org.whispersystems.textsecuregcm.tests.util;
 
 import com.google.common.base.Optional;
-import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
+import org.whispersystems.textsecuregcm.auth.DeviceAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.FederatedPeerAuthenticator;
 import org.whispersystems.textsecuregcm.auth.MultiBasicAuthProvider;
 import org.whispersystems.textsecuregcm.configuration.FederationConfiguration;
 import org.whispersystems.textsecuregcm.federation.FederatedPeer;
-import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.util.Base64;
 
@@ -23,19 +23,19 @@ public class AuthHelper {
   public static final String INVVALID_NUMBER  = "+14151111111";
   public static final String INVALID_PASSWORD = "bar";
 
-  public static MultiBasicAuthProvider<FederatedPeer, Account> getAuthenticator() {
+  public static MultiBasicAuthProvider<FederatedPeer, Device> getAuthenticator() {
     AccountsManager           accounts    = mock(AccountsManager.class);
-    Account                   account     = mock(Account.class);
+    Device device = mock(Device.class);
     AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
 
     when(credentials.verify("foo")).thenReturn(true);
-    when(account.getAuthenticationCredentials()).thenReturn(credentials);
-    when(accounts.get(VALID_NUMBER, DEFAULT_DEVICE_ID)).thenReturn(Optional.of(account));
+    when(device.getAuthenticationCredentials()).thenReturn(credentials);
+    when(accounts.get(VALID_NUMBER, DEFAULT_DEVICE_ID)).thenReturn(Optional.of(device));
 
     return new MultiBasicAuthProvider<>(new FederatedPeerAuthenticator(new FederationConfiguration()),
                                         FederatedPeer.class,
-                                        new AccountAuthenticator(accounts),
-                                        Account.class, "WhisperServer");
+                                        new DeviceAuthenticator(accounts),
+                                        Device.class, "WhisperServer");
   }
 
   public static String getAuthHeader(String number, String password) {

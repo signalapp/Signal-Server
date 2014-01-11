@@ -20,7 +20,6 @@ import com.google.common.base.Optional;
 import com.yammer.dropwizard.Service;
 import com.yammer.dropwizard.config.Bootstrap;
 import com.yammer.dropwizard.config.Environment;
-import com.yammer.dropwizard.config.FilterBuilder;
 import com.yammer.dropwizard.db.DatabaseConfiguration;
 import com.yammer.dropwizard.jdbi.DBIFactory;
 import com.yammer.dropwizard.migrations.MigrationsBundle;
@@ -28,7 +27,7 @@ import com.yammer.metrics.reporting.GraphiteReporter;
 import net.spy.memcached.MemcachedClient;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.skife.jdbi.v2.DBI;
-import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
+import org.whispersystems.textsecuregcm.auth.DeviceAuthenticator;
 import org.whispersystems.textsecuregcm.auth.FederatedPeerAuthenticator;
 import org.whispersystems.textsecuregcm.auth.MultiBasicAuthProvider;
 import org.whispersystems.textsecuregcm.configuration.NexmoConfiguration;
@@ -52,7 +51,7 @@ import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.sms.NexmoSmsSender;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
-import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager;
@@ -67,7 +66,6 @@ import org.whispersystems.textsecuregcm.util.CORSHeaderFilter;
 import org.whispersystems.textsecuregcm.util.UrlSigner;
 import org.whispersystems.textsecuregcm.workers.DirectoryCommand;
 
-import java.io.IOException;
 import java.security.Security;
 import java.util.concurrent.TimeUnit;
 
@@ -111,7 +109,7 @@ public class WhisperServerService extends Service<WhisperServerConfiguration> {
     PendingAccountsManager   pendingAccountsManager = new PendingAccountsManager(pendingAccounts, memcachedClient);
     PendingDevicesManager    pendingDevicesManager  = new PendingDevicesManager(pendingDevices, memcachedClient);
     AccountsManager          accountsManager        = new AccountsManager(accounts, directory, memcachedClient);
-    AccountAuthenticator     accountAuthenticator   = new AccountAuthenticator(accountsManager                     );
+    DeviceAuthenticator      deviceAuthenticator    = new DeviceAuthenticator(accountsManager                     );
     FederatedClientManager   federatedClientManager = new FederatedClientManager(config.getFederationConfiguration());
     StoredMessageManager     storedMessageManager   = new StoredMessageManager(storedMessages);
     RateLimiters             rateLimiters           = new RateLimiters(config.getLimitsConfiguration(), memcachedClient);
@@ -126,8 +124,8 @@ public class WhisperServerService extends Service<WhisperServerConfiguration> {
 
     environment.addProvider(new MultiBasicAuthProvider<>(new FederatedPeerAuthenticator(config.getFederationConfiguration()),
                                                          FederatedPeer.class,
-                                                         accountAuthenticator,
-                                                         Account.class, "WhisperServer"));
+                                                         deviceAuthenticator,
+                                                         Device.class, "WhisperServer"));
 
     environment.addResource(new AccountController(pendingAccountsManager, accountsManager, rateLimiters, smsSender));
     environment.addResource(new DeviceController(pendingDevicesManager, accountsManager, rateLimiters));
@@ -136,7 +134,7 @@ public class WhisperServerService extends Service<WhisperServerConfiguration> {
     environment.addResource(new KeysController(rateLimiters, keys, accountsManager, federatedClientManager));
     environment.addResource(new FederationController(keys, accountsManager, pushSender, urlSigner));
 
-    environment.addServlet(new MessageController(rateLimiters, accountAuthenticator,
+    environment.addServlet(new MessageController(rateLimiters, deviceAuthenticator,
                                                  pushSender, federatedClientManager),
                            MessageController.PATH);
 

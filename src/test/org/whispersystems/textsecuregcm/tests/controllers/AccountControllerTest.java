@@ -11,15 +11,12 @@ import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
-import org.whispersystems.textsecuregcm.controllers.DeviceController;
-import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
-import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
-import org.whispersystems.textsecuregcm.storage.PendingDevicesManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
 
@@ -80,10 +77,10 @@ public class AccountControllerTest extends ResourceTest {
     Mockito.doAnswer(new Answer() {
       @Override
       public Object answer(InvocationOnMock invocation) throws Throwable {
-        ((Account)invocation.getArguments()[0]).setDeviceId(2);
+        ((Device)invocation.getArguments()[0]).setDeviceId(2);
         return null;
       }
-    }).when(accountsManager).createAccountOnExistingNumber(any(Account.class));
+    }).when(accountsManager).createAccountOnExistingNumber(any(Device.class));
 
     addResource(new DumbVerificationAccountController(pendingAccountsManager, accountsManager, rateLimiters, smsSender));
   }
@@ -110,7 +107,7 @@ public class AccountControllerTest extends ResourceTest {
 
     assertThat(response.getStatus()).isEqualTo(204);
 
-    verify(accountsManager).createResetNumber(isA(Account.class));
+    verify(accountsManager).createResetNumber(isA(Device.class));
 
     ArgumentCaptor<String> number = ArgumentCaptor.forClass(String.class);
     verify(pendingAccountsManager).remove(number.capture());

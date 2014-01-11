@@ -9,12 +9,11 @@ import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.entities.UnstructuredPreKeyList;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Keys;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
-import javax.jws.WebResult;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -31,7 +30,7 @@ public class KeyControllerTest extends ResourceTest {
   private final PreKey SAMPLE_KEY2 = new PreKey(2, EXISTS_NUMBER, 2, 5667, "test3", "test4", false);
   private final Keys   keys        = mock(Keys.class);
 
-  Account[] fakeAccount;
+  Device[] fakeDevice;
 
   @Override
   protected void setUpResources() {
@@ -41,20 +40,20 @@ public class KeyControllerTest extends ResourceTest {
     RateLimiter     rateLimiter  = mock(RateLimiter.class );
     AccountsManager accounts     = mock(AccountsManager.class);
 
-    fakeAccount = new Account[2];
-    fakeAccount[0] = mock(Account.class);
-    fakeAccount[1] = mock(Account.class);
+    fakeDevice = new Device[2];
+    fakeDevice[0] = mock(Device.class);
+    fakeDevice[1] = mock(Device.class);
 
     when(rateLimiters.getPreKeysLimiter()).thenReturn(rateLimiter);
 
     when(keys.get(eq(EXISTS_NUMBER), anyList())).thenReturn(new UnstructuredPreKeyList(Arrays.asList(SAMPLE_KEY, SAMPLE_KEY2)));
     when(keys.get(eq(NOT_EXISTS_NUMBER), anyList())).thenReturn(null);
 
-    when(fakeAccount[0].getDeviceId()).thenReturn(AuthHelper.DEFAULT_DEVICE_ID);
-    when(fakeAccount[1].getDeviceId()).thenReturn((long) 2);
+    when(fakeDevice[0].getDeviceId()).thenReturn(AuthHelper.DEFAULT_DEVICE_ID);
+    when(fakeDevice[1].getDeviceId()).thenReturn((long) 2);
 
-    when(accounts.getAllByNumber(EXISTS_NUMBER)).thenReturn(Arrays.asList(fakeAccount[0], fakeAccount[1]));
-    when(accounts.getAllByNumber(NOT_EXISTS_NUMBER)).thenReturn(new LinkedList<Account>());
+    when(accounts.getAllByNumber(EXISTS_NUMBER)).thenReturn(Arrays.asList(fakeDevice[0], fakeDevice[1]));
+    when(accounts.getAllByNumber(NOT_EXISTS_NUMBER)).thenReturn(new LinkedList<Device>());
 
     addResource(new KeysController(rateLimiters, keys, accounts, null));
   }
@@ -72,7 +71,7 @@ public class KeyControllerTest extends ResourceTest {
     assertThat(result.getId() == 0);
     assertThat(result.getNumber() == null);
 
-    verify(keys).get(eq(EXISTS_NUMBER), eq(Arrays.asList(fakeAccount)));
+    verify(keys).get(eq(EXISTS_NUMBER), eq(Arrays.asList(fakeDevice)));
     verifyNoMoreInteractions(keys);
 
     List<PreKey> results = client().resource(String.format("/v1/keys/%s?multikeys", EXISTS_NUMBER))
@@ -96,7 +95,7 @@ public class KeyControllerTest extends ResourceTest {
     assertThat(result.getId() == 1);
     assertThat(result.getNumber() == null);
 
-    verify(keys, times(2)).get(eq(EXISTS_NUMBER), eq(Arrays.asList(fakeAccount[0], fakeAccount[1])));
+    verify(keys, times(2)).get(eq(EXISTS_NUMBER), eq(Arrays.asList(fakeDevice[0], fakeDevice[1])));
     verifyNoMoreInteractions(keys);
   }
 
@@ -108,7 +107,7 @@ public class KeyControllerTest extends ResourceTest {
 
     assertThat(response.getClientResponseStatus().getStatusCode()).isEqualTo(404);
 
-    verify(keys).get(NOT_EXISTS_NUMBER, new LinkedList<Account>());
+    verify(keys).get(NOT_EXISTS_NUMBER, new LinkedList<Device>());
   }
 
   @Test

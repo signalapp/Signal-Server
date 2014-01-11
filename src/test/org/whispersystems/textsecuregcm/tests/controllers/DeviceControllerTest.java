@@ -27,7 +27,7 @@ import org.whispersystems.textsecuregcm.controllers.DeviceController;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.PendingDevicesManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
@@ -75,17 +75,17 @@ public class DeviceControllerTest extends ResourceTest {
     Mockito.doAnswer(new Answer() {
       @Override
       public Object answer(InvocationOnMock invocation) throws Throwable {
-        ((Account) invocation.getArguments()[0]).setDeviceId(2);
+        ((Device) invocation.getArguments()[0]).setDeviceId(2);
         return null;
       }
-    }).when(accountsManager).createAccountOnExistingNumber(any(Account.class));
+    }).when(accountsManager).createAccountOnExistingNumber(any(Device.class));
 
     addResource(new DumbVerificationDeviceController(pendingDevicesManager, accountsManager, rateLimiters));
   }
 
   @Test
   public void validDeviceRegisterTest() throws Exception {
-    VerificationCode deviceCode = client().resource("/v1/devices/")
+    VerificationCode deviceCode = client().resource("/v1/devices/provisioning_code")
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .get(VerificationCode.class);
 
@@ -98,7 +98,7 @@ public class DeviceControllerTest extends ResourceTest {
         .put(Long.class);
     assertThat(deviceId).isNotEqualTo(AuthHelper.DEFAULT_DEVICE_ID);
 
-    ArgumentCaptor<Account> newAccount = ArgumentCaptor.forClass(Account.class);
+    ArgumentCaptor<Device> newAccount = ArgumentCaptor.forClass(Device.class);
     verify(accountsManager).createAccountOnExistingNumber(newAccount.capture());
     assertThat(deviceId).isEqualTo(newAccount.getValue().getDeviceId());
 

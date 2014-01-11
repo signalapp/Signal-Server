@@ -32,7 +32,7 @@ import org.whispersystems.textsecuregcm.entities.RelayMessage;
 import org.whispersystems.textsecuregcm.entities.UnstructuredPreKeyList;
 import org.whispersystems.textsecuregcm.federation.FederatedPeer;
 import org.whispersystems.textsecuregcm.push.PushSender;
-import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Keys;
 import org.whispersystems.textsecuregcm.util.Pair;
@@ -124,7 +124,7 @@ public class FederationController {
         deviceIds.second().add(message.getDestinationDeviceId());
       }
 
-      Map<Pair<String, Long>, Account> accountCache = new HashMap<>();
+      Map<Pair<String, Long>, Device> accountCache = new HashMap<>();
       List<String> numbersMissingDevices = new LinkedList<>();
       pushSender.fillLocalAccountsCache(destinations, accountCache, numbersMissingDevices);
 
@@ -132,15 +132,15 @@ public class FederationController {
       List<String> failure = new LinkedList<>(numbersMissingDevices);
 
       for (RelayMessage message : messages) {
-        Account account = accountCache.get(new Pair<>(message.getDestination(), message.getDestinationDeviceId()));
-        if (account == null)
+        Device device = accountCache.get(new Pair<>(message.getDestination(), message.getDestinationDeviceId()));
+        if (device == null)
           continue;
         OutgoingMessageSignal signal = OutgoingMessageSignal.parseFrom(message.getOutgoingMessageSignal())
                                                             .toBuilder()
                                                             .setRelay(peer.getName())
                                                             .build();
         try {
-          pushSender.sendMessage(account, signal);
+          pushSender.sendMessage(device, signal);
         } catch (NoSuchUserException e) {
           logger.info("No such user", e);
           failure.add(message.getDestination());
@@ -169,14 +169,14 @@ public class FederationController {
   public ClientContacts getUserTokens(@Auth                FederatedPeer peer,
                                       @PathParam("offset") int offset)
   {
-    List<Account>        numberList    = accounts.getAllMasterAccounts(offset, ACCOUNT_CHUNK_SIZE);
+    List<Device>        numberList    = accounts.getAllMasterAccounts(offset, ACCOUNT_CHUNK_SIZE);
     List<ClientContact> clientContacts = new LinkedList<>();
 
-    for (Account account : numberList) {
-      byte[]        token         = Util.getContactToken(account.getNumber());
-      ClientContact clientContact = new ClientContact(token, null, account.getSupportsSms());
+    for (Device device : numberList) {
+      byte[]        token         = Util.getContactToken(device.getNumber());
+      ClientContact clientContact = new ClientContact(token, null, device.getSupportsSms());
 
-      if (!account.isActive())
+      if (!device.isActive())
         clientContact.setInactive(true);
 
       clientContacts.add(clientContact);
