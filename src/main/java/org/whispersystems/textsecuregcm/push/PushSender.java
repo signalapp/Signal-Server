@@ -25,79 +25,83 @@ import org.whispersystems.textsecuregcm.controllers.NoSuchUserException;
 import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager;
+import org.whispersystems.textsecuregcm.storage.StoredMessageManager;
+import org.whispersystems.textsecuregcm.util.Pair;
 
 import java.io.IOException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class PushSender {
 
   private final Logger logger = LoggerFactory.getLogger(PushSender.class);
 
   private final AccountsManager  accounts;
-  private final DirectoryManager directory;
 
   private final GCMSender gcmSender;
   private final APNSender apnSender;
+  private final StoredMessageManager storedMessageManager;
 
   public PushSender(GcmConfiguration gcmConfiguration,
                     ApnConfiguration apnConfiguration,
+                    StoredMessageManager storedMessageManager,
                     AccountsManager accounts,
                     DirectoryManager directory)
       throws CertificateException, NoSuchAlgorithmException, KeyStoreException, IOException
   {
     this.accounts  = accounts;
-    this.directory = directory;
 
-    this.gcmSender = new GCMSender(gcmConfiguration.getApiKey());
-    this.apnSender = new APNSender(apnConfiguration.getCertificate(), apnConfiguration.getKey());
+    this.storedMessageManager = storedMessageManager;
+    this.gcmSender            = new GCMSender(gcmConfiguration.getApiKey());
+    this.apnSender            = new APNSender(apnConfiguration.getCertificate(), apnConfiguration.getKey());
   }
 
-  public void sendMessage(String destination, MessageProtos.OutgoingMessageSignal outgoingMessage)
+  public void sendMessage(Device device, MessageProtos.OutgoingMessageSignal outgoingMessage)
       throws IOException, NoSuchUserException
   {
-    Optional<Account> account = accounts.get(destination);
-
-    if (!account.isPresent()) {
-      directory.remove(destination);
-      throw new NoSuchUserException("No such local destination: " + destination);
-    }
-
-    String signalingKey              = account.get().getSignalingKey();
+    String signalingKey              = device.getSignalingKey();
     EncryptedOutgoingMessage message = new EncryptedOutgoingMessage(outgoingMessage, signalingKey);
 
-    if      (account.get().getGcmRegistrationId() != null) sendGcmMessage(account.get(), message);
-    else if (account.get().getApnRegistrationId() != null) sendApnMessage(account.get(), message);
-    else                                             throw new NoSuchUserException("No push identifier!");
+    if      (device.getGcmRegistrationId() != null) sendGcmMessage(device, message);
+    else if (device.getApnRegistrationId() != null) sendApnMessage(device, message);
+    else if (device.getFetchesMessages())           storeFetchedMessage(device, message);
+    else                                            throw new NoSuchUserException("No push identifier!");
   }
 
-  private void sendGcmMessage(Account account, EncryptedOutgoingMessage outgoingMessage)
+  private void sendGcmMessage(Device device, EncryptedOutgoingMessage outgoingMessage)
       throws IOException, NoSuchUserException
   {
     try {
-      String canonicalId = gcmSender.sendMessage(account.getGcmRegistrationId(),
+      String canonicalId = gcmSender.sendMessage(device.getGcmRegistrationId(),
                                                  outgoingMessage);
 
       if (canonicalId != null) {
-        account.setGcmRegistrationId(canonicalId);
-        accounts.update(account);
+        device.setGcmRegistrationId(canonicalId);
+        accounts.update(device);
       }
 
     } catch (NoSuchUserException e) {
       logger.debug("No Such User", e);
-      account.setGcmRegistrationId(null);
-      accounts.update(account);
+      device.setGcmRegistrationId(null);
+      accounts.update(device);
       throw new NoSuchUserException("User no longer exists in GCM.");
     }
   }
 
-  private void sendApnMessage(Account account, EncryptedOutgoingMessage outgoingMessage)
+  private void sendApnMessage(Device device, EncryptedOutgoingMessage outgoingMessage)
       throws IOException
   {
-    apnSender.sendMessage(account.getApnRegistrationId(), outgoingMessage);
+    apnSender.sendMessage(device.getApnRegistrationId(), outgoingMessage);
   }
 
+  private void storeFetchedMessage(Device device, EncryptedOutgoingMessage outgoingMessage) throws IOException {
+    storedMessageManager.storeMessage(device, outgoingMessage);
+  }
 }

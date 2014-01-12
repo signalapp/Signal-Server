@@ -17,6 +17,7 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 import com.amazonaws.HttpMethod;
+import com.google.common.base.Optional;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.yammer.dropwizard.auth.Auth;
 import com.yammer.metrics.annotation.Timed;
@@ -27,13 +28,16 @@ import org.whispersystems.textsecuregcm.entities.AttachmentUri;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.entities.ClientContacts;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
-import org.whispersystems.textsecuregcm.entities.PreKey;
+import org.whispersystems.textsecuregcm.entities.MessageResponse;
 import org.whispersystems.textsecuregcm.entities.RelayMessage;
+import org.whispersystems.textsecuregcm.entities.UnstructuredPreKeyList;
 import org.whispersystems.textsecuregcm.federation.FederatedPeer;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Keys;
+import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.UrlSigner;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -49,8 +53,14 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static com.google.common.base.Preconditions.checkState;
 
 @Path("/v1/federation")
 public class FederationController {
@@ -86,38 +96,73 @@ public class FederationController {
   @GET
   @Path("/key/{number}")
   @Produces(MediaType.APPLICATION_JSON)
-  public PreKey getKey(@Auth                FederatedPeer peer,
-                       @PathParam("number") String number)
+  public UnstructuredPreKeyList getKey(@Auth                FederatedPeer peer,
+                                       @PathParam("number") String number)
   {
-    PreKey preKey = keys.get(number);
-
-    if (preKey == null) {
+    Optional<Account> account = accounts.getAccount(number);
+    UnstructuredPreKeyList keyList = null;
+    if (account.isPresent())
+      keyList = keys.get(number, account.get());
+    if (!account.isPresent() || keyList.getKeys().isEmpty())
       throw new WebApplicationException(Response.status(404).build());
-    }
-
-    return preKey;
+    return keyList;
   }
 
   @Timed
   @PUT
   @Path("/message")
   @Consumes(MediaType.APPLICATION_JSON)
-  public void relayMessage(@Auth FederatedPeer peer, @Valid RelayMessage message)
+  @Produces(MediaType.APPLICATION_JSON)
+  public MessageResponse relayMessage(@Auth FederatedPeer peer, @Valid List<RelayMessage> messages)
       throws IOException
   {
     try {
-      OutgoingMessageSignal signal = OutgoingMessageSignal.parseFrom(message.getOutgoingMessageSignal())
-                                                          .toBuilder()
-                                                          .setRelay(peer.getName())
-                                                          .build();
+      Map<String, Set<Long>> localDestinations = new HashMap<>();
+      for (RelayMessage message : messages) {
+        Set<Long> deviceIds = localDestinations.get(message.getDestination());
+        if (deviceIds == null) {
+          deviceIds = new HashSet<>();
+          localDestinations.put(message.getDestination(), deviceIds);
+        }
+        deviceIds.add(message.getDestinationDeviceId());
+      }
 
-      pushSender.sendMessage(message.getDestination(), signal);
+      List<Account> localAccounts = null;
+      try {
+        localAccounts = accounts.getAccountsForDevices(localDestinations);
+      } catch (MissingDevicesException e) {
+        return new MessageResponse(e.missingNumbers);
+      }
+
+      List<String>         success               = new LinkedList<>();
+      List<String>         failure               = new LinkedList<>();
+
+      for (RelayMessage message : messages) {
+        Account destinationAccount = null;
+        for (Account account : localAccounts)
+          if (account.getNumber().equals(message.getDestination()))
+            destinationAccount= account;
+
+        checkState(destinationAccount != null);
+
+        Device device = destinationAccount.getDevice(message.getDestinationDeviceId());
+        OutgoingMessageSignal signal = OutgoingMessageSignal.parseFrom(message.getOutgoingMessageSignal())
+                                                            .toBuilder()
+                                                            .setRelay(peer.getName())
+                                                            .build();
+        try {
+          pushSender.sendMessage(device, signal);
+          success.add(device.getBackwardsCompatibleNumberEncoding());
+        } catch (NoSuchUserException e) {
+          logger.info("No such user", e);
+          failure.add(device.getBackwardsCompatibleNumberEncoding());
+        }
+      }
+
+      return new MessageResponse(success, failure);
     } catch (InvalidProtocolBufferException ipe) {
       logger.warn("ProtoBuf", ipe);
       throw new WebApplicationException(Response.status(400).build());
-    } catch (NoSuchUserException e) {
-      logger.debug("No User", e);
-      throw new WebApplicationException(Response.status(404).build());
     }
   }
 
@@ -136,18 +181,15 @@ public class FederationController {
   public ClientContacts getUserTokens(@Auth                FederatedPeer peer,
                                       @PathParam("offset") int offset)
   {
-    List<Account>       accountList    = accounts.getAll(offset, ACCOUNT_CHUNK_SIZE);
+    List<Device>         numberList    = accounts.getAllMasterDevices(offset, ACCOUNT_CHUNK_SIZE);
     List<ClientContact> clientContacts = new LinkedList<>();
 
-    for (Account account : accountList) {
-      byte[]        token         = Util.getContactToken(account.getNumber());
-      ClientContact clientContact = new ClientContact(token, null, account.getSupportsSms());
+    for (Device device : numberList) {
+      byte[]        token         = Util.getContactToken(device.getNumber());
+      ClientContact clientContact = new ClientContact(token, null, device.getSupportsSms());
 
-      if (Util.isEmpty(account.getApnRegistrationId()) &&
-          Util.isEmpty(account.getGcmRegistrationId()))
-      {
+      if (!device.isActive())
         clientContact.setInactive(true);
-      }
 
       clientContacts.add(clientContact);
     }

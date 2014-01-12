@@ -1,26 +1,61 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Optional;
 import com.sun.jersey.api.client.ClientResponse;
 import com.yammer.dropwizard.testing.ResourceTest;
+import org.hibernate.validator.constraints.NotEmpty;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
-import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.util.VerificationCode;
 
+import javax.ws.rs.Path;
 import javax.ws.rs.core.MediaType;
 
 import static org.fest.assertions.api.Assertions.assertThat;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.*;
 
 public class AccountControllerTest extends ResourceTest {
+  /** The AccountAttributes used in protocol v1 (no fetchesMessages) */
+  static class V1AccountAttributes {
+    @JsonProperty
+    @NotEmpty
+    private String signalingKey;
+
+    @JsonProperty
+    private boolean supportsSms;
+
+    public V1AccountAttributes(String signalingKey, boolean supportsSms) {
+      this.signalingKey = signalingKey;
+      this.supportsSms  = supportsSms;
+    }
+  }
+
+  @Path("/v1/accounts")
+  static class DumbVerificationAccountController extends AccountController {
+    public DumbVerificationAccountController(PendingAccountsManager pendingAccounts, AccountsManager accounts, RateLimiters rateLimiters, SmsSender smsSenderFactory) {
+      super(pendingAccounts, accounts, rateLimiters, smsSenderFactory);
+    }
+
+    @Override
+    protected VerificationCode generateVerificationCode() {
+      return new VerificationCode(5678901);
+    }
+  }
 
   private static final String SENDER = "+14152222222";
 
@@ -40,10 +75,15 @@ public class AccountControllerTest extends ResourceTest {
 
     when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of("1234"));
 
-    addResource(new AccountController(pendingAccountsManager,
-                                      accountsManager,
-                                      rateLimiters,
-                                      smsSender));
+    Mockito.doAnswer(new Answer() {
+      @Override
+      public Object answer(InvocationOnMock invocation) throws Throwable {
+        ((Device)invocation.getArguments()[0]).setDeviceId(2);
+        return null;
+      }
+    }).when(accountsManager).provisionDevice(any(Device.class));
+
+    addResource(new DumbVerificationAccountController(pendingAccountsManager, accountsManager, rateLimiters, smsSender));
   }
 
   @Test
@@ -62,13 +102,17 @@ public class AccountControllerTest extends ResourceTest {
     ClientResponse response =
         client().resource(String.format("/v1/accounts/code/%s", "1234"))
             .header("Authorization", AuthHelper.getAuthHeader(SENDER, "bar"))
-            .entity(new AccountAttributes("keykeykeykey", false))
+            .entity(new V1AccountAttributes("keykeykeykey", false))
             .type(MediaType.APPLICATION_JSON_TYPE)
             .put(ClientResponse.class);
 
     assertThat(response.getStatus()).isEqualTo(204);
 
     verify(accountsManager).create(isA(Account.class));
+
+    ArgumentCaptor<String> number = ArgumentCaptor.forClass(String.class);
+    verify(pendingAccountsManager).remove(number.capture());
+    assertThat(number.getValue()).isEqualTo(SENDER);
   }
 
   @Test
@@ -76,7 +120,7 @@ public class AccountControllerTest extends ResourceTest {
     ClientResponse response =
         client().resource(String.format("/v1/accounts/code/%s", "1111"))
             .header("Authorization", AuthHelper.getAuthHeader(SENDER, "bar"))
-            .entity(new AccountAttributes("keykeykeykey", false))
+            .entity(new V1AccountAttributes("keykeykeykey", false))
             .type(MediaType.APPLICATION_JSON_TYPE)
             .put(ClientResponse.class);
 

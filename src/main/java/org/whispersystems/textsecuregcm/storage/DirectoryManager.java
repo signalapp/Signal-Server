@@ -21,6 +21,7 @@ import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.util.IterablePair;
+import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.util.LinkedList;
@@ -110,7 +111,7 @@ public class DirectoryManager {
 
       IterablePair<byte[], Response<byte[]>> lists = new IterablePair<>(tokens, futures);
 
-      for (IterablePair.Pair<byte[], Response<byte[]>> pair : lists) {
+      for (Pair<byte[], Response<byte[]>> pair : lists) {
         if (pair.second().get() != null) {
           TokenValue    tokenValue    = new Gson().fromJson(new String(pair.second().get()), TokenValue.class);
           ClientContact clientContact = new ClientContact(pair.first(), tokenValue.relay, tokenValue.supportsSms);

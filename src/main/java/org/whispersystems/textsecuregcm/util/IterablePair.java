@@ -19,7 +19,7 @@ package org.whispersystems.textsecuregcm.util;
 import java.util.Iterator;
 import java.util.List;
 
-public class IterablePair <T1, T2> implements Iterable<IterablePair.Pair<T1,T2>> {
+public class IterablePair <T1, T2> implements Iterable<Pair<T1,T2>> {
   private final List<T1> first;
   private final List<T2> second;
 
@@ -31,24 +31,6 @@ public class IterablePair <T1, T2> implements Iterable<IterablePair.Pair<T1,T2>>
   @Override
   public Iterator<Pair<T1, T2>> iterator(){
     return new ParallelIterator<>( first.iterator(), second.iterator() );
-  }
-
-  public static class Pair<T1, T2> {
-    private final T1 v1;
-    private final T2 v2;
-
-    Pair(T1 v1, T2 v2) {
-      this.v1 = v1;
-      this.v2 = v2;
-    }
-
-    public T1 first(){
-      return v1;
-    }
-
-    public T2 second(){
-      return v2;
-    }
   }
 
   public static class ParallelIterator <T1, T2> implements Iterator<Pair<T1, T2>> {

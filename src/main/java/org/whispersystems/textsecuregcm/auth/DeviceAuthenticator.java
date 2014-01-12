@@ -24,42 +24,48 @@ import com.yammer.metrics.Metrics;
 import com.yammer.metrics.core.Meter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 
 import java.util.concurrent.TimeUnit;
 
-public class AccountAuthenticator implements Authenticator<BasicCredentials, Account> {
+public class DeviceAuthenticator implements Authenticator<BasicCredentials, Device> {
 
-  private final Meter authenticationFailedMeter    = Metrics.newMeter(AccountAuthenticator.class,
+  private final Meter authenticationFailedMeter    = Metrics.newMeter(DeviceAuthenticator.class,
                                                                       "authentication", "failed",
                                                                       TimeUnit.MINUTES);
 
-  private final Meter authenticationSucceededMeter = Metrics.newMeter(AccountAuthenticator.class,
+  private final Meter authenticationSucceededMeter = Metrics.newMeter(DeviceAuthenticator.class,
                                                                       "authentication", "succeeded",
                                                                       TimeUnit.MINUTES);
 
-  private final Logger logger = LoggerFactory.getLogger(AccountAuthenticator.class);
+  private final Logger logger = LoggerFactory.getLogger(DeviceAuthenticator.class);
 
   private final AccountsManager accountsManager;
 
-  public AccountAuthenticator(AccountsManager accountsManager) {
+  public DeviceAuthenticator(AccountsManager accountsManager) {
     this.accountsManager = accountsManager;
   }
 
   @Override
-  public Optional<Account> authenticate(BasicCredentials basicCredentials)
+  public Optional<Device> authenticate(BasicCredentials basicCredentials)
       throws AuthenticationException
   {
-    Optional<Account> account = accountsManager.get(basicCredentials.getUsername());
+    AuthorizationHeader authorizationHeader;
+    try {
+      authorizationHeader = AuthorizationHeader.fromUserAndPassword(basicCredentials.getUsername(), basicCredentials.getPassword());
+    } catch (InvalidAuthorizationHeaderException iahe) {
+      return Optional.absent();
+    }
+    Optional<Device> device = accountsManager.get(authorizationHeader.getNumber(), authorizationHeader.getDeviceId());
 
-    if (!account.isPresent()) {
+    if (!device.isPresent()) {
       return Optional.absent();
     }
 
-    if (account.get().getAuthenticationCredentials().verify(basicCredentials.getPassword())) {
+    if (device.get().getAuthenticationCredentials().verify(basicCredentials.getPassword())) {
       authenticationSucceededMeter.mark();
-      return account;
+      return device;
     }
 
     authenticationFailedMeter.mark();

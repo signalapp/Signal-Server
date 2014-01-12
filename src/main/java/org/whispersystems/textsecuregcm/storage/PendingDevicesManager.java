@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013 Open WhisperSystems
+ * Copyright (C) 2014 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -19,17 +19,17 @@ package org.whispersystems.textsecuregcm.storage;
 import com.google.common.base.Optional;
 import net.spy.memcached.MemcachedClient;
 
-public class PendingAccountsManager {
+public class PendingDevicesManager {
 
-  private static final String MEMCACHE_PREFIX = "pending_account";
+  private static final String MEMCACHE_PREFIX = "pending_devices";
 
-  private final PendingAccounts pendingAccounts;
-  private final MemcachedClient memcachedClient;
+  private final PendingDeviceRegistrations pendingDevices;
+  private final MemcachedClient            memcachedClient;
 
-  public PendingAccountsManager(PendingAccounts pendingAccounts,
-                                MemcachedClient memcachedClient)
+  public PendingDevicesManager(PendingDeviceRegistrations pendingDevices,
+                               MemcachedClient memcachedClient)
   {
-    this.pendingAccounts = pendingAccounts;
+    this.pendingDevices  = pendingDevices;
     this.memcachedClient = memcachedClient;
   }
 
@@ -38,13 +38,13 @@ public class PendingAccountsManager {
       memcachedClient.set(MEMCACHE_PREFIX + number, 0, code);
     }
 
-    pendingAccounts.insert(number, code);
+    pendingDevices.insert(number, code);
   }
 
   public void remove(String number) {
     if (memcachedClient != null)
       memcachedClient.delete(MEMCACHE_PREFIX + number);
-    pendingAccounts.remove(number);
+    pendingDevices.remove(number);
   }
 
   public Optional<String> getCodeForNumber(String number) {
@@ -55,7 +55,7 @@ public class PendingAccountsManager {
     }
 
     if (code == null) {
-      code = pendingAccounts.getCodeForNumber(number);
+      code = pendingDevices.getCodeForNumber(number);
 
       if (code != null && memcachedClient != null) {
         memcachedClient.set(MEMCACHE_PREFIX + number, 0, code);

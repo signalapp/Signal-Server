@@ -27,11 +27,12 @@ import com.yammer.metrics.reporting.GraphiteReporter;
 import net.spy.memcached.MemcachedClient;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.skife.jdbi.v2.DBI;
-import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
+import org.whispersystems.textsecuregcm.auth.DeviceAuthenticator;
 import org.whispersystems.textsecuregcm.auth.FederatedPeerAuthenticator;
 import org.whispersystems.textsecuregcm.auth.MultiBasicAuthProvider;
 import org.whispersystems.textsecuregcm.configuration.NexmoConfiguration;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
+import org.whispersystems.textsecuregcm.controllers.DeviceController;
 import org.whispersystems.textsecuregcm.controllers.AttachmentController;
 import org.whispersystems.textsecuregcm.controllers.DirectoryController;
 import org.whispersystems.textsecuregcm.controllers.FederationController;
@@ -50,13 +51,18 @@ import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.sms.NexmoSmsSender;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
-import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager;
 import org.whispersystems.textsecuregcm.storage.Keys;
 import org.whispersystems.textsecuregcm.storage.PendingAccounts;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
+import org.whispersystems.textsecuregcm.storage.PendingDeviceRegistrations;
+import org.whispersystems.textsecuregcm.storage.PendingDevicesManager;
+import org.whispersystems.textsecuregcm.storage.StoredMessageManager;
+import org.whispersystems.textsecuregcm.storage.StoredMessages;
+import org.whispersystems.textsecuregcm.util.CORSHeaderFilter;
 import org.whispersystems.textsecuregcm.util.UrlSigner;
 import org.whispersystems.textsecuregcm.workers.DirectoryCommand;
 
@@ -90,18 +96,22 @@ public class WhisperServerService extends Service<WhisperServerConfiguration> {
     DBIFactory dbiFactory = new DBIFactory();
     DBI        jdbi       = dbiFactory.build(environment, config.getDatabaseConfiguration(), "postgresql");
 
-    Accounts        accounts        = jdbi.onDemand(Accounts.class);
-    PendingAccounts pendingAccounts = jdbi.onDemand(PendingAccounts.class);
-    Keys            keys            = jdbi.onDemand(Keys.class);
+    Accounts                   accounts        = jdbi.onDemand(Accounts.class);
+    PendingAccounts            pendingAccounts = jdbi.onDemand(PendingAccounts.class);
+    PendingDeviceRegistrations pendingDevices  = jdbi.onDemand(PendingDeviceRegistrations.class);
+    Keys                       keys            = jdbi.onDemand(Keys.class);
+    StoredMessages             storedMessages  = jdbi.onDemand(StoredMessages.class);
 
     MemcachedClient memcachedClient = new MemcachedClientFactory(config.getMemcacheConfiguration()).getClient();
     JedisPool       redisClient     = new RedisClientFactory(config.getRedisConfiguration()).getRedisClientPool();
 
     DirectoryManager         directory              = new DirectoryManager(redisClient);
     PendingAccountsManager   pendingAccountsManager = new PendingAccountsManager(pendingAccounts, memcachedClient);
+    PendingDevicesManager    pendingDevicesManager  = new PendingDevicesManager(pendingDevices, memcachedClient);
     AccountsManager          accountsManager        = new AccountsManager(accounts, directory, memcachedClient);
-    AccountAuthenticator     accountAuthenticator   = new AccountAuthenticator(accountsManager                     );
+    DeviceAuthenticator      deviceAuthenticator    = new DeviceAuthenticator(accountsManager                     );
     FederatedClientManager   federatedClientManager = new FederatedClientManager(config.getFederationConfiguration());
+    StoredMessageManager     storedMessageManager   = new StoredMessageManager(storedMessages);
     RateLimiters             rateLimiters           = new RateLimiters(config.getLimitsConfiguration(), memcachedClient);
     TwilioSmsSender          twilioSmsSender        = new TwilioSmsSender(config.getTwilioConfiguration());
     Optional<NexmoSmsSender> nexmoSmsSender         = initializeNexmoSmsSender(config.getNexmoConfiguration());
@@ -109,21 +119,23 @@ public class WhisperServerService extends Service<WhisperServerConfiguration> {
     UrlSigner                urlSigner              = new UrlSigner(config.getS3Configuration());
     PushSender               pushSender             = new PushSender(config.getGcmConfiguration(),
                                                                      config.getApnConfiguration(),
+                                                                     storedMessageManager,
                                                                      accountsManager, directory);
 
     environment.addProvider(new MultiBasicAuthProvider<>(new FederatedPeerAuthenticator(config.getFederationConfiguration()),
                                                          FederatedPeer.class,
-                                                         accountAuthenticator,
-                                                         Account.class, "WhisperServer"));
+                                                         deviceAuthenticator,
+                                                         Device.class, "WhisperServer"));
 
     environment.addResource(new AccountController(pendingAccountsManager, accountsManager, rateLimiters, smsSender));
+    environment.addResource(new DeviceController(pendingDevicesManager, accountsManager, rateLimiters));
     environment.addResource(new DirectoryController(rateLimiters, directory));
     environment.addResource(new AttachmentController(rateLimiters, federatedClientManager, urlSigner));
-    environment.addResource(new KeysController(rateLimiters, keys, federatedClientManager));
+    environment.addResource(new KeysController(rateLimiters, keys, accountsManager, federatedClientManager));
     environment.addResource(new FederationController(keys, accountsManager, pushSender, urlSigner));
 
-    environment.addServlet(new MessageController(rateLimiters, accountAuthenticator,
-                                                 pushSender, federatedClientManager),
+    environment.addServlet(new MessageController(rateLimiters, deviceAuthenticator,
+                                                 pushSender, accountsManager, federatedClientManager),
                            MessageController.PATH);
 
     environment.addHealthCheck(new RedisHealthCheck(redisClient));
@@ -131,6 +143,8 @@ public class WhisperServerService extends Service<WhisperServerConfiguration> {
 
     environment.addProvider(new IOExceptionMapper());
     environment.addProvider(new RateLimitExceededExceptionMapper());
+
+    environment.addFilter(new CORSHeaderFilter(), "/*");
 
     if (config.getGraphiteConfiguration().isEnabled()) {
       GraphiteReporter.enable(15, TimeUnit.SECONDS,

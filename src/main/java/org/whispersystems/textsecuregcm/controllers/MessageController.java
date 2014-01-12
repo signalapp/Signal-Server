@@ -28,32 +28,39 @@ import com.yammer.metrics.core.Timer;
 import com.yammer.metrics.core.TimerContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
+import org.whispersystems.textsecuregcm.auth.DeviceAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.InvalidAuthorizationHeaderException;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
 import org.whispersystems.textsecuregcm.entities.MessageResponse;
+import org.whispersystems.textsecuregcm.entities.RelayMessage;
 import org.whispersystems.textsecuregcm.federation.FederatedClient;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.federation.NoSuchPeerException;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Base64;
-import org.whispersystems.textsecuregcm.util.IterablePair;
-import org.whispersystems.textsecuregcm.util.IterablePair.Pair;
+import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 
+import javax.annotation.Nullable;
 import javax.servlet.AsyncContext;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -68,23 +75,37 @@ public class MessageController extends HttpServlet {
   private final Logger logger       = LoggerFactory.getLogger(MessageController.class);
 
   private final RateLimiters           rateLimiters;
-  private final AccountAuthenticator   accountAuthenticator;
+  private final DeviceAuthenticator    deviceAuthenticator;
   private final PushSender             pushSender;
   private final FederatedClientManager federatedClientManager;
   private final ObjectMapper           objectMapper;
   private final ExecutorService        executor;
+  private final AccountsManager        accountsManager;
 
   public MessageController(RateLimiters rateLimiters,
-                           AccountAuthenticator accountAuthenticator,
+                           DeviceAuthenticator deviceAuthenticator,
                            PushSender pushSender,
+                           AccountsManager accountsManager,
                            FederatedClientManager federatedClientManager)
   {
     this.rateLimiters           = rateLimiters;
-    this.accountAuthenticator   = accountAuthenticator;
+    this.deviceAuthenticator    = deviceAuthenticator;
     this.pushSender             = pushSender;
+    this.accountsManager        = accountsManager;
     this.federatedClientManager = federatedClientManager;
     this.objectMapper           = new ObjectMapper();
     this.executor               = Executors.newFixedThreadPool(10);
+  }
+
+  class LocalOrRemoteDevice {
+    Device device;
+    String relay, number; long deviceId;
+    LocalOrRemoteDevice(Device device) {
+      this.device = device; this.number = device.getNumber(); this.deviceId = device.getDeviceId();
+    }
+    LocalOrRemoteDevice(String relay, String number, long deviceId) {
+      this.relay = relay; this.number = number; this.deviceId = deviceId;
+    }
   }
 
   @Override
@@ -92,19 +113,10 @@ public class MessageController extends HttpServlet {
     TimerContext timerContext = timer.time();
 
     try {
-      Account             sender   = authenticate(req);
-      IncomingMessageList messages = parseIncomingMessages(req);
-
+      Device sender   = authenticate(req);
       rateLimiters.getMessagesLimiter().validate(sender.getNumber());
 
-      List<IncomingMessage>       incomingMessages = messages.getMessages();
-      List<OutgoingMessageSignal> outgoingMessages = getOutgoingMessageSignals(sender.getNumber(),
-                                                                               incomingMessages);
-
-      IterablePair<IncomingMessage, OutgoingMessageSignal> listPair = new IterablePair<>(incomingMessages,
-                                                                                         outgoingMessages);
-
-      handleAsyncDelivery(timerContext, req.startAsync(), listPair);
+      handleAsyncDelivery(timerContext, req.startAsync(), sender, parseIncomingMessages(req));
     } catch (AuthenticationException e) {
       failureMeter.mark();
       timerContext.stop();
@@ -127,7 +139,8 @@ public class MessageController extends HttpServlet {
 
   private void handleAsyncDelivery(final TimerContext timerContext,
                                    final AsyncContext context,
-                                   final IterablePair<IncomingMessage, OutgoingMessageSignal> listPair)
+                                   final Device sender,
+                                   final IncomingMessageList messages)
   {
     executor.submit(new Runnable() {
       @Override
@@ -137,17 +150,62 @@ public class MessageController extends HttpServlet {
         HttpServletResponse response = (HttpServletResponse) context.getResponse();
 
         try {
-          for (Pair<IncomingMessage, OutgoingMessageSignal> messagePair : listPair) {
-            String destination = messagePair.first().getDestination();
-            String relay       = messagePair.first().getRelay();
+          List<Pair<LocalOrRemoteDevice, OutgoingMessageSignal>> outgoingMessages;
+          try {
+            outgoingMessages = getOutgoingMessageSignals(sender.getNumber(), messages.getMessages());
+          } catch (MissingDevicesException e) {
+            byte[] responseData = serializeResponse(new MessageResponse(e.missingNumbers));
+            response.setContentLength(responseData.length);
+            response.getOutputStream().write(responseData);
+            context.complete();
+            failureMeter.mark();
+            timerContext.stop();
+            return;
+          }
 
+          Map<String, Set<Pair<LocalOrRemoteDevice, OutgoingMessageSignal>>> relayMessages = new HashMap<>();
+          for (Pair<LocalOrRemoteDevice, OutgoingMessageSignal> messagePair : outgoingMessages) {
+            String relay = messagePair.first().relay;
+
+            if (Util.isEmpty(relay)) {
+              String encodedId = messagePair.first().device.getBackwardsCompatibleNumberEncoding();
+              try {
+                pushSender.sendMessage(messagePair.first().device, messagePair.second());
+                success.add(encodedId);
+              } catch (NoSuchUserException e) {
+                logger.debug("No such user", e);
+                failure.add(encodedId);
+              }
+            } else {
+              Set<Pair<LocalOrRemoteDevice, OutgoingMessageSignal>> messageSet = relayMessages.get(relay);
+              if (messageSet == null) {
+                messageSet = new HashSet<>();
+                relayMessages.put(relay, messageSet);
+              }
+              messageSet.add(messagePair);
+            }
+          }
+
+          for (Map.Entry<String, Set<Pair<LocalOrRemoteDevice, OutgoingMessageSignal>>> messagesForRelay : relayMessages.entrySet()) {
             try {
-              if (Util.isEmpty(relay)) sendLocalMessage(destination, messagePair.second());
-              else                     sendRelayMessage(relay, destination, messagePair.second());
-              success.add(destination);
-            } catch (NoSuchUserException e) {
-              logger.debug("No such user", e);
-              failure.add(destination);
+              FederatedClient client = federatedClientManager.getClient(messagesForRelay.getKey());
+
+              List<RelayMessage> messages = new LinkedList<>();
+              for (Pair<LocalOrRemoteDevice, OutgoingMessageSignal> message : messagesForRelay.getValue()) {
+                messages.add(new RelayMessage(message.first().number,
+                                              message.first().deviceId,
+                                              message.second().toByteArray()));
+              }
+
+              MessageResponse relayResponse = client.sendMessages(messages);
+              for (String string : relayResponse.getSuccess())
+                success.add(string);
+              for (String string : relayResponse.getFailure())
+                failure.add(string);
+            } catch (NoSuchPeerException e) {
+              logger.info("No such peer", e);
+              for (Pair<LocalOrRemoteDevice, OutgoingMessageSignal> messagePair : messagesForRelay.getValue())
+                failure.add(messagePair.first().number);
             }
           }
 
@@ -161,6 +219,11 @@ public class MessageController extends HttpServlet {
           failureMeter.mark();
           response.setStatus(501);
           context.complete();
+        } catch (Exception e) {
+          logger.error("Unknown error sending message", e);
+          failureMeter.mark();
+          response.setStatus(500);
+          context.complete();
         }
 
         timerContext.stop();
@@ -168,33 +231,23 @@ public class MessageController extends HttpServlet {
     });
   }
 
-  private void sendLocalMessage(String destination, OutgoingMessageSignal outgoingMessage)
-      throws IOException, NoSuchUserException
+  @Nullable
+  private List<Pair<LocalOrRemoteDevice, OutgoingMessageSignal>> getOutgoingMessageSignals(String sourceNumber,
+                                                                                           List<IncomingMessage> incomingMessages)
+      throws MissingDevicesException
   {
-    pushSender.sendMessage(destination, outgoingMessage);
-  }
+    List<Pair<LocalOrRemoteDevice, OutgoingMessageSignal>> outgoingMessages = new LinkedList<>();
 
-  private void sendRelayMessage(String relay, String destination, OutgoingMessageSignal outgoingMessage)
-      throws IOException, NoSuchUserException
-  {
-    try {
-      FederatedClient client = federatedClientManager.getClient(relay);
-      client.sendMessage(destination, outgoingMessage);
-    } catch (NoSuchPeerException e) {
-      logger.info("No such peer", e);
-      throw new NoSuchUserException(e);
-    }
-  }
+    List<Account> localAccounts = accountsManager.getAccountsForDevices(getLocalDestinations(incomingMessages));
 
-  private List<OutgoingMessageSignal> getOutgoingMessageSignals(String number,
-                                                                List<IncomingMessage> incomingMessages)
-  {
-    List<OutgoingMessageSignal> outgoingMessages = new LinkedList<>();
+    Set<String> destinationNumbers = new HashSet<>();
+    for (IncomingMessage incoming : incomingMessages)
+      destinationNumbers.add(incoming.getDestination());
 
     for (IncomingMessage incoming : incomingMessages) {
       OutgoingMessageSignal.Builder outgoingMessage = OutgoingMessageSignal.newBuilder();
       outgoingMessage.setType(incoming.getType());
-      outgoingMessage.setSource(number);
+      outgoingMessage.setSource(sourceNumber);
 
       byte[] messageBody = getMessageBody(incoming);
 
@@ -204,18 +257,50 @@ public class MessageController extends HttpServlet {
 
       outgoingMessage.setTimestamp(System.currentTimeMillis());
 
-      int index = 0;
-
-      for (IncomingMessage sub : incomingMessages) {
-        if (sub != incoming) {
-          outgoingMessage.setDestinations(index++, sub.getDestination());
-        }
+      for (String destination : destinationNumbers) {
+        if (!destination.equals(incoming.getDestination()))
+          outgoingMessage.addDestinations(destination);
       }
 
-      outgoingMessages.add(outgoingMessage.build());
+      LocalOrRemoteDevice device = null;
+      if (!Util.isEmpty(incoming.getRelay()))
+        device = new LocalOrRemoteDevice(incoming.getRelay(), incoming.getDestination(), incoming.getDestinationDeviceId());
+      else {
+        Account destination = null;
+        for (Account account : localAccounts) {
+          if (account.getNumber().equals(incoming.getDestination())) {
+            destination = account;
+            break;
+          }
+        }
+
+        if (destination != null)
+          device = new LocalOrRemoteDevice(destination.getDevice(incoming.getDestinationDeviceId()));
+      }
+
+      if (device != null)
+        outgoingMessages.add(new Pair<>(device, outgoingMessage.build()));
     }
 
     return outgoingMessages;
+  }
+
+  // We use a map from number -> deviceIds here (instead of passing the list of messages to accountsManager) so that
+  // we can share as much code as possible with FederationController (which has RelayMessages, not IncomingMessages)
+  private Map<String, Set<Long>> getLocalDestinations(List<IncomingMessage> incomingMessages) {
+    Map<String, Set<Long>> localDestinations = new HashMap<>();
+    for (IncomingMessage incoming : incomingMessages) {
+      if (!Util.isEmpty(incoming.getRelay()))
+        continue;
+
+      Set<Long> deviceIds = localDestinations.get(incoming.getDestination());
+      if (deviceIds == null) {
+        deviceIds = new HashSet<>();
+        localDestinations.put(incoming.getDestination(), deviceIds);
+      }
+      deviceIds.add(incoming.getDestinationDeviceId());
+    }
+    return localDestinations;
   }
 
   private byte[] getMessageBody(IncomingMessage message) {
@@ -261,13 +346,13 @@ public class MessageController extends HttpServlet {
     return messages;
   }
 
-  private Account authenticate(HttpServletRequest request) throws AuthenticationException {
+  private Device authenticate(HttpServletRequest request) throws AuthenticationException {
     try {
-      AuthorizationHeader authorizationHeader = new AuthorizationHeader(request.getHeader("Authorization"));
-      BasicCredentials    credentials         = new BasicCredentials(authorizationHeader.getUserName(),
+      AuthorizationHeader authorizationHeader = AuthorizationHeader.fromFullHeader(request.getHeader("Authorization"));
+      BasicCredentials    credentials         = new BasicCredentials(authorizationHeader.getNumber() + "." + authorizationHeader.getDeviceId(),
                                                                      authorizationHeader.getPassword()  );
 
-      Optional<Account> account = accountAuthenticator.authenticate(credentials);
+      Optional<Device> account = deviceAuthenticator.authenticate(credentials);
 
       if (account.isPresent()) return account.get();
       else                     throw new AuthenticationException("Bad credentials");
@@ -283,7 +368,7 @@ public class MessageController extends HttpServlet {
 //  @POST
 //  @Consumes(MediaType.APPLICATION_JSON)
 //  @Produces(MediaType.APPLICATION_JSON)
-//  public MessageResponse sendMessage(@Auth Account sender, IncomingMessageList messages)
+//  public MessageResponse sendMessage(@Auth Device sender, IncomingMessageList messages)
 //      throws IOException
 //  {
 //    List<String>                success          = new LinkedList<>();

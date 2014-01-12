@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.federation.FederatedClient;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
-import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager.BatchOperationHandle;
@@ -53,22 +53,22 @@ public class DirectoryUpdater {
     BatchOperationHandle batchOperation = directory.startBatchOperation();
 
     try {
-      Iterator<Account> accounts = accountsManager.getAll();
+      Iterator<Device> accounts = accountsManager.getAllMasterDevices();
 
       if (accounts == null)
         return;
 
       while (accounts.hasNext()) {
-        Account account = accounts.next();
-        if (account.getApnRegistrationId() != null || account.getGcmRegistrationId() != null) {
-          byte[]        token         = Util.getContactToken(account.getNumber());
-          ClientContact clientContact = new ClientContact(token, null, account.getSupportsSms());
+        Device device = accounts.next();
+        if (device.isActive()) {
+          byte[]        token         = Util.getContactToken(device.getNumber());
+          ClientContact clientContact = new ClientContact(token, null, device.getSupportsSms());
 
           directory.add(batchOperation, clientContact);
 
           logger.debug("Adding local token: " + Base64.encodeBytesWithoutPadding(token));
         } else {
-          directory.remove(batchOperation, account.getNumber());
+          directory.remove(batchOperation, device.getNumber());
         }
       }
     } finally {

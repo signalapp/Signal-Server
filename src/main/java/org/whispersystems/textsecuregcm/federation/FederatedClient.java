@@ -30,14 +30,13 @@ import org.apache.http.conn.ssl.StrictHostnameVerifier;
 import org.bouncycastle.openssl.PEMReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.controllers.NoSuchUserException;
 import org.whispersystems.textsecuregcm.entities.AccountCount;
 import org.whispersystems.textsecuregcm.entities.AttachmentUri;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.entities.ClientContacts;
-import org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
-import org.whispersystems.textsecuregcm.entities.PreKey;
+import org.whispersystems.textsecuregcm.entities.MessageResponse;
 import org.whispersystems.textsecuregcm.entities.RelayMessage;
+import org.whispersystems.textsecuregcm.entities.UnstructuredPreKeyList;
 import org.whispersystems.textsecuregcm.util.Base64;
 
 import javax.net.ssl.SSLContext;
@@ -99,12 +98,12 @@ public class FederatedClient {
     }
   }
 
-  public PreKey getKey(String destination)  {
+  public UnstructuredPreKeyList getKeys(String destination)  {
     try {
       WebResource resource = client.resource(peer.getUrl()).path(String.format(PREKEY_PATH, destination));
       return resource.accept(MediaType.APPLICATION_JSON)
                      .header("Authorization", authorizationHeader)
-                     .get(PreKey.class);
+                     .get(UnstructuredPreKeyList.class);
     } catch (UniformInterfaceException | ClientHandlerException e) {
       logger.warn("PreKey", e);
       return null;
@@ -139,23 +138,21 @@ public class FederatedClient {
     }
   }
 
-  public void sendMessage(String destination, OutgoingMessageSignal message)
-      throws IOException, NoSuchUserException
+  public MessageResponse sendMessages(List<RelayMessage> messages)
+      throws IOException
   {
     try {
       WebResource    resource = client.resource(peer.getUrl()).path(RELAY_MESSAGE_PATH);
       ClientResponse response = resource.type(MediaType.APPLICATION_JSON)
                                         .header("Authorization", authorizationHeader)
-                                        .entity(new RelayMessage(destination, message.toByteArray()))
+                                        .entity(messages)
                                         .put(ClientResponse.class);
-
-      if (response.getStatus() == 404) {
-        throw new NoSuchUserException("No remote user: " + destination);
-      }
 
       if (response.getStatus() != 200 && response.getStatus() != 204) {
         throw new IOException("Bad response: " + response.getStatus());
       }
+
+      return response.getEntity(MessageResponse.class);
     } catch (UniformInterfaceException | ClientHandlerException e) {
       logger.warn("sendMessage", e);
       throw new IOException(e);

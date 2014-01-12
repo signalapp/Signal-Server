@@ -75,4 +75,51 @@
             <column name="number"/>
         </createIndex>
     </changeSet>
+
+    <changeSet id="2" author="matt">
+        <addColumn tableName="accounts">
+            <column name="device_id" type="bigint">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="fetches_messages" type="smallint" defaultValue="0"/>
+        </addColumn>
+
+        <dropUniqueConstraint tableName="accounts" constraintName="accounts_number_key" />
+        <addUniqueConstraint constraintName="account_number_device_unique" tableName="accounts" columnNames="number, device_id" />
+
+        <addColumn tableName="keys">
+            <column name="device_id" type="bigint" >
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+
+        <createTable tableName="pending_devices">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="number" type="varchar(255)">
+                <constraints unique="true" nullable="false"/>
+            </column>
+
+            <column name="verification_code" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="stored_messages">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="destination_id" type="bigint">
+                <constraints nullable="false" foreignKeyName="destination_fk" deleteCascade="true" references="accounts(id)"/>
+            </column>
+
+            <column name="encrypted_message" type="text">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
 </databaseChangeLog>

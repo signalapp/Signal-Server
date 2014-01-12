@@ -16,6 +16,7 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.yammer.dropwizard.auth.Auth;
 import com.yammer.metrics.annotation.Timed;
@@ -31,6 +32,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -52,6 +54,7 @@ import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.util.Arrays;
 
 @Path("/v1/accounts")
 public class AccountController {
@@ -119,8 +122,8 @@ public class AccountController {
       throws RateLimitExceededException
   {
     try {
-      AuthorizationHeader header = new AuthorizationHeader(authorizationHeader);
-      String number              = header.getUserName();
+      AuthorizationHeader header = AuthorizationHeader.fromFullHeader(authorizationHeader);
+      String number              = header.getNumber();
       String password            = header.getPassword();
 
       rateLimiters.getVerifyLimiter().validate(number);
@@ -133,55 +136,61 @@ public class AccountController {
         throw new WebApplicationException(Response.status(403).build());
       }
 
-      Account account = new Account();
-      account.setNumber(number);
-      account.setAuthenticationCredentials(new AuthenticationCredentials(password));
-      account.setSignalingKey(accountAttributes.getSignalingKey());
-      account.setSupportsSms(accountAttributes.getSupportsSms());
+      Device device = new Device();
+      device.setNumber(number);
+      device.setAuthenticationCredentials(new AuthenticationCredentials(password));
+      device.setSignalingKey(accountAttributes.getSignalingKey());
+      device.setSupportsSms(accountAttributes.getSupportsSms());
+      device.setFetchesMessages(accountAttributes.getFetchesMessages());
+      device.setDeviceId(0);
 
-      accounts.create(account);
-      logger.debug("Stored account...");
+      accounts.create(new Account(number, accountAttributes.getSupportsSms(), device));
 
+      pendingAccounts.remove(number);
+
+      logger.debug("Stored device...");
     } catch (InvalidAuthorizationHeaderException e) {
       logger.info("Bad Authorization Header", e);
       throw new WebApplicationException(Response.status(401).build());
     }
   }
 
+
+
   @Timed
   @PUT
   @Path("/gcm/")
   @Consumes(MediaType.APPLICATION_JSON)
-  public void setGcmRegistrationId(@Auth Account account, @Valid GcmRegistrationId registrationId)  {
-    account.setApnRegistrationId(null);
-    account.setGcmRegistrationId(registrationId.getGcmRegistrationId());
-    accounts.update(account);
+  public void setGcmRegistrationId(@Auth Device device, @Valid GcmRegistrationId registrationId)  {
+    device.setApnRegistrationId(null);
+    device.setGcmRegistrationId(registrationId.getGcmRegistrationId());
+    accounts.update(device);
   }
 
   @Timed
   @DELETE
   @Path("/gcm/")
-  public void deleteGcmRegistrationId(@Auth Account account) {
-    account.setGcmRegistrationId(null);
-    accounts.update(account);
+  public void deleteGcmRegistrationId(@Auth Device device) {
+    device.setGcmRegistrationId(null);
+    accounts.update(device);
   }
 
   @Timed
   @PUT
   @Path("/apn/")
   @Consumes(MediaType.APPLICATION_JSON)
-  public void setApnRegistrationId(@Auth Account account, @Valid ApnRegistrationId registrationId) {
-    account.setApnRegistrationId(registrationId.getApnRegistrationId());
-    account.setGcmRegistrationId(null);
-    accounts.update(account);
+  public void setApnRegistrationId(@Auth Device device, @Valid ApnRegistrationId registrationId) {
+    device.setApnRegistrationId(registrationId.getApnRegistrationId());
+    device.setGcmRegistrationId(null);
+    accounts.update(device);
   }
 
   @Timed
   @DELETE
   @Path("/apn/")
-  public void deleteApnRegistrationId(@Auth Account account) {
-    account.setApnRegistrationId(null);
-    accounts.update(account);
+  public void deleteApnRegistrationId(@Auth Device device) {
+    device.setApnRegistrationId(null);
+    accounts.update(device);
   }
 
   @Timed
@@ -190,10 +199,10 @@ public class AccountController {
   @Produces(MediaType.APPLICATION_XML)
   public Response getTwiml(@PathParam("code") String encodedVerificationText) {
     return Response.ok().entity(String.format(TwilioSmsSender.SAY_TWIML,
-                                              encodedVerificationText)).build();
+        encodedVerificationText)).build();
   }
 
-  private VerificationCode generateVerificationCode() {
+  @VisibleForTesting protected VerificationCode generateVerificationCode() {
     try {
       SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
       int randomInt       = 100000 + random.nextInt(900000);
@@ -202,5 +211,4 @@ public class AccountController {
       throw new AssertionError(e);
     }
   }
-
 }

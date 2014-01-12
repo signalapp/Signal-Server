@@ -18,52 +18,34 @@ package org.whispersystems.textsecuregcm.storage;
 
 
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
+import org.whispersystems.textsecuregcm.util.Util;
 
 import java.io.Serializable;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class Account implements Serializable {
-
-  public static final int MEMCACHE_VERION = 1;
-
-  private long    id;
   private String  number;
-  private String  hashedAuthenticationToken;
-  private String  salt;
-  private String  signalingKey;
-  private String  gcmRegistrationId;
-  private String  apnRegistrationId;
   private boolean supportsSms;
+  private Map<Long, Device> devices = new HashMap<>();
 
-  public Account() {}
-
-  public Account(long id, String number, String hashedAuthenticationToken, String salt,
-                 String signalingKey, String gcmRegistrationId, String apnRegistrationId,
-                 boolean supportsSms)
-  {
-    this.id                        = id;
-    this.number                    = number;
-    this.hashedAuthenticationToken = hashedAuthenticationToken;
-    this.salt                      = salt;
-    this.signalingKey              = signalingKey;
-    this.gcmRegistrationId         = gcmRegistrationId;
-    this.apnRegistrationId         = apnRegistrationId;
-    this.supportsSms               = supportsSms;
+  private Account(String number, boolean supportsSms) {
+    this.number      = number;
+    this.supportsSms = supportsSms;
   }
 
-  public String getApnRegistrationId() {
-    return apnRegistrationId;
+  public Account(String number, boolean supportsSms, Device onlyDevice) {
+    this(number, supportsSms);
+    addDevice(onlyDevice);
   }
 
-  public void setApnRegistrationId(String apnRegistrationId) {
-    this.apnRegistrationId = apnRegistrationId;
-  }
-
-  public String getGcmRegistrationId() {
-    return gcmRegistrationId;
-  }
-
-  public void setGcmRegistrationId(String gcmRegistrationId) {
-    this.gcmRegistrationId = gcmRegistrationId;
+  public Account(String number, boolean supportsSms, List<Device> devices) {
+    this(number, supportsSms);
+    for (Device device : devices)
+      addDevice(device);
   }
 
   public void setNumber(String number) {
@@ -74,23 +56,6 @@ public class Account implements Serializable {
     return number;
   }
 
-  public void setAuthenticationCredentials(AuthenticationCredentials credentials) {
-    this.hashedAuthenticationToken = credentials.getHashedAuthenticationToken();
-    this.salt                      = credentials.getSalt();
-  }
-
-  public AuthenticationCredentials getAuthenticationCredentials() {
-    return new AuthenticationCredentials(hashedAuthenticationToken, salt);
-  }
-
-  public String getSignalingKey() {
-    return signalingKey;
-  }
-
-  public void setSignalingKey(String signalingKey) {
-    this.signalingKey = signalingKey;
-  }
-
   public boolean getSupportsSms() {
     return supportsSms;
   }
@@ -99,11 +64,30 @@ public class Account implements Serializable {
     this.supportsSms = supportsSms;
   }
 
-  public long getId() {
-    return id;
+  public boolean isActive() {
+    Device masterDevice = devices.get((long) 1);
+    return masterDevice != null && masterDevice.isActive();
   }
 
-  public void setId(long id) {
-    this.id = id;
+  public Collection<Device> getDevices() {
+    return devices.values();
+  }
+
+  public Device getDevice(long destinationDeviceId) {
+    return devices.get(destinationDeviceId);
+  }
+
+  public boolean hasAllDeviceIds(Set<Long> deviceIds) {
+    if (devices.size() != deviceIds.size())
+      return false;
+    for (long deviceId : devices.keySet()) {
+      if (!deviceIds.contains(deviceId))
+        return false;
+    }
+    return true;
+  }
+
+  public void addDevice(Device device) {
+    devices.put(device.getDeviceId(), device);
   }
 }
