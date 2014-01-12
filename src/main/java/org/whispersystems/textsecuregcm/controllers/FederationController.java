@@ -60,6 +60,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkState;
+
 @Path("/v1/federation")
 public class FederationController {
 
@@ -125,17 +127,24 @@ public class FederationController {
         deviceIds.add(message.getDestinationDeviceId());
       }
 
-      Pair<Map<String, Account>, List<String>> accountsForDevices = accounts.getAccountsForDevices(localDestinations);
+      List<Account> localAccounts = null;
+      try {
+        localAccounts = accounts.getAccountsForDevices(localDestinations);
+      } catch (MissingDevicesException e) {
+        return new MessageResponse(e.missingNumbers);
+      }
 
-      Map<String, Account> localAccounts         = accountsForDevices.first();
-      List<String>         numbersMissingDevices = accountsForDevices.second();
       List<String>         success               = new LinkedList<>();
-      List<String>         failure               = new LinkedList<>(numbersMissingDevices);
+      List<String>         failure               = new LinkedList<>();
 
       for (RelayMessage message : messages) {
-        Account destinationAccount = localAccounts.get(message.getDestination());
-        if (destinationAccount == null)
-          continue;
+        Account destinationAccount = null;
+        for (Account account : localAccounts)
+          if (account.getNumber().equals(message.getDestination()))
+            destinationAccount= account;
+
+        checkState(destinationAccount != null);
+
         Device device = destinationAccount.getDevice(message.getDestinationDeviceId());
         OutgoingMessageSignal signal = OutgoingMessageSignal.parseFrom(message.getOutgoingMessageSignal())
                                                             .toBuilder()
@@ -150,7 +159,7 @@ public class FederationController {
         }
       }
 
-      return new MessageResponse(success, failure, numbersMissingDevices);
+      return new MessageResponse(success, failure);
     } catch (InvalidProtocolBufferException ipe) {
       logger.warn("ProtoBuf", ipe);
       throw new WebApplicationException(Response.status(400).build());

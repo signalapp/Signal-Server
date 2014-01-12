@@ -19,6 +19,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.google.common.base.Optional;
 import net.spy.memcached.MemcachedClient;
+import org.whispersystems.textsecuregcm.controllers.MissingDevicesException;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -119,36 +120,30 @@ public class AccountsManager {
     return Optional.of(new Account(number, devices.get(0).getSupportsSms(), devices));
   }
 
-  private Map<String, Account> getAllAccounts(Set<String> numbers) {
+  private List<Account> getAllAccounts(Set<String> numbers) {
     //TODO: ONE QUERY
-    Map<String, Account> result = new HashMap<>();
+    List<Account> accounts = new LinkedList<>();
     for (String number : numbers) {
       Optional<Account> account = getAccount(number);
       if (account.isPresent())
-        result.put(number, account.get());
+        accounts.add(account.get());
     }
-    return result;
+    return accounts;
   }
 
-  public Pair<Map<String, Account>, List<String>> getAccountsForDevices(Map<String, Set<Long>> destinations) {
-    List<String> numbersMissingDevices = new LinkedList<>();
-    Map<String, Account> localAccounts = getAllAccounts(destinations.keySet());
+  public List<Account> getAccountsForDevices(Map<String, Set<Long>> destinations) throws MissingDevicesException {
+    Set<String> numbersMissingDevices = new HashSet<>(destinations.keySet());
+    List<Account> localAccounts = getAllAccounts(destinations.keySet());
 
-    for (String number : destinations.keySet()) {
-      if (localAccounts.get(number) == null)
-        numbersMissingDevices.add(number);
+    for (Account account : localAccounts){
+      if (account.hasAllDeviceIds(destinations.get(account.getNumber())))
+        numbersMissingDevices.remove(account.getNumber());
     }
 
-    Iterator<Account> localAccountIterator = localAccounts.values().iterator();
-    while (localAccountIterator.hasNext()) {
-      Account account = localAccountIterator.next();
-      if (!account.hasAllDeviceIds(destinations.get(account.getNumber()))) {
-        numbersMissingDevices.add(account.getNumber());
-        localAccountIterator.remove();
-      }
-    }
+    if (!numbersMissingDevices.isEmpty())
+      throw new MissingDevicesException(numbersMissingDevices);
 
-    return new Pair<>(localAccounts, numbersMissingDevices);
+    return localAccounts;
   }
 
   private void updateDirectory(Device device) {
