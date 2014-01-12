@@ -11,6 +11,8 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.util.Base64;
 
+import java.util.Arrays;
+
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -23,7 +25,13 @@ public class AuthHelper {
   public static final String INVVALID_NUMBER  = "+14151111111";
   public static final String INVALID_PASSWORD = "bar";
 
+  public static final String VALID_FEDERATION_PEER = "valid_peer";
+  public static final String FEDERATION_PEER_TOKEN = "magic";
+
   public static MultiBasicAuthProvider<FederatedPeer, Device> getAuthenticator() {
+    FederationConfiguration federationConfig = mock(FederationConfiguration.class);
+    when(federationConfig.getPeers()).thenReturn(Arrays.asList(new FederatedPeer(VALID_FEDERATION_PEER, "", FEDERATION_PEER_TOKEN, "")));
+
     AccountsManager           accounts    = mock(AccountsManager.class);
     Device device = mock(Device.class);
     AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
@@ -32,7 +40,7 @@ public class AuthHelper {
     when(device.getAuthenticationCredentials()).thenReturn(credentials);
     when(accounts.get(VALID_NUMBER, DEFAULT_DEVICE_ID)).thenReturn(Optional.of(device));
 
-    return new MultiBasicAuthProvider<>(new FederatedPeerAuthenticator(new FederationConfiguration()),
+    return new MultiBasicAuthProvider<>(new FederatedPeerAuthenticator(federationConfig),
                                         FederatedPeer.class,
                                         new DeviceAuthenticator(accounts),
                                         Device.class, "WhisperServer");
