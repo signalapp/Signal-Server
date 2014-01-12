@@ -39,13 +39,13 @@ public class Account implements Serializable {
 
   public Account(String number, boolean supportsSms, Device onlyDevice) {
     this(number, supportsSms);
-    this.devices.put(onlyDevice.getDeviceId(), onlyDevice);
+    addDevice(onlyDevice);
   }
 
   public Account(String number, boolean supportsSms, List<Device> devices) {
     this(number, supportsSms);
     for (Device device : devices)
-      this.devices.put(device.getDeviceId(), device);
+      addDevice(device);
   }
 
   public void setNumber(String number) {
@@ -85,5 +85,9 @@ public class Account implements Serializable {
         return false;
     }
     return true;
+  }
+
+  public void addDevice(Device device) {
+    devices.put(device.getDeviceId(), device);
   }
 }

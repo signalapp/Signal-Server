@@ -120,20 +120,34 @@ public class AccountsManager {
     return Optional.of(new Account(number, devices.get(0).getSupportsSms(), devices));
   }
 
-  private List<Account> getAllAccounts(Set<String> numbers) {
-    //TODO: ONE QUERY
+  private List<Account> getAllAccounts(List<String> numbers) {
+    List<Device> devices = accounts.getAllByNumbers(numbers);
     List<Account> accounts = new LinkedList<>();
-    for (String number : numbers) {
-      Optional<Account> account = getAccount(number);
-      if (account.isPresent())
-        accounts.add(account.get());
+    for (Device device : devices) {
+      Account deviceAccount = null;
+      for (Account account : accounts) {
+        if (account.getNumber().equals(device.getNumber())) {
+          deviceAccount = account;
+          break;
+        }
+      }
+
+      if (deviceAccount == null) {
+        deviceAccount = new Account(device.getNumber(), false, device);
+        accounts.add(deviceAccount);
+      } else {
+        deviceAccount.addDevice(device);
+      }
+
+      if (device.getDeviceId() == 1)
+        deviceAccount.setSupportsSms(device.getSupportsSms());
     }
     return accounts;
   }
 
   public List<Account> getAccountsForDevices(Map<String, Set<Long>> destinations) throws MissingDevicesException {
     Set<String> numbersMissingDevices = new HashSet<>(destinations.keySet());
-    List<Account> localAccounts = getAllAccounts(destinations.keySet());
+    List<Account> localAccounts = getAllAccounts(new LinkedList<>(destinations.keySet()));
 
     for (Account account : localAccounts){
       if (account.hasAllDeviceIds(destinations.get(account.getNumber())))

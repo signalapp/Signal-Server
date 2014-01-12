@@ -28,7 +28,9 @@ import org.skife.jdbi.v2.sqlobject.SqlQuery;
 import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 import org.skife.jdbi.v2.sqlobject.Transaction;
 import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
+import org.skife.jdbi.v2.sqlobject.stringtemplate.UseStringTemplate3StatementLocator;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
+import org.skife.jdbi.v2.unstable.BindIn;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
@@ -41,7 +43,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
+@UseStringTemplate3StatementLocator
 public abstract class Accounts {
 
   public static final String ID               = "id";
@@ -98,6 +102,10 @@ public abstract class Accounts {
   @Mapper(DeviceMapper.class)
   @SqlQuery("SELECT * FROM accounts WHERE " + NUMBER + " = :number")
   public abstract List<Device> getAllByNumber(@Bind("number") String number);
+
+  @Mapper(DeviceMapper.class)
+  @SqlQuery("SELECT * FROM accounts WHERE " + NUMBER + " IN ( <numbers> )")
+  public abstract List<Device> getAllByNumbers(@BindIn("numbers") List<String> numbers);
 
   @Transaction(TransactionIsolationLevel.SERIALIZABLE)
   public long insertClearingNumber(Device device) {
