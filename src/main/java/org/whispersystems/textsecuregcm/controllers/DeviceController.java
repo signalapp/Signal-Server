@@ -73,7 +73,7 @@ public class DeviceController {
   public VerificationCode createDeviceToken(@Auth Account account)
       throws RateLimitExceededException
   {
-    rateLimiters.getVerifyLimiter().validate(account.getNumber()); //TODO: New limiter?
+    rateLimiters.getAllocateDeviceLimiter().validate(account.getNumber());
 
     VerificationCode verificationCode = generateVerificationCode();
     pendingDevices.store(account.getNumber(), verificationCode.getVerificationCode());
@@ -96,7 +96,7 @@ public class DeviceController {
       String number              = header.getNumber();
       String password            = header.getPassword();
 
-      rateLimiters.getVerifyLimiter().validate(number); //TODO: New limiter?
+      rateLimiters.getVerifyDeviceLimiter().validate(number);
 
       Optional<String> storedVerificationCode = pendingDevices.getCodeForNumber(number);
 

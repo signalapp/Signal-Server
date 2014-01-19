@@ -31,6 +31,9 @@ public class RateLimiters {
   private final RateLimiter preKeysLimiter;
   private final RateLimiter messagesLimiter;
 
+  private final RateLimiter allocateDeviceLimiter;
+  private final RateLimiter verifyDeviceLimiter;
+
   public RateLimiters(RateLimitsConfiguration config, MemcachedClient memcachedClient) {
     this.smsDestinationLimiter = new RateLimiter(memcachedClient, "smsDestination",
                                                  config.getSmsDestination().getBucketSize(),
@@ -60,6 +63,22 @@ public class RateLimiters {
                                            config.getMessages().getBucketSize(),
                                            config.getMessages().getLeakRatePerMinute());
 
+    this.allocateDeviceLimiter = new RateLimiter(memcachedClient, "allocateDevice",
+                                                 config.getAllocateDevice().getBucketSize(),
+                                                 config.getAllocateDevice().getLeakRatePerMinute());
+
+    this.verifyDeviceLimiter = new RateLimiter(memcachedClient, "verifyDevice",
+                                               config.getVerifyDevice().getBucketSize(),
+                                               config.getVerifyDevice().getLeakRatePerMinute());
+
+  }
+
+  public RateLimiter getAllocateDeviceLimiter() {
+    return allocateDeviceLimiter;
+  }
+
+  public RateLimiter getVerifyDeviceLimiter() {
+    return verifyDeviceLimiter;
   }
 
   public RateLimiter getMessagesLimiter() {

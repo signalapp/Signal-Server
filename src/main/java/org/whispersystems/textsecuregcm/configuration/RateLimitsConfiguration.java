@@ -41,6 +41,20 @@ public class RateLimitsConfiguration {
   @JsonProperty
   private RateLimitConfiguration messages = new RateLimitConfiguration(60, 60);
 
+  @JsonProperty
+  private RateLimitConfiguration allocateDevice = new RateLimitConfiguration(2, 1.0 / 2.0);
+
+  @JsonProperty
+  private RateLimitConfiguration verifyDevice = new RateLimitConfiguration(2, 2);
+
+  public RateLimitConfiguration getAllocateDevice() {
+    return allocateDevice;
+  }
+
+  public RateLimitConfiguration getVerifyDevice() {
+    return verifyDevice;
+  }
+
   public RateLimitConfiguration getMessages() {
     return messages;
   }
