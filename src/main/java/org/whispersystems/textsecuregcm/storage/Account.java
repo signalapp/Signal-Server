@@ -17,35 +17,43 @@
 package org.whispersystems.textsecuregcm.storage;
 
 
-import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
-import org.whispersystems.textsecuregcm.util.Util;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Optional;
 
 import java.io.Serializable;
-import java.util.Collection;
-import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 public class Account implements Serializable {
-  private String  number;
-  private boolean supportsSms;
-  private Map<Long, Device> devices = new HashMap<>();
 
-  private Account(String number, boolean supportsSms) {
+  public static final int MEMCACHE_VERION = 2;
+
+  @JsonProperty
+  private String number;
+
+  @JsonProperty
+  private boolean supportsSms;
+
+  @JsonProperty
+  private List<Device> devices = new LinkedList<>();
+
+  @JsonIgnore
+  private Optional<Device> authenticatedDevice;
+
+  public Account() {}
+
+  public Account(String number, boolean supportsSms) {
     this.number      = number;
     this.supportsSms = supportsSms;
   }
 
-  public Account(String number, boolean supportsSms, Device onlyDevice) {
-    this(number, supportsSms);
-    addDevice(onlyDevice);
+  public Optional<Device> getAuthenticatedDevice() {
+    return authenticatedDevice;
   }
 
-  public Account(String number, boolean supportsSms, List<Device> devices) {
-    this(number, supportsSms);
-    for (Device device : devices)
-      addDevice(device);
+  public void setAuthenticatedDevice(Device device) {
+    this.authenticatedDevice = Optional.of(device);
   }
 
   public void setNumber(String number) {
@@ -64,30 +72,55 @@ public class Account implements Serializable {
     this.supportsSms = supportsSms;
   }
 
-  public boolean isActive() {
-    Device masterDevice = devices.get((long) 1);
-    return masterDevice != null && masterDevice.isActive();
+  public void addDevice(Device device) {
+    this.devices.add(device);
   }
 
-  public Collection<Device> getDevices() {
-    return devices.values();
+  public void setDevices(List<Device> devices) {
+    this.devices = devices;
   }
 
-  public Device getDevice(long destinationDeviceId) {
-    return devices.get(destinationDeviceId);
+  public List<Device> getDevices() {
+    return devices;
   }
 
-  public boolean hasAllDeviceIds(Set<Long> deviceIds) {
-    if (devices.size() != deviceIds.size())
-      return false;
-    for (long deviceId : devices.keySet()) {
-      if (!deviceIds.contains(deviceId))
-        return false;
+  public Optional<Device> getMasterDevice() {
+    return getDevice(Device.MASTER_ID);
+  }
+
+  public Optional<Device> getDevice(long deviceId) {
+    for (Device device : devices) {
+      if (device.getId() == deviceId) {
+        return Optional.of(device);
+      }
     }
+
+    return Optional.absent();
+  }
+
+  public boolean isActive() {
+    return
+        getMasterDevice().isPresent() &&
+        getMasterDevice().get().isActive();
+  }
+
+  public long getNextDeviceId() {
+    long highestDevice = Device.MASTER_ID;
+
+    for (Device device : devices) {
+      if (device.getId() > highestDevice) {
+        highestDevice = device.getId();
+      }
+    }
+
+    return highestDevice + 1;
+  }
+
+  public boolean isRateLimited() {
     return true;
   }
 
-  public void addDevice(Device device) {
-    devices.put(device.getDeviceId(), device);
+  public Optional<String> getRelay() {
+    return Optional.absent();
   }
 }

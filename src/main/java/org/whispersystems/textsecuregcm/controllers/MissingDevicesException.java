@@ -4,8 +4,13 @@ import java.util.List;
 import java.util.Set;
 
 public class MissingDevicesException extends Exception {
-  public Set<String> missingNumbers;
-  public MissingDevicesException(Set<String> missingNumbers) {
-    this.missingNumbers = missingNumbers;
+  private final List<Long> missingDevices;
+
+  public MissingDevicesException(List<Long> missingDevices) {
+    this.missingDevices = missingDevices;
+  }
+
+  public List<Long> getMissingDevices() {
+    return missingDevices;
   }
 }

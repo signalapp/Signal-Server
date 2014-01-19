@@ -23,13 +23,23 @@ import org.hibernate.validator.constraints.NotEmpty;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 
 public class UnstructuredPreKeyList {
+
   @JsonProperty
   @NotNull
   @Valid
   private List<PreKey> keys;
+
+  @VisibleForTesting
+  public UnstructuredPreKeyList() {}
+
+  public UnstructuredPreKeyList(PreKey preKey) {
+    this.keys = new LinkedList<PreKey>();
+    this.keys.add(preKey);
+  }
 
   public UnstructuredPreKeyList(List<PreKey> preKeys) {
     this.keys = preKeys;
@@ -39,7 +49,8 @@ public class UnstructuredPreKeyList {
     return keys;
   }
 
-  @VisibleForTesting public boolean equals(Object o) {
+  @VisibleForTesting
+  public boolean equals(Object o) {
     if (!(o instanceof UnstructuredPreKeyList) ||
         ((UnstructuredPreKeyList) o).keys.size() != keys.size())
       return false;

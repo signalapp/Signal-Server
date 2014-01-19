@@ -20,7 +20,7 @@ import org.skife.jdbi.v2.sqlobject.Bind;
 import org.skife.jdbi.v2.sqlobject.SqlQuery;
 import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 
-public interface PendingDeviceRegistrations {
+public interface PendingDevices {
 
   @SqlUpdate("WITH upsert AS (UPDATE pending_devices SET verification_code = :verification_code WHERE number = :number RETURNING *) " +
              "INSERT INTO pending_devices (number, verification_code) SELECT :number, :verification_code WHERE NOT EXISTS (SELECT * FROM upsert)")

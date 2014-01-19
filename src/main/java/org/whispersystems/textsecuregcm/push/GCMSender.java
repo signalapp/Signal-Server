@@ -22,7 +22,7 @@ import com.google.android.gcm.server.Result;
 import com.google.android.gcm.server.Sender;
 import com.yammer.metrics.Metrics;
 import com.yammer.metrics.core.Meter;
-import org.whispersystems.textsecuregcm.controllers.NoSuchUserException;
+import org.whispersystems.textsecuregcm.entities.CryptoEncodingException;
 import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
 
 import java.io.IOException;
@@ -40,24 +40,30 @@ public class GCMSender {
   }
 
   public String sendMessage(String gcmRegistrationId, EncryptedOutgoingMessage outgoingMessage)
-      throws IOException, NoSuchUserException
+      throws NotPushRegisteredException, TransientPushFailureException
   {
-    Message gcmMessage = new Message.Builder().addData("type", "message")
-                                              .addData("message", outgoingMessage.serialize())
-                                              .build();
+    try {
+      Message gcmMessage = new Message.Builder().addData("type", "message")
+                                                .addData("message", outgoingMessage.serialize())
+                                                .build();
 
-    Result  result = sender.send(gcmMessage, gcmRegistrationId, 5);
+      Result  result = sender.send(gcmMessage, gcmRegistrationId, 5);
 
-    if (result.getMessageId() != null) {
-      success.mark();
-      return result.getCanonicalRegistrationId();
-    } else {
-      failure.mark();
-      if (result.getErrorCodeName().equals(Constants.ERROR_NOT_REGISTERED)) {
-        throw new NoSuchUserException("User no longer registered with GCM.");
+      if (result.getMessageId() != null) {
+        success.mark();
+        return result.getCanonicalRegistrationId();
       } else {
-        throw new IOException("GCM Failed: " + result.getErrorCodeName());
+        failure.mark();
+        if (result.getErrorCodeName().equals(Constants.ERROR_NOT_REGISTERED)) {
+          throw new NotPushRegisteredException("Device no longer registered with GCM.");
+        } else {
+          throw new TransientPushFailureException("GCM Failed: " + result.getErrorCodeName());
+        }
       }
+    } catch (IOException e) {
+      throw new TransientPushFailureException(e);
+    } catch (CryptoEncodingException e) {
+      throw new NotPushRegisteredException(e);
     }
   }
 }

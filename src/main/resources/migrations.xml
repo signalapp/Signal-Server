@@ -77,19 +77,24 @@
     </changeSet>
 
     <changeSet id="2" author="matt">
-        <addColumn tableName="accounts">
-            <column name="device_id" type="bigint">
-                <constraints nullable="false" />
-            </column>
 
-            <column name="fetches_messages" type="smallint" defaultValue="0"/>
+        <addColumn tableName="accounts">
+            <column name="data" type="json" />
         </addColumn>
 
-        <dropUniqueConstraint tableName="accounts" constraintName="accounts_number_key" />
-        <addUniqueConstraint constraintName="account_number_device_unique" tableName="accounts" columnNames="number, device_id" />
+        <sql>UPDATE accounts SET data = CAST(('{"number" : "' || number || '", "supportsSms" : ' || supports_sms || ', "devices" : [{"id" : 1, "authToken" : "' || auth_token || '", "salt" : "' || salt || '"' || CASE WHEN signaling_key IS NOT NULL THEN ', "signalingKey" : "' || signaling_key || '"' ELSE '' END || CASE WHEN gcm_id IS NOT NULL THEN ', "gcmId" : "' || gcm_id || '"' ELSE '' END || CASE WHEN apn_id IS NOT NULL THEN ', "apnId" : "' || apn_id || '"' ELSE '' END || '}]}') AS json);</sql>
+
+        <addNotNullConstraint tableName="accounts" columnName="data"/>
+
+        <dropColumn tableName="accounts" columnName="auth_token"/>
+        <dropColumn tableName="accounts" columnName="salt"/>
+        <dropColumn tableName="accounts" columnName="signaling_key"/>
+        <dropColumn tableName="accounts" columnName="gcm_id"/>
+        <dropColumn tableName="accounts" columnName="apn_id"/>
+        <dropColumn tableName="accounts" columnName="supports_sms"/>
 
         <addColumn tableName="keys">
-            <column name="device_id" type="bigint" >
+            <column name="device_id" type="bigint" defaultValue="1">
                 <constraints nullable="false" />
             </column>
         </addColumn>

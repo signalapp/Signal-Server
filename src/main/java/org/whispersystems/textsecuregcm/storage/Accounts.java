@@ -16,6 +16,10 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.skife.jdbi.v2.SQLStatement;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.TransactionIsolationLevel;
@@ -28,10 +32,9 @@ import org.skife.jdbi.v2.sqlobject.SqlQuery;
 import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 import org.skife.jdbi.v2.sqlobject.Transaction;
 import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
-import org.skife.jdbi.v2.sqlobject.stringtemplate.UseStringTemplate3StatementLocator;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
-import org.skife.jdbi.v2.unstable.BindIn;
 
+import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -39,91 +42,63 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 
-@UseStringTemplate3StatementLocator
 public abstract class Accounts {
 
-  public static final String ID               = "id";
-  public static final String NUMBER           = "number";
-  public static final String DEVICE_ID        = "device_id";
-  public static final String AUTH_TOKEN       = "auth_token";
-  public static final String SALT             = "salt";
-  public static final String SIGNALING_KEY    = "signaling_key";
-  public static final String GCM_ID           = "gcm_id";
-  public static final String APN_ID           = "apn_id";
-  public static final String FETCHES_MESSAGES = "fetches_messages";
-  public static final String SUPPORTS_SMS     = "supports_sms";
+  private static final String ID     = "id";
+  private static final String NUMBER = "number";
+  private static final String DATA   = "data";
 
-  @SqlUpdate("INSERT INTO accounts (" + NUMBER + ", " + DEVICE_ID + ", " + AUTH_TOKEN + ", " +
-                                    SALT + ", " + SIGNALING_KEY + ", " + FETCHES_MESSAGES + ", " +
-                                    GCM_ID + ", " + APN_ID + ", " + SUPPORTS_SMS + ") " +
-             "VALUES (:number, :device_id, :auth_token, :salt, :signaling_key, :fetches_messages, :gcm_id, :apn_id, :supports_sms)")
-  @GetGeneratedKeys
-  abstract long insertStep(@AccountBinder Device device);
+  private static final ObjectMapper mapper = new ObjectMapper();
 
-  @SqlQuery("SELECT " + DEVICE_ID + " FROM accounts WHERE " + NUMBER + " = :number ORDER BY " + DEVICE_ID + " DESC LIMIT 1 FOR UPDATE")
-  abstract long getHighestDeviceId(@Bind("number") String number);
-
-  @Transaction(TransactionIsolationLevel.SERIALIZABLE)
-  public long insert(@AccountBinder Device device) {
-    device.setDeviceId(getHighestDeviceId(device.getNumber()) + 1);
-    return insertStep(device);
+  static {
+    mapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);
+    mapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
   }
 
-  @SqlUpdate("DELETE FROM accounts WHERE " + NUMBER + " = :number RETURNING id")
-  abstract void removeAccountsByNumber(@Bind("number") String number);
+  @SqlUpdate("INSERT INTO accounts (" + NUMBER + ", " + DATA + ") VALUES (:number, CAST(:data AS json))")
+  @GetGeneratedKeys
+  abstract long insertStep(@AccountBinder Account account);
 
-  @SqlUpdate("UPDATE accounts SET " + AUTH_TOKEN + " = :auth_token, " + SALT + " = :salt, " +
-             SIGNALING_KEY + " = :signaling_key, " + GCM_ID + " = :gcm_id, " + APN_ID + " = :apn_id, " +
-             FETCHES_MESSAGES + " = :fetches_messages, " + SUPPORTS_SMS + " = :supports_sms " +
-             "WHERE " + NUMBER + " = :number AND " + DEVICE_ID + " = :device_id")
-  abstract void update(@AccountBinder Device device);
+  @SqlUpdate("DELETE FROM accounts WHERE " + NUMBER + " = :number")
+  abstract void removeAccount(@Bind("number") String number);
 
-  @Mapper(DeviceMapper.class)
-  @SqlQuery("SELECT * FROM accounts WHERE " + NUMBER + " = :number AND " + DEVICE_ID + " = :device_id")
-  abstract Device get(@Bind("number") String number, @Bind("device_id") long deviceId);
+  @SqlUpdate("UPDATE accounts SET " + DATA + " = CAST(:data AS json) WHERE " + NUMBER + " = :number")
+  abstract void update(@AccountBinder Account account);
+
+  @Mapper(AccountMapper.class)
+  @SqlQuery("SELECT * FROM accounts WHERE " + NUMBER + " = :number")
+  abstract Account get(@Bind("number") String number);
 
   @SqlQuery("SELECT COUNT(DISTINCT " + NUMBER + ") from accounts")
-  abstract long getNumberCount();
+  abstract long getCount();
 
-  @Mapper(DeviceMapper.class)
-  @SqlQuery("SELECT * FROM accounts WHERE " + DEVICE_ID + " = 1 OFFSET :offset LIMIT :limit")
-  abstract List<Device> getAllMasterDevices(@Bind("offset") int offset, @Bind("limit") int length);
+  @Mapper(AccountMapper.class)
+  @SqlQuery("SELECT * FROM accounts OFFSET :offset LIMIT :limit")
+  abstract List<Account> getAll(@Bind("offset") int offset, @Bind("limit") int length);
 
-  @Mapper(DeviceMapper.class)
-  @SqlQuery("SELECT * FROM accounts WHERE " + DEVICE_ID + " = 1")
-  public abstract Iterator<Device> getAllMasterDevices();
-
-  @Mapper(DeviceMapper.class)
-  @SqlQuery("SELECT * FROM accounts WHERE " + NUMBER + " = :number")
-  public abstract List<Device> getAllByNumber(@Bind("number") String number);
-
-  @Mapper(DeviceMapper.class)
-  @SqlQuery("SELECT * FROM accounts WHERE " + NUMBER + " IN ( <numbers> )")
-  public abstract List<Device> getAllByNumbers(@BindIn("numbers") List<String> numbers);
+  @Mapper(AccountMapper.class)
+  @SqlQuery("SELECT * FROM accounts")
+  public abstract Iterator<Account> getAll();
 
   @Transaction(TransactionIsolationLevel.SERIALIZABLE)
-  public long insertClearingNumber(Device device) {
-    removeAccountsByNumber(device.getNumber());
-    device.setDeviceId(getHighestDeviceId(device.getNumber()) + 1);
-    return insertStep(device);
+  public long create(Account account) {
+    removeAccount(account.getNumber());
+    return insertStep(account);
   }
 
-  public static class DeviceMapper implements ResultSetMapper<Device> {
+  public static class AccountMapper implements ResultSetMapper<Account> {
     @Override
-    public Device map(int i, ResultSet resultSet, StatementContext statementContext)
+    public Account map(int i, ResultSet resultSet, StatementContext statementContext)
         throws SQLException
     {
-      return new Device(resultSet.getLong(ID), resultSet.getString(NUMBER), resultSet.getLong(DEVICE_ID),
-                         resultSet.getString(AUTH_TOKEN), resultSet.getString(SALT),
-                         resultSet.getString(SIGNALING_KEY), resultSet.getString(GCM_ID),
-                         resultSet.getString(APN_ID),
-                         resultSet.getInt(SUPPORTS_SMS) == 1, resultSet.getInt(FETCHES_MESSAGES) == 1);
+      try {
+        return mapper.readValue(resultSet.getString(DATA), Account.class);
+      } catch (IOException e) {
+        throw new SQLException(e);
+      }
     }
   }
 
@@ -134,23 +109,20 @@ public abstract class Accounts {
     public static class AccountBinderFactory implements BinderFactory {
       @Override
       public Binder build(Annotation annotation) {
-        return new Binder<AccountBinder, Device>() {
+        return new Binder<AccountBinder, Account>() {
           @Override
           public void bind(SQLStatement<?> sql,
                            AccountBinder accountBinder,
-                           Device device)
+                           Account account)
           {
-            sql.bind(ID, device.getId());
-            sql.bind(NUMBER, device.getNumber());
-            sql.bind(DEVICE_ID, device.getDeviceId());
-            sql.bind(AUTH_TOKEN, device.getAuthenticationCredentials()
-                                        .getHashedAuthenticationToken());
-            sql.bind(SALT, device.getAuthenticationCredentials().getSalt());
-            sql.bind(SIGNALING_KEY, device.getSignalingKey());
-            sql.bind(GCM_ID, device.getGcmRegistrationId());
-            sql.bind(APN_ID, device.getApnRegistrationId());
-            sql.bind(SUPPORTS_SMS, device.getSupportsSms() ? 1 : 0);
-            sql.bind(FETCHES_MESSAGES, device.getFetchesMessages() ? 1 : 0);
+            try {
+              String serialized = mapper.writeValueAsString(account);
+
+              sql.bind(NUMBER, account.getNumber());
+              sql.bind(DATA, serialized);
+            } catch (JsonProcessingException e) {
+              throw new IllegalArgumentException(e);
+            }
           }
         };
       }

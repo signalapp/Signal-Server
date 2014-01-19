@@ -26,7 +26,9 @@ import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.AuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.InvalidAuthorizationHeaderException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
+import org.whispersystems.textsecuregcm.entities.DeviceResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.PendingDevicesManager;
@@ -68,13 +70,13 @@ public class DeviceController {
   @GET
   @Path("/provisioning_code")
   @Produces(MediaType.APPLICATION_JSON)
-  public VerificationCode createDeviceToken(@Auth Device device)
+  public VerificationCode createDeviceToken(@Auth Account account)
       throws RateLimitExceededException
   {
-    rateLimiters.getVerifyLimiter().validate(device.getNumber()); //TODO: New limiter?
+    rateLimiters.getVerifyLimiter().validate(account.getNumber()); //TODO: New limiter?
 
     VerificationCode verificationCode = generateVerificationCode();
-    pendingDevices.store(device.getNumber(), verificationCode.getVerificationCode());
+    pendingDevices.store(account.getNumber(), verificationCode.getVerificationCode());
 
     return verificationCode;
   }
@@ -84,12 +86,11 @@ public class DeviceController {
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
   @Path("/{verification_code}")
-  public long verifyDeviceToken(@PathParam("verification_code") String verificationCode,
-                                @HeaderParam("Authorization")   String authorizationHeader,
-                                @Valid                          AccountAttributes accountAttributes)
+  public DeviceResponse verifyDeviceToken(@PathParam("verification_code") String verificationCode,
+                                          @HeaderParam("Authorization")   String authorizationHeader,
+                                          @Valid                          AccountAttributes accountAttributes)
       throws RateLimitExceededException
   {
-    Device device;
     try {
       AuthorizationHeader header = AuthorizationHeader.fromFullHeader(authorizationHeader);
       String number              = header.getNumber();
@@ -105,24 +106,28 @@ public class DeviceController {
         throw new WebApplicationException(Response.status(403).build());
       }
 
-      device = new Device();
-      device.setNumber(number);
+      Optional<Account> account = accounts.get(number);
+
+      if (!account.isPresent()) {
+        throw new WebApplicationException(Response.status(403).build());
+      }
+
+      Device device = new Device();
       device.setAuthenticationCredentials(new AuthenticationCredentials(password));
       device.setSignalingKey(accountAttributes.getSignalingKey());
-      device.setSupportsSms(accountAttributes.getSupportsSms());
       device.setFetchesMessages(accountAttributes.getFetchesMessages());
+      device.setId(account.get().getNextDeviceId());
 
-      accounts.provisionDevice(device);
+      account.get().addDevice(device);
+      accounts.update(account.get());
 
       pendingDevices.remove(number);
 
-      logger.debug("Stored new device device...");
+      return new DeviceResponse(device.getId());
     } catch (InvalidAuthorizationHeaderException e) {
       logger.info("Bad Authorization Header", e);
       throw new WebApplicationException(Response.status(401).build());
     }
-
-    return device.getDeviceId();
   }
 
   @VisibleForTesting protected VerificationCode generateVerificationCode() {

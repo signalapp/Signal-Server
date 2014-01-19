@@ -18,4 +18,7 @@ package org.whispersystems.textsecuregcm.controllers;
 
 
 public class ValidationException extends Exception {
+  public ValidationException(String s) {
+    super(s);
+  }
 }

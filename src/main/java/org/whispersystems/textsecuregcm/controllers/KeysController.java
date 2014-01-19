@@ -29,7 +29,6 @@ import org.whispersystems.textsecuregcm.federation.NoSuchPeerException;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Keys;
 
 import javax.validation.Valid;
@@ -43,7 +42,6 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import java.util.List;
 
 @Path("/v1/keys")
 public class KeysController {
@@ -52,46 +50,47 @@ public class KeysController {
 
   private final RateLimiters           rateLimiters;
   private final Keys                   keys;
-  private final AccountsManager        accountsManager;
   private final FederatedClientManager federatedClientManager;
 
-  public KeysController(RateLimiters rateLimiters, Keys keys, AccountsManager accountsManager,
+  public KeysController(RateLimiters rateLimiters, Keys keys,
                         FederatedClientManager federatedClientManager)
   {
     this.rateLimiters           = rateLimiters;
     this.keys                   = keys;
-    this.accountsManager        = accountsManager;
     this.federatedClientManager = federatedClientManager;
   }
 
   @Timed
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
-  public void setKeys(@Auth Device device, @Valid PreKeyList preKeys)  {
-    keys.store(device.getNumber(), device.getDeviceId(), preKeys.getLastResortKey(), preKeys.getKeys());
+  public void setKeys(@Auth Account account, @Valid PreKeyList preKeys)  {
+    Device device = account.getAuthenticatedDevice().get();
+    keys.store(account.getNumber(), device.getId(), preKeys.getKeys(), preKeys.getLastResortKey());
   }
 
-  private List<PreKey> getKeys(Device device, String number, String relay) throws RateLimitExceededException
+  @Timed
+  @GET
+  @Path("/{number}/{device_id}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public UnstructuredPreKeyList getDeviceKey(@Auth                   Account account,
+                                             @PathParam("number")    String number,
+                                             @PathParam("device_id") String deviceId,
+                                             @QueryParam("relay")    Optional<String> relay)
+      throws RateLimitExceededException
   {
-    rateLimiters.getPreKeysLimiter().validate(device.getNumber() + "__" + number);
-
     try {
-      UnstructuredPreKeyList keyList;
-
-      if (relay == null) {
-        Optional<Account> account = accountsManager.getAccount(number);
-        if (account.isPresent())
-          keyList = keys.get(number, account.get());
-        else
-          throw new WebApplicationException(Response.status(404).build());
-      } else {
-        keyList = federatedClientManager.getClient(relay).getKeys(number);
+      if (account.isRateLimited()) {
+        rateLimiters.getPreKeysLimiter().validate(account.getNumber() +  "__" + number + "." + deviceId);
       }
 
-      if (keyList == null || keyList.getKeys().isEmpty()) throw new WebApplicationException(Response.status(404).build());
-      else                                                return keyList.getKeys();
+      Optional<UnstructuredPreKeyList> results;
+
+      if (!relay.isPresent()) results = getLocalKeys(number, deviceId);
+      else                    results = federatedClientManager.getClient(relay.get()).getKeys(number, deviceId);
+
+      if (results.isPresent()) return results.get();
+      else                     throw new WebApplicationException(Response.status(404).build());
     } catch (NoSuchPeerException e) {
-      logger.info("No peer: " + relay);
       throw new WebApplicationException(Response.status(404).build());
     }
   }
@@ -100,15 +99,27 @@ public class KeysController {
   @GET
   @Path("/{number}")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response get(@Auth                    Device device,
-                      @PathParam("number")     String number,
-                      @QueryParam("multikeys") Optional<String> multikey,
-                      @QueryParam("relay")     String relay)
+  public PreKey get(@Auth                Account account,
+                    @PathParam("number") String number,
+                    @QueryParam("relay") Optional<String> relay)
       throws RateLimitExceededException
   {
-    if (!multikey.isPresent())
-      return Response.ok(getKeys(device, number, relay).get(0)).type(MediaType.APPLICATION_JSON).build();
-    else
-      return Response.ok(getKeys(device, number, relay)).type(MediaType.APPLICATION_JSON).build();
+    UnstructuredPreKeyList results = getDeviceKey(account, number, String.valueOf(Device.MASTER_ID), relay);
+    return results.getKeys().get(0);
+  }
+
+  private Optional<UnstructuredPreKeyList> getLocalKeys(String number, String deviceId) {
+    try {
+      if (deviceId.equals("*")) {
+        return keys.get(number);
+      }
+
+      Optional<PreKey> targetKey = keys.get(number, Long.parseLong(deviceId));
+
+      if (targetKey.isPresent()) return Optional.of(new UnstructuredPreKeyList(targetKey.get()));
+      else                       return Optional.absent();
+    } catch (NumberFormatException e) {
+      throw new WebApplicationException(Response.status(422).build());
+    }
   }
 }

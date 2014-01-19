@@ -17,6 +17,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -24,97 +25,58 @@ import java.io.Serializable;
 
 public class Device implements Serializable {
 
-  public static final int MEMCACHE_VERION = 1;
+  public static final long MASTER_ID = 1;
 
+  @JsonProperty
   private long    id;
-  private String  number;
-  private long    deviceId;
-  private String  hashedAuthenticationToken;
+
+  @JsonProperty
+  private String  authToken;
+
+  @JsonProperty
   private String  salt;
+
+  @JsonProperty
   private String  signalingKey;
-  /**
-   * In order for us to tell a client that an account is "inactive" (ie go use SMS for transport), we check that all
-   * non-fetching Accounts don't have push registrations. In this way, we can ensure that we have some form of transport
-   * available for all Accounts on all "active" numbers.
-   */
-  private String  gcmRegistrationId;
-  private String  apnRegistrationId;
-  private boolean supportsSms;
+
+  @JsonProperty
+  private String  gcmId;
+
+  @JsonProperty
+  private String  apnId;
+
+  @JsonProperty
   private boolean fetchesMessages;
 
   public Device() {}
 
-  public Device(long id, String number, long deviceId, String hashedAuthenticationToken, String salt,
-                String signalingKey, String gcmRegistrationId, String apnRegistrationId,
-                boolean supportsSms, boolean fetchesMessages)
+  public Device(long id, String authToken, String salt,
+                String signalingKey, String gcmId, String apnId,
+                boolean fetchesMessages)
   {
-    this.id                        = id;
-    this.number                    = number;
-    this.deviceId                  = deviceId;
-    this.hashedAuthenticationToken = hashedAuthenticationToken;
-    this.salt                      = salt;
-    this.signalingKey              = signalingKey;
-    this.gcmRegistrationId         = gcmRegistrationId;
-    this.apnRegistrationId         = apnRegistrationId;
-    this.supportsSms               = supportsSms;
-    this.fetchesMessages           = fetchesMessages;
+    this.id              = id;
+    this.authToken       = authToken;
+    this.salt            = salt;
+    this.signalingKey    = signalingKey;
+    this.gcmId           = gcmId;
+    this.apnId           = apnId;
+    this.fetchesMessages = fetchesMessages;
   }
 
-  public String getApnRegistrationId() {
-    return apnRegistrationId;
+  public String getApnId() {
+    return apnId;
   }
 
-  public void setApnRegistrationId(String apnRegistrationId) {
-    this.apnRegistrationId = apnRegistrationId;
+  public void setApnId(String apnId) {
+    this.apnId = apnId;
   }
 
-  public String getGcmRegistrationId() {
-    return gcmRegistrationId;
+  public String getGcmId() {
+    return gcmId;
   }
 
-  public void setGcmRegistrationId(String gcmRegistrationId) {
-    this.gcmRegistrationId = gcmRegistrationId;
-  }
-
-  public void setNumber(String number) {
-    this.number = number;
-  }
-
-  public String getNumber() {
-    return number;
-  }
-
-  public long getDeviceId() {
-    return deviceId;
-  }
-
-  public void setDeviceId(long deviceId) {
-    this.deviceId = deviceId;
-  }
-
-  public void setAuthenticationCredentials(AuthenticationCredentials credentials) {
-    this.hashedAuthenticationToken = credentials.getHashedAuthenticationToken();
-    this.salt                      = credentials.getSalt();
-  }
-
-  public AuthenticationCredentials getAuthenticationCredentials() {
-    return new AuthenticationCredentials(hashedAuthenticationToken, salt);
-  }
-
-  public String getSignalingKey() {
-    return signalingKey;
-  }
-
-  public void setSignalingKey(String signalingKey) {
-    this.signalingKey = signalingKey;
-  }
-
-  public boolean getSupportsSms() {
-    return supportsSms;
-  }
-
-  public void setSupportsSms(boolean supportsSms) {
-    this.supportsSms = supportsSms;
+  public void setGcmId(String gcmId) {
+    this.gcmId = gcmId;
   }
 
   public long getId() {
@@ -125,8 +87,25 @@ public class Device implements Serializable {
     this.id = id;
   }
 
+  public void setAuthenticationCredentials(AuthenticationCredentials credentials) {
+    this.authToken = credentials.getHashedAuthenticationToken();
+    this.salt      = credentials.getSalt();
+  }
+
+  public AuthenticationCredentials getAuthenticationCredentials() {
+    return new AuthenticationCredentials(authToken, salt);
+  }
+
+  public String getSignalingKey() {
+    return signalingKey;
+  }
+
+  public void setSignalingKey(String signalingKey) {
+    this.signalingKey = signalingKey;
+  }
+
   public boolean isActive() {
-    return fetchesMessages || !Util.isEmpty(getApnRegistrationId()) || !Util.isEmpty(getGcmRegistrationId());
+    return fetchesMessages || !Util.isEmpty(getApnId()) || !Util.isEmpty(getGcmId());
   }
 
   public boolean getFetchesMessages() {
@@ -137,7 +116,7 @@ public class Device implements Serializable {
     this.fetchesMessages = fetchesMessages;
   }
 
-  public String getBackwardsCompatibleNumberEncoding() {
-    return deviceId == 1 ? number : (number + "." + deviceId);
+  public boolean isMaster() {
+    return getId() == MASTER_ID;
   }
 }

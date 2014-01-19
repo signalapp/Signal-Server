@@ -51,7 +51,7 @@ public class EncryptedOutgoingMessage {
     this.signalingKey    = signalingKey;
   }
 
-  public String serialize() throws IOException {
+  public String serialize() throws CryptoEncodingException {
     byte[]        plaintext  = outgoingMessage.toByteArray();
     SecretKeySpec cipherKey  = getCipherKey (signalingKey);
     SecretKeySpec macKey     = getMacKey(signalingKey);
@@ -61,7 +61,7 @@ public class EncryptedOutgoingMessage {
   }
 
   private byte[] getCiphertext(byte[] plaintext, SecretKeySpec cipherKey, SecretKeySpec macKey)
-      throws IOException
+      throws CryptoEncodingException
   {
     try {
       Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
@@ -85,31 +85,39 @@ public class EncryptedOutgoingMessage {
       throw new AssertionError(e);
     } catch (InvalidKeyException e) {
       logger.warn("Invalid Key", e);
-      throw new IOException("Invalid key!");
+      throw new CryptoEncodingException("Invalid key!");
     }
   }
 
-  private SecretKeySpec getCipherKey(String signalingKey) throws IOException {
-    byte[] signalingKeyBytes = Base64.decode(signalingKey);
-    byte[] cipherKey         = new byte[CIPHER_KEY_SIZE];
+  private SecretKeySpec getCipherKey(String signalingKey) throws CryptoEncodingException {
+    try {
+      byte[] signalingKeyBytes = Base64.decode(signalingKey);
+      byte[] cipherKey         = new byte[CIPHER_KEY_SIZE];
 
-    if (signalingKeyBytes.length < CIPHER_KEY_SIZE)
-      throw new IOException("Signaling key too short!");
+      if (signalingKeyBytes.length < CIPHER_KEY_SIZE)
+        throw new CryptoEncodingException("Signaling key too short!");
 
-    System.arraycopy(signalingKeyBytes, 0, cipherKey, 0, cipherKey.length);
-    return new SecretKeySpec(cipherKey, "AES");
+      System.arraycopy(signalingKeyBytes, 0, cipherKey, 0, cipherKey.length);
+      return new SecretKeySpec(cipherKey, "AES");
+    } catch (IOException e) {
+      throw new CryptoEncodingException(e);
+    }
   }
 
-  private SecretKeySpec getMacKey(String signalingKey) throws IOException {
-    byte[] signalingKeyBytes = Base64.decode(signalingKey);
-    byte[] macKey            = new byte[MAC_KEY_SIZE];
+  private SecretKeySpec getMacKey(String signalingKey) throws CryptoEncodingException {
+    try {
+      byte[] signalingKeyBytes = Base64.decode(signalingKey);
+      byte[] macKey            = new byte[MAC_KEY_SIZE];
 
-    if (signalingKeyBytes.length < CIPHER_KEY_SIZE + MAC_KEY_SIZE)
-      throw new IOException(("Signaling key too short!"));
+      if (signalingKeyBytes.length < CIPHER_KEY_SIZE + MAC_KEY_SIZE)
+        throw new CryptoEncodingException("Signaling key too short!");
 
-    System.arraycopy(signalingKeyBytes, CIPHER_KEY_SIZE, macKey, 0, macKey.length);
+      System.arraycopy(signalingKeyBytes, CIPHER_KEY_SIZE, macKey, 0, macKey.length);
 
-    return new SecretKeySpec(macKey, "HmacSHA256");
+      return new SecretKeySpec(macKey, "HmacSHA256");
+    } catch (IOException e) {
+      throw new CryptoEncodingException(e);
+    }
   }
 
 }

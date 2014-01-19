@@ -17,6 +17,7 @@
 package org.whispersystems.textsecuregcm.federation;
 
 
+import com.google.common.base.Optional;
 import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientHandlerException;
 import com.sun.jersey.api.client.ClientResponse;
@@ -34,14 +35,19 @@ import org.whispersystems.textsecuregcm.entities.AccountCount;
 import org.whispersystems.textsecuregcm.entities.AttachmentUri;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.entities.ClientContacts;
+import org.whispersystems.textsecuregcm.entities.IncomingMessage;
+import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageResponse;
+import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.entities.RelayMessage;
 import org.whispersystems.textsecuregcm.entities.UnstructuredPreKeyList;
 import org.whispersystems.textsecuregcm.util.Base64;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -54,6 +60,7 @@ import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
+import java.util.Map;
 
 public class FederatedClient {
 
@@ -61,8 +68,9 @@ public class FederatedClient {
 
   private static final String USER_COUNT_PATH     = "/v1/federation/user_count";
   private static final String USER_TOKENS_PATH    = "/v1/federation/user_tokens/%d";
-  private static final String RELAY_MESSAGE_PATH  = "/v1/federation/message";
+  private static final String RELAY_MESSAGE_PATH  = "/v1/federation/messages/%s/%s";
   private static final String PREKEY_PATH         = "/v1/federation/key/%s";
+  private static final String PREKEY_PATH_DEVICE  = "/v1/federation/key/%s/%s";
   private static final String ATTACHMENT_URI_PATH = "/v1/federation/attachment/%d";
 
   private final FederatedPeer peer;
@@ -98,15 +106,27 @@ public class FederatedClient {
     }
   }
 
-  public UnstructuredPreKeyList getKeys(String destination)  {
+  public Optional<PreKey> getKey(String destination)  {
     try {
       WebResource resource = client.resource(peer.getUrl()).path(String.format(PREKEY_PATH, destination));
-      return resource.accept(MediaType.APPLICATION_JSON)
-                     .header("Authorization", authorizationHeader)
-                     .get(UnstructuredPreKeyList.class);
+      return Optional.of(resource.accept(MediaType.APPLICATION_JSON)
+                                 .header("Authorization", authorizationHeader)
+                                 .get(PreKey.class));
     } catch (UniformInterfaceException | ClientHandlerException e) {
       logger.warn("PreKey", e);
-      return null;
+      return Optional.absent();
+    }
+  }
+
+  public Optional<UnstructuredPreKeyList> getKeys(String destination, String device) {
+    try {
+      WebResource resource = client.resource(peer.getUrl()).path(String.format(PREKEY_PATH_DEVICE, destination, device));
+      return Optional.of(resource.accept(MediaType.APPLICATION_JSON)
+                                 .header("Authorization", authorizationHeader)
+                                 .get(UnstructuredPreKeyList.class));
+    } catch (UniformInterfaceException | ClientHandlerException e) {
+      logger.warn("PreKey", e);
+      return Optional.absent();
     }
   }
 
@@ -138,21 +158,19 @@ public class FederatedClient {
     }
   }
 
-  public MessageResponse sendMessages(List<RelayMessage> messages)
+  public void sendMessages(String source, String destination, IncomingMessageList messages)
       throws IOException
   {
     try {
-      WebResource    resource = client.resource(peer.getUrl()).path(RELAY_MESSAGE_PATH);
+      WebResource    resource = client.resource(peer.getUrl()).path(String.format(RELAY_MESSAGE_PATH, source, destination));
       ClientResponse response = resource.type(MediaType.APPLICATION_JSON)
                                         .header("Authorization", authorizationHeader)
                                         .entity(messages)
                                         .put(ClientResponse.class);
 
       if (response.getStatus() != 200 && response.getStatus() != 204) {
-        throw new IOException("Bad response: " + response.getStatus());
+        throw new WebApplicationException(clientResponseToResponse(response));
       }
-
-      return response.getEntity(MessageResponse.class);
     } catch (UniformInterfaceException | ClientHandlerException e) {
       logger.warn("sendMessage", e);
       throw new IOException(e);
@@ -201,6 +219,19 @@ public class FederatedClient {
     } catch (NoSuchAlgorithmException e) {
       throw new AssertionError(e);
     }
+  }
+
+  private Response clientResponseToResponse(ClientResponse r) {
+    Response.ResponseBuilder rb = Response.status(r.getStatus());
+
+    for (Map.Entry<String, List<String>> entry : r.getHeaders().entrySet()) {
+      for (String value : entry.getValue()) {
+        rb.header(entry.getKey(), value);
+      }
+    }
+
+    rb.entity(r.getEntityInputStream());
+    return rb.build();
   }
 
   public String getPeerName() {

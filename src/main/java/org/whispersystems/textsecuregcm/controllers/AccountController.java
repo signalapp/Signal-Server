@@ -32,8 +32,8 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
 import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
@@ -54,7 +54,6 @@ import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.util.Arrays;
 
 @Path("/v1/accounts")
 public class AccountController {
@@ -97,7 +96,7 @@ public class AccountController {
         rateLimiters.getVoiceDestinationLimiter().validate(number);
         break;
       default:
-        throw new WebApplicationException(Response.status(415).build());
+        throw new WebApplicationException(Response.status(422).build());
     }
 
     VerificationCode verificationCode = generateVerificationCode();
@@ -137,14 +136,17 @@ public class AccountController {
       }
 
       Device device = new Device();
-      device.setNumber(number);
+      device.setId(Device.MASTER_ID);
       device.setAuthenticationCredentials(new AuthenticationCredentials(password));
       device.setSignalingKey(accountAttributes.getSignalingKey());
-      device.setSupportsSms(accountAttributes.getSupportsSms());
       device.setFetchesMessages(accountAttributes.getFetchesMessages());
-      device.setDeviceId(0);
 
-      accounts.create(new Account(number, accountAttributes.getSupportsSms(), device));
+      Account account = new Account();
+      account.setNumber(number);
+      account.setSupportsSms(accountAttributes.getSupportsSms());
+      account.addDevice(device);
+
+      accounts.create(account);
 
       pendingAccounts.remove(number);
 
@@ -161,36 +163,40 @@ public class AccountController {
   @PUT
   @Path("/gcm/")
   @Consumes(MediaType.APPLICATION_JSON)
-  public void setGcmRegistrationId(@Auth Device device, @Valid GcmRegistrationId registrationId)  {
-    device.setApnRegistrationId(null);
-    device.setGcmRegistrationId(registrationId.getGcmRegistrationId());
-    accounts.update(device);
+  public void setGcmRegistrationId(@Auth Account account, @Valid GcmRegistrationId registrationId)  {
+    Device device = account.getAuthenticatedDevice().get();
+    device.setApnId(null);
+    device.setGcmId(registrationId.getGcmRegistrationId());
+    accounts.update(account);
   }
 
   @Timed
   @DELETE
   @Path("/gcm/")
-  public void deleteGcmRegistrationId(@Auth Device device) {
-    device.setGcmRegistrationId(null);
-    accounts.update(device);
+  public void deleteGcmRegistrationId(@Auth Account account) {
+    Device device = account.getAuthenticatedDevice().get();
+    device.setGcmId(null);
+    accounts.update(account);
   }
 
   @Timed
   @PUT
   @Path("/apn/")
   @Consumes(MediaType.APPLICATION_JSON)
-  public void setApnRegistrationId(@Auth Device device, @Valid ApnRegistrationId registrationId) {
-    device.setApnRegistrationId(registrationId.getApnRegistrationId());
-    device.setGcmRegistrationId(null);
-    accounts.update(device);
+  public void setApnRegistrationId(@Auth Account account, @Valid ApnRegistrationId registrationId) {
+    Device device = account.getAuthenticatedDevice().get();
+    device.setApnId(registrationId.getApnRegistrationId());
+    device.setGcmId(null);
+    accounts.update(account);
   }
 
   @Timed
   @DELETE
   @Path("/apn/")
-  public void deleteApnRegistrationId(@Auth Device device) {
-    device.setApnRegistrationId(null);
-    accounts.update(device);
+  public void deleteApnRegistrationId(@Auth Account account) {
+    Device device = account.getAuthenticatedDevice().get();
+    device.setApnId(null);
+    accounts.update(account);
   }
 
   @Timed

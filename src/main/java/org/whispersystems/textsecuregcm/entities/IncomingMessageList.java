@@ -29,9 +29,20 @@ public class IncomingMessageList {
   @Valid
   private List<IncomingMessage> messages;
 
+  @JsonProperty
+  private String relay;
+
   public IncomingMessageList() {}
 
   public List<IncomingMessage> getMessages() {
     return messages;
+  }
+
+  public String getRelay() {
+    return relay;
+  }
+
+  public void setRelay(String relay) {
+    this.relay = relay;
   }
 }

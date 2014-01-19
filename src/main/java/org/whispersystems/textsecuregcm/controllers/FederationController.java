@@ -16,9 +16,7 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
-import com.amazonaws.HttpMethod;
 import com.google.common.base.Optional;
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.yammer.dropwizard.auth.Auth;
 import com.yammer.metrics.annotation.Timed;
 import org.slf4j.Logger;
@@ -27,40 +25,25 @@ import org.whispersystems.textsecuregcm.entities.AccountCount;
 import org.whispersystems.textsecuregcm.entities.AttachmentUri;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.entities.ClientContacts;
-import org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
-import org.whispersystems.textsecuregcm.entities.MessageResponse;
-import org.whispersystems.textsecuregcm.entities.RelayMessage;
+import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
+import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.entities.UnstructuredPreKeyList;
 import org.whispersystems.textsecuregcm.federation.FederatedPeer;
-import org.whispersystems.textsecuregcm.push.PushSender;
+import org.whispersystems.textsecuregcm.federation.NonLimitedAccount;
 import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.Keys;
-import org.whispersystems.textsecuregcm.util.Pair;
-import org.whispersystems.textsecuregcm.util.UrlSigner;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import javax.validation.Valid;
-import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
-import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
 import java.io.IOException;
-import java.net.URL;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import static com.google.common.base.Preconditions.checkState;
 
 @Path("/v1/federation")
 public class FederationController {
@@ -69,16 +52,20 @@ public class FederationController {
 
   private static final int ACCOUNT_CHUNK_SIZE = 10000;
 
-  private final PushSender      pushSender;
-  private final Keys            keys;
-  private final AccountsManager accounts;
-  private final UrlSigner       urlSigner;
+  private final AccountsManager      accounts;
+  private final AttachmentController attachmentController;
+  private final KeysController       keysController;
+  private final MessageController    messageController;
 
-  public FederationController(Keys keys, AccountsManager accounts, PushSender pushSender, UrlSigner urlSigner) {
-    this.keys       = keys;
-    this.accounts   = accounts;
-    this.pushSender = pushSender;
-    this.urlSigner  = urlSigner;
+  public FederationController(AccountsManager      accounts,
+                              AttachmentController attachmentController,
+                              KeysController       keysController,
+                              MessageController     messageController)
+  {
+    this.accounts             = accounts;
+    this.attachmentController = attachmentController;
+    this.keysController       = keysController;
+    this.messageController    = messageController;
   }
 
   @Timed
@@ -87,82 +74,61 @@ public class FederationController {
   @Produces(MediaType.APPLICATION_JSON)
   public AttachmentUri getSignedAttachmentUri(@Auth                      FederatedPeer peer,
                                               @PathParam("attachmentId") long attachmentId)
+      throws IOException
   {
-    URL url = urlSigner.getPreSignedUrl(attachmentId, HttpMethod.GET);
-    return new AttachmentUri(url);
+    return attachmentController.redirectToAttachment(new NonLimitedAccount("Unknown", peer.getName()),
+                                                     attachmentId, Optional.<String>absent());
   }
 
   @Timed
   @GET
   @Path("/key/{number}")
   @Produces(MediaType.APPLICATION_JSON)
-  public UnstructuredPreKeyList getKey(@Auth                FederatedPeer peer,
-                                       @PathParam("number") String number)
+  public PreKey getKey(@Auth                FederatedPeer peer,
+                       @PathParam("number") String number)
+      throws IOException
   {
-    Optional<Account> account = accounts.getAccount(number);
-    UnstructuredPreKeyList keyList = null;
-    if (account.isPresent())
-      keyList = keys.get(number, account.get());
-    if (!account.isPresent() || keyList.getKeys().isEmpty())
-      throw new WebApplicationException(Response.status(404).build());
-    return keyList;
+    try {
+      return keysController.get(new NonLimitedAccount("Unknown", peer.getName()), number, Optional.<String>absent());
+    } catch (RateLimitExceededException e) {
+      logger.warn("Rate limiting on federated channel", e);
+      throw new IOException(e);
+    }
+  }
+
+  @Timed
+  @GET
+  @Path("/key/{number}/{device}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public UnstructuredPreKeyList getKeys(@Auth                FederatedPeer peer,
+                                        @PathParam("number") String number,
+                                        @PathParam("device") String device)
+      throws IOException
+  {
+    try {
+      return keysController.getDeviceKey(new NonLimitedAccount("Unknown", peer.getName()),
+                                         number, device, Optional.<String>absent());
+    } catch (RateLimitExceededException e) {
+      logger.warn("Rate limiting on federated channel", e);
+      throw new IOException(e);
+    }
   }
 
   @Timed
   @PUT
-  @Path("/message")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  public MessageResponse relayMessage(@Auth FederatedPeer peer, @Valid List<RelayMessage> messages)
+  @Path("/messages/{source}/{destination}")
+  public void sendMessages(@Auth                     FederatedPeer peer,
+                           @PathParam("source")      String source,
+                           @PathParam("destination") String destination,
+                           @Valid                    IncomingMessageList messages)
       throws IOException
   {
     try {
-      Map<String, Set<Long>> localDestinations = new HashMap<>();
-      for (RelayMessage message : messages) {
-        Set<Long> deviceIds = localDestinations.get(message.getDestination());
-        if (deviceIds == null) {
-          deviceIds = new HashSet<>();
-          localDestinations.put(message.getDestination(), deviceIds);
-        }
-        deviceIds.add(message.getDestinationDeviceId());
-      }
-
-      List<Account> localAccounts = null;
-      try {
-        localAccounts = accounts.getAccountsForDevices(localDestinations);
-      } catch (MissingDevicesException e) {
-        return new MessageResponse(e.missingNumbers);
-      }
-
-      List<String>         success               = new LinkedList<>();
-      List<String>         failure               = new LinkedList<>();
-
-      for (RelayMessage message : messages) {
-        Account destinationAccount = null;
-        for (Account account : localAccounts)
-          if (account.getNumber().equals(message.getDestination()))
-            destinationAccount= account;
-
-        checkState(destinationAccount != null);
-
-        Device device = destinationAccount.getDevice(message.getDestinationDeviceId());
-        OutgoingMessageSignal signal = OutgoingMessageSignal.parseFrom(message.getOutgoingMessageSignal())
-                                                            .toBuilder()
-                                                            .setRelay(peer.getName())
-                                                            .build();
-        try {
-          pushSender.sendMessage(device, signal);
-          success.add(device.getBackwardsCompatibleNumberEncoding());
-        } catch (NoSuchUserException e) {
-          logger.info("No such user", e);
-          failure.add(device.getBackwardsCompatibleNumberEncoding());
-        }
-      }
-
-      return new MessageResponse(success, failure);
-    } catch (InvalidProtocolBufferException ipe) {
-      logger.warn("ProtoBuf", ipe);
-      throw new WebApplicationException(Response.status(400).build());
+      messages.setRelay(null);
+      messageController.sendMessage(new NonLimitedAccount(source, peer.getName()), destination, messages);
+    } catch (RateLimitExceededException e) {
+      logger.warn("Rate limiting on federated channel", e);
+      throw new IOException(e);
     }
   }
 
@@ -181,15 +147,16 @@ public class FederationController {
   public ClientContacts getUserTokens(@Auth                FederatedPeer peer,
                                       @PathParam("offset") int offset)
   {
-    List<Device>         numberList    = accounts.getAllMasterDevices(offset, ACCOUNT_CHUNK_SIZE);
+    List<Account>       accountList    = accounts.getAll(offset, ACCOUNT_CHUNK_SIZE);
     List<ClientContact> clientContacts = new LinkedList<>();
 
-    for (Device device : numberList) {
-      byte[]        token         = Util.getContactToken(device.getNumber());
-      ClientContact clientContact = new ClientContact(token, null, device.getSupportsSms());
+    for (Account account : accountList) {
+      byte[]        token         = Util.getContactToken(account.getNumber());
+      ClientContact clientContact = new ClientContact(token, null, account.getSupportsSms());
 
-      if (!device.isActive())
+      if (!account.isActive()) {
         clientContact.setInactive(true);
+      }
 
       clientContacts.add(clientContact);
     }

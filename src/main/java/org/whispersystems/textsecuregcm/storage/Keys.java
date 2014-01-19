@@ -16,6 +16,7 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
+import com.google.common.base.Optional;
 import org.skife.jdbi.v2.SQLStatement;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.TransactionIsolationLevel;
@@ -62,8 +63,11 @@ public abstract class Keys {
   @Mapper(PreKeyMapper.class)
   abstract PreKey retrieveFirst(@Bind("number") String number, @Bind("device_id") long deviceId);
 
+  @SqlQuery("SELECT DISTINCT ON (number, device_id) * FROM keys WHERE number = :number ORDER BY key_id ASC FOR UPDATE")
+  abstract List<PreKey> retrieveFirst(@Bind("number") String number);
+
   @Transaction(TransactionIsolationLevel.SERIALIZABLE)
-  public void store(String number, long deviceId, PreKey lastResortKey, List<PreKey> keys) {
+  public void store(String number, long deviceId, List<PreKey> keys, PreKey lastResortKey) {
     for (PreKey key : keys) {
       key.setNumber(number);
       key.setDeviceId(deviceId);
@@ -79,20 +83,31 @@ public abstract class Keys {
   }
 
   @Transaction(TransactionIsolationLevel.SERIALIZABLE)
-  public UnstructuredPreKeyList get(String number, Account account) {
-    List<PreKey> preKeys = new LinkedList<>();
-    for (Device device : account.getDevices()) {
-      PreKey preKey = retrieveFirst(number, device.getDeviceId());
-      if (preKey != null)
-        preKeys.add(preKey);
+  public Optional<PreKey> get(String number, long deviceId) {
+    PreKey preKey = retrieveFirst(number, deviceId);
+
+    if (preKey != null && !preKey.isLastResort()) {
+      removeKey(preKey.getId());
     }
 
-    for (PreKey preKey : preKeys) {
-      if (!preKey.isLastResort())
-        removeKey(preKey.getId());
+    if (preKey != null) return Optional.of(preKey);
+    else                return Optional.absent();
+  }
+
+  @Transaction(TransactionIsolationLevel.SERIALIZABLE)
+  public Optional<UnstructuredPreKeyList> get(String number) {
+    List<PreKey> preKeys = retrieveFirst(number);
+
+    if (preKeys != null) {
+      for (PreKey preKey : preKeys) {
+        if (!preKey.isLastResort()) {
+          removeKey(preKey.getId());
+        }
+      }
     }
 
-    return new UnstructuredPreKeyList(preKeys);
+    if (preKeys != null) return Optional.of(new UnstructuredPreKeyList(preKeys));
+    else                 return Optional.absent();
   }
 
   @BindingAnnotation(PreKeyBinder.PreKeyBinderFactory.class)

@@ -59,6 +59,7 @@ public class RateLimiters {
     this.messagesLimiter = new RateLimiter(memcachedClient, "messages",
                                            config.getMessages().getBucketSize(),
                                            config.getMessages().getLeakRatePerMinute());
+
   }
 
   public RateLimiter getMessagesLimiter() {
