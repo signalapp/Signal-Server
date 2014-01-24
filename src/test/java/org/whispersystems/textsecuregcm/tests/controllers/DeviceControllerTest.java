@@ -62,6 +62,8 @@ public class DeviceControllerTest extends ResourceTest {
     when(rateLimiters.getSmsDestinationLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getVoiceDestinationLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getVerifyLimiter()).thenReturn(rateLimiter);
+    when(rateLimiters.getAllocateDeviceLimiter()).thenReturn(rateLimiter);
+    when(rateLimiters.getVerifyDeviceLimiter()).thenReturn(rateLimiter);
 
     when(account.getNextDeviceId()).thenReturn(42L);
 

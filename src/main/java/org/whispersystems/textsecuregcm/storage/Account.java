@@ -29,6 +29,9 @@ public class Account implements Serializable {
 
   public static final int MEMCACHE_VERION = 2;
 
+  @JsonIgnore
+  private long id;
+
   @JsonProperty
   private String number;
 
@@ -46,6 +49,14 @@ public class Account implements Serializable {
   public Account(String number, boolean supportsSms) {
     this.number      = number;
     this.supportsSms = supportsSms;
+  }
+
+  public long getId() {
+    return id;
+  }
+
+  public void setId(long id) {
+    this.id = id;
   }
 
   public Optional<Device> getAuthenticatedDevice() {

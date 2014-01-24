@@ -62,7 +62,7 @@ public class PushSender {
 
     if      (device.getGcmId() != null)   sendGcmMessage(account, device, message);
     else if (device.getApnId() != null)   sendApnMessage(account, device, message);
-    else if (device.getFetchesMessages()) storeFetchedMessage(device, message);
+    else if (device.getFetchesMessages()) storeFetchedMessage(account, device, message);
     else                                  throw new NotPushRegisteredException("No delivery possible!");
   }
 
@@ -97,11 +97,11 @@ public class PushSender {
     }
   }
 
-  private void storeFetchedMessage(Device device, EncryptedOutgoingMessage outgoingMessage)
+  private void storeFetchedMessage(Account account, Device device, EncryptedOutgoingMessage outgoingMessage)
       throws NotPushRegisteredException
   {
     try {
-      storedMessageManager.storeMessage(device, outgoingMessage);
+      storedMessageManager.storeMessage(account, device, outgoingMessage);
     } catch (CryptoEncodingException e) {
       throw new NotPushRegisteredException(e);
     }

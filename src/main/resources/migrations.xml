@@ -104,27 +104,37 @@
                 <constraints primaryKey="true" nullable="false"/>
             </column>
 
-            <column name="number" type="varchar(255)">
+            <column name="number" type="text">
                 <constraints unique="true" nullable="false"/>
             </column>
 
-            <column name="verification_code" type="varchar(255)">
+            <column name="verification_code" type="text">
                 <constraints nullable="false"/>
             </column>
         </createTable>
 
-        <createTable tableName="stored_messages">
+        <createTable tableName="messages">
             <column name="id" type="bigint" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
 
-            <column name="destination_id" type="bigint">
-                <constraints nullable="false" foreignKeyName="destination_fk" deleteCascade="true" references="accounts(id)"/>
+            <column name="account_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="device_id" type="bigint">
+                <constraints nullable="false"/>
             </column>
 
             <column name="encrypted_message" type="text">
                 <constraints nullable="false"/>
             </column>
         </createTable>
+
+        <createIndex tableName="messages" indexName="messages_account_and_device">
+            <column name="account_id"/>
+            <column name="device_id"/>
+        </createIndex>
+
     </changeSet>
 </databaseChangeLog>
