@@ -19,19 +19,11 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.google.common.base.Optional;
 import net.spy.memcached.MemcachedClient;
-import org.whispersystems.textsecuregcm.controllers.MissingDevicesException;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
-import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
-import sun.util.logging.resources.logging_zh_CN;
 
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 public class AccountsManager {
 

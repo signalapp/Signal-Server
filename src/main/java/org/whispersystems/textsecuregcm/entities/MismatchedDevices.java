@@ -4,13 +4,17 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
-public class MissingDevices {
+public class MismatchedDevices {
 
   @JsonProperty
   public List<Long> missingDevices;
 
-  public MissingDevices(List<Long> missingDevices) {
+  @JsonProperty
+  public List<Long> extraDevices;
+
+  public MismatchedDevices(List<Long> missingDevices, List<Long> extraDevices) {
     this.missingDevices = missingDevices;
+    this.extraDevices   = extraDevices;
   }
 
 }
