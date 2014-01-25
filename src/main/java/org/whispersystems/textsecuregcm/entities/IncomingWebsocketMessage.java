@@ -3,7 +3,7 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-@JsonIgnoreProperties(ignoreUnknown = false)
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class IncomingWebsocketMessage {
 
   public static final int TYPE_ACKNOWLEDGE_MESSAGE = 1;
@@ -11,7 +11,7 @@ public class IncomingWebsocketMessage {
   public static final int TYPE_PONG_MESSAGE        = 3;
 
   @JsonProperty
-  private int type;
+  protected int type;
 
   public IncomingWebsocketMessage() {}
 
