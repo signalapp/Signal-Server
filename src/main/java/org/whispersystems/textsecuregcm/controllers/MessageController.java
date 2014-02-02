@@ -150,7 +150,8 @@ public class MessageController {
 
       messageBuilder.setType(incomingMessage.getType())
                     .setSource(source.getNumber())
-                    .setTimestamp(System.currentTimeMillis());
+                    .setTimestamp(System.currentTimeMillis())
+                    .setSourceDevice((int)source.getAuthenticatedDevice().get().getId());
 
       if (messageBody.isPresent()) {
         messageBuilder.setMessage(ByteString.copyFrom(messageBody.get()));

@@ -22,8 +22,9 @@ option java_outer_classname = "MessageProtos";
 message OutgoingMessageSignal {
   optional uint32 type = 1;
   optional string source = 2;
+  optional  uint32 sourceDevice = 7;
   optional string relay = 3;
-  repeated string destinations = 4;
+//  repeated string destinations = 4;
   optional uint64 timestamp = 5;
   optional bytes message = 6;
 }
