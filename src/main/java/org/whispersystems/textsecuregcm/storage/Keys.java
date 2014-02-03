@@ -63,7 +63,8 @@ public abstract class Keys {
   @Mapper(PreKeyMapper.class)
   abstract PreKey retrieveFirst(@Bind("number") String number, @Bind("device_id") long deviceId);
 
-  @SqlQuery("SELECT DISTINCT ON (number, device_id) * FROM keys WHERE number = :number ORDER BY key_id ASC FOR UPDATE")
+  @SqlQuery("SELECT DISTINCT ON (number, device_id) * FROM keys WHERE number = :number ORDER BY number, device_id, key_id ASC")
+  @Mapper(PreKeyMapper.class)
   abstract List<PreKey> retrieveFirst(@Bind("number") String number);
 
   @Transaction(TransactionIsolationLevel.SERIALIZABLE)

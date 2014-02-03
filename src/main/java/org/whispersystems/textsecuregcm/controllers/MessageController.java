@@ -88,12 +88,13 @@ public class MessageController {
     rateLimiters.getMessagesLimiter().validate(source.getNumber());
 
     try {
-      if (messages.getRelay() != null) sendLocalMessage(source, destinationName, messages);
+      if (messages.getRelay() == null) sendLocalMessage(source, destinationName, messages);
       else                             sendRelayMessage(source, destinationName, messages);
     } catch (NoSuchUserException e) {
       throw new WebApplicationException(Response.status(404).build());
     } catch (MismatchedDevicesException e) {
       throw new WebApplicationException(Response.status(409)
+                                                .type(MediaType.APPLICATION_JSON_TYPE)
                                                 .entity(new MismatchedDevices(e.getMissingDevices(),
                                                                               e.getExtraDevices()))
                                                 .build());
