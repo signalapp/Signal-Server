@@ -235,7 +235,9 @@ public class MessageController {
     String destination = null;
 
     for (IncomingMessage message : messages) {
-      if (destination != null && !destination.equals(message.getDestination())) {
+      if ((message.getDestination() == null) ||
+          (destination != null && !destination.equals(message.getDestination())))
+      {
         throw new ValidationException("Multiple account destinations!");
       }
 

@@ -25,7 +25,6 @@ public class IncomingMessage {
   private int    type;
 
   @JsonProperty
-  @NotEmpty
   private String destination;
 
   @JsonProperty
