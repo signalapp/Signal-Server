@@ -33,7 +33,11 @@ public class AuthHelper {
 
     when(credentials.verify("foo")).thenReturn(true);
     when(device.getAuthenticationCredentials()).thenReturn(credentials);
+    when(device.getId()).thenReturn(1L);
     when(account.getDevice(anyLong())).thenReturn(Optional.of(device));
+    when(account.getNumber()).thenReturn(VALID_NUMBER);
+    when(account.getAuthenticatedDevice()).thenReturn(Optional.of(device));
+    when(account.getRelay()).thenReturn(Optional.<String>absent());
     when(accounts.get(VALID_NUMBER)).thenReturn(Optional.of(account));
 
     return new MultiBasicAuthProvider<>(new FederatedPeerAuthenticator(new FederationConfiguration()),

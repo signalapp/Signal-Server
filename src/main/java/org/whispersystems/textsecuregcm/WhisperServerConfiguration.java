@@ -29,6 +29,7 @@ import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisConfiguration;
 import org.whispersystems.textsecuregcm.configuration.S3Configuration;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
+import org.whispersystems.textsecuregcm.configuration.WebsocketConfiguration;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
@@ -82,6 +83,14 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private GraphiteConfiguration graphite = new GraphiteConfiguration();
+
+  @Valid
+  @JsonProperty
+  private WebsocketConfiguration websocket = new WebsocketConfiguration();
+
+  public WebsocketConfiguration getWebsocketConfiguration() {
+    return websocket;
+  }
 
   public TwilioConfiguration getTwilioConfiguration() {
     return twilio;

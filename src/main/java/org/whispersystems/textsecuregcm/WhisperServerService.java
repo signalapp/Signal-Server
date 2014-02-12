@@ -147,16 +147,17 @@ public class WhisperServerService extends Service<WhisperServerConfiguration> {
     environment.addResource(keysController);
     environment.addResource(messageController);
 
-    environment.addServlet(new WebsocketControllerFactory(deviceAuthenticator, storedMessageManager, pubSubManager),
-                           "/v1/websocket/");
+    if (config.getWebsocketConfiguration().isEnabled()) {
+      environment.addServlet(new WebsocketControllerFactory(deviceAuthenticator, storedMessageManager, pubSubManager),
+                             "/v1/websocket/");
+      environment.addFilter(new CORSHeaderFilter(), "/*");
+    }
 
     environment.addHealthCheck(new RedisHealthCheck(redisClient));
     environment.addHealthCheck(new MemcacheHealthCheck(memcachedClient));
 
     environment.addProvider(new IOExceptionMapper());
     environment.addProvider(new RateLimitExceededExceptionMapper());
-
-    environment.addFilter(new CORSHeaderFilter(), "/*");
 
     if (config.getGraphiteConfiguration().isEnabled()) {
       GraphiteReporter.enable(15, TimeUnit.SECONDS,
