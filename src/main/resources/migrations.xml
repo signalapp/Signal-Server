@@ -82,7 +82,9 @@
             <column name="data" type="json" />
         </addColumn>
 
-        <sql>UPDATE accounts SET data = CAST(('{"number" : "' || number || '", "supportsSms" : ' || supports_sms || ', "devices" : [{"id" : 1, "authToken" : "' || auth_token || '", "salt" : "' || salt || '"' || CASE WHEN signaling_key IS NOT NULL THEN ', "signalingKey" : "' || signaling_key || '"' ELSE '' END || CASE WHEN gcm_id IS NOT NULL THEN ', "gcmId" : "' || gcm_id || '"' ELSE '' END || CASE WHEN apn_id IS NOT NULL THEN ', "apnId" : "' || apn_id || '"' ELSE '' END || '}]}') AS json);</sql>
+        <sql>CREATE type device_t AS (id integer, "authToken" varchar(255), salt varchar(255), "signalingKey" varchar(255), "gcmId" text, "apnId" text);</sql>
+        <sql>CREATE type account_t AS (number varchar(255), "supportsSms" smallint, devices device_t array);</sql>
+        <sql>UPDATE accounts SET data = row_to_json(row(number, supports_sms, array[row(1, auth_token, salt, signaling_key, gcm_id, apn_id)::device_t])::account_t)</sql>
 
         <addNotNullConstraint tableName="accounts" columnName="data"/>
 
@@ -92,6 +94,9 @@
         <dropColumn tableName="accounts" columnName="gcm_id"/>
         <dropColumn tableName="accounts" columnName="apn_id"/>
         <dropColumn tableName="accounts" columnName="supports_sms"/>
+
+        <sql>DROP type account_t;</sql>
+        <sql>DROP type device_t;</sql>
 
         <addColumn tableName="keys">
             <column name="device_id" type="bigint" defaultValue="1">
