@@ -10,6 +10,7 @@ import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
+import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -149,6 +150,25 @@ public class MessageControllerTest extends ResourceTest {
     assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
 
     verify(pushSender, times(2)).sendMessage(any(Account.class), any(Device.class), any(MessageProtos.OutgoingMessageSignal.class));
+  }
+
+  @Test
+  public void testRegistrationIdMismatch() throws Exception {
+    ClientResponse response =
+        client().resource(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+            .entity(mapper.readValue(jsonFixture("fixtures/current_message_registration_id.json"), IncomingMessageList.class))
+            .type(MediaType.APPLICATION_JSON_TYPE)
+            .put(ClientResponse.class);
+
+    assertThat("Good Response Code", response.getStatus(), is(equalTo(410)));
+
+    assertThat("Good Response Body",
+               asJson(response.getEntity(StaleDevices.class)),
+               is(equalTo(jsonFixture("fixtures/mismatched_registration_id.json"))));
+
+    verifyNoMoreInteractions(pushSender);
+
   }
 
 }
