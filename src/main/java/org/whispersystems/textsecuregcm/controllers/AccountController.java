@@ -140,6 +140,7 @@ public class AccountController {
       device.setAuthenticationCredentials(new AuthenticationCredentials(password));
       device.setSignalingKey(accountAttributes.getSignalingKey());
       device.setFetchesMessages(accountAttributes.getFetchesMessages());
+      device.setRegistrationId(accountAttributes.getRegistrationId());
 
       Account account = new Account();
       account.setNumber(number);

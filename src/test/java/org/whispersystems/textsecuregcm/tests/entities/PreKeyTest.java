@@ -15,6 +15,7 @@ public class PreKeyTest {
   @Test
   public void serializeToJSON() throws Exception {
     PreKey preKey = new PreKey(1, "+14152222222", 1, 1234, "test", "identityTest", false);
+    preKey.setRegistrationId(987);
 
     assertThat("Basic Contact Serialization works",
                asJson(preKey),

@@ -84,14 +84,14 @@ public abstract class Keys {
   }
 
   @Transaction(TransactionIsolationLevel.SERIALIZABLE)
-  public Optional<PreKey> get(String number, long deviceId) {
+  public Optional<UnstructuredPreKeyList> get(String number, long deviceId) {
     PreKey preKey = retrieveFirst(number, deviceId);
 
     if (preKey != null && !preKey.isLastResort()) {
       removeKey(preKey.getId());
     }
 
-    if (preKey != null) return Optional.of(preKey);
+    if (preKey != null) return Optional.of(new UnstructuredPreKeyList(preKey));
     else                return Optional.absent();
   }
 

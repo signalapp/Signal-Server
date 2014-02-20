@@ -27,6 +27,7 @@ import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
 import org.whispersystems.textsecuregcm.entities.MessageResponse;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
+import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.federation.FederatedClient;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.federation.NoSuchPeerException;
@@ -98,6 +99,11 @@ public class MessageController {
                                                 .entity(new MismatchedDevices(e.getMissingDevices(),
                                                                               e.getExtraDevices()))
                                                 .build());
+    } catch (StaleDevicesException e) {
+      throw new WebApplicationException(Response.status(410)
+                                                .type(MediaType.APPLICATION_JSON)
+                                                .entity(new StaleDevices(e.getStaleDevices()))
+                                                .build());
     }
   }
 
@@ -124,11 +130,12 @@ public class MessageController {
   private void sendLocalMessage(Account source,
                                 String destinationName,
                                 IncomingMessageList messages)
-      throws NoSuchUserException, MismatchedDevicesException, IOException
+      throws NoSuchUserException, MismatchedDevicesException, IOException, StaleDevicesException
   {
     Account destination = getDestinationAccount(destinationName);
 
     validateCompleteDeviceList(destination, messages.getMessages());
+    validateRegistrationIds(destination, messages.getMessages());
 
     for (IncomingMessage incomingMessage : messages.getMessages()) {
       Optional<Device> destinationDevice = destination.getDevice(incomingMessage.getDestinationDeviceId());
@@ -197,6 +204,27 @@ public class MessageController {
     return account.get();
   }
 
+  private void validateRegistrationIds(Account account, List<IncomingMessage> messages)
+      throws StaleDevicesException
+  {
+    List<Long> staleDevices = new LinkedList<>();
+
+    for (IncomingMessage message : messages) {
+      Optional<Device> device = account.getDevice(message.getDestinationDeviceId());
+
+      if (device.isPresent() &&
+          message.getDestinationRegistrationId() > 0 &&
+          message.getDestinationRegistrationId() != device.get().getRegistrationId())
+      {
+        staleDevices.add(device.get().getId());
+      }
+    }
+
+    if (!staleDevices.isEmpty()) {
+      throw new StaleDevicesException(staleDevices);
+    }
+  }
+
   private void validateCompleteDeviceList(Account account, List<IncomingMessage> messages)
       throws MismatchedDevicesException
   {
@@ -211,10 +239,12 @@ public class MessageController {
     }
 
     for (Device device : account.getDevices()) {
-      accountDeviceIds.add(device.getId());
+      if (device.isActive()) {
+        accountDeviceIds.add(device.getId());
 
-      if (!messageDeviceIds.contains(device.getId())) {
-        missingDeviceIds.add(device.getId());
+        if (!messageDeviceIds.contains(device.getId())) {
+          missingDeviceIds.add(device.getId());
+        }
       }
     }
 

@@ -48,11 +48,14 @@ public class Device implements Serializable {
   @JsonProperty
   private boolean fetchesMessages;
 
+  @JsonProperty
+  private int registrationId;
+
   public Device() {}
 
   public Device(long id, String authToken, String salt,
                 String signalingKey, String gcmId, String apnId,
-                boolean fetchesMessages)
+                boolean fetchesMessages, int registrationId)
   {
     this.id              = id;
     this.authToken       = authToken;
@@ -61,6 +64,7 @@ public class Device implements Serializable {
     this.gcmId           = gcmId;
     this.apnId           = apnId;
     this.fetchesMessages = fetchesMessages;
+    this.registrationId  = registrationId;
   }
 
   public String getApnId() {
@@ -118,5 +122,13 @@ public class Device implements Serializable {
 
   public boolean isMaster() {
     return getId() == MASTER_ID;
+  }
+
+  public int getRegistrationId() {
+    return registrationId;
+  }
+
+  public void setRegistrationId(int registrationId) {
+    this.registrationId = registrationId;
   }
 }

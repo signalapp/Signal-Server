@@ -2,5 +2,6 @@
     "deviceId" : 1,
     "keyId" : 1234,
     "publicKey" : "test",
-    "identityKey" : "identityTest"
+    "identityKey" : "identityTest",
+    "registrationId" : 987
 }

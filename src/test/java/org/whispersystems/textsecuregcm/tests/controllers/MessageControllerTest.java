@@ -53,12 +53,12 @@ public class MessageControllerTest extends ResourceTest {
     addProvider(AuthHelper.getAuthenticator());
 
     List<Device> singleDeviceList = new LinkedList<Device>() {{
-      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false));
+      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 111));
     }};
 
     List<Device> multiDeviceList = new LinkedList<Device>() {{
-      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false));
-      add(new Device(2, "foo", "bar", "baz", "isgcm", null, false));
+      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 222));
+      add(new Device(2, "foo", "bar", "baz", "isgcm", null, false, 333));
     }};
 
     Account singleDeviceAccount = new Account(SINGLE_DEVICE_RECIPIENT, false, singleDeviceList);

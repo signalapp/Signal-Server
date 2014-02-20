@@ -131,7 +131,7 @@ public class WhisperServerService extends Service<WhisperServerConfiguration> {
                                                                      accountsManager);
 
     AttachmentController attachmentController = new AttachmentController(rateLimiters, federatedClientManager, urlSigner);
-    KeysController       keysController       = new KeysController(rateLimiters, keys, federatedClientManager);
+    KeysController       keysController       = new KeysController(rateLimiters, keys, accountsManager, federatedClientManager);
     MessageController    messageController    = new MessageController(rateLimiters, pushSender, accountsManager, federatedClientManager);
 
     environment.addProvider(new MultiBasicAuthProvider<>(new FederatedPeerAuthenticator(config.getFederationConfiguration()),

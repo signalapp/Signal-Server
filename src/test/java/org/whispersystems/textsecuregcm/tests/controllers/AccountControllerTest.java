@@ -62,7 +62,7 @@ public class AccountControllerTest extends ResourceTest {
     ClientResponse response =
         client().resource(String.format("/v1/accounts/code/%s", "1234"))
             .header("Authorization", AuthHelper.getAuthHeader(SENDER, "bar"))
-            .entity(new AccountAttributes("keykeykeykey", false, false))
+            .entity(new AccountAttributes("keykeykeykey", false, false, 2222))
             .type(MediaType.APPLICATION_JSON_TYPE)
             .put(ClientResponse.class);
 
@@ -76,7 +76,7 @@ public class AccountControllerTest extends ResourceTest {
     ClientResponse response =
         client().resource(String.format("/v1/accounts/code/%s", "1111"))
             .header("Authorization", AuthHelper.getAuthHeader(SENDER, "bar"))
-            .entity(new AccountAttributes("keykeykeykey", false, false))
+            .entity(new AccountAttributes("keykeykeykey", false, false, 3333))
             .type(MediaType.APPLICATION_JSON_TYPE)
             .put(ClientResponse.class);
 
