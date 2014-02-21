@@ -27,6 +27,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager.BatchOperationHandle;
 import org.whispersystems.textsecuregcm.util.Base64;
+import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.util.Iterator;
@@ -85,7 +86,7 @@ public class DirectoryUpdater {
 
     for (FederatedClient client : clients) {
       logger.info("Updating directory from peer: " + client.getPeerName());
-      BatchOperationHandle handle = directory.startBatchOperation();
+//      BatchOperationHandle handle = directory.startBatchOperation();
 
       try {
         int userCount = client.getUserCount();
@@ -94,31 +95,38 @@ public class DirectoryUpdater {
         logger.info("Remote peer user count: " + userCount);
 
         while (retrieved < userCount) {
+          logger.info("Retrieving remote tokens...");
           List<ClientContact> clientContacts = client.getUserTokens(retrieved);
 
-          if (clientContacts == null)
+          if (clientContacts == null) {
+            logger.info("Remote tokens empty, ending...");
             break;
+          } else {
+            logger.info("Retrieved " + clientContacts.size() + " remote tokens...");
+          }
 
           for (ClientContact clientContact : clientContacts) {
             clientContact.setRelay(client.getPeerName());
 
             Optional<ClientContact> existing = directory.get(clientContact.getToken());
 
-            if (!clientContact.isInactive() && (!existing.isPresent() || existing.get().getRelay().equals(client.getPeerName()))) {
-              directory.add(handle, clientContact);
+            if (!clientContact.isInactive() && (!existing.isPresent() || client.getPeerName().equals(existing.get().getRelay()))) {
+//              directory.add(handle, clientContact);
+              directory.add(clientContact);
             } else {
-              if (existing != null && client.getPeerName().equals(existing.get().getRelay())) {
+              if (existing.isPresent() && client.getPeerName().equals(existing.get().getRelay())) {
                 directory.remove(clientContact.getToken());
               }
             }
           }
 
           retrieved += clientContacts.size();
+          logger.info("Processed: " + retrieved + " remote tokens.");
         }
 
         logger.info("Update from peer complete.");
       } finally {
-        directory.stopBatchOperation(handle);
+//        directory.stopBatchOperation(handle);
       }
     }
 

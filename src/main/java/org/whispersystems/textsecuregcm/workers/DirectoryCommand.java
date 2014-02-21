@@ -26,6 +26,8 @@ import com.yammer.dropwizard.jdbi.args.OptionalArgumentFactory;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.spy.memcached.MemcachedClient;
 import org.skife.jdbi.v2.DBI;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.providers.MemcachedClientFactory;
@@ -37,6 +39,8 @@ import org.whispersystems.textsecuregcm.storage.DirectoryManager;
 import redis.clients.jedis.JedisPool;
 
 public class DirectoryCommand extends ConfiguredCommand<WhisperServerConfiguration> {
+
+  private final Logger logger = LoggerFactory.getLogger(DirectoryCommand.class);
 
   public DirectoryCommand() {
     super("directory", "Update directory from DB and peers.");
@@ -68,6 +72,9 @@ public class DirectoryCommand extends ConfiguredCommand<WhisperServerConfigurati
 
       update.updateFromLocalDatabase();
       update.updateFromPeers();
+    } catch (Exception ex) {
+      logger.warn("Directory Exception", ex);
+      throw new RuntimeException(ex);
     } finally {
       Thread.sleep(3000);
       System.exit(0);
