@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.yammer.dropwizard.config.Configuration;
 import com.yammer.dropwizard.db.DatabaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
+import org.whispersystems.textsecuregcm.configuration.DataDogConfiguration;
 import org.whispersystems.textsecuregcm.configuration.FederationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GraphiteConfiguration;
@@ -86,6 +87,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   @Valid
   @JsonProperty
+  private DataDogConfiguration datadog = new DataDogConfiguration();
+
+  @Valid
+  @JsonProperty
   private WebsocketConfiguration websocket = new WebsocketConfiguration();
 
   public WebsocketConfiguration getWebsocketConfiguration() {
@@ -134,5 +139,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public GraphiteConfiguration getGraphiteConfiguration() {
     return graphite;
+  }
+
+  public DataDogConfiguration getDataDogConfiguration() {
+    return datadog;
   }
 }

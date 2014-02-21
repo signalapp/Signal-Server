@@ -24,6 +24,9 @@ import com.yammer.dropwizard.config.HttpConfiguration;
 import com.yammer.dropwizard.db.DatabaseConfiguration;
 import com.yammer.dropwizard.jdbi.DBIFactory;
 import com.yammer.dropwizard.migrations.MigrationsBundle;
+import com.yammer.metrics.core.Clock;
+import com.yammer.metrics.core.MetricPredicate;
+import com.yammer.metrics.reporting.DatadogReporter;
 import com.yammer.metrics.reporting.GraphiteReporter;
 import net.spy.memcached.MemcachedClient;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -163,6 +166,13 @@ public class WhisperServerService extends Service<WhisperServerConfiguration> {
       GraphiteReporter.enable(15, TimeUnit.SECONDS,
                               config.getGraphiteConfiguration().getHost(),
                               config.getGraphiteConfiguration().getPort());
+    }
+
+    if (config.getDataDogConfiguration().isEnabled()) {
+      new DatadogReporter.Builder().withApiKey(config.getDataDogConfiguration().getApiKey())
+                                   .withVmMetricsEnabled(true)
+                                   .build()
+                                   .start(15, TimeUnit.SECONDS);
     }
   }
 

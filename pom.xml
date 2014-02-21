@@ -114,6 +114,12 @@
             <artifactId>jetty-websocket</artifactId>
             <version>8.1.14.v20131031</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.coursera</groupId>
+            <artifactId>metrics-datadog</artifactId>
+            <version>0.1.5</version>
+        </dependency>
     </dependencies>
 
     <build>
