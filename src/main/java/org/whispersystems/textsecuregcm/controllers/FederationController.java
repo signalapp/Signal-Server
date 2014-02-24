@@ -76,7 +76,7 @@ public class FederationController {
                                               @PathParam("attachmentId") long attachmentId)
       throws IOException
   {
-    return attachmentController.redirectToAttachment(new NonLimitedAccount("Unknown", peer.getName()),
+    return attachmentController.redirectToAttachment(new NonLimitedAccount("Unknown", -1, peer.getName()),
                                                      attachmentId, Optional.<String>absent());
   }
 
@@ -89,7 +89,7 @@ public class FederationController {
       throws IOException
   {
     try {
-      return keysController.get(new NonLimitedAccount("Unknown", peer.getName()), number, Optional.<String>absent());
+      return keysController.get(new NonLimitedAccount("Unknown", -1, peer.getName()), number, Optional.<String>absent());
     } catch (RateLimitExceededException e) {
       logger.warn("Rate limiting on federated channel", e);
       throw new IOException(e);
@@ -106,7 +106,7 @@ public class FederationController {
       throws IOException
   {
     try {
-      return keysController.getDeviceKey(new NonLimitedAccount("Unknown", peer.getName()),
+      return keysController.getDeviceKey(new NonLimitedAccount("Unknown", -1, peer.getName()),
                                          number, device, Optional.<String>absent());
     } catch (RateLimitExceededException e) {
       logger.warn("Rate limiting on federated channel", e);
@@ -116,16 +116,17 @@ public class FederationController {
 
   @Timed
   @PUT
-  @Path("/messages/{source}/{destination}")
-  public void sendMessages(@Auth                     FederatedPeer peer,
-                           @PathParam("source")      String source,
-                           @PathParam("destination") String destination,
-                           @Valid                    IncomingMessageList messages)
+  @Path("/messages/{source}/{sourceDeviceId}/{destination}")
+  public void sendMessages(@Auth                        FederatedPeer peer,
+                           @PathParam("source")         String source,
+                           @PathParam("sourceDeviceId") long sourceDeviceId,
+                           @PathParam("destination")    String destination,
+                           @Valid                       IncomingMessageList messages)
       throws IOException
   {
     try {
       messages.setRelay(null);
-      messageController.sendMessage(new NonLimitedAccount(source, peer.getName()), destination, messages);
+      messageController.sendMessage(new NonLimitedAccount(source, sourceDeviceId, peer.getName()), destination, messages);
     } catch (RateLimitExceededException e) {
       logger.warn("Rate limiting on federated channel", e);
       throw new IOException(e);

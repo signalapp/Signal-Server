@@ -13,6 +13,8 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.util.Base64;
 
 import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
 
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Mockito.mock;
@@ -40,7 +42,14 @@ public class AuthHelper {
     when(account.getRelay()).thenReturn(Optional.<String>absent());
     when(accounts.get(VALID_NUMBER)).thenReturn(Optional.of(account));
 
-    return new MultiBasicAuthProvider<>(new FederatedPeerAuthenticator(new FederationConfiguration()),
+    List<FederatedPeer> peer = new LinkedList<FederatedPeer>() {{
+      add(new FederatedPeer("cyanogen", "https://foo", "foofoo", "bazzzzz"));
+    }};
+
+    FederationConfiguration federationConfiguration = mock(FederationConfiguration.class);
+    when(federationConfiguration.getPeers()).thenReturn(peer);
+
+    return new MultiBasicAuthProvider<>(new FederatedPeerAuthenticator(federationConfiguration),
                                         FederatedPeer.class,
                                         new AccountAuthenticator(accounts),
                                         Account.class, "WhisperServer");

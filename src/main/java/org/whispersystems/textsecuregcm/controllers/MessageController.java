@@ -186,7 +186,8 @@ public class MessageController {
   {
     try {
       FederatedClient client = federatedClientManager.getClient(messages.getRelay());
-      client.sendMessages(source.getNumber(), destinationName, messages);
+      client.sendMessages(source.getNumber(), source.getAuthenticatedDevice().get().getId(),
+                          destinationName, messages);
     } catch (NoSuchPeerException e) {
       throw new NoSuchUserException(e);
     }

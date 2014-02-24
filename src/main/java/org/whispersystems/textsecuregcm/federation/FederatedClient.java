@@ -64,7 +64,7 @@ public class FederatedClient {
 
   private static final String USER_COUNT_PATH     = "/v1/federation/user_count";
   private static final String USER_TOKENS_PATH    = "/v1/federation/user_tokens/%d";
-  private static final String RELAY_MESSAGE_PATH  = "/v1/federation/messages/%s/%s";
+  private static final String RELAY_MESSAGE_PATH  = "/v1/federation/messages/%s/%d/%s";
   private static final String PREKEY_PATH_DEVICE  = "/v1/federation/key/%s/%s";
   private static final String ATTACHMENT_URI_PATH = "/v1/federation/attachment/%d";
 
@@ -155,11 +155,11 @@ public class FederatedClient {
     }
   }
 
-  public void sendMessages(String source, String destination, IncomingMessageList messages)
+  public void sendMessages(String source, long sourceDeviceId, String destination, IncomingMessageList messages)
       throws IOException
   {
     try {
-      WebResource    resource = client.resource(peer.getUrl()).path(String.format(RELAY_MESSAGE_PATH, source, destination));
+      WebResource    resource = client.resource(peer.getUrl()).path(String.format(RELAY_MESSAGE_PATH, source, sourceDeviceId, destination));
       ClientResponse response = resource.type(MediaType.APPLICATION_JSON)
                                         .header("Authorization", authorizationHeader)
                                         .entity(messages)
