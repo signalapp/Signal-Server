@@ -90,6 +90,13 @@ public class AccountsManager {
     else                 return Optional.absent();
   }
 
+  public boolean isRelayListed(String number) {
+    byte[]                  token   = Util.getContactToken(number);
+    Optional<ClientContact> contact = directory.get(token);
+
+    return contact.isPresent() && !Util.isEmpty(contact.get().getRelay());
+  }
+
   private void updateDirectory(Account account) {
     if (account.isActive()) {
       byte[]        token         = Util.getContactToken(account.getNumber());

@@ -135,6 +135,10 @@ public class AccountController {
         throw new WebApplicationException(Response.status(403).build());
       }
 
+      if (accounts.isRelayListed(number)) {
+        throw new WebApplicationException(Response.status(417).build());
+      }
+
       Device device = new Device();
       device.setId(Device.MASTER_ID);
       device.setAuthenticationCredentials(new AuthenticationCredentials(password));
