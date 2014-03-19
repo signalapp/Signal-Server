@@ -20,11 +20,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.yammer.dropwizard.config.Configuration;
 import com.yammer.dropwizard.db.DatabaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
-import org.whispersystems.textsecuregcm.configuration.DataDogConfiguration;
 import org.whispersystems.textsecuregcm.configuration.FederationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GraphiteConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MemcacheConfiguration;
+import org.whispersystems.textsecuregcm.configuration.MetricsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.NexmoConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisConfiguration;
@@ -87,7 +87,7 @@ public class WhisperServerConfiguration extends Configuration {
 
   @Valid
   @JsonProperty
-  private DataDogConfiguration datadog = new DataDogConfiguration();
+  private MetricsConfiguration metrics = new MetricsConfiguration();
 
   @Valid
   @JsonProperty
@@ -141,7 +141,7 @@ public class WhisperServerConfiguration extends Configuration {
     return graphite;
   }
 
-  public DataDogConfiguration getDataDogConfiguration() {
-    return datadog;
+  public MetricsConfiguration getMetricsConfiguration() {
+    return metrics;
   }
 }

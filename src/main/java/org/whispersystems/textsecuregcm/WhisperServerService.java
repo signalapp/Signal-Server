@@ -24,6 +24,7 @@ import com.yammer.dropwizard.config.HttpConfiguration;
 import com.yammer.dropwizard.db.DatabaseConfiguration;
 import com.yammer.dropwizard.jdbi.DBIFactory;
 import com.yammer.dropwizard.migrations.MigrationsBundle;
+import com.yammer.metrics.Metrics;
 import com.yammer.metrics.core.Clock;
 import com.yammer.metrics.core.MetricPredicate;
 import com.yammer.metrics.reporting.DatadogReporter;
@@ -48,6 +49,7 @@ import org.whispersystems.textsecuregcm.federation.FederatedPeer;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.IOExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
+import org.whispersystems.textsecuregcm.metrics.JsonMetricsReporter;
 import org.whispersystems.textsecuregcm.providers.MemcacheHealthCheck;
 import org.whispersystems.textsecuregcm.providers.MemcachedClientFactory;
 import org.whispersystems.textsecuregcm.providers.RedisClientFactory;
@@ -168,11 +170,11 @@ public class WhisperServerService extends Service<WhisperServerConfiguration> {
                               config.getGraphiteConfiguration().getPort());
     }
 
-    if (config.getDataDogConfiguration().isEnabled()) {
-      new DatadogReporter.Builder().withApiKey(config.getDataDogConfiguration().getApiKey())
-                                   .withVmMetricsEnabled(true)
-                                   .build()
-                                   .start(15, TimeUnit.SECONDS);
+    if (config.getMetricsConfiguration().isEnabled()) {
+      new JsonMetricsReporter("textsecure", Metrics.defaultRegistry(),
+                              config.getMetricsConfiguration().getToken(),
+                              config.getMetricsConfiguration().getHost())
+          .start(60, TimeUnit.SECONDS);
     }
   }
 
