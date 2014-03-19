@@ -6,6 +6,7 @@ import com.yammer.dropwizard.testing.ResourceTest;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.controllers.KeysController;
 import org.whispersystems.textsecuregcm.entities.PreKey;
+import org.whispersystems.textsecuregcm.entities.PreKeyStatus;
 import org.whispersystems.textsecuregcm.entities.UnstructuredPreKeyList;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -71,9 +72,23 @@ public class KeyControllerTest extends ResourceTest {
     allKeys.add(SAMPLE_KEY);
     allKeys.add(SAMPLE_KEY2);
     allKeys.add(SAMPLE_KEY3);
+
     when(keys.get(EXISTS_NUMBER)).thenReturn(Optional.of(new UnstructuredPreKeyList(allKeys)));
+    when(keys.getCount(eq(AuthHelper.VALID_NUMBER), eq(1L))).thenReturn(5);
 
     addResource(new KeysController(rateLimiters, keys, accounts, null));
+  }
+
+  @Test
+  public void validKeyStatusTest() throws Exception {
+    PreKeyStatus result = client().resource("/v1/keys")
+        .header("Authorization",
+                AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+        .get(PreKeyStatus.class);
+
+    assertThat(result.getCount() == 4);
+
+    verify(keys).getCount(eq(AuthHelper.VALID_NUMBER), eq(1L));
   }
 
   @Test

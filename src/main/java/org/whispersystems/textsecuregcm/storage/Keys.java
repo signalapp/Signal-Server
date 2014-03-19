@@ -40,7 +40,6 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.LinkedList;
 import java.util.List;
 
 public abstract class Keys {
@@ -66,6 +65,9 @@ public abstract class Keys {
   @SqlQuery("SELECT DISTINCT ON (number, device_id) * FROM keys WHERE number = :number ORDER BY number, device_id, key_id ASC")
   @Mapper(PreKeyMapper.class)
   abstract List<PreKey> retrieveFirst(@Bind("number") String number);
+
+  @SqlQuery("SELECT COUNT(*) FROM keys WHERE number = :number AND device_id = :device_id")
+  public abstract int getCount(@Bind("number") String number, @Bind("device_id") long deviceId);
 
   @Transaction(TransactionIsolationLevel.SERIALIZABLE)
   public void store(String number, long deviceId, List<PreKey> keys, PreKey lastResortKey) {

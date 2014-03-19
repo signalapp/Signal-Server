@@ -23,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.entities.PreKeyList;
+import org.whispersystems.textsecuregcm.entities.PreKeyStatus;
 import org.whispersystems.textsecuregcm.entities.UnstructuredPreKeyList;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.federation.NoSuchPeerException;
@@ -71,6 +72,20 @@ public class KeysController {
   public void setKeys(@Auth Account account, @Valid PreKeyList preKeys)  {
     Device device = account.getAuthenticatedDevice().get();
     keys.store(account.getNumber(), device.getId(), preKeys.getKeys(), preKeys.getLastResortKey());
+  }
+
+  @Timed
+  @GET
+  @Path("/")
+  @Produces(MediaType.APPLICATION_JSON)
+  public PreKeyStatus getStatus(@Auth Account account) {
+    int count = keys.getCount(account.getNumber(), account.getAuthenticatedDevice().get().getId());
+
+    if (count > 0) {
+      count = count - 1;
+    }
+
+    return new PreKeyStatus(count);
   }
 
   @Timed
