@@ -11,6 +11,10 @@
     <artifactId>TextSecureServer</artifactId>
     <version>0.8</version>
 
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>bouncycastle</groupId>
