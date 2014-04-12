@@ -25,9 +25,6 @@ import com.yammer.dropwizard.db.DatabaseConfiguration;
 import com.yammer.dropwizard.jdbi.DBIFactory;
 import com.yammer.dropwizard.migrations.MigrationsBundle;
 import com.yammer.metrics.Metrics;
-import com.yammer.metrics.core.Clock;
-import com.yammer.metrics.core.MetricPredicate;
-import com.yammer.metrics.reporting.DatadogReporter;
 import com.yammer.metrics.reporting.GraphiteReporter;
 import net.spy.memcached.MemcachedClient;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -49,7 +46,11 @@ import org.whispersystems.textsecuregcm.federation.FederatedPeer;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.IOExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
+import org.whispersystems.textsecuregcm.metrics.CpuUsageGauge;
+import org.whispersystems.textsecuregcm.metrics.FreeMemoryGauge;
 import org.whispersystems.textsecuregcm.metrics.JsonMetricsReporter;
+import org.whispersystems.textsecuregcm.metrics.NetworkReceivedGauge;
+import org.whispersystems.textsecuregcm.metrics.NetworkSentGauge;
 import org.whispersystems.textsecuregcm.providers.MemcacheHealthCheck;
 import org.whispersystems.textsecuregcm.providers.MemcachedClientFactory;
 import org.whispersystems.textsecuregcm.providers.RedisClientFactory;
@@ -163,6 +164,11 @@ public class WhisperServerService extends Service<WhisperServerConfiguration> {
 
     environment.addProvider(new IOExceptionMapper());
     environment.addProvider(new RateLimitExceededExceptionMapper());
+
+    Metrics.newGauge(CpuUsageGauge.class, "cpu", new CpuUsageGauge());
+    Metrics.newGauge(FreeMemoryGauge.class, "free_memory", new FreeMemoryGauge());
+    Metrics.newGauge(NetworkSentGauge.class, "bytes_sent", new NetworkSentGauge());
+    Metrics.newGauge(NetworkReceivedGauge.class, "bytes_received", new NetworkReceivedGauge());
 
     if (config.getGraphiteConfiguration().isEnabled()) {
       GraphiteReporter.enable(15, TimeUnit.SECONDS,
