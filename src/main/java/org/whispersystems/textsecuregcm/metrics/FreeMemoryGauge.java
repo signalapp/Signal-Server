@@ -1,17 +1,14 @@
 package org.whispersystems.textsecuregcm.metrics;
 
+import com.codahale.metrics.Gauge;
 import com.sun.management.OperatingSystemMXBean;
-import com.yammer.metrics.core.Gauge;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.lang.management.ManagementFactory;
 
-public class FreeMemoryGauge extends Gauge<Long> {
+public class FreeMemoryGauge implements Gauge<Long> {
 
   @Override
-  public Long value() {
+  public Long getValue() {
     OperatingSystemMXBean mbean = (com.sun.management.OperatingSystemMXBean)
         ManagementFactory.getOperatingSystemMXBean();
 

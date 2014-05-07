@@ -3,10 +3,11 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
 import com.sun.jersey.api.client.ClientResponse;
-import com.yammer.dropwizard.testing.ResourceTest;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
-import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
@@ -24,35 +25,39 @@ import javax.ws.rs.core.MediaType;
 import java.util.LinkedList;
 import java.util.List;
 
-import static com.yammer.dropwizard.testing.JsonHelpers.asJson;
-import static com.yammer.dropwizard.testing.JsonHelpers.jsonFixture;
-import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.CoreMatchers.is;
+import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
-
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.*;
+import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.asJson;
+import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixture;
 
-public class MessageControllerTest extends ResourceTest {
+public class MessageControllerTest {
 
   private static final String SINGLE_DEVICE_RECIPIENT = "+14151111111";
   private static final String MULTI_DEVICE_RECIPIENT  = "+14152222222";
 
-  private PushSender             pushSender             = mock(PushSender.class            );
-  private FederatedClientManager federatedClientManager = mock(FederatedClientManager.class);
-  private AccountsManager        accountsManager        = mock(AccountsManager.class       );
-  private RateLimiters           rateLimiters           = mock(RateLimiters.class          );
-  private RateLimiter            rateLimiter            = mock(RateLimiter.class           );
+  private  final PushSender             pushSender             = mock(PushSender.class            );
+  private  final FederatedClientManager federatedClientManager = mock(FederatedClientManager.class);
+  private  final AccountsManager        accountsManager        = mock(AccountsManager.class       );
+  private  final RateLimiters           rateLimiters           = mock(RateLimiters.class          );
+  private  final RateLimiter            rateLimiter            = mock(RateLimiter.class           );
 
-  private final ObjectMapper mapper = new ObjectMapper();
+  private  final ObjectMapper mapper = new ObjectMapper();
 
-  @Override
-  protected void setUpResources() throws Exception {
-    addProvider(AuthHelper.getAuthenticator());
+  @Rule
+  public final ResourceTestRule resources = ResourceTestRule.builder()
+                                                            .addProvider(AuthHelper.getAuthenticator())
+                                                            .addResource(new MessageController(rateLimiters, pushSender, accountsManager,
+                                                                                               federatedClientManager))
+                                                            .build();
 
+
+  @Before
+  public void setup() throws Exception {
     List<Device> singleDeviceList = new LinkedList<Device>() {{
       add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 111));
     }};
@@ -69,15 +74,12 @@ public class MessageControllerTest extends ResourceTest {
     when(accountsManager.get(eq(MULTI_DEVICE_RECIPIENT))).thenReturn(Optional.of(multiDeviceAccount));
 
     when(rateLimiters.getMessagesLimiter()).thenReturn(rateLimiter);
-
-    addResource(new MessageController(rateLimiters, pushSender, accountsManager,
-                                      federatedClientManager));
   }
 
   @Test
-  public void testSingleDeviceLegacy() throws Exception {
+  public synchronized void testSingleDeviceLegacy() throws Exception {
     ClientResponse response =
-        client().resource("/v1/messages/")
+        resources.client().resource("/v1/messages/")
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
             .entity(mapper.readValue(jsonFixture("fixtures/legacy_message_single_device.json"), IncomingMessageList.class))
             .type(MediaType.APPLICATION_JSON_TYPE)
@@ -85,13 +87,13 @@ public class MessageControllerTest extends ResourceTest {
 
     assertThat("Good Response", response.getStatus(), is(equalTo(200)));
 
-    verify(pushSender).sendMessage(any(Account.class), any(Device.class), any(MessageProtos.OutgoingMessageSignal.class));
+    verify(pushSender, times(1)).sendMessage(any(Account.class), any(Device.class), any(MessageProtos.OutgoingMessageSignal.class));
   }
 
   @Test
-  public void testSingleDeviceCurrent() throws Exception {
+  public synchronized void testSingleDeviceCurrent() throws Exception {
     ClientResponse response =
-        client().resource(String.format("/v1/messages/%s", SINGLE_DEVICE_RECIPIENT))
+        resources.client().resource(String.format("/v1/messages/%s", SINGLE_DEVICE_RECIPIENT))
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class))
         .type(MediaType.APPLICATION_JSON_TYPE)
@@ -99,13 +101,13 @@ public class MessageControllerTest extends ResourceTest {
 
     assertThat("Good Response", response.getStatus(), is(equalTo(204)));
 
-    verify(pushSender).sendMessage(any(Account.class), any(Device.class), any(MessageProtos.OutgoingMessageSignal.class));
+    verify(pushSender, times(1)).sendMessage(any(Account.class), any(Device.class), any(MessageProtos.OutgoingMessageSignal.class));
   }
 
   @Test
-  public void testMultiDeviceMissing() throws Exception {
+  public synchronized void testMultiDeviceMissing() throws Exception {
     ClientResponse response =
-        client().resource(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
+        resources.client().resource(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
             .entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class))
             .type(MediaType.APPLICATION_JSON_TYPE)
@@ -121,9 +123,9 @@ public class MessageControllerTest extends ResourceTest {
   }
 
   @Test
-  public void testMultiDeviceExtra() throws Exception {
+  public synchronized void testMultiDeviceExtra() throws Exception {
     ClientResponse response =
-        client().resource(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
+        resources.client().resource(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
             .entity(mapper.readValue(jsonFixture("fixtures/current_message_extra_device.json"), IncomingMessageList.class))
             .type(MediaType.APPLICATION_JSON_TYPE)
@@ -139,9 +141,9 @@ public class MessageControllerTest extends ResourceTest {
   }
 
   @Test
-  public void testMultiDevice() throws Exception {
+  public synchronized void testMultiDevice() throws Exception {
     ClientResponse response =
-        client().resource(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
+        resources.client().resource(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
             .entity(mapper.readValue(jsonFixture("fixtures/current_message_multi_device.json"), IncomingMessageList.class))
             .type(MediaType.APPLICATION_JSON_TYPE)
@@ -153,9 +155,9 @@ public class MessageControllerTest extends ResourceTest {
   }
 
   @Test
-  public void testRegistrationIdMismatch() throws Exception {
+  public synchronized void testRegistrationIdMismatch() throws Exception {
     ClientResponse response =
-        client().resource(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
+        resources.client().resource(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
             .entity(mapper.readValue(jsonFixture("fixtures/current_message_registration_id.json"), IncomingMessageList.class))
             .type(MediaType.APPLICATION_JSON_TYPE)

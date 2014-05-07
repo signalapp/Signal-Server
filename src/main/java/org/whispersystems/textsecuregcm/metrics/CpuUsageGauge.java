@@ -1,13 +1,13 @@
 package org.whispersystems.textsecuregcm.metrics;
 
+import com.codahale.metrics.Gauge;
 import com.sun.management.OperatingSystemMXBean;
-import com.yammer.metrics.core.Gauge;
 
 import java.lang.management.ManagementFactory;
 
-public class CpuUsageGauge extends Gauge<Integer> {
+public class CpuUsageGauge implements Gauge<Integer> {
   @Override
-  public Integer value() {
+  public Integer getValue() {
     OperatingSystemMXBean mbean = (com.sun.management.OperatingSystemMXBean)
         ManagementFactory.getOperatingSystemMXBean();
 

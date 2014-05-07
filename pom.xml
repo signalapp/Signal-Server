@@ -11,21 +11,68 @@
     <artifactId>TextSecureServer</artifactId>
     <version>0.13</version>
 
+    <properties>
+        <dropwizard.version>0.7.0</dropwizard.version>
+        <jackson.api.version>2.3.3</jackson.api.version>
+    </properties>
+
     <dependencies>
+        <dependency>
+            <groupId>io.dropwizard</groupId>
+            <artifactId>dropwizard-core</artifactId>
+            <version>${dropwizard.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.dropwizard</groupId>
+            <artifactId>dropwizard-jdbi</artifactId>
+            <version>${dropwizard.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.dropwizard</groupId>
+            <artifactId>dropwizard-auth</artifactId>
+            <version>${dropwizard.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.dropwizard</groupId>
+            <artifactId>dropwizard-client</artifactId>
+            <version>${dropwizard.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.dropwizard</groupId>
+            <artifactId>dropwizard-migrations</artifactId>
+            <version>${dropwizard.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.dropwizard</groupId>
+            <artifactId>dropwizard-testing</artifactId>
+            <version>${dropwizard.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.dropwizard</groupId>
+            <artifactId>dropwizard-metrics-graphite</artifactId>
+            <version>${dropwizard.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.sun.jersey</groupId>
+            <artifactId>jersey-json</artifactId>
+            <version>1.18.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.codahale.metrics</groupId>
+            <artifactId>metrics-graphite</artifactId>
+            <version>3.0.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty.websocket</groupId>
+            <artifactId>websocket-server</artifactId>
+            <version>9.0.7.v20131107</version>
+        </dependency>
+
         <dependency>
             <groupId>bouncycastle</groupId>
             <artifactId>bcprov-jdk16</artifactId>
             <version>140</version>
-        </dependency>
-        <dependency>
-            <groupId>com.yammer.dropwizard</groupId>
-            <artifactId>dropwizard-core</artifactId>
-            <version>0.6.2</version>
-        </dependency>
-        <dependency>
-            <groupId>com.yammer.metrics</groupId>
-            <artifactId>metrics-graphite</artifactId>
-            <version>2.2.0</version>
         </dependency>
         <dependency>
             <groupId>com.google.android.gcm</groupId>
@@ -67,31 +114,6 @@
             <scope>compile</scope>
         </dependency>
         <dependency>
-            <groupId>com.yammer.dropwizard</groupId>
-            <artifactId>dropwizard-jdbi</artifactId>
-            <version>0.6.2</version>
-        </dependency>
-        <dependency>
-            <groupId>com.yammer.dropwizard</groupId>
-            <artifactId>dropwizard-auth</artifactId>
-            <version>0.6.2</version>
-        </dependency>
-        <dependency>
-            <groupId>com.yammer.dropwizard</groupId>
-            <artifactId>dropwizard-client</artifactId>
-            <version>0.6.2</version>
-        </dependency>
-        <dependency>
-            <groupId>com.yammer.dropwizard</groupId>
-            <artifactId>dropwizard-migrations</artifactId>
-            <version>0.6.2</version>
-        </dependency>
-        <dependency>
-            <groupId>com.yammer.dropwizard</groupId>
-            <artifactId>dropwizard-testing</artifactId>
-            <version>0.6.2</version>
-        </dependency>
-        <dependency>
             <groupId>com.twilio.sdk</groupId>
             <artifactId>twilio-java-sdk</artifactId>
             <version>3.4.1</version>
@@ -103,24 +125,18 @@
             <version>9.1-901.jdbc4</version>
         </dependency>
 
-        <dependency>
-            <groupId>com.sun.jersey</groupId>
-            <artifactId>jersey-json</artifactId>
-            <version>1.17.1</version>
-        </dependency>
 
-        <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-websocket</artifactId>
-            <version>8.1.14.v20131031</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.coursera</groupId>
-            <artifactId>metrics-datadog</artifactId>
-            <version>0.1.5</version>
-        </dependency>
     </dependencies>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${jackson.api.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <build>
         <plugins>

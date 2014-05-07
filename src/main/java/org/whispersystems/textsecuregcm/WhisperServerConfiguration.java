@@ -17,8 +17,6 @@
 package org.whispersystems.textsecuregcm;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.yammer.dropwizard.config.Configuration;
-import com.yammer.dropwizard.db.DatabaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.FederationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcmConfiguration;
@@ -34,6 +32,9 @@ import org.whispersystems.textsecuregcm.configuration.WebsocketConfiguration;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
+
+import io.dropwizard.Configuration;
+import io.dropwizard.db.DataSourceFactory;
 
 public class WhisperServerConfiguration extends Configuration {
 
@@ -74,7 +75,7 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private DatabaseConfiguration database = new DatabaseConfiguration();
+  private DataSourceFactory database = new DataSourceFactory();
 
   @Valid
   @NotNull
@@ -87,7 +88,7 @@ public class WhisperServerConfiguration extends Configuration {
 
   @Valid
   @JsonProperty
-  private MetricsConfiguration metrics = new MetricsConfiguration();
+  private MetricsConfiguration viz = new MetricsConfiguration();
 
   @Valid
   @JsonProperty
@@ -125,7 +126,7 @@ public class WhisperServerConfiguration extends Configuration {
     return redis;
   }
 
-  public DatabaseConfiguration getDatabaseConfiguration() {
+  public DataSourceFactory getDataSourceFactory() {
     return database;
   }
 
@@ -142,6 +143,6 @@ public class WhisperServerConfiguration extends Configuration {
   }
 
   public MetricsConfiguration getMetricsConfiguration() {
-    return metrics;
+    return viz;
   }
 }

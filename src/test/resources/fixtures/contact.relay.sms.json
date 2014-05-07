@@ -1,5 +1,5 @@
 {
-    "token" : "BQVVHxMt5zAFXA",
     "relay" : "whisper",
-    "supportsSms"   : true
+    "supportsSms"   : true,
+    "token" : "BQVVHxMt5zAFXA"
 }

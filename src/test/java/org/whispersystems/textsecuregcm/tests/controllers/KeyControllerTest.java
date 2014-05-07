@@ -2,7 +2,8 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 
 import com.google.common.base.Optional;
 import com.sun.jersey.api.client.ClientResponse;
-import com.yammer.dropwizard.testing.ResourceTest;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.invocation.InvocationOnMock;
@@ -24,16 +25,17 @@ import javax.ws.rs.core.MediaType;
 import java.util.LinkedList;
 import java.util.List;
 
+import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
-public class KeyControllerTest extends ResourceTest {
+public class KeyControllerTest {
 
-  private final String EXISTS_NUMBER     = "+14152222222";
-  private final String NOT_EXISTS_NUMBER = "+14152222220";
+  private static final String EXISTS_NUMBER     = "+14152222222";
+  private static String NOT_EXISTS_NUMBER = "+14152222220";
 
-  private final int SAMPLE_REGISTRATION_ID  =  999;
-  private final int SAMPLE_REGISTRATION_ID2 = 1002;
+  private static int SAMPLE_REGISTRATION_ID  =  999;
+  private static int SAMPLE_REGISTRATION_ID2 = 1002;
 
   private final PreKey          SAMPLE_KEY    = new PreKey(1, EXISTS_NUMBER, Device.MASTER_ID, 1234, "test1", "test2", false);
   private final PreKey          SAMPLE_KEY2   = new PreKey(2, EXISTS_NUMBER, 2, 5667, "test3", "test4,", false               );
@@ -42,14 +44,17 @@ public class KeyControllerTest extends ResourceTest {
   private final AccountsManager accounts      = mock(AccountsManager.class);
   private final Account         existsAccount = mock(Account.class        );
 
+  private RateLimiters          rateLimiters  = mock(RateLimiters.class);
+  private RateLimiter           rateLimiter   = mock(RateLimiter.class );
 
-  @Override
-  protected void setUpResources() {
-    addProvider(AuthHelper.getAuthenticator());
+  @Rule
+  public final ResourceTestRule resources = ResourceTestRule.builder()
+                                                            .addProvider(AuthHelper.getAuthenticator())
+                                                            .addResource(new KeysController(rateLimiters, keys, accounts, null))
+                                                            .build();
 
-    RateLimiters    rateLimiters = mock(RateLimiters.class);
-    RateLimiter     rateLimiter  = mock(RateLimiter.class );
-
+  @Before
+  public void setup() {
     Device  sampleDevice  = mock(Device.class );
     Device  sampleDevice2 = mock(Device.class);
     Device  sampleDevice3 = mock(Device.class);
@@ -94,15 +99,12 @@ public class KeyControllerTest extends ResourceTest {
     });
 
     when(keys.getCount(eq(AuthHelper.VALID_NUMBER), eq(1L))).thenReturn(5);
-
     when(AuthHelper.VALID_ACCOUNT.getIdentityKey()).thenReturn(null);
-
-    addResource(new KeysController(rateLimiters, keys, accounts, null));
   }
 
   @Test
   public void validKeyStatusTest() throws Exception {
-    PreKeyStatus result = client().resource("/v1/keys")
+    PreKeyStatus result = resources.client().resource("/v1/keys")
         .header("Authorization",
                 AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .get(PreKeyStatus.class);
@@ -114,7 +116,7 @@ public class KeyControllerTest extends ResourceTest {
 
   @Test
   public void validLegacyRequestTest() throws Exception {
-    PreKey result = client().resource(String.format("/v1/keys/%s", EXISTS_NUMBER))
+    PreKey result = resources.client().resource(String.format("/v1/keys/%s", EXISTS_NUMBER))
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .get(PreKey.class);
 
@@ -131,7 +133,7 @@ public class KeyControllerTest extends ResourceTest {
 
   @Test
   public void validMultiRequestTest() throws Exception {
-    UnstructuredPreKeyList results = client().resource(String.format("/v1/keys/%s/*", EXISTS_NUMBER))
+    UnstructuredPreKeyList results = resources.client().resource(String.format("/v1/keys/%s/*", EXISTS_NUMBER))
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .get(UnstructuredPreKeyList.class);
 
@@ -163,27 +165,27 @@ public class KeyControllerTest extends ResourceTest {
 
   @Test
   public void invalidRequestTest() throws Exception {
-    ClientResponse response = client().resource(String.format("/v1/keys/%s", NOT_EXISTS_NUMBER))
+    ClientResponse response = resources.client().resource(String.format("/v1/keys/%s", NOT_EXISTS_NUMBER))
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .get(ClientResponse.class);
 
-    assertThat(response.getClientResponseStatus().getStatusCode()).isEqualTo(404);
+    assertThat(response.getStatusInfo().getStatusCode()).isEqualTo(404);
   }
 
   @Test
   public void unauthorizedRequestTest() throws Exception {
     ClientResponse response =
-        client().resource(String.format("/v1/keys/%s", NOT_EXISTS_NUMBER))
+        resources.client().resource(String.format("/v1/keys/%s", NOT_EXISTS_NUMBER))
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.INVALID_PASSWORD))
             .get(ClientResponse.class);
 
-    assertThat(response.getClientResponseStatus().getStatusCode()).isEqualTo(401);
+    assertThat(response.getStatusInfo().getStatusCode()).isEqualTo(401);
 
     response =
-        client().resource(String.format("/v1/keys/%s", NOT_EXISTS_NUMBER))
+        resources.client().resource(String.format("/v1/keys/%s", NOT_EXISTS_NUMBER))
             .get(ClientResponse.class);
 
-    assertThat(response.getClientResponseStatus().getStatusCode()).isEqualTo(401);
+    assertThat(response.getStatusInfo().getStatusCode()).isEqualTo(401);
   }
 
   @Test
@@ -200,7 +202,7 @@ public class KeyControllerTest extends ResourceTest {
     preKeyList.setLastResortKey(lastResortKey);
 
     ClientResponse response =
-        client().resource("/v1/keys")
+        resources.client().resource("/v1/keys")
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
             .type(MediaType.APPLICATION_JSON_TYPE)
             .put(ClientResponse.class, preKeyList);

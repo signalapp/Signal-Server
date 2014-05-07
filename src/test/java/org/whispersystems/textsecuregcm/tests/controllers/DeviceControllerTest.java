@@ -17,7 +17,8 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
 import com.google.common.base.Optional;
-import com.yammer.dropwizard.testing.ResourceTest;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.controllers.DeviceController;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -33,10 +34,11 @@ import org.whispersystems.textsecuregcm.util.VerificationCode;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.MediaType;
 
+import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
-public class DeviceControllerTest extends ResourceTest {
+public class DeviceControllerTest {
   @Path("/v1/devices")
   static class DumbVerificationDeviceController extends DeviceController {
     public DumbVerificationDeviceController(PendingDevicesManager pendingDevices, AccountsManager accounts, RateLimiters rateLimiters) {
@@ -55,10 +57,17 @@ public class DeviceControllerTest extends ResourceTest {
   private RateLimiter           rateLimiter           = mock(RateLimiter.class           );
   private Account               account               = mock(Account.class               );
 
-  @Override
-  protected void setUpResources() throws Exception {
-    addProvider(AuthHelper.getAuthenticator());
+  @Rule
+  public final ResourceTestRule resources = ResourceTestRule.builder()
+                                                            .addProvider(AuthHelper.getAuthenticator())
+                                                            .addResource(new DumbVerificationDeviceController(pendingDevicesManager,
+                                                                                                              accountsManager,
+                                                                                                              rateLimiters))
+                                                            .build();
 
+
+  @Before
+  public void setup() throws Exception {
     when(rateLimiters.getSmsDestinationLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getVoiceDestinationLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getVerifyLimiter()).thenReturn(rateLimiter);
@@ -69,19 +78,17 @@ public class DeviceControllerTest extends ResourceTest {
 
     when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of("5678901"));
     when(accountsManager.get(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(account));
-
-    addResource(new DumbVerificationDeviceController(pendingDevicesManager, accountsManager, rateLimiters));
   }
 
   @Test
   public void validDeviceRegisterTest() throws Exception {
-    VerificationCode deviceCode = client().resource("/v1/devices/provisioning_code")
+    VerificationCode deviceCode = resources.client().resource("/v1/devices/provisioning_code")
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .get(VerificationCode.class);
 
     assertThat(deviceCode).isEqualTo(new VerificationCode(5678901));
 
-    DeviceResponse response = client().resource("/v1/devices/5678901")
+    DeviceResponse response = resources.client().resource("/v1/devices/5678901")
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
         .entity(new AccountAttributes("keykeykeykey", false, true, 1234))
         .type(MediaType.APPLICATION_JSON_TYPE)

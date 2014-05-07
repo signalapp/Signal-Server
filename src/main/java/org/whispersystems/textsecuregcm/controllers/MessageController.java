@@ -16,10 +16,9 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
+import com.codahale.metrics.annotation.Timed;
 import com.google.common.base.Optional;
 import com.google.protobuf.ByteString;
-import com.yammer.dropwizard.auth.Auth;
-import com.yammer.metrics.annotation.Timed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
@@ -55,6 +54,8 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+
+import io.dropwizard.auth.Auth;
 
 @Path("/v1/messages")
 public class MessageController {

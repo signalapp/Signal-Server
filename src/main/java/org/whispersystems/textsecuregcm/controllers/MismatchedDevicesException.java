@@ -1,7 +1,6 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 import java.util.List;
-import java.util.Set;
 
 public class MismatchedDevicesException extends Exception {
 

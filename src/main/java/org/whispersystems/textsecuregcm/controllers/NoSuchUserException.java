@@ -16,8 +16,6 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
-import org.whispersystems.textsecuregcm.federation.NoSuchPeerException;
-
 import java.util.LinkedList;
 import java.util.List;
 
@@ -27,7 +25,7 @@ public class NoSuchUserException extends Exception {
 
   public NoSuchUserException(String user) {
     super(user);
-    missing = new LinkedList<String>();
+    missing = new LinkedList<>();
     missing.add(user);
   }
 

@@ -16,30 +16,35 @@
  */
 package org.whispersystems.textsecuregcm.auth;
 
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.base.Optional;
-import com.yammer.dropwizard.auth.AuthenticationException;
-import com.yammer.dropwizard.auth.Authenticator;
-import com.yammer.dropwizard.auth.basic.BasicCredentials;
-import com.yammer.metrics.Metrics;
-import com.yammer.metrics.core.Meter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.FederationConfiguration;
 import org.whispersystems.textsecuregcm.federation.FederatedPeer;
+import org.whispersystems.textsecuregcm.util.Constants;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
+
+import static com.codahale.metrics.MetricRegistry.name;
+import io.dropwizard.auth.AuthenticationException;
+import io.dropwizard.auth.Authenticator;
+import io.dropwizard.auth.basic.BasicCredentials;
 
 
 public class FederatedPeerAuthenticator implements Authenticator<BasicCredentials, FederatedPeer> {
 
-  private final Meter authenticationFailedMeter    = Metrics.newMeter(FederatedPeerAuthenticator.class,
-                                                                      "authentication", "failed",
-                                                                      TimeUnit.MINUTES);
+  private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
 
-  private final Meter authenticationSucceededMeter = Metrics.newMeter(FederatedPeerAuthenticator.class,
-                                                                      "authentication", "succeeded",
-                                                                      TimeUnit.MINUTES);
+  private final Meter authenticationFailedMeter    = metricRegistry.meter(name(getClass(),
+                                                                               "authentication",
+                                                                               "failed"));
+
+  private final Meter authenticationSucceededMeter = metricRegistry.meter(name(getClass(),
+                                                                               "authentication",
+                                                                               "succeeded"));
 
   private final Logger logger = LoggerFactory.getLogger(FederatedPeerAuthenticator.class);
 

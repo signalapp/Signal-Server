@@ -25,13 +25,13 @@ import java.io.IOException;
 public class AuthorizationHeader {
 
   private final String number;
-  private final long accountId;
+  private final long   accountId;
   private final String password;
 
   private AuthorizationHeader(String number, long accountId, String password) {
-    this.number = number;
+    this.number    = number;
     this.accountId = accountId;
-    this.password = password;
+    this.password  = password;
   }
 
   public static AuthorizationHeader fromUserAndPassword(String user, String password) throws InvalidAuthorizationHeaderException {

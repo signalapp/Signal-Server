@@ -16,13 +16,6 @@
  */
 package org.whispersystems.textsecuregcm.workers;
 
-import com.yammer.dropwizard.cli.ConfiguredCommand;
-import com.yammer.dropwizard.config.Bootstrap;
-import com.yammer.dropwizard.db.DatabaseConfiguration;
-import com.yammer.dropwizard.jdbi.ImmutableListContainerFactory;
-import com.yammer.dropwizard.jdbi.ImmutableSetContainerFactory;
-import com.yammer.dropwizard.jdbi.OptionalContainerFactory;
-import com.yammer.dropwizard.jdbi.args.OptionalArgumentFactory;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.spy.memcached.MemcachedClient;
 import org.skife.jdbi.v2.DBI;
@@ -36,6 +29,13 @@ import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager;
 
+import io.dropwizard.cli.ConfiguredCommand;
+import io.dropwizard.db.DataSourceFactory;
+import io.dropwizard.jdbi.ImmutableListContainerFactory;
+import io.dropwizard.jdbi.ImmutableSetContainerFactory;
+import io.dropwizard.jdbi.OptionalContainerFactory;
+import io.dropwizard.jdbi.args.OptionalArgumentFactory;
+import io.dropwizard.setup.Bootstrap;
 import redis.clients.jedis.JedisPool;
 
 public class DirectoryCommand extends ConfiguredCommand<WhisperServerConfiguration> {
@@ -53,8 +53,8 @@ public class DirectoryCommand extends ConfiguredCommand<WhisperServerConfigurati
       throws Exception
   {
     try {
-      DatabaseConfiguration dbConfig = config.getDatabaseConfiguration();
-      DBI                   dbi      = new DBI(dbConfig.getUrl(), dbConfig.getUser(), dbConfig.getPassword());
+      DataSourceFactory dbConfig = config.getDataSourceFactory();
+      DBI               dbi      = new DBI(dbConfig.getUrl(), dbConfig.getUser(), dbConfig.getPassword());
 
       dbi.registerArgumentFactory(new OptionalArgumentFactory(dbConfig.getDriverClass()));
       dbi.registerContainerFactory(new ImmutableListContainerFactory());

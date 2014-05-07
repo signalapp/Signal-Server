@@ -134,6 +134,7 @@ public class PubSubManager {
     public void onSubscribe(String channel, int count) {
       try {
         WebsocketAddress address = new WebsocketAddress(channel);
+
         if (address.getAccountId() == 0 && address.getDeviceId() == 0) {
           synchronized (PubSubManager.this) {
             subscribed = true;

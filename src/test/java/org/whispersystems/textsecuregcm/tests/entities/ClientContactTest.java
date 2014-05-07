@@ -1,13 +1,16 @@
 package org.whispersystems.textsecuregcm.tests.entities;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.util.Util;
 
-import static com.yammer.dropwizard.testing.JsonHelpers.*;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.asJson;
+import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.fromJson;
+import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixture;
 
 public class ClientContactTest {
 
@@ -40,5 +43,6 @@ public class ClientContactTest {
                fromJson(jsonFixture("fixtures/contact.relay.sms.json"), ClientContact.class),
                is(contact));
   }
+
 
 }

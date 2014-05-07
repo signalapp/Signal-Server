@@ -4,7 +4,8 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
 import com.sun.jersey.api.client.ClientResponse;
-import com.yammer.dropwizard.testing.ResourceTest;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.controllers.FederationController;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
@@ -23,17 +24,16 @@ import javax.ws.rs.core.MediaType;
 import java.util.LinkedList;
 import java.util.List;
 
-import static com.yammer.dropwizard.testing.JsonHelpers.jsonFixture;
+import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
+import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixture;
 
-public class FederatedControllerTest extends ResourceTest {
+public class FederatedControllerTest {
 
   private static final String SINGLE_DEVICE_RECIPIENT = "+14151111111";
   private static final String MULTI_DEVICE_RECIPIENT  = "+14152222222";
@@ -46,10 +46,20 @@ public class FederatedControllerTest extends ResourceTest {
 
   private final ObjectMapper mapper = new ObjectMapper();
 
-  @Override
-  protected void setUpResources() throws Exception {
-    addProvider(AuthHelper.getAuthenticator());
+  private final MessageController messageController = new MessageController(rateLimiters, pushSender, accountsManager, federatedClientManager);
 
+  @Rule
+  public final ResourceTestRule resources = ResourceTestRule.builder()
+                                                            .addProvider(AuthHelper.getAuthenticator())
+                                                            .addResource(new FederationController(accountsManager,
+                                                                                                  null, null,
+                                                                                                  messageController))
+                                                            .build();
+
+
+
+  @Before
+  public void setup() throws Exception {
     List<Device> singleDeviceList = new LinkedList<Device>() {{
       add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 111));
     }};
@@ -66,15 +76,12 @@ public class FederatedControllerTest extends ResourceTest {
     when(accountsManager.get(eq(MULTI_DEVICE_RECIPIENT))).thenReturn(Optional.of(multiDeviceAccount));
 
     when(rateLimiters.getMessagesLimiter()).thenReturn(rateLimiter);
-
-    MessageController messageController = new MessageController(rateLimiters, pushSender, accountsManager, federatedClientManager);
-    addResource(new FederationController(accountsManager, null, null, messageController));
   }
 
   @Test
   public void testSingleDeviceCurrent() throws Exception {
     ClientResponse response =
-        client().resource(String.format("/v1/federation/messages/+14152223333/1/%s", SINGLE_DEVICE_RECIPIENT))
+        resources.client().resource(String.format("/v1/federation/messages/+14152223333/1/%s", SINGLE_DEVICE_RECIPIENT))
             .header("Authorization", AuthHelper.getAuthHeader("cyanogen", "foofoo"))
             .entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class))
             .type(MediaType.APPLICATION_JSON_TYPE)

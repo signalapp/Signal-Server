@@ -14,7 +14,7 @@ public class NetworkReceivedGauge extends NetworkGauge {
   private long lastReceived;
 
   @Override
-  public Long value() {
+  public Long getValue() {
     try {
       long             timestamp       = System.currentTimeMillis();
       Pair<Long, Long> sentAndReceived = getSentReceived();

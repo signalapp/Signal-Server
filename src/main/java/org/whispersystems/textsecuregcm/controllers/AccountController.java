@@ -16,10 +16,9 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
+import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
-import com.yammer.dropwizard.auth.Auth;
-import com.yammer.metrics.annotation.Timed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
@@ -54,6 +53,8 @@ import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+
+import io.dropwizard.auth.Auth;
 
 @Path("/v1/accounts")
 public class AccountController {

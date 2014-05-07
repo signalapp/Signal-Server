@@ -1,23 +1,17 @@
 package org.whispersystems.textsecuregcm.metrics;
 
+import com.codahale.metrics.Counter;
+import com.codahale.metrics.Gauge;
+import com.codahale.metrics.Histogram;
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.MetricFilter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.ScheduledReporter;
+import com.codahale.metrics.Snapshot;
+import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.yammer.metrics.core.Clock;
-import com.yammer.metrics.core.Counter;
-import com.yammer.metrics.core.Gauge;
-import com.yammer.metrics.core.Histogram;
-import com.yammer.metrics.core.Metered;
-import com.yammer.metrics.core.Metric;
-import com.yammer.metrics.core.MetricName;
-import com.yammer.metrics.core.MetricProcessor;
-import com.yammer.metrics.core.MetricsRegistry;
-import com.yammer.metrics.core.Sampling;
-import com.yammer.metrics.core.Summarizable;
-import com.yammer.metrics.core.Timer;
-import com.yammer.metrics.core.VirtualMachineMetrics;
-import com.yammer.metrics.reporting.AbstractPollingReporter;
-import com.yammer.metrics.stats.Snapshot;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -33,292 +27,133 @@ import java.util.regex.Pattern;
 /**
  * Adapted from MetricsServlet.
  */
-public class JsonMetricsReporter extends AbstractPollingReporter implements MetricProcessor<JsonMetricsReporter.Context> {
-  private final Clock clock = Clock.defaultClock();
-  private final VirtualMachineMetrics vm = VirtualMachineMetrics.getInstance();
-  private final String service;
-  private final MetricsRegistry registry;
+public class JsonMetricsReporter extends ScheduledReporter {
   private final JsonFactory factory = new JsonFactory();
 
   private final String table;
   private final String sunnylabsHost;
   private final String host;
 
-  private final boolean includeVMMetrics;
-
-  public JsonMetricsReporter(String service, MetricsRegistry registry, String token, String sunnylabsHost) throws UnknownHostException {
-    this(service, registry, token, sunnylabsHost, true);
-  }
-
-  public JsonMetricsReporter(String service, MetricsRegistry registry, String token, String sunnylabsHost, boolean includeVMMetrics) throws UnknownHostException {
-    super(registry, "jsonmetrics-reporter");
-    this.service = service;
-    this.registry = registry;
-    this.table = token;
+  public JsonMetricsReporter(MetricRegistry registry, String token, String sunnylabsHost)
+      throws UnknownHostException
+  {
+    super(registry, "jsonmetrics-reporter", MetricFilter.ALL, TimeUnit.SECONDS, TimeUnit.MILLISECONDS);
+    this.table         = token;
     this.sunnylabsHost = sunnylabsHost;
-    this.host = InetAddress.getLocalHost().getHostName();
-    this.includeVMMetrics = includeVMMetrics;
+    this.host          = InetAddress.getLocalHost().getHostName();
   }
 
   @Override
-  public void run() {
+  public void report(SortedMap<String, Gauge>     stringGaugeSortedMap,
+                     SortedMap<String, Counter>   stringCounterSortedMap,
+                     SortedMap<String, Histogram> stringHistogramSortedMap,
+                     SortedMap<String, Meter>     stringMeterSortedMap,
+                     SortedMap<String, Timer>     stringTimerSortedMap)
+  {
     try {
-      URL http = new URL("https", sunnylabsHost, 443, "/report/metrics?t=" + table + "&h=" + host);
-      System.out.println("Reporting started to: " + http);
-      HttpURLConnection urlc = (HttpURLConnection) http.openConnection();
-      urlc.setDoOutput(true);
-      urlc.addRequestProperty("Content-Type", "application/json");
-      OutputStream outputStream = urlc.getOutputStream();
-      writeJson(outputStream);
+      URL url = new URL("https", sunnylabsHost, 443, "/report/metrics?t=" + table + "&h=" + host);
+      HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+
+      connection.setDoOutput(true);
+      connection.addRequestProperty("Content-Type", "application/json");
+
+      OutputStream  outputStream = connection.getOutputStream();
+      JsonGenerator json         = factory.createGenerator(outputStream, JsonEncoding.UTF8);
+
+      json.writeStartObject();
+
+      for (Map.Entry<String, Gauge> gauge : stringGaugeSortedMap.entrySet()) {
+        reportGauge(json, gauge.getKey(), gauge.getValue());
+      }
+
+      for (Map.Entry<String, Counter> counter : stringCounterSortedMap.entrySet()) {
+        reportCounter(json, counter.getKey(), counter.getValue());
+      }
+
+      for (Map.Entry<String, Histogram> histogram : stringHistogramSortedMap.entrySet()) {
+        reportHistogram(json, histogram.getKey(), histogram.getValue());
+      }
+
+      for (Map.Entry<String, Meter> meter : stringMeterSortedMap.entrySet()) {
+        reportMeter(json, meter.getKey(), meter.getValue());
+      }
+
+      for (Map.Entry<String, Timer> timer : stringTimerSortedMap.entrySet()) {
+        reportTimer(json, timer.getKey(), timer.getValue());
+      }
+
+      json.writeEndObject();
+      json.close();
+
       outputStream.close();
-      System.out.println("Reporting complete: " + urlc.getResponseCode());
     } catch (IOException e) {
       e.printStackTrace();
     }
   }
 
-  static final class Context {
-    final boolean showFullSamples;
-    final JsonGenerator json;
-
-    Context(JsonGenerator json, boolean showFullSamples) {
-      this.json = json;
-      this.showFullSamples = showFullSamples;
-    }
-  }
-
-  public void writeJson(OutputStream out) throws IOException {
-    final JsonGenerator json = factory.createGenerator(out, JsonEncoding.UTF8);
-    json.writeStartObject();
-    if (includeVMMetrics) {
-      writeVmMetrics(json);
-    }
-    writeRegularMetrics(json, false);
-    json.writeEndObject();
-    json.close();
-  }
-
-  private void writeVmMetrics(JsonGenerator json) throws IOException {
-    json.writeFieldName(service);
-    json.writeStartObject();
-    json.writeFieldName("jvm");
-    json.writeStartObject();
-    {
-      json.writeFieldName("vm");
-      json.writeStartObject();
-      {
-        json.writeStringField("name", vm.name());
-        json.writeStringField("version", vm.version());
-      }
-      json.writeEndObject();
-
-      json.writeFieldName("memory");
-      json.writeStartObject();
-      {
-        json.writeNumberField("totalInit", vm.totalInit());
-        json.writeNumberField("totalUsed", vm.totalUsed());
-        json.writeNumberField("totalMax", vm.totalMax());
-        json.writeNumberField("totalCommitted", vm.totalCommitted());
-
-        json.writeNumberField("heapInit", vm.heapInit());
-        json.writeNumberField("heapUsed", vm.heapUsed());
-        json.writeNumberField("heapMax", vm.heapMax());
-        json.writeNumberField("heapCommitted", vm.heapCommitted());
-
-        json.writeNumberField("heap_usage", vm.heapUsage());
-        json.writeNumberField("non_heap_usage", vm.nonHeapUsage());
-        json.writeFieldName("memory_pool_usages");
-        json.writeStartObject();
-        {
-          for (Map.Entry<String, Double> pool : vm.memoryPoolUsage().entrySet()) {
-            json.writeNumberField(pool.getKey(), pool.getValue());
-          }
-        }
-        json.writeEndObject();
-      }
-      json.writeEndObject();
-
-      final Map<String, VirtualMachineMetrics.BufferPoolStats> bufferPoolStats = vm.getBufferPoolStats();
-      if (!bufferPoolStats.isEmpty()) {
-        json.writeFieldName("buffers");
-        json.writeStartObject();
-        {
-          json.writeFieldName("direct");
-          json.writeStartObject();
-          {
-            json.writeNumberField("count", bufferPoolStats.get("direct").getCount());
-            json.writeNumberField("memoryUsed", bufferPoolStats.get("direct").getMemoryUsed());
-            json.writeNumberField("totalCapacity", bufferPoolStats.get("direct").getTotalCapacity());
-          }
-          json.writeEndObject();
-
-          json.writeFieldName("mapped");
-          json.writeStartObject();
-          {
-            json.writeNumberField("count", bufferPoolStats.get("mapped").getCount());
-            json.writeNumberField("memoryUsed", bufferPoolStats.get("mapped").getMemoryUsed());
-            json.writeNumberField("totalCapacity", bufferPoolStats.get("mapped").getTotalCapacity());
-          }
-          json.writeEndObject();
-        }
-        json.writeEndObject();
-      }
-
-
-      json.writeNumberField("daemon_thread_count", vm.daemonThreadCount());
-      json.writeNumberField("thread_count", vm.threadCount());
-      json.writeNumberField("current_time", clock.time());
-      json.writeNumberField("uptime", vm.uptime());
-      json.writeNumberField("fd_usage", vm.fileDescriptorUsage());
-
-      json.writeFieldName("thread-states");
-      json.writeStartObject();
-      {
-        for (Map.Entry<Thread.State, Double> entry : vm.threadStatePercentages()
-                                                       .entrySet()) {
-          json.writeNumberField(entry.getKey().toString().toLowerCase(),
-                                entry.getValue());
-        }
-      }
-      json.writeEndObject();
-
-      json.writeFieldName("garbage-collectors");
-      json.writeStartObject();
-      {
-        for (Map.Entry<String, VirtualMachineMetrics.GarbageCollectorStats> entry : vm.garbageCollectors()
-                                                                                      .entrySet()) {
-          json.writeFieldName(entry.getKey());
-          json.writeStartObject();
-          {
-            final VirtualMachineMetrics.GarbageCollectorStats gc = entry.getValue();
-            json.writeNumberField("runs", gc.getRuns());
-            json.writeNumberField("time", gc.getTime(TimeUnit.MILLISECONDS));
-          }
-          json.writeEndObject();
-        }
-      }
-      json.writeEndObject();
-    }
-    json.writeEndObject();
-    json.writeEndObject();
-  }
-
-  public void writeRegularMetrics(JsonGenerator json, boolean showFullSamples) throws IOException {
-    for (Map.Entry<String, SortedMap<MetricName, Metric>> entry : registry.groupedMetrics().entrySet()) {
-      for (Map.Entry<MetricName, Metric> subEntry : entry.getValue().entrySet()) {
-        json.writeFieldName(sanitize(subEntry.getKey()));
-        try {
-          subEntry.getValue()
-                  .processWith(this,
-                               subEntry.getKey(),
-                               new Context(json, showFullSamples));
-        } catch (Exception e) {
-          e.printStackTrace();
-        }
-      }
-    }
-  }
-
-  @Override
-  public void processHistogram(MetricName name, Histogram histogram, Context context) throws Exception {
-    final JsonGenerator json = context.json;
-    json.writeStartObject();
-    {
-      json.writeNumberField("count", histogram.count());
-      writeSummarizable(histogram, json);
-      writeSampling(histogram, json);
-      if (context.showFullSamples) {
-        json.writeObjectField("values", histogram.getSnapshot().getValues());
-      }
-      histogram.clear();
-    }
-    json.writeEndObject();
-  }
-
-  @Override
-  public void processCounter(MetricName name, Counter counter, Context context) throws Exception {
-    final JsonGenerator json = context.json;
-    json.writeNumber(counter.count());
-  }
-
-  @Override
-  public void processGauge(MetricName name, Gauge<?> gauge, Context context) throws Exception {
-    final JsonGenerator json = context.json;
+  public void reportGauge(JsonGenerator json, String name, Gauge gauge) throws IOException {
+    json.writeFieldName(sanitize(name));
     json.writeObject(evaluateGauge(gauge));
   }
 
-  @Override
-  public void processMeter(MetricName name, Metered meter, Context context) throws Exception {
-    final JsonGenerator json = context.json;
+  public void reportCounter(JsonGenerator json, String name, Counter counter) throws IOException {
+    json.writeFieldName(sanitize(name));
+    json.writeNumber(counter.getCount());
+  }
+
+  public void reportHistogram(JsonGenerator json, String name, Histogram histogram) throws IOException {
+    Snapshot snapshot = histogram.getSnapshot();
+    json.writeFieldName(sanitize(name));
     json.writeStartObject();
-    {
-      writeMeteredFields(meter, json);
-    }
+    json.writeNumberField("count", histogram.getCount());
+    writeSnapshot(json, snapshot);
     json.writeEndObject();
   }
 
-  @Override
-  public void processTimer(MetricName name, Timer timer, Context context) throws Exception {
-    final JsonGenerator json = context.json;
+  public void reportMeter(JsonGenerator json, String name, Meter meter) throws IOException {
+    json.writeFieldName(sanitize(name));
     json.writeStartObject();
-    {
-      json.writeFieldName("duration");
-      json.writeStartObject();
-      {
-        json.writeStringField("unit", timer.durationUnit().toString().toLowerCase());
-        writeSummarizable(timer, json);
-        writeSampling(timer, json);
-        if (context.showFullSamples) {
-          json.writeObjectField("values", timer.getSnapshot().getValues());
-        }
-      }
-      json.writeEndObject();
+    json.writeNumberField("count", meter.getCount());
+    json.writeNumberField("mean", meter.getMeanRate());
+    json.writeNumberField("m1", meter.getOneMinuteRate());
+    json.writeNumberField("m5", meter.getFiveMinuteRate());
+    json.writeNumberField("m15", meter.getFifteenMinuteRate());
+    json.writeEndObject();
+  }
 
-      json.writeFieldName("rate");
-      json.writeStartObject();
-      {
-        writeMeteredFields(timer, json);
-      }
-      json.writeEndObject();
-    }
+  public void reportTimer(JsonGenerator json, String name, Timer timer) throws IOException {
+    json.writeFieldName(sanitize(name));
+    json.writeStartObject();
+    json.writeNumberField("count", timer.getCount());
+    writeSnapshot(json, timer.getSnapshot());
     json.writeEndObject();
   }
 
   private static Object evaluateGauge(Gauge<?> gauge) {
     try {
-      return gauge.value();
+      return gauge.getValue();
     } catch (RuntimeException e) {
       return "error reading gauge: " + e.getMessage();
     }
   }
 
-  private static void writeSummarizable(Summarizable metric, JsonGenerator json) throws IOException {
-    json.writeNumberField("min", metric.min());
-    json.writeNumberField("max", metric.max());
-    json.writeNumberField("mean", metric.mean());
-  }
-
-  private static void writeSampling(Sampling metric, JsonGenerator json) throws IOException {
-    final Snapshot snapshot = metric.getSnapshot();
+  private static void writeSnapshot(JsonGenerator json, Snapshot snapshot) throws IOException {
+    json.writeNumberField("max", snapshot.getMax());
+    json.writeNumberField("mean", snapshot.getMean());
+    json.writeNumberField("min", snapshot.getMin());
+    json.writeNumberField("stddev", snapshot.getStdDev());
     json.writeNumberField("median", snapshot.getMedian());
     json.writeNumberField("p75", snapshot.get75thPercentile());
     json.writeNumberField("p95", snapshot.get95thPercentile());
+    json.writeNumberField("p98", snapshot.get98thPercentile());
     json.writeNumberField("p99", snapshot.get99thPercentile());
     json.writeNumberField("p999", snapshot.get999thPercentile());
   }
 
-  private static void writeMeteredFields(Metered metered, JsonGenerator json) throws IOException {
-    json.writeNumberField("count", metered.count());
-    json.writeNumberField("mean", metered.meanRate());
-    json.writeNumberField("m1", metered.oneMinuteRate());
-    json.writeNumberField("m5", metered.fiveMinuteRate());
-    json.writeNumberField("m15", metered.fifteenMinuteRate());
-  }
-
   private static final Pattern SIMPLE_NAMES = Pattern.compile("[^a-zA-Z0-9_.\\-~]");
 
-  private String sanitize(MetricName metricName) {
-    return SIMPLE_NAMES.matcher(metricName.getGroup() + "." + metricName.getName()).replaceAll("_");
+  private String sanitize(String metricName) {
+    return SIMPLE_NAMES.matcher(metricName).replaceAll("_");
   }
 
 }

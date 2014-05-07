@@ -16,18 +16,12 @@
  */
 package org.whispersystems.textsecuregcm;
 
+import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.graphite.GraphiteReporter;
 import com.google.common.base.Optional;
-import com.yammer.dropwizard.Service;
-import com.yammer.dropwizard.config.Bootstrap;
-import com.yammer.dropwizard.config.Environment;
-import com.yammer.dropwizard.config.HttpConfiguration;
-import com.yammer.dropwizard.db.DatabaseConfiguration;
-import com.yammer.dropwizard.jdbi.DBIFactory;
-import com.yammer.dropwizard.migrations.MigrationsBundle;
-import com.yammer.metrics.Metrics;
-import com.yammer.metrics.reporting.GraphiteReporter;
 import net.spy.memcached.MemcachedClient;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.eclipse.jetty.servlets.CrossOriginFilter;
 import org.skife.jdbi.v2.DBI;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.FederatedPeerAuthenticator;
@@ -71,16 +65,28 @@ import org.whispersystems.textsecuregcm.storage.PendingDevicesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.storage.StoredMessageManager;
 import org.whispersystems.textsecuregcm.storage.StoredMessages;
-import org.whispersystems.textsecuregcm.util.CORSHeaderFilter;
+import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.UrlSigner;
 import org.whispersystems.textsecuregcm.workers.DirectoryCommand;
 
+import javax.servlet.DispatcherType;
+import javax.servlet.FilterRegistration;
+import javax.servlet.ServletRegistration;
 import java.security.Security;
+import java.util.EnumSet;
 import java.util.concurrent.TimeUnit;
 
+import static com.codahale.metrics.MetricRegistry.name;
+import io.dropwizard.Application;
+import io.dropwizard.db.DataSourceFactory;
+import io.dropwizard.jdbi.DBIFactory;
+import io.dropwizard.metrics.graphite.GraphiteReporterFactory;
+import io.dropwizard.migrations.MigrationsBundle;
+import io.dropwizard.setup.Bootstrap;
+import io.dropwizard.setup.Environment;
 import redis.clients.jedis.JedisPool;
 
-public class WhisperServerService extends Service<WhisperServerConfiguration> {
+public class WhisperServerService extends Application<WhisperServerConfiguration> {
 
   static {
     Security.addProvider(new BouncyCastleProvider());
@@ -88,24 +94,28 @@ public class WhisperServerService extends Service<WhisperServerConfiguration> {
 
   @Override
   public void initialize(Bootstrap<WhisperServerConfiguration> bootstrap) {
-    bootstrap.setName("whisper-server");
     bootstrap.addCommand(new DirectoryCommand());
     bootstrap.addBundle(new MigrationsBundle<WhisperServerConfiguration>() {
       @Override
-      public DatabaseConfiguration getDatabaseConfiguration(WhisperServerConfiguration configuration) {
-        return configuration.getDatabaseConfiguration();
+      public DataSourceFactory getDataSourceFactory(WhisperServerConfiguration configuration) {
+        return configuration.getDataSourceFactory();
       }
     });
+  }
+
+  @Override
+  public String getName() {
+    return "whisper-server";
   }
 
   @Override
   public void run(WhisperServerConfiguration config, Environment environment)
       throws Exception
   {
-    config.getHttpConfiguration().setConnectorType(HttpConfiguration.ConnectorType.NONBLOCKING);
-    
+    SharedMetricRegistries.add(Constants.METRICS_NAME, environment.metrics());
+
     DBIFactory dbiFactory = new DBIFactory();
-    DBI        jdbi       = dbiFactory.build(environment, config.getDatabaseConfiguration(), "postgresql");
+    DBI        jdbi       = dbiFactory.build(environment, config.getDataSourceFactory(), "postgresql");
 
     Accounts        accounts        = jdbi.onDemand(Accounts.class);
     PendingAccounts pendingAccounts = jdbi.onDemand(PendingAccounts.class);
@@ -140,44 +150,59 @@ public class WhisperServerService extends Service<WhisperServerConfiguration> {
     KeysController       keysController       = new KeysController(rateLimiters, keys, accountsManager, federatedClientManager);
     MessageController    messageController    = new MessageController(rateLimiters, pushSender, accountsManager, federatedClientManager);
 
-    environment.addProvider(new MultiBasicAuthProvider<>(new FederatedPeerAuthenticator(config.getFederationConfiguration()),
-                                                         FederatedPeer.class,
-                                                         deviceAuthenticator,
-                                                         Device.class, "WhisperServer"));
+    environment.jersey().register(new MultiBasicAuthProvider<>(new FederatedPeerAuthenticator(config.getFederationConfiguration()),
+                                                               FederatedPeer.class,
+                                                               deviceAuthenticator,
+                                                               Device.class, "WhisperServer"));
 
-    environment.addResource(new AccountController(pendingAccountsManager, accountsManager, rateLimiters, smsSender));
-    environment.addResource(new DeviceController(pendingDevicesManager, accountsManager, rateLimiters));
-    environment.addResource(new DirectoryController(rateLimiters, directory));
-    environment.addResource(new FederationController(accountsManager, attachmentController, keysController, messageController));
-    environment.addResource(attachmentController);
-    environment.addResource(keysController);
-    environment.addResource(messageController);
+    environment.jersey().register(new AccountController(pendingAccountsManager, accountsManager, rateLimiters, smsSender));
+    environment.jersey().register(new DeviceController(pendingDevicesManager, accountsManager, rateLimiters));
+    environment.jersey().register(new DirectoryController(rateLimiters, directory));
+    environment.jersey().register(new FederationController(accountsManager, attachmentController, keysController, messageController));
+    environment.jersey().register(attachmentController);
+    environment.jersey().register(keysController);
+    environment.jersey().register(messageController);
 
     if (config.getWebsocketConfiguration().isEnabled()) {
-      environment.addServlet(new WebsocketControllerFactory(deviceAuthenticator, storedMessageManager, pubSubManager),
-                             "/v1/websocket/");
-      environment.addFilter(new CORSHeaderFilter(), "/*");
+      WebsocketControllerFactory servlet = new WebsocketControllerFactory(deviceAuthenticator,
+                                                                          storedMessageManager,
+                                                                          pubSubManager);
+
+      ServletRegistration.Dynamic websocket = environment.servlets().addServlet("WebSocket", servlet);
+      websocket.addMapping("/v1/websocket/*");
+      websocket.setAsyncSupported(true);
+
+      FilterRegistration.Dynamic filter = environment.servlets().addFilter("CORS", CrossOriginFilter.class);
+      filter.addMappingForUrlPatterns(EnumSet.allOf(DispatcherType.class), true, "/*");
+      filter.setInitParameter("allowedOrigins", "*");
+      filter.setInitParameter("allowedHeaders", "Content-Type,Authorization,X-Requested-With,Content-Length,Accept,Origin");
+      filter.setInitParameter("allowedMethods", "GET,PUT,POST,DELETE,OPTIONS");
+      filter.setInitParameter("preflightMaxAge", "5184000");
+      filter.setInitParameter("allowCredentials", "true");
     }
 
-    environment.addHealthCheck(new RedisHealthCheck(redisClient));
-    environment.addHealthCheck(new MemcacheHealthCheck(memcachedClient));
+    environment.healthChecks().register("redis", new RedisHealthCheck(redisClient));
+    environment.healthChecks().register("memcache", new MemcacheHealthCheck(memcachedClient));
 
-    environment.addProvider(new IOExceptionMapper());
-    environment.addProvider(new RateLimitExceededExceptionMapper());
+    environment.jersey().register(new IOExceptionMapper());
+    environment.jersey().register(new RateLimitExceededExceptionMapper());
 
-    Metrics.newGauge(CpuUsageGauge.class, "cpu", new CpuUsageGauge());
-    Metrics.newGauge(FreeMemoryGauge.class, "free_memory", new FreeMemoryGauge());
-    Metrics.newGauge(NetworkSentGauge.class, "bytes_sent", new NetworkSentGauge());
-    Metrics.newGauge(NetworkReceivedGauge.class, "bytes_received", new NetworkReceivedGauge());
+    environment.metrics().register(name(CpuUsageGauge.class, "cpu"), new CpuUsageGauge());
+    environment.metrics().register(name(FreeMemoryGauge.class, "free_memory"), new FreeMemoryGauge());
+    environment.metrics().register(name(NetworkSentGauge.class, "bytes_sent"), new NetworkSentGauge());
+    environment.metrics().register(name(NetworkReceivedGauge.class, "bytes_received"), new NetworkReceivedGauge());
 
     if (config.getGraphiteConfiguration().isEnabled()) {
-      GraphiteReporter.enable(15, TimeUnit.SECONDS,
-                              config.getGraphiteConfiguration().getHost(),
-                              config.getGraphiteConfiguration().getPort());
+      GraphiteReporterFactory graphiteReporterFactory = new GraphiteReporterFactory();
+      graphiteReporterFactory.setHost(config.getGraphiteConfiguration().getHost());
+      graphiteReporterFactory.setPort(config.getGraphiteConfiguration().getPort());
+
+      GraphiteReporter graphiteReporter = (GraphiteReporter) graphiteReporterFactory.build(environment.metrics());
+      graphiteReporter.start(15, TimeUnit.SECONDS);
     }
 
     if (config.getMetricsConfiguration().isEnabled()) {
-      new JsonMetricsReporter("textsecure", Metrics.defaultRegistry(),
+      new JsonMetricsReporter(environment.metrics(),
                               config.getMetricsConfiguration().getToken(),
                               config.getMetricsConfiguration().getHost())
           .start(60, TimeUnit.SECONDS);

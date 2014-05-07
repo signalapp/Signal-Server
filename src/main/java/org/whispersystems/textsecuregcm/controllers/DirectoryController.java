@@ -16,11 +16,11 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
+import com.codahale.metrics.Histogram;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.annotation.Timed;
 import com.google.common.base.Optional;
-import com.yammer.dropwizard.auth.Auth;
-import com.yammer.metrics.Metrics;
-import com.yammer.metrics.annotation.Timed;
-import com.yammer.metrics.core.Histogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
@@ -30,6 +30,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager;
 import org.whispersystems.textsecuregcm.util.Base64;
+import org.whispersystems.textsecuregcm.util.Constants;
 
 import javax.validation.Valid;
 import javax.ws.rs.Consumes;
@@ -45,11 +46,15 @@ import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
+import static com.codahale.metrics.MetricRegistry.name;
+import io.dropwizard.auth.Auth;
+
 @Path("/v1/directory")
 public class DirectoryController {
 
-  private final Logger    logger            = LoggerFactory.getLogger(DirectoryController.class);
-  private final Histogram contactsHistogram = Metrics.newHistogram(DirectoryController.class, "contacts");
+  private final Logger         logger            = LoggerFactory.getLogger(DirectoryController.class);
+  private final MetricRegistry metricRegistry    = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  private final Histogram      contactsHistogram = metricRegistry.histogram(name(getClass(), "contacts"));
 
   private final RateLimiters     rateLimiters;
   private final DirectoryManager directory;

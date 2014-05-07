@@ -1,16 +1,15 @@
 package org.whispersystems.textsecuregcm.metrics;
 
 
-import com.yammer.metrics.core.Gauge;
+import com.codahale.metrics.Gauge;
 import org.whispersystems.textsecuregcm.util.Pair;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 
-public abstract class NetworkGauge extends Gauge<Long> {
+public abstract class NetworkGauge implements Gauge<Long> {
 
   protected Pair<Long, Long> getSentReceived() throws IOException {
     File           proc          = new File("/proc/net/dev");

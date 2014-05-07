@@ -5,10 +5,10 @@ import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.util.Util;
 
-import static com.yammer.dropwizard.testing.JsonHelpers.*;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.*;
 
 public class PreKeyTest {
 

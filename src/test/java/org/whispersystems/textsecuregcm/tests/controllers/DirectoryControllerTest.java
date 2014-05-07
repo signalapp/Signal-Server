@@ -1,7 +1,9 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
 import com.sun.jersey.api.client.ClientResponse;
-import com.yammer.dropwizard.testing.ResourceTest;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
@@ -17,33 +19,38 @@ import javax.ws.rs.core.MediaType;
 import java.util.LinkedList;
 import java.util.List;
 
+import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.mockito.Matchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class DirectoryControllerTest extends ResourceTest {
+public class DirectoryControllerTest {
 
-  private RateLimiters     rateLimiters     = mock(RateLimiters.class    );
-  private RateLimiter      rateLimiter      = mock(RateLimiter.class     );
-  private DirectoryManager directoryManager = mock(DirectoryManager.class);
+  private final RateLimiters     rateLimiters     = mock(RateLimiters.class    );
+  private final RateLimiter      rateLimiter      = mock(RateLimiter.class     );
+  private final DirectoryManager directoryManager = mock(DirectoryManager.class);
 
-  @Override
-  protected void setUpResources() throws Exception {
-    addProvider(AuthHelper.getAuthenticator());
+  @Rule
+  public final ResourceTestRule resources = ResourceTestRule.builder()
+                                                            .addProvider(AuthHelper.getAuthenticator())
+                                                            .addResource(new DirectoryController(rateLimiters,
+                                                                                                 directoryManager))
+                                                            .build();
 
+
+  @Before
+  public void setup() throws Exception {
     when(rateLimiters.getContactsLimiter()).thenReturn(rateLimiter);
     when(directoryManager.get(anyList())).thenAnswer(new Answer<List<byte[]>>() {
       @Override
       public List<byte[]> answer(InvocationOnMock invocationOnMock) throws Throwable {
-        List<byte[]> query    = (List<byte[]>) invocationOnMock.getArguments()[0];
+        List<byte[]> query = (List<byte[]>) invocationOnMock.getArguments()[0];
         List<byte[]> response = new LinkedList<>(query);
         response.remove(0);
         return response;
       }
     });
-
-    addResource(new DirectoryController(rateLimiters, directoryManager));
   }
 
   @Test
@@ -58,14 +65,13 @@ public class DirectoryControllerTest extends ResourceTest {
     expectedResponse.remove(0);
 
     ClientResponse response =
-        client().resource("/v1/directory/tokens/")
-            .entity(new ClientContactTokens(tokens))
-            .type(MediaType.APPLICATION_JSON_TYPE)
-            .header("Authorization",
-                    AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER,
-                                             AuthHelper.VALID_PASSWORD))
-            .put(ClientResponse.class);
-
+        resources.client().resource("/v1/directory/tokens/")
+                 .entity(new ClientContactTokens(tokens))
+                 .type(MediaType.APPLICATION_JSON_TYPE)
+                 .header("Authorization",
+                         AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER,
+                                                  AuthHelper.VALID_PASSWORD))
+                 .put(ClientResponse.class);
 
 
     assertThat(response.getStatus()).isEqualTo(200);

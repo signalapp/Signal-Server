@@ -21,16 +21,13 @@ import com.sun.jersey.core.spi.component.ComponentContext;
 import com.sun.jersey.core.spi.component.ComponentScope;
 import com.sun.jersey.spi.inject.Injectable;
 import com.sun.jersey.spi.inject.InjectableProvider;
-import com.yammer.dropwizard.auth.Auth;
-import com.yammer.dropwizard.auth.Authenticator;
-import com.yammer.dropwizard.auth.basic.BasicAuthProvider;
-import com.yammer.dropwizard.auth.basic.BasicCredentials;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import io.dropwizard.auth.Auth;
+import io.dropwizard.auth.Authenticator;
+import io.dropwizard.auth.basic.BasicAuthProvider;
+import io.dropwizard.auth.basic.BasicCredentials;
 
 public class MultiBasicAuthProvider<T1,T2> implements InjectableProvider<Auth, Parameter> {
-
-  private final Logger logger = LoggerFactory.getLogger(MultiBasicAuthProvider.class);
 
   private final BasicAuthProvider<T1> provider1;
   private final BasicAuthProvider<T2> provider2;
@@ -44,8 +41,8 @@ public class MultiBasicAuthProvider<T1,T2> implements InjectableProvider<Auth, P
                                 Class<?> clazz2,
                                 String realm)
   {
-    this.provider1 = new BasicAuthProvider<T1>(authenticator1, realm);
-    this.provider2 = new BasicAuthProvider<T2>(authenticator2, realm);
+    this.provider1 = new BasicAuthProvider<>(authenticator1, realm);
+    this.provider2 = new BasicAuthProvider<>(authenticator2, realm);
     this.clazz1    = clazz1;
     this.clazz2    = clazz2;
   }
