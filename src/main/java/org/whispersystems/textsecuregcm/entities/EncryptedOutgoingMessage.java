@@ -41,23 +41,26 @@ public class EncryptedOutgoingMessage {
   private static final int    MAC_KEY_SIZE    = 20;
   private static final int    MAC_SIZE        = 10;
 
-  private final OutgoingMessageSignal outgoingMessage;
-  private final String signalingKey;
+  private final String serialized;
 
   public EncryptedOutgoingMessage(OutgoingMessageSignal outgoingMessage,
                                   String signalingKey)
+      throws CryptoEncodingException
   {
-    this.outgoingMessage = outgoingMessage;
-    this.signalingKey    = signalingKey;
-  }
-
-  public String serialize() throws CryptoEncodingException {
     byte[]        plaintext  = outgoingMessage.toByteArray();
     SecretKeySpec cipherKey  = getCipherKey (signalingKey);
     SecretKeySpec macKey     = getMacKey(signalingKey);
     byte[]        ciphertext = getCiphertext(plaintext, cipherKey, macKey);
 
-    return Base64.encodeBytes(ciphertext);
+    this.serialized = Base64.encodeBytes(ciphertext);
+  }
+
+  public EncryptedOutgoingMessage(String serialized) {
+    this.serialized = serialized;
+  }
+
+  public String serialize() {
+    return serialized;
   }
 
   private byte[] getCiphertext(byte[] plaintext, SecretKeySpec cipherKey, SecretKeySpec macKey)

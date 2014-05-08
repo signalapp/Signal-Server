@@ -10,13 +10,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.entities.AcknowledgeWebsocketMessage;
+import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
 import org.whispersystems.textsecuregcm.entities.IncomingWebsocketMessage;
+import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
+import org.whispersystems.textsecuregcm.push.PushSender;
+import org.whispersystems.textsecuregcm.push.TransientPushFailureException;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.PubSubListener;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.storage.PubSubMessage;
-import org.whispersystems.textsecuregcm.storage.StoredMessageManager;
+import org.whispersystems.textsecuregcm.storage.StoredMessages;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 import org.whispersystems.textsecuregcm.websocket.WebsocketMessage;
 
@@ -37,22 +41,26 @@ public class WebsocketController implements WebSocketListener, PubSubListener {
   private static final Map<Long, String> pendingMessages = new HashMap<>();
 
   private final AccountAuthenticator accountAuthenticator;
-  private final StoredMessageManager storedMessageManager;
   private final PubSubManager        pubSubManager;
+  private final StoredMessages       storedMessages;
+  private final PushSender           pushSender;
 
-  private Account account;
-  private Device  device;
-  private Session session;
+  private WebsocketAddress address;
+  private Account          account;
+  private Device           device;
+  private Session          session;
 
   private long pendingMessageSequence;
 
   public WebsocketController(AccountAuthenticator accountAuthenticator,
-                             StoredMessageManager storedMessageManager,
-                             PubSubManager pubSubManager)
+                             PushSender           pushSender,
+                             PubSubManager        pubSubManager,
+                             StoredMessages       storedMessages)
   {
     this.accountAuthenticator = accountAuthenticator;
-    this.storedMessageManager = storedMessageManager;
+    this.pushSender           = pushSender;
     this.pubSubManager        = pubSubManager;
+    this.storedMessages       = storedMessages;
   }
 
   @Override
@@ -80,11 +88,11 @@ public class WebsocketController implements WebSocketListener, PubSubListener {
 
       this.account = account.get();
       this.device  = account.get().getAuthenticatedDevice().get();
+      this.address = new WebsocketAddress(this.account.getId(), this.device.getId());
       this.session = session;
 
       this.session.setIdleTimeout(10 * 60 * 1000);
-      this.pubSubManager.subscribe(new WebsocketAddress(this.account.getId(),
-                                                        this.device.getId()), this);
+      this.pubSubManager.subscribe(this.address, this);
 
       handleQueryDatabase();
     } catch (AuthenticationException e) {
@@ -114,7 +122,7 @@ public class WebsocketController implements WebSocketListener, PubSubListener {
 
   @Override
   public void onWebSocketClose(int i, String s) {
-    pubSubManager.unsubscribe(new WebsocketAddress(account.getId(), device.getId()), this);
+    pubSubManager.unsubscribe(this.address, this);
 
     List<String> remainingMessages = new LinkedList<>();
 
@@ -129,7 +137,14 @@ public class WebsocketController implements WebSocketListener, PubSubListener {
       pendingMessages.clear();
     }
 
-    storedMessageManager.storeMessages(account, device, remainingMessages);
+    for (String remainingMessage : remainingMessages) {
+      try {
+        pushSender.sendMessage(account, device, new EncryptedOutgoingMessage(remainingMessage));
+      } catch (NotPushRegisteredException | TransientPushFailureException e) {
+        logger.warn("onWebSocketClose", e);
+        storedMessages.insert(account.getId(), device.getId(), remainingMessage);
+      }
+    }
   }
 
 
@@ -177,7 +192,7 @@ public class WebsocketController implements WebSocketListener, PubSubListener {
   }
 
   private void handleQueryDatabase() {
-    List<String> messages = storedMessageManager.getOutgoingMessages(account, device);
+    List<String> messages = storedMessages.getMessagesForDevice(account.getId(), device.getId());
 
     for (String message : messages) {
       handleDeliverOutgoingMessage(message);

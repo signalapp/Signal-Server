@@ -34,7 +34,6 @@ import org.whispersystems.textsecuregcm.controllers.DirectoryController;
 import org.whispersystems.textsecuregcm.controllers.FederationController;
 import org.whispersystems.textsecuregcm.controllers.KeysController;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
-import org.whispersystems.textsecuregcm.controllers.WebsocketControllerFactory;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.federation.FederatedPeer;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -63,10 +62,10 @@ import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
 import org.whispersystems.textsecuregcm.storage.PendingDevices;
 import org.whispersystems.textsecuregcm.storage.PendingDevicesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
-import org.whispersystems.textsecuregcm.storage.StoredMessageManager;
 import org.whispersystems.textsecuregcm.storage.StoredMessages;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.UrlSigner;
+import org.whispersystems.textsecuregcm.websocket.WebsocketControllerFactory;
 import org.whispersystems.textsecuregcm.workers.DirectoryCommand;
 
 import javax.servlet.DispatcherType;
@@ -121,18 +120,17 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     PendingAccounts pendingAccounts = jdbi.onDemand(PendingAccounts.class);
     PendingDevices  pendingDevices  = jdbi.onDemand(PendingDevices.class);
     Keys            keys            = jdbi.onDemand(Keys.class);
-    StoredMessages  storedMessages  = jdbi.onDemand(StoredMessages.class );
 
     MemcachedClient memcachedClient = new MemcachedClientFactory(config.getMemcacheConfiguration()).getClient();
     JedisPool       redisClient     = new RedisClientFactory(config.getRedisConfiguration()).getRedisClientPool();
 
-    DirectoryManager         directory              = new DirectoryManager(redisClient);
-    PendingAccountsManager   pendingAccountsManager = new PendingAccountsManager(pendingAccounts, memcachedClient);
-    PendingDevicesManager    pendingDevicesManager  = new PendingDevicesManager(pendingDevices, memcachedClient);
-    AccountsManager          accountsManager        = new AccountsManager(accounts, directory, memcachedClient);
-    FederatedClientManager   federatedClientManager = new FederatedClientManager(config.getFederationConfiguration());
-    PubSubManager            pubSubManager          = new PubSubManager(redisClient);
-    StoredMessageManager     storedMessageManager   = new StoredMessageManager(storedMessages, pubSubManager);
+    DirectoryManager       directory              = new DirectoryManager(redisClient);
+    PendingAccountsManager pendingAccountsManager = new PendingAccountsManager(pendingAccounts, memcachedClient);
+    PendingDevicesManager  pendingDevicesManager  = new PendingDevicesManager (pendingDevices, memcachedClient );
+    AccountsManager        accountsManager        = new AccountsManager(accounts, directory, memcachedClient);
+    FederatedClientManager federatedClientManager = new FederatedClientManager(config.getFederationConfiguration());
+    StoredMessages         storedMessages         = new StoredMessages(redisClient);
+    PubSubManager          pubSubManager          = new PubSubManager(redisClient);
 
     AccountAuthenticator     deviceAuthenticator    = new AccountAuthenticator(accountsManager);
     RateLimiters             rateLimiters           = new RateLimiters(config.getLimitsConfiguration(), memcachedClient);
@@ -143,7 +141,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     UrlSigner                urlSigner              = new UrlSigner(config.getS3Configuration());
     PushSender               pushSender             = new PushSender(config.getGcmConfiguration(),
                                                                      config.getApnConfiguration(),
-                                                                     storedMessageManager,
+                                                                     storedMessages, pubSubManager,
                                                                      accountsManager);
 
     AttachmentController attachmentController = new AttachmentController(rateLimiters, federatedClientManager, urlSigner);
@@ -165,7 +163,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     if (config.getWebsocketConfiguration().isEnabled()) {
       WebsocketControllerFactory servlet = new WebsocketControllerFactory(deviceAuthenticator,
-                                                                          storedMessageManager,
+                                                                          pushSender,
+                                                                          storedMessages,
                                                                           pubSubManager);
 
       ServletRegistration.Dynamic websocket = environment.servlets().addServlet("WebSocket", servlet);

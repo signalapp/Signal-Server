@@ -23,7 +23,6 @@ import com.google.android.gcm.server.Constants;
 import com.google.android.gcm.server.Message;
 import com.google.android.gcm.server.Result;
 import com.google.android.gcm.server.Sender;
-import org.whispersystems.textsecuregcm.entities.CryptoEncodingException;
 import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
 
 import java.io.IOException;
@@ -65,8 +64,6 @@ public class GCMSender {
       }
     } catch (IOException e) {
       throw new TransientPushFailureException(e);
-    } catch (CryptoEncodingException e) {
-      throw new NotPushRegisteredException(e);
     }
   }
 }
