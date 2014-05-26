@@ -56,9 +56,6 @@ graphite:
   host:
   port:
 
-http:
-  shutdownGracePeriod: 0s
-
 database:
   # the name of your JDBC driver
   driverClass: org.postgresql.Driver
@@ -75,24 +72,3 @@ database:
   # any properties specific to your JDBC driver:
   properties:
     charSet: UTF-8
-
-  # the maximum amount of time to wait on an empty pool before throwing an exception
-  maxWaitForConnection: 1s
-
-  # the SQL query to run when validating a connection's liveness
-  validationQuery: "/* MyService Health Check */ SELECT 1"
-
-  # the minimum number of connections to keep open
-  minSize: 8
-
-  # the maximum number of connections to keep open
-  maxSize: 32
-
-  # whether or not idle connections should be validated
-  checkConnectionWhileIdle: false
-
-  # how long a connection must be held before it can be validated
-  checkConnectionHealthWhenIdleFor: 10s
-
-  # the maximum lifetime of an idle connection
-  closeConnectionIfIdleFor: 1 minute
