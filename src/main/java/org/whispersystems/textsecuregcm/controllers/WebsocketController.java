@@ -74,7 +74,7 @@ public class WebsocketController implements WebSocketListener, PubSubListener {
       if (usernames == null || usernames.length == 0 ||
           passwords == null || passwords.length == 0)
       {
-        session.close(new CloseStatus(401, "Unauthorized"));
+        session.close(new CloseStatus(4001, "Unauthorized"));
         return;
       }
 
@@ -82,7 +82,7 @@ public class WebsocketController implements WebSocketListener, PubSubListener {
       Optional<Account> account     = accountAuthenticator.authenticate(credentials);
 
       if (!account.isPresent()) {
-        session.close(new CloseStatus(401, "Unauthorized"));
+        session.close(new CloseStatus(4001, "Unauthorized"));
         return;
       }
 
@@ -96,7 +96,7 @@ public class WebsocketController implements WebSocketListener, PubSubListener {
 
       handleQueryDatabase();
     } catch (AuthenticationException e) {
-      try { session.close(500, "Server Error");} catch (IOException e1) {}
+      try { session.close(1011, "Server Error");} catch (IOException e1) {}
     } catch (IOException ioe) {
       logger.info("Abrupt session close.");
     }
@@ -112,11 +112,11 @@ public class WebsocketController implements WebSocketListener, PubSubListener {
           handleMessageAck(body);
           break;
         default:
-          close(new CloseStatus(410, "Unknown Type"));
+          close(new CloseStatus(1008, "Unknown Type"));
       }
     } catch (IOException e) {
       logger.debug("Parse", e);
-      close(new CloseStatus(410, "Badly Formatted"));
+      close(new CloseStatus(1008, "Badly Formatted"));
     }
   }
 
