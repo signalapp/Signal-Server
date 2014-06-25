@@ -4,8 +4,10 @@ import com.google.common.base.Optional;
 import com.sun.jersey.api.client.ClientResponse;
 import com.yammer.dropwizard.testing.ResourceTest;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.controllers.KeysController;
 import org.whispersystems.textsecuregcm.entities.PreKey;
+import org.whispersystems.textsecuregcm.entities.PreKeyList;
 import org.whispersystems.textsecuregcm.entities.PreKeyStatus;
 import org.whispersystems.textsecuregcm.entities.UnstructuredPreKeyList;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -16,6 +18,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Keys;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
+import javax.ws.rs.core.MediaType;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -30,11 +33,13 @@ public class KeyControllerTest extends ResourceTest {
   private final int SAMPLE_REGISTRATION_ID  =  999;
   private final int SAMPLE_REGISTRATION_ID2 = 1002;
 
-  private final PreKey          SAMPLE_KEY  = new PreKey(1, EXISTS_NUMBER, Device.MASTER_ID, 1234, "test1", "test2", false);
-  private final PreKey          SAMPLE_KEY2 = new PreKey(2, EXISTS_NUMBER, 2, 5667, "test3", "test4", false               );
-  private final PreKey          SAMPLE_KEY3 = new PreKey(3, EXISTS_NUMBER, 3, 334, "test5", "test6", false);
-  private final Keys            keys        = mock(Keys.class           );
-  private final AccountsManager accounts    = mock(AccountsManager.class);
+  private final PreKey          SAMPLE_KEY    = new PreKey(1, EXISTS_NUMBER, Device.MASTER_ID, 1234, "test1", "test2", false);
+  private final PreKey          SAMPLE_KEY2   = new PreKey(2, EXISTS_NUMBER, 2, 5667, "test3", "test4", false               );
+  private final PreKey          SAMPLE_KEY3   = new PreKey(3, EXISTS_NUMBER, 3, 334, "test5", "test6", false                );
+  private final Keys            keys          = mock(Keys.class           );
+  private final AccountsManager accounts      = mock(AccountsManager.class);
+  private final Account         existsAccount = mock(Account.class        );
+
 
   @Override
   protected void setUpResources() {
@@ -46,7 +51,6 @@ public class KeyControllerTest extends ResourceTest {
     Device  sampleDevice  = mock(Device.class );
     Device  sampleDevice2 = mock(Device.class);
     Device  sampleDevice3 = mock(Device.class);
-    Account existsAccount = mock(Account.class);
 
     when(sampleDevice.getRegistrationId()).thenReturn(SAMPLE_REGISTRATION_ID);
     when(sampleDevice2.getRegistrationId()).thenReturn(SAMPLE_REGISTRATION_ID2);
@@ -75,6 +79,8 @@ public class KeyControllerTest extends ResourceTest {
 
     when(keys.get(EXISTS_NUMBER)).thenReturn(Optional.of(new UnstructuredPreKeyList(allKeys)));
     when(keys.getCount(eq(AuthHelper.VALID_NUMBER), eq(1L))).thenReturn(5);
+
+    when(AuthHelper.VALID_ACCOUNT.getIdentityKey()).thenReturn(null);
 
     addResource(new KeysController(rateLimiters, keys, accounts, null));
   }
@@ -163,6 +169,44 @@ public class KeyControllerTest extends ResourceTest {
             .get(ClientResponse.class);
 
     assertThat(response.getClientResponseStatus().getStatusCode()).isEqualTo(401);
+  }
+
+  @Test
+  public void putKeysTest() throws Exception {
+    final PreKey newKey        = new PreKey(0, null, 1L, 31337, "foobar", "foobarbaz", false);
+    final PreKey lastResortKey = new PreKey(0, null, 1L, 0xFFFFFF, "fooz", "foobarbaz", false);
+
+    List<PreKey> preKeys = new LinkedList<PreKey>() {{
+      add(newKey);
+    }};
+
+    PreKeyList preKeyList = new PreKeyList();
+    preKeyList.setKeys(preKeys);
+    preKeyList.setLastResortKey(lastResortKey);
+
+    ClientResponse response =
+        client().resource("/v1/keys")
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+            .type(MediaType.APPLICATION_JSON_TYPE)
+            .put(ClientResponse.class, preKeyList);
+
+    assertThat(response.getClientResponseStatus().getStatusCode()).isEqualTo(204);
+
+    ArgumentCaptor<List>   listCaptor       = ArgumentCaptor.forClass(List.class  );
+    ArgumentCaptor<PreKey> lastResortCaptor = ArgumentCaptor.forClass(PreKey.class);
+    verify(keys).store(eq(AuthHelper.VALID_NUMBER), eq(1L), listCaptor.capture(), lastResortCaptor.capture());
+
+    List<PreKey> capturedList = listCaptor.getValue();
+    assertThat(capturedList.size() == 1);
+    assertThat(capturedList.get(0).getIdentityKey().equals("foobarbaz"));
+    assertThat(capturedList.get(0).getKeyId() == 31337);
+    assertThat(capturedList.get(0).getPublicKey().equals("foobar"));
+
+    assertThat(lastResortCaptor.getValue().getPublicKey().equals("fooz"));
+    assertThat(lastResortCaptor.getValue().getIdentityKey().equals("foobarbaz"));
+
+    verify(AuthHelper.VALID_ACCOUNT).setIdentityKey(eq("foobarbaz"));
+    verify(accounts).update(AuthHelper.VALID_ACCOUNT);
   }
 
 }

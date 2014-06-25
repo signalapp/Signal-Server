@@ -70,7 +70,14 @@ public class KeysController {
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
   public void setKeys(@Auth Account account, @Valid PreKeyList preKeys)  {
-    Device device = account.getAuthenticatedDevice().get();
+    Device device      = account.getAuthenticatedDevice().get();
+    String identityKey = preKeys.getLastResortKey().getIdentityKey();
+
+    if (!identityKey.equals(account.getIdentityKey())) {
+      account.setIdentityKey(identityKey);
+      accounts.update(account);
+    }
+
     keys.store(account.getNumber(), device.getId(), preKeys.getKeys(), preKeys.getLastResortKey());
   }
 

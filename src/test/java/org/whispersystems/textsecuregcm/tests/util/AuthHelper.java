@@ -27,20 +27,20 @@ public class AuthHelper {
   public static final String INVVALID_NUMBER  = "+14151111111";
   public static final String INVALID_PASSWORD = "bar";
 
-  public static MultiBasicAuthProvider<FederatedPeer, Account> getAuthenticator() {
-    AccountsManager           accounts    = mock(AccountsManager.class          );
-    Account                   account     = mock(Account.class                  );
-    Device                    device      = mock(Device.class                   );
-    AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
+  public static AccountsManager           ACCOUNTS_MANAGER  = mock(AccountsManager.class          );
+  public static Account                   VALID_ACCOUNT     = mock(Account.class                  );
+  public static Device                    VALID_DEVICE      = mock(Device.class                   );
+  public static AuthenticationCredentials VALID_CREDENTIALS = mock(AuthenticationCredentials.class);
 
-    when(credentials.verify("foo")).thenReturn(true);
-    when(device.getAuthenticationCredentials()).thenReturn(credentials);
-    when(device.getId()).thenReturn(1L);
-    when(account.getDevice(anyLong())).thenReturn(Optional.of(device));
-    when(account.getNumber()).thenReturn(VALID_NUMBER);
-    when(account.getAuthenticatedDevice()).thenReturn(Optional.of(device));
-    when(account.getRelay()).thenReturn(Optional.<String>absent());
-    when(accounts.get(VALID_NUMBER)).thenReturn(Optional.of(account));
+  public static MultiBasicAuthProvider<FederatedPeer, Account> getAuthenticator() {
+    when(VALID_CREDENTIALS.verify("foo")).thenReturn(true);
+    when(VALID_DEVICE.getAuthenticationCredentials()).thenReturn(VALID_CREDENTIALS);
+    when(VALID_DEVICE.getId()).thenReturn(1L);
+    when(VALID_ACCOUNT.getDevice(anyLong())).thenReturn(Optional.of(VALID_DEVICE));
+    when(VALID_ACCOUNT.getNumber()).thenReturn(VALID_NUMBER);
+    when(VALID_ACCOUNT.getAuthenticatedDevice()).thenReturn(Optional.of(VALID_DEVICE));
+    when(VALID_ACCOUNT.getRelay()).thenReturn(Optional.<String>absent());
+    when(ACCOUNTS_MANAGER.get(VALID_NUMBER)).thenReturn(Optional.of(VALID_ACCOUNT));
 
     List<FederatedPeer> peer = new LinkedList<FederatedPeer>() {{
       add(new FederatedPeer("cyanogen", "https://foo", "foofoo", "bazzzzz"));
@@ -51,7 +51,7 @@ public class AuthHelper {
 
     return new MultiBasicAuthProvider<>(new FederatedPeerAuthenticator(federationConfiguration),
                                         FederatedPeer.class,
-                                        new AccountAuthenticator(accounts),
+                                        new AccountAuthenticator(ACCOUNTS_MANAGER),
                                         Account.class, "WhisperServer");
   }
 
