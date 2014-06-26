@@ -142,4 +142,29 @@
         </createIndex>
 
     </changeSet>
+
+    <changeSet id="3" author="moxie">
+        <sql>CREATE OR REPLACE FUNCTION "custom_json_object_set_key"(
+            "json"          json,
+            "key_to_set"    TEXT,
+            "value_to_set"  anyelement
+            )
+            RETURNS json
+            LANGUAGE sql
+            IMMUTABLE
+            STRICT
+            AS $function$
+            SELECT COALESCE(
+            (SELECT ('{' || string_agg(to_json("key") || ':' || "value", ',') || '}')
+            FROM (SELECT *
+            FROM json_each("json")
+            WHERE "key" &lt;&gt; "key_to_set"
+            UNION ALL
+            SELECT "key_to_set", to_json("value_to_set")) AS "fields"),
+            '{}'
+            )::json
+            $function$;</sql>
+        <sql>UPDATE accounts SET data = custom_json_object_set_key(data, 'identityKey', k.identity_key) FROM keys k WHERE (data->>'identityKey')::text is null AND k.number = data->>'number' AND k.last_resort = 1;</sql>
+        <sql>UPDATE accounts SET data = custom_json_object_set_key(data, 'identityKey', k.identity_key) FROM keys k WHERE (data->>'identityKey')::text is null AND k.number = data->>'number';</sql>
+    </changeSet>
 </databaseChangeLog>
