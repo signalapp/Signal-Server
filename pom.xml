@@ -9,7 +9,7 @@
 
     <groupId>org.whispersystems.textsecure</groupId>
     <artifactId>TextSecureServer</artifactId>
-    <version>0.12</version>
+    <version>0.13</version>
 
     <dependencies>
         <dependency>
