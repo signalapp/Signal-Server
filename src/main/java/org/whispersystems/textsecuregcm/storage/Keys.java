@@ -50,12 +50,12 @@ public abstract class Keys {
   @SqlUpdate("DELETE FROM keys WHERE id = :id")
   abstract void removeKey(@Bind("id") long id);
 
-  @SqlBatch("INSERT INTO keys (number, device_id, key_id, public_key, identity_key, last_resort) VALUES " +
-      "(:number, :device_id, :key_id, :public_key, :identity_key, :last_resort)")
+  @SqlBatch("INSERT INTO keys (number, device_id, key_id, public_key, last_resort) VALUES " +
+      "(:number, :device_id, :key_id, :public_key, :last_resort)")
   abstract void append(@PreKeyBinder List<PreKey> preKeys);
 
-  @SqlUpdate("INSERT INTO keys (number, device_id, key_id, public_key, identity_key, last_resort) VALUES " +
-      "(:number, :device_id, :key_id, :public_key, :identity_key, :last_resort)")
+  @SqlUpdate("INSERT INTO keys (number, device_id, key_id, public_key, last_resort) VALUES " +
+      "(:number, :device_id, :key_id, :public_key, :last_resort)")
   abstract void append(@PreKeyBinder PreKey preKey);
 
   @SqlQuery("SELECT * FROM keys WHERE number = :number AND device_id = :device_id ORDER BY key_id ASC FOR UPDATE")
@@ -129,7 +129,6 @@ public abstract class Keys {
             sql.bind("device_id", preKey.getDeviceId());
             sql.bind("key_id", preKey.getKeyId());
             sql.bind("public_key", preKey.getPublicKey());
-            sql.bind("identity_key", preKey.getIdentityKey());
             sql.bind("last_resort", preKey.isLastResort() ? 1 : 0);
           }
         };
@@ -145,7 +144,6 @@ public abstract class Keys {
     {
       return new PreKey(resultSet.getLong("id"), resultSet.getString("number"), resultSet.getLong("device_id"),
                          resultSet.getLong("key_id"), resultSet.getString("public_key"),
-                         resultSet.getString("identity_key"),
                          resultSet.getInt("last_resort") == 1);
     }
   }

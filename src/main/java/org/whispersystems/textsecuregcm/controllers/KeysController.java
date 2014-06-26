@@ -174,6 +174,7 @@ public class KeysController {
 
       if (device.isPresent() && device.get().isActive()) {
         preKey.setRegistrationId(device.get().getRegistrationId());
+        preKey.setIdentityKey(destination.getIdentityKey());
         filteredKeys.add(preKey);
       }
     }

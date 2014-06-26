@@ -5,6 +5,8 @@ import com.sun.jersey.api.client.ClientResponse;
 import com.yammer.dropwizard.testing.ResourceTest;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.controllers.KeysController;
 import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.entities.PreKeyList;
@@ -34,7 +36,7 @@ public class KeyControllerTest extends ResourceTest {
   private final int SAMPLE_REGISTRATION_ID2 = 1002;
 
   private final PreKey          SAMPLE_KEY    = new PreKey(1, EXISTS_NUMBER, Device.MASTER_ID, 1234, "test1", "test2", false);
-  private final PreKey          SAMPLE_KEY2   = new PreKey(2, EXISTS_NUMBER, 2, 5667, "test3", "test4", false               );
+  private final PreKey          SAMPLE_KEY2   = new PreKey(2, EXISTS_NUMBER, 2, 5667, "test3", "test4,", false               );
   private final PreKey          SAMPLE_KEY3   = new PreKey(3, EXISTS_NUMBER, 3, 334, "test5", "test6", false                );
   private final Keys            keys          = mock(Keys.class           );
   private final AccountsManager accounts      = mock(AccountsManager.class);
@@ -63,21 +65,34 @@ public class KeyControllerTest extends ResourceTest {
     when(existsAccount.getDevice(2L)).thenReturn(Optional.of(sampleDevice2));
     when(existsAccount.getDevice(3L)).thenReturn(Optional.of(sampleDevice3));
     when(existsAccount.isActive()).thenReturn(true);
+    when(existsAccount.getIdentityKey()).thenReturn("existsidentitykey");
 
     when(accounts.get(EXISTS_NUMBER)).thenReturn(Optional.of(existsAccount));
     when(accounts.get(NOT_EXISTS_NUMBER)).thenReturn(Optional.<Account>absent());
 
     when(rateLimiters.getPreKeysLimiter()).thenReturn(rateLimiter);
 
-    when(keys.get(eq(EXISTS_NUMBER), eq(1L))).thenReturn(Optional.of(new UnstructuredPreKeyList(SAMPLE_KEY)));
+    when(keys.get(eq(EXISTS_NUMBER), eq(1L))).thenAnswer(new Answer<Optional<UnstructuredPreKeyList>>() {
+      @Override
+      public Optional<UnstructuredPreKeyList> answer(InvocationOnMock invocationOnMock) throws Throwable {
+        return Optional.of(new UnstructuredPreKeyList(cloneKey(SAMPLE_KEY)));
+      }
+    });
+
     when(keys.get(eq(NOT_EXISTS_NUMBER), eq(1L))).thenReturn(Optional.<UnstructuredPreKeyList>absent());
 
-    List<PreKey> allKeys = new LinkedList<>();
-    allKeys.add(SAMPLE_KEY);
-    allKeys.add(SAMPLE_KEY2);
-    allKeys.add(SAMPLE_KEY3);
+    when(keys.get(EXISTS_NUMBER)).thenAnswer(new Answer<Optional<UnstructuredPreKeyList>>() {
+      @Override
+      public Optional<UnstructuredPreKeyList> answer(InvocationOnMock invocationOnMock) throws Throwable {
+        List<PreKey> allKeys = new LinkedList<>();
+        allKeys.add(cloneKey(SAMPLE_KEY));
+        allKeys.add(cloneKey(SAMPLE_KEY2));
+        allKeys.add(cloneKey(SAMPLE_KEY3));
 
-    when(keys.get(EXISTS_NUMBER)).thenReturn(Optional.of(new UnstructuredPreKeyList(allKeys)));
+        return Optional.of(new UnstructuredPreKeyList(allKeys));
+      }
+    });
+
     when(keys.getCount(eq(AuthHelper.VALID_NUMBER), eq(1L))).thenReturn(5);
 
     when(AuthHelper.VALID_ACCOUNT.getIdentityKey()).thenReturn(null);
@@ -105,7 +120,7 @@ public class KeyControllerTest extends ResourceTest {
 
     assertThat(result.getKeyId()).isEqualTo(SAMPLE_KEY.getKeyId());
     assertThat(result.getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
-    assertThat(result.getIdentityKey()).isEqualTo(SAMPLE_KEY.getIdentityKey());
+    assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey());
 
     assertThat(result.getId() == 0);
     assertThat(result.getNumber() == null);
@@ -126,7 +141,7 @@ public class KeyControllerTest extends ResourceTest {
 
     assertThat(result.getKeyId()).isEqualTo(SAMPLE_KEY.getKeyId());
     assertThat(result.getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
-    assertThat(result.getIdentityKey()).isEqualTo(SAMPLE_KEY.getIdentityKey());
+    assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey());
     assertThat(result.getRegistrationId()).isEqualTo(SAMPLE_REGISTRATION_ID);
 
     assertThat(result.getId() == 0);
@@ -135,7 +150,7 @@ public class KeyControllerTest extends ResourceTest {
     result = results.getKeys().get(1);
     assertThat(result.getKeyId()).isEqualTo(SAMPLE_KEY2.getKeyId());
     assertThat(result.getPublicKey()).isEqualTo(SAMPLE_KEY2.getPublicKey());
-    assertThat(result.getIdentityKey()).isEqualTo(SAMPLE_KEY2.getIdentityKey());
+    assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey());
     assertThat(result.getRegistrationId()).isEqualTo(SAMPLE_REGISTRATION_ID2);
 
     assertThat(result.getId() == 0);
@@ -207,6 +222,11 @@ public class KeyControllerTest extends ResourceTest {
 
     verify(AuthHelper.VALID_ACCOUNT).setIdentityKey(eq("foobarbaz"));
     verify(accounts).update(AuthHelper.VALID_ACCOUNT);
+  }
+
+  private PreKey cloneKey(PreKey source) {
+    return new PreKey(source.getId(), source.getNumber(), source.getDeviceId(), source.getKeyId(),
+                      source.getPublicKey(), source.getIdentityKey(), source.isLastResort());
   }
 
 }
