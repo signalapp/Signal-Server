@@ -167,4 +167,8 @@
         <sql>UPDATE accounts SET data = custom_json_object_set_key(data, 'identityKey', k.identity_key) FROM keys k WHERE (data->>'identityKey')::text is null AND k.number = data->>'number' AND k.last_resort = 1;</sql>
         <sql>UPDATE accounts SET data = custom_json_object_set_key(data, 'identityKey', k.identity_key) FROM keys k WHERE (data->>'identityKey')::text is null AND k.number = data->>'number';</sql>
     </changeSet>
+
+    <changeSet id="4" author="moxie">
+        <dropColumn tableName="keys" columnName="identity_key"/>
+    </changeSet>
 </databaseChangeLog>
