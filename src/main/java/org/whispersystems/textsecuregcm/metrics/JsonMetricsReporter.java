@@ -4,6 +4,7 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
+import com.codahale.metrics.Metered;
 import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.ScheduledReporter;
@@ -13,6 +14,10 @@ import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
@@ -28,6 +33,8 @@ import java.util.regex.Pattern;
  * Adapted from MetricsServlet.
  */
 public class JsonMetricsReporter extends ScheduledReporter {
+
+  private final Logger      logger  = LoggerFactory.getLogger(JsonMetricsReporter.class);
   private final JsonFactory factory = new JsonFactory();
 
   private final String table;
@@ -51,6 +58,7 @@ public class JsonMetricsReporter extends ScheduledReporter {
                      SortedMap<String, Timer>     stringTimerSortedMap)
   {
     try {
+      logger.info("Reporting metrics...");
       URL url = new URL("https", sunnylabsHost, 443, "/report/metrics?t=" + table + "&h=" + host);
       HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
@@ -87,21 +95,27 @@ public class JsonMetricsReporter extends ScheduledReporter {
 
       outputStream.close();
     } catch (IOException e) {
-      e.printStackTrace();
+      logger.warn("Error sending metrics", e);
+    } catch (Exception e) {
+      logger.warn("error", e);
     }
   }
 
-  public void reportGauge(JsonGenerator json, String name, Gauge gauge) throws IOException {
-    json.writeFieldName(sanitize(name));
-    json.writeObject(evaluateGauge(gauge));
+  private void reportGauge(JsonGenerator json, String name, Gauge gauge) throws IOException {
+    Object gaugeValue = evaluateGauge(gauge);
+
+    if (gaugeValue instanceof Number) {
+      json.writeFieldName(sanitize(name));
+      json.writeObject(gaugeValue);
+    }
   }
 
-  public void reportCounter(JsonGenerator json, String name, Counter counter) throws IOException {
+  private void reportCounter(JsonGenerator json, String name, Counter counter) throws IOException {
     json.writeFieldName(sanitize(name));
     json.writeNumber(counter.getCount());
   }
 
-  public void reportHistogram(JsonGenerator json, String name, Histogram histogram) throws IOException {
+  private void reportHistogram(JsonGenerator json, String name, Histogram histogram) throws IOException {
     Snapshot snapshot = histogram.getSnapshot();
     json.writeFieldName(sanitize(name));
     json.writeStartObject();
@@ -110,44 +124,55 @@ public class JsonMetricsReporter extends ScheduledReporter {
     json.writeEndObject();
   }
 
-  public void reportMeter(JsonGenerator json, String name, Meter meter) throws IOException {
+  private void reportMeter(JsonGenerator json, String name, Meter meter) throws IOException {
     json.writeFieldName(sanitize(name));
     json.writeStartObject();
-    json.writeNumberField("count", meter.getCount());
-    json.writeNumberField("mean", meter.getMeanRate());
-    json.writeNumberField("m1", meter.getOneMinuteRate());
-    json.writeNumberField("m5", meter.getFiveMinuteRate());
-    json.writeNumberField("m15", meter.getFifteenMinuteRate());
+    writeMetered(json, meter);
     json.writeEndObject();
   }
 
-  public void reportTimer(JsonGenerator json, String name, Timer timer) throws IOException {
+  private void reportTimer(JsonGenerator json, String name, Timer timer) throws IOException {
     json.writeFieldName(sanitize(name));
     json.writeStartObject();
-    json.writeNumberField("count", timer.getCount());
+    json.writeFieldName("rate");
+    json.writeStartObject();
+    writeMetered(json, timer);
+    json.writeEndObject();
+    json.writeFieldName("duration");
+    json.writeStartObject();
     writeSnapshot(json, timer.getSnapshot());
     json.writeEndObject();
+    json.writeEndObject();
   }
 
-  private static Object evaluateGauge(Gauge<?> gauge) {
+  private Object evaluateGauge(Gauge gauge) {
     try {
       return gauge.getValue();
     } catch (RuntimeException e) {
-      return "error reading gauge: " + e.getMessage();
+      logger.warn("Error reading gauge", e);
+      return "error reading gauge";
     }
   }
 
-  private static void writeSnapshot(JsonGenerator json, Snapshot snapshot) throws IOException {
-    json.writeNumberField("max", snapshot.getMax());
-    json.writeNumberField("mean", snapshot.getMean());
-    json.writeNumberField("min", snapshot.getMin());
-    json.writeNumberField("stddev", snapshot.getStdDev());
-    json.writeNumberField("median", snapshot.getMedian());
-    json.writeNumberField("p75", snapshot.get75thPercentile());
-    json.writeNumberField("p95", snapshot.get95thPercentile());
-    json.writeNumberField("p98", snapshot.get98thPercentile());
-    json.writeNumberField("p99", snapshot.get99thPercentile());
-    json.writeNumberField("p999", snapshot.get999thPercentile());
+  private void writeSnapshot(JsonGenerator json, Snapshot snapshot) throws IOException {
+    json.writeNumberField("max", convertDuration(snapshot.getMax()));
+    json.writeNumberField("mean", convertDuration(snapshot.getMean()));
+    json.writeNumberField("min", convertDuration(snapshot.getMin()));
+    json.writeNumberField("stddev", convertDuration(snapshot.getStdDev()));
+    json.writeNumberField("median", convertDuration(snapshot.getMedian()));
+    json.writeNumberField("p75", convertDuration(snapshot.get75thPercentile()));
+    json.writeNumberField("p95", convertDuration(snapshot.get95thPercentile()));
+    json.writeNumberField("p98", convertDuration(snapshot.get98thPercentile()));
+    json.writeNumberField("p99", convertDuration(snapshot.get99thPercentile()));
+    json.writeNumberField("p999", convertDuration(snapshot.get999thPercentile()));
+  }
+
+  private void writeMetered(JsonGenerator json, Metered meter) throws IOException {
+    json.writeNumberField("count", convertRate(meter.getCount()));
+    json.writeNumberField("mean", convertRate(meter.getMeanRate()));
+    json.writeNumberField("m1", convertRate(meter.getOneMinuteRate()));
+    json.writeNumberField("m5", convertRate(meter.getFiveMinuteRate()));
+    json.writeNumberField("m15", convertRate(meter.getFifteenMinuteRate()));
   }
 
   private static final Pattern SIMPLE_NAMES = Pattern.compile("[^a-zA-Z0-9_.\\-~]");
