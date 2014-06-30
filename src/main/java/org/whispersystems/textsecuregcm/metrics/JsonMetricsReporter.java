@@ -13,11 +13,9 @@ import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
@@ -94,6 +92,8 @@ public class JsonMetricsReporter extends ScheduledReporter {
       json.close();
 
       outputStream.close();
+
+      logger.info("Metrics server response: " + connection.getResponseCode());
     } catch (IOException e) {
       logger.warn("Error sending metrics", e);
     } catch (Exception e) {
