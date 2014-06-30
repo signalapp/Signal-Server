@@ -84,7 +84,6 @@ public class KeysController {
 
   @Timed
   @GET
-  @Path("/")
   @Produces(MediaType.APPLICATION_JSON)
   public PreKeyStatus getStatus(@Auth Account account) {
     int count = keys.getCount(account.getNumber(), account.getAuthenticatedDevice().get().getId());

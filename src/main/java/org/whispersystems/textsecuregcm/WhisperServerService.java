@@ -18,6 +18,7 @@ package org.whispersystems.textsecuregcm;
 
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.graphite.GraphiteReporter;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.google.common.base.Optional;
 import net.spy.memcached.MemcachedClient;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -112,6 +113,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       throws Exception
   {
     SharedMetricRegistries.add(Constants.METRICS_NAME, environment.metrics());
+    environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     DBIFactory dbiFactory = new DBIFactory();
     DBI        jdbi       = dbiFactory.build(environment, config.getDataSourceFactory(), "postgresql");
