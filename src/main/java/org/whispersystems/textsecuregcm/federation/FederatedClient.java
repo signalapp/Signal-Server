@@ -36,7 +36,8 @@ import org.whispersystems.textsecuregcm.entities.AttachmentUri;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.entities.ClientContacts;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
-import org.whispersystems.textsecuregcm.entities.UnstructuredPreKeyList;
+import org.whispersystems.textsecuregcm.entities.PreKeyResponseV1;
+import org.whispersystems.textsecuregcm.entities.PreKeyResponseV2;
 import org.whispersystems.textsecuregcm.util.Base64;
 
 import javax.net.ssl.SSLContext;
@@ -62,11 +63,12 @@ public class FederatedClient {
 
   private final Logger logger = LoggerFactory.getLogger(FederatedClient.class);
 
-  private static final String USER_COUNT_PATH     = "/v1/federation/user_count";
-  private static final String USER_TOKENS_PATH    = "/v1/federation/user_tokens/%d";
-  private static final String RELAY_MESSAGE_PATH  = "/v1/federation/messages/%s/%d/%s";
-  private static final String PREKEY_PATH_DEVICE  = "/v1/federation/key/%s/%s";
-  private static final String ATTACHMENT_URI_PATH = "/v1/federation/attachment/%d";
+  private static final String USER_COUNT_PATH       = "/v1/federation/user_count";
+  private static final String USER_TOKENS_PATH      = "/v1/federation/user_tokens/%d";
+  private static final String RELAY_MESSAGE_PATH    = "/v1/federation/messages/%s/%d/%s";
+  private static final String PREKEY_PATH_DEVICE_V1 = "/v1/federation/key/%s/%s";
+  private static final String PREKEY_PATH_DEVICE_V2 = "/v2/federation/key/%s/%s";
+  private static final String ATTACHMENT_URI_PATH   = "/v1/federation/attachment/%d";
 
   private final FederatedPeer peer;
   private final Client        client;
@@ -107,9 +109,9 @@ public class FederatedClient {
     }
   }
 
-  public Optional<UnstructuredPreKeyList> getKeys(String destination, String device) {
+  public Optional<PreKeyResponseV1> getKeysV1(String destination, String device) {
     try {
-      WebResource resource = client.resource(peer.getUrl()).path(String.format(PREKEY_PATH_DEVICE, destination, device));
+      WebResource resource = client.resource(peer.getUrl()).path(String.format(PREKEY_PATH_DEVICE_V1, destination, device));
 
       ClientResponse response = resource.accept(MediaType.APPLICATION_JSON)
                                         .header("Authorization", authorizationHeader)
@@ -119,13 +121,34 @@ public class FederatedClient {
         throw new WebApplicationException(clientResponseToResponse(response));
       }
 
-      return Optional.of(response.getEntity(UnstructuredPreKeyList.class));
+      return Optional.of(response.getEntity(PreKeyResponseV1.class));
 
     } catch (UniformInterfaceException | ClientHandlerException e) {
       logger.warn("PreKey", e);
       return Optional.absent();
     }
   }
+
+  public Optional<PreKeyResponseV2> getKeysV2(String destination, String device) {
+    try {
+      WebResource resource = client.resource(peer.getUrl()).path(String.format(PREKEY_PATH_DEVICE_V2, destination, device));
+
+      ClientResponse response = resource.accept(MediaType.APPLICATION_JSON)
+                                        .header("Authorization", authorizationHeader)
+                                        .get(ClientResponse.class);
+
+      if (response.getStatus() < 200 || response.getStatus() >= 300) {
+        throw new WebApplicationException(clientResponseToResponse(response));
+      }
+
+      return Optional.of(response.getEntity(PreKeyResponseV2.class));
+
+    } catch (UniformInterfaceException | ClientHandlerException e) {
+      logger.warn("PreKey", e);
+      return Optional.absent();
+    }
+  }
+
 
   public int getUserCount() {
     try {

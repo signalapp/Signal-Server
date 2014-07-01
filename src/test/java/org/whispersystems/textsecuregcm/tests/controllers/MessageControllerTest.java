@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
 import com.sun.jersey.api.client.ClientResponse;
 import org.junit.Before;
-import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
@@ -59,12 +58,12 @@ public class MessageControllerTest {
   @Before
   public void setup() throws Exception {
     List<Device> singleDeviceList = new LinkedList<Device>() {{
-      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 111));
+      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 111, null));
     }};
 
     List<Device> multiDeviceList = new LinkedList<Device>() {{
-      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 222));
-      add(new Device(2, "foo", "bar", "baz", "isgcm", null, false, 333));
+      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 222, null));
+      add(new Device(2, "foo", "bar", "baz", "isgcm", null, false, 333, null));
     }};
 
     Account singleDeviceAccount = new Account(SINGLE_DEVICE_RECIPIENT, false, singleDeviceList);

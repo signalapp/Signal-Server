@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013 Open WhisperSystems
+ * Copyright (C) 2014 Open Whisper Systems
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -18,39 +18,38 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
-import org.hibernate.validator.constraints.NotEmpty;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import java.util.List;
 
-public class PreKeyList {
+public class PreKeyStateV1 {
 
   @JsonProperty
   @NotNull
   @Valid
-  private PreKey lastResortKey;
+  private PreKeyV1 lastResortKey;
 
   @JsonProperty
   @NotNull
   @Valid
-  private List<PreKey> keys;
+  private List<PreKeyV1> keys;
 
-  public List<PreKey> getKeys() {
+  public List<PreKeyV1> getKeys() {
     return keys;
   }
 
   @VisibleForTesting
-  public void setKeys(List<PreKey> keys) {
+  public void setKeys(List<PreKeyV1> keys) {
     this.keys = keys;
   }
 
-  public PreKey getLastResortKey() {
+  public PreKeyV1 getLastResortKey() {
     return lastResortKey;
   }
 
   @VisibleForTesting
-  public void setLastResortKey(PreKey lastResortKey) {
+  public void setLastResortKey(PreKeyV1 lastResortKey) {
     this.lastResortKey = lastResortKey;
   }
 }

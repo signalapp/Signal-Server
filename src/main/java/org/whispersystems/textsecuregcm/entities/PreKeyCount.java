@@ -3,16 +3,16 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class PreKeyStatus {
+public class PreKeyCount {
 
   @JsonProperty
   private int count;
 
-  public PreKeyStatus(int count) {
+  public PreKeyCount(int count) {
     this.count = count;
   }
 
-  public PreKeyStatus() {}
+  public PreKeyCount() {}
 
   public int getCount() {
     return count;

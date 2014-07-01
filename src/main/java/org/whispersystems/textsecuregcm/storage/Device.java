@@ -19,6 +19,8 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
+import org.whispersystems.textsecuregcm.entities.DeviceKey;
+import org.whispersystems.textsecuregcm.entities.PreKeyV2;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.io.Serializable;
@@ -51,11 +53,15 @@ public class Device implements Serializable {
   @JsonProperty
   private int registrationId;
 
+  @JsonProperty
+  private DeviceKey deviceKey;
+
   public Device() {}
 
   public Device(long id, String authToken, String salt,
                 String signalingKey, String gcmId, String apnId,
-                boolean fetchesMessages, int registrationId)
+                boolean fetchesMessages, int registrationId,
+                DeviceKey deviceKey)
   {
     this.id              = id;
     this.authToken       = authToken;
@@ -65,6 +71,7 @@ public class Device implements Serializable {
     this.apnId           = apnId;
     this.fetchesMessages = fetchesMessages;
     this.registrationId  = registrationId;
+    this.deviceKey       = deviceKey;
   }
 
   public String getApnId() {
@@ -130,5 +137,13 @@ public class Device implements Serializable {
 
   public void setRegistrationId(int registrationId) {
     this.registrationId = registrationId;
+  }
+
+  public DeviceKey getDeviceKey() {
+    return deviceKey;
+  }
+
+  public void setDeviceKey(DeviceKey deviceKey) {
+    this.deviceKey = deviceKey;
   }
 }

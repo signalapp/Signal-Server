@@ -6,18 +6,22 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
-import org.whispersystems.textsecuregcm.controllers.KeysController;
-import org.whispersystems.textsecuregcm.entities.PreKey;
-import org.whispersystems.textsecuregcm.entities.PreKeyList;
-import org.whispersystems.textsecuregcm.entities.PreKeyStatus;
-import org.whispersystems.textsecuregcm.entities.UnstructuredPreKeyList;
+import org.whispersystems.textsecuregcm.controllers.KeysControllerV1;
+import org.whispersystems.textsecuregcm.controllers.KeysControllerV2;
+import org.whispersystems.textsecuregcm.entities.DeviceKey;
+import org.whispersystems.textsecuregcm.entities.PreKeyCount;
+import org.whispersystems.textsecuregcm.entities.PreKeyResponseV1;
+import org.whispersystems.textsecuregcm.entities.PreKeyResponseV2;
+import org.whispersystems.textsecuregcm.entities.PreKeyStateV1;
+import org.whispersystems.textsecuregcm.entities.PreKeyStateV2;
+import org.whispersystems.textsecuregcm.entities.PreKeyV1;
+import org.whispersystems.textsecuregcm.entities.PreKeyV2;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.KeyRecord;
 import org.whispersystems.textsecuregcm.storage.Keys;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
@@ -36,10 +40,18 @@ public class KeyControllerTest {
 
   private static int SAMPLE_REGISTRATION_ID  =  999;
   private static int SAMPLE_REGISTRATION_ID2 = 1002;
+  private static int SAMPLE_REGISTRATION_ID4 = 1555;
 
-  private final PreKey          SAMPLE_KEY    = new PreKey(1, EXISTS_NUMBER, Device.MASTER_ID, 1234, "test1", "test2", false);
-  private final PreKey          SAMPLE_KEY2   = new PreKey(2, EXISTS_NUMBER, 2, 5667, "test3", "test4,", false               );
-  private final PreKey          SAMPLE_KEY3   = new PreKey(3, EXISTS_NUMBER, 3, 334, "test5", "test6", false                );
+  private final KeyRecord SAMPLE_KEY    = new KeyRecord(1, EXISTS_NUMBER, Device.MASTER_ID, 1234, "test1", false);
+  private final KeyRecord SAMPLE_KEY2   = new KeyRecord(2, EXISTS_NUMBER, 2, 5667, "test3", false               );
+  private final KeyRecord SAMPLE_KEY3   = new KeyRecord(3, EXISTS_NUMBER, 3, 334, "test5", false                );
+  private final KeyRecord SAMPLE_KEY4   = new KeyRecord(4, EXISTS_NUMBER, 4, 336, "test6", false                );
+
+
+  private final DeviceKey SAMPLE_DEVICE_KEY  = new DeviceKey(1111, "foofoo", "sig11");
+  private final DeviceKey SAMPLE_DEVICE_KEY2 = new DeviceKey(2222, "foobar", "sig22");
+  private final DeviceKey SAMPLE_DEVICE_KEY3 = new DeviceKey(3333, "barfoo", "sig33");
+
   private final Keys            keys          = mock(Keys.class           );
   private final AccountsManager accounts      = mock(AccountsManager.class);
   private final Account         existsAccount = mock(Account.class        );
@@ -50,25 +62,47 @@ public class KeyControllerTest {
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
                                                             .addProvider(AuthHelper.getAuthenticator())
-                                                            .addResource(new KeysController(rateLimiters, keys, accounts, null))
+                                                            .addResource(new KeysControllerV1(rateLimiters, keys, accounts, null))
+                                                            .addResource(new KeysControllerV2(rateLimiters, keys, accounts, null))
                                                             .build();
 
   @Before
   public void setup() {
-    Device  sampleDevice  = mock(Device.class );
-    Device  sampleDevice2 = mock(Device.class);
-    Device  sampleDevice3 = mock(Device.class);
+    final Device  sampleDevice  = mock(Device.class );
+    final Device  sampleDevice2 = mock(Device.class);
+    final Device  sampleDevice3 = mock(Device.class);
+    final Device  sampleDevice4 = mock(Device.class);
+
+    List<Device> allDevices = new LinkedList<Device>() {{
+      add(sampleDevice);
+      add(sampleDevice2);
+      add(sampleDevice3);
+      add(sampleDevice4);
+    }};
 
     when(sampleDevice.getRegistrationId()).thenReturn(SAMPLE_REGISTRATION_ID);
     when(sampleDevice2.getRegistrationId()).thenReturn(SAMPLE_REGISTRATION_ID2);
     when(sampleDevice3.getRegistrationId()).thenReturn(SAMPLE_REGISTRATION_ID2);
+    when(sampleDevice4.getRegistrationId()).thenReturn(SAMPLE_REGISTRATION_ID4);
     when(sampleDevice.isActive()).thenReturn(true);
     when(sampleDevice2.isActive()).thenReturn(true);
     when(sampleDevice3.isActive()).thenReturn(false);
+    when(sampleDevice4.isActive()).thenReturn(true);
+    when(sampleDevice.getDeviceKey()).thenReturn(SAMPLE_DEVICE_KEY);
+    when(sampleDevice2.getDeviceKey()).thenReturn(SAMPLE_DEVICE_KEY2);
+    when(sampleDevice3.getDeviceKey()).thenReturn(SAMPLE_DEVICE_KEY3);
+    when(sampleDevice4.getDeviceKey()).thenReturn(null);
+    when(sampleDevice.getId()).thenReturn(1L);
+    when(sampleDevice2.getId()).thenReturn(2L);
+    when(sampleDevice3.getId()).thenReturn(3L);
+    when(sampleDevice4.getId()).thenReturn(4L);
 
     when(existsAccount.getDevice(1L)).thenReturn(Optional.of(sampleDevice));
     when(existsAccount.getDevice(2L)).thenReturn(Optional.of(sampleDevice2));
     when(existsAccount.getDevice(3L)).thenReturn(Optional.of(sampleDevice3));
+    when(existsAccount.getDevice(4L)).thenReturn(Optional.of(sampleDevice4));
+    when(existsAccount.getDevice(22L)).thenReturn(Optional.<Device>absent());
+    when(existsAccount.getDevices()).thenReturn(allDevices);
     when(existsAccount.isActive()).thenReturn(true);
     when(existsAccount.getIdentityKey()).thenReturn("existsidentitykey");
 
@@ -77,37 +111,31 @@ public class KeyControllerTest {
 
     when(rateLimiters.getPreKeysLimiter()).thenReturn(rateLimiter);
 
-    when(keys.get(eq(EXISTS_NUMBER), eq(1L))).thenAnswer(new Answer<Optional<UnstructuredPreKeyList>>() {
-      @Override
-      public Optional<UnstructuredPreKeyList> answer(InvocationOnMock invocationOnMock) throws Throwable {
-        return Optional.of(new UnstructuredPreKeyList(cloneKey(SAMPLE_KEY)));
-      }
-    });
+    List<KeyRecord> singleDevice = new LinkedList<>();
+    singleDevice.add(SAMPLE_KEY);
+    when(keys.get(eq(EXISTS_NUMBER), eq(1L))).thenReturn(Optional.of(singleDevice));
 
-    when(keys.get(eq(NOT_EXISTS_NUMBER), eq(1L))).thenReturn(Optional.<UnstructuredPreKeyList>absent());
+    when(keys.get(eq(NOT_EXISTS_NUMBER), eq(1L))).thenReturn(Optional.<List<KeyRecord>>absent());
 
-    when(keys.get(EXISTS_NUMBER)).thenAnswer(new Answer<Optional<UnstructuredPreKeyList>>() {
-      @Override
-      public Optional<UnstructuredPreKeyList> answer(InvocationOnMock invocationOnMock) throws Throwable {
-        List<PreKey> allKeys = new LinkedList<>();
-        allKeys.add(cloneKey(SAMPLE_KEY));
-        allKeys.add(cloneKey(SAMPLE_KEY2));
-        allKeys.add(cloneKey(SAMPLE_KEY3));
-
-        return Optional.of(new UnstructuredPreKeyList(allKeys));
-      }
-    });
+    List<KeyRecord> multiDevice = new LinkedList<>();
+    multiDevice.add(SAMPLE_KEY);
+    multiDevice.add(SAMPLE_KEY2);
+    multiDevice.add(SAMPLE_KEY3);
+    multiDevice.add(SAMPLE_KEY4);
+    when(keys.get(EXISTS_NUMBER)).thenReturn(Optional.of(multiDevice));
 
     when(keys.getCount(eq(AuthHelper.VALID_NUMBER), eq(1L))).thenReturn(5);
+
+    when(AuthHelper.VALID_DEVICE.getDeviceKey()).thenReturn(new DeviceKey(89898, "zoofarb", "sigvalid"));
     when(AuthHelper.VALID_ACCOUNT.getIdentityKey()).thenReturn(null);
   }
 
   @Test
-  public void validKeyStatusTest() throws Exception {
-    PreKeyStatus result = resources.client().resource("/v1/keys")
+  public void validKeyStatusTestV1() throws Exception {
+    PreKeyCount result = resources.client().resource("/v1/keys")
         .header("Authorization",
                 AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .get(PreKeyStatus.class);
+        .get(PreKeyCount.class);
 
     assertThat(result.getCount() == 4);
 
@@ -115,39 +143,63 @@ public class KeyControllerTest {
   }
 
   @Test
+  public void validKeyStatusTestV2() throws Exception {
+    PreKeyCount result = resources.client().resource("/v2/keys")
+                                  .header("Authorization",
+                                          AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                  .get(PreKeyCount.class);
+
+    assertThat(result.getCount() == 4);
+
+    verify(keys).getCount(eq(AuthHelper.VALID_NUMBER), eq(1L));
+  }
+
+
+  @Test
   public void validLegacyRequestTest() throws Exception {
-    PreKey result = resources.client().resource(String.format("/v1/keys/%s", EXISTS_NUMBER))
+    PreKeyV1 result = resources.client().resource(String.format("/v1/keys/%s", EXISTS_NUMBER))
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .get(PreKey.class);
+        .get(PreKeyV1.class);
 
     assertThat(result.getKeyId()).isEqualTo(SAMPLE_KEY.getKeyId());
     assertThat(result.getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
     assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey());
-
-    assertThat(result.getId() == 0);
-    assertThat(result.getNumber() == null);
 
     verify(keys).get(eq(EXISTS_NUMBER), eq(1L));
     verifyNoMoreInteractions(keys);
   }
 
   @Test
-  public void validMultiRequestTest() throws Exception {
-    UnstructuredPreKeyList results = resources.client().resource(String.format("/v1/keys/%s/*", EXISTS_NUMBER))
+  public void validSingleRequestTestV2() throws Exception {
+    PreKeyResponseV2 result = resources.client().resource(String.format("/v2/keys/%s/1", EXISTS_NUMBER))
+                                       .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                       .get(PreKeyResponseV2.class);
+
+    assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey());
+    assertThat(result.getDevices().size()).isEqualTo(1);
+    assertThat(result.getDevices().get(0).getPreKey().getKeyId()).isEqualTo(SAMPLE_KEY.getKeyId());
+    assertThat(result.getDevices().get(0).getPreKey().getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
+    assertThat(result.getDevices().get(0).getDeviceKey()).isEqualTo(existsAccount.getDevice(1).get().getDeviceKey());
+
+    verify(keys).get(eq(EXISTS_NUMBER), eq(1L));
+    verifyNoMoreInteractions(keys);
+  }
+
+
+  @Test
+  public void validMultiRequestTestV1() throws Exception {
+    PreKeyResponseV1 results = resources.client().resource(String.format("/v1/keys/%s/*", EXISTS_NUMBER))
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .get(UnstructuredPreKeyList.class);
+        .get(PreKeyResponseV1.class);
 
-    assertThat(results.getKeys().size()).isEqualTo(2);
+    assertThat(results.getKeys().size()).isEqualTo(3);
 
-    PreKey result = results.getKeys().get(0);
+    PreKeyV1 result = results.getKeys().get(0);
 
     assertThat(result.getKeyId()).isEqualTo(SAMPLE_KEY.getKeyId());
     assertThat(result.getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
     assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey());
     assertThat(result.getRegistrationId()).isEqualTo(SAMPLE_REGISTRATION_ID);
-
-    assertThat(result.getId() == 0);
-    assertThat(result.getNumber() == null);
 
     result = results.getKeys().get(1);
     assertThat(result.getKeyId()).isEqualTo(SAMPLE_KEY2.getKeyId());
@@ -155,8 +207,59 @@ public class KeyControllerTest {
     assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey());
     assertThat(result.getRegistrationId()).isEqualTo(SAMPLE_REGISTRATION_ID2);
 
-    assertThat(result.getId() == 0);
-    assertThat(result.getNumber() == null);
+    result = results.getKeys().get(2);
+    assertThat(result.getKeyId()).isEqualTo(SAMPLE_KEY4.getKeyId());
+    assertThat(result.getPublicKey()).isEqualTo(SAMPLE_KEY4.getPublicKey());
+    assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey());
+    assertThat(result.getRegistrationId()).isEqualTo(SAMPLE_REGISTRATION_ID4);
+
+    verify(keys).get(eq(EXISTS_NUMBER));
+    verifyNoMoreInteractions(keys);
+  }
+
+  @Test
+  public void validMultiRequestTestV2() throws Exception {
+    PreKeyResponseV2 results = resources.client().resource(String.format("/v2/keys/%s/*", EXISTS_NUMBER))
+                                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                        .get(PreKeyResponseV2.class);
+
+    assertThat(results.getDevices().size()).isEqualTo(3);
+    assertThat(results.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey());
+
+    PreKeyV2 deviceKey      = results.getDevices().get(0).getDeviceKey();
+    PreKeyV2 preKey         = results.getDevices().get(0).getPreKey();
+    long     registrationId = results.getDevices().get(0).getRegistrationId();
+    long     deviceId       = results.getDevices().get(0).getDeviceId();
+
+    assertThat(preKey.getKeyId()).isEqualTo(SAMPLE_KEY.getKeyId());
+    assertThat(preKey.getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
+    assertThat(registrationId).isEqualTo(SAMPLE_REGISTRATION_ID);
+    assertThat(deviceKey.getKeyId()).isEqualTo(SAMPLE_DEVICE_KEY.getKeyId());
+    assertThat(deviceKey.getPublicKey()).isEqualTo(SAMPLE_DEVICE_KEY.getPublicKey());
+    assertThat(deviceId).isEqualTo(1);
+
+    deviceKey      = results.getDevices().get(1).getDeviceKey();
+    preKey         = results.getDevices().get(1).getPreKey();
+    registrationId = results.getDevices().get(1).getRegistrationId();
+    deviceId       = results.getDevices().get(1).getDeviceId();
+
+    assertThat(preKey.getKeyId()).isEqualTo(SAMPLE_KEY2.getKeyId());
+    assertThat(preKey.getPublicKey()).isEqualTo(SAMPLE_KEY2.getPublicKey());
+    assertThat(registrationId).isEqualTo(SAMPLE_REGISTRATION_ID2);
+    assertThat(deviceKey.getKeyId()).isEqualTo(SAMPLE_DEVICE_KEY2.getKeyId());
+    assertThat(deviceKey.getPublicKey()).isEqualTo(SAMPLE_DEVICE_KEY2.getPublicKey());
+    assertThat(deviceId).isEqualTo(2);
+
+    deviceKey      = results.getDevices().get(2).getDeviceKey();
+    preKey         = results.getDevices().get(2).getPreKey();
+    registrationId = results.getDevices().get(2).getRegistrationId();
+    deviceId       = results.getDevices().get(2).getDeviceId();
+
+    assertThat(preKey.getKeyId()).isEqualTo(SAMPLE_KEY4.getKeyId());
+    assertThat(preKey.getPublicKey()).isEqualTo(SAMPLE_KEY4.getPublicKey());
+    assertThat(registrationId).isEqualTo(SAMPLE_REGISTRATION_ID4);
+    assertThat(deviceKey).isNull();
+    assertThat(deviceId).isEqualTo(4);
 
     verify(keys).get(eq(EXISTS_NUMBER));
     verifyNoMoreInteractions(keys);
@@ -164,7 +267,7 @@ public class KeyControllerTest {
 
 
   @Test
-  public void invalidRequestTest() throws Exception {
+  public void invalidRequestTestV1() throws Exception {
     ClientResponse response = resources.client().resource(String.format("/v1/keys/%s", NOT_EXISTS_NUMBER))
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .get(ClientResponse.class);
@@ -173,7 +276,25 @@ public class KeyControllerTest {
   }
 
   @Test
-  public void unauthorizedRequestTest() throws Exception {
+  public void invalidRequestTestV2() throws Exception {
+    ClientResponse response = resources.client().resource(String.format("/v2/keys/%s", NOT_EXISTS_NUMBER))
+                                       .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                       .get(ClientResponse.class);
+
+    assertThat(response.getStatusInfo().getStatusCode()).isEqualTo(404);
+  }
+
+  @Test
+  public void anotherInvalidRequestTestV2() throws Exception {
+    ClientResponse response = resources.client().resource(String.format("/v2/keys/%s/22", EXISTS_NUMBER))
+                                       .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                       .get(ClientResponse.class);
+
+    assertThat(response.getStatusInfo().getStatusCode()).isEqualTo(404);
+  }
+
+  @Test
+  public void unauthorizedRequestTestV1() throws Exception {
     ClientResponse response =
         resources.client().resource(String.format("/v1/keys/%s", NOT_EXISTS_NUMBER))
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.INVALID_PASSWORD))
@@ -189,15 +310,31 @@ public class KeyControllerTest {
   }
 
   @Test
-  public void putKeysTest() throws Exception {
-    final PreKey newKey        = new PreKey(0, null, 1L, 31337, "foobar", "foobarbaz", false);
-    final PreKey lastResortKey = new PreKey(0, null, 1L, 0xFFFFFF, "fooz", "foobarbaz", false);
+  public void unauthorizedRequestTestV2() throws Exception {
+    ClientResponse response =
+        resources.client().resource(String.format("/v2/keys/%s/1", EXISTS_NUMBER))
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.INVALID_PASSWORD))
+                 .get(ClientResponse.class);
 
-    List<PreKey> preKeys = new LinkedList<PreKey>() {{
+    assertThat(response.getStatusInfo().getStatusCode()).isEqualTo(401);
+
+    response =
+        resources.client().resource(String.format("/v2/keys/%s/1", EXISTS_NUMBER))
+                 .get(ClientResponse.class);
+
+    assertThat(response.getStatusInfo().getStatusCode()).isEqualTo(401);
+  }
+
+  @Test
+  public void putKeysTestV1() throws Exception {
+    final PreKeyV1 newKey        = new PreKeyV1(1L, 31337, "foobar", "foobarbaz");
+    final PreKeyV1 lastResortKey = new PreKeyV1(1L, 0xFFFFFF, "fooz", "foobarbaz");
+
+    List<PreKeyV1> preKeys = new LinkedList<PreKeyV1>() {{
       add(newKey);
     }};
 
-    PreKeyList preKeyList = new PreKeyList();
+    PreKeyStateV1 preKeyList = new PreKeyStateV1();
     preKeyList.setKeys(preKeys);
     preKeyList.setLastResortKey(lastResortKey);
 
@@ -209,11 +346,11 @@ public class KeyControllerTest {
 
     assertThat(response.getClientResponseStatus().getStatusCode()).isEqualTo(204);
 
-    ArgumentCaptor<List>   listCaptor       = ArgumentCaptor.forClass(List.class  );
-    ArgumentCaptor<PreKey> lastResortCaptor = ArgumentCaptor.forClass(PreKey.class);
+    ArgumentCaptor<List>     listCaptor       = ArgumentCaptor.forClass(List.class    );
+    ArgumentCaptor<PreKeyV1> lastResortCaptor = ArgumentCaptor.forClass(PreKeyV1.class);
     verify(keys).store(eq(AuthHelper.VALID_NUMBER), eq(1L), listCaptor.capture(), lastResortCaptor.capture());
 
-    List<PreKey> capturedList = listCaptor.getValue();
+    List<PreKeyV1> capturedList = listCaptor.getValue();
     assertThat(capturedList.size() == 1);
     assertThat(capturedList.get(0).getIdentityKey().equals("foobarbaz"));
     assertThat(capturedList.get(0).getKeyId() == 31337);
@@ -226,9 +363,39 @@ public class KeyControllerTest {
     verify(accounts).update(AuthHelper.VALID_ACCOUNT);
   }
 
-  private PreKey cloneKey(PreKey source) {
-    return new PreKey(source.getId(), source.getNumber(), source.getDeviceId(), source.getKeyId(),
-                      source.getPublicKey(), source.getIdentityKey(), source.isLastResort());
+  @Test
+  public void putKeysTestV2() throws Exception {
+    final PreKeyV2  preKey        = new PreKeyV2(31337, "foobar");
+    final PreKeyV2  lastResortKey = new PreKeyV2(31339, "barbar");
+    final DeviceKey deviceKey     = new DeviceKey(31338, "foobaz", "myvalidsig");
+    final String    identityKey   = "barbar";
+
+    List<PreKeyV2> preKeys = new LinkedList<PreKeyV2>() {{
+      add(preKey);
+    }};
+
+    PreKeyStateV2 preKeyState = new PreKeyStateV2(identityKey, deviceKey, preKeys, lastResortKey);
+
+    ClientResponse response =
+        resources.client().resource("/v2/keys")
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .type(MediaType.APPLICATION_JSON_TYPE)
+                 .put(ClientResponse.class, preKeyState);
+
+    assertThat(response.getClientResponseStatus().getStatusCode()).isEqualTo(204);
+
+    ArgumentCaptor<List> listCaptor = ArgumentCaptor.forClass(List.class);
+    verify(keys).store(eq(AuthHelper.VALID_NUMBER), eq(1L), listCaptor.capture(), eq(lastResortKey));
+
+    List<PreKeyV2> capturedList = listCaptor.getValue();
+    assertThat(capturedList.size() == 1);
+    assertThat(capturedList.get(0).getKeyId() == 31337);
+    assertThat(capturedList.get(0).getPublicKey().equals("foobar"));
+
+    verify(AuthHelper.VALID_ACCOUNT).setIdentityKey(eq("barbar"));
+    verify(AuthHelper.VALID_DEVICE).setDeviceKey(eq(deviceKey));
+    verify(accounts).update(AuthHelper.VALID_ACCOUNT);
   }
+
 
 }

@@ -30,8 +30,9 @@ import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 import org.skife.jdbi.v2.sqlobject.Transaction;
 import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
-import org.whispersystems.textsecuregcm.entities.PreKey;
-import org.whispersystems.textsecuregcm.entities.UnstructuredPreKeyList;
+import org.whispersystems.textsecuregcm.entities.PreKeyBase;
+import org.whispersystems.textsecuregcm.entities.PreKeyV1;
+import org.whispersystems.textsecuregcm.entities.PreKeyV2;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
@@ -40,6 +41,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.LinkedList;
 import java.util.List;
 
 public abstract class Keys {
@@ -51,65 +53,64 @@ public abstract class Keys {
   abstract void removeKey(@Bind("id") long id);
 
   @SqlBatch("INSERT INTO keys (number, device_id, key_id, public_key, last_resort) VALUES " +
-      "(:number, :device_id, :key_id, :public_key, :last_resort)")
-  abstract void append(@PreKeyBinder List<PreKey> preKeys);
-
-  @SqlUpdate("INSERT INTO keys (number, device_id, key_id, public_key, last_resort) VALUES " +
-      "(:number, :device_id, :key_id, :public_key, :last_resort)")
-  abstract void append(@PreKeyBinder PreKey preKey);
+            "(:number, :device_id, :key_id, :public_key, :last_resort)")
+  abstract void append(@PreKeyBinder List<KeyRecord> preKeys);
 
   @SqlQuery("SELECT * FROM keys WHERE number = :number AND device_id = :device_id ORDER BY key_id ASC FOR UPDATE")
   @Mapper(PreKeyMapper.class)
-  abstract PreKey retrieveFirst(@Bind("number") String number, @Bind("device_id") long deviceId);
+  abstract KeyRecord retrieveFirst(@Bind("number") String number, @Bind("device_id") long deviceId);
 
   @SqlQuery("SELECT DISTINCT ON (number, device_id) * FROM keys WHERE number = :number ORDER BY number, device_id, key_id ASC")
   @Mapper(PreKeyMapper.class)
-  abstract List<PreKey> retrieveFirst(@Bind("number") String number);
+  abstract List<KeyRecord> retrieveFirst(@Bind("number") String number);
 
   @SqlQuery("SELECT COUNT(*) FROM keys WHERE number = :number AND device_id = :device_id")
   public abstract int getCount(@Bind("number") String number, @Bind("device_id") long deviceId);
 
   @Transaction(TransactionIsolationLevel.SERIALIZABLE)
-  public void store(String number, long deviceId, List<PreKey> keys, PreKey lastResortKey) {
-    for (PreKey key : keys) {
-      key.setNumber(number);
-      key.setDeviceId(deviceId);
+  public void store(String number, long deviceId, List<? extends PreKeyBase> keys, PreKeyBase lastResortKey) {
+    List<KeyRecord> records = new LinkedList<>();
+
+    for (PreKeyBase key : keys) {
+      records.add(new KeyRecord(0, number, deviceId, key.getKeyId(), key.getPublicKey(), false));
     }
 
-    lastResortKey.setNumber(number);
-    lastResortKey.setDeviceId(deviceId);
-    lastResortKey.setLastResort(true);
+    records.add(new KeyRecord(0, number, deviceId, lastResortKey.getKeyId(),
+                              lastResortKey.getPublicKey(), true));
 
     removeKeys(number, deviceId);
-    append(keys);
-    append(lastResortKey);
+    append(records);
   }
 
   @Transaction(TransactionIsolationLevel.SERIALIZABLE)
-  public Optional<UnstructuredPreKeyList> get(String number, long deviceId) {
-    PreKey preKey = retrieveFirst(number, deviceId);
+  public Optional<List<KeyRecord>> get(String number, long deviceId) {
+    final KeyRecord record = retrieveFirst(number, deviceId);
 
-    if (preKey != null && !preKey.isLastResort()) {
-      removeKey(preKey.getId());
+    if (record != null && !record.isLastResort()) {
+      removeKey(record.getId());
+    } else if (record == null) {
+      return Optional.absent();
     }
 
-    if (preKey != null) return Optional.of(new UnstructuredPreKeyList(preKey));
-    else                return Optional.absent();
+    List<KeyRecord> results = new LinkedList<>();
+    results.add(record);
+
+    return Optional.of(results);
   }
 
   @Transaction(TransactionIsolationLevel.SERIALIZABLE)
-  public Optional<UnstructuredPreKeyList> get(String number) {
-    List<PreKey> preKeys = retrieveFirst(number);
+  public Optional<List<KeyRecord>> get(String number) {
+    List<KeyRecord> preKeys = retrieveFirst(number);
 
     if (preKeys != null) {
-      for (PreKey preKey : preKeys) {
+      for (KeyRecord preKey : preKeys) {
         if (!preKey.isLastResort()) {
           removeKey(preKey.getId());
         }
       }
     }
 
-    if (preKeys != null) return Optional.of(new UnstructuredPreKeyList(preKeys));
+    if (preKeys != null) return Optional.of(preKeys);
     else                 return Optional.absent();
   }
 
@@ -120,16 +121,16 @@ public abstract class Keys {
     public static class PreKeyBinderFactory implements BinderFactory {
       @Override
       public Binder build(Annotation annotation) {
-        return new Binder<PreKeyBinder, PreKey>() {
+        return new Binder<PreKeyBinder, KeyRecord>() {
           @Override
-          public void bind(SQLStatement<?> sql, PreKeyBinder accountBinder, PreKey preKey)
+          public void bind(SQLStatement<?> sql, PreKeyBinder accountBinder, KeyRecord record)
           {
-            sql.bind("id", preKey.getId());
-            sql.bind("number", preKey.getNumber());
-            sql.bind("device_id", preKey.getDeviceId());
-            sql.bind("key_id", preKey.getKeyId());
-            sql.bind("public_key", preKey.getPublicKey());
-            sql.bind("last_resort", preKey.isLastResort() ? 1 : 0);
+            sql.bind("id", record.getId());
+            sql.bind("number", record.getNumber());
+            sql.bind("device_id", record.getDeviceId());
+            sql.bind("key_id", record.getKeyId());
+            sql.bind("public_key", record.getPublicKey());
+            sql.bind("last_resort", record.isLastResort() ? 1 : 0);
           }
         };
       }
@@ -137,14 +138,14 @@ public abstract class Keys {
   }
 
 
-  public static class PreKeyMapper implements ResultSetMapper<PreKey> {
+  public static class PreKeyMapper implements ResultSetMapper<KeyRecord> {
     @Override
-    public PreKey map(int i, ResultSet resultSet, StatementContext statementContext)
+    public KeyRecord map(int i, ResultSet resultSet, StatementContext statementContext)
         throws SQLException
     {
-      return new PreKey(resultSet.getLong("id"), resultSet.getString("number"), resultSet.getLong("device_id"),
-                         resultSet.getLong("key_id"), resultSet.getString("public_key"),
-                         resultSet.getInt("last_resort") == 1);
+      return new KeyRecord(resultSet.getLong("id"), resultSet.getString("number"),
+                           resultSet.getLong("device_id"), resultSet.getLong("key_id"),
+                           resultSet.getString("public_key"), resultSet.getInt("last_resort") == 1);
     }
   }
 

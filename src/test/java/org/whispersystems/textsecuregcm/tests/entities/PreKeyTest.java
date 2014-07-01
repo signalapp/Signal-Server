@@ -2,7 +2,8 @@ package org.whispersystems.textsecuregcm.tests.entities;
 
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
-import org.whispersystems.textsecuregcm.entities.PreKey;
+import org.whispersystems.textsecuregcm.entities.PreKeyV1;
+import org.whispersystems.textsecuregcm.entities.PreKeyV2;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -13,8 +14,8 @@ import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.*;
 public class PreKeyTest {
 
   @Test
-  public void serializeToJSON() throws Exception {
-    PreKey preKey = new PreKey(1, "+14152222222", 1, 1234, "test", "identityTest", false);
+  public void serializeToJSONV1() throws Exception {
+    PreKeyV1 preKey = new PreKeyV1(1, 1234, "test", "identityTest");
     preKey.setRegistrationId(987);
 
     assertThat("Basic Contact Serialization works",
@@ -23,13 +24,22 @@ public class PreKeyTest {
   }
 
   @Test
-  public void deserializeFromJSON() throws Exception {
+  public void deserializeFromJSONV() throws Exception {
     ClientContact contact = new ClientContact(Util.getContactToken("+14152222222"),
                                               "whisper", true);
 
     assertThat("a ClientContact can be deserialized from JSON",
                fromJson(jsonFixture("fixtures/contact.relay.sms.json"), ClientContact.class),
                is(contact));
+  }
+
+  @Test
+  public void serializeToJSONV2() throws Exception {
+    PreKeyV2 preKey = new PreKeyV2(1234, "test");
+
+    assertThat("PreKeyV2 Serialization works",
+               asJson(preKey),
+               is(equalTo(jsonFixture("fixtures/prekey_v2.json"))));
   }
 
 }

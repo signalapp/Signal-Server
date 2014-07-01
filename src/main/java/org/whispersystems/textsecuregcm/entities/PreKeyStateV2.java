@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2014 Open WhisperSystems
+ * Copyright (C) 2014 Open Whisper Systems
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -18,54 +18,57 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
+
 import org.hibernate.validator.constraints.NotEmpty;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
-import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 
-public class UnstructuredPreKeyList {
+public class PreKeyStateV2 {
 
   @JsonProperty
   @NotNull
   @Valid
-  private List<PreKey> keys;
+  private List<PreKeyV2> preKeys;
+
+  @JsonProperty
+  @NotNull
+  @Valid
+  private DeviceKey deviceKey;
+
+  @JsonProperty
+  @NotNull
+  @Valid
+  private PreKeyV2 lastResortKey;
+
+  @JsonProperty
+  @NotEmpty
+  private String identityKey;
+
+  public PreKeyStateV2() {}
 
   @VisibleForTesting
-  public UnstructuredPreKeyList() {}
-
-  public UnstructuredPreKeyList(PreKey preKey) {
-    this.keys = new LinkedList<PreKey>();
-    this.keys.add(preKey);
+  public PreKeyStateV2(String identityKey, DeviceKey deviceKey, List<PreKeyV2> keys, PreKeyV2 lastResortKey) {
+    this.identityKey   = identityKey;
+    this.deviceKey     = deviceKey;
+    this.preKeys       = keys;
+    this.lastResortKey = lastResortKey;
   }
 
-  public UnstructuredPreKeyList(List<PreKey> preKeys) {
-    this.keys = preKeys;
+  public List<PreKeyV2> getPreKeys() {
+    return preKeys;
   }
 
-  public List<PreKey> getKeys() {
-    return keys;
+  public DeviceKey getDeviceKey() {
+    return deviceKey;
   }
 
-  @VisibleForTesting
-  public boolean equals(Object o) {
-    if (!(o instanceof UnstructuredPreKeyList) ||
-        ((UnstructuredPreKeyList) o).keys.size() != keys.size())
-      return false;
-    Iterator<PreKey> otherKeys = ((UnstructuredPreKeyList) o).keys.iterator();
-    for (PreKey key : keys) {
-      if (!otherKeys.next().equals(key))
-        return false;
-    }
-    return true;
+  public String getIdentityKey() {
+    return identityKey;
   }
 
-  public int hashCode() {
-    int ret = 0xFBA4C795 * keys.size();
-    for (PreKey key : keys)
-      ret ^= key.getPublicKey().hashCode();
-    return ret;
+  public PreKeyV2 getLastResortKey() {
+    return lastResortKey;
   }
 }

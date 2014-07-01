@@ -52,7 +52,7 @@ public class FederatedControllerTest {
   public final ResourceTestRule resources = ResourceTestRule.builder()
                                                             .addProvider(AuthHelper.getAuthenticator())
                                                             .addResource(new FederationController(accountsManager,
-                                                                                                  null, null,
+                                                                                                  null, null, null,
                                                                                                   messageController))
                                                             .build();
 
@@ -61,12 +61,12 @@ public class FederatedControllerTest {
   @Before
   public void setup() throws Exception {
     List<Device> singleDeviceList = new LinkedList<Device>() {{
-      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 111));
+      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 111, null));
     }};
 
     List<Device> multiDeviceList = new LinkedList<Device>() {{
-      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 222));
-      add(new Device(2, "foo", "bar", "baz", "isgcm", null, false, 333));
+      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 222, null));
+      add(new Device(2, "foo", "bar", "baz", "isgcm", null, false, 333, null));
     }};
 
     Account singleDeviceAccount = new Account(SINGLE_DEVICE_RECIPIENT, false, singleDeviceList);

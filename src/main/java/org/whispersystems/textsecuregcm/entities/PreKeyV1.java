@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013 Open WhisperSystems
+ * Copyright (C) 2014 Open Whisper Systems
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -17,23 +17,14 @@
 package org.whispersystems.textsecuregcm.entities;
 
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 
 import javax.validation.constraints.NotNull;
-import javax.xml.bind.annotation.XmlTransient;
-import java.io.Serializable;
 
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
-public class PreKey {
-
-  @JsonIgnore
-  private long    id;
-
-  @JsonIgnore
-  private String  number;
+public class PreKeyV1 implements PreKeyBase {
 
   @JsonProperty
   private long deviceId;
@@ -51,86 +42,40 @@ public class PreKey {
   private String  identityKey;
 
   @JsonProperty
-  private boolean lastResort;
-
-  @JsonProperty
   private int registrationId;
 
-  public PreKey() {}
+  public PreKeyV1() {}
 
-  public PreKey(long id, String number, long deviceId, long keyId,
-                String publicKey, boolean lastResort)
+  public PreKeyV1(long deviceId, long keyId, String publicKey, String identityKey, int registrationId)
   {
-    this.id          = id;
-    this.number      = number;
-    this.deviceId    = deviceId;
-    this.keyId       = keyId;
-    this.publicKey   = publicKey;
-    this.lastResort  = lastResort;
+    this.deviceId       = deviceId;
+    this.keyId          = keyId;
+    this.publicKey      = publicKey;
+    this.identityKey    = identityKey;
+    this.registrationId = registrationId;
   }
 
   @VisibleForTesting
-  public PreKey(long id, String number, long deviceId, long keyId,
-                String publicKey, String identityKey, boolean lastResort)
+  public PreKeyV1(long deviceId, long keyId, String publicKey, String identityKey)
   {
-    this.id          = id;
-    this.number      = number;
     this.deviceId    = deviceId;
     this.keyId       = keyId;
     this.publicKey   = publicKey;
     this.identityKey = identityKey;
-    this.lastResort  = lastResort;
   }
 
-  @XmlTransient
-  public long getId() {
-    return id;
-  }
-
-  public void setId(long id) {
-    this.id = id;
-  }
-
-  @XmlTransient
-  public String getNumber() {
-    return number;
-  }
-
-  public void setNumber(String number) {
-    this.number = number;
-  }
-
+  @Override
   public String getPublicKey() {
     return publicKey;
   }
 
-  public void setPublicKey(String publicKey) {
-    this.publicKey = publicKey;
-  }
-
+  @Override
   public long getKeyId() {
     return keyId;
   }
 
-  public void setKeyId(long keyId) {
-    this.keyId = keyId;
-  }
-
   public String getIdentityKey() {
     return identityKey;
-  }
-
-  public void setIdentityKey(String identityKey) {
-    this.identityKey = identityKey;
-  }
-
-  @XmlTransient
-  public boolean isLastResort() {
-    return lastResort;
-  }
-
-  public void setLastResort(boolean lastResort) {
-    this.lastResort = lastResort;
   }
 
   public void setDeviceId(long deviceId) {
