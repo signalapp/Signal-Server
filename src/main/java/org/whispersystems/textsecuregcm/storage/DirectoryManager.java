@@ -76,6 +76,11 @@ public class DirectoryManager {
     pipeline.hset(DIRECTORY_KEY, contact.getToken(), new Gson().toJson(tokenValue).getBytes());
   }
 
+  public PendingClientContact get(BatchOperationHandle handle, byte[] token) {
+    Pipeline pipeline = handle.pipeline;
+    return new PendingClientContact(token, pipeline.hget(DIRECTORY_KEY, token));
+  }
+
   public Optional<ClientContact> get(byte[] token) {
     Jedis jedis = redisPool.getResource();
 
@@ -161,5 +166,27 @@ public class DirectoryManager {
       this.relay       = relay;
       this.supportsSms = supportsSms;
     }
+  }
+
+  public static class PendingClientContact {
+    private final byte[]           token;
+    private final Response<byte[]> response;
+
+    PendingClientContact(byte[] token, Response<byte[]> response) {
+      this.token    = token;
+      this.response = response;
+    }
+
+    public Optional<ClientContact> get() {
+      byte[] result = response.get();
+
+      if (result == null) {
+        return Optional.absent();
+      }
+
+      TokenValue tokenValue = new Gson().fromJson(new String(result), TokenValue.class);
+      return Optional.of(new ClientContact(token, tokenValue.relay, tokenValue.supportsSms));
+    }
+
   }
 }
