@@ -28,23 +28,23 @@ public class PreKeyResponseItemV2 {
   private int registrationId;
 
   @JsonProperty
-  private DeviceKey deviceKey;
+  private SignedPreKey signedPreKey;
 
   @JsonProperty
   private PreKeyV2 preKey;
 
   public PreKeyResponseItemV2() {}
 
-  public PreKeyResponseItemV2(long deviceId, int registrationId, DeviceKey deviceKey, PreKeyV2 preKey) {
+  public PreKeyResponseItemV2(long deviceId, int registrationId, SignedPreKey signedPreKey, PreKeyV2 preKey) {
     this.deviceId       = deviceId;
     this.registrationId = registrationId;
-    this.deviceKey      = deviceKey;
+    this.signedPreKey   = signedPreKey;
     this.preKey         = preKey;
   }
 
   @VisibleForTesting
-  public DeviceKey getDeviceKey() {
-    return deviceKey;
+  public SignedPreKey getSignedPreKey() {
+    return signedPreKey;
   }
 
   @VisibleForTesting

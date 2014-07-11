@@ -19,7 +19,7 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.base.Optional;
-import org.whispersystems.textsecuregcm.entities.DeviceKey;
+import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponseItemV2;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponseV2;
 import org.whispersystems.textsecuregcm.entities.PreKeyStateV2;
@@ -66,8 +66,8 @@ public class KeysControllerV2 extends KeysController {
     Device  device        = account.getAuthenticatedDevice().get();
     boolean updateAccount = false;
 
-    if (!preKeys.getDeviceKey().equals(device.getDeviceKey())) {
-      device.setDeviceKey(preKeys.getDeviceKey());
+    if (!preKeys.getSignedPreKey().equals(device.getSignedPreKey())) {
+      device.setSignedPreKey(preKeys.getSignedPreKey());
       updateAccount = true;
     }
 
@@ -85,11 +85,11 @@ public class KeysControllerV2 extends KeysController {
 
   @Timed
   @PUT
-  @Path("/device")
+  @Path("/signed")
   @Consumes(MediaType.APPLICATION_JSON)
-  public void setDeviceKey(@Auth Account account, @Valid DeviceKey deviceKey) {
+  public void setSignedKey(@Auth Account account, @Valid SignedPreKey signedPreKey) {
     Device device = account.getAuthenticatedDevice().get();
-    device.setDeviceKey(deviceKey);
+    device.setSignedPreKey(signedPreKey);
     accounts.update(account);
   }
 
@@ -97,10 +97,10 @@ public class KeysControllerV2 extends KeysController {
   @GET
   @Path("/{number}/{device_id}")
   @Produces(MediaType.APPLICATION_JSON)
-  public Optional<PreKeyResponseV2> getDeviceKey(@Auth                   Account account,
-                                                 @PathParam("number")    String number,
-                                                 @PathParam("device_id") String deviceId,
-                                                 @QueryParam("relay")    Optional<String> relay)
+  public Optional<PreKeyResponseV2> getDeviceKeys(@Auth                   Account account,
+                                                  @PathParam("number")    String number,
+                                                  @PathParam("device_id") String deviceId,
+                                                  @QueryParam("relay")    Optional<String> relay)
       throws RateLimitExceededException
   {
     try {
@@ -118,8 +118,8 @@ public class KeysControllerV2 extends KeysController {
 
       for (Device device : destination.getDevices()) {
         if (device.isActive() && (deviceId.equals("*") || device.getId() == Long.parseLong(deviceId))) {
-          DeviceKey deviceKey = device.getDeviceKey();
-          PreKeyV2  preKey    = null;
+          SignedPreKey signedPreKey = device.getSignedPreKey();
+          PreKeyV2     preKey       = null;
 
           if (targetKeys.getKeys().isPresent()) {
             for (KeyRecord keyRecord : targetKeys.getKeys().get()) {
@@ -129,8 +129,8 @@ public class KeysControllerV2 extends KeysController {
             }
           }
 
-          if (deviceKey != null || preKey != null) {
-            devices.add(new PreKeyResponseItemV2(device.getId(), device.getRegistrationId(), deviceKey, preKey));
+          if (signedPreKey != null || preKey != null) {
+            devices.add(new PreKeyResponseItemV2(device.getId(), device.getRegistrationId(), signedPreKey, preKey));
           }
         }
       }

@@ -19,8 +19,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
-import org.whispersystems.textsecuregcm.entities.DeviceKey;
-import org.whispersystems.textsecuregcm.entities.PreKeyV2;
+import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.io.Serializable;
@@ -54,14 +53,14 @@ public class Device implements Serializable {
   private int registrationId;
 
   @JsonProperty
-  private DeviceKey deviceKey;
+  private SignedPreKey signedPreKey;
 
   public Device() {}
 
   public Device(long id, String authToken, String salt,
                 String signalingKey, String gcmId, String apnId,
                 boolean fetchesMessages, int registrationId,
-                DeviceKey deviceKey)
+                SignedPreKey signedPreKey)
   {
     this.id              = id;
     this.authToken       = authToken;
@@ -71,7 +70,7 @@ public class Device implements Serializable {
     this.apnId           = apnId;
     this.fetchesMessages = fetchesMessages;
     this.registrationId  = registrationId;
-    this.deviceKey       = deviceKey;
+    this.signedPreKey    = signedPreKey;
   }
 
   public String getApnId() {
@@ -139,11 +138,11 @@ public class Device implements Serializable {
     this.registrationId = registrationId;
   }
 
-  public DeviceKey getDeviceKey() {
-    return deviceKey;
+  public SignedPreKey getSignedPreKey() {
+    return signedPreKey;
   }
 
-  public void setDeviceKey(DeviceKey deviceKey) {
-    this.deviceKey = deviceKey;
+  public void setSignedPreKey(SignedPreKey signedPreKey) {
+    this.signedPreKey = signedPreKey;
   }
 }

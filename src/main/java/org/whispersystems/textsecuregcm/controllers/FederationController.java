@@ -130,8 +130,8 @@ public class FederationController {
       throws IOException
   {
     try {
-      return keysControllerV2.getDeviceKey(new NonLimitedAccount("Unknown", -1, peer.getName()),
-                                           number, device, Optional.<String>absent());
+      return keysControllerV2.getDeviceKeys(new NonLimitedAccount("Unknown", -1, peer.getName()),
+                                            number, device, Optional.<String>absent());
     } catch (RateLimitExceededException e) {
       logger.warn("Rate limiting on federated channel", e);
       throw new IOException(e);

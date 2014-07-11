@@ -35,7 +35,7 @@ public class PreKeyStateV2 {
   @JsonProperty
   @NotNull
   @Valid
-  private DeviceKey deviceKey;
+  private SignedPreKey signedPreKey;
 
   @JsonProperty
   @NotNull
@@ -49,9 +49,11 @@ public class PreKeyStateV2 {
   public PreKeyStateV2() {}
 
   @VisibleForTesting
-  public PreKeyStateV2(String identityKey, DeviceKey deviceKey, List<PreKeyV2> keys, PreKeyV2 lastResortKey) {
+  public PreKeyStateV2(String identityKey, SignedPreKey signedPreKey,
+                       List<PreKeyV2> keys, PreKeyV2 lastResortKey)
+  {
     this.identityKey   = identityKey;
-    this.deviceKey     = deviceKey;
+    this.signedPreKey  = signedPreKey;
     this.preKeys       = keys;
     this.lastResortKey = lastResortKey;
   }
@@ -60,8 +62,8 @@ public class PreKeyStateV2 {
     return preKeys;
   }
 
-  public DeviceKey getDeviceKey() {
-    return deviceKey;
+  public SignedPreKey getSignedPreKey() {
+    return signedPreKey;
   }
 
   public String getIdentityKey() {

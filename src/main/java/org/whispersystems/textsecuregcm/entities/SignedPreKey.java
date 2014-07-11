@@ -5,15 +5,15 @@ import org.hibernate.validator.constraints.NotEmpty;
 
 import java.io.Serializable;
 
-public class DeviceKey extends PreKeyV2 implements Serializable {
+public class SignedPreKey extends PreKeyV2 implements Serializable {
 
   @JsonProperty
   @NotEmpty
   private String signature;
 
-  public DeviceKey() {}
+  public SignedPreKey() {}
 
-  public DeviceKey(long keyId, String publicKey, String signature) {
+  public SignedPreKey(long keyId, String publicKey, String signature) {
     super(keyId, publicKey);
     this.signature = signature;
   }
@@ -24,8 +24,8 @@ public class DeviceKey extends PreKeyV2 implements Serializable {
 
   @Override
   public boolean equals(Object object) {
-    if (object == null || !(object instanceof DeviceKey)) return false;
-    DeviceKey that = (DeviceKey) object;
+    if (object == null || !(object instanceof SignedPreKey)) return false;
+    SignedPreKey that = (SignedPreKey) object;
 
     if (signature == null) {
       return super.equals(object) && that.signature == null;
