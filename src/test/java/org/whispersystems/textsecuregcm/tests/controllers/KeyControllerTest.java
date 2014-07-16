@@ -68,10 +68,10 @@ public class KeyControllerTest {
 
   @Before
   public void setup() {
-    final Device  sampleDevice  = mock(Device.class );
-    final Device  sampleDevice2 = mock(Device.class);
-    final Device  sampleDevice3 = mock(Device.class);
-    final Device  sampleDevice4 = mock(Device.class);
+    final Device sampleDevice  = mock(Device.class);
+    final Device sampleDevice2 = mock(Device.class);
+    final Device sampleDevice3 = mock(Device.class);
+    final Device sampleDevice4 = mock(Device.class);
 
     List<Device> allDevices = new LinkedList<Device>() {{
       add(sampleDevice);
@@ -154,6 +154,28 @@ public class KeyControllerTest {
     verify(keys).getCount(eq(AuthHelper.VALID_NUMBER), eq(1L));
   }
 
+  @Test
+  public void getSignedPreKeyV2() throws Exception {
+    SignedPreKey result = resources.client().resource("/v2/keys/signed")
+                                   .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                   .get(SignedPreKey.class);
+
+    assertThat(result.equals(SAMPLE_SIGNED_KEY));
+  }
+
+  @Test
+  public void putSignedPreKeyV2() throws Exception {
+    SignedPreKey   test     = new SignedPreKey(9999, "fooozzz", "baaarzzz");
+    ClientResponse response = resources.client().resource("/v2/keys/signed")
+                                       .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                       .type(MediaType.APPLICATION_JSON_TYPE)
+                                       .put(ClientResponse.class, test);
+
+    assertThat(response.getStatus() == 204);
+
+    verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(test));
+    verify(accounts).update(eq(AuthHelper.VALID_ACCOUNT));
+  }
 
   @Test
   public void validLegacyRequestTest() throws Exception {

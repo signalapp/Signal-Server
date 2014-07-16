@@ -84,16 +84,6 @@ public class KeysControllerV2 extends KeysController {
   }
 
   @Timed
-  @PUT
-  @Path("/signed")
-  @Consumes(MediaType.APPLICATION_JSON)
-  public void setSignedKey(@Auth Account account, @Valid SignedPreKey signedPreKey) {
-    Device device = account.getAuthenticatedDevice().get();
-    device.setSignedPreKey(signedPreKey);
-    accounts.update(account);
-  }
-
-  @Timed
   @GET
   @Path("/{number}/{device_id}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -142,6 +132,25 @@ public class KeysControllerV2 extends KeysController {
     }
   }
 
+  @Timed
+  @PUT
+  @Path("/signed")
+  @Consumes(MediaType.APPLICATION_JSON)
+  public void setSignedKey(@Auth Account account, @Valid SignedPreKey signedPreKey) {
+    Device device = account.getAuthenticatedDevice().get();
+    device.setSignedPreKey(signedPreKey);
+    accounts.update(account);
+  }
 
+  @Timed
+  @GET
+  @Path("/signed")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Optional<SignedPreKey> getSignedKey(@Auth Account account) {
+    Device       device       = account.getAuthenticatedDevice().get();
+    SignedPreKey signedPreKey = device.getSignedPreKey();
 
+    if (signedPreKey != null) return Optional.of(signedPreKey);
+    else                      return Optional.absent();
+  }
 }
