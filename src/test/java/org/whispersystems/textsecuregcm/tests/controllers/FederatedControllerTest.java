@@ -4,13 +4,19 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
 import com.sun.jersey.api.client.ClientResponse;
+import org.hamcrest.CoreMatchers;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.whispersystems.textsecuregcm.controllers.FederationController;
+import org.whispersystems.textsecuregcm.controllers.FederationControllerV1;
+import org.whispersystems.textsecuregcm.controllers.FederationControllerV2;
+import org.whispersystems.textsecuregcm.controllers.KeysControllerV2;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.entities.PreKeyResponseItemV2;
+import org.whispersystems.textsecuregcm.entities.PreKeyResponseV2;
+import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -44,16 +50,19 @@ public class FederatedControllerTest {
   private RateLimiters           rateLimiters           = mock(RateLimiters.class          );
   private RateLimiter            rateLimiter            = mock(RateLimiter.class           );
 
+  private final SignedPreKey signedPreKey = new SignedPreKey(3333, "foo", "baar");
+  private final PreKeyResponseV2 preKeyResponseV2 = new PreKeyResponseV2("foo", new LinkedList<PreKeyResponseItemV2>());
+
   private final ObjectMapper mapper = new ObjectMapper();
 
   private final MessageController messageController = new MessageController(rateLimiters, pushSender, accountsManager, federatedClientManager);
+  private final KeysControllerV2  keysControllerV2  = mock(KeysControllerV2.class);
 
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
                                                             .addProvider(AuthHelper.getAuthenticator())
-                                                            .addResource(new FederationController(accountsManager,
-                                                                                                  null, null, null,
-                                                                                                  messageController))
+                                                            .addResource(new FederationControllerV1(accountsManager, null, messageController, null))
+                                                            .addResource(new FederationControllerV2(accountsManager, null, messageController, keysControllerV2))
                                                             .build();
 
 
@@ -76,6 +85,10 @@ public class FederatedControllerTest {
     when(accountsManager.get(eq(MULTI_DEVICE_RECIPIENT))).thenReturn(Optional.of(multiDeviceAccount));
 
     when(rateLimiters.getMessagesLimiter()).thenReturn(rateLimiter);
+
+    when(keysControllerV2.getSignedKey(any(Account.class))).thenReturn(Optional.of(signedPreKey));
+    when(keysControllerV2.getDeviceKeys(any(Account.class), anyString(), anyString(), any(Optional.class)))
+        .thenReturn(Optional.of(preKeyResponseV2));
   }
 
   @Test
@@ -92,5 +105,14 @@ public class FederatedControllerTest {
     verify(pushSender).sendMessage(any(Account.class), any(Device.class), any(MessageProtos.OutgoingMessageSignal.class));
   }
 
+  @Test
+  public void testSignedPreKeyV2() throws Exception {
+    PreKeyResponseV2 response =
+        resources.client().resource("/v2/federation/key/+14152223333/1")
+                 .header("Authorization", AuthHelper.getAuthHeader("cyanogen", "foofoo"))
+                 .get(PreKeyResponseV2.class);
+
+    assertThat("good response", response.getIdentityKey().equals(preKeyResponseV2.getIdentityKey()));
+  }
 
 }
