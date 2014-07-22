@@ -24,7 +24,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 
 import java.io.Serializable;
 
-public class Device implements Serializable {
+public class Device {
 
   public static final long MASTER_ID = 1;
 

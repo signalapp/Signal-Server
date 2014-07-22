@@ -17,19 +17,27 @@
 package org.whispersystems.textsecuregcm.storage;
 
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
 import net.spy.memcached.MemcachedClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.util.Util;
 
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 
 public class AccountsManager {
 
+  private final Logger logger = LoggerFactory.getLogger(AccountsManager.class);
+
   private final Accounts         accounts;
   private final MemcachedClient  memcachedClient;
   private final DirectoryManager directory;
+  private final ObjectMapper     mapper;
 
   public AccountsManager(Accounts accounts,
                          DirectoryManager directory,
@@ -38,6 +46,7 @@ public class AccountsManager {
     this.accounts        = accounts;
     this.directory       = directory;
     this.memcachedClient = memcachedClient;
+    this.mapper          = new ObjectMapper();
   }
 
   public long getCount() {
@@ -54,40 +63,28 @@ public class AccountsManager {
 
   public void create(Account account) {
     accounts.create(account);
-
-    if (memcachedClient != null) {
-      memcachedClient.set(getKey(account.getNumber()), 0, account);
-    }
-
+    memcacheSet(account.getNumber(), account);
     updateDirectory(account);
   }
 
   public void update(Account account) {
-    if (memcachedClient != null) {
-      memcachedClient.set(getKey(account.getNumber()), 0, account);
-    }
-
+    memcacheSet(account.getNumber(), account);
     accounts.update(account);
     updateDirectory(account);
   }
 
   public Optional<Account> get(String number) {
-    Account account = null;
+    Optional<Account> account = memcacheGet(number);
 
-    if (memcachedClient != null) {
-      account = (Account)memcachedClient.get(getKey(number));
-    }
+    if (!account.isPresent()) {
+      account = Optional.fromNullable(accounts.get(number));
 
-    if (account == null) {
-      account = accounts.get(number);
-
-      if (account != null && memcachedClient != null) {
-        memcachedClient.set(getKey(number), 0, account);
+      if (account.isPresent()) {
+        memcacheSet(number, account.get());
       }
     }
 
-    if (account != null) return Optional.of(account);
-    else                 return Optional.absent();
+    return account;
   }
 
   public boolean isRelayListed(String number) {
@@ -109,6 +106,32 @@ public class AccountsManager {
 
   private String getKey(String number) {
     return Account.class.getSimpleName() + Account.MEMCACHE_VERION + number;
+  }
+
+  private void memcacheSet(String number, Account account) {
+    if (memcachedClient != null) {
+      try {
+        String json = mapper.writeValueAsString(account);
+        memcachedClient.set(getKey(number), 0, json);
+      } catch (JsonProcessingException e) {
+        throw new IllegalArgumentException(e);
+      }
+    }
+  }
+
+  private Optional<Account> memcacheGet(String number) {
+    if (memcachedClient == null) return Optional.absent();
+
+    try {
+      String json = (String)memcachedClient.get(getKey(number));
+
+      if (json != null) return Optional.of(mapper.readValue(json, Account.class));
+      else              return Optional.absent();
+
+    } catch (IOException e) {
+      logger.warn("AccountsManager", "Deserialization error", e);
+      return Optional.absent();
+    }
   }
 
 }

@@ -5,7 +5,7 @@ import org.hibernate.validator.constraints.NotEmpty;
 
 import java.io.Serializable;
 
-public class SignedPreKey extends PreKeyV2 implements Serializable {
+public class SignedPreKey extends PreKeyV2 {
 
   @JsonProperty
   @NotEmpty

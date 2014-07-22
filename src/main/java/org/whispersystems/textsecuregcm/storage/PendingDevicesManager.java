@@ -34,37 +34,47 @@ public class PendingDevicesManager {
   }
 
   public void store(String number, String code) {
-    if (memcachedClient != null) {
-      memcachedClient.set(MEMCACHE_PREFIX + number, 0, code);
-    }
-
+    memcacheSet(number, code);
     pendingDevices.insert(number, code);
   }
 
   public void remove(String number) {
-    if (memcachedClient != null) {
-      memcachedClient.delete(MEMCACHE_PREFIX + number);
-    }
-
+    memcacheDelete(number);
     pendingDevices.remove(number);
   }
 
   public Optional<String> getCodeForNumber(String number) {
-    String code = null;
+    Optional<String> code = memcacheGet(number);
 
-    if (memcachedClient != null) {
-      code = (String)memcachedClient.get(MEMCACHE_PREFIX + number);
-    }
+    if (!code.isPresent()) {
+      code = Optional.fromNullable(pendingDevices.getCodeForNumber(number));
 
-    if (code == null) {
-      code = pendingDevices.getCodeForNumber(number);
-
-      if (code != null && memcachedClient != null) {
-        memcachedClient.set(MEMCACHE_PREFIX + number, 0, code);
+      if (code.isPresent()) {
+        memcacheSet(number, code.get());
       }
     }
 
-    if (code != null) return Optional.of(code);
-    else              return Optional.absent();
+    return code;
   }
+
+  private void memcacheSet(String number, String code) {
+    if (memcachedClient != null) {
+      memcachedClient.set(MEMCACHE_PREFIX + number, 0, code);
+    }
+  }
+
+  private Optional<String> memcacheGet(String number) {
+    if (memcachedClient != null) {
+      return Optional.fromNullable((String)memcachedClient.get(MEMCACHE_PREFIX + number));
+    } else {
+      return Optional.absent();
+    }
+  }
+
+  private void memcacheDelete(String number) {
+    if (memcachedClient != null) {
+      memcachedClient.delete(MEMCACHE_PREFIX + number);
+    }
+  }
+
 }

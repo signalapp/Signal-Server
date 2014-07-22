@@ -45,6 +45,8 @@ public class MemcacheHealthCheck extends HealthCheck {
       return Result.unhealthy("Fetch failed");
     }
 
+    this.client.delete("HEALTH" + random);
+
     return Result.healthy();
   }
 

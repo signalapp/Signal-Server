@@ -26,9 +26,9 @@ import java.io.Serializable;
 import java.util.LinkedList;
 import java.util.List;
 
-public class Account implements Serializable {
+public class Account {
 
-  public static final int MEMCACHE_VERION = 4;
+  public static final int MEMCACHE_VERION = 5;
 
   @JsonIgnore
   private long id;
