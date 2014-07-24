@@ -55,10 +55,6 @@ public class EncryptedOutgoingMessage {
     this.serialized = Base64.encodeBytes(ciphertext);
   }
 
-  public EncryptedOutgoingMessage(String serialized) {
-    this.serialized = serialized;
-  }
-
   public String serialize() {
     return serialized;
   }

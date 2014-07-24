@@ -51,7 +51,10 @@ import org.whispersystems.textsecuregcm.providers.MemcacheHealthCheck;
 import org.whispersystems.textsecuregcm.providers.MemcachedClientFactory;
 import org.whispersystems.textsecuregcm.providers.RedisClientFactory;
 import org.whispersystems.textsecuregcm.providers.RedisHealthCheck;
+import org.whispersystems.textsecuregcm.push.APNSender;
+import org.whispersystems.textsecuregcm.push.GCMSender;
 import org.whispersystems.textsecuregcm.push.PushSender;
+import org.whispersystems.textsecuregcm.push.WebsocketSender;
 import org.whispersystems.textsecuregcm.sms.NexmoSmsSender;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
@@ -136,6 +139,19 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     StoredMessages         storedMessages         = new StoredMessages(redisClient);
     PubSubManager          pubSubManager          = new PubSubManager(redisClient);
 
+    APNSender apnSender = new APNSender(accountsManager, pubSubManager, storedMessages, memcachedClient,
+                                        config.getApnConfiguration().getCertificate(),
+                                        config.getApnConfiguration().getKey());
+
+    GCMSender gcmSender = new GCMSender(accountsManager,
+                                        config.getGcmConfiguration().getSenderId(),
+                                        config.getGcmConfiguration().getApiKey());
+
+    WebsocketSender websocketSender = new WebsocketSender(storedMessages, pubSubManager);
+
+    environment.lifecycle().manage(apnSender);
+    environment.lifecycle().manage(gcmSender);
+
     AccountAuthenticator     deviceAuthenticator    = new AccountAuthenticator(accountsManager);
     RateLimiters             rateLimiters           = new RateLimiters(config.getLimitsConfiguration(), memcachedClient);
 
@@ -143,10 +159,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     Optional<NexmoSmsSender> nexmoSmsSender         = initializeNexmoSmsSender(config.getNexmoConfiguration());
     SmsSender                smsSender              = new SmsSender(twilioSmsSender, nexmoSmsSender, config.getTwilioConfiguration().isInternational());
     UrlSigner                urlSigner              = new UrlSigner(config.getS3Configuration());
-    PushSender               pushSender             = new PushSender(config.getGcmConfiguration(),
-                                                                     config.getApnConfiguration(),
-                                                                     storedMessages, pubSubManager,
-                                                                     accountsManager);
+    PushSender               pushSender             = new PushSender(gcmSender, apnSender, websocketSender);
 
     AttachmentController attachmentController = new AttachmentController(rateLimiters, federatedClientManager, urlSigner);
     KeysControllerV1     keysControllerV1     = new KeysControllerV1(rateLimiters, keys, accountsManager, federatedClientManager);

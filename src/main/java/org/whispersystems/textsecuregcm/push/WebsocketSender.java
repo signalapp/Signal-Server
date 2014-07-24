@@ -19,8 +19,12 @@ package org.whispersystems.textsecuregcm.push;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
-import org.whispersystems.textsecuregcm.entities.CryptoEncodingException;
-import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.controllers.WebsocketController;
+import org.whispersystems.textsecuregcm.entities.PendingMessage;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
@@ -29,15 +33,17 @@ import org.whispersystems.textsecuregcm.storage.StoredMessages;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
-import java.util.List;
-
 import static com.codahale.metrics.MetricRegistry.name;
 
 public class WebsocketSender {
 
+  private static final Logger logger = LoggerFactory.getLogger(WebsocketController.class);
+
   private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private final Meter          onlineMeter    = metricRegistry.meter(name(getClass(), "online"));
   private final Meter          offlineMeter   = metricRegistry.meter(name(getClass(), "offline"));
+
+  private static final ObjectMapper mapper = new ObjectMapper();
 
   private final StoredMessages storedMessages;
   private final PubSubManager  pubSubManager;
@@ -47,22 +53,21 @@ public class WebsocketSender {
     this.pubSubManager  = pubSubManager;
   }
 
-  public void sendMessage(Account account, Device device, EncryptedOutgoingMessage outgoingMessage)
-      throws CryptoEncodingException
-  {
-    sendMessage(account, device, outgoingMessage.serialize());
-  }
+  public void sendMessage(Account account, Device device, PendingMessage pendingMessage) {
+    try {
+      String           serialized    = mapper.writeValueAsString(pendingMessage);
+      WebsocketAddress address       = new WebsocketAddress(account.getId(), device.getId());
+      PubSubMessage    pubSubMessage = new PubSubMessage(PubSubMessage.TYPE_DELIVER, serialized);
 
-  private void sendMessage(Account account, Device device, String serializedMessage) {
-    WebsocketAddress address       = new WebsocketAddress(account.getId(), device.getId());
-    PubSubMessage    pubSubMessage = new PubSubMessage(PubSubMessage.TYPE_DELIVER, serializedMessage);
-
-    if (pubSubManager.publish(address, pubSubMessage)) {
-      onlineMeter.mark();
-    } else {
-      offlineMeter.mark();
-      storedMessages.insert(account.getId(), device.getId(), serializedMessage);
-      pubSubManager.publish(address, new PubSubMessage(PubSubMessage.TYPE_QUERY_DB, null));
+      if (pubSubManager.publish(address, pubSubMessage)) {
+        onlineMeter.mark();
+      } else {
+        offlineMeter.mark();
+        storedMessages.insert(account.getId(), device.getId(), pendingMessage);
+        pubSubManager.publish(address, new PubSubMessage(PubSubMessage.TYPE_QUERY_DB, null));
+      }
+    } catch (JsonProcessingException e) {
+      logger.warn("WebsocketSender", "Unable to serialize json", e);
     }
   }
 }

@@ -47,6 +47,7 @@ public class WhisperServerConfiguration extends Configuration {
   private NexmoConfiguration nexmo;
 
   @NotNull
+  @Valid
   @JsonProperty
   private GcmConfiguration gcm;
 

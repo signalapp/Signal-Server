@@ -83,4 +83,40 @@ public class Util {
     return result;
   }
 
+
+  public static byte[][] split(byte[] input, int firstLength, int secondLength) {
+    byte[][] parts = new byte[2][];
+
+    parts[0] = new byte[firstLength];
+    System.arraycopy(input, 0, parts[0], 0, firstLength);
+
+    parts[1] = new byte[secondLength];
+    System.arraycopy(input, firstLength, parts[1], 0, secondLength);
+
+    return parts;
+  }
+
+  public static byte[][] split(byte[] input, int firstLength, int secondLength, int thirdLength, int fourthLength) {
+    byte[][] parts = new byte[4][];
+
+    parts[0] = new byte[firstLength];
+    System.arraycopy(input, 0, parts[0], 0, firstLength);
+
+    parts[1] = new byte[secondLength];
+    System.arraycopy(input, firstLength, parts[1], 0, secondLength);
+
+    parts[2] = new byte[thirdLength];
+    System.arraycopy(input, firstLength + secondLength, parts[2], 0, thirdLength);
+
+    parts[3] = new byte[fourthLength];
+    System.arraycopy(input, firstLength + secondLength + thirdLength, parts[3], 0, fourthLength);
+
+    return parts;
+  }
+
+  public static void sleep(int i) {
+    try {
+      Thread.sleep(i);
+    } catch (InterruptedException ie) {}
+  }
 }

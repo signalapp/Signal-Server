@@ -23,11 +23,14 @@ import com.google.common.base.Optional;
 import com.notnoop.apns.APNS;
 import com.notnoop.apns.ApnsService;
 import com.notnoop.exceptions.NetworkIOException;
+import net.spy.memcached.MemcachedClient;
 import org.bouncycastle.openssl.PEMReader;
+import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
+import org.whispersystems.textsecuregcm.entities.PendingMessage;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.storage.PubSubMessage;
@@ -47,10 +50,16 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.Date;
+import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static com.codahale.metrics.MetricRegistry.name;
+import io.dropwizard.lifecycle.Managed;
 
-public class APNSender {
+public class APNSender implements Managed {
 
   private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private final Meter          websocketMeter = metricRegistry.meter(name(getClass(), "websocket"));
@@ -60,39 +69,53 @@ public class APNSender {
 
   private static final String MESSAGE_BODY = "m";
 
-  private final Optional<ApnsService> apnService;
-  private final PubSubManager         pubSubManager;
-  private final StoredMessages        storedMessages;
+  private static final ObjectMapper mapper = new ObjectMapper();
 
-  public APNSender(PubSubManager pubSubManager,
+  private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+
+  private final AccountsManager accounts;
+  private final PubSubManager   pubSubManager;
+  private final StoredMessages  storedMessages;
+  private final MemcachedClient memcachedClient;
+
+  private final String apnCertificate;
+  private final String apnKey;
+
+  private Optional<ApnsService> apnService;
+
+  public APNSender(AccountsManager accounts,
+                   PubSubManager pubSubManager,
                    StoredMessages storedMessages,
+                   MemcachedClient memcachedClient,
                    String apnCertificate, String apnKey)
-      throws CertificateException, NoSuchAlgorithmException, KeyStoreException, IOException
   {
-    this.pubSubManager  = pubSubManager;
-    this.storedMessages = storedMessages;
-
-    if (!Util.isEmpty(apnCertificate) && !Util.isEmpty(apnKey)) {
-      byte[] keyStore = initializeKeyStore(apnCertificate, apnKey);
-      this.apnService = Optional.of(APNS.newService()
-                                        .withCert(new ByteArrayInputStream(keyStore), "insecure")
-                                        .withSandboxDestination().build());
-    } else {
-      this.apnService = Optional.absent();
-    }
+    this.accounts        = accounts;
+    this.pubSubManager   = pubSubManager;
+    this.storedMessages  = storedMessages;
+    this.apnCertificate  = apnCertificate;
+    this.apnKey          = apnKey;
+    this.memcachedClient = memcachedClient;
   }
 
   public void sendMessage(Account account, Device device,
-                          String registrationId, EncryptedOutgoingMessage message)
-      throws TransientPushFailureException, NotPushRegisteredException
+                          String registrationId, PendingMessage message)
+      throws TransientPushFailureException
   {
-    if (pubSubManager.publish(new WebsocketAddress(account.getId(), device.getId()),
-                              new PubSubMessage(PubSubMessage.TYPE_DELIVER, message.serialize())))
-    {
-      websocketMeter.mark();
-    } else {
-      storedMessages.insert(account.getId(), device.getId(), message.serialize());
-      sendPush(registrationId, message.serialize());
+    try {
+      String serializedPendingMessage = mapper.writeValueAsString(message);
+
+      if (pubSubManager.publish(new WebsocketAddress(account.getId(), device.getId()),
+                                new PubSubMessage(PubSubMessage.TYPE_DELIVER,
+                                                  serializedPendingMessage)))
+      {
+        websocketMeter.mark();
+      } else {
+        memcacheSet(registrationId, account.getNumber());
+        storedMessages.insert(account.getId(), device.getId(), message);
+        sendPush(registrationId, serializedPendingMessage);
+      }
+    } catch (IOException e) {
+      throw new TransientPushFailureException(e);
     }
   }
 
@@ -129,7 +152,7 @@ public class APNSender {
     X509Certificate certificate      = (X509Certificate) reader.readObject();
     Certificate[]   certificateChain = {certificate};
 
-    reader            = new PEMReader(new InputStreamReader(new ByteArrayInputStream(pemKey.getBytes())));
+    reader = new PEMReader(new InputStreamReader(new ByteArrayInputStream(pemKey.getBytes())));
     KeyPair keyPair = (KeyPair) reader.readObject();
 
     KeyStore keyStore = KeyStore.getInstance("pkcs12");
@@ -142,5 +165,80 @@ public class APNSender {
     keyStore.store(baos, "insecure".toCharArray());
 
     return baos.toByteArray();
+  }
+
+  @Override
+  public void start() throws Exception {
+    if (!Util.isEmpty(apnCertificate) && !Util.isEmpty(apnKey)) {
+      byte[] keyStore = initializeKeyStore(apnCertificate, apnKey);
+
+      this.apnService = Optional.of(APNS.newService()
+                                        .withCert(new ByteArrayInputStream(keyStore), "insecure")
+                                        .asQueued()
+                                        .withSandboxDestination().build());
+
+      this.executor.scheduleAtFixedRate(new FeedbackRunnable(), 0, 1, TimeUnit.HOURS);
+    } else {
+      this.apnService = Optional.absent();
+    }
+  }
+
+  @Override
+  public void stop() throws Exception {
+    if (apnService.isPresent()) {
+      apnService.get().stop();
+    }
+  }
+
+  private void memcacheSet(String registrationId, String number) {
+    if (memcachedClient != null) {
+      memcachedClient.set("APN-" + registrationId, 60 * 60 * 24, number);
+    }
+  }
+
+  private Optional<String> memcacheGet(String registrationId) {
+    if (memcachedClient != null) {
+      return Optional.fromNullable((String)memcachedClient.get("APN-" + registrationId));
+    } else {
+      return Optional.absent();
+    }
+  }
+
+  private class FeedbackRunnable implements Runnable {
+    private void updateAccount(Account account, String registrationId) {
+      boolean needsUpdate = false;
+
+      for (Device device : account.getDevices()) {
+        if (registrationId.equals(device.getApnId())) {
+          needsUpdate = true;
+          device.setApnId(null);
+        }
+      }
+
+      if (needsUpdate) {
+        accounts.update(account);
+      }
+    }
+
+    @Override
+    public void run() {
+      if (apnService.isPresent()) {
+        Map<String, Date> inactiveDevices = apnService.get().getInactiveDevices();
+
+        for (String registrationId : inactiveDevices.keySet()) {
+          Optional<String> number = memcacheGet(registrationId);
+
+          if (number.isPresent()) {
+            Optional<Account> account = accounts.get(number.get());
+
+            if (account.isPresent()) {
+              updateAccount(account.get(), registrationId);
+            }
+          } else {
+            logger.warn("APN unregister event received for uncached ID: " + registrationId);
+          }
+        }
+      }
+    }
   }
 }

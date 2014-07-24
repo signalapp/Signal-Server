@@ -11,6 +11,7 @@ import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.controllers.WebsocketController;
 import org.whispersystems.textsecuregcm.entities.AcknowledgeWebsocketMessage;
 import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
+import org.whispersystems.textsecuregcm.entities.PendingMessage;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -83,10 +84,10 @@ public class WebsocketControllerTest {
   public void testOpen() throws Exception {
     RemoteEndpoint remote = mock(RemoteEndpoint.class);
 
-    List<String> outgoingMessages = new LinkedList<String>() {{
-      add("first");
-      add("second");
-      add("third");
+    List<PendingMessage> outgoingMessages = new LinkedList<PendingMessage>() {{
+      add(new PendingMessage("sender1", 1111, "first"));
+      add(new PendingMessage("sender1", 2222, "second"));
+      add(new PendingMessage("sender2", 3333, "third"));
     }};
 
     when(device.getId()).thenReturn(2L);
@@ -103,7 +104,8 @@ public class WebsocketControllerTest {
     when(accountAuthenticator.authenticate(eq(new BasicCredentials(VALID_USER, VALID_PASSWORD))))
         .thenReturn(Optional.of(account));
 
-    when(storedMessages.getMessagesForDevice(account.getId(), device.getId())).thenReturn(outgoingMessages);
+    when(storedMessages.getMessagesForDevice(account.getId(), device.getId()))
+        .thenReturn(outgoingMessages);
 
     WebsocketControllerFactory factory    = new WebsocketControllerFactory(accountAuthenticator, pushSender, storedMessages, pubSubManager);
     WebsocketController        controller = (WebsocketController) factory.createWebSocket(null, null);
@@ -116,12 +118,13 @@ public class WebsocketControllerTest {
     controller.onWebSocketText(mapper.writeValueAsString(new AcknowledgeWebsocketMessage(1)));
     controller.onWebSocketClose(1000, "Closed");
 
-    List<String> pending = new LinkedList<String>() {{
-      add("first");
-      add("third");
+    List<PendingMessage> pending = new LinkedList<PendingMessage>() {{
+      add(new PendingMessage("sender1", 1111, "first"));
+      add(new PendingMessage("sender2", 3333, "third"));
     }};
 
-    verify(pushSender, times(2)).sendMessage(eq(account), eq(device), any(EncryptedOutgoingMessage.class));
+
+    verify(pushSender, times(2)).sendMessage(eq(account), eq(device), any(PendingMessage.class));
   }
 
 }

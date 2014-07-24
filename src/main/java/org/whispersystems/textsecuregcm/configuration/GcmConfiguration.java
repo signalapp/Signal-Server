@@ -19,7 +19,13 @@ package org.whispersystems.textsecuregcm.configuration;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.hibernate.validator.constraints.NotEmpty;
 
+import javax.validation.constraints.NotNull;
+
 public class GcmConfiguration {
+
+  @NotNull
+  @JsonProperty
+  private long senderId;
 
   @NotEmpty
   @JsonProperty
@@ -27,5 +33,9 @@ public class GcmConfiguration {
 
   public String getApiKey() {
     return apiKey;
+  }
+
+  public long getSenderId() {
+    return senderId;
   }
 }
