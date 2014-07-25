@@ -20,6 +20,15 @@ option java_package = "org.whispersystems.textsecuregcm.entities";
 option java_outer_classname = "MessageProtos";
 
 message OutgoingMessageSignal {
+  enum Type {
+    UNKNOWN       = 0;
+    CIPHERTEXT    = 1;
+    KEY_EXCHANGE  = 2;
+    PREKEY_BUNDLE = 3;
+    PLAINTEXT     = 4;
+    RECEIPT       = 5;
+  }
+
   optional uint32 type = 1;
   optional string source = 2;
   optional  uint32 sourceDevice = 7;

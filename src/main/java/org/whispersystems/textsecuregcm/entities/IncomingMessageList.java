@@ -32,6 +32,9 @@ public class IncomingMessageList {
   @JsonProperty
   private String relay;
 
+  @JsonProperty
+  private long timestamp;
+
   public IncomingMessageList() {}
 
   public List<IncomingMessage> getMessages() {
@@ -44,5 +47,9 @@ public class IncomingMessageList {
 
   public void setRelay(String relay) {
     this.relay = relay;
+  }
+
+  public long getTimestamp() {
+    return timestamp;
   }
 }

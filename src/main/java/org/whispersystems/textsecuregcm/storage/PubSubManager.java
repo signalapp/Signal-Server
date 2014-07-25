@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.websocket.InvalidWebsocketAddressException;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
@@ -18,7 +19,7 @@ import redis.clients.jedis.JedisPubSub;
 public class PubSubManager {
 
   private final Logger                                logger       = LoggerFactory.getLogger(PubSubManager.class);
-  private final ObjectMapper                          mapper       = new ObjectMapper();
+  private final ObjectMapper                          mapper       = SystemMapper.getMapper();
   private final SubscriptionListener                  baseListener = new SubscriptionListener();
   private final Map<WebsocketAddress, PubSubListener> listeners    = new HashMap<>();
 

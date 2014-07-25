@@ -87,9 +87,11 @@ public class GCMSender implements Managed, PacketListener {
 
   public void sendMessage(String messageId, UnacknowledgedMessage message) {
     try {
+      boolean isReceipt = message.getPendingMessage().isReceipt();
+
       Map<String, String> dataObject = new HashMap<>();
       dataObject.put("type", "message");
-      dataObject.put("message", message.getPendingMessage().getEncryptedOutgoingMessage());
+      dataObject.put(isReceipt ? "receipt" : "message", message.getPendingMessage().getEncryptedOutgoingMessage());
 
       Map<String, Object> messageObject = new HashMap<>();
       messageObject.put("to", message.getRegistrationId());

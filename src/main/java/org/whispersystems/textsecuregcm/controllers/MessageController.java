@@ -142,7 +142,7 @@ public class MessageController {
       Optional<Device> destinationDevice = destination.getDevice(incomingMessage.getDestinationDeviceId());
 
       if (destinationDevice.isPresent()) {
-        sendLocalMessage(source, destination, destinationDevice.get(), incomingMessage);
+        sendLocalMessage(source, destination, destinationDevice.get(), messages.getTimestamp(), incomingMessage);
       }
     }
   }
@@ -150,6 +150,7 @@ public class MessageController {
   private void sendLocalMessage(Account source,
                                 Account destinationAccount,
                                 Device destinationDevice,
+                                long timestamp,
                                 IncomingMessage incomingMessage)
       throws NoSuchUserException, IOException
   {
@@ -159,7 +160,7 @@ public class MessageController {
 
       messageBuilder.setType(incomingMessage.getType())
                     .setSource(source.getNumber())
-                    .setTimestamp(System.currentTimeMillis())
+                    .setTimestamp(timestamp == 0 ? System.currentTimeMillis() : timestamp)
                     .setSourceDevice((int)source.getAuthenticatedDevice().get().getId());
 
       if (messageBody.isPresent()) {

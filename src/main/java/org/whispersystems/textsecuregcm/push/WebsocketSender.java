@@ -31,6 +31,7 @@ import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.storage.PubSubMessage;
 import org.whispersystems.textsecuregcm.storage.StoredMessages;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -43,7 +44,7 @@ public class WebsocketSender {
   private final Meter          onlineMeter    = metricRegistry.meter(name(getClass(), "online"));
   private final Meter          offlineMeter   = metricRegistry.meter(name(getClass(), "offline"));
 
-  private static final ObjectMapper mapper = new ObjectMapper();
+  private static final ObjectMapper mapper = SystemMapper.getMapper();
 
   private final StoredMessages storedMessages;
   private final PubSubManager  pubSubManager;

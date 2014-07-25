@@ -19,13 +19,13 @@ package org.whispersystems.textsecuregcm.push;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
 import com.notnoop.apns.APNS;
 import com.notnoop.apns.ApnsService;
 import com.notnoop.exceptions.NetworkIOException;
 import net.spy.memcached.MemcachedClient;
 import org.bouncycastle.openssl.PEMReader;
-import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.PendingMessage;
@@ -36,6 +36,7 @@ import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.storage.PubSubMessage;
 import org.whispersystems.textsecuregcm.storage.StoredMessages;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
@@ -69,7 +70,7 @@ public class APNSender implements Managed {
 
   private static final String MESSAGE_BODY = "m";
 
-  private static final ObjectMapper mapper = new ObjectMapper();
+  private static final ObjectMapper mapper = SystemMapper.getMapper();
 
   private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
@@ -112,7 +113,10 @@ public class APNSender implements Managed {
       } else {
         memcacheSet(registrationId, account.getNumber());
         storedMessages.insert(account.getId(), device.getId(), message);
-        sendPush(registrationId, serializedPendingMessage);
+
+        if (!message.isReceipt()) {
+          sendPush(registrationId, serializedPendingMessage);
+        }
       }
     } catch (IOException e) {
       throw new TransientPushFailureException(e);

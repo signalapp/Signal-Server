@@ -69,6 +69,7 @@ public class FederatedClient {
   private static final String PREKEY_PATH_DEVICE_V1 = "/v1/federation/key/%s/%s";
   private static final String PREKEY_PATH_DEVICE_V2 = "/v2/federation/key/%s/%s";
   private static final String ATTACHMENT_URI_PATH   = "/v1/federation/attachment/%d";
+  private static final String RECEIPT_PATH          = "/v1/receipt/%s/%d/%s/%d";
 
   private final FederatedPeer peer;
   private final Client        client;
@@ -186,6 +187,25 @@ public class FederatedClient {
       ClientResponse response = resource.type(MediaType.APPLICATION_JSON)
                                         .header("Authorization", authorizationHeader)
                                         .entity(messages)
+                                        .put(ClientResponse.class);
+
+      if (response.getStatus() != 200 && response.getStatus() != 204) {
+        throw new WebApplicationException(clientResponseToResponse(response));
+      }
+    } catch (UniformInterfaceException | ClientHandlerException e) {
+      logger.warn("sendMessage", e);
+      throw new IOException(e);
+    }
+  }
+
+  public void sendDeliveryReceipt(String source, long sourceDeviceId, String destination, long messageId)
+      throws IOException
+  {
+    try {
+      String         path     = String.format(RECEIPT_PATH, source, sourceDeviceId, destination, messageId);
+      WebResource    resource = client.resource(peer.getUrl()).path(path);
+      ClientResponse response = resource.type(MediaType.APPLICATION_JSON)
+                                        .header("Authorization", authorizationHeader)
                                         .put(ClientResponse.class);
 
       if (response.getStatus() != 200 && response.getStatus() != 204) {
