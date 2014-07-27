@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.PendingMessage;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
 import java.io.IOException;
 import java.util.LinkedList;
@@ -53,18 +54,30 @@ public class StoredMessages {
     this.jedisPool = jedisPool;
   }
 
-  public void insert(long accountId, long deviceId, PendingMessage message) {
+  public void clear(WebsocketAddress address) {
+    Jedis jedis = null;
+
+    try {
+      jedis = jedisPool.getResource();
+      jedis.del(getKey(address));
+    } finally {
+      if (jedis != null)
+        jedisPool.returnResource(jedis);
+    }
+  }
+
+  public void insert(WebsocketAddress address, PendingMessage message) {
     Jedis jedis = null;
 
     try {
       jedis = jedisPool.getResource();
 
       String serializedMessage = mapper.writeValueAsString(message);
-      long   queueSize         = jedis.lpush(getKey(accountId, deviceId), serializedMessage);
+      long   queueSize         = jedis.lpush(getKey(address), serializedMessage);
       queueSizeHistogram.update(queueSize);
 
       if (queueSize > 1000) {
-        jedis.ltrim(getKey(accountId, deviceId), 0, 999);
+        jedis.ltrim(getKey(address), 0, 999);
       }
 
     } catch (JsonProcessingException e) {
@@ -75,7 +88,7 @@ public class StoredMessages {
     }
   }
 
-  public List<PendingMessage> getMessagesForDevice(long accountId, long deviceId) {
+  public List<PendingMessage> getMessagesForDevice(WebsocketAddress address) {
     List<PendingMessage> messages = new LinkedList<>();
     Jedis                jedis    = null;
 
@@ -83,7 +96,7 @@ public class StoredMessages {
       jedis = jedisPool.getResource();
       String message;
 
-      while ((message = jedis.rpop(getKey(accountId, deviceId))) != null) {
+      while ((message = jedis.rpop(getKey(address))) != null) {
         try {
           messages.add(mapper.readValue(message, PendingMessage.class));
         } catch (IOException e) {
@@ -98,8 +111,8 @@ public class StoredMessages {
     }
   }
 
-  private String getKey(long accountId, long deviceId) {
-    return QUEUE_PREFIX + ":" + accountId + ":" + deviceId;
+  private String getKey(WebsocketAddress address) {
+    return QUEUE_PREFIX + ":" + address.serialize();
   }
 
 }

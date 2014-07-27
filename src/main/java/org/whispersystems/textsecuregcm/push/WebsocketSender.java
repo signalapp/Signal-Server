@@ -57,14 +57,14 @@ public class WebsocketSender {
   public void sendMessage(Account account, Device device, PendingMessage pendingMessage) {
     try {
       String           serialized    = mapper.writeValueAsString(pendingMessage);
-      WebsocketAddress address       = new WebsocketAddress(account.getId(), device.getId());
+      WebsocketAddress address       = new WebsocketAddress(account.getNumber(), device.getId());
       PubSubMessage    pubSubMessage = new PubSubMessage(PubSubMessage.TYPE_DELIVER, serialized);
 
       if (pubSubManager.publish(address, pubSubMessage)) {
         onlineMeter.mark();
       } else {
         offlineMeter.mark();
-        storedMessages.insert(account.getId(), device.getId(), pendingMessage);
+        storedMessages.insert(address, pendingMessage);
         pubSubManager.publish(address, new PubSubMessage(PubSubMessage.TYPE_QUERY_DB, null));
       }
     } catch (JsonProcessingException e) {

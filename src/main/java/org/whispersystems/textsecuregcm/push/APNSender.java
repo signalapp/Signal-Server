@@ -103,16 +103,16 @@ public class APNSender implements Managed {
       throws TransientPushFailureException
   {
     try {
-      String serializedPendingMessage = mapper.writeValueAsString(message);
+      String           serializedPendingMessage = mapper.writeValueAsString(message);
+      WebsocketAddress websocketAddress         = new WebsocketAddress(account.getNumber(), device.getId());
 
-      if (pubSubManager.publish(new WebsocketAddress(account.getId(), device.getId()),
-                                new PubSubMessage(PubSubMessage.TYPE_DELIVER,
-                                                  serializedPendingMessage)))
+      if (pubSubManager.publish(websocketAddress, new PubSubMessage(PubSubMessage.TYPE_DELIVER,
+                                                                    serializedPendingMessage)))
       {
         websocketMeter.mark();
       } else {
         memcacheSet(registrationId, account.getNumber());
-        storedMessages.insert(account.getId(), device.getId(), message);
+        storedMessages.insert(websocketAddress, message);
 
         if (!message.isReceipt()) {
           sendPush(registrationId, serializedPendingMessage);

@@ -2,39 +2,20 @@ package org.whispersystems.textsecuregcm.websocket;
 
 public class WebsocketAddress {
 
-  private final long accountId;
-  private final long deviceId;
+  private final String number;
+  private final long   deviceId;
 
-  public WebsocketAddress(String serialized) throws InvalidWebsocketAddressException {
-    try {
-      String[] parts = serialized.split(":");
-
-      if (parts == null || parts.length != 2) {
-        throw new InvalidWebsocketAddressException(serialized);
-      }
-
-      this.accountId = Long.parseLong(parts[0]);
-      this.deviceId  = Long.parseLong(parts[1]);
-    } catch (NumberFormatException e) {
-      throw new InvalidWebsocketAddressException(e);
-    }
-  }
-
-  public WebsocketAddress(long accountId, long deviceId) {
-    this.accountId = accountId;
+  public WebsocketAddress(String number, long deviceId) {
+    this.number    = number;
     this.deviceId  = deviceId;
   }
 
-  public long getAccountId() {
-    return accountId;
-  }
-
-  public long getDeviceId() {
-    return deviceId;
+  public String serialize() {
+    return number + ":" + deviceId;
   }
 
   public String toString() {
-    return accountId + ":" + deviceId;
+    return serialize();
   }
 
   @Override
@@ -45,13 +26,13 @@ public class WebsocketAddress {
     WebsocketAddress that = (WebsocketAddress)other;
 
     return
-        this.accountId == that.accountId &&
+        this.number.equals(that.number) &&
         this.deviceId == that.deviceId;
   }
 
   @Override
   public int hashCode() {
-    return (int)accountId ^ (int)deviceId;
+    return number.hashCode() ^ (int)deviceId;
   }
 
 }

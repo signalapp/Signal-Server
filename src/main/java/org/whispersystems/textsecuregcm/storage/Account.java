@@ -22,16 +22,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 
-import java.io.Serializable;
 import java.util.LinkedList;
 import java.util.List;
 
 public class Account {
 
   public static final int MEMCACHE_VERION = 5;
-
-  @JsonIgnore
-  private long id;
 
   @JsonProperty
   private String number;
@@ -55,14 +51,6 @@ public class Account {
     this.number      = number;
     this.supportsSms = supportsSms;
     this.devices     = devices;
-  }
-
-  public long getId() {
-    return id;
-  }
-
-  public void setId(long id) {
-    this.id = id;
   }
 
   public Optional<Device> getAuthenticatedDevice() {

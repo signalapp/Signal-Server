@@ -94,7 +94,7 @@ public class WebsocketController implements WebSocketListener, PubSubListener {
 
       this.account = account.get();
       this.device  = account.get().getAuthenticatedDevice().get();
-      this.address = new WebsocketAddress(this.account.getId(), this.device.getId());
+      this.address = new WebsocketAddress(this.account.getNumber(), this.device.getId());
       this.session = session;
 
       this.session.setIdleTimeout(10 * 60 * 1000);
@@ -148,7 +148,7 @@ public class WebsocketController implements WebSocketListener, PubSubListener {
         pushSender.sendMessage(account, device, remainingMessage);
       } catch (NotPushRegisteredException | TransientPushFailureException e) {
         logger.warn("onWebSocketClose", e);
-        storedMessages.insert(account.getId(), device.getId(), remainingMessage);
+        storedMessages.insert(address, remainingMessage);
       }
     }
   }
@@ -208,7 +208,7 @@ public class WebsocketController implements WebSocketListener, PubSubListener {
   }
 
   private void handleQueryDatabase() {
-    List<PendingMessage> messages = storedMessages.getMessagesForDevice(account.getId(), device.getId());
+    List<PendingMessage> messages = storedMessages.getMessagesForDevice(address);
 
     for (PendingMessage message : messages) {
       handleDeliverOutgoingMessage(message);

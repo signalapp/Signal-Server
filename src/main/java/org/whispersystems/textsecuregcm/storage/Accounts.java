@@ -92,7 +92,7 @@ public abstract class Accounts {
     {
       try {
         Account account = mapper.readValue(resultSet.getString(DATA), Account.class);
-        account.setId(resultSet.getLong(ID));
+//        account.setId(resultSet.getLong(ID));
 
         return account;
       } catch (IOException e) {

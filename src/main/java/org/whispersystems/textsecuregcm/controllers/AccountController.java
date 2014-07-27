@@ -34,8 +34,10 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
+import org.whispersystems.textsecuregcm.storage.StoredMessages;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
+import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
 import javax.validation.Valid;
 import javax.ws.rs.Consumes;
@@ -65,16 +67,19 @@ public class AccountController {
   private final AccountsManager        accounts;
   private final RateLimiters           rateLimiters;
   private final SmsSender              smsSender;
+  private final StoredMessages         storedMessages;
 
   public AccountController(PendingAccountsManager pendingAccounts,
                            AccountsManager accounts,
                            RateLimiters rateLimiters,
-                           SmsSender smsSenderFactory)
+                           SmsSender smsSenderFactory,
+                           StoredMessages storedMessages)
   {
     this.pendingAccounts = pendingAccounts;
     this.accounts        = accounts;
     this.rateLimiters    = rateLimiters;
     this.smsSender       = smsSenderFactory;
+    this.storedMessages  = storedMessages;
   }
 
   @Timed
@@ -153,7 +158,7 @@ public class AccountController {
       account.addDevice(device);
 
       accounts.create(account);
-
+      storedMessages.clear(new WebsocketAddress(number, Device.MASTER_ID));
       pendingAccounts.remove(number);
 
       logger.debug("Stored device...");

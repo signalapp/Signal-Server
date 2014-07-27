@@ -94,7 +94,6 @@ public class WebsocketControllerTest {
     }};
 
     when(device.getId()).thenReturn(2L);
-    when(account.getId()).thenReturn(31337L);
     when(account.getAuthenticatedDevice()).thenReturn(Optional.of(device));
     when(account.getNumber()).thenReturn("+14152222222");
     when(session.getRemote()).thenReturn(remote);
@@ -120,7 +119,7 @@ public class WebsocketControllerTest {
     when(accountAuthenticator.authenticate(eq(new BasicCredentials(VALID_USER, VALID_PASSWORD))))
         .thenReturn(Optional.of(account));
 
-    when(storedMessages.getMessagesForDevice(account.getId(), device.getId()))
+    when(storedMessages.getMessagesForDevice(new WebsocketAddress(account.getNumber(), device.getId())))
         .thenReturn(outgoingMessages);
 
     WebsocketControllerFactory factory    = new WebsocketControllerFactory(accountAuthenticator, accountsManager, pushSender, storedMessages, pubSubManager);
@@ -128,7 +127,7 @@ public class WebsocketControllerTest {
 
     controller.onWebSocketConnect(session);
 
-    verify(pubSubManager).subscribe(eq(new WebsocketAddress(31337L, 2L)), eq((controller)));
+    verify(pubSubManager).subscribe(eq(new WebsocketAddress("+14152222222", 2L)), eq((controller)));
     verify(remote, times(3)).sendStringByFuture(anyString());
 
     controller.onWebSocketText(mapper.writeValueAsString(new AcknowledgeWebsocketMessage(1)));
