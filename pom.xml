@@ -9,7 +9,7 @@
 
     <groupId>org.whispersystems.textsecure</groupId>
     <artifactId>TextSecureServer</artifactId>
-    <version>0.19</version>
+    <version>0.20</version>
 
     <properties>
         <dropwizard.version>0.7.0</dropwizard.version>
@@ -104,7 +104,7 @@
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
-            <version>2.4.1</version>
+            <version>2.5.0</version>
         </dependency>
 
         <dependency>
