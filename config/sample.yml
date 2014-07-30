@@ -15,6 +15,7 @@ nexmo:
   number:
 
 gcm:
+  senderId:
   apiKey: 
 
 # Optional. Only if iOS clients are supported.
