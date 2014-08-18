@@ -133,7 +133,7 @@ public class KeyControllerTest {
 
     when(keys.getCount(eq(AuthHelper.VALID_NUMBER), eq(1L))).thenReturn(5);
 
-    when(AuthHelper.VALID_DEVICE.getSignedPreKey()).thenReturn(new SignedPreKey(89898, "zoofarb", "sigvalid"));
+    when(AuthHelper.VALID_DEVICE.getSignedPreKey()).thenReturn(SAMPLE_SIGNED_KEY);
     when(AuthHelper.VALID_ACCOUNT.getIdentityKey()).thenReturn(null);
   }
 
