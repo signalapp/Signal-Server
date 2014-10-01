@@ -9,7 +9,7 @@
 
     <groupId>org.whispersystems.textsecure</groupId>
     <artifactId>TextSecureServer</artifactId>
-    <version>0.21</version>
+    <version>0.22</version>
 
     <properties>
         <dropwizard.version>0.7.0</dropwizard.version>
