@@ -200,6 +200,11 @@ public class GCMSender implements Managed, PacketListener {
       throws SmackException.NotConnectedException
   {
     logger.warn("Got upstream message from GCM Server!");
+
+    for (String key : message.keySet()) {
+      logger.warn(key + " : " + message.get(key));
+    }
+
     Map<String, Object> ack = new HashMap<>();
     message.put("message_type", "ack");
     message.put("to", message.get("from"));
@@ -362,6 +367,7 @@ public class GCMSender implements Managed, PacketListener {
     @Override
     public void reconnectionFailed(Exception e) {
       logger.warn("GCM XMPP Reconnection failed!", e);
+      reconnect();
     }
 
     @Override
@@ -377,6 +383,7 @@ public class GCMSender implements Managed, PacketListener {
     @Override
     public void connectionClosed() {
       logger.warn("GCM XMPP Connection closed.");
+      reconnect();
     }
   }
 
