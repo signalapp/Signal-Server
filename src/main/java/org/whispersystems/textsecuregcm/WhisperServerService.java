@@ -74,6 +74,7 @@ import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.UrlSigner;
 import org.whispersystems.textsecuregcm.websocket.WebsocketControllerFactory;
 import org.whispersystems.textsecuregcm.workers.DirectoryCommand;
+import org.whispersystems.textsecuregcm.workers.VacuumCommand;
 
 import javax.servlet.DispatcherType;
 import javax.servlet.FilterRegistration;
@@ -101,6 +102,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
   @Override
   public void initialize(Bootstrap<WhisperServerConfiguration> bootstrap) {
     bootstrap.addCommand(new DirectoryCommand());
+    bootstrap.addCommand(new VacuumCommand());
     bootstrap.addBundle(new MigrationsBundle<WhisperServerConfiguration>() {
       @Override
       public DataSourceFactory getDataSourceFactory(WhisperServerConfiguration configuration) {

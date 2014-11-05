@@ -85,6 +85,9 @@ public abstract class Accounts {
     return insertStep(account);
   }
 
+  @SqlUpdate("VACUUM accounts")
+  public abstract void vacuum();
+
   public static class AccountMapper implements ResultSetMapper<Account> {
     @Override
     public Account map(int i, ResultSet resultSet, StatementContext statementContext)

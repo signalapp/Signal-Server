@@ -31,4 +31,7 @@ public interface PendingAccounts {
 
   @SqlUpdate("DELETE FROM pending_accounts WHERE number = :number")
   void remove(@Bind("number") String number);
+
+  @SqlUpdate("VACUUM pending_accounts")
+  public void vacuum();
 }
