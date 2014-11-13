@@ -25,6 +25,7 @@ import org.whispersystems.textsecuregcm.configuration.MemcacheConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MetricsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.NexmoConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RedPhoneConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisConfiguration;
 import org.whispersystems.textsecuregcm.configuration.S3Configuration;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
@@ -95,6 +96,9 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private WebsocketConfiguration websocket = new WebsocketConfiguration();
 
+  @JsonProperty
+  private RedPhoneConfiguration redphone = new RedPhoneConfiguration();
+
   public WebsocketConfiguration getWebsocketConfiguration() {
     return websocket;
   }
@@ -145,5 +149,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public MetricsConfiguration getMetricsConfiguration() {
     return viz;
+  }
+
+  public RedPhoneConfiguration getRedphoneConfiguration() {
+    return redphone;
   }
 }

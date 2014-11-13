@@ -52,6 +52,7 @@ import org.whispersystems.textsecuregcm.providers.MemcacheHealthCheck;
 import org.whispersystems.textsecuregcm.providers.MemcachedClientFactory;
 import org.whispersystems.textsecuregcm.providers.RedisClientFactory;
 import org.whispersystems.textsecuregcm.providers.RedisHealthCheck;
+import org.whispersystems.textsecuregcm.providers.TimeProvider;
 import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.GCMSender;
 import org.whispersystems.textsecuregcm.push.PushSender;
@@ -155,14 +156,15 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(gcmSender);
 
-    AccountAuthenticator     deviceAuthenticator    = new AccountAuthenticator(accountsManager);
-    RateLimiters             rateLimiters           = new RateLimiters(config.getLimitsConfiguration(), memcachedClient);
+    AccountAuthenticator     deviceAuthenticator = new AccountAuthenticator(accountsManager);
+    RateLimiters             rateLimiters        = new RateLimiters(config.getLimitsConfiguration(), memcachedClient);
 
-    TwilioSmsSender          twilioSmsSender        = new TwilioSmsSender(config.getTwilioConfiguration());
-    Optional<NexmoSmsSender> nexmoSmsSender         = initializeNexmoSmsSender(config.getNexmoConfiguration());
-    SmsSender                smsSender              = new SmsSender(twilioSmsSender, nexmoSmsSender, config.getTwilioConfiguration().isInternational());
-    UrlSigner                urlSigner              = new UrlSigner(config.getS3Configuration());
-    PushSender               pushSender             = new PushSender(gcmSender, apnSender, websocketSender);
+    TwilioSmsSender          twilioSmsSender     = new TwilioSmsSender(config.getTwilioConfiguration());
+    Optional<NexmoSmsSender> nexmoSmsSender      = initializeNexmoSmsSender(config.getNexmoConfiguration());
+    SmsSender                smsSender           = new SmsSender(twilioSmsSender, nexmoSmsSender, config.getTwilioConfiguration().isInternational());
+    UrlSigner                urlSigner           = new UrlSigner(config.getS3Configuration());
+    PushSender               pushSender          = new PushSender(gcmSender, apnSender, websocketSender);
+    Optional<byte[]>         authorizationKey    = config.getRedphoneConfiguration().getAuthorizationKey();
 
     AttachmentController attachmentController = new AttachmentController(rateLimiters, federatedClientManager, urlSigner);
     KeysControllerV1     keysControllerV1     = new KeysControllerV1(rateLimiters, keys, accountsManager, federatedClientManager);
@@ -174,7 +176,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                                                                deviceAuthenticator,
                                                                Device.class, "WhisperServer"));
 
-    environment.jersey().register(new AccountController(pendingAccountsManager, accountsManager, rateLimiters, smsSender, storedMessages));
+    environment.jersey().register(new AccountController(pendingAccountsManager, accountsManager, rateLimiters, smsSender, storedMessages, new TimeProvider(), authorizationKey));
     environment.jersey().register(new DeviceController(pendingDevicesManager, accountsManager, rateLimiters));
     environment.jersey().register(new DirectoryController(rateLimiters, directory));
     environment.jersey().register(new FederationControllerV1(accountsManager, attachmentController, messageController, keysControllerV1));
