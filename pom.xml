@@ -130,6 +130,11 @@
             <artifactId>smack-tcp</artifactId>
             <version>4.0.0</version>
         </dependency>
+        <dependency>
+            <groupId>org.whispersystems.websocket</groupId>
+            <artifactId>websocket-resources</artifactId>
+            <version>0.1-SNAPSHOT</version>
+        </dependency>
 
 
     </dependencies>

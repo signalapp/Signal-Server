@@ -23,7 +23,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.controllers.WebsocketController;
 import org.whispersystems.textsecuregcm.entities.PendingMessage;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -38,7 +37,7 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 public class WebsocketSender {
 
-  private static final Logger logger = LoggerFactory.getLogger(WebsocketController.class);
+  private static final Logger logger = LoggerFactory.getLogger(WebsocketSender.class);
 
   private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private final Meter          onlineMeter    = metricRegistry.meter(name(getClass(), "online"));

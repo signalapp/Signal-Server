@@ -73,9 +73,12 @@ import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.storage.StoredMessages;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.UrlSigner;
-import org.whispersystems.textsecuregcm.websocket.WebsocketControllerFactory;
+import org.whispersystems.textsecuregcm.websocket.ConnectListener;
+import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.workers.DirectoryCommand;
 import org.whispersystems.textsecuregcm.workers.VacuumCommand;
+import org.whispersystems.websocket.WebSocketResourceProviderFactory;
+import org.whispersystems.websocket.setup.WebSocketEnvironment;
 
 import javax.servlet.DispatcherType;
 import javax.servlet.FilterRegistration;
@@ -188,11 +191,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(messageController);
 
     if (config.getWebsocketConfiguration().isEnabled()) {
-      WebsocketControllerFactory servlet = new WebsocketControllerFactory(deviceAuthenticator,
-                                                                          accountsManager,
-                                                                          pushSender,
-                                                                          storedMessages,
-                                                                          pubSubManager);
+      WebSocketEnvironment webSocketEnvironment = new WebSocketEnvironment(environment);
+      webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(deviceAuthenticator));
+      webSocketEnvironment.setConnectListener(new ConnectListener(accountsManager, pushSender, storedMessages, pubSubManager));
+
+      WebSocketResourceProviderFactory servlet = new WebSocketResourceProviderFactory(webSocketEnvironment);
 
       ServletRegistration.Dynamic websocket = environment.servlets().addServlet("WebSocket", servlet);
       websocket.addMapping("/v1/websocket/*");
