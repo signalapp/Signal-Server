@@ -32,7 +32,7 @@ public class ConnectListener implements WebSocketConnectListener {
 
   @Override
   public void onWebSocketConnect(WebSocketSessionContext context) {
-    Optional<Account> account = Optional.fromNullable((Account) context.getAuthenticated());
+    Optional<Account> account = context.getAuthenticated(Account.class);
 
     if (!account.isPresent()) {
       logger.debug("WS Connection with no authentication...");

@@ -1,6 +1,5 @@
 package org.whispersystems.textsecuregcm.tests.websocket;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.SettableFuture;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
@@ -79,7 +78,7 @@ public class WebSocketConnectionTest {
     }});
 
     Optional<Account> account = webSocketAuthenticator.authenticate(upgradeRequest);
-    when(sessionContext.getAuthenticated()).thenReturn(account.orNull());
+    when(sessionContext.getAuthenticated(Account.class)).thenReturn(account);
 
     connectListener.onWebSocketConnect(sessionContext);
 
@@ -98,7 +97,7 @@ public class WebSocketConnectionTest {
     }});
 
     account = webSocketAuthenticator.authenticate(upgradeRequest);
-    when(sessionContext.getAuthenticated()).thenReturn(account.orNull());
+    when(sessionContext.getAuthenticated(Account.class)).thenReturn(account);
 
     WebSocketClient client = mock(WebSocketClient.class);
     when(sessionContext.getClient()).thenReturn(client);
