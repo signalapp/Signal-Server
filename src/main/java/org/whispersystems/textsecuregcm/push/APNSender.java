@@ -179,7 +179,7 @@ public class APNSender implements Managed {
       this.apnService = Optional.of(APNS.newService()
                                         .withCert(new ByteArrayInputStream(keyStore), "insecure")
                                         .asQueued()
-                                        .withSandboxDestination().build());
+                                        .withProductionDestination().build());
 
       this.executor.scheduleAtFixedRate(new FeedbackRunnable(), 0, 1, TimeUnit.HOURS);
     } else {
