@@ -40,8 +40,12 @@ public class WebsocketSender {
   private static final Logger logger = LoggerFactory.getLogger(WebsocketSender.class);
 
   private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private final Meter          onlineMeter    = metricRegistry.meter(name(getClass(), "online"));
-  private final Meter          offlineMeter   = metricRegistry.meter(name(getClass(), "offline"));
+
+  private final Meter websocketOnlineMeter  = metricRegistry.meter(name(getClass(), "ws_online"  ));
+  private final Meter websocketOfflineMeter = metricRegistry.meter(name(getClass(), "ws_offline" ));
+
+  private final Meter apnOnlineMeter        = metricRegistry.meter(name(getClass(), "apn_online" ));
+  private final Meter apnOfflineMeter       = metricRegistry.meter(name(getClass(), "apn_offline"));
 
   private static final ObjectMapper mapper = SystemMapper.getMapper();
 
@@ -53,21 +57,28 @@ public class WebsocketSender {
     this.pubSubManager  = pubSubManager;
   }
 
-  public void sendMessage(Account account, Device device, PendingMessage pendingMessage) {
+  public boolean sendMessage(Account account, Device device, PendingMessage pendingMessage, boolean apn) {
     try {
       String           serialized    = mapper.writeValueAsString(pendingMessage);
       WebsocketAddress address       = new WebsocketAddress(account.getNumber(), device.getId());
       PubSubMessage    pubSubMessage = new PubSubMessage(PubSubMessage.TYPE_DELIVER, serialized);
 
       if (pubSubManager.publish(address, pubSubMessage)) {
-        onlineMeter.mark();
+        if (apn) apnOnlineMeter.mark();
+        else     websocketOnlineMeter.mark();
+
+        return true;
       } else {
-        offlineMeter.mark();
+        if (apn) apnOfflineMeter.mark();
+        else     websocketOfflineMeter.mark();
+
         storedMessages.insert(address, pendingMessage);
         pubSubManager.publish(address, new PubSubMessage(PubSubMessage.TYPE_QUERY_DB, null));
+        return false;
       }
     } catch (JsonProcessingException e) {
       logger.warn("WebsocketSender", "Unable to serialize json", e);
+      return false;
     }
   }
 }

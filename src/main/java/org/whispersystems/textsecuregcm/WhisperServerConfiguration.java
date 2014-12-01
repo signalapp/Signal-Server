@@ -24,6 +24,7 @@ import org.whispersystems.textsecuregcm.configuration.GraphiteConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MemcacheConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MetricsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.NexmoConfiguration;
+import org.whispersystems.textsecuregcm.configuration.PushConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedPhoneConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisConfiguration;
@@ -35,6 +36,7 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 
 import io.dropwizard.Configuration;
+import io.dropwizard.client.JerseyClientConfiguration;
 import io.dropwizard.db.DataSourceFactory;
 
 public class WhisperServerConfiguration extends Configuration {
@@ -50,7 +52,7 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
-  private GcmConfiguration gcm;
+  private PushConfiguration push;
 
   @NotNull
   @Valid
@@ -66,9 +68,6 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private RedisConfiguration redis;
-
-  @JsonProperty
-  private ApnConfiguration apn = new ApnConfiguration();
 
   @Valid
   @JsonProperty
@@ -99,6 +98,12 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private RedPhoneConfiguration redphone = new RedPhoneConfiguration();
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private JerseyClientConfiguration httpClient = new JerseyClientConfiguration();
+
+
   public WebsocketConfiguration getWebsocketConfiguration() {
     return websocket;
   }
@@ -111,12 +116,12 @@ public class WhisperServerConfiguration extends Configuration {
     return nexmo;
   }
 
-  public GcmConfiguration getGcmConfiguration() {
-    return gcm;
+  public PushConfiguration getPushConfiguration() {
+    return push;
   }
 
-  public ApnConfiguration getApnConfiguration() {
-    return apn;
+  public JerseyClientConfiguration getJerseyClientConfiguration() {
+    return httpClient;
   }
 
   public S3Configuration getS3Configuration() {
