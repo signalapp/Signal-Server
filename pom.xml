@@ -12,7 +12,7 @@
     <version>0.24</version>
 
     <properties>
-        <dropwizard.version>0.7.0</dropwizard.version>
+        <dropwizard.version>0.7.1</dropwizard.version>
         <jackson.api.version>2.3.3</jackson.api.version>
         <commons-codec.version>1.6</commons-codec.version>
     </properties>
