@@ -32,6 +32,8 @@ public class PushSender {
 
   private final Logger logger = LoggerFactory.getLogger(PushSender.class);
 
+  private static final String APN_PAYLOAD = "{\"aps\":{\"sound\":\"default\",\"alert\":{\"loc-key\":\"APN_Message\"},\"content-available\":1,\"category\":\"Signal_Message\"}}";
+
   private final PushServiceClient pushServiceClient;
   private final WebsocketSender   webSocketSender;
 
@@ -87,9 +89,7 @@ public class PushSender {
 
     if (!online && !outgoingMessage.isReceipt()) {
       ApnMessage apnMessage = new ApnMessage(device.getApnId(), account.getNumber(),
-                                             (int)device.getId(),
-                                             outgoingMessage.getEncryptedOutgoingMessage());
-
+                                             (int)device.getId(), APN_PAYLOAD);
       pushServiceClient.send(apnMessage);
     }
   }
