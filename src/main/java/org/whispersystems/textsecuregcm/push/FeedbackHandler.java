@@ -62,7 +62,7 @@ public class FeedbackHandler implements Managed, Runnable {
   }
 
   private void handleGcmUnregistered(UnregisteredEvent event) {
-    logger.warn("Got GCM Unregistered: " + event.getNumber() + "," + event.getDeviceId());
+    logger.info("Got GCM Unregistered: " + event.getNumber() + "," + event.getDeviceId());
 
     Optional<Account> account = accountsManager.get(event.getNumber());
 
@@ -71,11 +71,11 @@ public class FeedbackHandler implements Managed, Runnable {
 
       if (device.isPresent()) {
         if (event.getRegistrationId().equals(device.get().getGcmId())) {
-          logger.warn("GCM Unregister GCM ID matches!");
+          logger.info("GCM Unregister GCM ID matches!");
           if (device.get().getPushTimestamp() == 0 ||
               event.getTimestamp() > device.get().getPushTimestamp())
           {
-            logger.warn("GCM Unregister Timestamp matches!");
+            logger.info("GCM Unregister Timestamp matches!");
             device.get().setGcmId(null);
             accountsManager.update(account.get());
           }
@@ -85,7 +85,7 @@ public class FeedbackHandler implements Managed, Runnable {
   }
 
   private void handleApnUnregistered(UnregisteredEvent event) {
-    logger.warn("Got APN Unregistered: " + event.getNumber() + "," + event.getDeviceId());
+    logger.info("Got APN Unregistered: " + event.getNumber() + "," + event.getDeviceId());
 
     Optional<Account> account = accountsManager.get(event.getNumber());
 
@@ -94,11 +94,11 @@ public class FeedbackHandler implements Managed, Runnable {
 
       if (device.isPresent()) {
         if (event.getRegistrationId().equals(device.get().getApnId())) {
-          logger.warn("APN Unregister APN ID matches!");
+          logger.info("APN Unregister APN ID matches!");
           if (device.get().getPushTimestamp() == 0 ||
               event.getTimestamp() > device.get().getPushTimestamp())
           {
-            logger.warn("APN Unregister timestamp matches!");
+            logger.info("APN Unregister timestamp matches!");
             device.get().setApnId(null);
             accountsManager.update(account.get());
           }
