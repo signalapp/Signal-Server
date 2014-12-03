@@ -56,7 +56,7 @@ public class JsonMetricsReporter extends ScheduledReporter {
                      SortedMap<String, Timer>     stringTimerSortedMap)
   {
     try {
-      logger.info("Reporting metrics...");
+      logger.debug("Reporting metrics...");
       URL url = new URL("https", sunnylabsHost, 443, "/report/metrics?t=" + table + "&h=" + host);
       HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
@@ -93,7 +93,7 @@ public class JsonMetricsReporter extends ScheduledReporter {
 
       outputStream.close();
 
-      logger.info("Metrics server response: " + connection.getResponseCode());
+      logger.debug("Metrics server response: " + connection.getResponseCode());
     } catch (IOException e) {
       logger.warn("Error sending metrics", e);
     } catch (Exception e) {
