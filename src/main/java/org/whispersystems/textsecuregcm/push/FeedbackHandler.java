@@ -73,7 +73,7 @@ public class FeedbackHandler implements Managed, Runnable {
         if (event.getRegistrationId().equals(device.get().getGcmId())) {
           logger.warn("GCM Unregister GCM ID matches!");
           if (device.get().getPushTimestamp() == 0 ||
-              event.getTimestamp() < device.get().getPushTimestamp())
+              event.getTimestamp() > device.get().getPushTimestamp())
           {
             logger.warn("GCM Unregister Timestamp matches!");
             device.get().setGcmId(null);
@@ -96,7 +96,7 @@ public class FeedbackHandler implements Managed, Runnable {
         if (event.getRegistrationId().equals(device.get().getApnId())) {
           logger.warn("APN Unregister APN ID matches!");
           if (device.get().getPushTimestamp() == 0 ||
-              event.getTimestamp() < device.get().getPushTimestamp())
+              event.getTimestamp() > device.get().getPushTimestamp())
           {
             logger.warn("APN Unregister timestamp matches!");
             device.get().setApnId(null);
