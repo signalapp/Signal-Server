@@ -19,6 +19,9 @@ public class UnregisteredEvent {
   @Min(1)
   private int deviceId;
 
+  @JsonProperty
+  private long timestamp;
+
   public String getRegistrationId() {
     return registrationId;
   }
@@ -29,5 +32,9 @@ public class UnregisteredEvent {
 
   public int getDeviceId() {
     return deviceId;
+  }
+
+  public long getTimestamp() {
+    return timestamp;
   }
 }
