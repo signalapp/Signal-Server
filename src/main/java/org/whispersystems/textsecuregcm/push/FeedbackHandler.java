@@ -33,7 +33,7 @@ public class FeedbackHandler implements Managed, Runnable {
   @Override
   public void start() throws Exception {
     this.executor = Executors.newSingleThreadScheduledExecutor();
-    this.executor.scheduleAtFixedRate(this, 0, 10, TimeUnit.MINUTES);
+    this.executor.scheduleAtFixedRate(this, 0, 1, TimeUnit.MINUTES);
   }
 
   @Override
