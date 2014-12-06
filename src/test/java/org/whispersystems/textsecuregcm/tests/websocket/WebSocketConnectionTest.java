@@ -2,19 +2,19 @@ package org.whispersystems.textsecuregcm.tests.websocket;
 
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.protobuf.ByteString;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
 import org.junit.Test;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
-import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.entities.PendingMessage;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.storage.StoredMessages;
+import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.websocket.ConnectListener;
 import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
@@ -32,6 +32,7 @@ import io.dropwizard.auth.basic.BasicCredentials;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.*;
+import static org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
 
 public class WebSocketConnectionTest {
 
@@ -112,13 +113,15 @@ public class WebSocketConnectionTest {
   public void testOpen() throws Exception {
     StoredMessages storedMessages = mock(StoredMessages.class);
 
-    List<PendingMessage> outgoingMessages = new LinkedList<PendingMessage>() {{
-      add(new PendingMessage("sender1", 1111, false, "first"));
-      add(new PendingMessage("sender1", 2222, false, "second"));
-      add(new PendingMessage("sender2", 3333, false, "third"));
+    List<OutgoingMessageSignal> outgoingMessages = new LinkedList<OutgoingMessageSignal>() {{
+      add(createMessage("sender1", 1111, false, "first"));
+      add(createMessage("sender1", 2222, false, "second"));
+      add(createMessage("sender2", 3333, false, "third"));
     }};
 
     when(device.getId()).thenReturn(2L);
+    when(device.getSignalingKey()).thenReturn(Base64.encodeBytes(new byte[52]));
+
     when(account.getAuthenticatedDevice()).thenReturn(Optional.of(device));
     when(account.getNumber()).thenReturn("+14152222222");
 
@@ -167,16 +170,26 @@ public class WebSocketConnectionTest {
     futures.get(0).setException(new IOException());
     futures.get(2).setException(new IOException());
 
-    List<PendingMessage> pending = new LinkedList<PendingMessage>() {{
-      add(new PendingMessage("sender1", 1111, false, "first"));
-      add(new PendingMessage("sender2", 3333, false, "third"));
+    List<OutgoingMessageSignal> pending = new LinkedList<OutgoingMessageSignal>() {{
+      add(createMessage("sender1", 1111, false, "first"));
+      add(createMessage("sender2", 3333, false, "third"));
     }};
 
-    verify(pushSender, times(2)).sendMessage(eq(account), eq(device), any(PendingMessage.class));
-    verify(pushSender, times(1)).sendMessage(eq(sender1), eq(sender1device), any(MessageProtos.OutgoingMessageSignal.class));
+    verify(pushSender, times(2)).sendMessage(eq(account), eq(device), any(OutgoingMessageSignal.class));
+    verify(pushSender, times(1)).sendMessage(eq(sender1), eq(sender1device), any(OutgoingMessageSignal.class));
 
     connection.onConnectionLost();
     verify(pubSubManager).unsubscribe(eq(new WebsocketAddress("+14152222222", 2L)), eq(connection));
+  }
+
+  private OutgoingMessageSignal createMessage(String sender, long timestamp, boolean receipt, String content) {
+    return OutgoingMessageSignal.newBuilder()
+                                .setSource(sender)
+                                .setSourceDevice(1)
+                                .setType(receipt ? OutgoingMessageSignal.Type.RECEIPT_VALUE : OutgoingMessageSignal.Type.CIPHERTEXT_VALUE)
+                                .setTimestamp(timestamp)
+                                .setMessage(ByteString.copyFrom(content.getBytes()))
+                                .build();
   }
 
 }

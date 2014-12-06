@@ -4,6 +4,7 @@ import com.google.common.base.Optional;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.websocket.auth.AuthenticationException;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
 

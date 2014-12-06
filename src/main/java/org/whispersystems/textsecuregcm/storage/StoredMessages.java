@@ -19,21 +19,18 @@ package org.whispersystems.textsecuregcm.storage;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
+import com.google.protobuf.InvalidProtocolBufferException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.entities.PendingMessage;
 import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
-import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
 import static com.codahale.metrics.MetricRegistry.name;
+import static org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
+import static org.whispersystems.textsecuregcm.storage.StoredMessageProtos.StoredMessage;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 
@@ -44,8 +41,6 @@ public class StoredMessages {
   private final MetricRegistry metricRegistry     = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private final Histogram      queueSizeHistogram = metricRegistry.histogram(name(getClass(), "queue_size"));
 
-
-  private static final ObjectMapper mapper = SystemMapper.getMapper();
   private static final String QUEUE_PREFIX = "msgs";
 
   private final JedisPool jedisPool;
@@ -55,64 +50,54 @@ public class StoredMessages {
   }
 
   public void clear(WebsocketAddress address) {
-    Jedis jedis = null;
-
-    try {
-      jedis = jedisPool.getResource();
+    try (Jedis jedis = jedisPool.getResource()) {
       jedis.del(getKey(address));
-    } finally {
-      if (jedis != null)
-        jedisPool.returnResource(jedis);
     }
   }
 
-  public void insert(WebsocketAddress address, PendingMessage message) {
-    Jedis jedis = null;
+  public void insert(WebsocketAddress address, OutgoingMessageSignal message) {
+    try (Jedis jedis = jedisPool.getResource()) {
+      StoredMessage storedMessage = StoredMessage.newBuilder()
+                                                 .setType(StoredMessage.Type.MESSAGE)
+                                                 .setContent(message.toByteString())
+                                                 .build();
 
-    try {
-      jedis = jedisPool.getResource();
-
-      String serializedMessage = mapper.writeValueAsString(message);
-      long   queueSize         = jedis.lpush(getKey(address), serializedMessage);
+      long queueSize = jedis.lpush(getKey(address), storedMessage.toByteArray());
       queueSizeHistogram.update(queueSize);
 
       if (queueSize > 1000) {
         jedis.ltrim(getKey(address), 0, 999);
       }
-
-    } catch (JsonProcessingException e) {
-      logger.warn("StoredMessages", "Unable to store correctly", e);
-    } finally {
-      if (jedis != null)
-        jedisPool.returnResource(jedis);
     }
   }
 
-  public List<PendingMessage> getMessagesForDevice(WebsocketAddress address) {
-    List<PendingMessage> messages = new LinkedList<>();
-    Jedis                jedis    = null;
+  public List<OutgoingMessageSignal> getMessagesForDevice(WebsocketAddress address) {
+    List<OutgoingMessageSignal> messages = new LinkedList<>();
 
-    try {
-      jedis = jedisPool.getResource();
-      String message;
+    try (Jedis jedis = jedisPool.getResource()) {
+      byte[] message;
 
       while ((message = jedis.rpop(getKey(address))) != null) {
         try {
-          messages.add(mapper.readValue(message, PendingMessage.class));
-        } catch (IOException e) {
-          logger.warn("StoredMessages", "Not a valid PendingMessage", e);
+          StoredMessage storedMessage = StoredMessage.parseFrom(message);
+
+          if (storedMessage.getType().getNumber() == StoredMessage.Type.MESSAGE_VALUE) {
+            messages.add(OutgoingMessageSignal.parseFrom(storedMessage.getContent()));
+          } else {
+            logger.warn("Unkown stored message type: " + storedMessage.getType().getNumber());
+          }
+
+        } catch (InvalidProtocolBufferException e) {
+          logger.warn("Error parsing protobuf", e);
         }
       }
 
       return messages;
-    } finally {
-      if (jedis != null)
-        jedisPool.returnResource(jedis);
     }
   }
 
-  private String getKey(WebsocketAddress address) {
-    return QUEUE_PREFIX + ":" + address.serialize();
+  private byte[] getKey(WebsocketAddress address) {
+    return (QUEUE_PREFIX + ":" + address.serialize()).getBytes();
   }
 
 }

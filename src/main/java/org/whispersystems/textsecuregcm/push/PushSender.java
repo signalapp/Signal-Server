@@ -22,7 +22,6 @@ import org.whispersystems.textsecuregcm.entities.ApnMessage;
 import org.whispersystems.textsecuregcm.entities.CryptoEncodingException;
 import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
 import org.whispersystems.textsecuregcm.entities.GcmMessage;
-import org.whispersystems.textsecuregcm.entities.PendingMessage;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 
@@ -45,56 +44,43 @@ public class PushSender {
   public void sendMessage(Account account, Device device, OutgoingMessageSignal message)
       throws NotPushRegisteredException, TransientPushFailureException
   {
-    try {
-      boolean                  isReceipt        = message.getType() == OutgoingMessageSignal.Type.RECEIPT_VALUE;
-      String                   signalingKey     = device.getSignalingKey();
-      EncryptedOutgoingMessage encryptedMessage = new EncryptedOutgoingMessage(message, signalingKey);
-      PendingMessage           pendingMessage   = new PendingMessage(message.getSource(),
-                                                                     message.getTimestamp(),
-                                                                     isReceipt,
-                                                                     encryptedMessage.serialize());
+    if      (device.getGcmId() != null)   sendGcmMessage(account, device, message);
+    else if (device.getApnId() != null)   sendApnMessage(account, device, message);
+    else if (device.getFetchesMessages()) sendWebSocketMessage(account, device, message);
+    else                                  throw new NotPushRegisteredException("No delivery possible!");
+  }
 
-      sendMessage(account, device, pendingMessage);
+  private void sendGcmMessage(Account account, Device device, OutgoingMessageSignal message)
+      throws TransientPushFailureException, NotPushRegisteredException
+  {
+    try {
+      String                   number           = account.getNumber();
+      long                     deviceId         = device.getId();
+      String                   registrationId   = device.getGcmId();
+      boolean                  isReceipt        = message.getType() == OutgoingMessageSignal.Type.RECEIPT_VALUE;
+      EncryptedOutgoingMessage encryptedMessage = new EncryptedOutgoingMessage(message, device.getSignalingKey());
+      GcmMessage               gcmMessage       = new GcmMessage(registrationId, number, (int) deviceId,
+                                                                 encryptedMessage.toEncodedString(), isReceipt);
+
+      pushServiceClient.send(gcmMessage);
     } catch (CryptoEncodingException e) {
       throw new NotPushRegisteredException(e);
     }
   }
 
-  public void sendMessage(Account account, Device device, PendingMessage pendingMessage)
-      throws NotPushRegisteredException, TransientPushFailureException
-  {
-    if      (device.getGcmId() != null)   sendGcmMessage(account, device, pendingMessage);
-    else if (device.getApnId() != null)   sendApnMessage(account, device, pendingMessage);
-    else if (device.getFetchesMessages()) sendWebSocketMessage(account, device, pendingMessage);
-    else                                  throw new NotPushRegisteredException("No delivery possible!");
-  }
-
-  private void sendGcmMessage(Account account, Device device, PendingMessage pendingMessage)
-      throws TransientPushFailureException
-  {
-    String     number         = account.getNumber();
-    long       deviceId       = device.getId();
-    String     registrationId = device.getGcmId();
-    GcmMessage gcmMessage     = new GcmMessage(registrationId, number, (int)deviceId,
-                                               pendingMessage.getEncryptedOutgoingMessage(),
-                                               pendingMessage.isReceipt()                              );
-
-    pushServiceClient.send(gcmMessage);
-  }
-
-  private void sendApnMessage(Account account, Device device, PendingMessage outgoingMessage)
+  private void sendApnMessage(Account account, Device device, OutgoingMessageSignal outgoingMessage)
       throws TransientPushFailureException
   {
     boolean online = webSocketSender.sendMessage(account, device, outgoingMessage, true);
 
-    if (!online && !outgoingMessage.isReceipt()) {
+    if (!online && outgoingMessage.getType() != OutgoingMessageSignal.Type.RECEIPT_VALUE) {
       ApnMessage apnMessage = new ApnMessage(device.getApnId(), account.getNumber(),
                                              (int)device.getId(), APN_PAYLOAD);
       pushServiceClient.send(apnMessage);
     }
   }
 
-  private void sendWebSocketMessage(Account account, Device device, PendingMessage outgoingMessage)
+  private void sendWebSocketMessage(Account account, Device device, OutgoingMessageSignal outgoingMessage)
   {
     webSocketSender.sendMessage(account, device, outgoingMessage, false);
   }

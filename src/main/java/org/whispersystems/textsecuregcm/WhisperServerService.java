@@ -35,6 +35,7 @@ import org.whispersystems.textsecuregcm.controllers.DeviceController;
 import org.whispersystems.textsecuregcm.controllers.DirectoryController;
 import org.whispersystems.textsecuregcm.controllers.FederationControllerV1;
 import org.whispersystems.textsecuregcm.controllers.FederationControllerV2;
+import org.whispersystems.textsecuregcm.controllers.KeepAliveController;
 import org.whispersystems.textsecuregcm.controllers.KeysControllerV1;
 import org.whispersystems.textsecuregcm.controllers.KeysControllerV2;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
@@ -137,18 +138,19 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     PendingDevices  pendingDevices  = jdbi.onDemand(PendingDevices.class);
     Keys            keys            = jdbi.onDemand(Keys.class);
 
-    MemcachedClient memcachedClient = new MemcachedClientFactory(config.getMemcacheConfiguration()).getClient();
-    JedisPool       redisClient     = new RedisClientFactory(config.getRedisConfiguration()).getRedisClientPool();
-    Client          httpClient      = new JerseyClientBuilder(environment).using(config.getJerseyClientConfiguration())
-                                                                          .build(getName());
+    MemcachedClient memcachedClient    = new MemcachedClientFactory(config.getMemcacheConfiguration()).getClient();
+    JedisPool       directoryClient    = new RedisClientFactory(config.getDirectoryConfiguration().getUrl()).getRedisClientPool();
+    JedisPool       messageStoreClient = new RedisClientFactory(config.getMessageStoreConfiguration().getUrl()).getRedisClientPool();
+    Client          httpClient         = new JerseyClientBuilder(environment).using(config.getJerseyClientConfiguration())
+                                                                             .build(getName());
 
-    DirectoryManager       directory              = new DirectoryManager(redisClient);
+    DirectoryManager       directory              = new DirectoryManager(directoryClient);
     PendingAccountsManager pendingAccountsManager = new PendingAccountsManager(pendingAccounts, memcachedClient);
     PendingDevicesManager  pendingDevicesManager  = new PendingDevicesManager (pendingDevices, memcachedClient );
     AccountsManager        accountsManager        = new AccountsManager(accounts, directory, memcachedClient);
     FederatedClientManager federatedClientManager = new FederatedClientManager(config.getFederationConfiguration());
-    StoredMessages         storedMessages         = new StoredMessages(redisClient);
-    PubSubManager          pubSubManager          = new PubSubManager(redisClient);
+    StoredMessages         storedMessages         = new StoredMessages(messageStoreClient);
+    PubSubManager          pubSubManager          = new PubSubManager(messageStoreClient);
     PushServiceClient      pushServiceClient      = new PushServiceClient(httpClient, config.getPushConfiguration());
     WebsocketSender        websocketSender        = new WebsocketSender(storedMessages, pubSubManager);
     AccountAuthenticator   deviceAuthenticator    = new AccountAuthenticator(accountsManager);
@@ -189,12 +191,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       WebSocketEnvironment webSocketEnvironment = new WebSocketEnvironment(environment);
       webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(deviceAuthenticator));
       webSocketEnvironment.setConnectListener(new ConnectListener(accountsManager, pushSender, storedMessages, pubSubManager));
-
+      webSocketEnvironment.jersey().register(new KeepAliveController());
+      
       WebSocketResourceProviderFactory servlet = new WebSocketResourceProviderFactory(webSocketEnvironment);
 
       ServletRegistration.Dynamic websocket = environment.servlets().addServlet("WebSocket", servlet);
       websocket.addMapping("/v1/websocket/*");
       websocket.setAsyncSupported(true);
+      servlet.start();
 
       FilterRegistration.Dynamic filter = environment.servlets().addFilter("CORS", CrossOriginFilter.class);
       filter.addMappingForUrlPatterns(EnumSet.allOf(DispatcherType.class), true, "/*");
@@ -205,7 +209,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       filter.setInitParameter("allowCredentials", "true");
     }
 
-    environment.healthChecks().register("redis", new RedisHealthCheck(redisClient));
+    environment.healthChecks().register("directory", new RedisHealthCheck(directoryClient));
+    environment.healthChecks().register("messagestore", new RedisHealthCheck(messageStoreClient));
     environment.healthChecks().register("memcache", new MemcacheHealthCheck(memcachedClient));
 
     environment.jersey().register(new IOExceptionMapper());

@@ -16,7 +16,7 @@
  */
 package org.whispersystems.textsecuregcm.providers;
 
-import org.whispersystems.textsecuregcm.configuration.RedisConfiguration;
+import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.net.URI;
@@ -30,11 +30,11 @@ public class RedisClientFactory {
 
   private final JedisPool jedisPool;
 
-  public RedisClientFactory(RedisConfiguration redisConfig) throws URISyntaxException {
+  public RedisClientFactory(String url) throws URISyntaxException {
     JedisPoolConfig poolConfig = new JedisPoolConfig();
     poolConfig.setTestOnBorrow(true);
 
-    URI    redisURI      = new URI(redisConfig.getUrl());
+    URI    redisURI      = new URI(url);
     String redisHost     = redisURI.getHost();
     int    redisPort     = redisURI.getPort();
     String redisPassword = null;

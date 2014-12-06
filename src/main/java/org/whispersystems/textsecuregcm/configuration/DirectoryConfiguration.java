@@ -14,26 +14,20 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package textsecure;
+package org.whispersystems.textsecuregcm.configuration;
 
-option java_package = "org.whispersystems.textsecuregcm.entities";
-option java_outer_classname = "MessageProtos";
 
-message OutgoingMessageSignal {
-  enum Type {
-    UNKNOWN       = 0;
-    CIPHERTEXT    = 1;
-    KEY_EXCHANGE  = 2;
-    PREKEY_BUNDLE = 3;
-    PLAINTEXT     = 4;
-    RECEIPT       = 5;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import org.hibernate.validator.constraints.NotEmpty;
+import org.hibernate.validator.constraints.URL;
+
+public class DirectoryConfiguration {
+
+  @JsonProperty
+  @NotEmpty
+  private String url;
+
+  public String getUrl() {
+    return url;
   }
-
-  optional uint32 type = 1;
-  optional string source = 2;
-  optional  uint32 sourceDevice = 7;
-  optional string relay = 3;
-//  repeated string destinations = 4;
-  optional uint64 timestamp = 5;
-  optional bytes message = 6;
 }

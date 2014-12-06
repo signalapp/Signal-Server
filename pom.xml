@@ -116,7 +116,7 @@
         <dependency>
             <groupId>redis.clients</groupId>
             <artifactId>jedis</artifactId>
-            <version>2.2.1</version>
+            <version>2.6.1</version>
             <type>jar</type>
             <scope>compile</scope>
         </dependency>
@@ -137,9 +137,9 @@
             <version>4.0.0</version>
         </dependency>
         <dependency>
-            <groupId>org.whispersystems.websocket</groupId>
+            <groupId>org.whispersystems</groupId>
             <artifactId>websocket-resources</artifactId>
-            <version>0.1-SNAPSHOT</version>
+            <version>0.1</version>
         </dependency>
 
 
