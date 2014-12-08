@@ -188,7 +188,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(messageController);
 
     if (config.getWebsocketConfiguration().isEnabled()) {
-      WebSocketEnvironment webSocketEnvironment = new WebSocketEnvironment(environment);
+      WebSocketEnvironment webSocketEnvironment = new WebSocketEnvironment(environment, config);
       webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(deviceAuthenticator));
       webSocketEnvironment.setConnectListener(new ConnectListener(accountsManager, pushSender, storedMessages, pubSubManager));
       webSocketEnvironment.jersey().register(new KeepAliveController());
