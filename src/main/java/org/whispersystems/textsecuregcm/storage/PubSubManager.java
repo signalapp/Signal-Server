@@ -32,14 +32,18 @@ public class PubSubManager {
   }
 
   public synchronized void subscribe(WebsocketAddress address, PubSubListener listener) {
-    listeners.put(address.serialize(), listener);
-    baseListener.subscribe(address.serialize().getBytes());
+    String serializedAddress = address.serialize();
+
+    listeners.put(serializedAddress, listener);
+    baseListener.subscribe(serializedAddress.getBytes());
   }
 
   public synchronized void unsubscribe(WebsocketAddress address, PubSubListener listener) {
-    if (listeners.get(address.serialize()) == listener) {
-      listeners.remove(address.serialize());
-      baseListener.unsubscribe(address.serialize().getBytes());
+    String serializedAddress = address.serialize();
+
+    if (listeners.get(serializedAddress) == listener) {
+      listeners.remove(serializedAddress);
+      baseListener.unsubscribe(serializedAddress.getBytes());
     }
   }
 
@@ -101,7 +105,7 @@ public class PubSubManager {
         PubSubListener listener;
 
         synchronized (PubSubManager.this) {
-          listener = listeners.get(channel);
+          listener = listeners.get(new String(channel));
         }
 
         if (listener != null) {
