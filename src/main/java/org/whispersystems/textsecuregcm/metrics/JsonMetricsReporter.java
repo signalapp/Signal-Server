@@ -27,25 +27,25 @@ import java.util.SortedMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
-/**
- * Adapted from MetricsServlet.
- */
 public class JsonMetricsReporter extends ScheduledReporter {
 
-  private final Logger      logger  = LoggerFactory.getLogger(JsonMetricsReporter.class);
+  private static final Pattern SIMPLE_NAMES = Pattern.compile("[^a-zA-Z0-9_.\\-~]");
+
+  private final Logger logger  = LoggerFactory.getLogger(JsonMetricsReporter.class);
   private final JsonFactory factory = new JsonFactory();
 
-  private final String table;
-  private final String sunnylabsHost;
+  private final String token;
+  private final String hostname;
   private final String host;
 
-  public JsonMetricsReporter(MetricRegistry registry, String token, String sunnylabsHost)
+  public JsonMetricsReporter(MetricRegistry registry, String token, String hostname,
+                             MetricFilter filter, TimeUnit rateUnit, TimeUnit durationUnit)
       throws UnknownHostException
   {
-    super(registry, "jsonmetrics-reporter", MetricFilter.ALL, TimeUnit.SECONDS, TimeUnit.MILLISECONDS);
-    this.table         = token;
-    this.sunnylabsHost = sunnylabsHost;
-    this.host          = InetAddress.getLocalHost().getHostName();
+    super(registry, "json-reporter", filter, rateUnit, durationUnit);
+    this.token    = token;
+    this.hostname = hostname;
+    this.host     = InetAddress.getLocalHost().getHostName();
   }
 
   @Override
@@ -57,7 +57,7 @@ public class JsonMetricsReporter extends ScheduledReporter {
   {
     try {
       logger.debug("Reporting metrics...");
-      URL url = new URL("https", sunnylabsHost, 443, "/report/metrics?t=" + table + "&h=" + host);
+      URL url = new URL("https", hostname, 443, String.format("/report/metrics?t=%s&h=%s", token, host));
       HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
       connection.setDoOutput(true);
@@ -175,10 +175,66 @@ public class JsonMetricsReporter extends ScheduledReporter {
     json.writeNumberField("m15", convertRate(meter.getFifteenMinuteRate()));
   }
 
-  private static final Pattern SIMPLE_NAMES = Pattern.compile("[^a-zA-Z0-9_.\\-~]");
 
   private String sanitize(String metricName) {
     return SIMPLE_NAMES.matcher(metricName).replaceAll("_");
   }
 
+  public static Builder forRegistry(MetricRegistry registry) {
+    return new Builder(registry);
+  }
+
+  public static class Builder {
+
+    private final MetricRegistry registry;
+    private       MetricFilter   filter       = MetricFilter.ALL;
+    private       TimeUnit       rateUnit     = TimeUnit.SECONDS;
+    private       TimeUnit       durationUnit = TimeUnit.MILLISECONDS;
+    private       String         token;
+    private       String         hostname;
+
+    private Builder(MetricRegistry registry) {
+      this.registry     = registry;
+      this.rateUnit     = TimeUnit.SECONDS;
+      this.durationUnit = TimeUnit.MILLISECONDS;
+      this.filter       = MetricFilter.ALL;
+    }
+
+    public Builder convertRatesTo(TimeUnit rateUnit) {
+      this.rateUnit = rateUnit;
+      return this;
+    }
+
+    public Builder convertDurationsTo(TimeUnit durationUnit) {
+      this.durationUnit = durationUnit;
+      return this;
+    }
+
+    public Builder filter(MetricFilter filter) {
+      this.filter = filter;
+      return this;
+    }
+
+    public Builder withToken(String token) {
+      this.token = token;
+      return this;
+    }
+
+    public Builder withHostname(String hostname) {
+      this.hostname = hostname;
+      return this;
+    }
+
+    public JsonMetricsReporter build() throws UnknownHostException {
+      if (hostname == null) {
+        throw new IllegalArgumentException("No hostname specified!");
+      }
+
+      if (token == null) {
+        throw new IllegalArgumentException("No token specified!");
+      }
+
+      return new JsonMetricsReporter(registry, token, hostname, filter, rateUnit, durationUnit);
+    }
+  }
 }

@@ -229,13 +229,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       GraphiteReporter graphiteReporter = (GraphiteReporter) graphiteReporterFactory.build(environment.metrics());
       graphiteReporter.start(15, TimeUnit.SECONDS);
     }
-
-    if (config.getMetricsConfiguration().isEnabled()) {
-      new JsonMetricsReporter(environment.metrics(),
-                              config.getMetricsConfiguration().getToken(),
-                              config.getMetricsConfiguration().getHost())
-          .start(60, TimeUnit.SECONDS);
-    }
   }
 
   private Optional<NexmoSmsSender> initializeNexmoSmsSender(NexmoConfiguration configuration) {

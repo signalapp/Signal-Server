@@ -17,16 +17,15 @@
 package org.whispersystems.textsecuregcm;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.FederationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GraphiteConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MemcacheConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageStoreConfiguration;
-import org.whispersystems.textsecuregcm.configuration.MetricsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.NexmoConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PushConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedPhoneConfiguration;
-import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.S3Configuration;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
 import org.whispersystems.textsecuregcm.configuration.WebsocketConfiguration;
@@ -93,10 +92,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   @Valid
   @JsonProperty
-  private MetricsConfiguration viz = new MetricsConfiguration();
-
-  @Valid
-  @JsonProperty
   private WebsocketConfiguration websocket = new WebsocketConfiguration();
 
   @JsonProperty
@@ -158,10 +153,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public GraphiteConfiguration getGraphiteConfiguration() {
     return graphite;
-  }
-
-  public MetricsConfiguration getMetricsConfiguration() {
-    return viz;
   }
 
   public RedPhoneConfiguration getRedphoneConfiguration() {
