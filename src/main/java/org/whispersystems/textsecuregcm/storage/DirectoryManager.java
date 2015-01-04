@@ -171,11 +171,14 @@ public class DirectoryManager {
   }
 
   private static class TokenValue {
+
     @JsonProperty(value = "r")
     private String  relay;
 
     @JsonProperty(value = "s")
     private boolean supportsSms;
+
+    public TokenValue() {}
 
     public TokenValue(String relay, boolean supportsSms) {
       this.relay       = relay;

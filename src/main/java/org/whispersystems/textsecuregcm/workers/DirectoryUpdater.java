@@ -38,6 +38,8 @@ import static org.whispersystems.textsecuregcm.storage.DirectoryManager.PendingC
 
 public class DirectoryUpdater {
 
+  private static final int CHUNK_SIZE = 10000;
+
   private final Logger logger = LoggerFactory.getLogger(DirectoryUpdater.class);
 
   private final AccountsManager        accountsManager;
@@ -60,24 +62,28 @@ public class DirectoryUpdater {
 
     try {
       logger.info("Updating from local DB.");
-      Iterator<Account> accounts = accountsManager.getAll();
+      int offset = 0;
 
-      if (accounts == null)
-        return;
+      for (;;) {
+        List<Account> accounts = accountsManager.getAll(offset, CHUNK_SIZE);
 
-      while (accounts.hasNext()) {
-        Account account = accounts.next();
+        if (accounts == null || accounts.isEmpty()) break;
+        else                                        offset += accounts.size();
 
-        if (account.isActive()) {
-          byte[]        token         = Util.getContactToken(account.getNumber());
-          ClientContact clientContact = new ClientContact(token, null, account.getSupportsSms());
+        for (Account account : accounts) {
+          if (account.isActive()) {
+            byte[]        token         = Util.getContactToken(account.getNumber());
+            ClientContact clientContact = new ClientContact(token, null, account.getSupportsSms());
 
-          directory.add(batchOperation, clientContact);
-          contactsAdded++;
-        } else {
-          directory.remove(batchOperation, account.getNumber());
-          contactsRemoved++;
+            directory.add(batchOperation, clientContact);
+            contactsAdded++;
+          } else {
+            directory.remove(batchOperation, account.getNumber());
+            contactsRemoved++;
+          }
         }
+
+        logger.info("Processed " + CHUNK_SIZE + " local accounts...");
       }
     } finally {
       directory.stopBatchOperation(batchOperation);
