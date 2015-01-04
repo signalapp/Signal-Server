@@ -16,14 +16,19 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
-import com.google.gson.Gson;
-import com.google.gson.annotations.SerializedName;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.util.IterablePair;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 
+import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -34,12 +39,17 @@ import redis.clients.jedis.Response;
 
 public class DirectoryManager {
 
+  private final Logger logger = LoggerFactory.getLogger(DirectoryManager.class);
+
   private static final byte[] DIRECTORY_KEY = {'d', 'i', 'r', 'e', 'c', 't', 'o', 'r', 'y'};
 
+  private final ObjectMapper objectMapper;
   private final JedisPool redisPool;
 
   public DirectoryManager(JedisPool redisPool) {
-    this.redisPool = redisPool;
+    this.redisPool    = redisPool;
+    this.objectMapper = new ObjectMapper();
+    this.objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
   }
 
   public void remove(String number) {
@@ -63,45 +73,48 @@ public class DirectoryManager {
 
   public void add(ClientContact contact) {
     TokenValue tokenValue = new TokenValue(contact.getRelay(), contact.isSupportsSms());
-    Jedis      jedis      = redisPool.getResource();
 
-    jedis.hset(DIRECTORY_KEY, contact.getToken(), new Gson().toJson(tokenValue).getBytes());
-    redisPool.returnResource(jedis);
+    try (Jedis jedis = redisPool.getResource()) {
+      jedis.hset(DIRECTORY_KEY, contact.getToken(), objectMapper.writeValueAsBytes(tokenValue));
+    } catch (JsonProcessingException e) {
+      logger.warn("JSON Serialization", e);
+    }
   }
 
   public void add(BatchOperationHandle handle, ClientContact contact) {
-    Pipeline   pipeline   = handle.pipeline;
-    TokenValue tokenValue = new TokenValue(contact.getRelay(), contact.isSupportsSms());
+    try {
+      Pipeline   pipeline   = handle.pipeline;
+      TokenValue tokenValue = new TokenValue(contact.getRelay(), contact.isSupportsSms());
 
-    pipeline.hset(DIRECTORY_KEY, contact.getToken(), new Gson().toJson(tokenValue).getBytes());
+      pipeline.hset(DIRECTORY_KEY, contact.getToken(), objectMapper.writeValueAsBytes(tokenValue));
+    } catch (JsonProcessingException e) {
+      logger.warn("JSON Serialization", e);
+    }
   }
 
   public PendingClientContact get(BatchOperationHandle handle, byte[] token) {
     Pipeline pipeline = handle.pipeline;
-    return new PendingClientContact(token, pipeline.hget(DIRECTORY_KEY, token));
+    return new PendingClientContact(objectMapper, token, pipeline.hget(DIRECTORY_KEY, token));
   }
 
   public Optional<ClientContact> get(byte[] token) {
-    Jedis jedis = redisPool.getResource();
-
-    try {
+    try (Jedis jedis = redisPool.getResource()) {
       byte[] result = jedis.hget(DIRECTORY_KEY, token);
 
       if (result == null) {
         return Optional.absent();
       }
 
-      TokenValue tokenValue = new Gson().fromJson(new String(result), TokenValue.class);
+      TokenValue tokenValue = objectMapper.readValue(result, TokenValue.class);
       return Optional.of(new ClientContact(token, tokenValue.relay, tokenValue.supportsSms));
-    } finally {
-      redisPool.returnResource(jedis);
+    } catch (IOException e) {
+      logger.warn("JSON Error", e);
+      return Optional.absent();
     }
   }
 
   public List<ClientContact> get(List<byte[]> tokens) {
-    Jedis jedis = redisPool.getResource();
-
-    try {
+    try (Jedis jedis = redisPool.getResource()) {
       Pipeline               pipeline = jedis.pipelined();
       List<Response<byte[]>> futures  = new LinkedList<>();
       List<ClientContact>    results  = new LinkedList<>();
@@ -117,17 +130,19 @@ public class DirectoryManager {
       IterablePair<byte[], Response<byte[]>> lists = new IterablePair<>(tokens, futures);
 
       for (Pair<byte[], Response<byte[]>> pair : lists) {
-        if (pair.second().get() != null) {
-          TokenValue    tokenValue    = new Gson().fromJson(new String(pair.second().get()), TokenValue.class);
-          ClientContact clientContact = new ClientContact(pair.first(), tokenValue.relay, tokenValue.supportsSms);
+        try {
+          if (pair.second().get() != null) {
+            TokenValue    tokenValue    = objectMapper.readValue(pair.second().get(), TokenValue.class);
+            ClientContact clientContact = new ClientContact(pair.first(), tokenValue.relay, tokenValue.supportsSms);
 
-          results.add(clientContact);
+            results.add(clientContact);
+          }
+        } catch (IOException e) {
+          logger.warn("Deserialization Problem: ", e);
         }
       }
 
       return results;
-    } finally {
-      redisPool.returnResource(jedis);
     }
   }
 
@@ -156,10 +171,10 @@ public class DirectoryManager {
   }
 
   private static class TokenValue {
-    @SerializedName("r")
+    @JsonProperty(value = "r")
     private String  relay;
 
-    @SerializedName("s")
+    @JsonProperty(value = "s")
     private boolean supportsSms;
 
     public TokenValue(String relay, boolean supportsSms) {
@@ -169,22 +184,24 @@ public class DirectoryManager {
   }
 
   public static class PendingClientContact {
+    private final ObjectMapper     objectMapper;
     private final byte[]           token;
     private final Response<byte[]> response;
 
-    PendingClientContact(byte[] token, Response<byte[]> response) {
-      this.token    = token;
-      this.response = response;
+    PendingClientContact(ObjectMapper objectMapper, byte[] token, Response<byte[]> response) {
+      this.objectMapper = objectMapper;
+      this.token        = token;
+      this.response     = response;
     }
 
-    public Optional<ClientContact> get() {
+    public Optional<ClientContact> get() throws IOException {
       byte[] result = response.get();
 
       if (result == null) {
         return Optional.absent();
       }
 
-      TokenValue tokenValue = new Gson().fromJson(new String(result), TokenValue.class);
+      TokenValue tokenValue = objectMapper.readValue(result, TokenValue.class);
       return Optional.of(new ClientContact(token, tokenValue.relay, tokenValue.supportsSms));
     }
 

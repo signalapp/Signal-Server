@@ -18,15 +18,10 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.google.gson.Gson;
-import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 
-import javax.xml.bind.annotation.XmlRootElement;
-import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 import java.util.Arrays;
 
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
@@ -73,9 +68,9 @@ public class ClientContact {
     this.inactive = inactive;
   }
 
-  public String toString() {
-    return new Gson().toJson(this);
-  }
+//  public String toString() {
+//    return new Gson().toJson(this);
+//  }
 
   @Override
   public boolean equals(Object other) {

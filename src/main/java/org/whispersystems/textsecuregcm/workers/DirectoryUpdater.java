@@ -29,6 +29,7 @@ import org.whispersystems.textsecuregcm.storage.DirectoryManager.BatchOperationH
 import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.Util;
 
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -53,9 +54,12 @@ public class DirectoryUpdater {
   }
 
   public void updateFromLocalDatabase() {
-    BatchOperationHandle batchOperation = directory.startBatchOperation();
+    int                  contactsAdded   = 0;
+    int                  contactsRemoved = 0;
+    BatchOperationHandle batchOperation  = directory.startBatchOperation();
 
     try {
+      logger.info("Updating from local DB.");
       Iterator<Account> accounts = accountsManager.getAll();
 
       if (accounts == null)
@@ -69,17 +73,17 @@ public class DirectoryUpdater {
           ClientContact clientContact = new ClientContact(token, null, account.getSupportsSms());
 
           directory.add(batchOperation, clientContact);
-
-          logger.debug("Adding local token: " + Base64.encodeBytesWithoutPadding(token));
+          contactsAdded++;
         } else {
           directory.remove(batchOperation, account.getNumber());
+          contactsRemoved++;
         }
       }
     } finally {
       directory.stopBatchOperation(batchOperation);
     }
 
-    logger.info("Local directory is updated.");
+    logger.info(String.format("Local directory is updated (%d added, %d removed).", contactsAdded, contactsRemoved));
   }
 
   public void updateFromPeers() {
@@ -121,19 +125,23 @@ public class DirectoryUpdater {
         Iterator<PendingClientContact> localContactIterator  = localContacts.iterator();
 
         while (remoteContactIterator.hasNext() && localContactIterator.hasNext()) {
-          ClientContact           remoteContact = remoteContactIterator.next();
-          Optional<ClientContact> localContact  = localContactIterator.next().get();
+          try {
+            ClientContact           remoteContact = remoteContactIterator.next();
+            Optional<ClientContact> localContact  = localContactIterator.next().get();
 
-          remoteContact.setRelay(client.getPeerName());
+            remoteContact.setRelay(client.getPeerName());
 
-          if (!remoteContact.isInactive() && (!localContact.isPresent() || client.getPeerName().equals(localContact.get().getRelay()))) {
-            contactsAdded++;
-            directory.add(handle, remoteContact);
-          } else {
-            if (localContact.isPresent() && client.getPeerName().equals(localContact.get().getRelay())) {
-              contactsRemoved++;
-              directory.remove(handle, remoteContact.getToken());
+            if (!remoteContact.isInactive() && (!localContact.isPresent() || client.getPeerName().equals(localContact.get().getRelay()))) {
+              contactsAdded++;
+              directory.add(handle, remoteContact);
+            } else {
+              if (localContact.isPresent() && client.getPeerName().equals(localContact.get().getRelay())) {
+                contactsRemoved++;
+                directory.remove(handle, remoteContact.getToken());
+              }
             }
+          } catch (IOException e) {
+            logger.warn("JSON Serialization Failed: ", e);
           }
         }
 
