@@ -27,6 +27,7 @@ import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
@@ -57,13 +58,16 @@ public class StoredMessages {
 
   public void insert(WebsocketAddress address, OutgoingMessageSignal message) {
     try (Jedis jedis = jedisPool.getResource()) {
+      byte[]        queue         = getKey(address);
       StoredMessage storedMessage = StoredMessage.newBuilder()
                                                  .setType(StoredMessage.Type.MESSAGE)
                                                  .setContent(message.toByteString())
                                                  .build();
 
-      long queueSize = jedis.lpush(getKey(address), storedMessage.toByteArray());
+      long queueSize = jedis.lpush(queue, storedMessage.toByteArray());
       queueSizeHistogram.update(queueSize);
+
+      jedis.expireAt(queue, (System.currentTimeMillis() / 1000) + TimeUnit.DAYS.toSeconds(30));
 
       if (queueSize > 1000) {
         jedis.ltrim(getKey(address), 0, 999);
