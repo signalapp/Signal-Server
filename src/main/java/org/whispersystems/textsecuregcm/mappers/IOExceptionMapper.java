@@ -31,7 +31,9 @@ public class IOExceptionMapper implements ExceptionMapper<IOException> {
 
   @Override
   public Response toResponse(IOException e) {
-    logger.warn("IOExceptionMapper", e);
+    if (!(e.getCause() instanceof java.util.concurrent.TimeoutException)) {
+      logger.warn("IOExceptionMapper", e);
+    }
     return Response.status(503).build();
   }
 }
