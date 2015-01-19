@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2013 Open WhisperSystems
+ * Copyright (C) 2013 - 2015 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -36,4 +36,8 @@ message OutgoingMessageSignal {
 //  repeated string destinations = 4;
   optional uint64 timestamp = 5;
   optional bytes message = 6;
+}
+
+message ProvisioningUuid {
+  optional string uuid = 1;
 }

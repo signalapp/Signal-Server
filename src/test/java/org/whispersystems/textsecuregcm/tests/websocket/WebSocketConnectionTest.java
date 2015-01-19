@@ -15,7 +15,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.storage.StoredMessages;
 import org.whispersystems.textsecuregcm.util.Base64;
-import org.whispersystems.textsecuregcm.websocket.ConnectListener;
+import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
 import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
@@ -58,7 +58,7 @@ public class WebSocketConnectionTest {
   public void testCredentials() throws Exception {
     StoredMessages                storedMessages         = mock(StoredMessages.class);
     WebSocketAccountAuthenticator webSocketAuthenticator = new WebSocketAccountAuthenticator(accountAuthenticator);
-    ConnectListener               connectListener        = new ConnectListener(accountsManager, pushSender, storedMessages, pubSubManager);
+    AuthenticatedConnectListener connectListener        = new AuthenticatedConnectListener(accountsManager, pushSender, storedMessages, pubSubManager);
     WebSocketSessionContext       sessionContext         = mock(WebSocketSessionContext.class);
 
     when(accountAuthenticator.authenticate(eq(new BasicCredentials(VALID_USER, VALID_PASSWORD))))

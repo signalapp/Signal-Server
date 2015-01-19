@@ -19,6 +19,7 @@ package org.whispersystems.textsecuregcm.push;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.google.protobuf.ByteString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -26,7 +27,10 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.storage.StoredMessages;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.websocket.ProvisioningAddress;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
+
+import java.io.UnsupportedEncodingException;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
@@ -43,6 +47,9 @@ public class WebsocketSender {
 
   private final Meter apnOnlineMeter        = metricRegistry.meter(name(getClass(), "apn_online" ));
   private final Meter apnOfflineMeter       = metricRegistry.meter(name(getClass(), "apn_offline"));
+
+  private final Meter provisioningOnlineMeter  = metricRegistry.meter(name(getClass(), "provisioning_online" ));
+  private final Meter provisioningOfflineMeter = metricRegistry.meter(name(getClass(), "provisioning_offline"));
 
   private final StoredMessages storedMessages;
   private final PubSubManager  pubSubManager;
@@ -74,6 +81,25 @@ public class WebsocketSender {
                                                   .build());
 
       return false;
+    }
+  }
+
+  public boolean sendProvisioningMessage(ProvisioningAddress address, String body) {
+    try {
+      PubSubMessage    pubSubMessage = PubSubMessage.newBuilder()
+                                                    .setType(PubSubMessage.Type.DELIVER)
+                                                    .setContent(ByteString.copyFrom(body, "UTF-8"))
+                                                    .build();
+
+      if (pubSubManager.publish(address, pubSubMessage)) {
+        provisioningOnlineMeter.mark();
+        return true;
+      } else {
+        provisioningOfflineMeter.mark();
+        return false;
+      }
+    } catch (UnsupportedEncodingException e) {
+      throw new AssertionError(e);
     }
   }
 }

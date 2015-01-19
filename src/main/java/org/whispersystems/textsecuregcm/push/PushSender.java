@@ -50,6 +50,10 @@ public class PushSender {
     else                                  throw new NotPushRegisteredException("No delivery possible!");
   }
 
+  public WebsocketSender getWebSocketSender() {
+    return webSocketSender;
+  }
+
   private void sendGcmMessage(Account account, Device device, OutgoingMessageSignal message)
       throws TransientPushFailureException, NotPushRegisteredException
   {

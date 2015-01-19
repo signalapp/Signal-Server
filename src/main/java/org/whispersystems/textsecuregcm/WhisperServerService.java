@@ -47,7 +47,6 @@ import org.whispersystems.textsecuregcm.mappers.IOExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.CpuUsageGauge;
 import org.whispersystems.textsecuregcm.metrics.FreeMemoryGauge;
-import org.whispersystems.textsecuregcm.metrics.JsonMetricsReporter;
 import org.whispersystems.textsecuregcm.metrics.NetworkReceivedGauge;
 import org.whispersystems.textsecuregcm.metrics.NetworkSentGauge;
 import org.whispersystems.textsecuregcm.providers.MemcacheHealthCheck;
@@ -75,7 +74,8 @@ import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.storage.StoredMessages;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.UrlSigner;
-import org.whispersystems.textsecuregcm.websocket.ConnectListener;
+import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
+import org.whispersystems.textsecuregcm.websocket.ProvisioningConnectListener;
 import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.workers.DirectoryCommand;
 import org.whispersystems.textsecuregcm.workers.VacuumCommand;
@@ -190,15 +190,27 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     if (config.getWebsocketConfiguration().isEnabled()) {
       WebSocketEnvironment webSocketEnvironment = new WebSocketEnvironment(environment, config);
       webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(deviceAuthenticator));
-      webSocketEnvironment.setConnectListener(new ConnectListener(accountsManager, pushSender, storedMessages, pubSubManager));
+      webSocketEnvironment.setConnectListener(new AuthenticatedConnectListener(accountsManager, pushSender, storedMessages, pubSubManager));
       webSocketEnvironment.jersey().register(new KeepAliveController());
-      
-      WebSocketResourceProviderFactory servlet = new WebSocketResourceProviderFactory(webSocketEnvironment);
 
-      ServletRegistration.Dynamic websocket = environment.servlets().addServlet("WebSocket", servlet);
+      WebSocketEnvironment provisioningEnvironment = new WebSocketEnvironment(environment, config);
+      provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(pubSubManager));
+      provisioningEnvironment.jersey().register(new KeepAliveController());
+      
+      WebSocketResourceProviderFactory webSocketServlet    = new WebSocketResourceProviderFactory(webSocketEnvironment   );
+      WebSocketResourceProviderFactory provisioningServlet = new WebSocketResourceProviderFactory(provisioningEnvironment);
+
+      ServletRegistration.Dynamic websocket    = environment.servlets().addServlet("WebSocket", webSocketServlet      );
+      ServletRegistration.Dynamic provisioning = environment.servlets().addServlet("Provisioning", provisioningServlet);
+
       websocket.addMapping("/v1/websocket/*");
       websocket.setAsyncSupported(true);
-      servlet.start();
+
+      provisioning.addMapping("/v1/provisioning/*");
+      provisioning.setAsyncSupported(true);
+
+      webSocketServlet.start();
+      provisioningServlet.start();
 
       FilterRegistration.Dynamic filter = environment.servlets().addFilter("CORS", CrossOriginFilter.class);
       filter.addMappingForUrlPatterns(EnumSet.allOf(DispatcherType.class), true, "/*");

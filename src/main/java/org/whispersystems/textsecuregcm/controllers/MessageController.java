@@ -26,6 +26,7 @@ import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
 import org.whispersystems.textsecuregcm.entities.MessageResponse;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
+import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.federation.FederatedClient;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
@@ -38,6 +39,8 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Base64;
+import org.whispersystems.textsecuregcm.websocket.InvalidWebsocketAddressException;
+import org.whispersystems.textsecuregcm.websocket.ProvisioningAddress;
 
 import javax.validation.Valid;
 import javax.ws.rs.Consumes;
@@ -126,6 +129,21 @@ public class MessageController {
     } catch (ValidationException e) {
       throw new WebApplicationException(Response.status(422).build());
     }
+  }
+
+  @Timed
+  @PUT
+  @Path("/provisioning/{destination}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  public void sendProvisioningMessage(@Auth                     Account source,
+                                      @PathParam("destination") String destinationName,
+                                      @Valid                    ProvisioningMessage message)
+      throws RateLimitExceededException, InvalidWebsocketAddressException
+  {
+    rateLimiters.getMessagesLimiter().validate(source.getNumber());
+
+    pushSender.getWebSocketSender().sendProvisioningMessage(new ProvisioningAddress(destinationName),
+                                                            message.getBody());
   }
 
   private void sendLocalMessage(Account source,
