@@ -138,12 +138,12 @@ public class MessageController {
   public void sendProvisioningMessage(@Auth                     Account source,
                                       @PathParam("destination") String destinationName,
                                       @Valid                    ProvisioningMessage message)
-      throws RateLimitExceededException, InvalidWebsocketAddressException
+      throws RateLimitExceededException, InvalidWebsocketAddressException, IOException
   {
     rateLimiters.getMessagesLimiter().validate(source.getNumber());
 
     pushSender.getWebSocketSender().sendProvisioningMessage(new ProvisioningAddress(destinationName),
-                                                            message.getBody());
+                                                            Base64.decode(message.getBody()));
   }
 
   private void sendLocalMessage(Account source,
