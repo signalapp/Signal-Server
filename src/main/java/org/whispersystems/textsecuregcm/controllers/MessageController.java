@@ -26,7 +26,7 @@ import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
 import org.whispersystems.textsecuregcm.entities.MessageResponse;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
-import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
+import org.whispersystems.textsecuregcm.entities.SendMessageResponse;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.federation.FederatedClient;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
@@ -39,8 +39,6 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Base64;
-import org.whispersystems.textsecuregcm.websocket.InvalidWebsocketAddressException;
-import org.whispersystems.textsecuregcm.websocket.ProvisioningAddress;
 
 import javax.validation.Valid;
 import javax.ws.rs.Consumes;
@@ -85,16 +83,21 @@ public class MessageController {
   @Path("/{destination}")
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
-  public void sendMessage(@Auth                     Account source,
-                          @PathParam("destination") String destinationName,
-                          @Valid                    IncomingMessageList messages)
+  @Produces(MediaType.APPLICATION_JSON)
+  public SendMessageResponse sendMessage(@Auth                     Account source,
+                                         @PathParam("destination") String destinationName,
+                                         @Valid                    IncomingMessageList messages)
       throws IOException, RateLimitExceededException
   {
     rateLimiters.getMessagesLimiter().validate(source.getNumber());
 
     try {
-      if (messages.getRelay() == null) sendLocalMessage(source, destinationName, messages);
-      else                             sendRelayMessage(source, destinationName, messages);
+      boolean isSyncMessage = source.getNumber().equals(destinationName);
+
+      if (messages.getRelay() == null) sendLocalMessage(source, destinationName, messages, isSyncMessage);
+      else                             sendRelayMessage(source, destinationName, messages, isSyncMessage);
+
+      return new SendMessageResponse(!isSyncMessage && source.getActiveDeviceCount() > 1);
     } catch (NoSuchUserException e) {
       throw new WebApplicationException(Response.status(404).build());
     } catch (MismatchedDevicesException e) {
@@ -108,6 +111,8 @@ public class MessageController {
                                                 .type(MediaType.APPLICATION_JSON)
                                                 .entity(new StaleDevices(e.getStaleDevices()))
                                                 .build());
+    } catch (InvalidDestinationException e) {
+      throw new WebApplicationException(Response.status(400).build());
     }
   }
 
@@ -131,29 +136,18 @@ public class MessageController {
     }
   }
 
-  @Timed
-  @PUT
-  @Path("/provisioning/{destination}")
-  @Consumes(MediaType.APPLICATION_JSON)
-  public void sendProvisioningMessage(@Auth                     Account source,
-                                      @PathParam("destination") String destinationName,
-                                      @Valid                    ProvisioningMessage message)
-      throws RateLimitExceededException, InvalidWebsocketAddressException, IOException
-  {
-    rateLimiters.getMessagesLimiter().validate(source.getNumber());
-
-    pushSender.getWebSocketSender().sendProvisioningMessage(new ProvisioningAddress(destinationName),
-                                                            Base64.decode(message.getBody()));
-  }
-
   private void sendLocalMessage(Account source,
                                 String destinationName,
-                                IncomingMessageList messages)
+                                IncomingMessageList messages,
+                                boolean isSyncMessage)
       throws NoSuchUserException, MismatchedDevicesException, IOException, StaleDevicesException
   {
-    Account destination = getDestinationAccount(destinationName);
+    Account destination;
 
-    validateCompleteDeviceList(destination, messages.getMessages());
+    if (!isSyncMessage) destination = getDestinationAccount(destinationName);
+    else                destination = source;
+
+    validateCompleteDeviceList(destination, messages.getMessages(), isSyncMessage);
     validateRegistrationIds(destination, messages.getMessages());
 
     for (IncomingMessage incomingMessage : messages.getMessages()) {
@@ -201,9 +195,12 @@ public class MessageController {
 
   private void sendRelayMessage(Account source,
                                 String destinationName,
-                                IncomingMessageList messages)
-      throws IOException, NoSuchUserException
+                                IncomingMessageList messages,
+                                boolean isSyncMessage)
+      throws IOException, NoSuchUserException, InvalidDestinationException
   {
+    if (isSyncMessage) throw new InvalidDestinationException("Transcript messages can't be relayed!");
+
     try {
       FederatedClient client = federatedClientManager.getClient(messages.getRelay());
       client.sendMessages(source.getNumber(), source.getAuthenticatedDevice().get().getId(),
@@ -246,7 +243,9 @@ public class MessageController {
     }
   }
 
-  private void validateCompleteDeviceList(Account account, List<IncomingMessage> messages)
+  private void validateCompleteDeviceList(Account account,
+                                          List<IncomingMessage> messages,
+                                          boolean isSyncMessage)
       throws MismatchedDevicesException
   {
     Set<Long> messageDeviceIds = new HashSet<>();
@@ -260,7 +259,9 @@ public class MessageController {
     }
 
     for (Device device : account.getDevices()) {
-      if (device.isActive()) {
+      if (device.isActive() &&
+          !(isSyncMessage && device.getId() == account.getAuthenticatedDevice().get().getId()))
+      {
         accountDeviceIds.add(device.getId());
 
         if (!messageDeviceIds.contains(device.getId())) {

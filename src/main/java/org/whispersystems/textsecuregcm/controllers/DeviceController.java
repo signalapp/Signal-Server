@@ -44,6 +44,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 
@@ -69,7 +70,7 @@ public class DeviceController {
 
   @Timed
   @GET
-  @Path("/provisioning_code")
+  @Path("/provisioning/code")
   @Produces(MediaType.APPLICATION_JSON)
   public VerificationCode createDeviceToken(@Auth Account account)
       throws RateLimitExceededException
@@ -102,7 +103,7 @@ public class DeviceController {
       Optional<String> storedVerificationCode = pendingDevices.getCodeForNumber(number);
 
       if (!storedVerificationCode.isPresent() ||
-          !verificationCode.equals(storedVerificationCode.get()))
+          !MessageDigest.isEqual(verificationCode.getBytes(), storedVerificationCode.get().getBytes()))
       {
         throw new WebApplicationException(Response.status(403).build());
       }

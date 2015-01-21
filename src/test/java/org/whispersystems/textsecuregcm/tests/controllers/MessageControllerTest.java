@@ -98,7 +98,7 @@ public class MessageControllerTest {
         .type(MediaType.APPLICATION_JSON_TYPE)
         .put(ClientResponse.class);
 
-    assertThat("Good Response", response.getStatus(), is(equalTo(204)));
+    assertThat("Good Response", response.getStatus(), is(equalTo(200)));
 
     verify(pushSender, times(1)).sendMessage(any(Account.class), any(Device.class), any(MessageProtos.OutgoingMessageSignal.class));
   }
@@ -148,7 +148,7 @@ public class MessageControllerTest {
             .type(MediaType.APPLICATION_JSON_TYPE)
             .put(ClientResponse.class);
 
-    assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
+    assertThat("Good Response Code", response.getStatus(), is(equalTo(200)));
 
     verify(pushSender, times(2)).sendMessage(any(Account.class), any(Device.class), any(MessageProtos.OutgoingMessageSignal.class));
   }

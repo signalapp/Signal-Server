@@ -121,6 +121,16 @@ public class Account {
     return highestDevice + 1;
   }
 
+  public int getActiveDeviceCount() {
+    int count = 0;
+
+    for (Device device : devices) {
+      if (device.isActive()) count++;
+    }
+
+    return count;
+  }
+
   public boolean isRateLimited() {
     return true;
   }

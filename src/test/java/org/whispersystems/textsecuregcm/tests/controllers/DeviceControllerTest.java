@@ -82,7 +82,7 @@ public class DeviceControllerTest {
 
   @Test
   public void validDeviceRegisterTest() throws Exception {
-    VerificationCode deviceCode = resources.client().resource("/v1/devices/provisioning_code")
+    VerificationCode deviceCode = resources.client().resource("/v1/devices/provisioning/code")
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .get(VerificationCode.class);
 

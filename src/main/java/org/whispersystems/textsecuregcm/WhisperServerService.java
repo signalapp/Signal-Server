@@ -39,6 +39,7 @@ import org.whispersystems.textsecuregcm.controllers.KeepAliveController;
 import org.whispersystems.textsecuregcm.controllers.KeysControllerV1;
 import org.whispersystems.textsecuregcm.controllers.KeysControllerV2;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
+import org.whispersystems.textsecuregcm.controllers.ProvisioningController;
 import org.whispersystems.textsecuregcm.controllers.ReceiptController;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.federation.FederatedPeer;
@@ -182,6 +183,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(new FederationControllerV1(accountsManager, attachmentController, messageController, keysControllerV1));
     environment.jersey().register(new FederationControllerV2(accountsManager, attachmentController, messageController, keysControllerV2));
     environment.jersey().register(new ReceiptController(accountsManager, federatedClientManager, pushSender));
+    environment.jersey().register(new ProvisioningController(rateLimiters, pushSender));
     environment.jersey().register(attachmentController);
     environment.jersey().register(keysControllerV1);
     environment.jersey().register(keysControllerV2);
@@ -203,10 +205,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       ServletRegistration.Dynamic websocket    = environment.servlets().addServlet("WebSocket", webSocketServlet      );
       ServletRegistration.Dynamic provisioning = environment.servlets().addServlet("Provisioning", provisioningServlet);
 
-      websocket.addMapping("/v1/websocket/*");
+      websocket.addMapping("/v1/websocket/");
       websocket.setAsyncSupported(true);
 
-      provisioning.addMapping("/v1/provisioning/*");
+      provisioning.addMapping("/v1/websocket/provisioning/");
       provisioning.setAsyncSupported(true);
 
       webSocketServlet.start();
