@@ -6,10 +6,13 @@ import com.sun.jersey.api.client.ClientResponse;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
+import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -21,8 +24,9 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
 import javax.ws.rs.core.MediaType;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -57,13 +61,14 @@ public class MessageControllerTest {
 
   @Before
   public void setup() throws Exception {
-    List<Device> singleDeviceList = new LinkedList<Device>() {{
-      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 111, null));
+    Set<Device> singleDeviceList = new HashSet<Device>() {{
+      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 111, null, System.currentTimeMillis()));
     }};
 
-    List<Device> multiDeviceList = new LinkedList<Device>() {{
-      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 222, null));
-      add(new Device(2, "foo", "bar", "baz", "isgcm", null, false, 333, null));
+    Set<Device> multiDeviceList = new HashSet<Device>() {{
+      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 222, new SignedPreKey(111, "foo", "bar"), System.currentTimeMillis()));
+      add(new Device(2, "foo", "bar", "baz", "isgcm", null, false, 333, new SignedPreKey(222, "oof", "rab"), System.currentTimeMillis()));
+      add(new Device(3, "foo", "bar", "baz", "isgcm", null, false, 444, null, System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31)));
     }};
 
     Account singleDeviceAccount = new Account(SINGLE_DEVICE_RECIPIENT, false, singleDeviceList);

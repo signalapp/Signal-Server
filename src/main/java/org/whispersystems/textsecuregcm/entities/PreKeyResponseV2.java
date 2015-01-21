@@ -16,6 +16,7 @@
  */
 package org.whispersystems.textsecuregcm.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 
@@ -42,7 +43,19 @@ public class PreKeyResponseV2 {
   }
 
   @VisibleForTesting
-  public List<PreKeyResponseItemV2> getDevices() {
-    return devices;
+  @JsonIgnore
+  public PreKeyResponseItemV2 getDevice(int deviceId) {
+    for (PreKeyResponseItemV2 device : devices) {
+      if (device.getDeviceId() == deviceId) return device;
+    }
+
+    return null;
   }
+
+  @VisibleForTesting
+  @JsonIgnore
+  public int getDevicesCount() {
+    return devices.size();
+  }
+
 }

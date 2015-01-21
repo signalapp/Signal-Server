@@ -25,8 +25,10 @@ import org.whispersystems.websocket.session.WebSocketSessionContext;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 import io.dropwizard.auth.basic.BasicCredentials;
 import static org.junit.Assert.assertTrue;
@@ -127,7 +129,7 @@ public class WebSocketConnectionTest {
 
     final Device sender1device = mock(Device.class);
 
-    List<Device> sender1devices = new LinkedList<Device>() {{
+    Set<Device> sender1devices = new HashSet<Device>() {{
       add(sender1device);
     }};
 

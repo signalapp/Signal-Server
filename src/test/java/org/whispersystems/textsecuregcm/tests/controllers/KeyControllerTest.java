@@ -26,8 +26,10 @@ import org.whispersystems.textsecuregcm.storage.Keys;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
 import javax.ws.rs.core.MediaType;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.fest.assertions.api.Assertions.assertThat;
@@ -73,7 +75,7 @@ public class KeyControllerTest {
     final Device sampleDevice3 = mock(Device.class);
     final Device sampleDevice4 = mock(Device.class);
 
-    List<Device> allDevices = new LinkedList<Device>() {{
+    Set<Device> allDevices = new HashSet<Device>() {{
       add(sampleDevice);
       add(sampleDevice2);
       add(sampleDevice3);
@@ -198,10 +200,10 @@ public class KeyControllerTest {
                                        .get(PreKeyResponseV2.class);
 
     assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey());
-    assertThat(result.getDevices().size()).isEqualTo(1);
-    assertThat(result.getDevices().get(0).getPreKey().getKeyId()).isEqualTo(SAMPLE_KEY.getKeyId());
-    assertThat(result.getDevices().get(0).getPreKey().getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
-    assertThat(result.getDevices().get(0).getSignedPreKey()).isEqualTo(existsAccount.getDevice(1).get().getSignedPreKey());
+    assertThat(result.getDevicesCount()).isEqualTo(1);
+    assertThat(result.getDevice(1).getPreKey().getKeyId()).isEqualTo(SAMPLE_KEY.getKeyId());
+    assertThat(result.getDevice(1).getPreKey().getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
+    assertThat(result.getDevice(1).getSignedPreKey()).isEqualTo(existsAccount.getDevice(1).get().getSignedPreKey());
 
     verify(keys).get(eq(EXISTS_NUMBER), eq(1L));
     verifyNoMoreInteractions(keys);
@@ -245,13 +247,13 @@ public class KeyControllerTest {
                                         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                                         .get(PreKeyResponseV2.class);
 
-    assertThat(results.getDevices().size()).isEqualTo(3);
+    assertThat(results.getDevicesCount()).isEqualTo(3);
     assertThat(results.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey());
 
-    PreKeyV2 signedPreKey   = results.getDevices().get(0).getSignedPreKey();
-    PreKeyV2 preKey         = results.getDevices().get(0).getPreKey();
-    long     registrationId = results.getDevices().get(0).getRegistrationId();
-    long     deviceId       = results.getDevices().get(0).getDeviceId();
+    PreKeyV2 signedPreKey   = results.getDevice(1).getSignedPreKey();
+    PreKeyV2 preKey         = results.getDevice(1).getPreKey();
+    long     registrationId = results.getDevice(1).getRegistrationId();
+    long     deviceId       = results.getDevice(1).getDeviceId();
 
     assertThat(preKey.getKeyId()).isEqualTo(SAMPLE_KEY.getKeyId());
     assertThat(preKey.getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
@@ -260,10 +262,10 @@ public class KeyControllerTest {
     assertThat(signedPreKey.getPublicKey()).isEqualTo(SAMPLE_SIGNED_KEY.getPublicKey());
     assertThat(deviceId).isEqualTo(1);
 
-    signedPreKey   = results.getDevices().get(1).getSignedPreKey();
-    preKey         = results.getDevices().get(1).getPreKey();
-    registrationId = results.getDevices().get(1).getRegistrationId();
-    deviceId       = results.getDevices().get(1).getDeviceId();
+    signedPreKey   = results.getDevice(2).getSignedPreKey();
+    preKey         = results.getDevice(2).getPreKey();
+    registrationId = results.getDevice(2).getRegistrationId();
+    deviceId       = results.getDevice(2).getDeviceId();
 
     assertThat(preKey.getKeyId()).isEqualTo(SAMPLE_KEY2.getKeyId());
     assertThat(preKey.getPublicKey()).isEqualTo(SAMPLE_KEY2.getPublicKey());
@@ -272,10 +274,10 @@ public class KeyControllerTest {
     assertThat(signedPreKey.getPublicKey()).isEqualTo(SAMPLE_SIGNED_KEY2.getPublicKey());
     assertThat(deviceId).isEqualTo(2);
 
-    signedPreKey   = results.getDevices().get(2).getSignedPreKey();
-    preKey         = results.getDevices().get(2).getPreKey();
-    registrationId = results.getDevices().get(2).getRegistrationId();
-    deviceId       = results.getDevices().get(2).getDeviceId();
+    signedPreKey   = results.getDevice(4).getSignedPreKey();
+    preKey         = results.getDevice(4).getPreKey();
+    registrationId = results.getDevice(4).getRegistrationId();
+    deviceId       = results.getDevice(4).getDeviceId();
 
     assertThat(preKey.getKeyId()).isEqualTo(SAMPLE_KEY4.getKeyId());
     assertThat(preKey.getPublicKey()).isEqualTo(SAMPLE_KEY4.getPublicKey());

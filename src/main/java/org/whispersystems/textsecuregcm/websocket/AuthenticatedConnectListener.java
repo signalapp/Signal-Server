@@ -9,6 +9,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.storage.StoredMessages;
+import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 import org.whispersystems.websocket.setup.WebSocketConnectListener;
 
@@ -46,6 +47,11 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       logger.debug("WS Connection with no authenticated device...");
       context.getClient().close(4001, "Device authentication failed");
       return;
+    }
+
+    if (device.get().getLastSeen() != Util.todayInMillis()) {
+      device.get().setLastSeen(Util.todayInMillis());
+      accountsManager.update(account.get());
     }
 
     final WebSocketConnection connection = new WebSocketConnection(accountsManager, pushSender,

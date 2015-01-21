@@ -22,8 +22,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 
-import java.util.LinkedList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 public class Account {
 
@@ -36,7 +36,7 @@ public class Account {
   private boolean supportsSms;
 
   @JsonProperty
-  private List<Device> devices = new LinkedList<>();
+  private Set<Device> devices = new HashSet<>();
 
   @JsonProperty
   private String identityKey;
@@ -47,7 +47,7 @@ public class Account {
   public Account() {}
 
   @VisibleForTesting
-  public Account(String number, boolean supportsSms, List<Device> devices) {
+  public Account(String number, boolean supportsSms, Set<Device> devices) {
     this.number      = number;
     this.supportsSms = supportsSms;
     this.devices     = devices;
@@ -78,14 +78,11 @@ public class Account {
   }
 
   public void addDevice(Device device) {
+    this.devices.remove(device);
     this.devices.add(device);
   }
 
-  public void setDevices(List<Device> devices) {
-    this.devices = devices;
-  }
-
-  public List<Device> getDevices() {
+  public Set<Device> getDevices() {
     return devices;
   }
 
@@ -113,7 +110,9 @@ public class Account {
     long highestDevice = Device.MASTER_ID;
 
     for (Device device : devices) {
-      if (device.getId() > highestDevice) {
+      if (!device.isActive()) {
+        return device.getId();
+      } else if (device.getId() > highestDevice) {
         highestDevice = device.getId();
       }
     }

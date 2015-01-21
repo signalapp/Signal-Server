@@ -18,8 +18,11 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.fest.assertions.api.Assertions.assertThat;
@@ -47,13 +50,13 @@ public class ReceiptControllerTest  {
 
   @Before
   public void setup() throws Exception {
-    List<Device> singleDeviceList = new LinkedList<Device>() {{
-      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 111, null));
+    Set<Device> singleDeviceList = new HashSet<Device>() {{
+      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 111, null, System.currentTimeMillis()));
     }};
 
-    List<Device> multiDeviceList = new LinkedList<Device>() {{
-      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 222, null));
-      add(new Device(2, "foo", "bar", "baz", "isgcm", null, false, 333, null));
+    Set<Device> multiDeviceList = new HashSet<Device>() {{
+      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 222, null, System.currentTimeMillis()));
+      add(new Device(2, "foo", "bar", "baz", "isgcm", null, false, 333, null, System.currentTimeMillis()));
     }};
 
     Account singleDeviceAccount = new Account(SINGLE_DEVICE_RECIPIENT, false, singleDeviceList);

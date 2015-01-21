@@ -18,7 +18,7 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
-import java.util.List;
+import java.util.Set;
 
 import io.dropwizard.auth.Auth;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
@@ -74,8 +74,8 @@ public class ReceiptController {
   private void sendDirectReceipt(Account source, String destination, long messageId)
       throws NotPushRegisteredException, TransientPushFailureException, NoSuchUserException
   {
-    Account      destinationAccount = getDestinationAccount(destination);
-    List<Device> destinationDevices = destinationAccount.getDevices();
+    Account     destinationAccount = getDestinationAccount(destination);
+    Set<Device> destinationDevices = destinationAccount.getDevices();
 
     OutgoingMessageSignal.Builder message =
         OutgoingMessageSignal.newBuilder()

@@ -21,6 +21,7 @@ import java.net.URLEncoder;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public class Util {
 
@@ -118,5 +119,9 @@ public class Util {
     try {
       Thread.sleep(i);
     } catch (InterruptedException ie) {}
+  }
+
+  public static long todayInMillis() {
+    return TimeUnit.DAYS.toMillis(TimeUnit.MILLISECONDS.toDays(System.currentTimeMillis()));
   }
 }
