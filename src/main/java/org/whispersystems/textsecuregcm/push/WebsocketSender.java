@@ -24,8 +24,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
-import org.whispersystems.textsecuregcm.storage.StoredMessages;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningAddress;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
@@ -49,15 +49,15 @@ public class WebsocketSender {
   private final Meter provisioningOnlineMeter  = metricRegistry.meter(name(getClass(), "provisioning_online" ));
   private final Meter provisioningOfflineMeter = metricRegistry.meter(name(getClass(), "provisioning_offline"));
 
-  private final StoredMessages storedMessages;
-  private final PubSubManager  pubSubManager;
+  private final MessagesManager messagesManager;
+  private final PubSubManager   pubSubManager;
 
-  public WebsocketSender(StoredMessages storedMessages, PubSubManager pubSubManager) {
-    this.storedMessages = storedMessages;
-    this.pubSubManager  = pubSubManager;
+  public WebsocketSender(MessagesManager messagesManager, PubSubManager pubSubManager) {
+    this.messagesManager = messagesManager;
+    this.pubSubManager   = pubSubManager;
   }
 
-  public boolean sendMessage(Account account, Device device, OutgoingMessageSignal message, boolean apn) {
+  public DeliveryStatus sendMessage(Account account, Device device, OutgoingMessageSignal message, boolean apn) {
     WebsocketAddress address       = new WebsocketAddress(account.getNumber(), device.getId());
     PubSubMessage    pubSubMessage = PubSubMessage.newBuilder()
                                                   .setType(PubSubMessage.Type.DELIVER)
@@ -68,17 +68,17 @@ public class WebsocketSender {
       if (apn) apnOnlineMeter.mark();
       else     websocketOnlineMeter.mark();
 
-      return true;
+      return new DeliveryStatus(true, 0);
     } else {
       if (apn) apnOfflineMeter.mark();
       else     websocketOfflineMeter.mark();
 
-      storedMessages.insert(address, message);
+      int queueDepth = messagesManager.insert(account.getNumber(), device.getId(), message);
       pubSubManager.publish(address, PubSubMessage.newBuilder()
                                                   .setType(PubSubMessage.Type.QUERY_DB)
                                                   .build());
 
-      return false;
+      return new DeliveryStatus(false, queueDepth);
     }
   }
 
@@ -94,6 +94,25 @@ public class WebsocketSender {
     } else {
       provisioningOfflineMeter.mark();
       return false;
+    }
+  }
+
+  public static class DeliveryStatus {
+
+    private final boolean delivered;
+    private final int     messageQueueDepth;
+
+    public DeliveryStatus(boolean delivered, int messageQueueDepth) {
+      this.delivered = delivered;
+      this.messageQueueDepth = messageQueueDepth;
+    }
+
+    public boolean isDelivered() {
+      return delivered;
+    }
+
+    public int getMessageQueueDepth() {
+      return messageQueueDepth;
     }
   }
 }

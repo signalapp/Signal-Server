@@ -15,8 +15,9 @@ import org.whispersystems.textsecuregcm.providers.TimeProvider;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
-import org.whispersystems.textsecuregcm.storage.StoredMessages;
+//import org.whispersystems.textsecuregcm.storage.StoredMessages;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
 import javax.ws.rs.core.MediaType;
@@ -35,7 +36,7 @@ public class AccountControllerTest {
   private        RateLimiters           rateLimiters           = mock(RateLimiters.class          );
   private        RateLimiter            rateLimiter            = mock(RateLimiter.class           );
   private        SmsSender              smsSender              = mock(SmsSender.class             );
-  private        StoredMessages         storedMessages         = mock(StoredMessages.class        );
+  private        MessagesManager        storedMessages         = mock(MessagesManager.class       );
   private        TimeProvider           timeProvider           = mock(TimeProvider.class          );
   private static byte[]                 authorizationKey       = decodeHex("3a078586eea8971155f5c1ebd73c8c923cbec1c3ed22a54722e4e88321dc749f");
 

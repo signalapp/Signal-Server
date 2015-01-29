@@ -23,11 +23,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.AuthorizationHeader;
+import org.whispersystems.textsecuregcm.auth.AuthorizationToken;
 import org.whispersystems.textsecuregcm.auth.InvalidAuthorizationHeaderException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
-import org.whispersystems.textsecuregcm.auth.AuthorizationToken;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.providers.TimeProvider;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
@@ -35,11 +35,10 @@ import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
-import org.whispersystems.textsecuregcm.storage.StoredMessages;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
-import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
 import javax.validation.Valid;
 import javax.ws.rs.Consumes;
@@ -69,7 +68,7 @@ public class AccountController {
   private final AccountsManager        accounts;
   private final RateLimiters           rateLimiters;
   private final SmsSender              smsSender;
-  private final StoredMessages         storedMessages;
+  private final MessagesManager        messagesManager;
   private final TimeProvider           timeProvider;
   private final Optional<byte[]>       authorizationKey;
 
@@ -77,7 +76,7 @@ public class AccountController {
                            AccountsManager accounts,
                            RateLimiters rateLimiters,
                            SmsSender smsSenderFactory,
-                           StoredMessages storedMessages,
+                           MessagesManager messagesManager,
                            TimeProvider timeProvider,
                            Optional<byte[]> authorizationKey)
   {
@@ -85,7 +84,7 @@ public class AccountController {
     this.accounts         = accounts;
     this.rateLimiters     = rateLimiters;
     this.smsSender        = smsSenderFactory;
-    this.storedMessages   = storedMessages;
+    this.messagesManager  = messagesManager;
     this.timeProvider     = timeProvider;
     this.authorizationKey = authorizationKey;
   }
@@ -257,7 +256,7 @@ public class AccountController {
     account.addDevice(device);
 
     accounts.create(account);
-    storedMessages.clear(new WebsocketAddress(number, Device.MASTER_ID));
+    messagesManager.clear(number);
     pendingAccounts.remove(number);
 
     logger.debug("Stored device...");

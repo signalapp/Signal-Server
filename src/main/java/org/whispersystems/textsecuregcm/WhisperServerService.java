@@ -67,18 +67,20 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager;
 import org.whispersystems.textsecuregcm.storage.Keys;
+import org.whispersystems.textsecuregcm.storage.Messages;
+import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PendingAccounts;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
 import org.whispersystems.textsecuregcm.storage.PendingDevices;
 import org.whispersystems.textsecuregcm.storage.PendingDevicesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
-import org.whispersystems.textsecuregcm.storage.StoredMessages;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.UrlSigner;
 import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningConnectListener;
 import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.workers.DirectoryCommand;
+import org.whispersystems.textsecuregcm.liquibase.NameableMigrationsBundle;
 import org.whispersystems.textsecuregcm.workers.VacuumCommand;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
@@ -96,7 +98,6 @@ import io.dropwizard.client.JerseyClientBuilder;
 import io.dropwizard.db.DataSourceFactory;
 import io.dropwizard.jdbi.DBIFactory;
 import io.dropwizard.metrics.graphite.GraphiteReporterFactory;
-import io.dropwizard.migrations.MigrationsBundle;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import redis.clients.jedis.JedisPool;
@@ -111,10 +112,17 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
   public void initialize(Bootstrap<WhisperServerConfiguration> bootstrap) {
     bootstrap.addCommand(new DirectoryCommand());
     bootstrap.addCommand(new VacuumCommand());
-    bootstrap.addBundle(new MigrationsBundle<WhisperServerConfiguration>() {
+    bootstrap.addBundle(new NameableMigrationsBundle<WhisperServerConfiguration>("accountdb", "accountsdb.xml") {
       @Override
       public DataSourceFactory getDataSourceFactory(WhisperServerConfiguration configuration) {
         return configuration.getDataSourceFactory();
+      }
+    });
+
+    bootstrap.addBundle(new NameableMigrationsBundle<WhisperServerConfiguration>("messagedb", "messagedb.xml") {
+      @Override
+      public DataSourceFactory getDataSourceFactory(WhisperServerConfiguration configuration) {
+        return configuration.getMessageStoreConfiguration();
       }
     });
   }
@@ -132,16 +140,17 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     DBIFactory dbiFactory = new DBIFactory();
-    DBI        jdbi       = dbiFactory.build(environment, config.getDataSourceFactory(), "postgresql");
+    DBI        database   = dbiFactory.build(environment, config.getDataSourceFactory(), "accountdb");
+    DBI        messagedb  = dbiFactory.build(environment, config.getMessageStoreConfiguration(), "messagedb");
 
-    Accounts        accounts        = jdbi.onDemand(Accounts.class);
-    PendingAccounts pendingAccounts = jdbi.onDemand(PendingAccounts.class);
-    PendingDevices  pendingDevices  = jdbi.onDemand(PendingDevices.class);
-    Keys            keys            = jdbi.onDemand(Keys.class);
+    Accounts        accounts        = database.onDemand(Accounts.class);
+    PendingAccounts pendingAccounts = database.onDemand(PendingAccounts.class);
+    PendingDevices  pendingDevices  = database.onDemand(PendingDevices.class);
+    Keys            keys            = database.onDemand(Keys.class);
+    Messages        messages        = messagedb.onDemand(Messages.class);
 
     MemcachedClient memcachedClient    = new MemcachedClientFactory(config.getMemcacheConfiguration()).getClient();
     JedisPool       directoryClient    = new RedisClientFactory(config.getDirectoryConfiguration().getUrl()).getRedisClientPool();
-    JedisPool       messageStoreClient = new RedisClientFactory(config.getMessageStoreConfiguration().getUrl()).getRedisClientPool();
     Client          httpClient         = new JerseyClientBuilder(environment).using(config.getJerseyClientConfiguration())
                                                                              .build(getName());
 
@@ -150,10 +159,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     PendingDevicesManager  pendingDevicesManager  = new PendingDevicesManager (pendingDevices, memcachedClient );
     AccountsManager        accountsManager        = new AccountsManager(accounts, directory, memcachedClient);
     FederatedClientManager federatedClientManager = new FederatedClientManager(config.getFederationConfiguration());
-    StoredMessages         storedMessages         = new StoredMessages(messageStoreClient);
-    PubSubManager          pubSubManager          = new PubSubManager(messageStoreClient);
+    MessagesManager        messagesManager        = new MessagesManager(messages);
+    PubSubManager          pubSubManager          = new PubSubManager(directoryClient);
     PushServiceClient      pushServiceClient      = new PushServiceClient(httpClient, config.getPushConfiguration());
-    WebsocketSender        websocketSender        = new WebsocketSender(storedMessages, pubSubManager);
+    WebsocketSender        websocketSender        = new WebsocketSender(messagesManager, pubSubManager);
     AccountAuthenticator   deviceAuthenticator    = new AccountAuthenticator(accountsManager);
     RateLimiters           rateLimiters           = new RateLimiters(config.getLimitsConfiguration(), memcachedClient);
 
@@ -177,7 +186,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                                                                deviceAuthenticator,
                                                                Device.class, "WhisperServer"));
 
-    environment.jersey().register(new AccountController(pendingAccountsManager, accountsManager, rateLimiters, smsSender, storedMessages, new TimeProvider(), authorizationKey));
+    environment.jersey().register(new AccountController(pendingAccountsManager, accountsManager, rateLimiters, smsSender, messagesManager, new TimeProvider(), authorizationKey));
     environment.jersey().register(new DeviceController(pendingDevicesManager, accountsManager, rateLimiters));
     environment.jersey().register(new DirectoryController(rateLimiters, directory));
     environment.jersey().register(new FederationControllerV1(accountsManager, attachmentController, messageController, keysControllerV1));
@@ -192,7 +201,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     if (config.getWebsocketConfiguration().isEnabled()) {
       WebSocketEnvironment webSocketEnvironment = new WebSocketEnvironment(environment, config);
       webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(deviceAuthenticator));
-      webSocketEnvironment.setConnectListener(new AuthenticatedConnectListener(accountsManager, pushSender, storedMessages, pubSubManager));
+      webSocketEnvironment.setConnectListener(new AuthenticatedConnectListener(accountsManager, pushSender, messagesManager, pubSubManager));
       webSocketEnvironment.jersey().register(new KeepAliveController());
 
       WebSocketEnvironment provisioningEnvironment = new WebSocketEnvironment(environment, config);
@@ -224,7 +233,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     }
 
     environment.healthChecks().register("directory", new RedisHealthCheck(directoryClient));
-    environment.healthChecks().register("messagestore", new RedisHealthCheck(messageStoreClient));
     environment.healthChecks().register("memcache", new MemcacheHealthCheck(memcachedClient));
 
     environment.jersey().register(new IOExceptionMapper());

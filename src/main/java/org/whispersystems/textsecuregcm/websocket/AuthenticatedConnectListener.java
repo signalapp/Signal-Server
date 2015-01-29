@@ -7,8 +7,8 @@ import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
-import org.whispersystems.textsecuregcm.storage.StoredMessages;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 import org.whispersystems.websocket.setup.WebSocketConnectListener;
@@ -19,15 +19,15 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
   private final AccountsManager accountsManager;
   private final PushSender      pushSender;
-  private final StoredMessages  storedMessages;
+  private final MessagesManager messagesManager;
   private final PubSubManager   pubSubManager;
 
   public AuthenticatedConnectListener(AccountsManager accountsManager, PushSender pushSender,
-                                      StoredMessages storedMessages, PubSubManager pubSubManager)
+                                      MessagesManager messagesManager, PubSubManager pubSubManager)
   {
     this.accountsManager = accountsManager;
     this.pushSender      = pushSender;
-    this.storedMessages  = storedMessages;
+    this.messagesManager = messagesManager;
     this.pubSubManager   = pubSubManager;
   }
 
@@ -55,7 +55,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     }
 
     final WebSocketConnection connection = new WebSocketConnection(accountsManager, pushSender,
-                                                                   storedMessages, pubSubManager,
+                                                                   messagesManager, pubSubManager,
                                                                    account.get(), device.get(),
                                                                    context.getClient());
 

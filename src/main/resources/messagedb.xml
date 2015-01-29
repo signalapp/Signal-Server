@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-2.0.xsd">
+
+    <changeSet id="1" author="moxie">
+        <createTable tableName="messages">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="type" type="tinyint">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="relay" type="text">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="timestamp" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="source" type="text">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="source_device" type="int">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="destination" type="text">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="destination_device" type="int">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="message" type="bytea">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="messages" indexName="destination_index">
+            <column name="destination"></column>
+            <column name="destination_device"></column>
+        </createIndex>
+
+        <createIndex tableName="messages" indexName="destination_and_type_index">
+            <column name="destination"></column>
+            <column name="destination_device"></column>
+            <column name="type"></column>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

@@ -22,6 +22,7 @@ import org.whispersystems.textsecuregcm.entities.ApnMessage;
 import org.whispersystems.textsecuregcm.entities.CryptoEncodingException;
 import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
 import org.whispersystems.textsecuregcm.entities.GcmMessage;
+import org.whispersystems.textsecuregcm.push.WebsocketSender.DeliveryStatus;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 
@@ -31,7 +32,7 @@ public class PushSender {
 
   private final Logger logger = LoggerFactory.getLogger(PushSender.class);
 
-  private static final String APN_PAYLOAD = "{\"aps\":{\"sound\":\"default\",\"alert\":{\"loc-key\":\"APN_Message\"},\"content-available\":1,\"category\":\"Signal_Message\"}}";
+  private static final String APN_PAYLOAD = "{\"aps\":{\"sound\":\"default\",\"badge\":%d,\"alert\":{\"loc-key\":\"APN_Message\"}}}";
 
   private final PushServiceClient pushServiceClient;
   private final WebsocketSender   webSocketSender;
@@ -75,11 +76,11 @@ public class PushSender {
   private void sendApnMessage(Account account, Device device, OutgoingMessageSignal outgoingMessage)
       throws TransientPushFailureException
   {
-    boolean online = webSocketSender.sendMessage(account, device, outgoingMessage, true);
+    DeliveryStatus deliveryStatus = webSocketSender.sendMessage(account, device, outgoingMessage, true);
 
-    if (!online && outgoingMessage.getType() != OutgoingMessageSignal.Type.RECEIPT_VALUE) {
-      ApnMessage apnMessage = new ApnMessage(device.getApnId(), account.getNumber(),
-                                             (int)device.getId(), APN_PAYLOAD);
+    if (!deliveryStatus.isDelivered() && outgoingMessage.getType() != OutgoingMessageSignal.Type.RECEIPT_VALUE) {
+      ApnMessage apnMessage = new ApnMessage(device.getApnId(), account.getNumber(), (int)device.getId(),
+                                             String.format(APN_PAYLOAD, deliveryStatus.getMessageQueueDepth()));
       pushServiceClient.send(apnMessage);
     }
   }
