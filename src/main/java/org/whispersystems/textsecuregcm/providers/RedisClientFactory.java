@@ -16,7 +16,6 @@
  */
 package org.whispersystems.textsecuregcm.providers;
 
-import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.net.URI;

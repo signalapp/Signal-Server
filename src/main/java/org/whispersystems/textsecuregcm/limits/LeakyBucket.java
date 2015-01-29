@@ -16,14 +16,20 @@
  */
 package org.whispersystems.textsecuregcm.limits;
 
-import java.io.Serializable;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class LeakyBucket implements Serializable {
+public class LeakyBucket {
 
+  @JsonProperty
   private final int    bucketSize;
+
+  @JsonProperty
   private final double leakRatePerMillis;
 
+  @JsonProperty
   private int spaceRemaining;
+
+  @JsonProperty
   private long lastUpdateTimeMillis;
 
   public LeakyBucket(int bucketSize, double leakRatePerMillis) {

@@ -16,31 +16,18 @@
  */
 package org.whispersystems.textsecuregcm.configuration;
 
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.hibernate.validator.constraints.NotEmpty;
+import org.hibernate.validator.constraints.URL;
 
-public class MemcacheConfiguration {
+public class RedisConfiguration {
 
+  @JsonProperty
   @NotEmpty
-  @JsonProperty
-  private String servers;
+  private String url;
 
-  @JsonProperty
-  private String user;
-
-  @JsonProperty
-  private String password;
-
-
-  public String getServers() {
-    return servers;
-  }
-
-  public String getUser() {
-    return user;
-  }
-
-  public String getPassword() {
-    return password;
+  public String getUrl() {
+    return url;
   }
 }

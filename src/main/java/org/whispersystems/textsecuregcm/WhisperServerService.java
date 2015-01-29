@@ -21,7 +21,6 @@ import com.codahale.metrics.graphite.GraphiteReporter;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.google.common.base.Optional;
 import com.sun.jersey.api.client.Client;
-import net.spy.memcached.MemcachedClient;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
 import org.skife.jdbi.v2.DBI;
@@ -44,14 +43,13 @@ import org.whispersystems.textsecuregcm.controllers.ReceiptController;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.federation.FederatedPeer;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.liquibase.NameableMigrationsBundle;
 import org.whispersystems.textsecuregcm.mappers.IOExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.CpuUsageGauge;
 import org.whispersystems.textsecuregcm.metrics.FreeMemoryGauge;
 import org.whispersystems.textsecuregcm.metrics.NetworkReceivedGauge;
 import org.whispersystems.textsecuregcm.metrics.NetworkSentGauge;
-import org.whispersystems.textsecuregcm.providers.MemcacheHealthCheck;
-import org.whispersystems.textsecuregcm.providers.MemcachedClientFactory;
 import org.whispersystems.textsecuregcm.providers.RedisClientFactory;
 import org.whispersystems.textsecuregcm.providers.RedisHealthCheck;
 import org.whispersystems.textsecuregcm.providers.TimeProvider;
@@ -80,7 +78,6 @@ import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningConnectListener;
 import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.workers.DirectoryCommand;
-import org.whispersystems.textsecuregcm.liquibase.NameableMigrationsBundle;
 import org.whispersystems.textsecuregcm.workers.VacuumCommand;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
@@ -149,22 +146,22 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     Keys            keys            = database.onDemand(Keys.class);
     Messages        messages        = messagedb.onDemand(Messages.class);
 
-    MemcachedClient memcachedClient    = new MemcachedClientFactory(config.getMemcacheConfiguration()).getClient();
+    JedisPool       cacheClient        = new RedisClientFactory(config.getCacheConfiguration().getUrl()).getRedisClientPool();
     JedisPool       directoryClient    = new RedisClientFactory(config.getDirectoryConfiguration().getUrl()).getRedisClientPool();
     Client          httpClient         = new JerseyClientBuilder(environment).using(config.getJerseyClientConfiguration())
                                                                              .build(getName());
 
     DirectoryManager       directory              = new DirectoryManager(directoryClient);
-    PendingAccountsManager pendingAccountsManager = new PendingAccountsManager(pendingAccounts, memcachedClient);
-    PendingDevicesManager  pendingDevicesManager  = new PendingDevicesManager (pendingDevices, memcachedClient );
-    AccountsManager        accountsManager        = new AccountsManager(accounts, directory, memcachedClient);
+    PendingAccountsManager pendingAccountsManager = new PendingAccountsManager(pendingAccounts, cacheClient);
+    PendingDevicesManager  pendingDevicesManager  = new PendingDevicesManager (pendingDevices, cacheClient);
+    AccountsManager        accountsManager        = new AccountsManager(accounts, directory, cacheClient);
     FederatedClientManager federatedClientManager = new FederatedClientManager(config.getFederationConfiguration());
     MessagesManager        messagesManager        = new MessagesManager(messages);
-    PubSubManager          pubSubManager          = new PubSubManager(directoryClient);
+    PubSubManager          pubSubManager          = new PubSubManager(cacheClient);
     PushServiceClient      pushServiceClient      = new PushServiceClient(httpClient, config.getPushConfiguration());
     WebsocketSender        websocketSender        = new WebsocketSender(messagesManager, pubSubManager);
     AccountAuthenticator   deviceAuthenticator    = new AccountAuthenticator(accountsManager);
-    RateLimiters           rateLimiters           = new RateLimiters(config.getLimitsConfiguration(), memcachedClient);
+    RateLimiters           rateLimiters           = new RateLimiters(config.getLimitsConfiguration(), cacheClient);
 
     TwilioSmsSender          twilioSmsSender     = new TwilioSmsSender(config.getTwilioConfiguration());
     Optional<NexmoSmsSender> nexmoSmsSender      = initializeNexmoSmsSender(config.getNexmoConfiguration());
@@ -233,7 +230,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     }
 
     environment.healthChecks().register("directory", new RedisHealthCheck(directoryClient));
-    environment.healthChecks().register("memcache", new MemcacheHealthCheck(memcachedClient));
+    environment.healthChecks().register("cache", new RedisHealthCheck(cacheClient));
 
     environment.jersey().register(new IOExceptionMapper());
     environment.jersey().register(new RateLimitExceededExceptionMapper());

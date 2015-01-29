@@ -87,11 +87,6 @@
             <version>1.0.2</version>
         </dependency>
         <dependency>
-            <groupId>net.spy</groupId>
-            <artifactId>spymemcached</artifactId>
-            <version>2.10.1</version>
-        </dependency>
-        <dependency>
             <groupId>com.notnoop.apns</groupId>
             <artifactId>apns</artifactId>
             <version>0.2.3</version>

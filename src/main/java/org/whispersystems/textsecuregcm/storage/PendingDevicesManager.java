@@ -17,20 +17,22 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import com.google.common.base.Optional;
-import net.spy.memcached.MemcachedClient;
+
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
 
 public class PendingDevicesManager {
 
-  private static final String MEMCACHE_PREFIX = "pending_devices";
+  private static final String CACHE_PREFIX = "pending_devices::";
 
   private final PendingDevices  pendingDevices;
-  private final MemcachedClient memcachedClient;
+  private final JedisPool       cacheClient;
 
   public PendingDevicesManager(PendingDevices pendingDevices,
-                               MemcachedClient memcachedClient)
+                               JedisPool      cacheClient)
   {
-    this.pendingDevices  = pendingDevices;
-    this.memcachedClient = memcachedClient;
+    this.pendingDevices = pendingDevices;
+    this.cacheClient    = cacheClient;
   }
 
   public void store(String number, String code) {
@@ -58,22 +60,20 @@ public class PendingDevicesManager {
   }
 
   private void memcacheSet(String number, String code) {
-    if (memcachedClient != null) {
-      memcachedClient.set(MEMCACHE_PREFIX + number, 0, code);
+    try (Jedis jedis = cacheClient.getResource()) {
+      jedis.set(CACHE_PREFIX + number, code);
     }
   }
 
   private Optional<String> memcacheGet(String number) {
-    if (memcachedClient != null) {
-      return Optional.fromNullable((String)memcachedClient.get(MEMCACHE_PREFIX + number));
-    } else {
-      return Optional.absent();
+    try (Jedis jedis = cacheClient.getResource()) {
+      return Optional.fromNullable(jedis.get(CACHE_PREFIX + number));
     }
   }
 
   private void memcacheDelete(String number) {
-    if (memcachedClient != null) {
-      memcachedClient.delete(MEMCACHE_PREFIX + number);
+    try (Jedis jedis = cacheClient.getResource()) {
+      jedis.del(CACHE_PREFIX + number);
     }
   }
 

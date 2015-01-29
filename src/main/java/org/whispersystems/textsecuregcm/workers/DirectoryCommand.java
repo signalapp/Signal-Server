@@ -17,13 +17,11 @@
 package org.whispersystems.textsecuregcm.workers;
 
 import net.sourceforge.argparse4j.inf.Namespace;
-import net.spy.memcached.MemcachedClient;
 import org.skife.jdbi.v2.DBI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
-import org.whispersystems.textsecuregcm.providers.MemcachedClientFactory;
 import org.whispersystems.textsecuregcm.providers.RedisClientFactory;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -62,10 +60,10 @@ public class DirectoryCommand extends ConfiguredCommand<WhisperServerConfigurati
       dbi.registerContainerFactory(new OptionalContainerFactory());
 
       Accounts               accounts               = dbi.onDemand(Accounts.class);
-      MemcachedClient        memcachedClient        = new MemcachedClientFactory(config.getMemcacheConfiguration()).getClient();
+      JedisPool              cacheClient            = new RedisClientFactory(config.getCacheConfiguration().getUrl()).getRedisClientPool();
       JedisPool              redisClient            = new RedisClientFactory(config.getDirectoryConfiguration().getUrl()).getRedisClientPool();
       DirectoryManager       directory              = new DirectoryManager(redisClient);
-      AccountsManager        accountsManager        = new AccountsManager(accounts, directory, memcachedClient);
+      AccountsManager        accountsManager        = new AccountsManager(accounts, directory, cacheClient);
       FederatedClientManager federatedClientManager = new FederatedClientManager(config.getFederationConfiguration());
 
       DirectoryUpdater update = new DirectoryUpdater(accountsManager, federatedClientManager, directory);

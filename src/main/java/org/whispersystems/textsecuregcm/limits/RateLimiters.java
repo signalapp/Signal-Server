@@ -17,8 +17,9 @@
 package org.whispersystems.textsecuregcm.limits;
 
 
-import net.spy.memcached.MemcachedClient;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
+
+import redis.clients.jedis.JedisPool;
 
 public class RateLimiters {
 
@@ -34,40 +35,40 @@ public class RateLimiters {
   private final RateLimiter allocateDeviceLimiter;
   private final RateLimiter verifyDeviceLimiter;
 
-  public RateLimiters(RateLimitsConfiguration config, MemcachedClient memcachedClient) {
-    this.smsDestinationLimiter = new RateLimiter(memcachedClient, "smsDestination",
+  public RateLimiters(RateLimitsConfiguration config, JedisPool cacheClient) {
+    this.smsDestinationLimiter = new RateLimiter(cacheClient, "smsDestination",
                                                  config.getSmsDestination().getBucketSize(),
                                                  config.getSmsDestination().getLeakRatePerMinute());
 
-    this.voiceDestinationLimiter = new RateLimiter(memcachedClient, "voxDestination",
+    this.voiceDestinationLimiter = new RateLimiter(cacheClient, "voxDestination",
                                                    config.getVoiceDestination().getBucketSize(),
                                                    config.getVoiceDestination().getLeakRatePerMinute());
 
-    this.verifyLimiter = new RateLimiter(memcachedClient, "verify",
+    this.verifyLimiter = new RateLimiter(cacheClient, "verify",
                                          config.getVerifyNumber().getBucketSize(),
                                          config.getVerifyNumber().getLeakRatePerMinute());
 
-    this.attachmentLimiter = new RateLimiter(memcachedClient, "attachmentCreate",
+    this.attachmentLimiter = new RateLimiter(cacheClient, "attachmentCreate",
                                              config.getAttachments().getBucketSize(),
                                              config.getAttachments().getLeakRatePerMinute());
 
-    this.contactsLimiter = new RateLimiter(memcachedClient, "contactsQuery",
+    this.contactsLimiter = new RateLimiter(cacheClient, "contactsQuery",
                                            config.getContactQueries().getBucketSize(),
                                            config.getContactQueries().getLeakRatePerMinute());
 
-    this.preKeysLimiter = new RateLimiter(memcachedClient, "prekeys",
+    this.preKeysLimiter = new RateLimiter(cacheClient, "prekeys",
                                           config.getPreKeys().getBucketSize(),
                                           config.getPreKeys().getLeakRatePerMinute());
 
-    this.messagesLimiter = new RateLimiter(memcachedClient, "messages",
+    this.messagesLimiter = new RateLimiter(cacheClient, "messages",
                                            config.getMessages().getBucketSize(),
                                            config.getMessages().getLeakRatePerMinute());
 
-    this.allocateDeviceLimiter = new RateLimiter(memcachedClient, "allocateDevice",
+    this.allocateDeviceLimiter = new RateLimiter(cacheClient, "allocateDevice",
                                                  config.getAllocateDevice().getBucketSize(),
                                                  config.getAllocateDevice().getLeakRatePerMinute());
 
-    this.verifyDeviceLimiter = new RateLimiter(memcachedClient, "verifyDevice",
+    this.verifyDeviceLimiter = new RateLimiter(cacheClient, "verifyDevice",
                                                config.getVerifyDevice().getBucketSize(),
                                                config.getVerifyDevice().getLeakRatePerMinute());
 

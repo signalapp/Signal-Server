@@ -17,11 +17,10 @@
 package org.whispersystems.textsecuregcm;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RedisConfiguration;
 import org.whispersystems.textsecuregcm.configuration.FederationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GraphiteConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MemcacheConfiguration;
-import org.whispersystems.textsecuregcm.configuration.MessageStoreConfiguration;
 import org.whispersystems.textsecuregcm.configuration.NexmoConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PushConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
@@ -60,12 +59,12 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
-  private MemcacheConfiguration memcache;
+  private RedisConfiguration cache;
 
   @NotNull
   @Valid
   @JsonProperty
-  private DirectoryConfiguration directory;
+  private RedisConfiguration directory;
 
   @Valid
   @NotNull
@@ -128,11 +127,11 @@ public class WhisperServerConfiguration extends Configuration {
     return s3;
   }
 
-  public MemcacheConfiguration getMemcacheConfiguration() {
-    return memcache;
+  public RedisConfiguration getCacheConfiguration() {
+    return cache;
   }
 
-  public DirectoryConfiguration getDirectoryConfiguration() {
+  public RedisConfiguration getDirectoryConfiguration() {
     return directory;
   }
 

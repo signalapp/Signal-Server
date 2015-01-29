@@ -17,12 +17,9 @@
 package org.whispersystems.textsecuregcm.storage;
 
 
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
-import net.spy.memcached.MemcachedClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
@@ -33,23 +30,26 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+
 public class AccountsManager {
 
   private final Logger logger = LoggerFactory.getLogger(AccountsManager.class);
 
   private final Accounts         accounts;
-  private final MemcachedClient  memcachedClient;
+  private final JedisPool        cacheClient;
   private final DirectoryManager directory;
   private final ObjectMapper     mapper;
 
   public AccountsManager(Accounts accounts,
                          DirectoryManager directory,
-                         MemcachedClient memcachedClient)
+                         JedisPool cacheClient)
   {
-    this.accounts        = accounts;
-    this.directory       = directory;
-    this.memcachedClient = memcachedClient;
-    this.mapper          = SystemMapper.getMapper();
+    this.accounts    = accounts;
+    this.directory   = directory;
+    this.cacheClient = cacheClient;
+    this.mapper      = SystemMapper.getMapper();
   }
 
   public long getCount() {
@@ -112,25 +112,19 @@ public class AccountsManager {
   }
 
   private void memcacheSet(String number, Account account) {
-    if (memcachedClient != null) {
-      try {
-        String json = mapper.writeValueAsString(account);
-        memcachedClient.set(getKey(number), 0, json);
-      } catch (JsonProcessingException e) {
-        throw new IllegalArgumentException(e);
-      }
+    try (Jedis jedis = cacheClient.getResource()) {
+      jedis.set(getKey(number), mapper.writeValueAsString(account));
+    } catch (JsonProcessingException e) {
+      throw new IllegalArgumentException(e);
     }
   }
 
   private Optional<Account> memcacheGet(String number) {
-    if (memcachedClient == null) return Optional.absent();
-
-    try {
-      String json = (String)memcachedClient.get(getKey(number));
+    try (Jedis jedis = cacheClient.getResource()) {
+      String json = jedis.get(getKey(number));
 
       if (json != null) return Optional.of(mapper.readValue(json, Account.class));
       else              return Optional.absent();
-
     } catch (IOException e) {
       logger.warn("AccountsManager", "Deserialization error", e);
       return Optional.absent();
