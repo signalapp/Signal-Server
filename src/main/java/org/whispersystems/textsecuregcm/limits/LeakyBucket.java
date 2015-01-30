@@ -17,26 +17,28 @@
 package org.whispersystems.textsecuregcm.limits;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.io.IOException;
 
 public class LeakyBucket {
 
-  @JsonProperty
   private final int    bucketSize;
-
-  @JsonProperty
   private final double leakRatePerMillis;
 
-  @JsonProperty
   private int spaceRemaining;
-
-  @JsonProperty
   private long lastUpdateTimeMillis;
 
   public LeakyBucket(int bucketSize, double leakRatePerMillis) {
+    this(bucketSize, leakRatePerMillis, bucketSize, System.currentTimeMillis());
+  }
+
+  private LeakyBucket(int bucketSize, double leakRatePerMillis, int spaceRemaining, long lastUpdateTimeMillis) {
     this.bucketSize           = bucketSize;
     this.leakRatePerMillis    = leakRatePerMillis;
-    this.spaceRemaining       = bucketSize;
-    this.lastUpdateTimeMillis = System.currentTimeMillis();
+    this.spaceRemaining       = spaceRemaining;
+    this.lastUpdateTimeMillis = lastUpdateTimeMillis;
   }
 
   public boolean add(int amount) {
@@ -55,5 +57,41 @@ public class LeakyBucket {
 
     return Math.min(this.bucketSize,
                     (int)Math.floor(this.spaceRemaining + (elapsedTime * this.leakRatePerMillis)));
+  }
+
+  public String serialize(ObjectMapper mapper) throws JsonProcessingException {
+    return mapper.writeValueAsString(new LeakyBucketEntity(bucketSize, leakRatePerMillis, spaceRemaining, lastUpdateTimeMillis));
+  }
+
+  public static LeakyBucket fromSerialized(ObjectMapper mapper, String serialized) throws IOException {
+    LeakyBucketEntity entity = mapper.readValue(serialized, LeakyBucketEntity.class);
+
+    return new LeakyBucket(entity.bucketSize, entity.leakRatePerMillis,
+                           entity.spaceRemaining, entity.lastUpdateTimeMillis);
+  }
+
+  private static class LeakyBucketEntity {
+    @JsonProperty
+    private int    bucketSize;
+
+    @JsonProperty
+    private double leakRatePerMillis;
+
+    @JsonProperty
+    private int    spaceRemaining;
+
+    @JsonProperty
+    private long   lastUpdateTimeMillis;
+
+    public LeakyBucketEntity() {}
+
+    private LeakyBucketEntity(int bucketSize, double leakRatePerMillis,
+                              int spaceRemaining, long lastUpdateTimeMillis)
+    {
+      this.bucketSize           = bucketSize;
+      this.leakRatePerMillis    = leakRatePerMillis;
+      this.spaceRemaining       = spaceRemaining;
+      this.lastUpdateTimeMillis = lastUpdateTimeMillis;
+    }
   }
 }

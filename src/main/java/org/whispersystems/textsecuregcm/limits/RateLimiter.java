@@ -73,7 +73,7 @@ public class RateLimiter {
 
   private void setBucket(String key, LeakyBucket bucket) {
     try (Jedis jedis = cacheClient.getResource()) {
-      String serialized = mapper.writeValueAsString(bucket);
+      String serialized = bucket.serialize(mapper);
       jedis.setex(getBucketName(key), (int) Math.ceil((bucketSize / leakRatePerMillis) / 1000), serialized);
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException(e);
@@ -85,7 +85,7 @@ public class RateLimiter {
       String serialized = jedis.get(getBucketName(key));
 
       if (serialized != null) {
-        return mapper.readValue(serialized, LeakyBucket.class);
+        return LeakyBucket.fromSerialized(mapper, serialized);
       }
     } catch (IOException e) {
       logger.warn("Deserialization error", e);
