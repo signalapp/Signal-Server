@@ -53,6 +53,9 @@ public abstract class Messages {
   @SqlUpdate("DELETE FROM messages WHERE " + DESTINATION + " = :destination")
   abstract void clear(@Bind("destination") String destination);
 
+  @SqlUpdate("VACUUM messages")
+  public abstract void vacuum();
+
   public static class MessageMapper implements ResultSetMapper<Pair<Long, OutgoingMessageSignal>> {
     @Override
     public Pair<Long, OutgoingMessageSignal> map(int i, ResultSet resultSet, StatementContext statementContext)
