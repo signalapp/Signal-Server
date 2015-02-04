@@ -34,7 +34,9 @@ public class WebSocketAccountAuthenticator implements WebSocketAuthenticator<Acc
         return Optional.absent();
       }
 
-      BasicCredentials credentials = new BasicCredentials(usernames[0], passwords[0]);
+      BasicCredentials credentials = new BasicCredentials(usernames[0].replace(" ", "+"),
+                                                          passwords[0].replace(" ", "+"));
+      
       return accountAuthenticator.authenticate(credentials);
     } catch (io.dropwizard.auth.AuthenticationException e) {
       throw new AuthenticationException(e);

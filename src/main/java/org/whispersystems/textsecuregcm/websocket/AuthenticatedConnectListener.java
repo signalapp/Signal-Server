@@ -33,30 +33,17 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
   @Override
   public void onWebSocketConnect(WebSocketSessionContext context) {
-    Optional<Account> account = context.getAuthenticated(Account.class);
+    Account account = context.getAuthenticated(Account.class).get();
+    Device  device  = account.getAuthenticatedDevice().get();
 
-    if (!account.isPresent()) {
-      logger.debug("WS Connection with no authentication...");
-      context.getClient().close(4001, "Authentication failed");
-      return;
-    }
-
-    Optional<Device> device = account.get().getAuthenticatedDevice();
-
-    if (!device.isPresent()) {
-      logger.debug("WS Connection with no authenticated device...");
-      context.getClient().close(4001, "Device authentication failed");
-      return;
-    }
-
-    if (device.get().getLastSeen() != Util.todayInMillis()) {
-      device.get().setLastSeen(Util.todayInMillis());
-      accountsManager.update(account.get());
+    if (device.getLastSeen() != Util.todayInMillis()) {
+      device.setLastSeen(Util.todayInMillis());
+      accountsManager.update(account);
     }
 
     final WebSocketConnection connection = new WebSocketConnection(accountsManager, pushSender,
                                                                    messagesManager, pubSubManager,
-                                                                   account.get(), device.get(),
+                                                                   account, device,
                                                                    context.getClient());
 
     connection.onConnected();

@@ -20,20 +20,23 @@ public class GcmMessage {
   private int deviceId;
 
   @JsonProperty
-  @NotEmpty
   private String message;
 
   @JsonProperty
   private boolean receipt;
 
+  @JsonProperty
+  private boolean notification;
+
   public GcmMessage() {}
 
-  public GcmMessage(String gcmId, String number, int deviceId, String message, boolean receipt) {
-    this.gcmId    = gcmId;
-    this.number   = number;
-    this.deviceId = deviceId;
-    this.message  = message;
-    this.receipt  = receipt;
+  public GcmMessage(String gcmId, String number, int deviceId, String message, boolean receipt, boolean notification) {
+    this.gcmId        = gcmId;
+    this.number       = number;
+    this.deviceId     = deviceId;
+    this.message      = message;
+    this.receipt      = receipt;
+    this.notification = notification;
   }
 
 }

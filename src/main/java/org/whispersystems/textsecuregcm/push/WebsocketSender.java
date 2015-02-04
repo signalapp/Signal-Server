@@ -36,6 +36,12 @@ import static org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessag
 
 public class WebsocketSender {
 
+  public static enum Type {
+    APN,
+    GCM,
+    WEB
+  }
+
   private static final Logger logger = LoggerFactory.getLogger(WebsocketSender.class);
 
   private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
@@ -45,6 +51,9 @@ public class WebsocketSender {
 
   private final Meter apnOnlineMeter        = metricRegistry.meter(name(getClass(), "apn_online" ));
   private final Meter apnOfflineMeter       = metricRegistry.meter(name(getClass(), "apn_offline"));
+
+  private final Meter gcmOnlineMeter        = metricRegistry.meter(name(getClass(), "gcm_online" ));
+  private final Meter gcmOfflineMeter       = metricRegistry.meter(name(getClass(), "gcm_offline"));
 
   private final Meter provisioningOnlineMeter  = metricRegistry.meter(name(getClass(), "provisioning_online" ));
   private final Meter provisioningOfflineMeter = metricRegistry.meter(name(getClass(), "provisioning_offline"));
@@ -57,7 +66,7 @@ public class WebsocketSender {
     this.pubSubManager   = pubSubManager;
   }
 
-  public DeliveryStatus sendMessage(Account account, Device device, OutgoingMessageSignal message, boolean apn) {
+  public DeliveryStatus sendMessage(Account account, Device device, OutgoingMessageSignal message, Type channel) {
     WebsocketAddress address       = new WebsocketAddress(account.getNumber(), device.getId());
     PubSubMessage    pubSubMessage = PubSubMessage.newBuilder()
                                                   .setType(PubSubMessage.Type.DELIVER)
@@ -65,13 +74,15 @@ public class WebsocketSender {
                                                   .build();
 
     if (pubSubManager.publish(address, pubSubMessage)) {
-      if (apn) apnOnlineMeter.mark();
-      else     websocketOnlineMeter.mark();
+      if      (channel == Type.APN) apnOnlineMeter.mark();
+      else if (channel == Type.GCM) gcmOnlineMeter.mark();
+      else                          websocketOnlineMeter.mark();
 
       return new DeliveryStatus(true, 0);
     } else {
-      if (apn) apnOfflineMeter.mark();
-      else     websocketOfflineMeter.mark();
+      if      (channel == Type.APN) apnOfflineMeter.mark();
+      else if (channel == Type.GCM) gcmOfflineMeter.mark();
+      else                          websocketOfflineMeter.mark();
 
       int queueDepth = messagesManager.insert(account.getNumber(), device.getId(), message);
       pubSubManager.publish(address, PubSubMessage.newBuilder()

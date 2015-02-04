@@ -197,10 +197,14 @@ public class AccountController {
   @PUT
   @Path("/gcm/")
   @Consumes(MediaType.APPLICATION_JSON)
-  public void setGcmRegistrationId(@Auth Account account, @Valid GcmRegistrationId registrationId)  {
+  public void setGcmRegistrationId(@Auth Account account, @Valid GcmRegistrationId registrationId) {
     Device device = account.getAuthenticatedDevice().get();
     device.setApnId(null);
     device.setGcmId(registrationId.getGcmRegistrationId());
+
+    if (registrationId.isWebSocketChannel()) device.setFetchesMessages(true);
+    else                                     device.setFetchesMessages(false);
+
     accounts.update(account);
   }
 
@@ -210,6 +214,7 @@ public class AccountController {
   public void deleteGcmRegistrationId(@Auth Account account) {
     Device device = account.getAuthenticatedDevice().get();
     device.setGcmId(null);
+    device.setFetchesMessages(false);
     accounts.update(account);
   }
 
@@ -221,6 +226,7 @@ public class AccountController {
     Device device = account.getAuthenticatedDevice().get();
     device.setApnId(registrationId.getApnRegistrationId());
     device.setGcmId(null);
+    device.setFetchesMessages(true);
     accounts.update(account);
   }
 
@@ -230,6 +236,25 @@ public class AccountController {
   public void deleteApnRegistrationId(@Auth Account account) {
     Device device = account.getAuthenticatedDevice().get();
     device.setApnId(null);
+    device.setFetchesMessages(false);
+    accounts.update(account);
+  }
+
+  @Timed
+  @PUT
+  @Path("/wsc/")
+  public void setWebSocketChannelSupported(@Auth Account account) {
+    Device device = account.getAuthenticatedDevice().get();
+    device.setFetchesMessages(true);
+    accounts.update(account);
+  }
+
+  @Timed
+  @DELETE
+  @Path("/wsc/")
+  public void deleteWebSocketChannel(@Auth Account account) {
+    Device device = account.getAuthenticatedDevice().get();
+    device.setFetchesMessages(false);
     accounts.update(account);
   }
 
