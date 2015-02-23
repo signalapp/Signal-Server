@@ -80,6 +80,10 @@ public class WebSocketConnection implements PubSubListener {
         case PubSubMessage.Type.DELIVER_VALUE:
           sendMessage(OutgoingMessageSignal.parseFrom(pubSubMessage.getContent()), Optional.<Long>absent());
           break;
+        case PubSubMessage.Type.CLOSE_VALUE:
+          client.close(1000, "OK");
+          pubSubManager.unsubscribe(address, this);
+          break;
         default:
           logger.warn("Unknown pubsub message: " + pubSubMessage.getType().getNumber());
       }

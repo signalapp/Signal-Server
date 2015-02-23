@@ -25,6 +25,7 @@ message PubSubMessage {
     QUERY_DB  = 1;
     DELIVER   = 2;
     KEEPALIVE = 3;
+    CLOSE     = 4;
   }
 
   optional Type  type    = 1;

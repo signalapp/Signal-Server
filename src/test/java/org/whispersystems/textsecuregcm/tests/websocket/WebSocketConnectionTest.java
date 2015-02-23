@@ -5,6 +5,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.ByteString;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
@@ -14,6 +15,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
+import org.whispersystems.textsecuregcm.storage.PubSubProtos;
 import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
@@ -23,6 +25,7 @@ import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
+import org.whispersystems.websocket.setup.WebSocketConnectListener;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -32,6 +35,7 @@ import java.util.List;
 import java.util.Set;
 
 import io.dropwizard.auth.basic.BasicCredentials;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.eq;
@@ -57,6 +61,27 @@ public class WebSocketConnectionTest {
   private static final UpgradeRequest       upgradeRequest       = mock(UpgradeRequest.class      );
 //  private static final Session              session              = mock(Session.class             );
   private static final PushSender           pushSender           = mock(PushSender.class);
+
+  @Test
+  public void testCloseExisting() throws Exception {
+    MessagesManager          storedMessages  = mock(MessagesManager.class        );
+    WebSocketConnectListener connectListener = new AuthenticatedConnectListener(accountsManager, pushSender, storedMessages, pubSubManager);
+    WebSocketSessionContext  sessionContext  = mock(WebSocketSessionContext.class);
+    Account                  account         = mock(Account.class                );
+    Device                   device          = mock(Device.class                 );
+
+    when(sessionContext.getAuthenticated(Account.class)).thenReturn(Optional.of(account));
+    when(account.getAuthenticatedDevice()).thenReturn(Optional.of(device));
+    when(account.getNumber()).thenReturn("+14157777777");
+    when(device.getId()).thenReturn(1L);
+
+    connectListener.onWebSocketConnect(sessionContext);
+
+    ArgumentCaptor<PubSubProtos.PubSubMessage> message = ArgumentCaptor.forClass(PubSubProtos.PubSubMessage.class);
+
+    verify(pubSubManager).publish(eq(new WebsocketAddress("+14157777777", 1L)), message.capture());
+    assertEquals(message.getValue().getType().getNumber(), PubSubProtos.PubSubMessage.Type.CLOSE_VALUE);
+  }
 
   @Test
   public void testCredentials() throws Exception {

@@ -1,6 +1,5 @@
 package org.whispersystems.textsecuregcm.websocket;
 
-import com.google.common.base.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.push.PushSender;
@@ -9,6 +8,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
+import org.whispersystems.textsecuregcm.storage.PubSubProtos;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 import org.whispersystems.websocket.setup.WebSocketConnectListener;
@@ -36,10 +36,8 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     Account account = context.getAuthenticated(Account.class).get();
     Device  device  = account.getAuthenticatedDevice().get();
 
-    if (device.getLastSeen() != Util.todayInMillis()) {
-      device.setLastSeen(Util.todayInMillis());
-      accountsManager.update(account);
-    }
+    updateLastSeen(account, device);
+    closeExistingDeviceConnection(account, device);
 
     final WebSocketConnection connection = new WebSocketConnection(accountsManager, pushSender,
                                                                    messagesManager, pubSubManager,
@@ -55,4 +53,19 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       }
     });
   }
+
+  private void updateLastSeen(Account account, Device device) {
+    if (device.getLastSeen() != Util.todayInMillis()) {
+      device.setLastSeen(Util.todayInMillis());
+      accountsManager.update(account);
+    }
+  }
+
+  private void closeExistingDeviceConnection(Account account, Device device) {
+    pubSubManager.publish(new WebsocketAddress(account.getNumber(), device.getId()),
+                          PubSubProtos.PubSubMessage.newBuilder()
+                                                    .setType(PubSubProtos.PubSubMessage.Type.CLOSE)
+                                                    .build());
+  }
 }
+
