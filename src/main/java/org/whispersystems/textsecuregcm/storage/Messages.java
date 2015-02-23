@@ -43,7 +43,7 @@ public abstract class Messages {
                      @Bind("destination_device") long destinationDevice);
 
   @Mapper(MessageMapper.class)
-  @SqlQuery("SELECT * FROM messages WHERE " + DESTINATION + " = :destination AND " + DESTINATION_DEVICE + " = :destination_device")
+  @SqlQuery("SELECT * FROM messages WHERE " + DESTINATION + " = :destination AND " + DESTINATION_DEVICE + " = :destination_device ORDER BY " + TIMESTAMP + " ASC")
   abstract List<Pair<Long, OutgoingMessageSignal>> load(@Bind("destination") String destination,
                                                         @Bind("destination_device") long destinationDevice);
 
