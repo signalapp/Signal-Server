@@ -53,7 +53,7 @@ public class SmsSender {
       try {
         twilioSender.deliverSmsVerification(destination, verificationCode);
       } catch (TwilioRestException e) {
-        logger.info("Twilio SMS Fallback", e);
+        logger.info("Twilio SMS Failed: " + e.getErrorMessage());
         if (nexmoSender.isPresent()) {
           nexmoSender.get().deliverSmsVerification(destination, verificationCode);
         }
@@ -70,7 +70,7 @@ public class SmsSender {
       try {
         twilioSender.deliverVoxVerification(destination, verificationCode);
       } catch (TwilioRestException e) {
-        logger.info("Twilio Vox Fallback", e);
+        logger.info("Twilio Vox Failed: " + e.getErrorMessage());
         if (nexmoSender.isPresent()) {
           nexmoSender.get().deliverVoxVerification(destination, verificationCode);
         }
