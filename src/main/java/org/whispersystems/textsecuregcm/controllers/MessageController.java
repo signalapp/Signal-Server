@@ -39,6 +39,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Base64;
+import org.whispersystems.textsecuregcm.util.Util;
 
 import javax.validation.Valid;
 import javax.ws.rs.Consumes;
@@ -94,8 +95,8 @@ public class MessageController {
     try {
       boolean isSyncMessage = source.getNumber().equals(destinationName);
 
-      if (messages.getRelay() == null) sendLocalMessage(source, destinationName, messages, isSyncMessage);
-      else                             sendRelayMessage(source, destinationName, messages, isSyncMessage);
+      if (Util.isEmpty(messages.getRelay())) sendLocalMessage(source, destinationName, messages, isSyncMessage);
+      else                                   sendRelayMessage(source, destinationName, messages, isSyncMessage);
 
       return new SendMessageResponse(!isSyncMessage && source.getActiveDeviceCount() > 1);
     } catch (NoSuchUserException e) {
