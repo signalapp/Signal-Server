@@ -120,6 +120,7 @@ public class DeviceController {
       device.setSignalingKey(accountAttributes.getSignalingKey());
       device.setFetchesMessages(accountAttributes.getFetchesMessages());
       device.setId(account.get().getNextDeviceId());
+      device.setRegistrationId(accountAttributes.getRegistrationId());
       device.setLastSeen(Util.todayInMillis());
 
       account.get().addDevice(device);
