@@ -44,7 +44,7 @@ public class NexmoSmsSender {
       "https://rest.nexmo.com/sms/json?api_key=%s&api_secret=%s&from=%s&to=%s&text=%s";
 
   private static final String NEXMO_VOX_URL =
-      "https://rest.nexmo.com/tts/json?api_key=%s&api_secret=%s&to=%s&text=%s";
+      "https://rest.nexmo.com/tts/json?api_key=%s&api_secret=%s&to=%s&text=%s&repeat=3";
 
   private final String apiKey;
   private final String apiSecret;
@@ -70,9 +70,9 @@ public class NexmoSmsSender {
     smsMeter.mark();
   }
 
-  public void deliverVoxVerification(String destination, String message) throws IOException {
+  public void deliverVoxVerification(String destination, String verificationCode) throws IOException {
     URL url = new URL(String.format(NEXMO_VOX_URL, apiKey, apiSecret, destination,
-                                    URLEncoder.encode(SmsSender.VOX_VERIFICATION_TEXT + message, "UTF-8")));
+                                    URLEncoder.encode(SmsSender.VOX_VERIFICATION_TEXT + verificationCode, "UTF-8")));
 
     URLConnection connection = url.openConnection();
     connection.setDoInput(true);
