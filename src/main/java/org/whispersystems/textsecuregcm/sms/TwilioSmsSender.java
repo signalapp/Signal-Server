@@ -40,7 +40,7 @@ public class TwilioSmsSender {
 
   public static final String SAY_TWIML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                                          "<Response>\n" +
-                                         "    <Say voice=\"woman\" language=\"en\">" + SmsSender.VOX_VERIFICATION_TEXT + "%s</Say>\n" +
+                                         "    <Say voice=\"woman\" language=\"en\" loop=\"3\">" + SmsSender.VOX_VERIFICATION_TEXT + "%s.</Say>\n" +
                                          "</Response>";
 
   private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
