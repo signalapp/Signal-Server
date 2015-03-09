@@ -49,8 +49,11 @@ public class ReceiptController {
       throws IOException
   {
     try {
-      if (relay.isPresent()) sendRelayedReceipt(source, destination, messageId, relay.get());
-      else                   sendDirectReceipt(source, destination, messageId);
+      if (relay.isPresent() && !relay.get().isEmpty()) {
+        sendRelayedReceipt(source, destination, messageId, relay.get());
+      } else {
+        sendDirectReceipt(source, destination, messageId);
+      }
     } catch (NoSuchUserException | NotPushRegisteredException e) {
       throw new WebApplicationException(Response.Status.NOT_FOUND);
     } catch (TransientPushFailureException e) {
