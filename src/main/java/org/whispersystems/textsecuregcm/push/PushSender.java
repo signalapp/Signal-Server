@@ -58,9 +58,8 @@ public class PushSender {
   private void sendGcmMessage(Account account, Device device, OutgoingMessageSignal message)
       throws TransientPushFailureException, NotPushRegisteredException
   {
-//    if (device.getFetchesMessages()) sendNotificationGcmMessage(account, device, message);
-//    else                             sendPayloadGcmMessage(account, device, message);
-    sendPayloadGcmMessage(account, device, message);
+    if (device.getFetchesMessages()) sendNotificationGcmMessage(account, device, message);
+    else                             sendPayloadGcmMessage(account, device, message);
   }
 
   private void sendPayloadGcmMessage(Account account, Device device, OutgoingMessageSignal message)
@@ -91,10 +90,7 @@ public class PushSender {
                                              (int)device.getId(), "", false, true);
 
       pushServiceClient.send(gcmMessage);
-    } else {
-      logger.warn("Delivered!");
     }
-
   }
 
   private void sendApnMessage(Account account, Device device, OutgoingMessageSignal outgoingMessage)
