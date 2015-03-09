@@ -74,7 +74,7 @@ public class DirectoryController {
     rateLimiters.getContactsLimiter().validate(account.getNumber());
 
     try {
-      Optional<ClientContact> contact = directory.get(Base64.decodeWithoutPadding(token));
+      Optional<ClientContact> contact = directory.get(decodeToken(token));
 
       if (contact.isPresent()) return Response.ok().entity(contact.get()).build();
       else                     return Response.status(404).build();
@@ -100,7 +100,7 @@ public class DirectoryController {
       List<byte[]> tokens = new LinkedList<>();
 
       for (String encodedContact : contacts.getContacts()) {
-        tokens.add(Base64.decodeWithoutPadding(encodedContact));
+        tokens.add(decodeToken(encodedContact));
       }
 
       List<ClientContact> intersection = directory.get(tokens);
@@ -109,5 +109,9 @@ public class DirectoryController {
       logger.info("Bad token", e);
       throw new WebApplicationException(Response.status(400).build());
     }
+  }
+
+  private byte[] decodeToken(String encoded) throws IOException {
+    return Base64.decodeWithoutPadding(encoded.replace('-', '+').replace('_', '/'));
   }
 }
