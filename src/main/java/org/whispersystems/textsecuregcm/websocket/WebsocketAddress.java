@@ -10,6 +10,29 @@ public class WebsocketAddress {
     this.deviceId  = deviceId;
   }
 
+  public WebsocketAddress(String serialized) throws InvalidWebsocketAddressException {
+    try {
+      String[] parts = serialized.split(":", 2);
+
+      if (parts.length != 2) {
+        throw new InvalidWebsocketAddressException("Bad address: " + serialized);
+      }
+
+      this.number   = parts[0];
+      this.deviceId = Long.parseLong(parts[1]);
+    } catch (NumberFormatException e) {
+      throw new InvalidWebsocketAddressException(e);
+    }
+  }
+
+  public String getNumber() {
+    return number;
+  }
+
+  public long getDeviceId() {
+    return deviceId;
+  }
+
   public String serialize() {
     return number + ":" + deviceId;
   }

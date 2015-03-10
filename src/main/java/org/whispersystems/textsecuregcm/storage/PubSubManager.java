@@ -3,11 +3,14 @@ package org.whispersystems.textsecuregcm.storage;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.websocket.DeadLetterHandler;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import static org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
 import redis.clients.jedis.BinaryJedisPubSub;
@@ -21,12 +24,16 @@ public class PubSubManager {
   private final Logger                      logger       = LoggerFactory.getLogger(PubSubManager.class);
   private final SubscriptionListener        baseListener = new SubscriptionListener();
   private final Map<String, PubSubListener> listeners    = new HashMap<>();
+  private final Executor                    threaded     = Executors.newCachedThreadPool();
 
-  private final JedisPool jedisPool;
+  private final JedisPool         jedisPool;
+  private final DeadLetterHandler deadLetterHandler;
+
   private boolean subscribed = false;
 
-  public PubSubManager(JedisPool jedisPool) {
-    this.jedisPool = jedisPool;
+  public PubSubManager(JedisPool jedisPool, DeadLetterHandler deadLetterHandler) {
+    this.jedisPool         = jedisPool;
+    this.deadLetterHandler = deadLetterHandler;
     initializePubSubWorker();
     waitForSubscription();
   }
@@ -72,9 +79,13 @@ public class PubSubManager {
       @Override
       public void run() {
         for (;;) {
+          logger.info("Starting Redis PubSub Subscriber...");
+
           try (Jedis jedis = jedisPool.getResource()) {
             jedis.subscribe(baseListener, KEEPALIVE_CHANNEL);
             logger.warn("**** Unsubscribed from holding channel!!! ******");
+          } catch (Throwable t) {
+            logger.warn("*** SUBSCRIBER CONNECTION CLOSED", t);
           }
         }
       }
@@ -89,8 +100,8 @@ public class PubSubManager {
             publish(KEEPALIVE_CHANNEL, PubSubMessage.newBuilder()
                                                     .setType(PubSubMessage.Type.KEEPALIVE)
                                                     .build());
-          } catch (InterruptedException e) {
-            throw new AssertionError(e);
+          } catch (Throwable e) {
+            logger.warn("KEEPALIVE PUBLISH EXCEPTION: ", e);
           }
         }
       }
@@ -100,20 +111,30 @@ public class PubSubManager {
   private class SubscriptionListener extends BinaryJedisPubSub {
 
     @Override
-    public void onMessage(byte[] channel, byte[] message) {
-      try {
-        PubSubListener listener;
-
-        synchronized (PubSubManager.this) {
-          listener = listeners.get(new String(channel));
-        }
-
-        if (listener != null) {
-          listener.onPubSubMessage(PubSubMessage.parseFrom(message));
-        }
-      } catch (InvalidProtocolBufferException e) {
-        logger.warn("Error parsing PubSub protobuf", e);
+    public void onMessage(final byte[] channel, final byte[] message) {
+      if (Arrays.equals(KEEPALIVE_CHANNEL, channel)) {
+        return;
       }
+
+      final PubSubListener listener;
+
+      synchronized (PubSubManager.this) {
+        listener = listeners.get(new String(channel));
+      }
+
+      threaded.execute(new Runnable() {
+        @Override
+        public void run() {
+          try {
+            PubSubMessage receivedMessage = PubSubMessage.parseFrom(message);
+
+            if (listener != null) listener.onPubSubMessage(receivedMessage);
+            else                  deadLetterHandler.handle(channel, receivedMessage);
+          } catch (InvalidProtocolBufferException e) {
+            logger.warn("Error parsing PubSub protobuf", e);
+          }
+        }
+      });
     }
 
     @Override

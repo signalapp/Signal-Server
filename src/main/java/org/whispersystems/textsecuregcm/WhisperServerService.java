@@ -75,6 +75,7 @@ import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.UrlSigner;
 import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
+import org.whispersystems.textsecuregcm.websocket.DeadLetterHandler;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningConnectListener;
 import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.workers.DirectoryCommand;
@@ -157,7 +158,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     AccountsManager        accountsManager        = new AccountsManager(accounts, directory, cacheClient);
     FederatedClientManager federatedClientManager = new FederatedClientManager(config.getFederationConfiguration());
     MessagesManager        messagesManager        = new MessagesManager(messages);
-    PubSubManager          pubSubManager          = new PubSubManager(cacheClient);
+    DeadLetterHandler      deadLetterHandler      = new DeadLetterHandler(messagesManager);
+    PubSubManager          pubSubManager          = new PubSubManager(cacheClient, deadLetterHandler);
     PushServiceClient      pushServiceClient      = new PushServiceClient(httpClient, config.getPushConfiguration());
     WebsocketSender        websocketSender        = new WebsocketSender(messagesManager, pubSubManager);
     AccountAuthenticator   deviceAuthenticator    = new AccountAuthenticator(accountsManager);
