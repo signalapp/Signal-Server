@@ -141,7 +141,7 @@ public class WebSocketConnection implements PubSubListener {
       Optional<Account> source = accountsManager.get(message.getSource());
 
       if (!source.isPresent()) {
-        logger.warn("Source account disappeared? (%s)", message.getSource());
+        logger.warn(String.format("Source account disappeared? (%s)", message.getSource()));
         return;
       }
 
