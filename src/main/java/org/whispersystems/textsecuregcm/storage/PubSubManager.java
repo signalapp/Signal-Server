@@ -64,6 +64,12 @@ public class PubSubManager {
     }
   }
 
+  private synchronized void resubscribeAll() {
+    for (String serializedAddress : listeners.keySet()) {
+      baseListener.subscribe(serializedAddress.getBytes());
+    }
+  }
+
   private synchronized void waitForSubscription() {
     try {
       while (!subscribed) {
@@ -149,6 +155,13 @@ public class PubSubManager {
           subscribed = true;
           PubSubManager.this.notifyAll();
         }
+
+        threaded.execute(new Runnable() {
+          @Override
+          public void run() {
+            resubscribeAll();
+          }
+        });
       }
     }
 
