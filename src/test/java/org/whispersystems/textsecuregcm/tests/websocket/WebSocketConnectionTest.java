@@ -44,44 +44,19 @@ import static org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMe
 
 public class WebSocketConnectionTest {
 
-//  private static final ObjectMapper mapper = new ObjectMapper();
-
   private static final String VALID_USER   = "+14152222222";
   private static final String INVALID_USER = "+14151111111";
 
   private static final String VALID_PASSWORD   = "secure";
   private static final String INVALID_PASSWORD = "insecure";
 
-//  private static final StoredMessages       storedMessages       = mock(StoredMessages.class);
   private static final AccountAuthenticator accountAuthenticator = mock(AccountAuthenticator.class);
   private static final AccountsManager      accountsManager      = mock(AccountsManager.class);
   private static final PubSubManager        pubSubManager        = mock(PubSubManager.class       );
   private static final Account              account              = mock(Account.class             );
   private static final Device               device               = mock(Device.class              );
   private static final UpgradeRequest       upgradeRequest       = mock(UpgradeRequest.class      );
-//  private static final Session              session              = mock(Session.class             );
   private static final PushSender           pushSender           = mock(PushSender.class);
-
-  @Test
-  public void testCloseExisting() throws Exception {
-    MessagesManager          storedMessages  = mock(MessagesManager.class        );
-    WebSocketConnectListener connectListener = new AuthenticatedConnectListener(accountsManager, pushSender, storedMessages, pubSubManager);
-    WebSocketSessionContext  sessionContext  = mock(WebSocketSessionContext.class);
-    Account                  account         = mock(Account.class                );
-    Device                   device          = mock(Device.class                 );
-
-    when(sessionContext.getAuthenticated(Account.class)).thenReturn(Optional.of(account));
-    when(account.getAuthenticatedDevice()).thenReturn(Optional.of(device));
-    when(account.getNumber()).thenReturn("+14157777777");
-    when(device.getId()).thenReturn(1L);
-
-    connectListener.onWebSocketConnect(sessionContext);
-
-    ArgumentCaptor<PubSubProtos.PubSubMessage> message = ArgumentCaptor.forClass(PubSubProtos.PubSubMessage.class);
-
-    verify(pubSubManager).publish(eq(new WebsocketAddress("+14157777777", 1L)), message.capture());
-    assertEquals(message.getValue().getType().getNumber(), PubSubProtos.PubSubMessage.Type.CLOSE_VALUE);
-  }
 
   @Test
   public void testCredentials() throws Exception {
@@ -98,10 +73,6 @@ public class WebSocketConnectionTest {
 
     when(account.getAuthenticatedDevice()).thenReturn(Optional.of(device));
 
-//    when(session.getUpgradeRequest()).thenReturn(upgradeRequest);
-//
-//    WebsocketController controller = new WebsocketController(accountAuthenticator, accountsManager, pushSender, pubSubManager, storedMessages);
-
     when(upgradeRequest.getParameterMap()).thenReturn(new HashMap<String, String[]>() {{
       put("login", new String[] {VALID_USER});
       put("password", new String[] {VALID_PASSWORD});
@@ -114,13 +85,6 @@ public class WebSocketConnectionTest {
 
     verify(sessionContext).addListener(any(WebSocketSessionContext.WebSocketEventListener.class));
 
-//
-//    controller.onWebSocketConnect(session);
-
-//    verify(session, never()).close();
-//    verify(session, never()).close(any(CloseStatus.class));
-//    verify(session, never()).close(anyInt(), anyString());
-
     when(upgradeRequest.getParameterMap()).thenReturn(new HashMap<String, String[]>() {{
       put("login", new String[] {INVALID_USER});
       put("password", new String[] {INVALID_PASSWORD});
@@ -128,15 +92,6 @@ public class WebSocketConnectionTest {
 
     account = webSocketAuthenticator.authenticate(upgradeRequest);
     assertFalse(account.isPresent());
-//    when(sessionContext.getAuthenticated(Account.class)).thenReturn(account);
-//
-//    WebSocketClient client = mock(WebSocketClient.class);
-//    when(sessionContext.getClient()).thenReturn(client);
-//
-//    connectListener.onWebSocketConnect(sessionContext);
-//
-//    verify(sessionContext, times(1)).addListener(any(WebSocketSessionContext.WebSocketEventListener.class));
-//    verify(client).close(eq(4001), anyString());
   }
 
   @Test
@@ -183,12 +138,11 @@ public class WebSocketConnectionTest {
           }
         });
 
+    WebsocketAddress websocketAddress = new WebsocketAddress(account.getNumber(), device.getId());
     WebSocketConnection connection = new WebSocketConnection(accountsManager, pushSender, storedMessages,
-                                                             pubSubManager, account, device, client);
+                                                             account, device, client);
 
-    connection.onConnected();
-
-    verify(pubSubManager).subscribe(eq(new WebsocketAddress("+14152222222", 2L)), eq((connection)));
+    connection.onDispatchSubscribed(websocketAddress.serialize());
     verify(client, times(3)).sendRequest(eq("PUT"), eq("/api/v1/message"), any(Optional.class));
 
     assertTrue(futures.size() == 3);
@@ -205,11 +159,10 @@ public class WebSocketConnectionTest {
       add(createMessage("sender2", 3333, false, "third"));
     }};
 
-//    verify(pushSender, times(2)).sendMessage(eq(account), eq(device), any(OutgoingMessageSignal.class));
     verify(pushSender, times(1)).sendMessage(eq(sender1), eq(sender1device), any(OutgoingMessageSignal.class));
 
-    connection.onConnectionLost();
-    verify(pubSubManager).unsubscribe(eq(new WebsocketAddress("+14152222222", 2L)), eq(connection));
+    connection.onDispatchUnsubscribed(websocketAddress.serialize());
+    verify(client).close(anyInt(), anyString());
   }
 
   private OutgoingMessageSignal createMessage(String sender, long timestamp, boolean receipt, String content) {

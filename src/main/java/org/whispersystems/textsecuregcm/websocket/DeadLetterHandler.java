@@ -3,11 +3,13 @@ package org.whispersystems.textsecuregcm.websocket;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.dispatch.DispatchChannel;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubProtos;
+import org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
 
-public class DeadLetterHandler {
+public class DeadLetterHandler implements DispatchChannel {
 
   private final Logger logger = LoggerFactory.getLogger(DeadLetterHandler.class);
 
@@ -17,14 +19,16 @@ public class DeadLetterHandler {
     this.messagesManager = messagesManager;
   }
 
-  public void handle(byte[] channel, PubSubProtos.PubSubMessage pubSubMessage) {
+  @Override
+  public void onDispatchMessage(String channel, byte[] data) {
     try {
-      WebsocketAddress address = new WebsocketAddress(new String(channel));
+      logger.warn("Handling dead letter to: " + channel);
 
-      logger.warn("Handling dead letter to: " + address);
+      WebsocketAddress address       = new WebsocketAddress(channel);
+      PubSubMessage    pubSubMessage = PubSubMessage.parseFrom(data);
 
       switch (pubSubMessage.getType().getNumber()) {
-        case PubSubProtos.PubSubMessage.Type.DELIVER_VALUE:
+        case PubSubMessage.Type.DELIVER_VALUE:
           OutgoingMessageSignal message = OutgoingMessageSignal.parseFrom(pubSubMessage.getContent());
           messagesManager.insert(address.getNumber(), address.getDeviceId(), message);
           break;
@@ -36,4 +40,13 @@ public class DeadLetterHandler {
     }
   }
 
+  @Override
+  public void onDispatchSubscribed(String channel) {
+    logger.warn("DeadLetterHandler subscription notice! " + channel);
+  }
+
+  @Override
+  public void onDispatchUnsubscribed(String channel) {
+    logger.warn("DeadLetterHandler unsubscribe notice! " + channel);
+  }
 }

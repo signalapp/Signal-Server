@@ -10,6 +10,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.dispatch.DispatchChannel;
 import org.whispersystems.textsecuregcm.entities.CryptoEncodingException;
 import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
@@ -19,8 +20,6 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
-import org.whispersystems.textsecuregcm.storage.PubSubListener;
-import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.websocket.WebSocketClient;
@@ -34,21 +33,16 @@ import static com.codahale.metrics.MetricRegistry.name;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
 import static org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
 
-public class WebSocketConnection implements PubSubListener {
+public class WebSocketConnection implements DispatchChannel {
 
   private static final Logger logger = LoggerFactory.getLogger(WebSocketConnection.class);
-
-  private static final MetricRegistry metricRegistry    = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private static final Histogram      durationHistogram = metricRegistry.histogram(name(WebSocketConnection.class, "connected_duration"));
 
   private final AccountsManager  accountsManager;
   private final PushSender       pushSender;
   private final MessagesManager  messagesManager;
-  private final PubSubManager    pubSubManager;
 
   private final Account          account;
   private final Device           device;
-  private final WebsocketAddress address;
   private final WebSocketClient  client;
 
   private long connectionStartTime;
@@ -56,7 +50,6 @@ public class WebSocketConnection implements PubSubListener {
   public WebSocketConnection(AccountsManager accountsManager,
                              PushSender pushSender,
                              MessagesManager messagesManager,
-                             PubSubManager pubSubManager,
                              Account account,
                              Device device,
                              WebSocketClient client)
@@ -64,27 +57,16 @@ public class WebSocketConnection implements PubSubListener {
     this.accountsManager = accountsManager;
     this.pushSender      = pushSender;
     this.messagesManager = messagesManager;
-    this.pubSubManager   = pubSubManager;
     this.account         = account;
     this.device          = device;
     this.client          = client;
-    this.address         = new WebsocketAddress(account.getNumber(), device.getId());
-  }
-
-  public void onConnected() {
-    connectionStartTime = System.currentTimeMillis();
-    pubSubManager.subscribe(address, this);
-    processStoredMessages();
-  }
-
-  public void onConnectionLost() {
-    durationHistogram.update(System.currentTimeMillis() - connectionStartTime);
-    pubSubManager.unsubscribe(address, this);
   }
 
   @Override
-  public void onPubSubMessage(PubSubMessage pubSubMessage) {
+  public void onDispatchMessage(String channel, byte[] message) {
     try {
+      PubSubMessage pubSubMessage = PubSubMessage.parseFrom(message);
+
       switch (pubSubMessage.getType().getNumber()) {
         case PubSubMessage.Type.QUERY_DB_VALUE:
           processStoredMessages();
@@ -92,16 +74,21 @@ public class WebSocketConnection implements PubSubListener {
         case PubSubMessage.Type.DELIVER_VALUE:
           sendMessage(OutgoingMessageSignal.parseFrom(pubSubMessage.getContent()), Optional.<Long>absent());
           break;
-        case PubSubMessage.Type.CLOSE_VALUE:
-          client.close(1000, "OK");
-          pubSubManager.unsubscribe(address, this);
-          break;
         default:
           logger.warn("Unknown pubsub message: " + pubSubMessage.getType().getNumber());
       }
     } catch (InvalidProtocolBufferException e) {
       logger.warn("Protobuf parse error", e);
     }
+  }
+
+  @Override
+  public void onDispatchUnsubscribed(String channel) {
+    client.close(1000, "OK");
+  }
+
+  public void onDispatchSubscribed(String channel) {
+    processStoredMessages();
   }
 
   private void sendMessage(final OutgoingMessageSignal message,
@@ -180,4 +167,6 @@ public class WebSocketConnection implements PubSubListener {
       sendMessage(message.second(), Optional.of(message.first()));
     }
   }
+
+
 }

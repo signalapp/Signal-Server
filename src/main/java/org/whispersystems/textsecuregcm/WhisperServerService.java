@@ -24,6 +24,8 @@ import com.sun.jersey.api.client.Client;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
 import org.skife.jdbi.v2.DBI;
+import org.whispersystems.dispatch.DispatchChannel;
+import org.whispersystems.dispatch.DispatchManager;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.FederatedPeerAuthenticator;
 import org.whispersystems.textsecuregcm.auth.MultiBasicAuthProvider;
@@ -147,10 +149,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     Keys            keys            = database.onDemand(Keys.class);
     Messages        messages        = messagedb.onDemand(Messages.class);
 
-    JedisPool       cacheClient        = new RedisClientFactory(config.getCacheConfiguration().getUrl()).getRedisClientPool();
-    JedisPool       directoryClient    = new RedisClientFactory(config.getDirectoryConfiguration().getUrl()).getRedisClientPool();
-    Client          httpClient         = new JerseyClientBuilder(environment).using(config.getJerseyClientConfiguration())
-                                                                             .build(getName());
+    RedisClientFactory cacheClientFactory = new RedisClientFactory(config.getCacheConfiguration().getUrl());
+    JedisPool          cacheClient        = cacheClientFactory.getRedisClientPool();
+    JedisPool          directoryClient    = new RedisClientFactory(config.getDirectoryConfiguration().getUrl()).getRedisClientPool();
+    Client             httpClient         = new JerseyClientBuilder(environment).using(config.getJerseyClientConfiguration())
+                                                                                .build(getName());
 
     DirectoryManager       directory              = new DirectoryManager(directoryClient);
     PendingAccountsManager pendingAccountsManager = new PendingAccountsManager(pendingAccounts, cacheClient);
@@ -159,7 +162,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     FederatedClientManager federatedClientManager = new FederatedClientManager(config.getFederationConfiguration());
     MessagesManager        messagesManager        = new MessagesManager(messages);
     DeadLetterHandler      deadLetterHandler      = new DeadLetterHandler(messagesManager);
-    PubSubManager          pubSubManager          = new PubSubManager(cacheClient, deadLetterHandler);
+    DispatchManager        dispatchManager        = new DispatchManager(cacheClientFactory, Optional.<DispatchChannel>of(deadLetterHandler));
+    PubSubManager          pubSubManager          = new PubSubManager(cacheClient, dispatchManager);
     PushServiceClient      pushServiceClient      = new PushServiceClient(httpClient, config.getPushConfiguration());
     WebsocketSender        websocketSender        = new WebsocketSender(messagesManager, pubSubManager);
     AccountAuthenticator   deviceAuthenticator    = new AccountAuthenticator(accountsManager);
@@ -173,6 +177,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     FeedbackHandler          feedbackHandler     = new FeedbackHandler(pushServiceClient, accountsManager);
     Optional<byte[]>         authorizationKey    = config.getRedphoneConfiguration().getAuthorizationKey();
 
+    environment.lifecycle().manage(pubSubManager);
     environment.lifecycle().manage(feedbackHandler);
 
     AttachmentController attachmentController = new AttachmentController(rateLimiters, federatedClientManager, urlSigner);
@@ -263,5 +268,4 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
   public static void main(String[] args) throws Exception {
     new WhisperServerService().run(args);
   }
-
 }

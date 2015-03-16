@@ -1,177 +1,110 @@
 package org.whispersystems.textsecuregcm.storage;
 
-import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.ByteString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.websocket.DeadLetterHandler;
+import org.whispersystems.dispatch.DispatchChannel;
+import org.whispersystems.dispatch.DispatchManager;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import io.dropwizard.lifecycle.Managed;
 import static org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
-import redis.clients.jedis.BinaryJedisPubSub;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 
-public class PubSubManager {
+public class PubSubManager implements Managed {
 
-  private static final byte[] KEEPALIVE_CHANNEL = "KEEPALIVE".getBytes();
+  private static final String KEEPALIVE_CHANNEL = "KEEPALIVE";
 
-  private final Logger                      logger       = LoggerFactory.getLogger(PubSubManager.class);
-  private final SubscriptionListener        baseListener = new SubscriptionListener();
-  private final Map<String, PubSubListener> listeners    = new HashMap<>();
-  private final Executor                    threaded     = Executors.newCachedThreadPool();
+  private final Logger logger = LoggerFactory.getLogger(PubSubManager.class);
 
+  private final DispatchManager dispatchManager;
   private final JedisPool         jedisPool;
-  private final DeadLetterHandler deadLetterHandler;
 
   private boolean subscribed = false;
 
-  public PubSubManager(JedisPool jedisPool, DeadLetterHandler deadLetterHandler) {
+  public PubSubManager(JedisPool jedisPool, DispatchManager dispatchManager) {
+    this.dispatchManager = dispatchManager;
     this.jedisPool         = jedisPool;
-    this.deadLetterHandler = deadLetterHandler;
-    initializePubSubWorker();
-    waitForSubscription();
   }
 
-  public synchronized void subscribe(WebsocketAddress address, PubSubListener listener) {
-    String serializedAddress = address.serialize();
+  @Override
+  public void start() throws Exception {
+    this.dispatchManager.start();
 
-    listeners.put(serializedAddress, listener);
-    baseListener.subscribe(serializedAddress.getBytes());
-  }
+    KeepaliveDispatchChannel keepaliveDispatchChannel = new KeepaliveDispatchChannel();
+    this.dispatchManager.subscribe(KEEPALIVE_CHANNEL, keepaliveDispatchChannel);
 
-  public synchronized void unsubscribe(WebsocketAddress address, PubSubListener listener) {
-    String serializedAddress = address.serialize();
-
-    if (listeners.get(serializedAddress) == listener) {
-      listeners.remove(serializedAddress);
-      baseListener.unsubscribe(serializedAddress.getBytes());
+    synchronized (this) {
+      while (!subscribed) wait(0);
     }
+
+    new KeepaliveSender().start();
   }
 
-  public synchronized boolean publish(WebsocketAddress address, PubSubMessage message) {
+  @Override
+  public void stop() throws Exception {
+    dispatchManager.shutdown();
+  }
+
+  public void subscribe(WebsocketAddress address, DispatchChannel channel) {
+    String serializedAddress = address.serialize();
+    dispatchManager.subscribe(serializedAddress, channel);
+  }
+
+  public void unsubscribe(WebsocketAddress address, DispatchChannel dispatchChannel) {
+    String serializedAddress = address.serialize();
+    dispatchManager.unsubscribe(serializedAddress, dispatchChannel);
+  }
+
+  public boolean publish(WebsocketAddress address, PubSubMessage message) {
     return publish(address.serialize().getBytes(), message);
   }
 
-  private synchronized boolean publish(byte[] channel, PubSubMessage message) {
+  private boolean publish(byte[] channel, PubSubMessage message) {
     try (Jedis jedis = jedisPool.getResource()) {
       return jedis.publish(channel, message.toByteArray()) != 0;
     }
   }
 
-  private synchronized void resubscribeAll() {
-    for (String serializedAddress : listeners.keySet()) {
-      baseListener.subscribe(serializedAddress.getBytes());
-    }
-  }
-
-  private synchronized void waitForSubscription() {
-    try {
-      while (!subscribed) {
-        wait();
-      }
-    } catch (InterruptedException e) {
-      throw new AssertionError(e);
-    }
-  }
-
-  private void initializePubSubWorker() {
-    new Thread("PubSubListener") {
-      @Override
-      public void run() {
-        for (;;) {
-          logger.info("Starting Redis PubSub Subscriber...");
-
-          try (Jedis jedis = jedisPool.getResource()) {
-            jedis.subscribe(baseListener, KEEPALIVE_CHANNEL);
-            logger.warn("**** Unsubscribed from holding channel!!! ******");
-          } catch (Throwable t) {
-            logger.warn("*** SUBSCRIBER CONNECTION CLOSED", t);
-          }
-        }
-      }
-    }.start();
-
-    new Thread("PubSubKeepAlive") {
-      @Override
-      public void run() {
-        for (;;) {
-          try {
-            Thread.sleep(20000);
-            publish(KEEPALIVE_CHANNEL, PubSubMessage.newBuilder()
-                                                    .setType(PubSubMessage.Type.KEEPALIVE)
-                                                    .build());
-          } catch (Throwable e) {
-            logger.warn("KEEPALIVE PUBLISH EXCEPTION: ", e);
-          }
-        }
-      }
-    }.start();
-  }
-
-  private class SubscriptionListener extends BinaryJedisPubSub {
+  private class KeepaliveDispatchChannel implements DispatchChannel {
 
     @Override
-    public void onMessage(final byte[] channel, final byte[] message) {
-      if (Arrays.equals(KEEPALIVE_CHANNEL, channel)) {
-        return;
-      }
-
-      final PubSubListener listener;
-
-      synchronized (PubSubManager.this) {
-        listener = listeners.get(new String(channel));
-      }
-
-      threaded.execute(new Runnable() {
-        @Override
-        public void run() {
-          try {
-            PubSubMessage receivedMessage = PubSubMessage.parseFrom(message);
-
-            if (listener != null) listener.onPubSubMessage(receivedMessage);
-            else                  deadLetterHandler.handle(channel, receivedMessage);
-          } catch (InvalidProtocolBufferException e) {
-            logger.warn("Error parsing PubSub protobuf", e);
-          }
-        }
-      });
+    public void onDispatchMessage(String channel, byte[] message) {
+      // Good
     }
 
     @Override
-    public void onPMessage(byte[] s, byte[] s2, byte[] s3) {
-      logger.warn("Received PMessage!");
-    }
-
-    @Override
-    public void onSubscribe(byte[] channel, int count) {
-      if (Arrays.equals(KEEPALIVE_CHANNEL, channel)) {
+    public void onDispatchSubscribed(String channel) {
+      if (KEEPALIVE_CHANNEL.equals(channel)) {
         synchronized (PubSubManager.this) {
           subscribed = true;
           PubSubManager.this.notifyAll();
         }
-
-        threaded.execute(new Runnable() {
-          @Override
-          public void run() {
-            resubscribeAll();
-          }
-        });
       }
     }
 
     @Override
-    public void onUnsubscribe(byte[] s, int i) {}
+    public void onDispatchUnsubscribed(String channel) {
+      logger.warn("***** KEEPALIVE CHANNEL UNSUBSCRIBED *****");
+    }
+  }
 
+  private class KeepaliveSender extends Thread {
     @Override
-    public void onPUnsubscribe(byte[] s, int i) {}
-
-    @Override
-    public void onPSubscribe(byte[] s, int i) {}
+    public void run() {
+      while (true) {
+        try {
+          Thread.sleep(20000);
+          publish(KEEPALIVE_CHANNEL.getBytes(), PubSubMessage.newBuilder()
+                                                             .setType(PubSubMessage.Type.KEEPALIVE)
+                                                             .build());
+        } catch (Throwable e) {
+          logger.warn("***** KEEPALIVE EXCEPTION ******", e);
+        }
+      }
+    }
   }
 }
