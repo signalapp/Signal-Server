@@ -8,9 +8,8 @@ import org.whispersystems.dispatch.redis.PubSubConnection;
 import org.whispersystems.dispatch.redis.PubSubReply;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
@@ -18,7 +17,7 @@ public class DispatchManager extends Thread {
 
   private final Logger                       logger        = LoggerFactory.getLogger(DispatchManager.class);
   private final Executor                     executor      = Executors.newCachedThreadPool();
-  private final Map<String, DispatchChannel> subscriptions = new HashMap<>();
+  private final Map<String, DispatchChannel> subscriptions = new ConcurrentHashMap<>();
 
   private final Optional<DispatchChannel>    deadLetterChannel;
   private final RedisPubSubConnectionFactory redisPubSubConnectionFactory;
@@ -45,13 +44,9 @@ public class DispatchManager extends Thread {
     this.pubSubConnection.close();
   }
 
-  public void subscribe(String name, DispatchChannel dispatchChannel) {
-    Optional<DispatchChannel> previous;
-
-    synchronized (subscriptions) {
-      previous = Optional.fromNullable(subscriptions.get(name));
-      subscriptions.put(name, dispatchChannel);
-    }
+  public synchronized void subscribe(String name, DispatchChannel dispatchChannel) {
+    Optional<DispatchChannel> previous = Optional.fromNullable(subscriptions.get(name));
+    subscriptions.put(name, dispatchChannel);
 
     try {
       pubSubConnection.subscribe(name);
@@ -64,18 +59,12 @@ public class DispatchManager extends Thread {
     }
   }
 
-  public void unsubscribe(String name, DispatchChannel channel) {
-    final Optional<DispatchChannel> subscription;
+  public synchronized void unsubscribe(String name, DispatchChannel channel) {
+    Optional<DispatchChannel> subscription = Optional.fromNullable(subscriptions.get(name));
 
-    synchronized (subscriptions) {
-      subscription = Optional.fromNullable(subscriptions.get(name));
+    if (subscription.isPresent() && subscription.get() == channel) {
+      subscriptions.remove(name);
 
-      if (subscription.isPresent() && subscription.get() == channel) {
-        subscriptions.remove(name);
-      }
-    }
-
-    if (subscription.isPresent()) {
       try {
         pubSubConnection.unsubscribe(name);
       } catch (IOException e) {
@@ -103,7 +92,7 @@ public class DispatchManager extends Thread {
         if (running) {
           this.pubSubConnection.close();
           this.pubSubConnection = redisPubSubConnectionFactory.connect();
-          resubscribe();
+          resubscribeAll();
         }
       }
     }
@@ -112,11 +101,7 @@ public class DispatchManager extends Thread {
   }
 
   private void dispatchSubscribe(final PubSubReply reply) {
-    final Optional<DispatchChannel> subscription;
-
-    synchronized (subscriptions) {
-      subscription = Optional.fromNullable(subscriptions.get(reply.getChannel()));
-    }
+    Optional<DispatchChannel> subscription = Optional.fromNullable(subscriptions.get(reply.getChannel()));
 
     if (subscription.isPresent()) {
       dispatchSubscription(reply.getChannel(), subscription.get());
@@ -126,11 +111,7 @@ public class DispatchManager extends Thread {
   }
 
   private void dispatchMessage(PubSubReply reply) {
-    Optional<DispatchChannel> subscription;
-
-    synchronized (subscriptions) {
-      subscription = Optional.fromNullable(subscriptions.get(reply.getChannel()));
-    }
+    Optional<DispatchChannel> subscription = Optional.fromNullable(subscriptions.get(reply.getChannel()));
 
     if (subscription.isPresent()) {
       dispatchMessage(reply.getChannel(), subscription.get(), reply.getContent().get());
@@ -141,22 +122,18 @@ public class DispatchManager extends Thread {
     }
   }
 
-  private void resubscribe() {
-    final Collection<String> names;
-
-    synchronized (subscriptions) {
-      names = subscriptions.keySet();
-    }
-
+  private void resubscribeAll() {
     new Thread() {
       @Override
       public void run() {
-        try {
-          for (String name : names) {
-            pubSubConnection.subscribe(name);
+        synchronized (DispatchManager.this) {
+          try {
+            for (String name : subscriptions.keySet()) {
+              pubSubConnection.subscribe(name);
+            }
+          } catch (IOException e) {
+            logger.warn("***** RESUBSCRIPTION ERROR *****", e);
           }
-        } catch (IOException e) {
-          logger.warn("***** RESUBSCRIPTION ERROR *****", e);
         }
       }
     }.start();
