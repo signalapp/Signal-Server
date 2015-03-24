@@ -76,7 +76,13 @@ public class FeedbackHandler implements Managed, Runnable {
               event.getTimestamp() > device.get().getPushTimestamp())
           {
             logger.info("GCM Unregister Timestamp matches!");
-            device.get().setGcmId(null);
+
+            if (event.getCanonicalId() != null && !event.getCanonicalId().isEmpty()) {
+              logger.info("It's a canonical ID update...");
+              device.get().setGcmId(event.getCanonicalId());
+            } else {
+              device.get().setGcmId(null);
+            }
             accountsManager.update(account.get());
           }
         }

@@ -12,6 +12,9 @@ public class UnregisteredEvent {
   private String registrationId;
 
   @JsonProperty
+  private String canonicalId;
+
+  @JsonProperty
   @NotEmpty
   private String number;
 
@@ -24,6 +27,10 @@ public class UnregisteredEvent {
 
   public String getRegistrationId() {
     return registrationId;
+  }
+
+  public String getCanonicalId() {
+    return canonicalId;
   }
 
   public String getNumber() {
