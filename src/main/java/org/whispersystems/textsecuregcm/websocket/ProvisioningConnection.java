@@ -52,10 +52,16 @@ public class ProvisioningConnection implements DispatchChannel {
 
   @Override
   public void onDispatchSubscribed(String channel) {
-    this.client.sendRequest("PUT", "/v1/address", Optional.of(ProvisioningUuid.newBuilder()
-                                                                              .setUuid(channel)
-                                                                              .build()
-                                                                              .toByteArray()));
+    try {
+      ProvisioningAddress address = new ProvisioningAddress(channel);
+      this.client.sendRequest("PUT", "/v1/address", Optional.of(ProvisioningUuid.newBuilder()
+                                                                                .setUuid(address.getAddress())
+                                                                                .build()
+                                                                                .toByteArray()));
+    } catch (InvalidWebsocketAddressException e) {
+      logger.warn("Badly formatted address", e);
+      this.client.close(1001, "Server Error");
+    }
   }
 
   @Override

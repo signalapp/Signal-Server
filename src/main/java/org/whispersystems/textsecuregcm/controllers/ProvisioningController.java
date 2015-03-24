@@ -46,7 +46,7 @@ public class ProvisioningController {
   {
     rateLimiters.getMessagesLimiter().validate(source.getNumber());
 
-    if (!websocketSender.sendProvisioningMessage(new ProvisioningAddress(destinationName),
+    if (!websocketSender.sendProvisioningMessage(new ProvisioningAddress(destinationName, 0),
                                                  Base64.decode(message.getBody())))
     {
       throw new WebApplicationException(Response.Status.NOT_FOUND);

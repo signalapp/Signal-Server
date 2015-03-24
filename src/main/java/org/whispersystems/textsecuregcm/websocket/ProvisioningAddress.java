@@ -7,15 +7,16 @@ import java.security.SecureRandom;
 
 public class ProvisioningAddress extends WebsocketAddress {
 
-  private final String address;
+  public ProvisioningAddress(String address, int id) throws InvalidWebsocketAddressException {
+    super(address, id);
+  }
 
-  public ProvisioningAddress(String address) throws InvalidWebsocketAddressException {
-    super(address, 0);
-    this.address = address;
+  public ProvisioningAddress(String serialized) throws InvalidWebsocketAddressException {
+    super(serialized);
   }
 
   public String getAddress() {
-    return address;
+    return getNumber();
   }
 
   public static ProvisioningAddress generate() {
@@ -24,7 +25,7 @@ public class ProvisioningAddress extends WebsocketAddress {
       SecureRandom.getInstance("SHA1PRNG").nextBytes(random);
 
       return new ProvisioningAddress(Base64.encodeBytesWithoutPadding(random)
-                                           .replace('+', '-').replace('/', '_'));
+                                           .replace('+', '-').replace('/', '_'), 0);
     } catch (NoSuchAlgorithmException | InvalidWebsocketAddressException e) {
       throw new AssertionError(e);
     }
