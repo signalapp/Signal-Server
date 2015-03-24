@@ -40,6 +40,6 @@ public class NonLimitedAccount extends Account {
 
   @Override
   public Optional<Device> getAuthenticatedDevice() {
-    return Optional.of(new Device(deviceId, null, null, null, null, null, false, 0, null, System.currentTimeMillis()));
+    return Optional.of(new Device(deviceId, null, null, null, null, null, null, false, 0, null, System.currentTimeMillis()));
   }
 }

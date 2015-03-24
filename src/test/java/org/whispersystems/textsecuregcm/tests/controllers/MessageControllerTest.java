@@ -6,8 +6,6 @@ import com.sun.jersey.api.client.ClientResponse;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
@@ -62,13 +60,13 @@ public class MessageControllerTest {
   @Before
   public void setup() throws Exception {
     Set<Device> singleDeviceList = new HashSet<Device>() {{
-      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 111, null, System.currentTimeMillis()));
+      add(new Device(1, "foo", "bar", "baz", "isgcm", null, null, false, 111, null, System.currentTimeMillis()));
     }};
 
     Set<Device> multiDeviceList = new HashSet<Device>() {{
-      add(new Device(1, "foo", "bar", "baz", "isgcm", null, false, 222, new SignedPreKey(111, "foo", "bar"), System.currentTimeMillis()));
-      add(new Device(2, "foo", "bar", "baz", "isgcm", null, false, 333, new SignedPreKey(222, "oof", "rab"), System.currentTimeMillis()));
-      add(new Device(3, "foo", "bar", "baz", "isgcm", null, false, 444, null, System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31)));
+      add(new Device(1, "foo", "bar", "baz", "isgcm", null, null, false, 222, new SignedPreKey(111, "foo", "bar"), System.currentTimeMillis()));
+      add(new Device(2, "foo", "bar", "baz", "isgcm", null, null, false, 333, new SignedPreKey(222, "oof", "rab"), System.currentTimeMillis()));
+      add(new Device(3, "foo", "bar", "baz", "isgcm", null, null, false, 444, null, System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31)));
     }};
 
     Account singleDeviceAccount = new Account(SINGLE_DEVICE_RECIPIENT, false, singleDeviceList);
