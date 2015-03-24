@@ -75,6 +75,10 @@ public class DispatchManager extends Thread {
     }
   }
 
+  public boolean hasSubscription(String name) {
+    return subscriptions.containsKey(name);
+  }
+
   @Override
   public void run() {
     while (running) {

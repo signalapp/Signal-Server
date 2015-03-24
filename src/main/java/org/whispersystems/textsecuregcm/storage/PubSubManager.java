@@ -59,6 +59,10 @@ public class PubSubManager implements Managed {
     dispatchManager.unsubscribe(serializedAddress, dispatchChannel);
   }
 
+  public boolean hasLocalSubscription(WebsocketAddress address) {
+    return dispatchManager.hasSubscription(address.serialize());
+  }
+
   public boolean publish(WebsocketAddress address, PubSubMessage message) {
     return publish(address.serialize().getBytes(), message);
   }
