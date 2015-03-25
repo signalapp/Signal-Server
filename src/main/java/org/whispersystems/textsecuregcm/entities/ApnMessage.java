@@ -5,6 +5,7 @@ import com.google.common.annotations.VisibleForTesting;
 import org.hibernate.validator.constraints.NotEmpty;
 
 import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
 
 public class ApnMessage {
   @JsonProperty
@@ -23,12 +24,17 @@ public class ApnMessage {
   @NotEmpty
   private String message;
 
+  @JsonProperty
+  @NotNull
+  private boolean voip;
+
   public ApnMessage() {}
 
-  public ApnMessage(String apnId, String number, int deviceId, String message) {
+  public ApnMessage(String apnId, String number, int deviceId, String message, boolean voip) {
     this.apnId    = apnId;
     this.number   = number;
     this.deviceId = deviceId;
     this.message  = message;
+    this.voip     = voip;
   }
 }
