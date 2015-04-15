@@ -218,37 +218,37 @@ public class MessageControllerTest {
   @Test
   public synchronized void testDeleteMessages() throws Exception {
     long timestamp = System.currentTimeMillis();
-    when(messagesManager.delete(AuthHelper.VALID_NUMBER, 31337))
+    when(messagesManager.delete(AuthHelper.VALID_NUMBER, "+14152222222", 31337))
         .thenReturn(Optional.of(new OutgoingMessageEntity(31337L,
                                                           MessageProtos.OutgoingMessageSignal.Type.CIPHERTEXT_VALUE,
                                                           null, timestamp,
                                                           "+14152222222", 1, "hi".getBytes())));
 
-    when(messagesManager.delete(AuthHelper.VALID_NUMBER, 31338))
+    when(messagesManager.delete(AuthHelper.VALID_NUMBER, "+14152222222", 31338))
         .thenReturn(Optional.of(new OutgoingMessageEntity(31337L,
                                                           MessageProtos.OutgoingMessageSignal.Type.RECEIPT_VALUE,
                                                           null, System.currentTimeMillis(),
                                                           "+14152222222", 1, null)));
 
 
-    when(messagesManager.delete(AuthHelper.VALID_NUMBER, 31339))
+    when(messagesManager.delete(AuthHelper.VALID_NUMBER, "+14152222222", 31339))
         .thenReturn(Optional.<OutgoingMessageEntity>absent());
 
-    ClientResponse response = resources.client().resource(String.format("/v1/messages/%d", 31337))
+    ClientResponse response = resources.client().resource(String.format("/v1/messages/%s/%d", "+14152222222", 31337))
                                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                                        .delete(ClientResponse.class);
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
     verify(receiptSender).sendReceipt(any(Account.class), eq("+14152222222"), eq(timestamp), eq(Optional.<String>absent()));
 
-    response = resources.client().resource(String.format("/v1/messages/%d", 31338))
+    response = resources.client().resource(String.format("/v1/messages/%s/%d", "+14152222222", 31338))
                         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                         .delete(ClientResponse.class);
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
     verifyNoMoreInteractions(receiptSender);
 
-    response = resources.client().resource(String.format("/v1/messages/%d", 31339))
+    response = resources.client().resource(String.format("/v1/messages/%s/%d", "+14152222222", 31339))
                         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                         .delete(ClientResponse.class);
 

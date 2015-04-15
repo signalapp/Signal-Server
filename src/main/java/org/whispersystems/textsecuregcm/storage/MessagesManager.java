@@ -28,11 +28,11 @@ public class MessagesManager {
     this.messages.clear(destination);
   }
 
-  public Optional<OutgoingMessageEntity> delete(String destination, long timestamp) {
-    return Optional.fromNullable(this.messages.remove(destination, timestamp));
+  public Optional<OutgoingMessageEntity> delete(String destination, String source, long timestamp) {
+    return Optional.fromNullable(this.messages.remove(destination, source, timestamp));
   }
 
-  public void delete(long id) {
-    this.messages.remove(id);
+  public void delete(String destination, long id) {
+    this.messages.remove(destination, id);
   }
 }

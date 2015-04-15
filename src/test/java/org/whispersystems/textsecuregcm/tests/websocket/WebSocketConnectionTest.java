@@ -162,7 +162,7 @@ public class WebSocketConnectionTest {
 //      add(createMessage("sender2", 3333, false, "third"));
 //    }};
 
-    verify(storedMessages, times(1)).delete(eq(2L));
+    verify(storedMessages, times(1)).delete(eq(account.getNumber()), eq(2L));
 
 //    verify(pushSender, times(1)).sendMessage(eq(sender1), eq(sender1device), any(OutgoingMessageSignal.class));
 

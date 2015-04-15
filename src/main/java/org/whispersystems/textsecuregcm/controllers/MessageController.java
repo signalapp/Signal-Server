@@ -160,12 +160,14 @@ public class MessageController {
 
   @Timed
   @DELETE
-  @Path("/{message_id}")
-  public void removePendingMessage(@Auth Account account, @PathParam("message_id") long id)
+  @Path("/{source}/{timestamp}")
+  public void removePendingMessage(@Auth Account account,
+                                   @PathParam("source") String source,
+                                   @PathParam("timestamp") long timestamp)
       throws IOException
   {
     try {
-      Optional<OutgoingMessageEntity> message = messagesManager.delete(account.getNumber(), id);
+      Optional<OutgoingMessageEntity> message = messagesManager.delete(account.getNumber(), source, timestamp);
 
       if (message.isPresent() && message.get().getType() != OutgoingMessageSignal.Type.RECEIPT_VALUE) {
         receiptSender.sendReceipt(account,
