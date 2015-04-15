@@ -10,6 +10,7 @@ import org.whispersystems.textsecuregcm.controllers.ReceiptController;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.push.PushSender;
+import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -32,12 +33,14 @@ public class ReceiptControllerTest  {
   private  final FederatedClientManager federatedClientManager = mock(FederatedClientManager.class);
   private  final AccountsManager        accountsManager        = mock(AccountsManager.class       );
 
+  private final ReceiptSender receiptSender = new ReceiptSender(accountsManager, pushSender, federatedClientManager);
+
   private  final ObjectMapper mapper = new ObjectMapper();
 
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
                                                             .addProvider(AuthHelper.getAuthenticator())
-                                                            .addResource(new ReceiptController(accountsManager, federatedClientManager, pushSender))
+                                                            .addResource(new ReceiptController(receiptSender))
                                                             .build();
 
   @Before

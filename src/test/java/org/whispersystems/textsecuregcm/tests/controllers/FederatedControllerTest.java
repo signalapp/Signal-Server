@@ -20,9 +20,11 @@ import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.PushSender;
+import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
 import javax.ws.rs.core.MediaType;
@@ -45,8 +47,10 @@ public class FederatedControllerTest {
   private static final String MULTI_DEVICE_RECIPIENT  = "+14152222222";
 
   private PushSender             pushSender             = mock(PushSender.class            );
+  private ReceiptSender          receiptSender          = mock(ReceiptSender.class);
   private FederatedClientManager federatedClientManager = mock(FederatedClientManager.class);
   private AccountsManager        accountsManager        = mock(AccountsManager.class       );
+  private MessagesManager        messagesManager        = mock(MessagesManager.class);
   private RateLimiters           rateLimiters           = mock(RateLimiters.class          );
   private RateLimiter            rateLimiter            = mock(RateLimiter.class           );
 
@@ -55,7 +59,7 @@ public class FederatedControllerTest {
 
   private final ObjectMapper mapper = new ObjectMapper();
 
-  private final MessageController messageController = new MessageController(rateLimiters, pushSender, accountsManager, federatedClientManager);
+  private final MessageController messageController = new MessageController(rateLimiters, pushSender, receiptSender, accountsManager, messagesManager, federatedClientManager);
   private final KeysControllerV2  keysControllerV2  = mock(KeysControllerV2.class);
 
   @Rule

@@ -9,7 +9,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
+import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.push.PushSender;
+import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -57,12 +59,13 @@ public class WebSocketConnectionTest {
   private static final Device               device               = mock(Device.class              );
   private static final UpgradeRequest       upgradeRequest       = mock(UpgradeRequest.class      );
   private static final PushSender           pushSender           = mock(PushSender.class);
+  private static final ReceiptSender        receiptSender        = mock(ReceiptSender.class);
 
   @Test
   public void testCredentials() throws Exception {
     MessagesManager               storedMessages         = mock(MessagesManager.class);
     WebSocketAccountAuthenticator webSocketAuthenticator = new WebSocketAccountAuthenticator(accountAuthenticator);
-    AuthenticatedConnectListener  connectListener        = new AuthenticatedConnectListener(accountsManager, pushSender, storedMessages, pubSubManager);
+    AuthenticatedConnectListener  connectListener        = new AuthenticatedConnectListener(accountsManager, pushSender, receiptSender, storedMessages, pubSubManager);
     WebSocketSessionContext       sessionContext         = mock(WebSocketSessionContext.class);
 
     when(accountAuthenticator.authenticate(eq(new BasicCredentials(VALID_USER, VALID_PASSWORD))))
@@ -98,10 +101,10 @@ public class WebSocketConnectionTest {
   public void testOpen() throws Exception {
     MessagesManager storedMessages = mock(MessagesManager.class);
 
-    List<Pair<Long, OutgoingMessageSignal>> outgoingMessages = new LinkedList<Pair<Long, OutgoingMessageSignal>> () {{
-      add(new Pair<>(1L, createMessage("sender1", 1111, false, "first")));
-      add(new Pair<>(2L, createMessage("sender1", 2222, false, "second")));
-      add(new Pair<>(3L, createMessage("sender2", 3333, false, "third")));
+    List<OutgoingMessageEntity> outgoingMessages = new LinkedList<OutgoingMessageEntity> () {{
+      add(createMessage(1L, "sender1", 1111, false, "first"));
+      add(createMessage(2L, "sender1", 2222, false, "second"));
+      add(createMessage(3L, "sender2", 3333, false, "third"));
     }};
 
     when(device.getId()).thenReturn(2L);
@@ -139,7 +142,7 @@ public class WebSocketConnectionTest {
         });
 
     WebsocketAddress websocketAddress = new WebsocketAddress(account.getNumber(), device.getId());
-    WebSocketConnection connection = new WebSocketConnection(accountsManager, pushSender, storedMessages,
+    WebSocketConnection connection = new WebSocketConnection(pushSender, receiptSender, storedMessages,
                                                              account, device, client);
 
     connection.onDispatchSubscribed(websocketAddress.serialize());
@@ -154,25 +157,29 @@ public class WebSocketConnectionTest {
     futures.get(0).setException(new IOException());
     futures.get(2).setException(new IOException());
 
-    List<OutgoingMessageSignal> pending = new LinkedList<OutgoingMessageSignal>() {{
-      add(createMessage("sender1", 1111, false, "first"));
-      add(createMessage("sender2", 3333, false, "third"));
-    }};
+//    List<OutgoingMessageSignal> pending = new LinkedList<OutgoingMessageSignal>() {{
+//      add(createMessage("sender1", 1111, false, "first"));
+//      add(createMessage("sender2", 3333, false, "third"));
+//    }};
 
-    verify(pushSender, times(1)).sendMessage(eq(sender1), eq(sender1device), any(OutgoingMessageSignal.class));
+    verify(storedMessages, times(1)).delete(eq(2L));
+
+//    verify(pushSender, times(1)).sendMessage(eq(sender1), eq(sender1device), any(OutgoingMessageSignal.class));
 
     connection.onDispatchUnsubscribed(websocketAddress.serialize());
     verify(client).close(anyInt(), anyString());
   }
 
-  private OutgoingMessageSignal createMessage(String sender, long timestamp, boolean receipt, String content) {
-    return OutgoingMessageSignal.newBuilder()
-                                .setSource(sender)
-                                .setSourceDevice(1)
-                                .setType(receipt ? OutgoingMessageSignal.Type.RECEIPT_VALUE : OutgoingMessageSignal.Type.CIPHERTEXT_VALUE)
-                                .setTimestamp(timestamp)
-                                .setMessage(ByteString.copyFrom(content.getBytes()))
-                                .build();
+  private OutgoingMessageEntity createMessage(long id, String sender, long timestamp, boolean receipt, String content) {
+    return new OutgoingMessageEntity(id, receipt ? OutgoingMessageSignal.Type.RECEIPT_VALUE : OutgoingMessageSignal.Type.CIPHERTEXT_VALUE,
+                                     null, timestamp, sender, 1, content.getBytes());
+//    return OutgoingMessageSignal.newBuilder()
+//                                .setSource(sender)
+//                                .setSourceDevice(1)
+//                                .setType(receipt ? OutgoingMessageSignal.Type.RECEIPT_VALUE : OutgoingMessageSignal.Type.CIPHERTEXT_VALUE)
+//                                .setTimestamp(timestamp)
+//                                .setMessage(ByteString.copyFrom(content.getBytes()))
+//                                .build();
   }
 
 }

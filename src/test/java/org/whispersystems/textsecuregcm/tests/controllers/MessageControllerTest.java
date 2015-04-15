@@ -3,6 +3,7 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
 import com.sun.jersey.api.client.ClientResponse;
+import org.hamcrest.CoreMatchers;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -10,19 +11,26 @@ import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
+import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
+import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.PushSender;
+import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 import javax.ws.rs.core.MediaType;
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -30,6 +38,7 @@ import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.*;
@@ -42,8 +51,10 @@ public class MessageControllerTest {
   private static final String MULTI_DEVICE_RECIPIENT  = "+14152222222";
 
   private  final PushSender             pushSender             = mock(PushSender.class            );
+  private  final ReceiptSender          receiptSender          = mock(ReceiptSender.class);
   private  final FederatedClientManager federatedClientManager = mock(FederatedClientManager.class);
   private  final AccountsManager        accountsManager        = mock(AccountsManager.class       );
+  private  final MessagesManager        messagesManager        = mock(MessagesManager.class);
   private  final RateLimiters           rateLimiters           = mock(RateLimiters.class          );
   private  final RateLimiter            rateLimiter            = mock(RateLimiter.class           );
 
@@ -52,8 +63,8 @@ public class MessageControllerTest {
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
                                                             .addProvider(AuthHelper.getAuthenticator())
-                                                            .addResource(new MessageController(rateLimiters, pushSender, accountsManager,
-                                                                                               federatedClientManager))
+                                                            .addResource(new MessageController(rateLimiters, pushSender, receiptSender, accountsManager,
+                                                                                               messagesManager, federatedClientManager))
                                                             .build();
 
 
@@ -172,6 +183,77 @@ public class MessageControllerTest {
                is(equalTo(jsonFixture("fixtures/mismatched_registration_id.json"))));
 
     verifyNoMoreInteractions(pushSender);
+
+  }
+
+  @Test
+  public synchronized void testGetMessages() throws Exception {
+
+    final long timestampOne = 313377;
+    final long timestampTwo = 313388;
+
+    List<OutgoingMessageEntity> messages = new LinkedList<OutgoingMessageEntity>() {{
+      add(new OutgoingMessageEntity(1L, MessageProtos.OutgoingMessageSignal.Type.CIPHERTEXT_VALUE, null, timestampOne, "+14152222222", 2, "hi there".getBytes()));
+      add(new OutgoingMessageEntity(2L, MessageProtos.OutgoingMessageSignal.Type.RECEIPT_VALUE, null, timestampTwo, "+14152222222", 2, null));
+    }};
+
+    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_NUMBER), eq(1L))).thenReturn(messages);
+
+    OutgoingMessageEntityList response =
+        resources.client().resource("/v1/messages/")
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .accept(MediaType.APPLICATION_JSON_TYPE)
+                 .get(OutgoingMessageEntityList.class);
+
+
+    assertEquals(response.getMessages().size(), 2);
+
+    assertEquals(response.getMessages().get(0).getId(), 0);
+    assertEquals(response.getMessages().get(1).getId(), 0);
+
+    assertEquals(response.getMessages().get(0).getTimestamp(), timestampOne);
+    assertEquals(response.getMessages().get(1).getTimestamp(), timestampTwo);
+  }
+
+  @Test
+  public synchronized void testDeleteMessages() throws Exception {
+    long timestamp = System.currentTimeMillis();
+    when(messagesManager.delete(AuthHelper.VALID_NUMBER, 31337))
+        .thenReturn(Optional.of(new OutgoingMessageEntity(31337L,
+                                                          MessageProtos.OutgoingMessageSignal.Type.CIPHERTEXT_VALUE,
+                                                          null, timestamp,
+                                                          "+14152222222", 1, "hi".getBytes())));
+
+    when(messagesManager.delete(AuthHelper.VALID_NUMBER, 31338))
+        .thenReturn(Optional.of(new OutgoingMessageEntity(31337L,
+                                                          MessageProtos.OutgoingMessageSignal.Type.RECEIPT_VALUE,
+                                                          null, System.currentTimeMillis(),
+                                                          "+14152222222", 1, null)));
+
+
+    when(messagesManager.delete(AuthHelper.VALID_NUMBER, 31339))
+        .thenReturn(Optional.<OutgoingMessageEntity>absent());
+
+    ClientResponse response = resources.client().resource(String.format("/v1/messages/%d", 31337))
+                                       .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                       .delete(ClientResponse.class);
+
+    assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
+    verify(receiptSender).sendReceipt(any(Account.class), eq("+14152222222"), eq(timestamp), eq(Optional.<String>absent()));
+
+    response = resources.client().resource(String.format("/v1/messages/%d", 31338))
+                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                        .delete(ClientResponse.class);
+
+    assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
+    verifyNoMoreInteractions(receiptSender);
+
+    response = resources.client().resource(String.format("/v1/messages/%d", 31339))
+                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                        .delete(ClientResponse.class);
+
+    assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
+    verifyNoMoreInteractions(receiptSender);
 
   }
 

@@ -1,6 +1,5 @@
 package org.whispersystems.textsecuregcm.storage;
 
-import com.google.protobuf.ByteString;
 import org.skife.jdbi.v2.SQLStatement;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.sqlobject.Bind;
@@ -12,7 +11,7 @@ import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
-import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
@@ -44,9 +43,14 @@ public abstract class Messages {
 
   @Mapper(MessageMapper.class)
   @SqlQuery("SELECT * FROM messages WHERE " + DESTINATION + " = :destination AND " + DESTINATION_DEVICE + " = :destination_device ORDER BY " + TIMESTAMP + " ASC")
-  abstract List<Pair<Long, OutgoingMessageSignal>> load(@Bind("destination") String destination,
-                                                        @Bind("destination_device") long destinationDevice);
+  abstract List<OutgoingMessageEntity> load(@Bind("destination")        String destination,
+                                            @Bind("destination_device") long destinationDevice);
 
+  @Mapper(MessageMapper.class)
+  @SqlQuery("DELETE FROM messages WHERE " + ID + " IN (SELECT " + ID + " FROM messages WHERE " + DESTINATION + " = :destination AND " + TIMESTAMP + " = :timestamp ORDER BY " + ID + " LIMIT 1) RETURNING *")
+  abstract OutgoingMessageEntity remove(@Bind("destination") String destination, @Bind("timestamp") long timestamp);
+
+  @Mapper(MessageMapper.class)
   @SqlUpdate("DELETE FROM messages WHERE " + ID + " = :id")
   abstract void remove(@Bind("id") long id);
 
@@ -56,20 +60,18 @@ public abstract class Messages {
   @SqlUpdate("VACUUM messages")
   public abstract void vacuum();
 
-  public static class MessageMapper implements ResultSetMapper<Pair<Long, OutgoingMessageSignal>> {
+  public static class MessageMapper implements ResultSetMapper<OutgoingMessageEntity> {
     @Override
-    public Pair<Long, OutgoingMessageSignal> map(int i, ResultSet resultSet, StatementContext statementContext)
+    public OutgoingMessageEntity map(int i, ResultSet resultSet, StatementContext statementContext)
         throws SQLException
     {
-      return new Pair<>(resultSet.getLong(ID),
-                        OutgoingMessageSignal.newBuilder()
-                                             .setType(resultSet.getInt(TYPE))
-                                             .setRelay(resultSet.getString(RELAY))
-                                             .setTimestamp(resultSet.getLong(TIMESTAMP))
-                                             .setSource(resultSet.getString(SOURCE))
-                                             .setSourceDevice(resultSet.getInt(SOURCE_DEVICE))
-                                             .setMessage(ByteString.copyFrom(resultSet.getBytes(MESSAGE)))
-                                             .build());
+      return new OutgoingMessageEntity(resultSet.getLong(ID),
+                                       resultSet.getInt(TYPE),
+                                       resultSet.getString(RELAY),
+                                       resultSet.getLong(TIMESTAMP),
+                                       resultSet.getString(SOURCE),
+                                       resultSet.getInt(SOURCE_DEVICE),
+                                       resultSet.getBytes(MESSAGE));
     }
   }
 

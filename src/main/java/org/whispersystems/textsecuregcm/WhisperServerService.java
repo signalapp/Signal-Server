@@ -58,6 +58,7 @@ import org.whispersystems.textsecuregcm.providers.TimeProvider;
 import org.whispersystems.textsecuregcm.push.FeedbackHandler;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.push.PushServiceClient;
+import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.push.WebsocketSender;
 import org.whispersystems.textsecuregcm.sms.NexmoSmsSender;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
@@ -174,6 +175,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     SmsSender                smsSender           = new SmsSender(twilioSmsSender, nexmoSmsSender, config.getTwilioConfiguration().isInternational());
     UrlSigner                urlSigner           = new UrlSigner(config.getS3Configuration());
     PushSender               pushSender          = new PushSender(pushServiceClient, websocketSender);
+    ReceiptSender            receiptSender       = new ReceiptSender(accountsManager, pushSender, federatedClientManager);
     FeedbackHandler          feedbackHandler     = new FeedbackHandler(pushServiceClient, accountsManager);
     Optional<byte[]>         authorizationKey    = config.getRedphoneConfiguration().getAuthorizationKey();
 
@@ -183,7 +185,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     AttachmentController attachmentController = new AttachmentController(rateLimiters, federatedClientManager, urlSigner);
     KeysControllerV1     keysControllerV1     = new KeysControllerV1(rateLimiters, keys, accountsManager, federatedClientManager);
     KeysControllerV2     keysControllerV2     = new KeysControllerV2(rateLimiters, keys, accountsManager, federatedClientManager);
-    MessageController    messageController    = new MessageController(rateLimiters, pushSender, accountsManager, federatedClientManager);
+    MessageController    messageController    = new MessageController(rateLimiters, pushSender, receiptSender, accountsManager, messagesManager, federatedClientManager);
 
     environment.jersey().register(new MultiBasicAuthProvider<>(new FederatedPeerAuthenticator(config.getFederationConfiguration()),
                                                                FederatedPeer.class,
@@ -195,7 +197,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(new DirectoryController(rateLimiters, directory));
     environment.jersey().register(new FederationControllerV1(accountsManager, attachmentController, messageController, keysControllerV1));
     environment.jersey().register(new FederationControllerV2(accountsManager, attachmentController, messageController, keysControllerV2));
-    environment.jersey().register(new ReceiptController(accountsManager, federatedClientManager, pushSender));
+    environment.jersey().register(new ReceiptController(receiptSender));
     environment.jersey().register(new ProvisioningController(rateLimiters, pushSender));
     environment.jersey().register(attachmentController);
     environment.jersey().register(keysControllerV1);
@@ -205,7 +207,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     if (config.getWebsocketConfiguration().isEnabled()) {
       WebSocketEnvironment webSocketEnvironment = new WebSocketEnvironment(environment, config, 90000);
       webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(deviceAuthenticator));
-      webSocketEnvironment.setConnectListener(new AuthenticatedConnectListener(accountsManager, pushSender, messagesManager, pubSubManager));
+      webSocketEnvironment.setConnectListener(new AuthenticatedConnectListener(accountsManager, pushSender, receiptSender, messagesManager, pubSubManager));
       webSocketEnvironment.jersey().register(new KeepAliveController(pubSubManager));
 
       WebSocketEnvironment provisioningEnvironment = new WebSocketEnvironment(environment, config);
