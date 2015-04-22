@@ -1,32 +1,16 @@
-twilio:
-  accountId: 
+twilio: # Twilio SMS gateway configuration
+  accountId:
   accountToken:
   number:
   localDomain: # The domain Twilio can call back to.
-  international: # Boolean specifying Twilio for international delivery
 
-# Optional. If specified, Nexmo will be used for non-US SMS and 
-# voice verification if twilio.international is false. Otherwise,
-# Nexmo, if specified, Nexmo will only be used as a fallback
-# for failed Twilio deliveries.
-nexmo:
-  apiKey:
-  apiSecret:
-  number:
+push: # GCM/APN push server configuration
+  host:
+  port:
+  username:
+  password:
 
-gcm:
-  senderId:
-  apiKey: 
-
-# Optional. Only if iOS clients are supported.
-apn:
-  # In PEM format.
-  certificate: 
-  
-  # In PEM format.
-  key: 
-
-s3:
+s3: # AWS S3 configuration
   accessKey: 
   accessSecret: 
 
@@ -35,13 +19,37 @@ s3:
   # correct permissions.
   attachmentsBucket:
 
-memcache:
-  servers: 
-  user: 
-  password: 
+directory: # Redis server configuration for TS directory
+  url:
 
-redis:
-  url: 
+cache: # Redis server configuration for general purpose caching
+  url:
+
+websocket:
+  enabled: true
+
+messageStore: # Postgres database configuration for message store
+  driverClass: org.postgresql.Driver
+  user:
+  password:
+  url:
+
+database: # Postgres database configuration for account store
+  # the name of your JDBC driver
+  driverClass: org.postgresql.Driver
+
+  # the username
+  user:
+
+  # the password
+  password:
+
+  # the JDBC URL
+  url: jdbc:postgresql://somehost:somport/somedb
+
+  # any properties specific to your JDBC driver:
+  properties:
+    charSet: UTF-8
 
 federation:
   name:
@@ -52,24 +60,3 @@ federation:
       authenticationToken: foo
       certificate: in pem format 
 
-# Optional address of graphite server to report metrics
-graphite:
-  host:
-  port:
-
-database:
-  # the name of your JDBC driver
-  driverClass: org.postgresql.Driver
-
-  # the username
-  user: 
-
-  # the password
-  password: 
-
-  # the JDBC URL
-  url: jdbc:postgresql://somehost:somport/somedb
-
-  # any properties specific to your JDBC driver:
-  properties:
-    charSet: UTF-8
