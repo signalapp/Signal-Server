@@ -137,8 +137,10 @@ public class WebSocketConnection implements DispatchChannel {
       receiptSender.sendReceipt(account, message.getSource(), message.getTimestamp(),
                                 message.hasRelay() ? Optional.of(message.getRelay()) :
                                                      Optional.<String>absent());
-    } catch (IOException | NoSuchUserException | TransientPushFailureException | NotPushRegisteredException | WebApplicationException e) {
+    } catch (IOException | NoSuchUserException | TransientPushFailureException | NotPushRegisteredException  e) {
       logger.warn("sendDeliveryReceiptFor", e);
+    } catch (WebApplicationException e) {
+      logger.warn("Bad federated response for receipt: " + e.getResponse().getStatus());
     }
   }
 
