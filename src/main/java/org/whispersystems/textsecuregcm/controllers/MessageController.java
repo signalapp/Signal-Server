@@ -102,7 +102,7 @@ public class MessageController {
                                          @Valid                    IncomingMessageList messages)
       throws IOException, RateLimitExceededException
   {
-    rateLimiters.getMessagesLimiter().validate(source.getNumber());
+    rateLimiters.getMessagesLimiter().validate(source.getNumber() + "__" + destinationName);
 
     try {
       boolean isSyncMessage = source.getNumber().equals(destinationName);
