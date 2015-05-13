@@ -22,6 +22,8 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
 import javax.ws.rs.core.MediaType;
 
+import java.util.HashMap;
+
 import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.mockito.Matchers.anyString;
@@ -49,7 +51,8 @@ public class AccountControllerTest {
                                                                                                smsSender,
                                                                                                storedMessages,
                                                                                                timeProvider,
-                                                                                               Optional.of(authorizationKey)))
+                                                                                               Optional.of(authorizationKey),
+                                                                                               new HashMap<String, Integer>()))
                                                             .build();
 
 

@@ -25,11 +25,17 @@ import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedPhoneConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisConfiguration;
 import org.whispersystems.textsecuregcm.configuration.S3Configuration;
+import org.whispersystems.textsecuregcm.configuration.TestDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
 import org.whispersystems.textsecuregcm.configuration.WebsocketConfiguration;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
+
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 import io.dropwizard.Configuration;
 import io.dropwizard.client.JerseyClientConfiguration;
@@ -70,6 +76,10 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private DataSourceFactory messageStore;
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private List<TestDeviceConfiguration> testDevices = new LinkedList<>();
 
   @Valid
   @JsonProperty
@@ -156,5 +166,16 @@ public class WhisperServerConfiguration extends Configuration {
 
   public RedPhoneConfiguration getRedphoneConfiguration() {
     return redphone;
+  }
+
+  public Map<String, Integer> getTestDevices() {
+    Map<String, Integer> results = new HashMap<>();
+
+    for (TestDeviceConfiguration testDeviceConfiguration : testDevices) {
+      results.put(testDeviceConfiguration.getNumber(),
+                  testDeviceConfiguration.getCode());
+    }
+
+    return results;
   }
 }

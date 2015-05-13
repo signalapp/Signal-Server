@@ -192,7 +192,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                                                                deviceAuthenticator,
                                                                Device.class, "WhisperServer"));
 
-    environment.jersey().register(new AccountController(pendingAccountsManager, accountsManager, rateLimiters, smsSender, messagesManager, new TimeProvider(), authorizationKey));
+    environment.jersey().register(new AccountController(pendingAccountsManager, accountsManager, rateLimiters, smsSender, messagesManager, new TimeProvider(), authorizationKey, config.getTestDevices()));
     environment.jersey().register(new DeviceController(pendingDevicesManager, accountsManager, rateLimiters));
     environment.jersey().register(new DirectoryController(rateLimiters, directory));
     environment.jersey().register(new FederationControllerV1(accountsManager, attachmentController, messageController, keysControllerV1));

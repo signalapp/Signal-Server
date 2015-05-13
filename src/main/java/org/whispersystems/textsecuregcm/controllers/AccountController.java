@@ -56,6 +56,7 @@ import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.util.Map;
 
 import io.dropwizard.auth.Auth;
 
@@ -71,6 +72,7 @@ public class AccountController {
   private final MessagesManager        messagesManager;
   private final TimeProvider           timeProvider;
   private final Optional<byte[]>       authorizationKey;
+  private final Map<String, Integer>   testDevices;
 
   public AccountController(PendingAccountsManager pendingAccounts,
                            AccountsManager accounts,
@@ -78,7 +80,8 @@ public class AccountController {
                            SmsSender smsSenderFactory,
                            MessagesManager messagesManager,
                            TimeProvider timeProvider,
-                           Optional<byte[]> authorizationKey)
+                           Optional<byte[]> authorizationKey,
+                           Map<String, Integer> testDevices)
   {
     this.pendingAccounts  = pendingAccounts;
     this.accounts         = accounts;
@@ -87,6 +90,7 @@ public class AccountController {
     this.messagesManager  = messagesManager;
     this.timeProvider     = timeProvider;
     this.authorizationKey = authorizationKey;
+    this.testDevices      = testDevices;
   }
 
   @Timed
@@ -112,10 +116,12 @@ public class AccountController {
         throw new WebApplicationException(Response.status(422).build());
     }
 
-    VerificationCode verificationCode = generateVerificationCode();
+    VerificationCode verificationCode = generateVerificationCode(number);
     pendingAccounts.store(number, verificationCode.getVerificationCode());
 
-    if (transport.equals("sms")) {
+    if (testDevices.containsKey(number)) {
+      // noop
+    } else if (transport.equals("sms")) {
       smsSender.deliverSmsVerification(number, verificationCode.getVerificationCodeDisplay());
     } else if (transport.equals("voice")) {
       smsSender.deliverVoxVerification(number, verificationCode.getVerificationCodeSpeech());
@@ -289,8 +295,12 @@ public class AccountController {
     logger.debug("Stored device...");
   }
 
-  @VisibleForTesting protected VerificationCode generateVerificationCode() {
+  @VisibleForTesting protected VerificationCode generateVerificationCode(String number) {
     try {
+      if (testDevices.containsKey(number)) {
+        return new VerificationCode(testDevices.get(number));
+      }
+
       SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
       int randomInt       = 100000 + random.nextInt(900000);
       return new VerificationCode(randomInt);
