@@ -115,10 +115,18 @@ public class Util {
     return parts;
   }
 
-  public static void sleep(int i) {
+  public static void sleep(long i) {
     try {
       Thread.sleep(i);
     } catch (InterruptedException ie) {}
+  }
+
+  public static void wait(Object object) {
+    try {
+      object.wait();
+    } catch (InterruptedException e) {
+      throw new AssertionError(e);
+    }
   }
 
   public static long todayInMillis() {

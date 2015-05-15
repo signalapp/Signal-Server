@@ -37,4 +37,22 @@ public class ApnMessage {
     this.message  = message;
     this.voip     = voip;
   }
+
+  public ApnMessage(ApnMessage copy, String apnId, boolean voip) {
+    this.apnId    = apnId;
+    this.number   = copy.number;
+    this.deviceId = copy.deviceId;
+    this.message  = copy.message;
+    this.voip     = voip;
+  }
+
+  @VisibleForTesting
+  public String getApnId() {
+    return apnId;
+  }
+
+  @VisibleForTesting
+  public boolean isVoip() {
+    return voip;
+  }
 }

@@ -55,6 +55,7 @@ import org.whispersystems.textsecuregcm.metrics.NetworkSentGauge;
 import org.whispersystems.textsecuregcm.providers.RedisClientFactory;
 import org.whispersystems.textsecuregcm.providers.RedisHealthCheck;
 import org.whispersystems.textsecuregcm.providers.TimeProvider;
+import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.FeedbackHandler;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.push.PushServiceClient;
@@ -170,15 +171,17 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     AccountAuthenticator   deviceAuthenticator    = new AccountAuthenticator(accountsManager);
     RateLimiters           rateLimiters           = new RateLimiters(config.getLimitsConfiguration(), cacheClient);
 
+    ApnFallbackManager       apnFallbackManager  = new ApnFallbackManager(pushServiceClient);
     TwilioSmsSender          twilioSmsSender     = new TwilioSmsSender(config.getTwilioConfiguration());
     Optional<NexmoSmsSender> nexmoSmsSender      = initializeNexmoSmsSender(config.getNexmoConfiguration());
     SmsSender                smsSender           = new SmsSender(twilioSmsSender, nexmoSmsSender, config.getTwilioConfiguration().isInternational());
     UrlSigner                urlSigner           = new UrlSigner(config.getS3Configuration());
-    PushSender               pushSender          = new PushSender(pushServiceClient, websocketSender);
+    PushSender               pushSender          = new PushSender(apnFallbackManager, pushServiceClient, websocketSender);
     ReceiptSender            receiptSender       = new ReceiptSender(accountsManager, pushSender, federatedClientManager);
     FeedbackHandler          feedbackHandler     = new FeedbackHandler(pushServiceClient, accountsManager);
     Optional<byte[]>         authorizationKey    = config.getRedphoneConfiguration().getAuthorizationKey();
 
+    environment.lifecycle().manage(apnFallbackManager);
     environment.lifecycle().manage(pubSubManager);
     environment.lifecycle().manage(feedbackHandler);
 
@@ -207,7 +210,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     if (config.getWebsocketConfiguration().isEnabled()) {
       WebSocketEnvironment webSocketEnvironment = new WebSocketEnvironment(environment, config, 90000);
       webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(deviceAuthenticator));
-      webSocketEnvironment.setConnectListener(new AuthenticatedConnectListener(accountsManager, pushSender, receiptSender, messagesManager, pubSubManager));
+      webSocketEnvironment.setConnectListener(new AuthenticatedConnectListener(accountsManager, pushSender, receiptSender, messagesManager, pubSubManager, apnFallbackManager));
       webSocketEnvironment.jersey().register(new KeepAliveController(pubSubManager));
 
       WebSocketEnvironment provisioningEnvironment = new WebSocketEnvironment(environment, config);

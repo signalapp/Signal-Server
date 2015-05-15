@@ -10,6 +10,7 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
+import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -60,12 +61,13 @@ public class WebSocketConnectionTest {
   private static final UpgradeRequest       upgradeRequest       = mock(UpgradeRequest.class      );
   private static final PushSender           pushSender           = mock(PushSender.class);
   private static final ReceiptSender        receiptSender        = mock(ReceiptSender.class);
+  private static final ApnFallbackManager   apnFallbackManager   = mock(ApnFallbackManager.class);
 
   @Test
   public void testCredentials() throws Exception {
     MessagesManager               storedMessages         = mock(MessagesManager.class);
     WebSocketAccountAuthenticator webSocketAuthenticator = new WebSocketAccountAuthenticator(accountAuthenticator);
-    AuthenticatedConnectListener  connectListener        = new AuthenticatedConnectListener(accountsManager, pushSender, receiptSender, storedMessages, pubSubManager);
+    AuthenticatedConnectListener  connectListener        = new AuthenticatedConnectListener(accountsManager, pushSender, receiptSender, storedMessages, pubSubManager, apnFallbackManager);
     WebSocketSessionContext       sessionContext         = mock(WebSocketSessionContext.class);
 
     when(accountAuthenticator.authenticate(eq(new BasicCredentials(VALID_USER, VALID_PASSWORD))))
