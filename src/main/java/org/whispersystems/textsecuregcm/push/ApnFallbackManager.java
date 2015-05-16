@@ -1,9 +1,15 @@
 package org.whispersystems.textsecuregcm.push;
 
+import com.codahale.metrics.Histogram;
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.RatioGauge;
+import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.ApnMessage;
+import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
@@ -12,11 +18,26 @@ import java.util.LinkedHashMap;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 
+import static com.codahale.metrics.MetricRegistry.name;
 import io.dropwizard.lifecycle.Managed;
 
 public class ApnFallbackManager implements Managed, Runnable {
 
   private static final Logger logger = LoggerFactory.getLogger(ApnFallbackManager.class);
+
+  private static final MetricRegistry metricRegistry          = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  private static final Meter          voipOneSuccess          = metricRegistry.meter(name(ApnFallbackManager.class, "voip_one_success"));
+  private static final Meter          voipOneDelivery         = metricRegistry.meter(name(ApnFallbackManager.class, "voip_one_failure"));
+  private static final Histogram      voipOneSuccessHistogram = metricRegistry.histogram(name(ApnFallbackManager.class, "voip_one_success_histogram"));
+
+  private static final Meter          voipTwoSuccess          = metricRegistry.meter(name(ApnFallbackManager.class, "voip_two_success"));
+  private static final Meter          voipTwoDelivery         = metricRegistry.meter(name(ApnFallbackManager.class, "voip_two_failure"));
+  private static final Histogram      voipTwoSuccessHistogram = metricRegistry.histogram(name(ApnFallbackManager.class, "voip_two_success_histogram"));
+
+  static {
+    metricRegistry.register(name(ApnFallbackManager.class, "voip_one_success_ratio"), new VoipRatioGauge(voipOneSuccess, voipOneDelivery));
+    metricRegistry.register(name(ApnFallbackManager.class, "voip_two_success_ratio"), new VoipRatioGauge(voipTwoSuccess, voipTwoDelivery));
+  }
 
   private final ApnFallbackTaskQueue taskQueue = new ApnFallbackTaskQueue();
   private final PushServiceClient pushServiceClient;
@@ -26,11 +47,24 @@ public class ApnFallbackManager implements Managed, Runnable {
   }
 
   public void schedule(final WebsocketAddress address, ApnFallbackTask task) {
+    if      (task.getRetryCount() == 0) voipOneDelivery.mark();
+    else if (task.getRetryCount() == 1) voipTwoDelivery.mark();
+
     taskQueue.put(address, task);
   }
 
   public void cancel(WebsocketAddress address) {
-    taskQueue.remove(address);
+    ApnFallbackTask task = taskQueue.remove(address);
+
+    if (task != null) {
+      if (task.getRetryCount() == 0) {
+        voipOneSuccess.mark();
+        voipOneSuccessHistogram.update(System.currentTimeMillis() - task.getScheduledTime());
+      } else if (task.getRetryCount() == 1) {
+        voipTwoSuccess.mark();
+        voipTwoSuccessHistogram.update(System.currentTimeMillis() - task.getScheduledTime());
+      }
+    }
   }
 
   @Override
@@ -67,7 +101,7 @@ public class ApnFallbackManager implements Managed, Runnable {
   public static class ApnFallbackTask {
 
     private final long       delay;
-    private final long       executionTime;
+    private final long       scheduledTime;
     private final String     apnId;
     private final ApnMessage message;
     private final int        retryCount;
@@ -78,7 +112,7 @@ public class ApnFallbackManager implements Managed, Runnable {
 
     @VisibleForTesting
     public ApnFallbackTask(String apnId, ApnMessage message, int retryCount, long delay) {
-      this.executionTime = System.currentTimeMillis() + delay;
+      this.scheduledTime = System.currentTimeMillis();
       this.delay         = delay;
       this.apnId         = apnId;
       this.message       = message;
@@ -97,8 +131,12 @@ public class ApnFallbackManager implements Managed, Runnable {
       return retryCount;
     }
 
+    public long getScheduledTime() {
+      return scheduledTime;
+    }
+
     public long getExecutionTime() {
-      return executionTime;
+      return scheduledTime + delay;
     }
 
     public long getDelay() {
@@ -140,10 +178,26 @@ public class ApnFallbackManager implements Managed, Runnable {
       }
     }
 
-    public void remove(WebsocketAddress address) {
+    public ApnFallbackTask remove(WebsocketAddress address) {
       synchronized (tasks) {
-        tasks.remove(address);
+        return tasks.remove(address);
       }
+    }
+  }
+
+  private static class VoipRatioGauge extends RatioGauge {
+
+    private final Meter success;
+    private final Meter attempts;
+
+    private VoipRatioGauge(Meter success, Meter attempts) {
+      this.success  = success;
+      this.attempts = attempts;
+    }
+
+    @Override
+    protected Ratio getRatio() {
+      return Ratio.of(success.getFiveMinuteRate(), attempts.getFiveMinuteRate());
     }
   }
 
