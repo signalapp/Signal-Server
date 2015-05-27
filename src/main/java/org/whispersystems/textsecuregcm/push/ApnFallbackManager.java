@@ -86,7 +86,7 @@ public class ApnFallbackManager implements Managed, Runnable {
     private final ApnMessage message;
 
     public ApnFallbackTask(String apnId, ApnMessage message) {
-      this(apnId, message, TimeUnit.SECONDS.toMillis(15));
+      this(apnId, message, TimeUnit.SECONDS.toMillis(30));
     }
 
     @VisibleForTesting
