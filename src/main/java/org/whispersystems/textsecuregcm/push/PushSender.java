@@ -116,7 +116,7 @@ public class PushSender {
 
       if (isVoip) {
         apnFallbackManager.schedule(new WebsocketAddress(account.getNumber(), device.getId()),
-                                    new ApnFallbackTask(device.getApnId(), apnMessage, 0));
+                                    new ApnFallbackTask(device.getApnId(), apnMessage));
       }
 
       pushServiceClient.send(apnMessage);

@@ -55,4 +55,9 @@ public class ApnMessage {
   public boolean isVoip() {
     return voip;
   }
+
+  @VisibleForTesting
+  public String getMessage() {
+    return message;
+  }
 }

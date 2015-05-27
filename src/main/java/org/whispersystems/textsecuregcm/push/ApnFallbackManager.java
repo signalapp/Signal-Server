@@ -30,13 +30,8 @@ public class ApnFallbackManager implements Managed, Runnable {
   private static final Meter          voipOneDelivery         = metricRegistry.meter(name(ApnFallbackManager.class, "voip_one_failure"));
   private static final Histogram      voipOneSuccessHistogram = metricRegistry.histogram(name(ApnFallbackManager.class, "voip_one_success_histogram"));
 
-  private static final Meter          voipTwoSuccess          = metricRegistry.meter(name(ApnFallbackManager.class, "voip_two_success"));
-  private static final Meter          voipTwoDelivery         = metricRegistry.meter(name(ApnFallbackManager.class, "voip_two_failure"));
-  private static final Histogram      voipTwoSuccessHistogram = metricRegistry.histogram(name(ApnFallbackManager.class, "voip_two_success_histogram"));
-
   static {
     metricRegistry.register(name(ApnFallbackManager.class, "voip_one_success_ratio"), new VoipRatioGauge(voipOneSuccess, voipOneDelivery));
-    metricRegistry.register(name(ApnFallbackManager.class, "voip_two_success_ratio"), new VoipRatioGauge(voipTwoSuccess, voipTwoDelivery));
   }
 
   private final ApnFallbackTaskQueue taskQueue = new ApnFallbackTaskQueue();
@@ -47,9 +42,7 @@ public class ApnFallbackManager implements Managed, Runnable {
   }
 
   public void schedule(final WebsocketAddress address, ApnFallbackTask task) {
-    if      (task.getRetryCount() == 0) voipOneDelivery.mark();
-    else if (task.getRetryCount() == 1) voipTwoDelivery.mark();
-
+    voipOneDelivery.mark();
     taskQueue.put(address, task);
   }
 
@@ -57,13 +50,8 @@ public class ApnFallbackManager implements Managed, Runnable {
     ApnFallbackTask task = taskQueue.remove(address);
 
     if (task != null) {
-      if (task.getRetryCount() == 0) {
-        voipOneSuccess.mark();
-        voipOneSuccessHistogram.update(System.currentTimeMillis() - task.getScheduledTime());
-      } else if (task.getRetryCount() == 1) {
-        voipTwoSuccess.mark();
-        voipTwoSuccessHistogram.update(System.currentTimeMillis() - task.getScheduledTime());
-      }
+      voipOneSuccess.mark();
+      voipOneSuccessHistogram.update(System.currentTimeMillis() - task.getScheduledTime());
     }
   }
 
@@ -83,15 +71,7 @@ public class ApnFallbackManager implements Managed, Runnable {
       try {
         Entry<WebsocketAddress, ApnFallbackTask> taskEntry  = taskQueue.get();
         ApnFallbackTask                          task       = taskEntry.getValue();
-        int                                      retryCount = task.getRetryCount();
-
-        if (retryCount == 0) {
-          pushServiceClient.send(task.getMessage());
-          schedule(taskEntry.getKey(), new ApnFallbackTask(task.getApnId(), task.getMessage(),
-                                                           retryCount + 1, task.getDelay()));
-        } else if (retryCount == 1) {
-          pushServiceClient.send(new ApnMessage(task.getMessage(), task.getApnId(), false));
-        }
+        pushServiceClient.send(new ApnMessage(task.getMessage(), task.getApnId(), false));
       } catch (Throwable e) {
         logger.warn("ApnFallbackThread", e);
       }
@@ -104,19 +84,17 @@ public class ApnFallbackManager implements Managed, Runnable {
     private final long       scheduledTime;
     private final String     apnId;
     private final ApnMessage message;
-    private final int        retryCount;
 
-    public ApnFallbackTask(String apnId, ApnMessage message, int retryCount) {
-      this(apnId, message, retryCount, TimeUnit.SECONDS.toMillis(15));
+    public ApnFallbackTask(String apnId, ApnMessage message) {
+      this(apnId, message, TimeUnit.SECONDS.toMillis(15));
     }
 
     @VisibleForTesting
-    public ApnFallbackTask(String apnId, ApnMessage message, int retryCount, long delay) {
+    public ApnFallbackTask(String apnId, ApnMessage message, long delay) {
       this.scheduledTime = System.currentTimeMillis();
       this.delay         = delay;
       this.apnId         = apnId;
       this.message       = message;
-      this.retryCount    = retryCount;
     }
 
     public String getApnId() {
@@ -125,10 +103,6 @@ public class ApnFallbackManager implements Managed, Runnable {
 
     public ApnMessage getMessage() {
       return message;
-    }
-
-    public int getRetryCount() {
-      return retryCount;
     }
 
     public long getScheduledTime() {
