@@ -19,7 +19,7 @@ public class ApnFallbackManagerTest {
   public void testFullFallback() throws Exception {
     PushServiceClient  pushServiceClient  = mock(PushServiceClient.class);
     WebsocketAddress   address            = mock(WebsocketAddress.class );
-    ApnMessage         message            = new ApnMessage("bar", "123", 1, "hmm", true);
+    ApnMessage         message            = new ApnMessage("bar", "123", 1, "hmm", true, 1111);
     ApnFallbackTask    task               = new ApnFallbackTask("foo", message, 500);
 
     ApnFallbackManager apnFallbackManager = new ApnFallbackManager(pushServiceClient);
@@ -35,13 +35,14 @@ public class ApnFallbackManagerTest {
     assertEquals(captor.getValue().getMessage(), message.getMessage());
     assertEquals(captor.getValue().getApnId(), task.getApnId());
     assertFalse(captor.getValue().isVoip());
+    assertEquals(captor.getValue().getExpirationTime(), Integer.MAX_VALUE * 1000L);
   }
 
   @Test
   public void testNoFallback() throws Exception {
     PushServiceClient  pushServiceClient  = mock(PushServiceClient.class);
     WebsocketAddress   address            = mock(WebsocketAddress.class );
-    ApnMessage         message            = new ApnMessage("bar", "123", 1, "hmm", true);
+    ApnMessage         message            = new ApnMessage("bar", "123", 1, "hmm", true, 5555);
     ApnFallbackTask    task               = new ApnFallbackTask   ("foo", message, 500);
 
     ApnFallbackManager apnFallbackManager = new ApnFallbackManager(pushServiceClient);

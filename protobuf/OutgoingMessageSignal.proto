@@ -25,7 +25,7 @@ message OutgoingMessageSignal {
     CIPHERTEXT    = 1;
     KEY_EXCHANGE  = 2;
     PREKEY_BUNDLE = 3;
-    PLAINTEXT     = 4;
+//    PLAINTEXT     = 4;
     RECEIPT       = 5;
   }
 

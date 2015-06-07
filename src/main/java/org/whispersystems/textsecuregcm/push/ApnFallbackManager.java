@@ -71,7 +71,9 @@ public class ApnFallbackManager implements Managed, Runnable {
       try {
         Entry<WebsocketAddress, ApnFallbackTask> taskEntry  = taskQueue.get();
         ApnFallbackTask                          task       = taskEntry.getValue();
-        pushServiceClient.send(new ApnMessage(task.getMessage(), task.getApnId(), false));
+
+        pushServiceClient.send(new ApnMessage(task.getMessage(), task.getApnId(),
+                                              false, ApnMessage.MAX_EXPIRATION));
       } catch (Throwable e) {
         logger.warn("ApnFallbackThread", e);
       }

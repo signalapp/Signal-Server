@@ -30,6 +30,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
 import java.util.LinkedHashMap;
+import java.util.concurrent.TimeUnit;
 
 import io.dropwizard.lifecycle.Managed;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
@@ -107,16 +108,19 @@ public class PushSender {
     DeliveryStatus deliveryStatus = webSocketSender.sendMessage(account, device, outgoingMessage, WebsocketSender.Type.APN);
 
     if (!deliveryStatus.isDelivered() && outgoingMessage.getType() != OutgoingMessageSignal.Type.RECEIPT_VALUE) {
-      String  apnId  = Util.isEmpty(device.getVoipApnId()) ? device.getApnId() : device.getVoipApnId();
-      boolean isVoip = !Util.isEmpty(device.getVoipApnId());
+      ApnMessage apnMessage;
 
-      ApnMessage apnMessage = new ApnMessage(apnId, account.getNumber(), (int)device.getId(),
-                                             String.format(APN_PAYLOAD, deliveryStatus.getMessageQueueDepth()),
-                                             isVoip);
+      if (!Util.isEmpty(device.getVoipApnId())) {
+        apnMessage = new ApnMessage(device.getVoipApnId(), account.getNumber(), (int)device.getId(),
+                                    String.format(APN_PAYLOAD, deliveryStatus.getMessageQueueDepth()),
+                                    true, System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(30));
 
-      if (isVoip) {
         apnFallbackManager.schedule(new WebsocketAddress(account.getNumber(), device.getId()),
                                     new ApnFallbackTask(device.getApnId(), apnMessage));
+      } else {
+        apnMessage = new ApnMessage(device.getApnId(), account.getNumber(), (int)device.getId(),
+                                    String.format(APN_PAYLOAD, deliveryStatus.getMessageQueueDepth()),
+                                    false, ApnMessage.MAX_EXPIRATION);
       }
 
       pushServiceClient.send(apnMessage);
