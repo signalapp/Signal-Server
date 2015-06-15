@@ -23,7 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
-import org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
+import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.MessageResponse;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
@@ -169,7 +169,7 @@ public class MessageController {
     try {
       Optional<OutgoingMessageEntity> message = messagesManager.delete(account.getNumber(), source, timestamp);
 
-      if (message.isPresent() && message.get().getType() != OutgoingMessageSignal.Type.RECEIPT_VALUE) {
+      if (message.isPresent() && message.get().getType() != Envelope.Type.RECEIPT_VALUE) {
         receiptSender.sendReceipt(account,
                                   message.get().getSource(),
                                   message.get().getTimestamp(),
@@ -212,16 +212,21 @@ public class MessageController {
       throws NoSuchUserException, IOException
   {
     try {
-      Optional<byte[]>              messageBody    = getMessageBody(incomingMessage);
-      OutgoingMessageSignal.Builder messageBuilder = OutgoingMessageSignal.newBuilder();
+      Optional<byte[]> messageBody    = getMessageBody(incomingMessage);
+      Optional<byte[]> messageContent = getMessageContent(incomingMessage);
+      Envelope.Builder messageBuilder = Envelope.newBuilder();
 
-      messageBuilder.setType(incomingMessage.getType())
+      messageBuilder.setType(Envelope.Type.valueOf(incomingMessage.getType()))
                     .setSource(source.getNumber())
                     .setTimestamp(timestamp == 0 ? System.currentTimeMillis() : timestamp)
-                    .setSourceDevice((int)source.getAuthenticatedDevice().get().getId());
+                    .setSourceDevice((int) source.getAuthenticatedDevice().get().getId());
 
       if (messageBody.isPresent()) {
-        messageBuilder.setMessage(ByteString.copyFrom(messageBody.get()));
+        messageBuilder.setLegacyMessage(ByteString.copyFrom(messageBody.get()));
+      }
+
+      if (messageContent.isPresent()) {
+        messageBuilder.setContent(ByteString.copyFrom(messageContent.get()));
       }
 
       if (source.getRelay().isPresent()) {
@@ -343,8 +348,21 @@ public class MessageController {
   }
 
   private Optional<byte[]> getMessageBody(IncomingMessage message) {
+    if (Util.isEmpty(message.getBody())) return Optional.absent();
+
     try {
       return Optional.of(Base64.decode(message.getBody()));
+    } catch (IOException ioe) {
+      logger.debug("Bad B64", ioe);
+      return Optional.absent();
+    }
+  }
+
+  private Optional<byte[]> getMessageContent(IncomingMessage message) {
+    if (Util.isEmpty(message.getContent())) return Optional.absent();
+
+    try {
+      return Optional.of(Base64.decode(message.getContent()));
     } catch (IOException ioe) {
       logger.debug("Bad B64", ioe);
       return Optional.absent();

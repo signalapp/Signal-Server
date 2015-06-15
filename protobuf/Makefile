@@ -1,3 +1,3 @@
 
 all:
-	protoc --java_out=../src/main/java/ OutgoingMessageSignal.proto PubSubMessage.proto
+	protoc --java_out=../src/main/java/ TextSecure.proto PubSubMessage.proto

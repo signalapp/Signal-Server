@@ -18,7 +18,7 @@ package org.whispersystems.textsecuregcm.entities;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
+import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -44,8 +44,7 @@ public class EncryptedOutgoingMessage {
   private final byte[] serialized;
   private final String serializedAndEncoded;
 
-  public EncryptedOutgoingMessage(OutgoingMessageSignal outgoingMessage,
-                                  String signalingKey)
+  public EncryptedOutgoingMessage(Envelope outgoingMessage, String signalingKey)
       throws CryptoEncodingException
   {
     byte[]        plaintext  = outgoingMessage.toByteArray();

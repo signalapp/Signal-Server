@@ -2,9 +2,8 @@ package org.whispersystems.textsecuregcm.storage;
 
 
 import com.google.common.base.Optional;
-import org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
+import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
-import org.whispersystems.textsecuregcm.util.Pair;
 
 import java.util.List;
 
@@ -16,7 +15,7 @@ public class MessagesManager {
     this.messages = messages;
   }
 
-  public int insert(String destination, long destinationDevice, OutgoingMessageSignal message) {
+  public int insert(String destination, long destinationDevice, Envelope message) {
     return this.messages.store(message, destination, destinationDevice) + 1;
   }
 

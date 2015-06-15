@@ -10,7 +10,7 @@ import org.skife.jdbi.v2.sqlobject.SqlQuery;
 import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
-import org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
+import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 
 import java.lang.annotation.Annotation;
@@ -33,11 +33,12 @@ public abstract class Messages {
   private static final String DESTINATION        = "destination";
   private static final String DESTINATION_DEVICE = "destination_device";
   private static final String MESSAGE            = "message";
+  private static final String CONTENT            = "content";
 
-  @SqlQuery("INSERT INTO messages (" + TYPE + ", " + RELAY + ", " + TIMESTAMP + ", " + SOURCE + ", " + SOURCE_DEVICE + ", " + DESTINATION + ", " + DESTINATION_DEVICE + ", " + MESSAGE + ") " +
-            "VALUES (:type, :relay, :timestamp, :source, :source_device, :destination, :destination_device, :message) " +
-            "RETURNING (SELECT COUNT(id) FROM messages WHERE " + DESTINATION + " = :destination AND " + DESTINATION_DEVICE + " = :destination_device AND " + TYPE + " != " + OutgoingMessageSignal.Type.RECEIPT_VALUE + ")")
-  abstract int store(@MessageBinder OutgoingMessageSignal message,
+  @SqlQuery("INSERT INTO messages (" + TYPE + ", " + RELAY + ", " + TIMESTAMP + ", " + SOURCE + ", " + SOURCE_DEVICE + ", " + DESTINATION + ", " + DESTINATION_DEVICE + ", " + MESSAGE + ", " + CONTENT + ") " +
+            "VALUES (:type, :relay, :timestamp, :source, :source_device, :destination, :destination_device, :message, :content) " +
+            "RETURNING (SELECT COUNT(id) FROM messages WHERE " + DESTINATION + " = :destination AND " + DESTINATION_DEVICE + " = :destination_device AND " + TYPE + " != " + Envelope.Type.RECEIPT_VALUE + ")")
+  abstract int store(@MessageBinder Envelope message,
                      @Bind("destination") String destination,
                      @Bind("destination_device") long destinationDevice);
 
@@ -71,7 +72,8 @@ public abstract class Messages {
                                        resultSet.getLong(TIMESTAMP),
                                        resultSet.getString(SOURCE),
                                        resultSet.getInt(SOURCE_DEVICE),
-                                       resultSet.getBytes(MESSAGE));
+                                       resultSet.getBytes(MESSAGE),
+                                       resultSet.getBytes(CONTENT));
     }
   }
 
@@ -82,18 +84,19 @@ public abstract class Messages {
     public static class AccountBinderFactory implements BinderFactory {
       @Override
       public Binder build(Annotation annotation) {
-        return new Binder<MessageBinder, OutgoingMessageSignal>() {
+        return new Binder<MessageBinder, Envelope>() {
           @Override
           public void bind(SQLStatement<?> sql,
                            MessageBinder accountBinder,
-                           OutgoingMessageSignal message)
+                           Envelope message)
           {
-            sql.bind(TYPE, message.getType());
+            sql.bind(TYPE, message.getType().getNumber());
             sql.bind(RELAY, message.getRelay());
             sql.bind(TIMESTAMP, message.getTimestamp());
             sql.bind(SOURCE, message.getSource());
             sql.bind(SOURCE_DEVICE, message.getSourceDevice());
-            sql.bind(MESSAGE, message.getMessage().toByteArray());
+            sql.bind(MESSAGE, message.hasLegacyMessage() ? message.getLegacyMessage().toByteArray() : null);
+            sql.bind(CONTENT, message.hasContent() ? message.getContent().toByteArray() : null);
           }
         };
       }

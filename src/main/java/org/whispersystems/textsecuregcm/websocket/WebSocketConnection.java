@@ -29,7 +29,7 @@ import javax.ws.rs.WebApplicationException;
 import java.io.IOException;
 import java.util.List;
 
-import static org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
+import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import static org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
 
 public class WebSocketConnection implements DispatchChannel {
@@ -69,7 +69,7 @@ public class WebSocketConnection implements DispatchChannel {
           processStoredMessages();
           break;
         case PubSubMessage.Type.DELIVER_VALUE:
-          sendMessage(OutgoingMessageSignal.parseFrom(pubSubMessage.getContent()), Optional.<Long>absent());
+          sendMessage(Envelope.parseFrom(pubSubMessage.getContent()), Optional.<Long>absent());
           break;
         default:
           logger.warn("Unknown pubsub message: " + pubSubMessage.getType().getNumber());
@@ -88,7 +88,7 @@ public class WebSocketConnection implements DispatchChannel {
     processStoredMessages();
   }
 
-  private void sendMessage(final OutgoingMessageSignal message,
+  private void sendMessage(final Envelope message,
                            final Optional<Long> storedMessageId)
   {
     try {
@@ -99,7 +99,7 @@ public class WebSocketConnection implements DispatchChannel {
       Futures.addCallback(response, new FutureCallback<WebSocketResponseMessage>() {
         @Override
         public void onSuccess(@Nullable WebSocketResponseMessage response) {
-          boolean isReceipt = message.getType() == OutgoingMessageSignal.Type.RECEIPT_VALUE;
+          boolean isReceipt = message.getType() == Envelope.Type.RECEIPT;
 
           if (isSuccessResponse(response)) {
             if (storedMessageId.isPresent()) messagesManager.delete(account.getNumber(), storedMessageId.get());
@@ -123,7 +123,7 @@ public class WebSocketConnection implements DispatchChannel {
     }
   }
 
-  private void requeueMessage(OutgoingMessageSignal message) {
+  private void requeueMessage(Envelope message) {
     try {
       pushSender.sendMessage(account, device, message);
     } catch (NotPushRegisteredException | TransientPushFailureException e) {
@@ -132,7 +132,7 @@ public class WebSocketConnection implements DispatchChannel {
     }
   }
 
-  private void sendDeliveryReceiptFor(OutgoingMessageSignal message) {
+  private void sendDeliveryReceiptFor(Envelope message) {
     try {
       receiptSender.sendReceipt(account, message.getSource(), message.getTimestamp(),
                                 message.hasRelay() ? Optional.of(message.getRelay()) :
@@ -148,12 +148,19 @@ public class WebSocketConnection implements DispatchChannel {
     List<OutgoingMessageEntity> messages = messagesManager.getMessagesForDevice(account.getNumber(), device.getId());
 
     for (OutgoingMessageEntity message : messages) {
-      OutgoingMessageSignal.Builder builder = OutgoingMessageSignal.newBuilder()
-                                                                   .setType(message.getType())
-                                                                   .setMessage(ByteString.copyFrom(message.getMessage()))
-                                                                   .setSourceDevice(message.getSourceDevice())
-                                                                   .setSource(message.getSource())
-                                                                   .setTimestamp(message.getTimestamp());
+      Envelope.Builder builder = Envelope.newBuilder()
+                                         .setType(Envelope.Type.valueOf(message.getType()))
+                                         .setSourceDevice(message.getSourceDevice())
+                                         .setSource(message.getSource())
+                                         .setTimestamp(message.getTimestamp());
+
+      if (message.getMessage() != null) {
+        builder.setLegacyMessage(ByteString.copyFrom(message.getMessage()));
+      }
+
+      if (message.getContent() != null) {
+        builder.setContent(ByteString.copyFrom(message.getContent()));
+      }
 
       if (message.getRelay() != null && !message.getRelay().isEmpty()) {
         builder.setRelay(message.getRelay());

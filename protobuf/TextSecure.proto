@@ -19,23 +19,22 @@ package textsecure;
 option java_package = "org.whispersystems.textsecuregcm.entities";
 option java_outer_classname = "MessageProtos";
 
-message OutgoingMessageSignal {
+message Envelope {
   enum Type {
     UNKNOWN       = 0;
     CIPHERTEXT    = 1;
     KEY_EXCHANGE  = 2;
     PREKEY_BUNDLE = 3;
-//    PLAINTEXT     = 4;
     RECEIPT       = 5;
   }
 
-  optional uint32 type = 1;
-  optional string source = 2;
-  optional  uint32 sourceDevice = 7;
-  optional string relay = 3;
-//  repeated string destinations = 4;
-  optional uint64 timestamp = 5;
-  optional bytes message = 6;
+  optional Type   type          = 1;
+  optional string source        = 2;
+  optional uint32 sourceDevice  = 7;
+  optional string relay         = 3;
+  optional uint64 timestamp     = 5;
+  optional bytes  legacyMessage = 6; // Contains an encrypted DataMessage
+  optional bytes  content       = 8; // Contains an encrypted Content
 }
 
 message ProvisioningUuid {

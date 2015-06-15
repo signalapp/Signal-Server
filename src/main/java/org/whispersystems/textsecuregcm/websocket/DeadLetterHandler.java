@@ -4,9 +4,8 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.dispatch.DispatchChannel;
-import org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
+import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
-import org.whispersystems.textsecuregcm.storage.PubSubProtos;
 import org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
 
 public class DeadLetterHandler implements DispatchChannel {
@@ -29,7 +28,7 @@ public class DeadLetterHandler implements DispatchChannel {
 
       switch (pubSubMessage.getType().getNumber()) {
         case PubSubMessage.Type.DELIVER_VALUE:
-          OutgoingMessageSignal message = OutgoingMessageSignal.parseFrom(pubSubMessage.getContent());
+          Envelope message = Envelope.parseFrom(pubSubMessage.getContent());
           messagesManager.insert(address.getNumber(), address.getDeviceId(), message);
           break;
       }

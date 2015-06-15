@@ -2,7 +2,7 @@ package org.whispersystems.textsecuregcm.push;
 
 import com.google.common.base.Optional;
 import org.whispersystems.textsecuregcm.controllers.NoSuchUserException;
-import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.federation.NoSuchPeerException;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -55,15 +55,13 @@ public class ReceiptSender {
   private void sendDirectReceipt(Account source, String destination, long messageId)
       throws NotPushRegisteredException, TransientPushFailureException, NoSuchUserException
   {
-    Account     destinationAccount = getDestinationAccount(destination);
-    Set<Device> destinationDevices = destinationAccount.getDevices();
-
-    MessageProtos.OutgoingMessageSignal.Builder message =
-        MessageProtos.OutgoingMessageSignal.newBuilder()
-                                           .setSource(source.getNumber())
-                                           .setSourceDevice((int) source.getAuthenticatedDevice().get().getId())
-                                           .setTimestamp(messageId)
-                                           .setType(MessageProtos.OutgoingMessageSignal.Type.RECEIPT_VALUE);
+    Account          destinationAccount = getDestinationAccount(destination);
+    Set<Device>      destinationDevices = destinationAccount.getDevices();
+    Envelope.Builder message            = Envelope.newBuilder()
+                                                  .setSource(source.getNumber())
+                                                  .setSourceDevice((int) source.getAuthenticatedDevice().get().getId())
+                                                  .setTimestamp(messageId)
+                                                  .setType(Envelope.Type.RECEIPT);
 
     if (source.getRelay().isPresent()) {
       message.setRelay(source.getRelay().get());

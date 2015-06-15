@@ -31,7 +31,7 @@ import org.whispersystems.textsecuregcm.websocket.ProvisioningAddress;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
 import static com.codahale.metrics.MetricRegistry.name;
-import static org.whispersystems.textsecuregcm.entities.MessageProtos.OutgoingMessageSignal;
+import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import static org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
 
 public class WebsocketSender {
@@ -66,7 +66,7 @@ public class WebsocketSender {
     this.pubSubManager   = pubSubManager;
   }
 
-  public DeliveryStatus sendMessage(Account account, Device device, OutgoingMessageSignal message, Type channel) {
+  public DeliveryStatus sendMessage(Account account, Device device, Envelope message, Type channel) {
     WebsocketAddress address       = new WebsocketAddress(account.getNumber(), device.getId());
     PubSubMessage    pubSubMessage = PubSubMessage.newBuilder()
                                                   .setType(PubSubMessage.Type.DELIVER)

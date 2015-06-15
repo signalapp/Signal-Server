@@ -57,4 +57,12 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="2" author="moxie">
+        <addColumn tableName="messages">
+            <column name="content" type="bytea"/>
+        </addColumn>
+
+        <dropNotNullConstraint tableName="messages" columnName="message"/>
+    </changeSet>
+
 </databaseChangeLog>
