@@ -150,7 +150,7 @@ public class FederationControllerV1 extends FederationController {
 
     for (Account account : accountList) {
       byte[]        token         = Util.getContactToken(account.getNumber());
-      ClientContact clientContact = new ClientContact(token, null, account.getSupportsSms());
+      ClientContact clientContact = new ClientContact(token, null);
 
       if (!account.isActive()) {
         clientContact.setInactive(true);

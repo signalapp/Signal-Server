@@ -73,7 +73,7 @@ public class DirectoryUpdater {
         for (Account account : accounts) {
           if (account.isActive()) {
             byte[]        token         = Util.getContactToken(account.getNumber());
-            ClientContact clientContact = new ClientContact(token, null, account.getSupportsSms());
+            ClientContact clientContact = new ClientContact(token, null);
 
             directory.add(batchOperation, clientContact);
             contactsAdded++;

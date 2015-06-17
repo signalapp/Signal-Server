@@ -72,7 +72,7 @@ public class DirectoryManager {
   }
 
   public void add(ClientContact contact) {
-    TokenValue tokenValue = new TokenValue(contact.getRelay(), contact.isSupportsSms());
+    TokenValue tokenValue = new TokenValue(contact.getRelay());
 
     try (Jedis jedis = redisPool.getResource()) {
       jedis.hset(DIRECTORY_KEY, contact.getToken(), objectMapper.writeValueAsBytes(tokenValue));
@@ -84,7 +84,7 @@ public class DirectoryManager {
   public void add(BatchOperationHandle handle, ClientContact contact) {
     try {
       Pipeline   pipeline   = handle.pipeline;
-      TokenValue tokenValue = new TokenValue(contact.getRelay(), contact.isSupportsSms());
+      TokenValue tokenValue = new TokenValue(contact.getRelay());
 
       pipeline.hset(DIRECTORY_KEY, contact.getToken(), objectMapper.writeValueAsBytes(tokenValue));
     } catch (JsonProcessingException e) {
@@ -106,7 +106,7 @@ public class DirectoryManager {
       }
 
       TokenValue tokenValue = objectMapper.readValue(result, TokenValue.class);
-      return Optional.of(new ClientContact(token, tokenValue.relay, tokenValue.supportsSms));
+      return Optional.of(new ClientContact(token, tokenValue.relay));
     } catch (IOException e) {
       logger.warn("JSON Error", e);
       return Optional.absent();
@@ -133,7 +133,7 @@ public class DirectoryManager {
         try {
           if (pair.second().get() != null) {
             TokenValue    tokenValue    = objectMapper.readValue(pair.second().get(), TokenValue.class);
-            ClientContact clientContact = new ClientContact(pair.first(), tokenValue.relay, tokenValue.supportsSms);
+            ClientContact clientContact = new ClientContact(pair.first(), tokenValue.relay);
 
             results.add(clientContact);
           }
@@ -175,14 +175,10 @@ public class DirectoryManager {
     @JsonProperty(value = "r")
     private String  relay;
 
-    @JsonProperty(value = "s")
-    private boolean supportsSms;
-
     public TokenValue() {}
 
-    public TokenValue(String relay, boolean supportsSms) {
-      this.relay       = relay;
-      this.supportsSms = supportsSms;
+    public TokenValue(String relay) {
+      this.relay = relay;
     }
   }
 
@@ -205,7 +201,7 @@ public class DirectoryManager {
       }
 
       TokenValue tokenValue = objectMapper.readValue(result, TokenValue.class);
-      return Optional.of(new ClientContact(token, tokenValue.relay, tokenValue.supportsSms));
+      return Optional.of(new ClientContact(token, tokenValue.relay));
     }
 
   }

@@ -90,7 +90,7 @@ public class DeviceControllerTest {
 
     DeviceResponse response = resources.client().resource("/v1/devices/5678901")
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-        .entity(new AccountAttributes("keykeykeykey", false, true, 1234))
+        .entity(new AccountAttributes("keykeykeykey", false, 1234))
         .type(MediaType.APPLICATION_JSON_TYPE)
         .put(DeviceResponse.class);
 

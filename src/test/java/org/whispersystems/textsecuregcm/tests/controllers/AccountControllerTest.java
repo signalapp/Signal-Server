@@ -83,7 +83,7 @@ public class AccountControllerTest {
     ClientResponse response =
         resources.client().resource(String.format("/v1/accounts/code/%s", "1234"))
             .header("Authorization", AuthHelper.getAuthHeader(SENDER, "bar"))
-            .entity(new AccountAttributes("keykeykeykey", false, false, 2222))
+            .entity(new AccountAttributes("keykeykeykey", false, 2222))
             .type(MediaType.APPLICATION_JSON_TYPE)
             .put(ClientResponse.class);
 
@@ -97,7 +97,7 @@ public class AccountControllerTest {
     ClientResponse response =
         resources.client().resource(String.format("/v1/accounts/code/%s", "1111"))
             .header("Authorization", AuthHelper.getAuthHeader(SENDER, "bar"))
-            .entity(new AccountAttributes("keykeykeykey", false, false, 3333))
+            .entity(new AccountAttributes("keykeykeykey", false, 3333))
             .type(MediaType.APPLICATION_JSON_TYPE)
             .put(ClientResponse.class);
 
@@ -115,7 +115,7 @@ public class AccountControllerTest {
     ClientResponse response =
         resources.client().resource(String.format("/v1/accounts/token/%s", token))
         .header("Authorization", AuthHelper.getAuthHeader(SENDER, "bar"))
-        .entity(new AccountAttributes("keykeykeykey", false, false, 4444))
+        .entity(new AccountAttributes("keykeykeykey", false, 4444))
         .type(MediaType.APPLICATION_JSON_TYPE)
         .put(ClientResponse.class);
 
@@ -133,7 +133,7 @@ public class AccountControllerTest {
     ClientResponse response =
         resources.client().resource(String.format("/v1/accounts/token/%s", token))
                  .header("Authorization", AuthHelper.getAuthHeader(SENDER, "bar"))
-                 .entity(new AccountAttributes("keykeykeykey", false, false, 4444))
+                 .entity(new AccountAttributes("keykeykeykey", false, 4444))
                  .type(MediaType.APPLICATION_JSON_TYPE)
                  .put(ClientResponse.class);
 
@@ -151,7 +151,7 @@ public class AccountControllerTest {
     ClientResponse response =
         resources.client().resource(String.format("/v1/accounts/token/%s", token))
                  .header("Authorization", AuthHelper.getAuthHeader("+14151111111", "bar"))
-                 .entity(new AccountAttributes("keykeykeykey", false, false, 4444))
+                 .entity(new AccountAttributes("keykeykeykey", false, 4444))
                  .type(MediaType.APPLICATION_JSON_TYPE)
                  .put(ClientResponse.class);
 
@@ -169,7 +169,7 @@ public class AccountControllerTest {
     ClientResponse response =
         resources.client().resource(String.format("/v1/accounts/token/%s", token))
                  .header("Authorization", AuthHelper.getAuthHeader(SENDER, "bar"))
-                 .entity(new AccountAttributes("keykeykeykey", false, false, 4444))
+                 .entity(new AccountAttributes("keykeykeykey", false, 4444))
                  .type(MediaType.APPLICATION_JSON_TYPE)
                  .put(ClientResponse.class);
 

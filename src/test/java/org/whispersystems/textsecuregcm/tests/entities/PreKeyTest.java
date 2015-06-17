@@ -26,10 +26,10 @@ public class PreKeyTest {
   @Test
   public void deserializeFromJSONV() throws Exception {
     ClientContact contact = new ClientContact(Util.getContactToken("+14152222222"),
-                                              "whisper", true);
+                                              "whisper");
 
     assertThat("a ClientContact can be deserialized from JSON",
-               fromJson(jsonFixture("fixtures/contact.relay.sms.json"), ClientContact.class),
+               fromJson(jsonFixture("fixtures/contact.relay.json"), ClientContact.class),
                is(contact));
   }
 

@@ -100,7 +100,7 @@ public class AccountsManager {
   private void updateDirectory(Account account) {
     if (account.isActive()) {
       byte[]        token         = Util.getContactToken(account.getNumber());
-      ClientContact clientContact = new ClientContact(token, null, account.getSupportsSms());
+      ClientContact clientContact = new ClientContact(token, null);
       directory.add(clientContact);
     } else {
       directory.remove(account.getNumber());
