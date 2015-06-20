@@ -32,6 +32,9 @@ public class Device {
   private long    id;
 
   @JsonProperty
+  private String  name;
+
+  @JsonProperty
   private String  authToken;
 
   @JsonProperty
@@ -64,14 +67,19 @@ public class Device {
   @JsonProperty
   private long lastSeen;
 
+  @JsonProperty
+  private long created;
+
   public Device() {}
 
-  public Device(long id, String authToken, String salt,
+  public Device(long id, String name, String authToken, String salt,
                 String signalingKey, String gcmId, String apnId,
                 String voipApnId, boolean fetchesMessages,
-                int registrationId, SignedPreKey signedPreKey, long lastSeen)
+                int registrationId, SignedPreKey signedPreKey,
+                long lastSeen, long created)
   {
     this.id              = id;
+    this.name            = name;
     this.authToken       = authToken;
     this.salt            = salt;
     this.signalingKey    = signalingKey;
@@ -82,6 +90,7 @@ public class Device {
     this.registrationId  = registrationId;
     this.signedPreKey    = signedPreKey;
     this.lastSeen        = lastSeen;
+    this.created         = created;
   }
 
   public String getApnId() {
@@ -112,6 +121,14 @@ public class Device {
     return lastSeen;
   }
 
+  public void setCreated(long created) {
+    this.created = created;
+  }
+
+  public long getCreated() {
+    return this.created;
+  }
+
   public String getGcmId() {
     return gcmId;
   }
@@ -130,6 +147,14 @@ public class Device {
 
   public void setId(long id) {
     this.id = id;
+  }
+
+  public String getName() {
+    return name;
+  }
+
+  public void setName(String name) {
+    this.name = name;
   }
 
   public void setAuthenticationCredentials(AuthenticationCredentials credentials) {

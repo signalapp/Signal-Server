@@ -25,6 +25,8 @@ import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.AuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.InvalidAuthorizationHeaderException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
+import org.whispersystems.textsecuregcm.entities.DeviceInfo;
+import org.whispersystems.textsecuregcm.entities.DeviceInfoList;
 import org.whispersystems.textsecuregcm.entities.DeviceResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -36,6 +38,7 @@ import org.whispersystems.textsecuregcm.util.VerificationCode;
 
 import javax.validation.Valid;
 import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.PUT;
@@ -48,6 +51,8 @@ import javax.ws.rs.core.Response;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.util.LinkedList;
+import java.util.List;
 
 import io.dropwizard.auth.Auth;
 
@@ -55,6 +60,8 @@ import io.dropwizard.auth.Auth;
 public class DeviceController {
 
   private final Logger logger = LoggerFactory.getLogger(DeviceController.class);
+
+  private static final int MAX_DEVICES = 3;
 
   private final PendingDevicesManager pendingDevices;
   private final AccountsManager       accounts;
@@ -71,12 +78,38 @@ public class DeviceController {
 
   @Timed
   @GET
+  @Produces(MediaType.APPLICATION_JSON)
+  public DeviceInfoList getDevices(@Auth Account account) {
+    List<DeviceInfo> devices = new LinkedList<>();
+
+    for (Device device : account.getDevices()) {
+      devices.add(new DeviceInfo(device.getId(), device.getName(),
+                                 device.getLastSeen(), device.getCreated()));
+    }
+
+    return new DeviceInfoList(devices);
+  }
+
+  @Timed
+  @DELETE
+  @Path("/{device_id}")
+  public void removeDevice(@Auth Account account, @PathParam("device_id") long deviceId) {
+    account.removeDevice(deviceId);
+    accounts.update(account);
+  }
+
+  @Timed
+  @GET
   @Path("/provisioning/code")
   @Produces(MediaType.APPLICATION_JSON)
   public VerificationCode createDeviceToken(@Auth Account account)
-      throws RateLimitExceededException
+      throws RateLimitExceededException, DeviceLimitExceededException
   {
     rateLimiters.getAllocateDeviceLimiter().validate(account.getNumber());
+
+    if (account.getActiveDeviceCount() >= MAX_DEVICES) {
+      throw new DeviceLimitExceededException(account.getDevices().size(), MAX_DEVICES);
+    }
 
     VerificationCode verificationCode = generateVerificationCode();
     pendingDevices.store(account.getNumber(), verificationCode.getVerificationCode());
@@ -92,7 +125,7 @@ public class DeviceController {
   public DeviceResponse verifyDeviceToken(@PathParam("verification_code") String verificationCode,
                                           @HeaderParam("Authorization")   String authorizationHeader,
                                           @Valid                          AccountAttributes accountAttributes)
-      throws RateLimitExceededException
+      throws RateLimitExceededException, DeviceLimitExceededException
   {
     try {
       AuthorizationHeader header = AuthorizationHeader.fromFullHeader(authorizationHeader);
@@ -115,13 +148,19 @@ public class DeviceController {
         throw new WebApplicationException(Response.status(403).build());
       }
 
+      if (account.get().getActiveDeviceCount() >= MAX_DEVICES) {
+        throw new DeviceLimitExceededException(account.get().getDevices().size(), MAX_DEVICES);
+      }
+
       Device device = new Device();
+      device.setName(accountAttributes.getName());
       device.setAuthenticationCredentials(new AuthenticationCredentials(password));
       device.setSignalingKey(accountAttributes.getSignalingKey());
       device.setFetchesMessages(accountAttributes.getFetchesMessages());
       device.setId(account.get().getNextDeviceId());
       device.setRegistrationId(accountAttributes.getRegistrationId());
       device.setLastSeen(Util.todayInMillis());
+      device.setCreated(System.currentTimeMillis());
 
       account.get().addDevice(device);
       accounts.update(account.get());

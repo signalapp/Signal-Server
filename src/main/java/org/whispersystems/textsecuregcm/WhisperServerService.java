@@ -46,7 +46,9 @@ import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.federation.FederatedPeer;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.liquibase.NameableMigrationsBundle;
+import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.IOExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.InvalidWebsocketAddressExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.CpuUsageGauge;
 import org.whispersystems.textsecuregcm.metrics.FreeMemoryGauge;
@@ -246,6 +248,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     environment.jersey().register(new IOExceptionMapper());
     environment.jersey().register(new RateLimitExceededExceptionMapper());
+    environment.jersey().register(new InvalidWebsocketAddressExceptionMapper());
+    environment.jersey().register(new DeviceLimitExceededExceptionMapper());
 
     environment.metrics().register(name(CpuUsageGauge.class, "cpu"), new CpuUsageGauge());
     environment.metrics().register(name(FreeMemoryGauge.class, "free_memory"), new FreeMemoryGauge());
