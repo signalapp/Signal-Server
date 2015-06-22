@@ -94,6 +94,10 @@ public class DeviceController {
   @DELETE
   @Path("/{device_id}")
   public void removeDevice(@Auth Account account, @PathParam("device_id") long deviceId) {
+    if (account.getAuthenticatedDevice().get().getId() != Device.MASTER_ID) {
+      throw new WebApplicationException(Response.Status.UNAUTHORIZED);
+    }
+
     account.removeDevice(deviceId);
     accounts.update(account);
   }
@@ -109,6 +113,10 @@ public class DeviceController {
 
     if (account.getActiveDeviceCount() >= MAX_DEVICES) {
       throw new DeviceLimitExceededException(account.getDevices().size(), MAX_DEVICES);
+    }
+
+    if (account.getAuthenticatedDevice().get().getId() != Device.MASTER_ID) {
+      throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
     VerificationCode verificationCode = generateVerificationCode();
