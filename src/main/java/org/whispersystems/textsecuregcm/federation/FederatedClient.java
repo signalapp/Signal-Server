@@ -17,6 +17,8 @@
 package org.whispersystems.textsecuregcm.federation;
 
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
 import com.google.common.base.Optional;
 import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientHandlerException;
@@ -234,6 +236,7 @@ public class FederatedClient {
     config.getProperties().put(HTTPSProperties.PROPERTY_HTTPS_PROPERTIES,
                                new HTTPSProperties(new StrictHostnameVerifier(), sslContext));
     config.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
+    config.getSingletons().add(new JacksonJsonProvider().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false));
 
     return config;
   }
