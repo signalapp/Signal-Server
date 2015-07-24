@@ -29,8 +29,8 @@ public class KeepAliveController {
 
   @Timed
   @GET
-  public Response getKeepAlive(@Auth(required = false) Account account,
-                               @WebSocketSession       WebSocketSessionContext context)
+  public Response getKeepAlive(@Auth             Account account,
+                               @WebSocketSession WebSocketSessionContext context)
   {
     if (account != null) {
       WebsocketAddress address = new WebsocketAddress(account.getNumber(),

@@ -3,10 +3,11 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
-import com.sun.jersey.api.client.ClientResponse;
+import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.whispersystems.dropwizard.simpleauth.AuthValueFactoryProvider;
 import org.whispersystems.textsecuregcm.controllers.FederationControllerV1;
 import org.whispersystems.textsecuregcm.controllers.FederationControllerV2;
 import org.whispersystems.textsecuregcm.controllers.KeysControllerV2;
@@ -27,7 +28,9 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
+import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Set;
@@ -64,7 +67,9 @@ public class FederatedControllerTest {
 
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
-                                                            .addProvider(AuthHelper.getAuthenticator())
+                                                            .addProvider(AuthHelper.getAuthFilter())
+                                                            .addProvider(new AuthValueFactoryProvider.Binder())
+                                                            .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new FederationControllerV1(accountsManager, null, messageController, null))
                                                             .addResource(new FederationControllerV2(accountsManager, null, messageController, keysControllerV2))
                                                             .build();
@@ -97,12 +102,13 @@ public class FederatedControllerTest {
 
   @Test
   public void testSingleDeviceCurrent() throws Exception {
-    ClientResponse response =
-        resources.client().resource(String.format("/v1/federation/messages/+14152223333/1/%s", SINGLE_DEVICE_RECIPIENT))
-            .header("Authorization", AuthHelper.getAuthHeader("cyanogen", "foofoo"))
-            .entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class))
-            .type(MediaType.APPLICATION_JSON_TYPE)
-            .put(ClientResponse.class);
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/federation/messages/+14152223333/1/%s", SINGLE_DEVICE_RECIPIENT))
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader("cyanogen", "foofoo"))
+                 .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
+                                    MediaType.APPLICATION_JSON_TYPE));
 
     assertThat("Good Response", response.getStatus(), is(equalTo(204)));
 
@@ -112,7 +118,9 @@ public class FederatedControllerTest {
   @Test
   public void testSignedPreKeyV2() throws Exception {
     PreKeyResponseV2 response =
-        resources.client().resource("/v2/federation/key/+14152223333/1")
+        resources.getJerseyTest()
+                 .target("/v2/federation/key/+14152223333/1")
+                 .request()
                  .header("Authorization", AuthHelper.getAuthHeader("cyanogen", "foofoo"))
                  .get(PreKeyResponseV2.class);
 

@@ -47,7 +47,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
   @Override
   public void onWebSocketConnect(WebSocketSessionContext context) {
-    final Account             account     = context.getAuthenticated(Account.class).get();
+    final Account             account     = context.getAuthenticated(Account.class);
     final Device              device      = account.getAuthenticatedDevice().get();
     final long                connectTime = System.currentTimeMillis();
     final WebsocketAddress    address     = new WebsocketAddress(account.getNumber(), device.getId());

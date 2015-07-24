@@ -73,21 +73,21 @@ public class WebSocketConnectionTest {
 
     when(account.getAuthenticatedDevice()).thenReturn(Optional.of(device));
 
-    when(upgradeRequest.getParameterMap()).thenReturn(new HashMap<String, String[]>() {{
-      put("login", new String[] {VALID_USER});
-      put("password", new String[] {VALID_PASSWORD});
+    when(upgradeRequest.getParameterMap()).thenReturn(new HashMap<String, List<String>>() {{
+      put("login", new LinkedList<String>() {{add(VALID_USER);}});
+      put("password", new LinkedList<String>() {{add(VALID_PASSWORD);}});
     }});
 
     Optional<Account> account = webSocketAuthenticator.authenticate(upgradeRequest);
-    when(sessionContext.getAuthenticated(Account.class)).thenReturn(account);
+    when(sessionContext.getAuthenticated(Account.class)).thenReturn(account.get());
 
     connectListener.onWebSocketConnect(sessionContext);
 
     verify(sessionContext).addListener(any(WebSocketSessionContext.WebSocketEventListener.class));
 
-    when(upgradeRequest.getParameterMap()).thenReturn(new HashMap<String, String[]>() {{
-      put("login", new String[] {INVALID_USER});
-      put("password", new String[] {INVALID_PASSWORD});
+    when(upgradeRequest.getParameterMap()).thenReturn(new HashMap<String, List<String>>() {{
+      put("login", new LinkedList<String>() {{add(INVALID_USER);}});
+      put("password", new LinkedList<String>() {{add(INVALID_PASSWORD);}});
     }});
 
     account = webSocketAuthenticator.authenticate(upgradeRequest);

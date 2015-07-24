@@ -8,6 +8,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.websocket.auth.AuthenticationException;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
 
+import java.util.List;
 import java.util.Map;
 
 import io.dropwizard.auth.basic.BasicCredentials;
@@ -24,18 +25,18 @@ public class WebSocketAccountAuthenticator implements WebSocketAuthenticator<Acc
   @Override
   public Optional<Account> authenticate(UpgradeRequest request) throws AuthenticationException {
     try {
-      Map<String, String[]> parameters = request.getParameterMap();
-      String[]              usernames  = parameters.get("login");
-      String[]              passwords  = parameters.get("password");
+      Map<String, List<String>> parameters = request.getParameterMap();
+      List<String>              usernames  = parameters.get("login");
+      List<String>              passwords  = parameters.get("password");
 
-      if (usernames == null || usernames.length == 0 ||
-          passwords == null || passwords.length == 0)
+      if (usernames == null || usernames.size() == 0 ||
+          passwords == null || passwords.size() == 0)
       {
         return Optional.absent();
       }
 
-      BasicCredentials credentials = new BasicCredentials(usernames[0].replace(" ", "+"),
-                                                          passwords[0].replace(" ", "+"));
+      BasicCredentials credentials = new BasicCredentials(usernames.get(0).replace(" ", "+"),
+                                                          passwords.get(0).replace(" ", "+"));
       
       return accountAuthenticator.authenticate(credentials);
     } catch (io.dropwizard.auth.AuthenticationException e) {

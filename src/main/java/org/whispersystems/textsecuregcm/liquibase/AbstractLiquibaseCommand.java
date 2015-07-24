@@ -7,9 +7,9 @@ import java.sql.SQLException;
 
 import io.dropwizard.Configuration;
 import io.dropwizard.cli.ConfiguredCommand;
-import io.dropwizard.db.DataSourceFactory;
 import io.dropwizard.db.DatabaseConfiguration;
 import io.dropwizard.db.ManagedDataSource;
+import io.dropwizard.db.PooledDataSourceFactory;
 import io.dropwizard.setup.Bootstrap;
 import liquibase.Liquibase;
 import liquibase.exception.LiquibaseException;
@@ -40,10 +40,8 @@ public abstract class AbstractLiquibaseCommand<T extends Configuration> extends 
   @Override
   @SuppressWarnings("UseOfSystemOutOrSystemErr")
   protected void run(Bootstrap<T> bootstrap, Namespace namespace, T configuration) throws Exception {
-    final DataSourceFactory dbConfig = strategy.getDataSourceFactory(configuration);
-    dbConfig.setMaxSize(1);
-    dbConfig.setMinSize(1);
-    dbConfig.setInitialSize(1);
+    final PooledDataSourceFactory dbConfig = strategy.getDataSourceFactory(configuration);
+    dbConfig.asSingleConnectionPool();
 
     try (final CloseableLiquibase liquibase = openLiquibase(dbConfig, namespace)) {
       run(namespace, liquibase);
@@ -53,7 +51,7 @@ public abstract class AbstractLiquibaseCommand<T extends Configuration> extends 
     }
   }
 
-  private CloseableLiquibase openLiquibase(final DataSourceFactory dataSourceFactory, final Namespace namespace)
+  private CloseableLiquibase openLiquibase(final PooledDataSourceFactory dataSourceFactory, final Namespace namespace)
       throws ClassNotFoundException, SQLException, LiquibaseException
   {
     final ManagedDataSource dataSource = dataSourceFactory.build(new MetricRegistry(), "liquibase");

@@ -1,9 +1,5 @@
 package org.whispersystems.textsecuregcm.push;
 
-import com.sun.jersey.api.client.Client;
-import com.sun.jersey.api.client.ClientHandlerException;
-import com.sun.jersey.api.client.ClientResponse;
-import com.sun.jersey.api.client.UniformInterfaceException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.PushConfiguration;
@@ -13,7 +9,11 @@ import org.whispersystems.textsecuregcm.entities.UnregisteredEvent;
 import org.whispersystems.textsecuregcm.entities.UnregisteredEventList;
 import org.whispersystems.textsecuregcm.util.Base64;
 
+import javax.ws.rs.ProcessingException;
+import javax.ws.rs.client.Client;
+import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.util.List;
 
@@ -57,16 +57,17 @@ public class PushServiceClient {
 
   private void sendPush(String path, Object entity) throws TransientPushFailureException {
     try {
-      ClientResponse response = client.resource("http://" + host + ":" + port + path)
-                                      .header("Authorization", authorization)
-                                      .entity(entity, MediaType.APPLICATION_JSON)
-                                      .put(ClientResponse.class);
+      Response response = client.target("http://" + host + ":" + port)
+                                .path(path)
+                                .request()
+                                .header("Authorization", authorization)
+                                .put(Entity.entity(entity, MediaType.APPLICATION_JSON_TYPE));
 
       if (response.getStatus() != 204 && response.getStatus() != 200) {
         logger.warn("PushServer response: " + response.getStatus() + " " + response.getStatusInfo().getReasonPhrase());
         throw new TransientPushFailureException("Bad response: " + response.getStatus());
       }
-    } catch (UniformInterfaceException | ClientHandlerException e) {
+    } catch (ProcessingException e) {
       logger.warn("Push error: ", e);
       throw new TransientPushFailureException(e);
     }
@@ -74,12 +75,14 @@ public class PushServiceClient {
 
   private List<UnregisteredEvent> getFeedback(String path) throws IOException {
     try {
-      UnregisteredEventList unregisteredEvents = client.resource("http://" + host + ":" + port + path)
+      UnregisteredEventList unregisteredEvents = client.target("http://" + host + ":" + port)
+                                                       .path(path)
+                                                       .request()
                                                        .header("Authorization", authorization)
                                                        .get(UnregisteredEventList.class);
 
       return unregisteredEvents.getDevices();
-    } catch (UniformInterfaceException | ClientHandlerException e) {
+    } catch (ProcessingException e) {
       logger.warn("Request error:", e);
       throw new IOException(e);
     }

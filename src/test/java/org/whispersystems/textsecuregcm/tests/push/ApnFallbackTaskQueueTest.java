@@ -2,7 +2,6 @@ package org.whispersystems.textsecuregcm.tests.push;
 
 
 import org.junit.Test;
-import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager.ApnFallbackTask;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager.ApnFallbackTaskQueue;
 import org.whispersystems.textsecuregcm.util.Util;

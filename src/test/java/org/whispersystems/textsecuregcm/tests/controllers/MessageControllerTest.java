@@ -2,10 +2,11 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
-import com.sun.jersey.api.client.ClientResponse;
+import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.whispersystems.dropwizard.simpleauth.AuthValueFactoryProvider;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
@@ -25,7 +26,9 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
+import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -60,7 +63,9 @@ public class MessageControllerTest {
 
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
-                                                            .addProvider(AuthHelper.getAuthenticator())
+                                                            .addProvider(AuthHelper.getAuthFilter())
+                                                            .addProvider(new AuthValueFactoryProvider.Binder())
+                                                            .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new MessageController(rateLimiters, pushSender, receiptSender, accountsManager,
                                                                                                messagesManager, federatedClientManager))
                                                             .build();
@@ -89,12 +94,12 @@ public class MessageControllerTest {
 
   @Test
   public synchronized void testSingleDeviceLegacy() throws Exception {
-    ClientResponse response =
-        resources.client().resource("/v1/messages/")
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-            .entity(mapper.readValue(jsonFixture("fixtures/legacy_message_single_device.json"), IncomingMessageList.class))
-            .type(MediaType.APPLICATION_JSON_TYPE)
-            .post(ClientResponse.class);
+    Response response =
+        resources.getJerseyTest().target("/v1/messages/")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .post(Entity.entity(mapper.readValue(jsonFixture("fixtures/legacy_message_single_device.json"), IncomingMessageList.class),
+                                     MediaType.APPLICATION_JSON_TYPE));
 
     assertThat("Good Response", response.getStatus(), is(equalTo(200)));
 
@@ -103,12 +108,13 @@ public class MessageControllerTest {
 
   @Test
   public synchronized void testSingleDeviceCurrent() throws Exception {
-    ClientResponse response =
-        resources.client().resource(String.format("/v1/messages/%s", SINGLE_DEVICE_RECIPIENT))
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class))
-        .type(MediaType.APPLICATION_JSON_TYPE)
-        .put(ClientResponse.class);
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/messages/%s", SINGLE_DEVICE_RECIPIENT))
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
+                                    MediaType.APPLICATION_JSON_TYPE));
 
     assertThat("Good Response", response.getStatus(), is(equalTo(200)));
 
@@ -117,17 +123,18 @@ public class MessageControllerTest {
 
   @Test
   public synchronized void testMultiDeviceMissing() throws Exception {
-    ClientResponse response =
-        resources.client().resource(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-            .entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class))
-            .type(MediaType.APPLICATION_JSON_TYPE)
-            .put(ClientResponse.class);
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
+                                    MediaType.APPLICATION_JSON_TYPE));
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(409)));
 
     assertThat("Good Response Body",
-               asJson(response.getEntity(MismatchedDevices.class)),
+               asJson(response.readEntity(MismatchedDevices.class)),
                is(equalTo(jsonFixture("fixtures/missing_device_response.json"))));
 
     verifyNoMoreInteractions(pushSender);
@@ -135,17 +142,18 @@ public class MessageControllerTest {
 
   @Test
   public synchronized void testMultiDeviceExtra() throws Exception {
-    ClientResponse response =
-        resources.client().resource(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-            .entity(mapper.readValue(jsonFixture("fixtures/current_message_extra_device.json"), IncomingMessageList.class))
-            .type(MediaType.APPLICATION_JSON_TYPE)
-            .put(ClientResponse.class);
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_extra_device.json"), IncomingMessageList.class),
+                                    MediaType.APPLICATION_JSON_TYPE));
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(409)));
 
     assertThat("Good Response Body",
-               asJson(response.getEntity(MismatchedDevices.class)),
+               asJson(response.readEntity(MismatchedDevices.class)),
                is(equalTo(jsonFixture("fixtures/missing_device_response2.json"))));
 
     verifyNoMoreInteractions(pushSender);
@@ -153,12 +161,13 @@ public class MessageControllerTest {
 
   @Test
   public synchronized void testMultiDevice() throws Exception {
-    ClientResponse response =
-        resources.client().resource(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-            .entity(mapper.readValue(jsonFixture("fixtures/current_message_multi_device.json"), IncomingMessageList.class))
-            .type(MediaType.APPLICATION_JSON_TYPE)
-            .put(ClientResponse.class);
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_multi_device.json"), IncomingMessageList.class),
+                                    MediaType.APPLICATION_JSON_TYPE));
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(200)));
 
@@ -167,17 +176,17 @@ public class MessageControllerTest {
 
   @Test
   public synchronized void testRegistrationIdMismatch() throws Exception {
-    ClientResponse response =
-        resources.client().resource(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-            .entity(mapper.readValue(jsonFixture("fixtures/current_message_registration_id.json"), IncomingMessageList.class))
-            .type(MediaType.APPLICATION_JSON_TYPE)
-            .put(ClientResponse.class);
+    Response response =
+        resources.getJerseyTest().target(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_registration_id.json"), IncomingMessageList.class),
+                                    MediaType.APPLICATION_JSON_TYPE));
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(410)));
 
     assertThat("Good Response Body",
-               asJson(response.getEntity(StaleDevices.class)),
+               asJson(response.readEntity(StaleDevices.class)),
                is(equalTo(jsonFixture("fixtures/mismatched_registration_id.json"))));
 
     verifyNoMoreInteractions(pushSender);
@@ -198,7 +207,8 @@ public class MessageControllerTest {
     when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_NUMBER), eq(1L))).thenReturn(messages);
 
     OutgoingMessageEntityList response =
-        resources.client().resource("/v1/messages/")
+        resources.getJerseyTest().target("/v1/messages/")
+                 .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                  .accept(MediaType.APPLICATION_JSON_TYPE)
                  .get(OutgoingMessageEntityList.class);
@@ -232,23 +242,29 @@ public class MessageControllerTest {
     when(messagesManager.delete(AuthHelper.VALID_NUMBER, "+14152222222", 31339))
         .thenReturn(Optional.<OutgoingMessageEntity>absent());
 
-    ClientResponse response = resources.client().resource(String.format("/v1/messages/%s/%d", "+14152222222", 31337))
-                                       .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-                                       .delete(ClientResponse.class);
+    Response response = resources.getJerseyTest()
+                                 .target(String.format("/v1/messages/%s/%d", "+14152222222", 31337))
+                                 .request()
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                 .delete();
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
     verify(receiptSender).sendReceipt(any(Account.class), eq("+14152222222"), eq(timestamp), eq(Optional.<String>absent()));
 
-    response = resources.client().resource(String.format("/v1/messages/%s/%d", "+14152222222", 31338))
+    response = resources.getJerseyTest()
+                        .target(String.format("/v1/messages/%s/%d", "+14152222222", 31338))
+                        .request()
                         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-                        .delete(ClientResponse.class);
+                        .delete();
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
     verifyNoMoreInteractions(receiptSender);
 
-    response = resources.client().resource(String.format("/v1/messages/%s/%d", "+14152222222", 31339))
+    response = resources.getJerseyTest()
+                        .target(String.format("/v1/messages/%s/%d", "+14152222222", 31339))
+                        .request()
                         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-                        .delete(ClientResponse.class);
+                        .delete();
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
     verifyNoMoreInteractions(receiptSender);

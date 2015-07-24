@@ -22,6 +22,7 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.base.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.dropwizard.simpleauth.Authenticator;
 import org.whispersystems.textsecuregcm.configuration.FederationConfiguration;
 import org.whispersystems.textsecuregcm.federation.FederatedPeer;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -30,7 +31,6 @@ import java.util.List;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import io.dropwizard.auth.AuthenticationException;
-import io.dropwizard.auth.Authenticator;
 import io.dropwizard.auth.basic.BasicCredentials;
 
 

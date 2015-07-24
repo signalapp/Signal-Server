@@ -1,14 +1,14 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
 import com.google.common.base.Optional;
-import com.sun.jersey.api.client.ClientResponse;
+import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
+import org.whispersystems.dropwizard.simpleauth.AuthValueFactoryProvider;
 import org.whispersystems.textsecuregcm.controllers.KeysControllerV1;
 import org.whispersystems.textsecuregcm.controllers.KeysControllerV2;
-import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.entities.PreKeyCount;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponseV1;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponseV2;
@@ -16,6 +16,7 @@ import org.whispersystems.textsecuregcm.entities.PreKeyStateV1;
 import org.whispersystems.textsecuregcm.entities.PreKeyStateV2;
 import org.whispersystems.textsecuregcm.entities.PreKeyV1;
 import org.whispersystems.textsecuregcm.entities.PreKeyV2;
+import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -25,14 +26,16 @@ import org.whispersystems.textsecuregcm.storage.KeyRecord;
 import org.whispersystems.textsecuregcm.storage.Keys;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
+import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
 import io.dropwizard.testing.junit.ResourceTestRule;
-import static org.fest.assertions.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 public class KeyControllerTest {
@@ -63,7 +66,9 @@ public class KeyControllerTest {
 
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
-                                                            .addProvider(AuthHelper.getAuthenticator())
+                                                            .addProvider(AuthHelper.getAuthFilter())
+                                                            .addProvider(new AuthValueFactoryProvider.Binder())
+                                                            .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new KeysControllerV1(rateLimiters, keys, accounts, null))
                                                             .addResource(new KeysControllerV2(rateLimiters, keys, accounts, null))
                                                             .build();
@@ -134,10 +139,12 @@ public class KeyControllerTest {
 
   @Test
   public void validKeyStatusTestV1() throws Exception {
-    PreKeyCount result = resources.client().resource("/v1/keys")
-        .header("Authorization",
-                AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .get(PreKeyCount.class);
+    PreKeyCount result = resources.getJerseyTest()
+                                  .target("/v1/keys")
+                                  .request()
+                                  .header("Authorization",
+                                          AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                  .get(PreKeyCount.class);
 
     assertThat(result.getCount() == 4);
 
@@ -146,7 +153,9 @@ public class KeyControllerTest {
 
   @Test
   public void validKeyStatusTestV2() throws Exception {
-    PreKeyCount result = resources.client().resource("/v2/keys")
+    PreKeyCount result = resources.getJerseyTest()
+                                  .target("/v2/keys")
+                                  .request()
                                   .header("Authorization",
                                           AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                                   .get(PreKeyCount.class);
@@ -158,7 +167,9 @@ public class KeyControllerTest {
 
   @Test
   public void getSignedPreKeyV2() throws Exception {
-    SignedPreKey result = resources.client().resource("/v2/keys/signed")
+    SignedPreKey result = resources.getJerseyTest()
+                                   .target("/v2/keys/signed")
+                                   .request()
                                    .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                                    .get(SignedPreKey.class);
 
@@ -168,10 +179,11 @@ public class KeyControllerTest {
   @Test
   public void putSignedPreKeyV2() throws Exception {
     SignedPreKey   test     = new SignedPreKey(9999, "fooozzz", "baaarzzz");
-    ClientResponse response = resources.client().resource("/v2/keys/signed")
+    Response response = resources.getJerseyTest()
+                                       .target("/v2/keys/signed")
+                                       .request()
                                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-                                       .type(MediaType.APPLICATION_JSON_TYPE)
-                                       .put(ClientResponse.class, test);
+                                       .put(Entity.entity(test, MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus() == 204);
 
@@ -181,9 +193,11 @@ public class KeyControllerTest {
 
   @Test
   public void validLegacyRequestTest() throws Exception {
-    PreKeyV1 result = resources.client().resource(String.format("/v1/keys/%s", EXISTS_NUMBER))
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .get(PreKeyV1.class);
+    PreKeyV1 result = resources.getJerseyTest()
+                               .target(String.format("/v1/keys/%s", EXISTS_NUMBER))
+                               .request()
+                               .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                               .get(PreKeyV1.class);
 
     assertThat(result.getKeyId()).isEqualTo(SAMPLE_KEY.getKeyId());
     assertThat(result.getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
@@ -195,7 +209,9 @@ public class KeyControllerTest {
 
   @Test
   public void validSingleRequestTestV2() throws Exception {
-    PreKeyResponseV2 result = resources.client().resource(String.format("/v2/keys/%s/1", EXISTS_NUMBER))
+    PreKeyResponseV2 result = resources.getJerseyTest()
+                                       .target(String.format("/v2/keys/%s/1", EXISTS_NUMBER))
+                                       .request()
                                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                                        .get(PreKeyResponseV2.class);
 
@@ -212,9 +228,11 @@ public class KeyControllerTest {
 
   @Test
   public void validMultiRequestTestV1() throws Exception {
-    PreKeyResponseV1 results = resources.client().resource(String.format("/v1/keys/%s/*", EXISTS_NUMBER))
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .get(PreKeyResponseV1.class);
+    PreKeyResponseV1 results = resources.getJerseyTest()
+                                        .target(String.format("/v1/keys/%s/*", EXISTS_NUMBER))
+                                        .request()
+                                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                        .get(PreKeyResponseV1.class);
 
     assertThat(results.getKeys().size()).isEqualTo(3);
 
@@ -243,7 +261,9 @@ public class KeyControllerTest {
 
   @Test
   public void validMultiRequestTestV2() throws Exception {
-    PreKeyResponseV2 results = resources.client().resource(String.format("/v2/keys/%s/*", EXISTS_NUMBER))
+    PreKeyResponseV2 results = resources.getJerseyTest()
+                                        .target(String.format("/v2/keys/%s/*", EXISTS_NUMBER))
+                                        .request()
                                         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                                         .get(PreKeyResponseV2.class);
 
@@ -292,59 +312,73 @@ public class KeyControllerTest {
 
   @Test
   public void invalidRequestTestV1() throws Exception {
-    ClientResponse response = resources.client().resource(String.format("/v1/keys/%s", NOT_EXISTS_NUMBER))
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .get(ClientResponse.class);
+    Response response = resources.getJerseyTest()
+                                 .target(String.format("/v1/keys/%s", NOT_EXISTS_NUMBER))
+                                 .request()
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                 .get();
 
     assertThat(response.getStatusInfo().getStatusCode()).isEqualTo(404);
   }
 
   @Test
   public void invalidRequestTestV2() throws Exception {
-    ClientResponse response = resources.client().resource(String.format("/v2/keys/%s", NOT_EXISTS_NUMBER))
-                                       .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-                                       .get(ClientResponse.class);
+    Response response = resources.getJerseyTest()
+                                 .target(String.format("/v2/keys/%s", NOT_EXISTS_NUMBER))
+                                 .request()
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                 .get();
 
     assertThat(response.getStatusInfo().getStatusCode()).isEqualTo(404);
   }
 
   @Test
   public void anotherInvalidRequestTestV2() throws Exception {
-    ClientResponse response = resources.client().resource(String.format("/v2/keys/%s/22", EXISTS_NUMBER))
-                                       .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-                                       .get(ClientResponse.class);
+    Response response = resources.getJerseyTest()
+                                 .target(String.format("/v2/keys/%s/22", EXISTS_NUMBER))
+                                 .request()
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                 .get();
 
     assertThat(response.getStatusInfo().getStatusCode()).isEqualTo(404);
   }
 
   @Test
   public void unauthorizedRequestTestV1() throws Exception {
-    ClientResponse response =
-        resources.client().resource(String.format("/v1/keys/%s", NOT_EXISTS_NUMBER))
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.INVALID_PASSWORD))
-            .get(ClientResponse.class);
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/keys/%s", NOT_EXISTS_NUMBER))
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.INVALID_PASSWORD))
+                 .get();
 
     assertThat(response.getStatusInfo().getStatusCode()).isEqualTo(401);
 
     response =
-        resources.client().resource(String.format("/v1/keys/%s", NOT_EXISTS_NUMBER))
-            .get(ClientResponse.class);
+        resources.getJerseyTest()
+                 .target(String.format("/v1/keys/%s", NOT_EXISTS_NUMBER))
+                 .request()
+                 .get();
 
     assertThat(response.getStatusInfo().getStatusCode()).isEqualTo(401);
   }
 
   @Test
   public void unauthorizedRequestTestV2() throws Exception {
-    ClientResponse response =
-        resources.client().resource(String.format("/v2/keys/%s/1", EXISTS_NUMBER))
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v2/keys/%s/1", EXISTS_NUMBER))
+                 .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.INVALID_PASSWORD))
-                 .get(ClientResponse.class);
+                 .get();
 
     assertThat(response.getStatusInfo().getStatusCode()).isEqualTo(401);
 
     response =
-        resources.client().resource(String.format("/v2/keys/%s/1", EXISTS_NUMBER))
-                 .get(ClientResponse.class);
+        resources.getJerseyTest()
+                 .target(String.format("/v2/keys/%s/1", EXISTS_NUMBER))
+                 .request()
+                 .get();
 
     assertThat(response.getStatusInfo().getStatusCode()).isEqualTo(401);
   }
@@ -362,13 +396,14 @@ public class KeyControllerTest {
     preKeyList.setKeys(preKeys);
     preKeyList.setLastResortKey(lastResortKey);
 
-    ClientResponse response =
-        resources.client().resource("/v1/keys")
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-            .type(MediaType.APPLICATION_JSON_TYPE)
-            .put(ClientResponse.class, preKeyList);
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/keys")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.entity(preKeyList, MediaType.APPLICATION_JSON_TYPE));
 
-    assertThat(response.getClientResponseStatus().getStatusCode()).isEqualTo(204);
+    assertThat(response.getStatus()).isEqualTo(204);
 
     ArgumentCaptor<List>     listCaptor       = ArgumentCaptor.forClass(List.class    );
     ArgumentCaptor<PreKeyV1> lastResortCaptor = ArgumentCaptor.forClass(PreKeyV1.class);
@@ -400,13 +435,14 @@ public class KeyControllerTest {
 
     PreKeyStateV2 preKeyState = new PreKeyStateV2(identityKey, signedPreKey, preKeys, lastResortKey);
 
-    ClientResponse response =
-        resources.client().resource("/v2/keys")
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v2/keys")
+                 .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-                 .type(MediaType.APPLICATION_JSON_TYPE)
-                 .put(ClientResponse.class, preKeyState);
+                 .put(Entity.entity(preKeyState, MediaType.APPLICATION_JSON_TYPE));
 
-    assertThat(response.getClientResponseStatus().getStatusCode()).isEqualTo(204);
+    assertThat(response.getStatus()).isEqualTo(204);
 
     ArgumentCaptor<List> listCaptor = ArgumentCaptor.forClass(List.class);
     verify(keys).store(eq(AuthHelper.VALID_NUMBER), eq(1L), listCaptor.capture(), eq(lastResortKey));

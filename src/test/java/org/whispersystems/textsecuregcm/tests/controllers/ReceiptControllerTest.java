@@ -2,12 +2,13 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
-import com.sun.jersey.api.client.ClientResponse;
+import org.glassfish.jersey.client.ClientProperties;
+import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.whispersystems.dropwizard.simpleauth.AuthValueFactoryProvider;
 import org.whispersystems.textsecuregcm.controllers.ReceiptController;
-import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.push.PushSender;
@@ -17,11 +18,14 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 import java.util.HashSet;
 import java.util.Set;
 
 import io.dropwizard.testing.junit.ResourceTestRule;
-import static org.fest.assertions.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -40,7 +44,9 @@ public class ReceiptControllerTest  {
 
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
-                                                            .addProvider(AuthHelper.getAuthenticator())
+                                                            .addProvider(AuthHelper.getAuthFilter())
+                                                            .addProvider(new AuthValueFactoryProvider.Binder())
+                                                            .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new ReceiptController(receiptSender))
                                                             .build();
 
@@ -64,10 +70,13 @@ public class ReceiptControllerTest  {
 
   @Test
   public synchronized void testSingleDeviceCurrent() throws Exception {
-    ClientResponse response =
-        resources.client().resource(String.format("/v1/receipt/%s/%d", SINGLE_DEVICE_RECIPIENT, 1234))
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/receipt/%s/%d", SINGLE_DEVICE_RECIPIENT, 1234))
+                 .request()
+                 .property(ClientProperties.SUPPRESS_HTTP_COMPLIANCE_VALIDATION, true)
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-                 .put(ClientResponse.class);
+                 .put(null);
 
     assertThat(response.getStatus() == 204);
 
@@ -76,10 +85,13 @@ public class ReceiptControllerTest  {
 
   @Test
   public synchronized void testMultiDeviceCurrent() throws Exception {
-    ClientResponse response =
-        resources.client().resource(String.format("/v1/receipt/%s/%d", MULTI_DEVICE_RECIPIENT, 12345))
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/receipt/%s/%d", MULTI_DEVICE_RECIPIENT, 12345))
+                 .request()
+                 .property(ClientProperties.SUPPRESS_HTTP_COMPLIANCE_VALIDATION, true)
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-                 .put(ClientResponse.class);
+                 .put(null);
 
     assertThat(response.getStatus() == 204);
 

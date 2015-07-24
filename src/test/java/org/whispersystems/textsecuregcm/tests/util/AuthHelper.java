@@ -1,18 +1,18 @@
 package org.whispersystems.textsecuregcm.tests.util;
 
 import com.google.common.base.Optional;
+import org.whispersystems.dropwizard.simpleauth.AuthDynamicFeature;
+import org.whispersystems.dropwizard.simpleauth.BasicCredentialAuthFilter;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.FederatedPeerAuthenticator;
-import org.whispersystems.textsecuregcm.auth.MultiBasicAuthProvider;
 import org.whispersystems.textsecuregcm.configuration.FederationConfiguration;
 import org.whispersystems.textsecuregcm.federation.FederatedPeer;
 import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Base64;
 
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -39,7 +39,7 @@ public class AuthHelper {
   private static AuthenticationCredentials VALID_CREDENTIALS = mock(AuthenticationCredentials.class);
   private static AuthenticationCredentials VALID_CREDENTIALS_TWO = mock(AuthenticationCredentials.class);
 
-  public static MultiBasicAuthProvider<FederatedPeer, Account> getAuthenticator() {
+  public static AuthDynamicFeature getAuthFilter() {
     when(VALID_CREDENTIALS.verify("foo")).thenReturn(true);
     when(VALID_CREDENTIALS_TWO.verify("baz")).thenReturn(true);
     when(VALID_DEVICE.getAuthenticationCredentials()).thenReturn(VALID_CREDENTIALS);
@@ -65,10 +65,14 @@ public class AuthHelper {
     FederationConfiguration federationConfiguration = mock(FederationConfiguration.class);
     when(federationConfiguration.getPeers()).thenReturn(peer);
 
-    return new MultiBasicAuthProvider<>(new FederatedPeerAuthenticator(federationConfiguration),
-                                        FederatedPeer.class,
-                                        new AccountAuthenticator(ACCOUNTS_MANAGER),
-                                        Account.class, "WhisperServer");
+    return new AuthDynamicFeature(new BasicCredentialAuthFilter.Builder<Account>()
+                                      .setAuthenticator(new AccountAuthenticator(ACCOUNTS_MANAGER))
+                                      .setPrincipal(Account.class)
+                                      .buildAuthFilter(),
+                                  new BasicCredentialAuthFilter.Builder<FederatedPeer>()
+                                      .setAuthenticator(new FederatedPeerAuthenticator(federationConfiguration))
+                                      .setPrincipal(FederatedPeer.class)
+                                      .buildAuthFilter());
   }
 
   public static String getAuthHeader(String number, String password) {

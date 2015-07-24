@@ -17,10 +17,11 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
 import com.google.common.base.Optional;
-import com.sun.jersey.api.client.ClientResponse;
+import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.whispersystems.dropwizard.simpleauth.AuthValueFactoryProvider;
 import org.whispersystems.textsecuregcm.controllers.DeviceController;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceResponse;
@@ -34,11 +35,13 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
 
 import javax.ws.rs.Path;
+import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 
 import io.dropwizard.jersey.validation.ConstraintViolationExceptionMapper;
 import io.dropwizard.testing.junit.ResourceTestRule;
-import static org.fest.assertions.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.*;
 
@@ -64,7 +67,9 @@ public class DeviceControllerTest {
 
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
-                                                            .addProvider(AuthHelper.getAuthenticator())
+                                                            .addProvider(AuthHelper.getAuthFilter())
+                                                            .addProvider(new AuthValueFactoryProvider.Binder())
+                                                            .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addProvider(new DeviceLimitExceededExceptionMapper())
                                                             .addProvider(new ConstraintViolationExceptionMapper())
                                                             .addResource(new DumbVerificationDeviceController(pendingDevicesManager,
@@ -92,17 +97,21 @@ public class DeviceControllerTest {
 
   @Test
   public void validDeviceRegisterTest() throws Exception {
-    VerificationCode deviceCode = resources.client().resource("/v1/devices/provisioning/code")
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-        .get(VerificationCode.class);
+    VerificationCode deviceCode = resources.getJerseyTest()
+                                           .target("/v1/devices/provisioning/code")
+                                           .request()
+                                           .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                           .get(VerificationCode.class);
 
     assertThat(deviceCode).isEqualTo(new VerificationCode(5678901));
 
-    DeviceResponse response = resources.client().resource("/v1/devices/5678901")
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-        .entity(new AccountAttributes("keykeykeykey", false, 1234))
-        .type(MediaType.APPLICATION_JSON_TYPE)
-        .put(DeviceResponse.class);
+    DeviceResponse response = resources.getJerseyTest()
+                                       .target("/v1/devices/5678901")
+                                       .request()
+                                       .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+                                       .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 1234),
+                                                          MediaType.APPLICATION_JSON_TYPE),
+                                            DeviceResponse.class);
 
     assertThat(response.getDeviceId()).isEqualTo(42L);
 
@@ -111,20 +120,23 @@ public class DeviceControllerTest {
 
   @Test
   public void maxDevicesTest() throws Exception {
-    ClientResponse response = resources.client().resource("/v1/devices/provisioning/code")
-                                       .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER_TWO, AuthHelper.VALID_PASSWORD_TWO))
-                                       .get(ClientResponse.class);
+    Response response = resources.getJerseyTest()
+                                 .target("/v1/devices/provisioning/code")
+                                 .request()
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER_TWO, AuthHelper.VALID_PASSWORD_TWO))
+                                 .get();
 
     assertEquals(response.getStatus(), 411);
   }
 
   @Test
   public void longNameTest() throws Exception {
-    ClientResponse response = resources.client().resource("/v1/devices/5678901")
-                                       .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-                                       .entity(new AccountAttributes("keykeykeykey", false, 1234, "this is a really long name that is longer than 80 characters"))
-                                       .type(MediaType.APPLICATION_JSON_TYPE)
-                                       .put(ClientResponse.class);
+    Response response = resources.getJerseyTest()
+                                 .target("/v1/devices/5678901")
+                                 .request()
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+                                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 1234, "this is a really long name that is longer than 80 characters"),
+                                                    MediaType.APPLICATION_JSON_TYPE));
 
     assertEquals(response.getStatus(), 422);
   }

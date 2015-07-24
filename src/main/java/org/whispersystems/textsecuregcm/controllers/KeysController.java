@@ -52,7 +52,6 @@ public class KeysController {
     this.federatedClientManager = federatedClientManager;
   }
 
-  @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   public PreKeyCount getStatus(@Auth Account account) {

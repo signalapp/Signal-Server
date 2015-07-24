@@ -1,6 +1,5 @@
 package org.whispersystems.textsecuregcm.tests.entities;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -8,9 +7,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.asJson;
-import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.fromJson;
-import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixture;
+import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.*;
 
 public class ClientContactTest {
 

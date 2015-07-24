@@ -17,20 +17,17 @@
 package org.whispersystems.textsecuregcm.federation;
 
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
 import com.google.common.base.Optional;
-import com.sun.jersey.api.client.Client;
-import com.sun.jersey.api.client.ClientHandlerException;
-import com.sun.jersey.api.client.ClientResponse;
-import com.sun.jersey.api.client.UniformInterfaceException;
-import com.sun.jersey.api.client.WebResource;
-import com.sun.jersey.api.client.config.ClientConfig;
-import com.sun.jersey.api.client.config.DefaultClientConfig;
-import com.sun.jersey.api.json.JSONConfiguration;
-import com.sun.jersey.client.urlconnection.HTTPSProperties;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.config.Registry;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.ssl.DefaultHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.conn.ssl.StrictHostnameVerifier;
 import org.bouncycastle.openssl.PEMReader;
+import org.glassfish.jersey.SslConfigurator;
+import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.AccountCount;
@@ -40,11 +37,16 @@ import org.whispersystems.textsecuregcm.entities.ClientContacts;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponseV1;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponseV2;
-import org.whispersystems.textsecuregcm.util.Base64;
+import org.whispersystems.textsecuregcm.providers.JacksonConfigurator;
 
+import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
+import javax.ws.rs.ProcessingException;
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.client.Client;
+import javax.ws.rs.client.ClientBuilder;
+import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.ByteArrayInputStream;
@@ -59,7 +61,10 @@ import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
-import java.util.Map;
+
+import io.dropwizard.client.JerseyClientBuilder;
+import io.dropwizard.client.JerseyClientConfiguration;
+import io.dropwizard.setup.Environment;
 
 public class FederatedClient {
 
@@ -75,15 +80,14 @@ public class FederatedClient {
 
   private final FederatedPeer peer;
   private final Client        client;
-  private final String        authorizationHeader;
 
-  public FederatedClient(String federationName, FederatedPeer peer)
+  public FederatedClient(Environment environment, JerseyClientConfiguration configuration,
+                         String federationName, FederatedPeer peer)
       throws IOException
   {
     try {
-      this.client              = Client.create(getClientConfig(peer));
-      this.peer                = peer;
-      this.authorizationHeader = getAuthorizationHeader(federationName, peer);
+      this.client = createClient(environment, configuration, federationName, peer);
+      this.peer   = peer;
     } catch (NoSuchAlgorithmException e) {
       throw new AssertionError(e);
     } catch (KeyStoreException | KeyManagementException | CertificateException e) {
@@ -93,20 +97,14 @@ public class FederatedClient {
 
   public URL getSignedAttachmentUri(long attachmentId) throws IOException {
     try {
-      WebResource resource = client.resource(peer.getUrl())
-                                   .path(String.format(ATTACHMENT_URI_PATH, attachmentId));
+      AttachmentUri response = client.target(peer.getUrl())
+                                     .path(String.format(ATTACHMENT_URI_PATH, attachmentId))
+                                     .request()
+                                     .accept(MediaType.APPLICATION_JSON_TYPE)
+                                     .get(AttachmentUri.class);
 
-      ClientResponse response = resource.accept(MediaType.APPLICATION_JSON)
-                                        .header("Authorization", authorizationHeader)
-                                        .get(ClientResponse.class);
-
-      if (response.getStatus() < 200 || response.getStatus() >= 300) {
-        throw new WebApplicationException(clientResponseToResponse(response));
-      }
-
-      return response.getEntity(AttachmentUri.class).getLocation();
-
-    } catch (UniformInterfaceException | ClientHandlerException e) {
+      return response.getLocation();
+    } catch (ProcessingException e) {
       logger.warn("Bad URI", e);
       throw new IOException(e);
     }
@@ -114,19 +112,14 @@ public class FederatedClient {
 
   public Optional<PreKeyResponseV1> getKeysV1(String destination, String device) {
     try {
-      WebResource resource = client.resource(peer.getUrl()).path(String.format(PREKEY_PATH_DEVICE_V1, destination, device));
+      PreKeyResponseV1 response = client.target(peer.getUrl())
+                                        .path(String.format(PREKEY_PATH_DEVICE_V1, destination, device))
+                                        .request()
+                                        .accept(MediaType.APPLICATION_JSON_TYPE)
+                                        .get(PreKeyResponseV1.class);
 
-      ClientResponse response = resource.accept(MediaType.APPLICATION_JSON)
-                                        .header("Authorization", authorizationHeader)
-                                        .get(ClientResponse.class);
-
-      if (response.getStatus() < 200 || response.getStatus() >= 300) {
-        throw new WebApplicationException(clientResponseToResponse(response));
-      }
-
-      return Optional.of(response.getEntity(PreKeyResponseV1.class));
-
-    } catch (UniformInterfaceException | ClientHandlerException e) {
+      return Optional.of(response);
+    } catch (ProcessingException e) {
       logger.warn("PreKey", e);
       return Optional.absent();
     }
@@ -134,34 +127,29 @@ public class FederatedClient {
 
   public Optional<PreKeyResponseV2> getKeysV2(String destination, String device) {
     try {
-      WebResource resource = client.resource(peer.getUrl()).path(String.format(PREKEY_PATH_DEVICE_V2, destination, device));
+      PreKeyResponseV2 response = client.target(peer.getUrl())
+                                        .path(String.format(PREKEY_PATH_DEVICE_V2, destination, device))
+                                        .request()
+                                        .accept(MediaType.APPLICATION_JSON_TYPE)
+                                        .get(PreKeyResponseV2.class);
 
-      ClientResponse response = resource.accept(MediaType.APPLICATION_JSON)
-                                        .header("Authorization", authorizationHeader)
-                                        .get(ClientResponse.class);
-
-      if (response.getStatus() < 200 || response.getStatus() >= 300) {
-        throw new WebApplicationException(clientResponseToResponse(response));
-      }
-
-      return Optional.of(response.getEntity(PreKeyResponseV2.class));
-
-    } catch (UniformInterfaceException | ClientHandlerException e) {
+      return Optional.of(response);
+    } catch (ProcessingException e) {
       logger.warn("PreKey", e);
       return Optional.absent();
     }
   }
 
-
   public int getUserCount() {
     try {
-      WebResource  resource = client.resource(peer.getUrl()).path(USER_COUNT_PATH);
-      AccountCount count    = resource.accept(MediaType.APPLICATION_JSON)
-                                      .header("Authorization", authorizationHeader)
-                                      .get(AccountCount.class);
+      AccountCount count = client.target(peer.getUrl())
+                                 .path(USER_COUNT_PATH)
+                                 .request()
+                                 .accept(MediaType.APPLICATION_JSON_TYPE)
+                                 .get(AccountCount.class);
 
       return count.getCount();
-    } catch (UniformInterfaceException | ClientHandlerException e) {
+    } catch (ProcessingException e) {
       logger.warn("User Count", e);
       return 0;
     }
@@ -169,13 +157,14 @@ public class FederatedClient {
 
   public List<ClientContact> getUserTokens(int offset) {
     try {
-      WebResource    resource = client.resource(peer.getUrl()).path(String.format(USER_TOKENS_PATH, offset));
-      ClientContacts contacts = resource.accept(MediaType.APPLICATION_JSON)
-                                        .header("Authorization", authorizationHeader)
-                                        .get(ClientContacts.class);
+      ClientContacts contacts = client.target(peer.getUrl())
+                                      .path(String.format(USER_TOKENS_PATH, offset))
+                                      .request()
+                                      .accept(MediaType.APPLICATION_JSON_TYPE)
+                                      .get(ClientContacts.class);
 
       return contacts.getContacts();
-    } catch (UniformInterfaceException | ClientHandlerException e) {
+    } catch (ProcessingException e) {
       logger.warn("User Tokens", e);
       return null;
     }
@@ -185,16 +174,16 @@ public class FederatedClient {
       throws IOException
   {
     try {
-      WebResource    resource = client.resource(peer.getUrl()).path(String.format(RELAY_MESSAGE_PATH, source, sourceDeviceId, destination));
-      ClientResponse response = resource.type(MediaType.APPLICATION_JSON)
-                                        .header("Authorization", authorizationHeader)
-                                        .entity(messages)
-                                        .put(ClientResponse.class);
+      Response response = client.target(peer.getUrl())
+                                .path(String.format(RELAY_MESSAGE_PATH, source, sourceDeviceId, destination))
+                                .request()
+                                .put(Entity.entity(messages, MediaType.APPLICATION_JSON_TYPE));
 
       if (response.getStatus() != 200 && response.getStatus() != 204) {
-        throw new WebApplicationException(clientResponseToResponse(response));
+        throw new WebApplicationException(response);
       }
-    } catch (UniformInterfaceException | ClientHandlerException e) {
+
+    } catch (ProcessingException e) {
       logger.warn("sendMessage", e);
       throw new IOException(e);
     }
@@ -204,26 +193,22 @@ public class FederatedClient {
       throws IOException
   {
     try {
-      String         path     = String.format(RECEIPT_PATH, source, sourceDeviceId, destination, messageId);
-      WebResource    resource = client.resource(peer.getUrl()).path(path);
-      ClientResponse response = resource.type(MediaType.APPLICATION_JSON)
-                                        .header("Authorization", authorizationHeader)
-                                        .put(ClientResponse.class);
+      Response response = client.target(peer.getUrl())
+                                .path(String.format(RECEIPT_PATH, source, sourceDeviceId, destination, messageId))
+                                .request()
+                                .put(Entity.json(null));
 
       if (response.getStatus() != 200 && response.getStatus() != 204) {
-        throw new WebApplicationException(clientResponseToResponse(response));
+        throw new WebApplicationException(response);
       }
-    } catch (UniformInterfaceException | ClientHandlerException e) {
+    } catch (ProcessingException e) {
       logger.warn("sendMessage", e);
       throw new IOException(e);
     }
   }
 
-  private String getAuthorizationHeader(String federationName, FederatedPeer peer) {
-    return "Basic " + Base64.encodeBytes((federationName + ":" + peer.getAuthenticationToken()).getBytes());
-  }
-
-  private ClientConfig getClientConfig(FederatedPeer peer)
+  private Client createClient(Environment environment, JerseyClientConfiguration configuration,
+                              String federationName, FederatedPeer peer)
       throws NoSuchAlgorithmException, KeyStoreException, KeyManagementException, CertificateException
   {
     TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance("X509");
@@ -232,13 +217,16 @@ public class FederatedClient {
     SSLContext sslContext = SSLContext.getInstance("TLS");
     sslContext.init(null, trustManagerFactory.getTrustManagers(), SecureRandom.getInstance("SHA1PRNG"));
 
-    ClientConfig config = new DefaultClientConfig();
-    config.getProperties().put(HTTPSProperties.PROPERTY_HTTPS_PROPERTIES,
-                               new HTTPSProperties(new StrictHostnameVerifier(), sslContext));
-    config.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
-    config.getSingletons().add(new JacksonJsonProvider().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false));
+    SSLConnectionSocketFactory        sslConnectionSocketFactory = new SSLConnectionSocketFactory(sslContext, new DefaultHostnameVerifier());
+    Registry<ConnectionSocketFactory> registry                   = RegistryBuilder.<ConnectionSocketFactory>create().register("https", sslConnectionSocketFactory).build();
 
-    return config;
+    Client client = new JerseyClientBuilder(environment).using(configuration)
+                                                        .using(registry)
+                                                        .build("FederatedClient");
+
+    client.register(HttpAuthenticationFeature.basic(federationName, peer.getAuthenticationToken()));
+
+    return client;
   }
 
   private KeyStore initializeTrustStore(String name, String pemCertificate)
@@ -262,19 +250,6 @@ public class FederatedClient {
     } catch (NoSuchAlgorithmException e) {
       throw new AssertionError(e);
     }
-  }
-
-  private Response clientResponseToResponse(ClientResponse r) {
-    Response.ResponseBuilder rb = Response.status(r.getStatus());
-
-    for (Map.Entry<String, List<String>> entry : r.getHeaders().entrySet()) {
-      for (String value : entry.getValue()) {
-        rb.header(entry.getKey(), value);
-      }
-    }
-
-    rb.entity(r.getEntityInputStream());
-    return rb.build();
   }
 
   public String getPeerName() {

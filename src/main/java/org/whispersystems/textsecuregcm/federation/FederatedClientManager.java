@@ -25,13 +25,18 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 
+import io.dropwizard.client.JerseyClientConfiguration;
+import io.dropwizard.setup.Environment;
+
 public class FederatedClientManager {
 
   private final Logger logger = LoggerFactory.getLogger(FederatedClientManager.class);
 
   private final HashMap<String, FederatedClient> clients = new HashMap<>();
 
-  public FederatedClientManager(FederationConfiguration federationConfig)
+  public FederatedClientManager(Environment environment,
+                                JerseyClientConfiguration clientConfig,
+                                FederationConfiguration federationConfig)
       throws IOException
   {
     List<FederatedPeer> peers    = federationConfig.getPeers();
@@ -40,7 +45,7 @@ public class FederatedClientManager {
     if (peers != null) {
       for (FederatedPeer peer : peers) {
         logger.info("Adding peer: " + peer.getName());
-        clients.put(peer.getName(), new FederatedClient(identity, peer));
+        clients.put(peer.getName(), new FederatedClient(environment, clientConfig, identity, peer));
       }
     }
   }

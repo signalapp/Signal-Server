@@ -20,15 +20,16 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.graphite.GraphiteReporter;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.google.common.base.Optional;
-import com.sun.jersey.api.client.Client;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
 import org.skife.jdbi.v2.DBI;
 import org.whispersystems.dispatch.DispatchChannel;
 import org.whispersystems.dispatch.DispatchManager;
+import org.whispersystems.dropwizard.simpleauth.AuthDynamicFeature;
+import org.whispersystems.dropwizard.simpleauth.AuthValueFactoryProvider;
+import org.whispersystems.dropwizard.simpleauth.BasicCredentialAuthFilter;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.FederatedPeerAuthenticator;
-import org.whispersystems.textsecuregcm.auth.MultiBasicAuthProvider;
 import org.whispersystems.textsecuregcm.configuration.NexmoConfiguration;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.AttachmentController;
@@ -66,9 +67,9 @@ import org.whispersystems.textsecuregcm.push.WebsocketSender;
 import org.whispersystems.textsecuregcm.sms.NexmoSmsSender;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
+import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager;
 import org.whispersystems.textsecuregcm.storage.Keys;
 import org.whispersystems.textsecuregcm.storage.Messages;
@@ -92,6 +93,7 @@ import org.whispersystems.websocket.setup.WebSocketEnvironment;
 import javax.servlet.DispatcherType;
 import javax.servlet.FilterRegistration;
 import javax.servlet.ServletRegistration;
+import javax.ws.rs.client.Client;
 import java.security.Security;
 import java.util.EnumSet;
 import java.util.concurrent.TimeUnit;
@@ -159,19 +161,20 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     Client             httpClient         = new JerseyClientBuilder(environment).using(config.getJerseyClientConfiguration())
                                                                                 .build(getName());
 
-    DirectoryManager       directory              = new DirectoryManager(directoryClient);
-    PendingAccountsManager pendingAccountsManager = new PendingAccountsManager(pendingAccounts, cacheClient);
-    PendingDevicesManager  pendingDevicesManager  = new PendingDevicesManager (pendingDevices, cacheClient);
-    AccountsManager        accountsManager        = new AccountsManager(accounts, directory, cacheClient);
-    FederatedClientManager federatedClientManager = new FederatedClientManager(config.getFederationConfiguration());
-    MessagesManager        messagesManager        = new MessagesManager(messages);
-    DeadLetterHandler      deadLetterHandler      = new DeadLetterHandler(messagesManager);
-    DispatchManager        dispatchManager        = new DispatchManager(cacheClientFactory, Optional.<DispatchChannel>of(deadLetterHandler));
-    PubSubManager          pubSubManager          = new PubSubManager(cacheClient, dispatchManager);
-    PushServiceClient      pushServiceClient      = new PushServiceClient(httpClient, config.getPushConfiguration());
-    WebsocketSender        websocketSender        = new WebsocketSender(messagesManager, pubSubManager);
-    AccountAuthenticator   deviceAuthenticator    = new AccountAuthenticator(accountsManager);
-    RateLimiters           rateLimiters           = new RateLimiters(config.getLimitsConfiguration(), cacheClient);
+    DirectoryManager           directory                  = new DirectoryManager(directoryClient);
+    PendingAccountsManager     pendingAccountsManager     = new PendingAccountsManager(pendingAccounts, cacheClient);
+    PendingDevicesManager      pendingDevicesManager      = new PendingDevicesManager (pendingDevices, cacheClient );
+    AccountsManager            accountsManager            = new AccountsManager(accounts, directory, cacheClient);
+    FederatedClientManager     federatedClientManager     = new FederatedClientManager(environment, config.getJerseyClientConfiguration(), config.getFederationConfiguration());
+    MessagesManager            messagesManager            = new MessagesManager(messages);
+    DeadLetterHandler          deadLetterHandler          = new DeadLetterHandler(messagesManager);
+    DispatchManager            dispatchManager            = new DispatchManager(cacheClientFactory, Optional.<DispatchChannel>of(deadLetterHandler));
+    PubSubManager              pubSubManager              = new PubSubManager(cacheClient, dispatchManager);
+    PushServiceClient          pushServiceClient          = new PushServiceClient(httpClient, config.getPushConfiguration());
+    WebsocketSender            websocketSender            = new WebsocketSender(messagesManager, pubSubManager);
+    AccountAuthenticator       deviceAuthenticator        = new AccountAuthenticator(accountsManager                 );
+    FederatedPeerAuthenticator federatedPeerAuthenticator = new FederatedPeerAuthenticator(config.getFederationConfiguration());
+    RateLimiters               rateLimiters               = new RateLimiters(config.getLimitsConfiguration(), cacheClient);
 
     ApnFallbackManager       apnFallbackManager  = new ApnFallbackManager(pushServiceClient);
     TwilioSmsSender          twilioSmsSender     = new TwilioSmsSender(config.getTwilioConfiguration());
@@ -192,10 +195,15 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     KeysControllerV2     keysControllerV2     = new KeysControllerV2(rateLimiters, keys, accountsManager, federatedClientManager);
     MessageController    messageController    = new MessageController(rateLimiters, pushSender, receiptSender, accountsManager, messagesManager, federatedClientManager);
 
-    environment.jersey().register(new MultiBasicAuthProvider<>(new FederatedPeerAuthenticator(config.getFederationConfiguration()),
-                                                               FederatedPeer.class,
-                                                               deviceAuthenticator,
-                                                               Device.class, "WhisperServer"));
+    environment.jersey().register(new AuthDynamicFeature(new BasicCredentialAuthFilter.Builder<Account>()
+                                                             .setAuthenticator(deviceAuthenticator)
+                                                             .setPrincipal(Account.class)
+                                                             .buildAuthFilter(),
+                                                         new BasicCredentialAuthFilter.Builder<FederatedPeer>()
+                                                             .setAuthenticator(federatedPeerAuthenticator)
+                                                             .setPrincipal(FederatedPeer.class)
+                                                             .buildAuthFilter()));
+    environment.jersey().register(new AuthValueFactoryProvider.Binder());
 
     environment.jersey().register(new AccountController(pendingAccountsManager, accountsManager, rateLimiters, smsSender, messagesManager, new TimeProvider(), authorizationKey, config.getTestDevices()));
     environment.jersey().register(new DeviceController(pendingDevicesManager, accountsManager, rateLimiters));
