@@ -27,6 +27,7 @@ import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.conn.ssl.StrictHostnameVerifier;
 import org.bouncycastle.openssl.PEMReader;
 import org.glassfish.jersey.SslConfigurator;
+import org.glassfish.jersey.client.ClientProperties;
 import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -224,6 +225,8 @@ public class FederatedClient {
                                                         .using(registry)
                                                         .build("FederatedClient");
 
+    client.property(ClientProperties.CONNECT_TIMEOUT, 5000);
+    client.property(ClientProperties.READ_TIMEOUT, 10000);
     client.register(HttpAuthenticationFeature.basic(federationName, peer.getAuthenticationToken()));
 
     return client;
