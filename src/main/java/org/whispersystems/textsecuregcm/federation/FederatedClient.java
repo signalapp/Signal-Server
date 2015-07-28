@@ -192,7 +192,7 @@ public class FederatedClient {
                                 .path(String.format(RECEIPT_PATH, source, sourceDeviceId, destination, messageId))
                                 .request()
                                 .property(ClientProperties.SUPPRESS_HTTP_COMPLIANCE_VALIDATION, true)
-                                .put(null);
+                                .put(Entity.entity("", MediaType.APPLICATION_JSON_TYPE));
 
       if (response.getStatus() != 200 && response.getStatus() != 204) {
         throw new WebApplicationException(response);
