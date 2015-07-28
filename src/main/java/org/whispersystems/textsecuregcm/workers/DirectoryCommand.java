@@ -16,6 +16,7 @@
  */
 package org.whispersystems.textsecuregcm.workers;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import net.sourceforge.argparse4j.inf.Namespace;
 import org.skife.jdbi.v2.DBI;
 import org.slf4j.Logger;
@@ -60,6 +61,8 @@ public class DirectoryCommand extends EnvironmentCommand<WhisperServerConfigurat
       throws Exception
   {
     try {
+      environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
       DataSourceFactory dbConfig = configuration.getDataSourceFactory();
       DBI               dbi      = new DBI(dbConfig.getUrl(), dbConfig.getUser(), dbConfig.getPassword());
 
