@@ -191,7 +191,8 @@ public class FederatedClient {
       Response response = client.target(peer.getUrl())
                                 .path(String.format(RECEIPT_PATH, source, sourceDeviceId, destination, messageId))
                                 .request()
-                                .put(Entity.json(null));
+                                .property(ClientProperties.SUPPRESS_HTTP_COMPLIANCE_VALIDATION, true)
+                                .put(null);
 
       if (response.getStatus() != 200 && response.getStatus() != 204) {
         throw new WebApplicationException(response);
