@@ -45,4 +45,11 @@ public class KeepAliveController {
     return Response.ok().build();
   }
 
+  @Timed
+  @GET
+  @Path("/provisioning")
+  public Response getProvisioningKeepAlive() {
+    return Response.ok().build();
+  }
+
 }
