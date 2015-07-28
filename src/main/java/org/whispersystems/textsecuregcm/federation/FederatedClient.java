@@ -18,15 +18,12 @@ package org.whispersystems.textsecuregcm.federation;
 
 
 import com.google.common.base.Optional;
-import org.apache.http.client.CredentialsProvider;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.ssl.DefaultHostnameVerifier;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.conn.ssl.StrictHostnameVerifier;
 import org.bouncycastle.openssl.PEMReader;
-import org.glassfish.jersey.SslConfigurator;
 import org.glassfish.jersey.client.ClientProperties;
 import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature;
 import org.slf4j.Logger;
@@ -38,15 +35,12 @@ import org.whispersystems.textsecuregcm.entities.ClientContacts;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponseV1;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponseV2;
-import org.whispersystems.textsecuregcm.providers.JacksonConfigurator;
 
-import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.Client;
-import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
