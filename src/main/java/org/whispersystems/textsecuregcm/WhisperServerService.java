@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.google.common.base.Optional;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
+import org.glassfish.jersey.client.ClientProperties;
 import org.skife.jdbi.v2.DBI;
 import org.whispersystems.dispatch.DispatchChannel;
 import org.whispersystems.dispatch.DispatchManager;
@@ -158,8 +159,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     RedisClientFactory cacheClientFactory = new RedisClientFactory(config.getCacheConfiguration().getUrl());
     JedisPool          cacheClient        = cacheClientFactory.getRedisClientPool();
     JedisPool          directoryClient    = new RedisClientFactory(config.getDirectoryConfiguration().getUrl()).getRedisClientPool();
-    Client             httpClient         = new JerseyClientBuilder(environment).using(config.getJerseyClientConfiguration())
-                                                                                .build(getName());
+    Client             httpClient         = initializeHttpClient(environment, config);
 
     DirectoryManager           directory                  = new DirectoryManager(directoryClient);
     PendingAccountsManager     pendingAccountsManager     = new PendingAccountsManager(pendingAccounts, cacheClient);
@@ -280,6 +280,16 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     } else {
       return Optional.of(new NexmoSmsSender(configuration));
     }
+  }
+
+  private Client initializeHttpClient(Environment environment, WhisperServerConfiguration config) {
+    Client httpClient = new JerseyClientBuilder(environment).using(config.getJerseyClientConfiguration())
+                                                            .build(getName());
+
+    httpClient.property(ClientProperties.CONNECT_TIMEOUT, 1000);
+    httpClient.property(ClientProperties.READ_TIMEOUT, 1000);
+
+    return httpClient;
   }
 
   public static void main(String[] args) throws Exception {
