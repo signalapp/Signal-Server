@@ -76,7 +76,7 @@ public final class MessageProtos {
      * <code>optional bytes legacyMessage = 6;</code>
      *
      * <pre>
-     * Contains an encrypted DataMessage
+     * Contains an encrypted DataMessage XXX -- Remove after 10/01/15
      * </pre>
      */
     boolean hasLegacyMessage();
@@ -84,7 +84,7 @@ public final class MessageProtos {
      * <code>optional bytes legacyMessage = 6;</code>
      *
      * <pre>
-     * Contains an encrypted DataMessage
+     * Contains an encrypted DataMessage XXX -- Remove after 10/01/15
      * </pre>
      */
     com.google.protobuf.ByteString getLegacyMessage();
@@ -489,7 +489,7 @@ public final class MessageProtos {
      * <code>optional bytes legacyMessage = 6;</code>
      *
      * <pre>
-     * Contains an encrypted DataMessage
+     * Contains an encrypted DataMessage XXX -- Remove after 10/01/15
      * </pre>
      */
     public boolean hasLegacyMessage() {
@@ -499,7 +499,7 @@ public final class MessageProtos {
      * <code>optional bytes legacyMessage = 6;</code>
      *
      * <pre>
-     * Contains an encrypted DataMessage
+     * Contains an encrypted DataMessage XXX -- Remove after 10/01/15
      * </pre>
      */
     public com.google.protobuf.ByteString getLegacyMessage() {
@@ -1119,7 +1119,7 @@ public final class MessageProtos {
        * <code>optional bytes legacyMessage = 6;</code>
        *
        * <pre>
-       * Contains an encrypted DataMessage
+       * Contains an encrypted DataMessage XXX -- Remove after 10/01/15
        * </pre>
        */
       public boolean hasLegacyMessage() {
@@ -1129,7 +1129,7 @@ public final class MessageProtos {
        * <code>optional bytes legacyMessage = 6;</code>
        *
        * <pre>
-       * Contains an encrypted DataMessage
+       * Contains an encrypted DataMessage XXX -- Remove after 10/01/15
        * </pre>
        */
       public com.google.protobuf.ByteString getLegacyMessage() {
@@ -1139,7 +1139,7 @@ public final class MessageProtos {
        * <code>optional bytes legacyMessage = 6;</code>
        *
        * <pre>
-       * Contains an encrypted DataMessage
+       * Contains an encrypted DataMessage XXX -- Remove after 10/01/15
        * </pre>
        */
       public Builder setLegacyMessage(com.google.protobuf.ByteString value) {
@@ -1155,7 +1155,7 @@ public final class MessageProtos {
        * <code>optional bytes legacyMessage = 6;</code>
        *
        * <pre>
-       * Contains an encrypted DataMessage
+       * Contains an encrypted DataMessage XXX -- Remove after 10/01/15
        * </pre>
        */
       public Builder clearLegacyMessage() {

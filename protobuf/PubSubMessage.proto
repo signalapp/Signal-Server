@@ -26,6 +26,7 @@ message PubSubMessage {
     DELIVER   = 2;
     KEEPALIVE = 3;
     CLOSE     = 4;
+    CONNECTED = 5;
   }
 
   optional Type  type    = 1;

@@ -1,6 +1,8 @@
 package org.whispersystems.textsecuregcm.websocket;
 
-public class WebsocketAddress {
+import org.whispersystems.textsecuregcm.storage.PubSubAddress;
+
+public class WebsocketAddress implements PubSubAddress {
 
   private final String number;
   private final long   deviceId;

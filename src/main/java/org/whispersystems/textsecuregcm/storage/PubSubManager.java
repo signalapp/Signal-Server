@@ -1,13 +1,9 @@
 package org.whispersystems.textsecuregcm.storage;
 
-import com.google.protobuf.ByteString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.dispatch.DispatchChannel;
 import org.whispersystems.dispatch.DispatchManager;
-import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
-
-import java.util.concurrent.atomic.AtomicInteger;
 
 import io.dropwizard.lifecycle.Managed;
 import static org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
@@ -21,7 +17,7 @@ public class PubSubManager implements Managed {
   private final Logger logger = LoggerFactory.getLogger(PubSubManager.class);
 
   private final DispatchManager dispatchManager;
-  private final JedisPool         jedisPool;
+  private final JedisPool       jedisPool;
 
   private boolean subscribed = false;
 
@@ -49,21 +45,19 @@ public class PubSubManager implements Managed {
     dispatchManager.shutdown();
   }
 
-  public void subscribe(WebsocketAddress address, DispatchChannel channel) {
-    String serializedAddress = address.serialize();
-    dispatchManager.subscribe(serializedAddress, channel);
+  public void subscribe(PubSubAddress address, DispatchChannel channel) {
+    dispatchManager.subscribe(address.serialize(), channel);
   }
 
-  public void unsubscribe(WebsocketAddress address, DispatchChannel dispatchChannel) {
-    String serializedAddress = address.serialize();
-    dispatchManager.unsubscribe(serializedAddress, dispatchChannel);
+  public void unsubscribe(PubSubAddress address, DispatchChannel dispatchChannel) {
+    dispatchManager.unsubscribe(address.serialize(), dispatchChannel);
   }
 
-  public boolean hasLocalSubscription(WebsocketAddress address) {
+  public boolean hasLocalSubscription(PubSubAddress address) {
     return dispatchManager.hasSubscription(address.serialize());
   }
 
-  public boolean publish(WebsocketAddress address, PubSubMessage message) {
+  public boolean publish(PubSubAddress address, PubSubMessage message) {
     return publish(address.serialize().getBytes(), message);
   }
 

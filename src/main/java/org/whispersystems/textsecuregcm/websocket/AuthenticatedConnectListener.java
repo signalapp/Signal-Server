@@ -13,6 +13,8 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
+import org.whispersystems.textsecuregcm.storage.PubSubProtos;
+import org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
@@ -47,15 +49,16 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
   @Override
   public void onWebSocketConnect(WebSocketSessionContext context) {
-    final Account             account     = context.getAuthenticated(Account.class);
-    final Device              device      = account.getAuthenticatedDevice().get();
-    final long                connectTime = System.currentTimeMillis();
-    final WebsocketAddress    address     = new WebsocketAddress(account.getNumber(), device.getId());
-    final WebSocketConnection connection  = new WebSocketConnection(pushSender, receiptSender,
-                                                                    messagesManager, account, device,
-                                                                    context.getClient());
+    final Account                 account     = context.getAuthenticated(Account.class);
+    final Device                  device      = account.getAuthenticatedDevice().get();
+    final long                    connectTime = System.currentTimeMillis();
+    final WebsocketAddress        address     = new WebsocketAddress(account.getNumber(), device.getId());
+    final WebSocketConnectionInfo info        = new WebSocketConnectionInfo(address);
+    final WebSocketConnection     connection  = new WebSocketConnection(pushSender, receiptSender,
+                                                                        messagesManager, account, device,
+                                                                        context.getClient());
 
-    apnFallbackManager.cancel(address);
+    pubSubManager.publish(info, PubSubMessage.newBuilder().setType(PubSubMessage.Type.CONNECTED).build());
     updateLastSeen(account, device);
     pubSubManager.subscribe(address, connection);
 

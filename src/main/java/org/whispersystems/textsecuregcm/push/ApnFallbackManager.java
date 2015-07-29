@@ -6,11 +6,16 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.RatioGauge;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.protobuf.InvalidProtocolBufferException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.dispatch.DispatchChannel;
 import org.whispersystems.textsecuregcm.entities.ApnMessage;
+import org.whispersystems.textsecuregcm.storage.PubSubManager;
+import org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Util;
+import org.whispersystems.textsecuregcm.websocket.WebSocketConnectionInfo;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
 import java.util.Iterator;
@@ -21,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 import static com.codahale.metrics.MetricRegistry.name;
 import io.dropwizard.lifecycle.Managed;
 
-public class ApnFallbackManager implements Managed, Runnable {
+public class ApnFallbackManager implements Managed, Runnable, DispatchChannel {
 
   private static final Logger logger = LoggerFactory.getLogger(ApnFallbackManager.class);
 
@@ -35,21 +40,28 @@ public class ApnFallbackManager implements Managed, Runnable {
   }
 
   private final ApnFallbackTaskQueue taskQueue = new ApnFallbackTaskQueue();
-  private final PushServiceClient pushServiceClient;
 
-  public ApnFallbackManager(PushServiceClient pushServiceClient) {
+  private final PushServiceClient pushServiceClient;
+  private final PubSubManager     pubSubManager;
+
+  public ApnFallbackManager(PushServiceClient pushServiceClient, PubSubManager pubSubManager) {
     this.pushServiceClient = pushServiceClient;
+    this.pubSubManager     = pubSubManager;
   }
 
   public void schedule(final WebsocketAddress address, ApnFallbackTask task) {
     voipOneDelivery.mark();
-    taskQueue.put(address, task);
+
+    if (taskQueue.put(address, task)) {
+      pubSubManager.subscribe(new WebSocketConnectionInfo(address), this);
+    }
   }
 
-  public void cancel(WebsocketAddress address) {
+  private void cancel(WebsocketAddress address) {
     ApnFallbackTask task = taskQueue.remove(address);
 
     if (task != null) {
+      pubSubManager.unsubscribe(new WebSocketConnectionInfo(address), this);
       voipOneSuccess.mark();
       voipOneSuccessHistogram.update(System.currentTimeMillis() - task.getScheduledTime());
     }
@@ -72,6 +84,7 @@ public class ApnFallbackManager implements Managed, Runnable {
         Entry<WebsocketAddress, ApnFallbackTask> taskEntry  = taskQueue.get();
         ApnFallbackTask                          task       = taskEntry.getValue();
 
+        pubSubManager.unsubscribe(new WebSocketConnectionInfo(taskEntry.getKey()), this);
         pushServiceClient.send(new ApnMessage(task.getMessage(), task.getApnId(),
                                               false, ApnMessage.MAX_EXPIRATION));
       } catch (Throwable e) {
@@ -79,6 +92,31 @@ public class ApnFallbackManager implements Managed, Runnable {
       }
     }
   }
+
+  @Override
+  public void onDispatchMessage(String channel, byte[] message) {
+    try {
+      PubSubMessage notification = PubSubMessage.parseFrom(message);
+
+      if (notification.getType().getNumber() == PubSubMessage.Type.CONNECTED_VALUE) {
+        WebSocketConnectionInfo address = new WebSocketConnectionInfo(channel);
+        cancel(address.getWebsocketAddress());
+      } else {
+        logger.warn("Got strange pubsub type: " + notification.getType().getNumber());
+      }
+
+    } catch (WebSocketConnectionInfo.FormattingException e) {
+      logger.warn("Bad formatting?", e);
+    } catch (InvalidProtocolBufferException e) {
+      logger.warn("Bad protobuf", e);
+    }
+  }
+
+  @Override
+  public void onDispatchSubscribed(String channel) {}
+
+  @Override
+  public void onDispatchUnsubscribed(String channel) {}
 
   public static class ApnFallbackTask {
 
@@ -147,10 +185,12 @@ public class ApnFallbackManager implements Managed, Runnable {
       }
     }
 
-    public void put(WebsocketAddress address, ApnFallbackTask task) {
+    public boolean put(WebsocketAddress address, ApnFallbackTask task) {
       synchronized (tasks) {
-        tasks.put(address, task);
+        ApnFallbackTask previous = tasks.put(address, task);
         tasks.notifyAll();
+
+        return previous == null;
       }
     }
 
