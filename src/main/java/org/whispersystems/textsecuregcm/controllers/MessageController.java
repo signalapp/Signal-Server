@@ -175,7 +175,9 @@ public class MessageController {
                                   message.get().getTimestamp(),
                                   Optional.fromNullable(message.get().getRelay()));
       }
-    } catch (NoSuchUserException | NotPushRegisteredException | TransientPushFailureException e) {
+    } catch (NotPushRegisteredException e) {
+      logger.info("User no longer push registered for delivery receipt: " + e.getMessage());
+    } catch (NoSuchUserException | TransientPushFailureException e) {
       logger.warn("Sending delivery receipt", e);
     }
   }

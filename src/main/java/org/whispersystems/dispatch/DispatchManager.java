@@ -110,7 +110,7 @@ public class DispatchManager extends Thread {
     if (subscription.isPresent()) {
       dispatchSubscription(reply.getChannel(), subscription.get());
     } else {
-      logger.warn("Received subscribe event for non-existing channel: " + reply.getChannel());
+      logger.info("Received subscribe event for non-existing channel: " + reply.getChannel());
     }
   }
 
