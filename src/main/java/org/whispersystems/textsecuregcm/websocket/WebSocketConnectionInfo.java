@@ -33,6 +33,10 @@ public class WebSocketConnectionInfo implements PubSubAddress {
     return address;
   }
 
+  public static boolean isType(String address) {
+    return address.endsWith(":c");
+  }
+
   @Override
   public boolean equals(Object other) {
     return
