@@ -53,6 +53,7 @@ import org.whispersystems.textsecuregcm.mappers.IOExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.InvalidWebsocketAddressExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.CpuUsageGauge;
+import org.whispersystems.textsecuregcm.metrics.FileDescriptorGauge;
 import org.whispersystems.textsecuregcm.metrics.FreeMemoryGauge;
 import org.whispersystems.textsecuregcm.metrics.NetworkReceivedGauge;
 import org.whispersystems.textsecuregcm.metrics.NetworkSentGauge;
@@ -263,6 +264,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.metrics().register(name(FreeMemoryGauge.class, "free_memory"), new FreeMemoryGauge());
     environment.metrics().register(name(NetworkSentGauge.class, "bytes_sent"), new NetworkSentGauge());
     environment.metrics().register(name(NetworkReceivedGauge.class, "bytes_received"), new NetworkReceivedGauge());
+    environment.metrics().register(name(FileDescriptorGauge.class, "fd_count"), new FileDescriptorGauge());
 
     if (config.getGraphiteConfiguration().isEnabled()) {
       GraphiteReporterFactory graphiteReporterFactory = new GraphiteReporterFactory();
