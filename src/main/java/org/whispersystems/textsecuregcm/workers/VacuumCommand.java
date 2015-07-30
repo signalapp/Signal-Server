@@ -21,7 +21,7 @@ import io.dropwizard.setup.Bootstrap;
 
 public class VacuumCommand extends ConfiguredCommand<WhisperServerConfiguration> {
 
-  private final Logger logger = LoggerFactory.getLogger(DirectoryCommand.class);
+  private final Logger logger = LoggerFactory.getLogger(VacuumCommand.class);
 
   public VacuumCommand() {
     super("vacuum", "Vacuum Postgres Tables");
@@ -53,16 +53,16 @@ public class VacuumCommand extends ConfiguredCommand<WhisperServerConfiguration>
     PendingAccounts pendingAccounts = dbi.onDemand(PendingAccounts.class);
     Messages        messages        = dbi.onDemand(Messages.class       );
 
-    logger.warn("Vacuuming accounts...");
+    logger.info("Vacuuming accounts...");
     accounts.vacuum();
 
-    logger.warn("Vacuuming pending_accounts...");
+    logger.info("Vacuuming pending_accounts...");
     pendingAccounts.vacuum();
 
-    logger.warn("Vacuuming keys...");
+    logger.info("Vacuuming keys...");
     keys.vacuum();
 
-    logger.warn("Vacuuming messages...");
+    logger.info("Vacuuming messages...");
     messages.vacuum();
 
     Thread.sleep(3000);
