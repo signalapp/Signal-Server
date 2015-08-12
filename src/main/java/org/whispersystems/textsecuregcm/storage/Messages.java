@@ -58,6 +58,9 @@ public abstract class Messages {
   @SqlUpdate("DELETE FROM messages WHERE " + DESTINATION + " = :destination")
   abstract void clear(@Bind("destination") String destination);
 
+  @SqlUpdate("DELETE FROM messages WHERE " + TIMESTAMP + " < :timestamp")
+  public abstract void removeOld(@Bind("timestamp") long timestamp);
+
   @SqlUpdate("VACUUM messages")
   public abstract void vacuum();
 
