@@ -250,19 +250,17 @@ public class AccountController {
 
   @Timed
   @PUT
-  @Path("/wsc/")
-  public void setWebSocketChannelSupported(@Auth Account account) {
+  @Path("/attributes/")
+  public void setAccountAttributes(@Auth Account account, @Valid AccountAttributes attributes) {
     Device device = account.getAuthenticatedDevice().get();
-    device.setFetchesMessages(true);
-    accounts.update(account);
-  }
 
-  @Timed
-  @DELETE
-  @Path("/wsc/")
-  public void deleteWebSocketChannel(@Auth Account account) {
-    Device device = account.getAuthenticatedDevice().get();
-    device.setFetchesMessages(false);
+    device.setFetchesMessages(attributes.getFetchesMessages());
+    device.setName(attributes.getName());
+    device.setLastSeen(Util.todayInMillis());
+    device.setVoiceSupported(attributes.getVoice());
+    device.setRegistrationId(attributes.getRegistrationId());
+    device.setSignalingKey(attributes.getSignalingKey());
+
     accounts.update(account);
   }
 
@@ -283,6 +281,7 @@ public class AccountController {
     device.setFetchesMessages(accountAttributes.getFetchesMessages());
     device.setRegistrationId(accountAttributes.getRegistrationId());
     device.setName(accountAttributes.getName());
+    device.setVoiceSupported(accountAttributes.getVoice());
     device.setCreated(System.currentTimeMillis());
     device.setLastSeen(Util.todayInMillis());
 
@@ -293,8 +292,6 @@ public class AccountController {
     accounts.create(account);
     messagesManager.clear(number);
     pendingAccounts.remove(number);
-
-    logger.debug("Stored device...");
   }
 
   @VisibleForTesting protected VerificationCode generateVerificationCode(String number) {

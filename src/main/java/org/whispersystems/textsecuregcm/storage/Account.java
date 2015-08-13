@@ -71,7 +71,7 @@ public class Account {
   }
 
   public void removeDevice(long deviceId) {
-    this.devices.remove(new Device(deviceId, null, null, null, null, null, null, null, false, 0, null, 0, 0));
+    this.devices.remove(new Device(deviceId, null, null, null, null, null, null, null, false, 0, null, 0, 0, false));
   }
 
   public Set<Device> getDevices() {
@@ -90,6 +90,16 @@ public class Account {
     }
 
     return Optional.absent();
+  }
+
+  public boolean isVoiceSupported() {
+    for (Device device : devices) {
+      if (device.isActive() && device.isVoiceSupported()) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   public boolean isActive() {

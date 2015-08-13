@@ -53,12 +53,12 @@ public class ReceiptControllerTest  {
   @Before
   public void setup() throws Exception {
     Set<Device> singleDeviceList = new HashSet<Device>() {{
-      add(new Device(1, null, "foo", "bar", "baz", "isgcm", null, null, false, 111, null, System.currentTimeMillis(), System.currentTimeMillis()));
+      add(new Device(1, null, "foo", "bar", "baz", "isgcm", null, null, false, 111, null, System.currentTimeMillis(), System.currentTimeMillis(), false));
     }};
 
     Set<Device> multiDeviceList = new HashSet<Device>() {{
-      add(new Device(1, null, "foo", "bar", "baz", "isgcm", null, null, false, 222, null, System.currentTimeMillis(), System.currentTimeMillis()));
-      add(new Device(2, null, "foo", "bar", "baz", "isgcm", null, null, false, 333, null, System.currentTimeMillis(), System.currentTimeMillis()));
+      add(new Device(1, null, "foo", "bar", "baz", "isgcm", null, null, false, 222, null, System.currentTimeMillis(), System.currentTimeMillis(), false));
+      add(new Device(2, null, "foo", "bar", "baz", "isgcm", null, null, false, 333, null, System.currentTimeMillis(), System.currentTimeMillis(), false));
     }};
 
     Account singleDeviceAccount = new Account(SINGLE_DEVICE_RECIPIENT, singleDeviceList);

@@ -26,7 +26,6 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager.BatchOperationHandle;
-import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.io.IOException;
@@ -73,7 +72,7 @@ public class DirectoryUpdater {
         for (Account account : accounts) {
           if (account.isActive()) {
             byte[]        token         = Util.getContactToken(account.getNumber());
-            ClientContact clientContact = new ClientContact(token, null);
+            ClientContact clientContact = new ClientContact(token, null, account.isVoiceSupported());
 
             directory.add(batchOperation, clientContact);
             contactsAdded++;

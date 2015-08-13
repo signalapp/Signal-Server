@@ -31,9 +31,7 @@ public class RedisHealthCheck extends HealthCheck {
 
   @Override
   protected Result check() throws Exception {
-    Jedis client = clientPool.getResource();
-
-    try {
+    try (Jedis client = clientPool.getResource()) {
       client.set("HEALTH", "test");
 
       if (!"test".equals(client.get("HEALTH"))) {
@@ -41,8 +39,6 @@ public class RedisHealthCheck extends HealthCheck {
       }
 
       return Result.healthy();
-    } finally {
-      clientPool.returnResource(client);
     }
   }
 }

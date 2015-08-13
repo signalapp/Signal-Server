@@ -70,13 +70,16 @@ public class Device {
   @JsonProperty
   private long created;
 
+  @JsonProperty
+  private boolean voice;
+
   public Device() {}
 
   public Device(long id, String name, String authToken, String salt,
                 String signalingKey, String gcmId, String apnId,
                 String voipApnId, boolean fetchesMessages,
                 int registrationId, SignedPreKey signedPreKey,
-                long lastSeen, long created)
+                long lastSeen, long created, boolean voice)
   {
     this.id              = id;
     this.name            = name;
@@ -91,6 +94,7 @@ public class Device {
     this.signedPreKey    = signedPreKey;
     this.lastSeen        = lastSeen;
     this.created         = created;
+    this.voice           = voice;
   }
 
   public String getApnId() {
@@ -155,6 +159,14 @@ public class Device {
 
   public void setName(String name) {
     this.name = name;
+  }
+
+  public boolean isVoiceSupported() {
+    return voice;
+  }
+
+  public void setVoiceSupported(boolean voice) {
+    this.voice = voice;
   }
 
   public void setAuthenticationCredentials(AuthenticationCredentials credentials) {

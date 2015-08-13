@@ -61,9 +61,9 @@ public class DirectoryManager {
   }
 
   public void remove(byte[] token) {
-    Jedis jedis = redisPool.getResource();
-    jedis.hdel(DIRECTORY_KEY, token);
-    redisPool.returnResource(jedis);
+    try (Jedis jedis = redisPool.getResource()) {
+      jedis.hdel(DIRECTORY_KEY, token);
+    }
   }
 
   public void remove(BatchOperationHandle handle, byte[] token) {
@@ -72,7 +72,7 @@ public class DirectoryManager {
   }
 
   public void add(ClientContact contact) {
-    TokenValue tokenValue = new TokenValue(contact.getRelay());
+    TokenValue tokenValue = new TokenValue(contact.getRelay(), contact.isVoice());
 
     try (Jedis jedis = redisPool.getResource()) {
       jedis.hset(DIRECTORY_KEY, contact.getToken(), objectMapper.writeValueAsBytes(tokenValue));
@@ -84,7 +84,7 @@ public class DirectoryManager {
   public void add(BatchOperationHandle handle, ClientContact contact) {
     try {
       Pipeline   pipeline   = handle.pipeline;
-      TokenValue tokenValue = new TokenValue(contact.getRelay());
+      TokenValue tokenValue = new TokenValue(contact.getRelay(), contact.isVoice());
 
       pipeline.hset(DIRECTORY_KEY, contact.getToken(), objectMapper.writeValueAsBytes(tokenValue));
     } catch (JsonProcessingException e) {
@@ -106,7 +106,7 @@ public class DirectoryManager {
       }
 
       TokenValue tokenValue = objectMapper.readValue(result, TokenValue.class);
-      return Optional.of(new ClientContact(token, tokenValue.relay));
+      return Optional.of(new ClientContact(token, tokenValue.relay, tokenValue.voice));
     } catch (IOException e) {
       logger.warn("JSON Error", e);
       return Optional.absent();
@@ -133,7 +133,7 @@ public class DirectoryManager {
         try {
           if (pair.second().get() != null) {
             TokenValue    tokenValue    = objectMapper.readValue(pair.second().get(), TokenValue.class);
-            ClientContact clientContact = new ClientContact(pair.first(), tokenValue.relay);
+            ClientContact clientContact = new ClientContact(pair.first(), tokenValue.relay, tokenValue.voice);
 
             results.add(clientContact);
           }
@@ -175,10 +175,14 @@ public class DirectoryManager {
     @JsonProperty(value = "r")
     private String  relay;
 
+    @JsonProperty(value = "v")
+    private boolean voice;
+
     public TokenValue() {}
 
-    public TokenValue(String relay) {
+    public TokenValue(String relay, boolean voice) {
       this.relay = relay;
+      this.voice = voice;
     }
   }
 
@@ -201,7 +205,7 @@ public class DirectoryManager {
       }
 
       TokenValue tokenValue = objectMapper.readValue(result, TokenValue.class);
-      return Optional.of(new ClientContact(token, tokenValue.relay));
+      return Optional.of(new ClientContact(token, tokenValue.relay, tokenValue.voice));
     }
 
   }
