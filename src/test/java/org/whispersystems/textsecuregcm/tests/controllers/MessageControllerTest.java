@@ -91,21 +91,7 @@ public class MessageControllerTest {
 
     when(rateLimiters.getMessagesLimiter()).thenReturn(rateLimiter);
   }
-
-  @Test
-  public synchronized void testSingleDeviceLegacy() throws Exception {
-    Response response =
-        resources.getJerseyTest().target("/v1/messages/")
-                 .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-                 .post(Entity.entity(mapper.readValue(jsonFixture("fixtures/legacy_message_single_device.json"), IncomingMessageList.class),
-                                     MediaType.APPLICATION_JSON_TYPE));
-
-    assertThat("Good Response", response.getStatus(), is(equalTo(200)));
-
-    verify(pushSender, times(1)).sendMessage(any(Account.class), any(Device.class), any(Envelope.class));
-  }
-
+  
   @Test
   public synchronized void testSingleDeviceCurrent() throws Exception {
     Response response =
