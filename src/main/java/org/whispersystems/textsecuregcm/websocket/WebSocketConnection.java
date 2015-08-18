@@ -13,6 +13,7 @@ import org.whispersystems.textsecuregcm.controllers.NoSuchUserException;
 import org.whispersystems.textsecuregcm.entities.CryptoEncodingException;
 import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
+import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -27,7 +28,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.ws.rs.WebApplicationException;
 import java.io.IOException;
-import java.util.List;
+import java.util.Iterator;
 
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import static org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
@@ -69,7 +70,7 @@ public class WebSocketConnection implements DispatchChannel {
           processStoredMessages();
           break;
         case PubSubMessage.Type.DELIVER_VALUE:
-          sendMessage(Envelope.parseFrom(pubSubMessage.getContent()), Optional.<Long>absent());
+          sendMessage(Envelope.parseFrom(pubSubMessage.getContent()), Optional.<Long>absent(), false);
           break;
         default:
           logger.warn("Unknown pubsub message: " + pubSubMessage.getType().getNumber());
@@ -88,8 +89,9 @@ public class WebSocketConnection implements DispatchChannel {
     processStoredMessages();
   }
 
-  private void sendMessage(final Envelope message,
-                           final Optional<Long> storedMessageId)
+  private void sendMessage(final Envelope       message,
+                           final Optional<Long> storedMessageId,
+                           final boolean        requery)
   {
     try {
       EncryptedOutgoingMessage                   encryptedMessage = new EncryptedOutgoingMessage(message, device.getSignalingKey());
@@ -104,6 +106,7 @@ public class WebSocketConnection implements DispatchChannel {
           if (isSuccessResponse(response)) {
             if (storedMessageId.isPresent()) messagesManager.delete(account.getNumber(), storedMessageId.get());
             if (!isReceipt)                  sendDeliveryReceiptFor(message);
+            if (requery)                     processStoredMessages();
           } else if (!isSuccessResponse(response) && !storedMessageId.isPresent()) {
             requeueMessage(message);
           }
@@ -145,14 +148,16 @@ public class WebSocketConnection implements DispatchChannel {
   }
 
   private void processStoredMessages() {
-    List<OutgoingMessageEntity> messages = messagesManager.getMessagesForDevice(account.getNumber(), device.getId());
+    OutgoingMessageEntityList       messages = messagesManager.getMessagesForDevice(account.getNumber(), device.getId());
+    Iterator<OutgoingMessageEntity> iterator = messages.getMessages().iterator();
 
-    for (OutgoingMessageEntity message : messages) {
-      Envelope.Builder builder = Envelope.newBuilder()
-                                         .setType(Envelope.Type.valueOf(message.getType()))
-                                         .setSourceDevice(message.getSourceDevice())
-                                         .setSource(message.getSource())
-                                         .setTimestamp(message.getTimestamp());
+    while (iterator.hasNext()) {
+      OutgoingMessageEntity message = iterator.next();
+      Envelope.Builder      builder = Envelope.newBuilder()
+                                              .setType(Envelope.Type.valueOf(message.getType()))
+                                              .setSourceDevice(message.getSourceDevice())
+                                              .setSource(message.getSource())
+                                              .setTimestamp(message.getTimestamp());
 
       if (message.getMessage() != null) {
         builder.setLegacyMessage(ByteString.copyFrom(message.getMessage()));
@@ -166,9 +171,7 @@ public class WebSocketConnection implements DispatchChannel {
         builder.setRelay(message.getRelay());
       }
 
-      sendMessage(builder.build(), Optional.of(message.getId()));
+      sendMessage(builder.build(), Optional.of(message.getId()), !iterator.hasNext() && messages.hasMore());
     }
   }
-
-
 }

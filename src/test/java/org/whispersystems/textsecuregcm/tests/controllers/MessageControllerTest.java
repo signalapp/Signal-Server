@@ -204,7 +204,9 @@ public class MessageControllerTest {
       add(new OutgoingMessageEntity(2L, Envelope.Type.RECEIPT_VALUE, null, timestampTwo, "+14152222222", 2, null, null));
     }};
 
-    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_NUMBER), eq(1L))).thenReturn(messages);
+    OutgoingMessageEntityList messagesList = new OutgoingMessageEntityList(messages, false);
+
+    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_NUMBER), eq(1L))).thenReturn(messagesList);
 
     OutgoingMessageEntityList response =
         resources.getJerseyTest().target("/v1/messages/")

@@ -24,6 +24,8 @@ import java.util.List;
 
 public abstract class Messages {
 
+  public static final int RESULT_SET_CHUNK_SIZE = 1000;
+
   private static final String ID                 = "id";
   private static final String TYPE               = "type";
   private static final String RELAY              = "relay";
@@ -43,7 +45,7 @@ public abstract class Messages {
                      @Bind("destination_device") long destinationDevice);
 
   @Mapper(MessageMapper.class)
-  @SqlQuery("SELECT * FROM messages WHERE " + DESTINATION + " = :destination AND " + DESTINATION_DEVICE + " = :destination_device ORDER BY " + TIMESTAMP + " ASC")
+  @SqlQuery("SELECT * FROM messages WHERE " + DESTINATION + " = :destination AND " + DESTINATION_DEVICE + " = :destination_device  ORDER BY " + TIMESTAMP + " ASC LIMIT " + RESULT_SET_CHUNK_SIZE)
   abstract List<OutgoingMessageEntity> load(@Bind("destination")        String destination,
                                             @Bind("destination_device") long destinationDevice);
 

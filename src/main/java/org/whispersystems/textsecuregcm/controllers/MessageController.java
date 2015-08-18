@@ -153,9 +153,8 @@ public class MessageController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   public OutgoingMessageEntityList getPendingMessages(@Auth Account account) {
-    return new OutgoingMessageEntityList(messagesManager.getMessagesForDevice(account.getNumber(),
-                                                                              account.getAuthenticatedDevice()
-                                                                                     .get().getId()));
+    return messagesManager.getMessagesForDevice(account.getNumber(),
+                                                account.getAuthenticatedDevice().get().getId());
   }
 
   @Timed

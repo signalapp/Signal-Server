@@ -9,6 +9,7 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
+import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -104,6 +105,8 @@ public class WebSocketConnectionTest {
       add(createMessage(3L, "sender2", 3333, false, "third"));
     }};
 
+    OutgoingMessageEntityList outgoingMessagesList = new OutgoingMessageEntityList(outgoingMessages, false);
+
     when(device.getId()).thenReturn(2L);
     when(device.getSignalingKey()).thenReturn(Base64.encodeBytes(new byte[52]));
 
@@ -123,7 +126,7 @@ public class WebSocketConnectionTest {
     when(accountsManager.get("sender2")).thenReturn(Optional.<Account>absent());
 
     when(storedMessages.getMessagesForDevice(account.getNumber(), device.getId()))
-        .thenReturn(outgoingMessages);
+        .thenReturn(outgoingMessagesList);
 
     final List<SettableFuture<WebSocketResponseMessage>> futures = new LinkedList<>();
     final WebSocketClient                                client  = mock(WebSocketClient.class);
@@ -180,7 +183,8 @@ public class WebSocketConnectionTest {
                                      .setType(Envelope.Type.CIPHERTEXT)
                                      .build();
 
-    List<OutgoingMessageEntity> pendingMessages = new LinkedList<>();
+    List<OutgoingMessageEntity> pendingMessages     = new LinkedList<>();
+    OutgoingMessageEntityList   pendingMessagesList = new OutgoingMessageEntityList(pendingMessages, false);
 
     when(device.getId()).thenReturn(2L);
     when(device.getSignalingKey()).thenReturn(Base64.encodeBytes(new byte[52]));
@@ -201,7 +205,7 @@ public class WebSocketConnectionTest {
     when(accountsManager.get("sender2")).thenReturn(Optional.<Account>absent());
 
     when(storedMessages.getMessagesForDevice(account.getNumber(), device.getId()))
-        .thenReturn(pendingMessages);
+        .thenReturn(pendingMessagesList);
 
     final List<SettableFuture<WebSocketResponseMessage>> futures = new LinkedList<>();
     final WebSocketClient                                client  = mock(WebSocketClient.class);
