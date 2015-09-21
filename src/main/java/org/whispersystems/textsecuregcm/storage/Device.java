@@ -73,13 +73,17 @@ public class Device {
   @JsonProperty
   private boolean voice;
 
+  @JsonProperty
+  private String userAgent;
+
   public Device() {}
 
   public Device(long id, String name, String authToken, String salt,
                 String signalingKey, String gcmId, String apnId,
                 String voipApnId, boolean fetchesMessages,
                 int registrationId, SignedPreKey signedPreKey,
-                long lastSeen, long created, boolean voice)
+                long lastSeen, long created, boolean voice,
+                String userAgent)
   {
     this.id              = id;
     this.name            = name;
@@ -95,6 +99,7 @@ public class Device {
     this.lastSeen        = lastSeen;
     this.created         = created;
     this.voice           = voice;
+    this.userAgent       = userAgent;
   }
 
   public String getApnId() {
@@ -223,6 +228,14 @@ public class Device {
 
   public long getPushTimestamp() {
     return pushTimestamp;
+  }
+
+  public void setUserAgent(String userAgent) {
+    this.userAgent = userAgent;
+  }
+
+  public String getUserAgent() {
+    return this.userAgent;
   }
 
   @Override

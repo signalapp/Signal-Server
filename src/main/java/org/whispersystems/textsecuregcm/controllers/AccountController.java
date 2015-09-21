@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.AuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.AuthorizationToken;
+import org.whispersystems.textsecuregcm.auth.AuthorizationTokenGenerator;
 import org.whispersystems.textsecuregcm.auth.InvalidAuthorizationHeaderException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
@@ -65,14 +66,14 @@ public class AccountController {
 
   private final Logger logger = LoggerFactory.getLogger(AccountController.class);
 
-  private final PendingAccountsManager pendingAccounts;
-  private final AccountsManager        accounts;
-  private final RateLimiters           rateLimiters;
-  private final SmsSender              smsSender;
-  private final MessagesManager        messagesManager;
-  private final TimeProvider           timeProvider;
-  private final Optional<byte[]>       authorizationKey;
-  private final Map<String, Integer>   testDevices;
+  private final PendingAccountsManager                pendingAccounts;
+  private final AccountsManager                       accounts;
+  private final RateLimiters                          rateLimiters;
+  private final SmsSender                             smsSender;
+  private final MessagesManager                       messagesManager;
+  private final TimeProvider                          timeProvider;
+  private final Optional<AuthorizationTokenGenerator> tokenGenerator;
+  private final Map<String, Integer>                  testDevices;
 
   public AccountController(PendingAccountsManager pendingAccounts,
                            AccountsManager accounts,
@@ -89,8 +90,13 @@ public class AccountController {
     this.smsSender        = smsSenderFactory;
     this.messagesManager  = messagesManager;
     this.timeProvider     = timeProvider;
-    this.authorizationKey = authorizationKey;
     this.testDevices      = testDevices;
+
+    if (authorizationKey.isPresent()) {
+      tokenGenerator = Optional.of(new AuthorizationTokenGenerator(authorizationKey.get()));
+    } else {
+      tokenGenerator = Optional.absent();
+    }
   }
 
   @Timed
@@ -136,6 +142,7 @@ public class AccountController {
   @Path("/code/{verification_code}")
   public void verifyAccount(@PathParam("verification_code") String verificationCode,
                             @HeaderParam("Authorization")   String authorizationHeader,
+                            @HeaderParam("X-Signal-Agent")  String userAgent,
                             @Valid                          AccountAttributes accountAttributes)
       throws RateLimitExceededException
   {
@@ -158,7 +165,7 @@ public class AccountController {
         throw new WebApplicationException(Response.status(417).build());
       }
 
-      createAccount(number, password, accountAttributes);
+      createAccount(number, password, userAgent, accountAttributes);
     } catch (InvalidAuthorizationHeaderException e) {
       logger.info("Bad Authorization Header", e);
       throw new WebApplicationException(Response.status(401).build());
@@ -171,6 +178,7 @@ public class AccountController {
   @Path("/token/{verification_token}")
   public void verifyToken(@PathParam("verification_token") String verificationToken,
                           @HeaderParam("Authorization")    String authorizationHeader,
+                          @HeaderParam("X-Signal-Agent")   String userAgent,
                           @Valid                           AccountAttributes accountAttributes)
       throws RateLimitExceededException
   {
@@ -181,22 +189,35 @@ public class AccountController {
 
       rateLimiters.getVerifyLimiter().validate(number);
 
-      if (!authorizationKey.isPresent()) {
+      if (!tokenGenerator.isPresent()) {
         logger.debug("Attempt to authorize with key but not configured...");
         throw new WebApplicationException(Response.status(403).build());
       }
 
-      AuthorizationToken token = new AuthorizationToken(verificationToken, authorizationKey.get());
-
-      if (!token.isValid(number, timeProvider.getCurrentTimeMillis())) {
+      if (!tokenGenerator.get().isValid(verificationToken, number, timeProvider.getCurrentTimeMillis())) {
         throw new WebApplicationException(Response.status(403).build());
       }
 
-      createAccount(number, password, accountAttributes);
+      createAccount(number, password, userAgent, accountAttributes);
     } catch (InvalidAuthorizationHeaderException e) {
       logger.info("Bad authorization header", e);
       throw new WebApplicationException(Response.status(401).build());
     }
+  }
+
+  @Timed
+  @GET
+  @Path("/token/")
+  @Produces(MediaType.APPLICATION_JSON)
+  public AuthorizationToken verifyToken(@Auth Account account)
+      throws RateLimitExceededException
+  {
+    if (!tokenGenerator.isPresent()) {
+      logger.debug("Attempt to authorize with key but not configured...");
+      throw new WebApplicationException(Response.status(404).build());
+    }
+
+    return tokenGenerator.get().generateFor(account.getNumber());
   }
 
   @Timed
@@ -251,7 +272,10 @@ public class AccountController {
   @Timed
   @PUT
   @Path("/attributes/")
-  public void setAccountAttributes(@Auth Account account, @Valid AccountAttributes attributes) {
+  public void setAccountAttributes(@Auth Account account,
+                                   @HeaderParam("X-Signal-Agent") String userAgent,
+                                   @Valid AccountAttributes attributes)
+  {
     Device device = account.getAuthenticatedDevice().get();
 
     device.setFetchesMessages(attributes.getFetchesMessages());
@@ -260,6 +284,7 @@ public class AccountController {
     device.setVoiceSupported(attributes.getVoice());
     device.setRegistrationId(attributes.getRegistrationId());
     device.setSignalingKey(attributes.getSignalingKey());
+    device.setUserAgent(userAgent);
 
     accounts.update(account);
   }
@@ -273,7 +298,7 @@ public class AccountController {
         encodedVerificationText)).build();
   }
 
-  private void createAccount(String number, String password, AccountAttributes accountAttributes) {
+  private void createAccount(String number, String password, String userAgent, AccountAttributes accountAttributes) {
     Device device = new Device();
     device.setId(Device.MASTER_ID);
     device.setAuthenticationCredentials(new AuthenticationCredentials(password));
@@ -284,6 +309,7 @@ public class AccountController {
     device.setVoiceSupported(accountAttributes.getVoice());
     device.setCreated(System.currentTimeMillis());
     device.setLastSeen(Util.todayInMillis());
+    device.setUserAgent(userAgent);
 
     Account account = new Account();
     account.setNumber(number);

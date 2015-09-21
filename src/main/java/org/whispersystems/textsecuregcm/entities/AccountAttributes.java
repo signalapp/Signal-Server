@@ -75,4 +75,5 @@ public class AccountAttributes {
   public boolean getVoice() {
     return voice;
   }
+
 }
