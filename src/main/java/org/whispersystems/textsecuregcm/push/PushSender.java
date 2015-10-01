@@ -65,8 +65,8 @@ public class PushSender {
   private void sendGcmMessage(Account account, Device device, Envelope message)
       throws TransientPushFailureException, NotPushRegisteredException
   {
-    if (device.getFetchesMessages()) sendNotificationGcmMessage(account, device, message);
-    else                             sendPayloadGcmMessage(account, device, message);
+    sendNotificationGcmMessage(account, device, message);
+//    else                             sendPayloadGcmMessage(account, device, message);
   }
 
   private void sendPayloadGcmMessage(Account account, Device device, Envelope message)

@@ -272,6 +272,7 @@ public class AccountController {
   @Timed
   @PUT
   @Path("/attributes/")
+  @Consumes(MediaType.APPLICATION_JSON)
   public void setAccountAttributes(@Auth Account account,
                                    @HeaderParam("X-Signal-Agent") String userAgent,
                                    @Valid AccountAttributes attributes)
