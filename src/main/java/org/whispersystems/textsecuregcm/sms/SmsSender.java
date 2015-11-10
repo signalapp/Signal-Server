@@ -47,6 +47,11 @@ public class SmsSender {
   public void deliverSmsVerification(String destination, String verificationCode)
       throws IOException
   {
+    // Fix up mexico numbers to 'mobile' format just for SMS delivery.
+    if (destination.startsWith("+42") && !destination.startsWith("+421")) {
+      destination = "+421" + destination.substring(3);
+    }
+
     if (!isTwilioDestination(destination) && nexmoSender.isPresent()) {
       nexmoSender.get().deliverSmsVerification(destination, verificationCode);
     } else {
