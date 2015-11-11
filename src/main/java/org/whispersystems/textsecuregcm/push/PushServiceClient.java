@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.PushConfiguration;
 import org.whispersystems.textsecuregcm.entities.ApnMessage;
 import org.whispersystems.textsecuregcm.entities.GcmMessage;
+import org.whispersystems.textsecuregcm.entities.UpsMessage;
 import org.whispersystems.textsecuregcm.entities.UnregisteredEvent;
 import org.whispersystems.textsecuregcm.entities.UnregisteredEventList;
 import org.whispersystems.textsecuregcm.util.Base64;
@@ -21,9 +22,11 @@ public class PushServiceClient {
 
   private static final String PUSH_GCM_PATH     = "/api/v1/push/gcm";
   private static final String PUSH_APN_PATH     = "/api/v1/push/apn";
+  private static final String PUSH_UPS_PATH     = "/api/v1/push/ups";
 
   private static final String APN_FEEDBACK_PATH = "/api/v1/feedback/apn";
   private static final String GCM_FEEDBACK_PATH = "/api/v1/feedback/gcm";
+  private static final String UPS_FEEDBACK_PATH = "/api/v1/feedback/ups";
 
   private final Logger logger = LoggerFactory.getLogger(PushServiceClient.class);
 
@@ -37,6 +40,11 @@ public class PushServiceClient {
     this.host          = config.getHost();
     this.port          = config.getPort();
     this.authorization = getAuthorizationHeader(config.getUsername(), config.getPassword());
+  }
+
+
+  public void send(UpsMessage message) throws TransientPushFailureException {
+    sendPush(PUSH_UPS_PATH, message);
   }
 
   public void send(GcmMessage message) throws TransientPushFailureException {
@@ -53,6 +61,10 @@ public class PushServiceClient {
 
   public List<UnregisteredEvent> getApnFeedback() throws IOException {
     return getFeedback(APN_FEEDBACK_PATH);
+  }
+
+  public List<UnregisteredEvent> getUpsFeedback() throws IOException {
+    return getFeedback(UPS_FEEDBACK_PATH);
   }
 
   private void sendPush(String path, Object entity) throws TransientPushFailureException {
