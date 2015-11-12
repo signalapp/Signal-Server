@@ -24,7 +24,7 @@ import java.util.List;
 
 public abstract class Messages {
 
-  public static final int RESULT_SET_CHUNK_SIZE = 1000;
+  public static final int RESULT_SET_CHUNK_SIZE = 100;
 
   private static final String ID                 = "id";
   private static final String TYPE               = "type";
