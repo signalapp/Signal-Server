@@ -26,8 +26,8 @@ import java.io.IOException;
 
 public class SmsSender {
 
-  static final String SMS_VERIFICATION_TEXT = "Your TextSecure verification code: ";
-  static final String VOX_VERIFICATION_TEXT = "Your TextSecure verification code is: ";
+  static final String SMS_VERIFICATION_TEXT = "Your Signal verification code: ";
+  static final String VOX_VERIFICATION_TEXT = "Your Signal verification code is: ";
 
   private final Logger logger = LoggerFactory.getLogger(SmsSender.class);
 
