@@ -82,7 +82,21 @@ public class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    verify(smsSender).deliverSmsVerification(eq(SENDER), anyString());
+    verify(smsSender).deliverSmsVerification(eq(SENDER), isNull(String.class), anyString());
+  }
+  
+  @Test
+  public void testSendiOSCode() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .queryParam("client", "ios")
+                 .request()
+                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    verify(smsSender).deliverSmsVerification(eq(SENDER), eq("ios"), anyString());
   }
 
   @Test

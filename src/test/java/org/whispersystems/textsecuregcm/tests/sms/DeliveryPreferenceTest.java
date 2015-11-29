@@ -21,16 +21,16 @@ public class DeliveryPreferenceTest extends TestCase {
   public void testInternationalPreferenceOff() throws IOException, TwilioRestException {
     SmsSender smsSender = new SmsSender(twilioSender, Optional.of(nexmoSender), false);
 
-    smsSender.deliverSmsVerification("+441112223333", "123-456");
-    verify(nexmoSender).deliverSmsVerification("+441112223333", "123-456");
+    smsSender.deliverSmsVerification("+441112223333", null, "123-456");
+    verify(nexmoSender).deliverSmsVerification("+441112223333", null, "123-456");
     verifyNoMoreInteractions(twilioSender);
   }
 
   public void testInternationalPreferenceOn() throws IOException, TwilioRestException {
     SmsSender smsSender = new SmsSender(twilioSender, Optional.of(nexmoSender), true);
 
-    smsSender.deliverSmsVerification("+441112223333", "123-456");
-    verify(twilioSender).deliverSmsVerification("+441112223333", "123-456");
+    smsSender.deliverSmsVerification("+441112223333", null, "123-456");
+    verify(twilioSender).deliverSmsVerification("+441112223333", null, "123-456");
     verifyNoMoreInteractions(nexmoSender);
   }
 }

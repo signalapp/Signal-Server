@@ -19,6 +19,7 @@ package org.whispersystems.textsecuregcm.sms;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.NexmoConfiguration;
@@ -56,10 +57,18 @@ public class NexmoSmsSender {
     this.number    = config.getNumber();
   }
 
-  public void deliverSmsVerification(String destination, String verificationCode) throws IOException {
-    URL url = new URL(String.format(NEXMO_SMS_URL, apiKey, apiSecret, number, destination,
-                                    URLEncoder.encode(SmsSender.SMS_VERIFICATION_TEXT + verificationCode, "UTF-8")));
+  public void deliverSmsVerification(String destination, String clientType, String verificationCode) throws IOException {
+    String verificationMsg;
 
+    if ("ios".equals(clientType)) {
+      verificationMsg = String.format(SmsSender.SMS_IOS_VERIFICATION_TEXT, verificationCode, verificationCode);
+    } else {
+      verificationMsg = String.format(SmsSender.SMS_VERIFICATION_TEXT, verificationCode);
+    }
+
+    URL url = new URL(String.format(NEXMO_SMS_URL, apiKey, apiSecret, number, destination,
+                                    URLEncoder.encode(verificationMsg, "UTF-8")));
+	
     URLConnection connection = url.openConnection();
     connection.setDoInput(true);
     connection.connect();

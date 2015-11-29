@@ -25,9 +25,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 
 public class SmsSender {
-
+  static final String SMS_IOS_VERIFICATION_TEXT = "Your Signal verification code: %s\n\nOr tap: sgnl://verify/%s";
   static final String SMS_VERIFICATION_TEXT = "Your TextSecure verification code: ";
-  static final String VOX_VERIFICATION_TEXT = "Your TextSecure verification code is: ";
+  static final String VOX_VERIFICATION_TEXT = "Your Signal verification code is: ";
 
   private final Logger logger = LoggerFactory.getLogger(SmsSender.class);
 
@@ -44,18 +44,18 @@ public class SmsSender {
     this.nexmoSender           = nexmoSender;
   }
 
-  public void deliverSmsVerification(String destination, String verificationCode)
+  public void deliverSmsVerification(String destination, String clientType, String verificationCode)
       throws IOException
   {
     if (!isTwilioDestination(destination) && nexmoSender.isPresent()) {
-      nexmoSender.get().deliverSmsVerification(destination, verificationCode);
+      nexmoSender.get().deliverSmsVerification(destination, clientType, verificationCode);
     } else {
       try {
-        twilioSender.deliverSmsVerification(destination, verificationCode);
+        twilioSender.deliverSmsVerification(destination, clientType, verificationCode);
       } catch (TwilioRestException e) {
         logger.info("Twilio SMS Failed: " + e.getErrorMessage());
         if (nexmoSender.isPresent()) {
-          nexmoSender.get().deliverSmsVerification(destination, verificationCode);
+          nexmoSender.get().deliverSmsVerification(destination, clientType, verificationCode);
         }
       }
     }

@@ -59,7 +59,7 @@ public class TwilioSmsSender {
     this.localDomain  = config.getLocalDomain();
   }
 
-  public void deliverSmsVerification(String destination, String verificationCode)
+  public void deliverSmsVerification(String destination, String clientType, String verificationCode)
       throws IOException, TwilioRestException
   {
     TwilioRestClient    client         = new TwilioRestClient(accountId, accountToken);
@@ -67,8 +67,13 @@ public class TwilioSmsSender {
     List<NameValuePair> messageParams  = new LinkedList<>();
     messageParams.add(new BasicNameValuePair("To", destination));
     messageParams.add(new BasicNameValuePair("From", number));
-    messageParams.add(new BasicNameValuePair("Body", SmsSender.SMS_VERIFICATION_TEXT + verificationCode));
-
+    
+    if ("ios".equals(clientType)) {
+      messageParams.add(new BasicNameValuePair("Body", String.format(SmsSender.SMS_IOS_VERIFICATION_TEXT, verificationCode, verificationCode)));
+    } else {
+      messageParams.add(new BasicNameValuePair("Body", String.format(SmsSender.SMS_VERIFICATION_TEXT, verificationCode)));
+    }
+	
     try {
       messageFactory.create(messageParams);
     } catch (RuntimeException damnYouTwilio) {
