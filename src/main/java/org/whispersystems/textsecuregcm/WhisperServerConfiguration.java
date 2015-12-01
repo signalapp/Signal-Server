@@ -19,7 +19,6 @@ package org.whispersystems.textsecuregcm;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.whispersystems.textsecuregcm.configuration.FederationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GraphiteConfiguration;
-import org.whispersystems.textsecuregcm.configuration.NexmoConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PushConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedPhoneConfiguration;
@@ -31,7 +30,6 @@ import org.whispersystems.textsecuregcm.configuration.WebsocketConfiguration;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
-
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -47,9 +45,6 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private TwilioConfiguration twilio;
-
-  @JsonProperty
-  private NexmoConfiguration nexmo;
 
   @NotNull
   @Valid
@@ -118,10 +113,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public TwilioConfiguration getTwilioConfiguration() {
     return twilio;
-  }
-
-  public NexmoConfiguration getNexmoConfiguration() {
-    return nexmo;
   }
 
   public PushConfiguration getPushConfiguration() {

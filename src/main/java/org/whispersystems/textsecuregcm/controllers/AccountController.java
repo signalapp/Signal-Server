@@ -105,7 +105,7 @@ public class AccountController {
   @Path("/{transport}/code/{number}")
   public Response createAccount(@PathParam("transport") String transport,
                                 @PathParam("number")    String number,
-                                @QueryParam("client")   String client)
+                                @QueryParam("client")   Optional<String> client)
       throws IOException, RateLimitExceededException
   {
     if (!Util.isValidNumber(number)) {

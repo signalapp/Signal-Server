@@ -40,9 +40,6 @@ public class TwilioConfiguration {
   @JsonProperty
   private String localDomain;
 
-  @JsonProperty
-  private boolean international;
-
   public String getAccountId() {
     return accountId;
   }
@@ -57,9 +54,5 @@ public class TwilioConfiguration {
 
   public String getLocalDomain() {
     return localDomain;
-  }
-
-  public boolean isInternational() {
-    return international;
   }
 }
