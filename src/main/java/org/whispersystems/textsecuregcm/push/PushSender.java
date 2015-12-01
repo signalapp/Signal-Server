@@ -63,28 +63,9 @@ public class PushSender {
   }
 
   private void sendGcmMessage(Account account, Device device, Envelope message)
-      throws TransientPushFailureException, NotPushRegisteredException
+      throws TransientPushFailureException
   {
     sendNotificationGcmMessage(account, device, message);
-//    else                             sendPayloadGcmMessage(account, device, message);
-  }
-
-  private void sendPayloadGcmMessage(Account account, Device device, Envelope message)
-      throws TransientPushFailureException, NotPushRegisteredException
-  {
-    try {
-      String                   number           = account.getNumber();
-      long                     deviceId         = device.getId();
-      String                   registrationId   = device.getGcmId();
-      boolean                  isReceipt        = message.getType() == Envelope.Type.RECEIPT;
-      EncryptedOutgoingMessage encryptedMessage = new EncryptedOutgoingMessage(message, device.getSignalingKey());
-      GcmMessage               gcmMessage       = new GcmMessage(registrationId, number, (int) deviceId,
-                                                                 encryptedMessage.toEncodedString(), isReceipt, false);
-
-      pushServiceClient.send(gcmMessage);
-    } catch (CryptoEncodingException e) {
-      throw new NotPushRegisteredException(e);
-    }
   }
 
   private void sendNotificationGcmMessage(Account account, Device device, Envelope message)
