@@ -32,6 +32,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PendingDevicesManager;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
@@ -65,14 +66,17 @@ public class DeviceController {
 
   private final PendingDevicesManager pendingDevices;
   private final AccountsManager       accounts;
+  private final MessagesManager       messages;
   private final RateLimiters          rateLimiters;
 
   public DeviceController(PendingDevicesManager pendingDevices,
                           AccountsManager accounts,
+                          MessagesManager messages,
                           RateLimiters rateLimiters)
   {
     this.pendingDevices  = pendingDevices;
     this.accounts        = accounts;
+    this.messages        = messages;
     this.rateLimiters    = rateLimiters;
   }
 
@@ -100,6 +104,7 @@ public class DeviceController {
 
     account.removeDevice(deviceId);
     accounts.update(account);
+    messages.clear(account.getNumber(), deviceId);
   }
 
   @Timed

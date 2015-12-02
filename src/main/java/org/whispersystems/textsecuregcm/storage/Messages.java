@@ -60,6 +60,9 @@ public abstract class Messages {
   @SqlUpdate("DELETE FROM messages WHERE " + DESTINATION + " = :destination")
   abstract void clear(@Bind("destination") String destination);
 
+  @SqlUpdate("DELETE FROM messages WHERE " + DESTINATION + " = :destination AND " + DESTINATION_DEVICE + " = :destination_device")
+  abstract void clear(@Bind("destination") String destination, @Bind("destination_device") long destinationDevice);
+
   @SqlUpdate("DELETE FROM messages WHERE " + TIMESTAMP + " < :timestamp")
   public abstract void removeOld(@Bind("timestamp") long timestamp);
 
