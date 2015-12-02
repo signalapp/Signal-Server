@@ -21,6 +21,7 @@ import com.google.common.base.Optional;
 import com.twilio.sdk.TwilioRestException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.util.VerificationCode;
 
 import java.io.IOException;
 
@@ -44,7 +45,7 @@ public class SmsSender {
     this.nexmoSender           = nexmoSender;
   }
 
-  public void deliverSmsVerification(String destination, String clientType, String verificationCode)
+  public void deliverSmsVerification(String destination, String clientType, VerificationCode verificationCode)
       throws IOException
   {
     if (!isTwilioDestination(destination) && nexmoSender.isPresent()) {

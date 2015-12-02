@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.NexmoConfiguration;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.VerificationCode;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -57,13 +58,13 @@ public class NexmoSmsSender {
     this.number    = config.getNumber();
   }
 
-  public void deliverSmsVerification(String destination, String clientType, String verificationCode) throws IOException {
+  public void deliverSmsVerification(String destination, String clientType, VerificationCode verificationCode) throws IOException {
     String verificationMsg;
 
     if ("ios".equals(clientType)) {
-      verificationMsg = String.format(SmsSender.SMS_IOS_VERIFICATION_TEXT, verificationCode, verificationCode);
+      verificationMsg = String.format(SmsSender.SMS_IOS_VERIFICATION_TEXT, verificationCode.getVerificationCode(), verificationCode.getVerificationCode());
     } else {
-      verificationMsg = String.format(SmsSender.SMS_VERIFICATION_TEXT, verificationCode);
+      verificationMsg = String.format(SmsSender.SMS_VERIFICATION_TEXT, verificationCode.getVerificationCodeDisplay());
     }
 
     URL url = new URL(String.format(NEXMO_SMS_URL, apiKey, apiSecret, number, destination,

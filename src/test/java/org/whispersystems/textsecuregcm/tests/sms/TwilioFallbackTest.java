@@ -6,6 +6,7 @@ import junit.framework.TestCase;
 import org.whispersystems.textsecuregcm.sms.NexmoSmsSender;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
+import org.whispersystems.textsecuregcm.util.VerificationCode;
 
 import java.io.IOException;
 
@@ -19,16 +20,16 @@ public class TwilioFallbackTest extends TestCase {
 
   @Override
   protected void setUp() throws IOException, TwilioRestException {
-    doThrow(new TwilioRestException("foo", 404)).when(twilioSender).deliverSmsVerification(anyString(), anyString(), anyString());
+    doThrow(new TwilioRestException("foo", 404)).when(twilioSender).deliverSmsVerification(anyString(), anyString(), any(VerificationCode.class));
     doThrow(new TwilioRestException("bar", 405)).when(twilioSender).deliverVoxVerification(anyString(), anyString());
   }
 
   public void testNexmoSmsFallback() throws IOException, TwilioRestException {
     SmsSender smsSender = new SmsSender(twilioSender, Optional.of(nexmoSender), true);
-    smsSender.deliverSmsVerification("+442223334444", null, "123-456");
+    smsSender.deliverSmsVerification("+442223334444", null, new VerificationCode(123456));
 
-    verify(nexmoSender).deliverSmsVerification("+442223334444", null, "123-456");
-    verify(twilioSender).deliverSmsVerification("+442223334444", null, "123-456");
+    verify(nexmoSender).deliverSmsVerification("+442223334444", null, new VerificationCode(123456));
+    verify(twilioSender).deliverSmsVerification("+442223334444", null, new VerificationCode(123456));
   }
 
   public void testNexmoVoxFallback() throws IOException, TwilioRestException {

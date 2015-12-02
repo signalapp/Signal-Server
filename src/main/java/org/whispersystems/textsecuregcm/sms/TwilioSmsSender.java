@@ -27,6 +27,7 @@ import org.apache.http.NameValuePair;
 import org.apache.http.message.BasicNameValuePair;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.VerificationCode;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -59,7 +60,7 @@ public class TwilioSmsSender {
     this.localDomain  = config.getLocalDomain();
   }
 
-  public void deliverSmsVerification(String destination, String clientType, String verificationCode)
+  public void deliverSmsVerification(String destination, String clientType, VerificationCode verificationCode)
       throws IOException, TwilioRestException
   {
     TwilioRestClient    client         = new TwilioRestClient(accountId, accountToken);
@@ -69,9 +70,9 @@ public class TwilioSmsSender {
     messageParams.add(new BasicNameValuePair("From", number));
     
     if ("ios".equals(clientType)) {
-      messageParams.add(new BasicNameValuePair("Body", String.format(SmsSender.SMS_IOS_VERIFICATION_TEXT, verificationCode, verificationCode)));
+      messageParams.add(new BasicNameValuePair("Body", String.format(SmsSender.SMS_IOS_VERIFICATION_TEXT, verificationCode.getVerificationCode(), verificationCode.getVerificationCode())));
     } else {
-      messageParams.add(new BasicNameValuePair("Body", String.format(SmsSender.SMS_VERIFICATION_TEXT, verificationCode)));
+      messageParams.add(new BasicNameValuePair("Body", String.format(SmsSender.SMS_VERIFICATION_TEXT, verificationCode.getVerificationCodeDisplay())));
     }
 	
     try {

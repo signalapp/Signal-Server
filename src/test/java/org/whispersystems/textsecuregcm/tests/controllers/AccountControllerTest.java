@@ -20,6 +20,7 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.VerificationCode;
 
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
@@ -82,7 +83,7 @@ public class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    verify(smsSender).deliverSmsVerification(eq(SENDER), isNull(String.class), anyString());
+    verify(smsSender).deliverSmsVerification(eq(SENDER), isNull(String.class), any(VerificationCode.class));
   }
   
   @Test
@@ -96,7 +97,7 @@ public class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    verify(smsSender).deliverSmsVerification(eq(SENDER), eq("ios"), anyString());
+    verify(smsSender).deliverSmsVerification(eq(SENDER), eq("ios"), any(VerificationCode.class));
   }
 
   @Test
