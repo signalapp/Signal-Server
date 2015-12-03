@@ -51,6 +51,7 @@ import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -103,7 +104,8 @@ public class AccountController {
   @GET
   @Path("/{transport}/code/{number}")
   public Response createAccount(@PathParam("transport") String transport,
-                                @PathParam("number")    String number)
+                                @PathParam("number")    String number,
+                                @QueryParam("client")   String client)
       throws IOException, RateLimitExceededException
   {
     if (!Util.isValidNumber(number)) {
@@ -128,7 +130,7 @@ public class AccountController {
     if (testDevices.containsKey(number)) {
       // noop
     } else if (transport.equals("sms")) {
-      smsSender.deliverSmsVerification(number, verificationCode.getVerificationCodeDisplay());
+      smsSender.deliverSmsVerification(number, client, verificationCode);
     } else if (transport.equals("voice")) {
       smsSender.deliverVoxVerification(number, verificationCode.getVerificationCodeSpeech());
     }

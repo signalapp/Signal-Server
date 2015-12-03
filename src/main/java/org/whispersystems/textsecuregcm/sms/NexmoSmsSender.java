@@ -19,10 +19,12 @@ package org.whispersystems.textsecuregcm.sms;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.NexmoConfiguration;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.VerificationCode;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -56,10 +58,18 @@ public class NexmoSmsSender {
     this.number    = config.getNumber();
   }
 
-  public void deliverSmsVerification(String destination, String verificationCode) throws IOException {
-    URL url = new URL(String.format(NEXMO_SMS_URL, apiKey, apiSecret, number, destination,
-                                    URLEncoder.encode(SmsSender.SMS_VERIFICATION_TEXT + verificationCode, "UTF-8")));
+  public void deliverSmsVerification(String destination, String clientType, VerificationCode verificationCode) throws IOException {
+    String verificationMsg;
 
+    if ("ios".equals(clientType)) {
+      verificationMsg = String.format(SmsSender.SMS_IOS_VERIFICATION_TEXT, verificationCode.getVerificationCode(), verificationCode.getVerificationCode());
+    } else {
+      verificationMsg = String.format(SmsSender.SMS_VERIFICATION_TEXT, verificationCode.getVerificationCodeDisplay());
+    }
+
+    URL url = new URL(String.format(NEXMO_SMS_URL, apiKey, apiSecret, number, destination,
+                                    URLEncoder.encode(verificationMsg, "UTF-8")));
+	
     URLConnection connection = url.openConnection();
     connection.setDoInput(true);
     connection.connect();

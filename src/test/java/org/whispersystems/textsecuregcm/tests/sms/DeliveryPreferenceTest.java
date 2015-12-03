@@ -6,6 +6,7 @@ import junit.framework.TestCase;
 import org.whispersystems.textsecuregcm.sms.NexmoSmsSender;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
+import org.whispersystems.textsecuregcm.util.VerificationCode;
 
 import java.io.IOException;
 
@@ -21,16 +22,16 @@ public class DeliveryPreferenceTest extends TestCase {
   public void testInternationalPreferenceOff() throws IOException, TwilioRestException {
     SmsSender smsSender = new SmsSender(twilioSender, Optional.of(nexmoSender), false);
 
-    smsSender.deliverSmsVerification("+441112223333", "123-456");
-    verify(nexmoSender).deliverSmsVerification("+441112223333", "123-456");
+    smsSender.deliverSmsVerification("+441112223333", null, new VerificationCode(123456));
+    verify(nexmoSender).deliverSmsVerification("+441112223333", null, new VerificationCode(123456));
     verifyNoMoreInteractions(twilioSender);
   }
 
   public void testInternationalPreferenceOn() throws IOException, TwilioRestException {
     SmsSender smsSender = new SmsSender(twilioSender, Optional.of(nexmoSender), true);
 
-    smsSender.deliverSmsVerification("+441112223333", "123-456");
-    verify(twilioSender).deliverSmsVerification("+441112223333", "123-456");
+    smsSender.deliverSmsVerification("+441112223333", null, new VerificationCode(123456));
+    verify(twilioSender).deliverSmsVerification("+441112223333", null, new VerificationCode(123456));
     verifyNoMoreInteractions(nexmoSender);
   }
 }
