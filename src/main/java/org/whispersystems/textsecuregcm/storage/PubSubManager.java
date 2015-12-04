@@ -5,6 +5,8 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.dispatch.DispatchChannel;
 import org.whispersystems.dispatch.DispatchManager;
 
+import java.util.Arrays;
+
 import io.dropwizard.lifecycle.Managed;
 import static org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
 import redis.clients.jedis.Jedis;
@@ -63,7 +65,13 @@ public class PubSubManager implements Managed {
 
   private boolean publish(byte[] channel, PubSubMessage message) {
     try (Jedis jedis = jedisPool.getResource()) {
-      return jedis.publish(channel, message.toByteArray()) != 0;
+      long result = jedis.publish(channel, message.toByteArray());
+
+      if (result < 0) {
+        logger.warn("**** Jedis publish result < 0");
+      }
+
+      return result > 0;
     }
   }
 
