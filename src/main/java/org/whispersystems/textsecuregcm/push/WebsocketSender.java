@@ -46,6 +46,7 @@ public class WebsocketSender {
 
   private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
 
+  private final Meter websocketRequeueMeter = metricRegistry.meter(name(getClass(), "ws_requeue"));
   private final Meter websocketOnlineMeter  = metricRegistry.meter(name(getClass(), "ws_online"  ));
   private final Meter websocketOfflineMeter = metricRegistry.meter(name(getClass(), "ws_offline" ));
 
@@ -84,13 +85,22 @@ public class WebsocketSender {
       else if (channel == Type.GCM) gcmOfflineMeter.mark();
       else                          websocketOfflineMeter.mark();
 
-      int queueDepth = messagesManager.insert(account.getNumber(), device.getId(), message);
-      pubSubManager.publish(address, PubSubMessage.newBuilder()
-                                                  .setType(PubSubMessage.Type.QUERY_DB)
-                                                  .build());
-
+      int queueDepth = queueMessage(account, device, message);
       return new DeliveryStatus(false, queueDepth);
     }
+  }
+
+  public int queueMessage(Account account, Device device, Envelope message) {
+    websocketRequeueMeter.mark();
+
+    WebsocketAddress address    = new WebsocketAddress(account.getNumber(), device.getId());
+    int              queueDepth = messagesManager.insert(account.getNumber(), device.getId(), message);
+
+    pubSubManager.publish(address, PubSubMessage.newBuilder()
+                                                .setType(PubSubMessage.Type.QUERY_DB)
+                                                .build());
+
+    return queueDepth;
   }
 
   public boolean sendProvisioningMessage(ProvisioningAddress address, byte[] body) {

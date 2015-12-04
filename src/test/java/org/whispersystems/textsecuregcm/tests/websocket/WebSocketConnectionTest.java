@@ -13,6 +13,7 @@ import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
+import org.whispersystems.textsecuregcm.push.WebsocketSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -167,6 +168,11 @@ public class WebSocketConnectionTest {
   @Test
   public void testOnlineSend() throws Exception {
     MessagesManager storedMessages = mock(MessagesManager.class);
+    WebsocketSender websocketSender = mock(WebsocketSender.class);
+
+    when(pushSender.getWebSocketSender()).thenReturn(websocketSender);
+    when(websocketSender.queueMessage(any(Account.class), any(Device.class), any(Envelope.class))).thenReturn(10);
+
     Envelope firstMessage = Envelope.newBuilder()
                                     .setLegacyMessage(ByteString.copyFrom("first".getBytes()))
                                     .setSource("sender1")
@@ -245,11 +251,110 @@ public class WebSocketConnectionTest {
     futures.get(0).setException(new IOException());
 
     verify(receiptSender, times(1)).sendReceipt(eq(account), eq("sender2"), eq(secondMessage.getTimestamp()), eq(Optional.<String>absent()));
-    verify(pushSender, times(1)).sendMessage(eq(account), eq(device), any(Envelope.class));
+    verify(websocketSender, times(1)).queueMessage(eq(account), eq(device), any(Envelope.class));
+    verify(pushSender, times(1)).sendQueuedNotification(eq(account), eq(device), eq(10));
 
     connection.onDispatchUnsubscribed(websocketAddress.serialize());
     verify(client).close(anyInt(), anyString());
   }
+
+  @Test
+  public void testPendingSend() throws Exception {
+    MessagesManager storedMessages  = mock(MessagesManager.class);
+    WebsocketSender websocketSender = mock(WebsocketSender.class);
+
+    reset(websocketSender);
+    reset(pushSender);
+
+    when(pushSender.getWebSocketSender()).thenReturn(websocketSender);
+    when(websocketSender.queueMessage(any(Account.class), any(Device.class), any(Envelope.class))).thenReturn(10);
+
+    final Envelope firstMessage = Envelope.newBuilder()
+                                    .setLegacyMessage(ByteString.copyFrom("first".getBytes()))
+                                    .setSource("sender1")
+                                    .setTimestamp(System.currentTimeMillis())
+                                    .setSourceDevice(1)
+                                    .setType(Envelope.Type.CIPHERTEXT)
+                                    .build();
+
+    final Envelope secondMessage = Envelope.newBuilder()
+                                     .setLegacyMessage(ByteString.copyFrom("second".getBytes()))
+                                     .setSource("sender2")
+                                     .setTimestamp(System.currentTimeMillis())
+                                     .setSourceDevice(2)
+                                     .setType(Envelope.Type.CIPHERTEXT)
+                                     .build();
+
+    List<OutgoingMessageEntity> pendingMessages     = new LinkedList<OutgoingMessageEntity>() {{
+      add(new OutgoingMessageEntity(1, firstMessage.getType().getNumber(), firstMessage.getRelay(),
+                                    firstMessage.getTimestamp(), firstMessage.getSource(),
+                                    firstMessage.getSourceDevice(), firstMessage.getLegacyMessage().toByteArray(),
+                                    firstMessage.getContent().toByteArray()));
+      add(new OutgoingMessageEntity(2, secondMessage.getType().getNumber(), secondMessage.getRelay(),
+                                    secondMessage.getTimestamp(), secondMessage.getSource(),
+                                    secondMessage.getSourceDevice(), secondMessage.getLegacyMessage().toByteArray(),
+                                    secondMessage.getContent().toByteArray()));
+    }};
+
+    OutgoingMessageEntityList   pendingMessagesList = new OutgoingMessageEntityList(pendingMessages, false);
+
+    when(device.getId()).thenReturn(2L);
+    when(device.getSignalingKey()).thenReturn(Base64.encodeBytes(new byte[52]));
+
+    when(account.getAuthenticatedDevice()).thenReturn(Optional.of(device));
+    when(account.getNumber()).thenReturn("+14152222222");
+
+    final Device sender1device = mock(Device.class);
+
+    Set<Device> sender1devices = new HashSet<Device>() {{
+      add(sender1device);
+    }};
+
+    Account sender1 = mock(Account.class);
+    when(sender1.getDevices()).thenReturn(sender1devices);
+
+    when(accountsManager.get("sender1")).thenReturn(Optional.of(sender1));
+    when(accountsManager.get("sender2")).thenReturn(Optional.<Account>absent());
+
+    when(storedMessages.getMessagesForDevice(account.getNumber(), device.getId()))
+        .thenReturn(pendingMessagesList);
+
+    final List<SettableFuture<WebSocketResponseMessage>> futures = new LinkedList<>();
+    final WebSocketClient                                client  = mock(WebSocketClient.class);
+
+    when(client.sendRequest(eq("PUT"), eq("/api/v1/message"), any(Optional.class)))
+        .thenAnswer(new Answer<SettableFuture<WebSocketResponseMessage>>() {
+          @Override
+          public SettableFuture<WebSocketResponseMessage> answer(InvocationOnMock invocationOnMock) throws Throwable {
+            SettableFuture<WebSocketResponseMessage> future = SettableFuture.create();
+            futures.add(future);
+            return future;
+          }
+        });
+
+    WebsocketAddress websocketAddress = new WebsocketAddress(account.getNumber(), device.getId());
+    WebSocketConnection connection = new WebSocketConnection(pushSender, receiptSender, storedMessages,
+                                                             account, device, client);
+
+    connection.onDispatchSubscribed(websocketAddress.serialize());
+
+    verify(client, times(2)).sendRequest(eq("PUT"), eq("/api/v1/message"), any(Optional.class));
+
+    assertEquals(futures.size(), 2);
+
+    WebSocketResponseMessage response = mock(WebSocketResponseMessage.class);
+    when(response.getStatus()).thenReturn(200);
+    futures.get(1).set(response);
+    futures.get(0).setException(new IOException());
+
+    verify(receiptSender, times(1)).sendReceipt(eq(account), eq("sender2"), eq(secondMessage.getTimestamp()), eq(Optional.<String>absent()));
+    verifyNoMoreInteractions(websocketSender);
+    verifyNoMoreInteractions(pushSender);
+
+    connection.onDispatchUnsubscribed(websocketAddress.serialize());
+    verify(client).close(anyInt(), anyString());
+  }
+
 
   private OutgoingMessageEntity createMessage(long id, String sender, long timestamp, boolean receipt, String content) {
     return new OutgoingMessageEntity(id, receipt ? Envelope.Type.RECEIPT_VALUE : Envelope.Type.CIPHERTEXT_VALUE,

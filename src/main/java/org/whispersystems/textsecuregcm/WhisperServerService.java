@@ -249,7 +249,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       FilterRegistration.Dynamic filter = environment.servlets().addFilter("CORS", CrossOriginFilter.class);
       filter.addMappingForUrlPatterns(EnumSet.allOf(DispatcherType.class), true, "/*");
       filter.setInitParameter("allowedOrigins", "*");
-      filter.setInitParameter("allowedHeaders", "Content-Type,Authorization,X-Requested-With,Content-Length,Accept,Origin");
+      filter.setInitParameter("allowedHeaders", "Content-Type,Authorization,X-Requested-With,Content-Length,Accept,Origin,X-Signal-Agent");
       filter.setInitParameter("allowedMethods", "GET,PUT,POST,DELETE,OPTIONS");
       filter.setInitParameter("preflightMaxAge", "5184000");
       filter.setInitParameter("allowCredentials", "true");
