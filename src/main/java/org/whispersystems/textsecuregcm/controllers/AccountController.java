@@ -29,6 +29,7 @@ import org.whispersystems.textsecuregcm.auth.InvalidAuthorizationHeaderException
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
+import org.whispersystems.textsecuregcm.entities.UpsRegistrationId;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.providers.TimeProvider;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
@@ -267,6 +268,31 @@ public class AccountController {
   public void deleteApnRegistrationId(@Auth Account account) {
     Device device = account.getAuthenticatedDevice().get();
     device.setApnId(null);
+    device.setFetchesMessages(false);
+    accounts.update(account);
+  }
+
+  @Timed
+  @PUT
+  @Path("/ups/")
+  @Consumes(MediaType.APPLICATION_JSON)
+  public void setUpsRegistrationId(@Auth Account account, @Valid UpsRegistrationId registrationId) {
+    Device device = account.getAuthenticatedDevice().get();
+    device.setGcmId(null);
+    device.setApnId(null);
+    device.setVoipApnId(null);
+    device.setUpsId(registrationId.getUpsRegistrationId());
+    device.setFetchesMessages(true);
+
+    accounts.update(account);
+  }
+
+  @Timed
+  @DELETE
+  @Path("/ups/")
+  public void deleteUpsRegistrationId(@Auth Account account) {
+    Device device = account.getAuthenticatedDevice().get();
+    device.setUpsId(null);
     device.setFetchesMessages(false);
     accounts.update(account);
   }

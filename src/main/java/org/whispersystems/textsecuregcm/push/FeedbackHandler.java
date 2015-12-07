@@ -48,6 +48,7 @@ public class FeedbackHandler implements Managed, Runnable {
     try {
       List<UnregisteredEvent> gcmFeedback = client.getGcmFeedback();
       List<UnregisteredEvent> apnFeedback = client.getApnFeedback();
+      List<UnregisteredEvent> upsFeedback = client.getUpsFeedback();
 
       for (UnregisteredEvent gcmEvent : gcmFeedback) {
         handleGcmUnregistered(gcmEvent);
@@ -55,6 +56,10 @@ public class FeedbackHandler implements Managed, Runnable {
 
       for (UnregisteredEvent apnEvent : apnFeedback) {
         handleApnUnregistered(apnEvent);
+      }
+
+      for (UnregisteredEvent upsEvent : upsFeedback) {
+        handleUpsUnregistered(upsEvent);
       }
     } catch (IOException e) {
       logger.warn("Error retrieving feedback: ", e);
@@ -107,6 +112,30 @@ public class FeedbackHandler implements Managed, Runnable {
           {
             logger.info("APN Unregister timestamp matches!");
             device.get().setApnId(null);
+            accountsManager.update(account.get());
+          }
+        }
+      }
+    }
+  }
+
+  private void handleUpsUnregistered(UnregisteredEvent event) {
+    logger.info("Got UPS Unregistered: " + event.getNumber() + "," + event.getDeviceId());
+
+    Optional<Account> account = accountsManager.get(event.getNumber());
+
+    if (account.isPresent()) {
+      Optional<Device> device = account.get().getDevice(event.getDeviceId());
+
+      if (device.isPresent()) {
+        if (event.getRegistrationId().equals(device.get().getUpsId())) {
+          logger.info("UPS Unregister UPS ID matches!");
+          if (device.get().getPushTimestamp() == 0 ||
+              event.getTimestamp() > device.get().getPushTimestamp())
+          {
+            logger.info("UPS Unregister timestamp matches!");
+            device.get().setUpsId(null);
+            device.get().setFetchesMessages(false);
             accountsManager.update(account.get());
           }
         }

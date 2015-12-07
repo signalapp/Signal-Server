@@ -22,6 +22,7 @@ import org.whispersystems.textsecuregcm.entities.ApnMessage;
 import org.whispersystems.textsecuregcm.entities.CryptoEncodingException;
 import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
 import org.whispersystems.textsecuregcm.entities.GcmMessage;
+import org.whispersystems.textsecuregcm.entities.UpsMessage;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager.ApnFallbackTask;
 import org.whispersystems.textsecuregcm.push.WebsocketSender.DeliveryStatus;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -54,6 +55,7 @@ public class PushSender {
   {
     if      (device.getGcmId() != null)   sendGcmMessage(account, device, message);
     else if (device.getApnId() != null)   sendApnMessage(account, device, message);
+    else if (device.getUpsId() != null)   sendUpsMessage(account, device, message);
     else if (device.getFetchesMessages()) sendWebSocketMessage(account, device, message);
     else                                  throw new NotPushRegisteredException("No delivery possible!");
   }
@@ -78,6 +80,19 @@ public class PushSender {
                                              (int)device.getId(), "", false, true);
 
       pushServiceClient.send(gcmMessage);
+    }
+  }
+
+  private void sendUpsMessage(Account account, Device device, Envelope message)
+      throws TransientPushFailureException, NotPushRegisteredException
+  {
+    DeliveryStatus deliveryStatus = webSocketSender.sendMessage(account, device, message, WebsocketSender.Type.WEB);
+
+    if (!deliveryStatus.isDelivered()) {
+      UpsMessage upsMessage = new UpsMessage(device.getUpsId(), account.getNumber(),
+                                             (int)device.getId(), "", false, true);
+
+      pushServiceClient.send(upsMessage);
     }
   }
 

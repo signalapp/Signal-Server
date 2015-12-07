@@ -50,6 +50,9 @@ public class Device {
   private String  apnId;
 
   @JsonProperty
+  private String  upsId;
+
+  @JsonProperty
   private String  voipApnId;
 
   @JsonProperty
@@ -80,7 +83,7 @@ public class Device {
 
   public Device(long id, String name, String authToken, String salt,
                 String signalingKey, String gcmId, String apnId,
-                String voipApnId, boolean fetchesMessages,
+                String voipApnId, String upsId, boolean fetchesMessages,
                 int registrationId, SignedPreKey signedPreKey,
                 long lastSeen, long created, boolean voice,
                 String userAgent)
@@ -93,6 +96,7 @@ public class Device {
     this.gcmId           = gcmId;
     this.apnId           = apnId;
     this.voipApnId       = voipApnId;
+    this.upsId           = upsId;
     this.fetchesMessages = fetchesMessages;
     this.registrationId  = registrationId;
     this.signedPreKey    = signedPreKey;
@@ -149,6 +153,17 @@ public class Device {
       this.pushTimestamp = System.currentTimeMillis();
     }
   }
+  public String getUpsId() {
+    return upsId;
+  }
+
+  public void setUpsId(String upsId) {
+    this.upsId = upsId;
+
+    if (upsId != null) {
+      this.pushTimestamp = System.currentTimeMillis();
+    }
+  }
 
   public long getId() {
     return id;
@@ -192,7 +207,7 @@ public class Device {
   }
 
   public boolean isActive() {
-    boolean hasChannel = fetchesMessages || !Util.isEmpty(getApnId()) || !Util.isEmpty(getGcmId());
+    boolean hasChannel = fetchesMessages || !Util.isEmpty(getApnId()) || !Util.isEmpty(getGcmId()) || !Util.isEmpty(getUpsId());
 
     return (id == MASTER_ID && hasChannel) ||
            (id != MASTER_ID && hasChannel && signedPreKey != null && lastSeen > (System.currentTimeMillis() - TimeUnit.DAYS.toMillis(30)));
