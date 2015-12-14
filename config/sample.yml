@@ -1,7 +1,7 @@
 twilio: # Twilio SMS gateway configuration
   accountId:
   accountToken:
-  number:
+  numbers:
   localDomain: # The domain Twilio can call back to.
 
 push: # GCM/APN push server configuration
