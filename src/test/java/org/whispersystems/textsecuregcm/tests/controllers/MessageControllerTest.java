@@ -214,20 +214,20 @@ public class MessageControllerTest {
   @Test
   public synchronized void testDeleteMessages() throws Exception {
     long timestamp = System.currentTimeMillis();
-    when(messagesManager.delete(AuthHelper.VALID_NUMBER, "+14152222222", 31337))
+    when(messagesManager.delete(AuthHelper.VALID_NUMBER, 1, "+14152222222", 31337))
         .thenReturn(Optional.of(new OutgoingMessageEntity(31337L,
                                                           Envelope.Type.CIPHERTEXT_VALUE,
                                                           null, timestamp,
                                                           "+14152222222", 1, "hi".getBytes(), null)));
 
-    when(messagesManager.delete(AuthHelper.VALID_NUMBER, "+14152222222", 31338))
+    when(messagesManager.delete(AuthHelper.VALID_NUMBER, 1, "+14152222222", 31338))
         .thenReturn(Optional.of(new OutgoingMessageEntity(31337L,
                                                           Envelope.Type.RECEIPT_VALUE,
                                                           null, System.currentTimeMillis(),
                                                           "+14152222222", 1, null, null)));
 
 
-    when(messagesManager.delete(AuthHelper.VALID_NUMBER, "+14152222222", 31339))
+    when(messagesManager.delete(AuthHelper.VALID_NUMBER, 1, "+14152222222", 31339))
         .thenReturn(Optional.<OutgoingMessageEntity>absent());
 
     Response response = resources.getJerseyTest()

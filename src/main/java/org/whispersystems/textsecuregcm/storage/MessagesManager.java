@@ -33,8 +33,9 @@ public class MessagesManager {
     this.messages.clear(destination, deviceId);
   }
 
-  public Optional<OutgoingMessageEntity> delete(String destination, String source, long timestamp) {
-    return Optional.fromNullable(this.messages.remove(destination, source, timestamp));
+  public Optional<OutgoingMessageEntity> delete(String destination, long destinationDevice, String source, long timestamp)
+  {
+    return Optional.fromNullable(this.messages.remove(destination, destinationDevice, source, timestamp));
   }
 
   public void delete(String destination, long id) {

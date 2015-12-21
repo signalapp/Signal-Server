@@ -144,7 +144,9 @@ public class MessageController {
       throws IOException
   {
     try {
-      Optional<OutgoingMessageEntity> message = messagesManager.delete(account.getNumber(), source, timestamp);
+      Optional<OutgoingMessageEntity> message = messagesManager.delete(account.getNumber(),
+                                                                       account.getAuthenticatedDevice().get().getId(),
+                                                                       source, timestamp);
 
       if (message.isPresent() && message.get().getType() != Envelope.Type.RECEIPT_VALUE) {
         receiptSender.sendReceipt(account,
