@@ -73,7 +73,7 @@ public class FeedbackHandler implements Managed, Runnable {
         if (event.getRegistrationId().equals(device.get().getGcmId())) {
           logger.info("GCM Unregister GCM ID matches!");
           if (device.get().getPushTimestamp() == 0 ||
-              event.getTimestamp() > device.get().getPushTimestamp())
+              event.getTimestamp() > (device.get().getPushTimestamp() + TimeUnit.SECONDS.toMillis(10)))
           {
             logger.info("GCM Unregister Timestamp matches!");
 
