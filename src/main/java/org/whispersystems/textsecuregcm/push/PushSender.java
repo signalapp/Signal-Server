@@ -16,8 +16,7 @@
  */
 package org.whispersystems.textsecuregcm.push;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Gauge;
 import com.codahale.metrics.SharedMetricRegistries;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,9 +43,6 @@ public class PushSender implements Managed {
 
   private static final String APN_PAYLOAD = "{\"aps\":{\"sound\":\"default\",\"badge\":%d,\"alert\":{\"loc-key\":\"APN_Message\"}}}";
 
-  private final MetricRegistry metricRegistry  = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private final Histogram      queueDepthGauge = metricRegistry.histogram(name(getClass(), "queue_depth"));
-
   private final ApnFallbackManager         apnFallbackManager;
   private final PushServiceClient          pushServiceClient;
   private final WebsocketSender            webSocketSender;
@@ -57,6 +53,15 @@ public class PushSender implements Managed {
     this.pushServiceClient  = pushServiceClient;
     this.webSocketSender    = websocketSender;
     this.executor           = new BlockingThreadPoolExecutor(50, 200);
+
+    SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME)
+                          .register(name(PushSender.class, "send_queue_depth"),
+                                    new Gauge<Integer>() {
+                                      @Override
+                                      public Integer getValue() {
+                                        return executor.getSize();
+                                      }
+                                    });
   }
 
   public void sendMessage(final Account account, final Device device, final Envelope message)
@@ -75,8 +80,6 @@ public class PushSender implements Managed {
         else                                  throw new AssertionError();
       }
     });
-
-    queueDepthGauge.update(executor.getSize());
   }
 
   public void sendQueuedNotification(Account account, Device device, int messageQueueDepth)
