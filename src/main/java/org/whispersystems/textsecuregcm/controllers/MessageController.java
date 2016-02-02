@@ -166,7 +166,7 @@ public class MessageController {
                                 String destinationName,
                                 IncomingMessageList messages,
                                 boolean isSyncMessage)
-      throws NoSuchUserException, MismatchedDevicesException, IOException, StaleDevicesException
+      throws NoSuchUserException, MismatchedDevicesException, StaleDevicesException
   {
     Account destination;
 
@@ -190,7 +190,7 @@ public class MessageController {
                                 Device destinationDevice,
                                 long timestamp,
                                 IncomingMessage incomingMessage)
-      throws NoSuchUserException, IOException
+      throws NoSuchUserException
   {
     try {
       Optional<byte[]> messageBody    = getMessageBody(incomingMessage);
@@ -218,9 +218,6 @@ public class MessageController {
     } catch (NotPushRegisteredException e) {
       if (destinationDevice.isMaster()) throw new NoSuchUserException(e);
       else                              logger.debug("Not registered", e);
-    } catch (TransientPushFailureException e) {
-      if (destinationDevice.isMaster()) throw new IOException(e);
-      else                              logger.debug("Transient failure", e);
     }
   }
 
