@@ -92,10 +92,9 @@ public abstract class Accounts {
         throws SQLException
     {
       try {
-        Account account = mapper.readValue(resultSet.getString(DATA), Account.class);
+        return mapper.readValue(resultSet.getString(DATA), Account.class);
 //        account.setId(resultSet.getLong(ID));
 
-        return account;
       } catch (IOException e) {
         throw new SQLException(e);
       }
