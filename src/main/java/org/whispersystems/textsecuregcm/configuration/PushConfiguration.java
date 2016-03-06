@@ -22,6 +22,10 @@ public class PushConfiguration {
   @NotEmpty
   private String password;
 
+  @JsonProperty
+  @Min(0)
+  private int queueSize = 200;
+
   public String getHost() {
     return host;
   }
@@ -36,5 +40,9 @@ public class PushConfiguration {
 
   public String getPassword() {
     return password;
+  }
+
+  public int getQueueSize() {
+    return queueSize;
   }
 }

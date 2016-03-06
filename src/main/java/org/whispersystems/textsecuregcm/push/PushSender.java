@@ -47,12 +47,16 @@ public class PushSender implements Managed {
   private final PushServiceClient          pushServiceClient;
   private final WebsocketSender            webSocketSender;
   private final BlockingThreadPoolExecutor executor;
+  private final int                        queueSize;
 
-  public PushSender(ApnFallbackManager apnFallbackManager, PushServiceClient pushServiceClient, WebsocketSender websocketSender) {
+  public PushSender(ApnFallbackManager apnFallbackManager, PushServiceClient pushServiceClient,
+                    WebsocketSender websocketSender, int queueSize)
+  {
     this.apnFallbackManager = apnFallbackManager;
     this.pushServiceClient  = pushServiceClient;
     this.webSocketSender    = websocketSender;
-    this.executor           = new BlockingThreadPoolExecutor(50, 200);
+    this.queueSize          = queueSize;
+    this.executor           = new BlockingThreadPoolExecutor(50, queueSize);
 
     SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME)
                           .register(name(PushSender.class, "send_queue_depth"),
@@ -71,15 +75,16 @@ public class PushSender implements Managed {
       throw new NotPushRegisteredException("No delivery possible!");
     }
 
-    executor.execute(new Runnable() {
-      @Override
-      public void run() {
-        if      (device.getGcmId() != null)   sendGcmMessage(account, device, message);
-        else if (device.getApnId() != null)   sendApnMessage(account, device, message);
-        else if (device.getFetchesMessages()) sendWebSocketMessage(account, device, message);
-        else                                  throw new AssertionError();
-      }
-    });
+    if (queueSize > 0) {
+      executor.execute(new Runnable() {
+        @Override
+        public void run() {
+          sendSynchronousMessage(account, device, message);
+        }
+      });
+    } else {
+      sendSynchronousMessage(account, device, message);
+    }
   }
 
   public void sendQueuedNotification(Account account, Device device, int messageQueueDepth)
@@ -92,6 +97,13 @@ public class PushSender implements Managed {
 
   public WebsocketSender getWebSocketSender() {
     return webSocketSender;
+  }
+
+  private void sendSynchronousMessage(Account account, Device device, Envelope message) {
+    if      (device.getGcmId() != null)   sendGcmMessage(account, device, message);
+    else if (device.getApnId() != null)   sendApnMessage(account, device, message);
+    else if (device.getFetchesMessages()) sendWebSocketMessage(account, device, message);
+    else                                  throw new AssertionError();
   }
 
   private void sendGcmMessage(Account account, Device device, Envelope message) {
