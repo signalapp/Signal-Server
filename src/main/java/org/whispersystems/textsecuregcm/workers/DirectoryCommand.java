@@ -76,14 +76,14 @@ public class DirectoryCommand extends EnvironmentCommand<WhisperServerConfigurat
       JedisPool              redisClient            = new RedisClientFactory(configuration.getDirectoryConfiguration().getUrl()).getRedisClientPool();
       DirectoryManager       directory              = new DirectoryManager(redisClient);
       AccountsManager        accountsManager        = new AccountsManager(accounts, directory, cacheClient);
-      FederatedClientManager federatedClientManager = new FederatedClientManager(environment,
-                                                                                 configuration.getJerseyClientConfiguration(),
-                                                                                 configuration.getFederationConfiguration());
+//      FederatedClientManager federatedClientManager = new FederatedClientManager(environment,
+//                                                                                 configuration.getJerseyClientConfiguration(),
+//                                                                                 configuration.getFederationConfiguration());
 
-      DirectoryUpdater update = new DirectoryUpdater(accountsManager, federatedClientManager, directory);
+      DirectoryUpdater update = new DirectoryUpdater(accountsManager, directory);
 
       update.updateFromLocalDatabase();
-      update.updateFromPeers();
+//      update.updateFromPeers();
     } catch (Exception ex) {
       logger.warn("Directory Exception", ex);
       throw new RuntimeException(ex);

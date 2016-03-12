@@ -24,6 +24,7 @@ import com.google.common.base.Optional;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 public class Account {
 
@@ -105,7 +106,8 @@ public class Account {
   public boolean isActive() {
     return
         getMasterDevice().isPresent() &&
-        getMasterDevice().get().isActive();
+        getMasterDevice().get().isActive() &&
+        getLastSeen() > (System.currentTimeMillis() - TimeUnit.DAYS.toMillis(365));
   }
 
   public long getNextDeviceId() {
@@ -146,5 +148,17 @@ public class Account {
 
   public String getIdentityKey() {
     return identityKey;
+  }
+
+  public long getLastSeen() {
+    long lastSeen = 0;
+
+    for (Device device : devices) {
+      if (device.getLastSeen() > lastSeen) {
+        lastSeen = device.getLastSeen();
+      }
+    }
+
+    return lastSeen;
   }
 }
