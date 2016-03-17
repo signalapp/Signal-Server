@@ -140,7 +140,7 @@ public class JsonMetricsReporter extends ScheduledReporter {
     json.writeEndObject();
     json.writeFieldName("duration");
     json.writeStartObject();
-    writeSnapshot(json, timer.getSnapshot());
+    writeTimedSnapshot(json, timer.getSnapshot());
     json.writeEndObject();
     json.writeEndObject();
   }
@@ -154,7 +154,7 @@ public class JsonMetricsReporter extends ScheduledReporter {
     }
   }
 
-  private void writeSnapshot(JsonGenerator json, Snapshot snapshot) throws IOException {
+  private void writeTimedSnapshot(JsonGenerator json, Snapshot snapshot) throws IOException {
     json.writeNumberField("max", convertDuration(snapshot.getMax()));
     json.writeNumberField("mean", convertDuration(snapshot.getMean()));
     json.writeNumberField("min", convertDuration(snapshot.getMin()));
@@ -167,6 +167,19 @@ public class JsonMetricsReporter extends ScheduledReporter {
     json.writeNumberField("p999", convertDuration(snapshot.get999thPercentile()));
   }
 
+  private void writeSnapshot(JsonGenerator json, Snapshot snapshot) throws IOException {
+    json.writeNumberField("max", snapshot.getMax());
+    json.writeNumberField("mean", snapshot.getMean());
+    json.writeNumberField("min", snapshot.getMin());
+    json.writeNumberField("stddev", snapshot.getStdDev());
+    json.writeNumberField("median", snapshot.getMedian());
+    json.writeNumberField("p75", snapshot.get75thPercentile());
+    json.writeNumberField("p95", snapshot.get95thPercentile());
+    json.writeNumberField("p98", snapshot.get98thPercentile());
+    json.writeNumberField("p99", snapshot.get99thPercentile());
+    json.writeNumberField("p999", snapshot.get999thPercentile());
+  }
+
   private void writeMetered(JsonGenerator json, Metered meter) throws IOException {
     json.writeNumberField("count", convertRate(meter.getCount()));
     json.writeNumberField("mean", convertRate(meter.getMeanRate()));
@@ -174,7 +187,6 @@ public class JsonMetricsReporter extends ScheduledReporter {
     json.writeNumberField("m5", convertRate(meter.getFiveMinuteRate()));
     json.writeNumberField("m15", convertRate(meter.getFifteenMinuteRate()));
   }
-
 
   private String sanitize(String metricName) {
     return SIMPLE_NAMES.matcher(metricName).replaceAll("_");
