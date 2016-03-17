@@ -56,7 +56,7 @@ public class JsonMetricsReporter extends ScheduledReporter {
                      SortedMap<String, Timer>     stringTimerSortedMap)
   {
     try {
-      logger.debug("Reporting metrics...");
+      logger.info("Reporting metrics...");
       URL url = new URL("https", hostname, 443, String.format("/report/metrics?t=%s&h=%s", token, host));
       HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 

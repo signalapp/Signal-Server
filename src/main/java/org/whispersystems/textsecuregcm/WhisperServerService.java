@@ -88,6 +88,7 @@ import org.whispersystems.textsecuregcm.websocket.DeadLetterHandler;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningConnectListener;
 import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.workers.DirectoryCommand;
+import org.whispersystems.textsecuregcm.workers.PeriodicStatsCommand;
 import org.whispersystems.textsecuregcm.workers.TrimMessagesCommand;
 import org.whispersystems.textsecuregcm.workers.VacuumCommand;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
@@ -122,6 +123,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new DirectoryCommand());
     bootstrap.addCommand(new VacuumCommand());
     bootstrap.addCommand(new TrimMessagesCommand());
+    bootstrap.addCommand(new PeriodicStatsCommand());
     bootstrap.addBundle(new NameableMigrationsBundle<WhisperServerConfiguration>("accountdb", "accountsdb.xml") {
       @Override
       public DataSourceFactory getDataSourceFactory(WhisperServerConfiguration configuration) {
@@ -269,15 +271,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.metrics().register(name(NetworkSentGauge.class, "bytes_sent"), new NetworkSentGauge());
     environment.metrics().register(name(NetworkReceivedGauge.class, "bytes_received"), new NetworkReceivedGauge());
     environment.metrics().register(name(FileDescriptorGauge.class, "fd_count"), new FileDescriptorGauge());
-
-    if (config.getGraphiteConfiguration().isEnabled()) {
-      GraphiteReporterFactory graphiteReporterFactory = new GraphiteReporterFactory();
-      graphiteReporterFactory.setHost(config.getGraphiteConfiguration().getHost());
-      graphiteReporterFactory.setPort(config.getGraphiteConfiguration().getPort());
-
-      GraphiteReporter graphiteReporter = (GraphiteReporter) graphiteReporterFactory.build(environment.metrics());
-      graphiteReporter.start(15, TimeUnit.SECONDS);
-    }
   }
 
   private Client initializeHttpClient(Environment environment, WhisperServerConfiguration config) {

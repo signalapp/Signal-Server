@@ -85,14 +85,13 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private DataSourceFactory database = new DataSourceFactory();
 
+  @JsonProperty
+  private DataSourceFactory read_database;
+
   @Valid
   @NotNull
   @JsonProperty
   private RateLimitsConfiguration limits = new RateLimitsConfiguration();
-
-  @Valid
-  @JsonProperty
-  private GraphiteConfiguration graphite = new GraphiteConfiguration();
 
   @Valid
   @JsonProperty
@@ -143,16 +142,16 @@ public class WhisperServerConfiguration extends Configuration {
     return database;
   }
 
+  public DataSourceFactory getReadDataSourceFactory() {
+    return read_database;
+  }
+
   public RateLimitsConfiguration getLimitsConfiguration() {
     return limits;
   }
 
   public FederationConfiguration getFederationConfiguration() {
     return federation;
-  }
-
-  public GraphiteConfiguration getGraphiteConfiguration() {
-    return graphite;
   }
 
   public RedPhoneConfiguration getRedphoneConfiguration() {
