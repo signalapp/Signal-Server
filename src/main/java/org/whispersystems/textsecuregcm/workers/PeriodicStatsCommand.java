@@ -2,17 +2,13 @@ package org.whispersystems.textsecuregcm.workers;
 
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.ScheduledReporter;
-import com.codahale.metrics.SharedMetricRegistries;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import net.sourceforge.argparse4j.inf.Namespace;
 import org.skife.jdbi.v2.DBI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
-import org.whispersystems.textsecuregcm.metrics.JsonMetricsReporter;
-import org.whispersystems.textsecuregcm.metrics.JsonMetricsReporterFactory;
 import org.whispersystems.textsecuregcm.storage.Accounts;
-import org.whispersystems.textsecuregcm.util.Constants;
 
 import java.util.concurrent.TimeUnit;
 
@@ -68,9 +64,12 @@ public class PeriodicStatsCommand extends EnvironmentCommand<WhisperServerConfig
       long     monthAgo  = yesterday - 30;
 
       logger.info("Calculating daily active");
-      final int dailyActive   = accounts.getActiveSinceCount(TimeUnit.DAYS.toMillis(yesterday));
+      final int dailyActiveAndroid = accounts.getAndroidActiveSinceCount(TimeUnit.DAYS.toMillis(yesterday));
+      final int dailyActiveIos     = accounts.getIosActiveSinceCount(TimeUnit.DAYS.toMillis(yesterday));
+
       logger.info("Calculating monthly active");
-      final int monthlyActive = accounts.getActiveSinceCount(TimeUnit.DAYS.toMillis(monthAgo));
+      final int monthlyActiveAndroid = accounts.getAndroidActiveSinceCount(TimeUnit.DAYS.toMillis(monthAgo));
+      final int monthlyActiveIos     = accounts.getIosActiveSinceCount(TimeUnit.DAYS.toMillis(monthAgo));
 
       logger.info("Calculating daily signed keys");
       final int dailyActiveNoSignedKeys   = accounts.getUnsignedKeysCount(TimeUnit.DAYS.toMillis(yesterday));
@@ -81,7 +80,23 @@ public class PeriodicStatsCommand extends EnvironmentCommand<WhisperServerConfig
                                      new Gauge<Integer>() {
                                        @Override
                                        public Integer getValue() {
-                                         return dailyActive;
+                                         return dailyActiveAndroid + dailyActiveIos;
+                                       }
+                                     });
+
+      environment.metrics().register(name(PeriodicStatsCommand.class, "daily_active_android"),
+                                     new Gauge<Integer>() {
+                                       @Override
+                                       public Integer getValue() {
+                                         return dailyActiveAndroid;
+                                       }
+                                     });
+
+      environment.metrics().register(name(PeriodicStatsCommand.class, "daily_active_ios"),
+                                     new Gauge<Integer>() {
+                                       @Override
+                                       public Integer getValue() {
+                                         return dailyActiveIos;
                                        }
                                      });
 
@@ -89,7 +104,23 @@ public class PeriodicStatsCommand extends EnvironmentCommand<WhisperServerConfig
                                      new Gauge<Integer>() {
                                        @Override
                                        public Integer getValue() {
-                                         return monthlyActive;
+                                         return monthlyActiveAndroid + monthlyActiveIos;
+                                       }
+                                     });
+
+      environment.metrics().register(name(PeriodicStatsCommand.class, "monthly_active_android"),
+                                     new Gauge<Integer>() {
+                                       @Override
+                                       public Integer getValue() {
+                                         return monthlyActiveAndroid;
+                                       }
+                                     });
+
+      environment.metrics().register(name(PeriodicStatsCommand.class, "monthly_active_ios"),
+                                     new Gauge<Integer>() {
+                                       @Override
+                                       public Integer getValue() {
+                                         return monthlyActiveIos;
                                        }
                                      });
 
