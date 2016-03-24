@@ -74,7 +74,7 @@ public class MessageControllerTest {
   @Before
   public void setup() throws Exception {
     Set<Device> singleDeviceList = new HashSet<Device>() {{
-      add(new Device(1, null, "foo", "bar", "baz", "isgcm", null, null, false, 111, null, System.currentTimeMillis(), System.currentTimeMillis(), false, "Test"));
+      add(new Device(1, null, "foo", "bar", "baz", "isgcm", null, null, false, 111, new SignedPreKey(333, "baz", "boop"), System.currentTimeMillis(), System.currentTimeMillis(), false, "Test"));
     }};
 
     Set<Device> multiDeviceList = new HashSet<Device>() {{
