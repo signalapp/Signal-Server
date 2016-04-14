@@ -53,11 +53,10 @@ public abstract class Accounts {
   private static final ObjectMapper mapper = SystemMapper.getMapper();
 
   @SqlUpdate("INSERT INTO accounts (" + NUMBER + ", " + DATA + ") VALUES (:number, CAST(:data AS json))")
-  @GetGeneratedKeys
-  abstract long insertStep(@AccountBinder Account account);
+  abstract void insertStep(@AccountBinder Account account);
 
   @SqlUpdate("DELETE FROM accounts WHERE " + NUMBER + " = :number")
-  abstract void removeAccount(@Bind("number") String number);
+  abstract int removeAccount(@Bind("number") String number);
 
   @SqlUpdate("UPDATE accounts SET " + DATA + " = CAST(:data AS json) WHERE " + NUMBER + " = :number")
   abstract void update(@AccountBinder Account account);
@@ -87,9 +86,11 @@ public abstract class Accounts {
   public abstract int getUnsignedKeysCount(@Bind("since") long since);
 
   @Transaction(TransactionIsolationLevel.SERIALIZABLE)
-  public long create(Account account) {
-    removeAccount(account.getNumber());
-    return insertStep(account);
+  public boolean create(Account account) {
+    int rows = removeAccount(account.getNumber());
+    insertStep(account);
+
+    return rows == 0;
   }
 
   @SqlUpdate("VACUUM accounts")

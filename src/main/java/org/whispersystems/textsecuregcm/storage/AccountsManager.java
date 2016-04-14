@@ -64,10 +64,12 @@ public class AccountsManager {
     return accounts.getAll();
   }
 
-  public void create(Account account) {
-    accounts.create(account);
+  public boolean create(Account account) {
+    boolean freshUser = accounts.create(account);
     memcacheSet(account.getNumber(), account);
     updateDirectory(account);
+
+    return freshUser;
   }
 
   public void update(Account account) {
