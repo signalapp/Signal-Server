@@ -28,6 +28,7 @@ import org.apache.http.NameValuePair;
 import org.apache.http.message.BasicNameValuePair;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.Util;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -53,15 +54,17 @@ public class TwilioSmsSender {
   private final String            accountId;
   private final String            accountToken;
   private final ArrayList<String> numbers;
+  private final String            messagingServicesId;
   private final String            localDomain;
   private final Random            random;
 
   public TwilioSmsSender(TwilioConfiguration config) {
-    this.accountId    = config.getAccountId();
-    this.accountToken = config.getAccountToken();
-    this.numbers      = new ArrayList<>(config.getNumbers());
-    this.localDomain  = config.getLocalDomain();
-    this.random       = new Random(System.currentTimeMillis());
+    this.accountId           = config.getAccountId   ();
+    this.accountToken        = config.getAccountToken();
+    this.numbers             = new ArrayList<>(config.getNumbers());
+    this.localDomain         = config.getLocalDomain();
+    this.messagingServicesId = config.getMessagingServicesId();
+    this.random              = new Random(System.currentTimeMillis());
   }
 
   public void deliverSmsVerification(String destination, Optional<String> clientType, String verificationCode)
@@ -71,7 +74,12 @@ public class TwilioSmsSender {
     MessageFactory      messageFactory = client.getAccount().getMessageFactory();
     List<NameValuePair> messageParams  = new LinkedList<>();
     messageParams.add(new BasicNameValuePair("To", destination));
-    messageParams.add(new BasicNameValuePair("From", getRandom(random, numbers)));
+
+    if (Util.isEmpty(messagingServicesId)) {
+      messageParams.add(new BasicNameValuePair("From", getRandom(random, numbers)));
+    } else {
+      messageParams.add(new BasicNameValuePair("MessagingServiceSid", messagingServicesId));
+    }
     
     if ("ios".equals(clientType.orNull())) {
       messageParams.add(new BasicNameValuePair("Body", String.format(SmsSender.SMS_IOS_VERIFICATION_TEXT, verificationCode, verificationCode)));
