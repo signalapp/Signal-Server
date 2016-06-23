@@ -1,5 +1,8 @@
 package org.whispersystems.textsecuregcm.websocket;
 
+import com.codahale.metrics.Histogram;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -9,6 +12,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.dispatch.DispatchChannel;
+import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.controllers.NoSuchUserException;
 import org.whispersystems.textsecuregcm.entities.CryptoEncodingException;
 import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
@@ -21,6 +25,7 @@ import org.whispersystems.textsecuregcm.push.TransientPushFailureException;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 
@@ -30,10 +35,14 @@ import javax.ws.rs.WebApplicationException;
 import java.io.IOException;
 import java.util.Iterator;
 
+import static com.codahale.metrics.MetricRegistry.name;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import static org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
 
 public class WebSocketConnection implements DispatchChannel {
+
+  private static final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  public  static final Histogram      messageTime    = metricRegistry.histogram(name(MessageController.class, "message_delivery_duration"));
 
   private static final Logger logger = LoggerFactory.getLogger(WebSocketConnection.class);
 
@@ -102,6 +111,10 @@ public class WebSocketConnection implements DispatchChannel {
         @Override
         public void onSuccess(@Nullable WebSocketResponseMessage response) {
           boolean isReceipt = message.getType() == Envelope.Type.RECEIPT;
+
+          if (isSuccessResponse(response) && !isReceipt) {
+            messageTime.update(System.currentTimeMillis() - message.getTimestamp());
+          }
 
           if (isSuccessResponse(response)) {
             if (storedMessageId.isPresent()) messagesManager.delete(account.getNumber(), storedMessageId.get());

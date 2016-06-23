@@ -43,6 +43,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.Util;
+import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
 
 import javax.validation.Valid;
 import javax.ws.rs.Consumes;
@@ -144,6 +145,8 @@ public class MessageController {
       throws IOException
   {
     try {
+      WebSocketConnection.messageTime.update(System.currentTimeMillis() - timestamp);
+
       Optional<OutgoingMessageEntity> message = messagesManager.delete(account.getNumber(),
                                                                        account.getAuthenticatedDevice().get().getId(),
                                                                        source, timestamp);
