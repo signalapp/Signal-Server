@@ -9,7 +9,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 
-public abstract class NetworkGauge implements Gauge<Long> {
+public abstract class NetworkGauge implements Gauge<Double> {
 
   protected Pair<Long, Long> getSentReceived() throws IOException {
     File           proc          = new File("/proc/net/dev");

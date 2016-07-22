@@ -13,23 +13,31 @@ public class NetworkSentGauge extends NetworkGauge {
   private long lastTimestamp;
   private long lastSent;
 
-  @Override
-  public Long getValue() {
+  public NetworkSentGauge() {
     try {
-      long             timestamp       = System.currentTimeMillis();
-      Pair<Long, Long> sentAndReceived = getSentReceived();
-      long             result          = 0;
+      this.lastTimestamp = System.currentTimeMillis();
+      this.lastSent      = getSentReceived().first();
+    } catch (IOException e) {
+      logger.warn(NetworkSentGauge.class.getSimpleName(), e);
+    }
+  }
 
-      if (lastTimestamp != 0) {
-        result        = sentAndReceived.first() - lastSent;
-        lastSent      = sentAndReceived.first();
-      }
+  @Override
+  public Double getValue() {
+    try {
+      long             timestamp        = System.currentTimeMillis();
+      Pair<Long, Long> sentAndReceived  = getSentReceived();
+      double           bytesTransmitted = sentAndReceived.first() - lastSent;
+      double           secondsElapsed   = (timestamp - this.lastTimestamp) / 1000;
+      double           result           = bytesTransmitted / secondsElapsed;
 
-      lastTimestamp = timestamp;
+      this.lastSent      = sentAndReceived.first();
+      this.lastTimestamp = timestamp;
+
       return result;
     } catch (IOException e) {
       logger.warn("NetworkSentGauge", e);
-      return -1L;
+      return -1D;
     }
   }
 }
