@@ -87,11 +87,11 @@ public class PushSender implements Managed {
     }
   }
 
-  public void sendQueuedNotification(Account account, Device device, int messageQueueDepth)
+  public void sendQueuedNotification(Account account, Device device, int messageQueueDepth, boolean fallback)
       throws NotPushRegisteredException, TransientPushFailureException
   {
     if      (device.getGcmId() != null)    sendGcmNotification(account, device);
-    else if (device.getApnId() != null)    sendApnNotification(account, device, messageQueueDepth);
+    else if (device.getApnId() != null)    sendApnNotification(account, device, messageQueueDepth, fallback);
     else if (!device.getFetchesMessages()) throw new NotPushRegisteredException("No notification possible!");
   }
 
@@ -129,11 +129,12 @@ public class PushSender implements Managed {
     DeliveryStatus deliveryStatus = webSocketSender.sendMessage(account, device, outgoingMessage, WebsocketSender.Type.APN);
 
     if (!deliveryStatus.isDelivered() && outgoingMessage.getType() != Envelope.Type.RECEIPT) {
-      sendApnNotification(account, device, deliveryStatus.getMessageQueueDepth());
+      boolean fallback = !outgoingMessage.getSource().equals(account.getNumber());
+      sendApnNotification(account, device, deliveryStatus.getMessageQueueDepth(), fallback);
     }
   }
 
-  private void sendApnNotification(Account account, Device device, int messageQueueDepth) {
+  private void sendApnNotification(Account account, Device device, int messageQueueDepth, boolean fallback) {
     ApnMessage apnMessage;
 
     if (!Util.isEmpty(device.getVoipApnId())) {
@@ -141,8 +142,10 @@ public class PushSender implements Managed {
                                   String.format(APN_PAYLOAD, messageQueueDepth),
                                   true, System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(30));
 
-      apnFallbackManager.schedule(new WebsocketAddress(account.getNumber(), device.getId()),
-                                  new ApnFallbackTask(device.getApnId(), apnMessage));
+      if (fallback) {
+        apnFallbackManager.schedule(new WebsocketAddress(account.getNumber(), device.getId()),
+                                    new ApnFallbackTask(device.getApnId(), apnMessage));
+      }
     } else {
       apnMessage = new ApnMessage(device.getApnId(), account.getNumber(), (int)device.getId(),
                                   String.format(APN_PAYLOAD, messageQueueDepth),
