@@ -42,7 +42,8 @@ public class LeakyBucket {
   }
 
   public boolean add(int amount) {
-    this.spaceRemaining = getUpdatedSpaceRemaining();
+    this.spaceRemaining       = getUpdatedSpaceRemaining();
+    this.lastUpdateTimeMillis = System.currentTimeMillis();
 
     if (this.spaceRemaining >= amount) {
       this.spaceRemaining -= amount;
