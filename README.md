@@ -2,7 +2,7 @@ TextSecure-Server
 =================
 
 The server that handles message routing for the
-[TextSecure](https://github.com/whispersystems/TextSecure/) data channel.  Communication
+[Signal](https://github.com/whispersystems/Signal-Android/) data channel.  Communication
 is handled by a REST API and Push messaging (both GCM and APN).
 
 Documentation
