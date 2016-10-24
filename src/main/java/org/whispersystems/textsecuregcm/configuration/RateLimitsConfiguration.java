@@ -27,6 +27,9 @@ public class RateLimitsConfiguration {
   private RateLimitConfiguration voiceDestination = new RateLimitConfiguration(2, 1.0 / 2.0);
 
   @JsonProperty
+  private RateLimitConfiguration voiceDestinationDaily = new RateLimitConfiguration(10, 10.0 / (24.0 * 60.0));
+
+  @JsonProperty
   private RateLimitConfiguration verifyNumber = new RateLimitConfiguration(2, 2);
 
   @JsonProperty
@@ -77,6 +80,10 @@ public class RateLimitsConfiguration {
 
   public RateLimitConfiguration getVoiceDestination() {
     return voiceDestination;
+  }
+
+  public RateLimitConfiguration getVoiceDestinationDaily() {
+    return voiceDestinationDaily;
   }
 
   public RateLimitConfiguration getVerifyNumber() {

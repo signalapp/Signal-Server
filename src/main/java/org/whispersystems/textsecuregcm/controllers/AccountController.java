@@ -128,6 +128,7 @@ public class AccountController {
         break;
       case "voice":
         rateLimiters.getVoiceDestinationLimiter().validate(number);
+        rateLimiters.getVoiceDestinationDailyLimiter().validate(number);
         break;
       default:
         throw new WebApplicationException(Response.status(422).build());
