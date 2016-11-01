@@ -8,6 +8,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.whispersystems.dropwizard.simpleauth.AuthValueFactoryProvider;
+import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -42,6 +43,7 @@ public class AccountControllerTest {
   private        SmsSender              smsSender              = mock(SmsSender.class             );
   private        MessagesManager        storedMessages         = mock(MessagesManager.class       );
   private        TimeProvider           timeProvider           = mock(TimeProvider.class          );
+  private        TurnTokenGenerator     turnTokenGenerator     = mock(TurnTokenGenerator.class);
   private static byte[]                 authorizationKey       = decodeHex("3a078586eea8971155f5c1ebd73c8c923cbec1c3ed22a54722e4e88321dc749f");
 
   @Rule
@@ -57,6 +59,7 @@ public class AccountControllerTest {
                                                                                                storedMessages,
                                                                                                timeProvider,
                                                                                                Optional.of(authorizationKey),
+                                                                                               turnTokenGenerator,
                                                                                                new HashMap<String, Integer>()))
                                                             .build();
 

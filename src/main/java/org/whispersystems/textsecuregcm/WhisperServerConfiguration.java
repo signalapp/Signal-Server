@@ -25,6 +25,7 @@ import org.whispersystems.textsecuregcm.configuration.RedPhoneConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisConfiguration;
 import org.whispersystems.textsecuregcm.configuration.S3Configuration;
 import org.whispersystems.textsecuregcm.configuration.TestDeviceConfiguration;
+import org.whispersystems.textsecuregcm.configuration.TurnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
 import org.whispersystems.textsecuregcm.configuration.WebsocketConfiguration;
 
@@ -105,6 +106,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private JerseyClientConfiguration httpClient = new JerseyClientConfiguration();
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private TurnConfiguration turn;
+
 
   public WebsocketConfiguration getWebsocketConfiguration() {
     return websocket;
@@ -156,6 +162,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public RedPhoneConfiguration getRedphoneConfiguration() {
     return redphone;
+  }
+
+  public TurnConfiguration getTurnConfiguration() {
+    return turn;
   }
 
   public Map<String, Integer> getTestDevices() {

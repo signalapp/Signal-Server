@@ -50,6 +50,9 @@ public class RateLimitsConfiguration {
   @JsonProperty
   private RateLimitConfiguration verifyDevice = new RateLimitConfiguration(2, 2);
 
+  @JsonProperty
+  private RateLimitConfiguration turnAllocations = new RateLimitConfiguration(60, 60);
+
   public RateLimitConfiguration getAllocateDevice() {
     return allocateDevice;
   }
@@ -88,6 +91,10 @@ public class RateLimitsConfiguration {
 
   public RateLimitConfiguration getVerifyNumber() {
     return verifyNumber;
+  }
+
+  public RateLimitConfiguration getTurnAllocations() {
+    return turnAllocations;
   }
 
   public static class RateLimitConfiguration {
