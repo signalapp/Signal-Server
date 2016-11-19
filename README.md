@@ -1,16 +1,12 @@
-TextSecure-Server
+Signal-Server
 =================
-
-The server that handles message routing for the
-[TextSecure](https://github.com/whispersystems/TextSecure/) data channel.  Communication
-is handled by a REST API and Push messaging (both GCM and APN).
 
 Documentation
 -------------
 
-Looking for protocol documentation? Check out the wiki!
+Looking for protocol documentation? Check out the website!
 
-https://github.com/WhisperSystems/TextSecure-Server/wiki/API-Protocol
+https://whispersystems.org/docs/
 
 
 Bug tracker
@@ -18,7 +14,7 @@ Bug tracker
 
 Have a bug? Please create an issue here on GitHub!
 
-https://github.com/WhisperSystems/TextSecure-Server/issues
+https://github.com/WhisperSystems/Signal-Server/issues
 
 
 Mailing list
@@ -48,6 +44,6 @@ The form and manner of this distribution makes it eligible for export under the 
 License
 ---------------------
 
-Copyright 2013 Open Whisper Systems
+Copyright 2013-2016 Open Whisper Systems
 
 Licensed under the AGPLv3: https://www.gnu.org/licenses/agpl-3.0.html
