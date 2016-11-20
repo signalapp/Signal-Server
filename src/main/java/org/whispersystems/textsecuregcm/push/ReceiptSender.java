@@ -32,6 +32,10 @@ public class ReceiptSender {
       throws IOException, NoSuchUserException,
              NotPushRegisteredException, TransientPushFailureException
   {
+    if (source.getNumber().equals(destination)) {
+      return;
+    }
+
     if (relay.isPresent() && !relay.get().isEmpty()) {
       sendRelayedReceipt(source, destination, messageId, relay.get());
     } else {
