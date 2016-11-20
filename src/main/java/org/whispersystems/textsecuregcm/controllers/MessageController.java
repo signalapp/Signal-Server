@@ -217,7 +217,7 @@ public class MessageController {
         messageBuilder.setRelay(source.getRelay().get());
       }
 
-      pushSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build());
+      pushSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build(), incomingMessage.isSilent());
     } catch (NotPushRegisteredException e) {
       if (destinationDevice.isMaster()) throw new NoSuchUserException(e);
       else                              logger.debug("Not registered", e);

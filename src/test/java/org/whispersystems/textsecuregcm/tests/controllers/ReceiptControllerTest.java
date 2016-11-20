@@ -18,8 +18,6 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
-import javax.ws.rs.client.Entity;
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.util.HashSet;
 import java.util.Set;
@@ -80,7 +78,7 @@ public class ReceiptControllerTest  {
 
     assertThat(response.getStatus() == 204);
 
-    verify(pushSender, times(1)).sendMessage(any(Account.class), any(Device.class), any(Envelope.class));
+    verify(pushSender, times(1)).sendMessage(any(Account.class), any(Device.class), any(Envelope.class), eq(true));
   }
 
   @Test
@@ -95,7 +93,7 @@ public class ReceiptControllerTest  {
 
     assertThat(response.getStatus() == 204);
 
-    verify(pushSender, times(2)).sendMessage(any(Account.class), any(Device.class), any(Envelope.class));
+    verify(pushSender, times(2)).sendMessage(any(Account.class), any(Device.class), any(Envelope.class), eq(true));
   }
 
 

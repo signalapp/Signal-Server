@@ -68,7 +68,7 @@ public class PushSender implements Managed {
                                     });
   }
 
-  public void sendMessage(final Account account, final Device device, final Envelope message)
+  public void sendMessage(final Account account, final Device device, final Envelope message, final boolean silent)
       throws NotPushRegisteredException
   {
     if (device.getGcmId() == null && device.getApnId() == null && !device.getFetchesMessages()) {
@@ -79,11 +79,11 @@ public class PushSender implements Managed {
       executor.execute(new Runnable() {
         @Override
         public void run() {
-          sendSynchronousMessage(account, device, message);
+          sendSynchronousMessage(account, device, message, silent);
         }
       });
     } else {
-      sendSynchronousMessage(account, device, message);
+      sendSynchronousMessage(account, device, message, silent);
     }
   }
 
@@ -99,9 +99,9 @@ public class PushSender implements Managed {
     return webSocketSender;
   }
 
-  private void sendSynchronousMessage(Account account, Device device, Envelope message) {
+  private void sendSynchronousMessage(Account account, Device device, Envelope message, boolean silent) {
     if      (device.getGcmId() != null)   sendGcmMessage(account, device, message);
-    else if (device.getApnId() != null)   sendApnMessage(account, device, message);
+    else if (device.getApnId() != null)   sendApnMessage(account, device, message, silent);
     else if (device.getFetchesMessages()) sendWebSocketMessage(account, device, message);
     else                                  throw new AssertionError();
   }
@@ -125,11 +125,11 @@ public class PushSender implements Managed {
     }
   }
 
-  private void sendApnMessage(Account account, Device device, Envelope outgoingMessage) {
+  private void sendApnMessage(Account account, Device device, Envelope outgoingMessage, boolean silent) {
     DeliveryStatus deliveryStatus = webSocketSender.sendMessage(account, device, outgoingMessage, WebsocketSender.Type.APN);
 
     if (!deliveryStatus.isDelivered() && outgoingMessage.getType() != Envelope.Type.RECEIPT) {
-      boolean fallback = !outgoingMessage.getSource().equals(account.getNumber());
+      boolean fallback = !silent && !outgoingMessage.getSource().equals(account.getNumber());
       sendApnNotification(account, device, deliveryStatus.getMessageQueueDepth(), fallback);
     }
   }

@@ -112,7 +112,7 @@ public class FederatedControllerTest {
 
     assertThat("Good Response", response.getStatus(), is(equalTo(204)));
 
-    verify(pushSender).sendMessage(any(Account.class), any(Device.class), any(MessageProtos.Envelope.class));
+    verify(pushSender).sendMessage(any(Account.class), any(Device.class), any(MessageProtos.Envelope.class), eq(false));
   }
 
   @Test

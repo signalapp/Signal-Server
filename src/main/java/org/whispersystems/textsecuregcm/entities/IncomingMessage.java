@@ -45,6 +45,9 @@ public class IncomingMessage {
   @JsonProperty
   private long   timestamp; // deprecated
 
+  @JsonProperty
+  private boolean silent = false;
+
 
   public String getDestination() {
     return destination;
@@ -72,5 +75,9 @@ public class IncomingMessage {
 
   public String getContent() {
     return content;
+  }
+
+  public boolean isSilent() {
+    return silent;
   }
 }
