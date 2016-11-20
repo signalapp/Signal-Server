@@ -63,7 +63,7 @@ public class DirectoryCommand extends EnvironmentCommand<WhisperServerConfigurat
     try {
       environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-      DataSourceFactory dbConfig = configuration.getDataSourceFactory();
+      DataSourceFactory dbConfig = configuration.getReadDataSourceFactory();
       DBI               dbi      = new DBI(dbConfig.getUrl(), dbConfig.getUser(), dbConfig.getPassword());
 
       dbi.registerArgumentFactory(new OptionalArgumentFactory(dbConfig.getDriverClass()));
