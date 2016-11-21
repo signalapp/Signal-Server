@@ -43,7 +43,11 @@ public class Util {
   }
 
   public static boolean isValidNumber(String number) {
-    return number.matches("^\\+[0-9]{10,}");
+    return number.matches("^\\+[0-9]{10,}")  ||
+           number.matches("^\\+298[0-9]{6}") ||
+           number.matches("^\\+240[0-9]{6}") ||
+           number.matches("^\\+687[0-9]{6}") ||
+           number.matches("^\\+689[0-9]{6}");
   }
 
   public static String encodeFormParams(Map<String, String> params) {
