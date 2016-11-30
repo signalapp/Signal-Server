@@ -88,8 +88,8 @@ public class DirectoryCommand extends EnvironmentCommand<WhisperServerConfigurat
       logger.warn("Directory Exception", ex);
       throw new RuntimeException(ex);
     } finally {
-      Thread.sleep(3000);
-      System.exit(0);
+//      Thread.sleep(3000);
+//      System.exit(0);
     }
   }
 }
