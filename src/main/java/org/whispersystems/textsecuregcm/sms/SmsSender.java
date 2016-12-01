@@ -43,8 +43,8 @@ public class SmsSender {
       throws IOException
   {
     // Fix up mexico numbers to 'mobile' format just for SMS delivery.
-    if (destination.startsWith("+42") && !destination.startsWith("+421")) {
-      destination = "+421" + destination.substring(3);
+    if (destination.startsWith("+52") && !destination.startsWith("+521")) {
+      destination = "+521" + destination.substring(3);
     }
 
     try {
