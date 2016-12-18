@@ -30,6 +30,8 @@ Developing
 ----------
 
 Import project into Eclipse `mvn eclipse:eclipse`
+Debug errors about the missing gcm-server-repository on a legacy repo at 
+https://raw.github.com/whispersystems/maven/master/gcm-server/releases/
 
 Bug tracker
 -----------
