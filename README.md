@@ -1,6 +1,19 @@
 Signal-Server
 =================
 
+Building
+--------
+
+On macOS
+
+```
+brew install cask java
+brew install maven
+mvn clean
+mvn test
+mvn build
+```
+
 Documentation
 -------------
 
