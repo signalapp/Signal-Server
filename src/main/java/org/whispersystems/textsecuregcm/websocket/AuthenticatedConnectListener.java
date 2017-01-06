@@ -55,7 +55,6 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
                                                                        context.getClient());
 
     pubSubManager.publish(info, PubSubMessage.newBuilder().setType(PubSubMessage.Type.CONNECTED).build());
-    updateLastSeen(account, device);
     pubSubManager.subscribe(address, connection);
 
     context.addListener(new WebSocketSessionContext.WebSocketEventListener() {
@@ -65,13 +64,6 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
         timer.stop();
       }
     });
-  }
-
-  private void updateLastSeen(Account account, Device device) {
-    if (device.getLastSeen() != Util.todayInMillis()) {
-      device.setLastSeen(Util.todayInMillis());
-      accountsManager.update(account);
-    }
   }
 }
 

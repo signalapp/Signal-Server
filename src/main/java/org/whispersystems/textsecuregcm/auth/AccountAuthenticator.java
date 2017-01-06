@@ -27,6 +27,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.Util;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import io.dropwizard.auth.AuthenticationException;
@@ -67,6 +68,7 @@ public class AccountAuthenticator implements Authenticator<BasicCredentials, Acc
       if (device.get().getAuthenticationCredentials().verify(basicCredentials.getPassword())) {
         authenticationSucceededMeter.mark();
         account.get().setAuthenticatedDevice(device.get());
+        updateLastSeen(account.get(), device.get());
         return account;
       }
 
@@ -76,4 +78,12 @@ public class AccountAuthenticator implements Authenticator<BasicCredentials, Acc
       return Optional.absent();
     }
   }
+
+  private void updateLastSeen(Account account, Device device) {
+    if (device.getLastSeen() != Util.todayInMillis()) {
+      device.setLastSeen(Util.todayInMillis());
+      accountsManager.update(account);
+    }
+  }
+
 }
