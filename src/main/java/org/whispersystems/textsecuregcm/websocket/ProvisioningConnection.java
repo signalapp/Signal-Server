@@ -31,7 +31,7 @@ public class ProvisioningConnection implements DispatchChannel {
       if (outgoingMessage.getType() == PubSubMessage.Type.DELIVER) {
         Optional<byte[]> body = Optional.of(outgoingMessage.getContent().toByteArray());
 
-        ListenableFuture<WebSocketResponseMessage> response = client.sendRequest("PUT", "/v1/message", body);
+        ListenableFuture<WebSocketResponseMessage> response = client.sendRequest("PUT", "/v1/message", null, body);
 
         Futures.addCallback(response, new FutureCallback<WebSocketResponseMessage>() {
           @Override
@@ -54,10 +54,10 @@ public class ProvisioningConnection implements DispatchChannel {
   public void onDispatchSubscribed(String channel) {
     try {
       ProvisioningAddress address = new ProvisioningAddress(channel);
-      this.client.sendRequest("PUT", "/v1/address", Optional.of(ProvisioningUuid.newBuilder()
-                                                                                .setUuid(address.getAddress())
-                                                                                .build()
-                                                                                .toByteArray()));
+      this.client.sendRequest("PUT", "/v1/address", null, Optional.of(ProvisioningUuid.newBuilder()
+                                                                                      .setUuid(address.getAddress())
+                                                                                      .build()
+                                                                                      .toByteArray()));
     } catch (InvalidWebsocketAddressException e) {
       logger.warn("Badly formatted address", e);
       this.client.close(1001, "Server Error");

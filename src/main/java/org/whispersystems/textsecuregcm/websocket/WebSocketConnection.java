@@ -105,7 +105,7 @@ public class WebSocketConnection implements DispatchChannel {
     try {
       EncryptedOutgoingMessage                   encryptedMessage = new EncryptedOutgoingMessage(message, device.getSignalingKey());
       Optional<byte[]>                           body             = Optional.fromNullable(encryptedMessage.toByteArray());
-      ListenableFuture<WebSocketResponseMessage> response         = client.sendRequest("PUT", "/api/v1/message", body);
+      ListenableFuture<WebSocketResponseMessage> response         = client.sendRequest("PUT", "/api/v1/message", null, body);
 
       Futures.addCallback(response, new FutureCallback<WebSocketResponseMessage>() {
         @Override
