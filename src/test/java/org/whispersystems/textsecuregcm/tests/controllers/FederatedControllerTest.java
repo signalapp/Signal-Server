@@ -79,12 +79,12 @@ public class FederatedControllerTest {
   @Before
   public void setup() throws Exception {
     Set<Device> singleDeviceList = new HashSet<Device>() {{
-      add(new Device(1, null, "foo", "bar", "baz", "isgcm", null, null, false, 111, new SignedPreKey(111, "foo", "bar"), System.currentTimeMillis(), System.currentTimeMillis(), false, "Test"));
+      add(new Device(1, null, "foo", "bar", "baz", "isgcm", null, null, false, 111, new SignedPreKey(111, "foo", "bar"), System.currentTimeMillis(), System.currentTimeMillis(), false, false, "Test"));
     }};
 
     Set<Device> multiDeviceList = new HashSet<Device>() {{
-      add(new Device(1, null, "foo", "bar", "baz", "isgcm", null, null, false, 222, new SignedPreKey(222, "baz", "boop"), System.currentTimeMillis(), System.currentTimeMillis(), false, "Test"));
-      add(new Device(2, null, "foo", "bar", "baz", "isgcm", null, null, false, 333, new SignedPreKey(333, "rad", "mad"), System.currentTimeMillis(), System.currentTimeMillis(), false, "Test"));
+      add(new Device(1, null, "foo", "bar", "baz", "isgcm", null, null, false, 222, new SignedPreKey(222, "baz", "boop"), System.currentTimeMillis(), System.currentTimeMillis(), false, false, "Test"));
+      add(new Device(2, null, "foo", "bar", "baz", "isgcm", null, null, false, 333, new SignedPreKey(333, "rad", "mad"), System.currentTimeMillis(), System.currentTimeMillis(), false, false, "Test"));
     }};
 
     Account singleDeviceAccount = new Account(SINGLE_DEVICE_RECIPIENT, singleDeviceList);

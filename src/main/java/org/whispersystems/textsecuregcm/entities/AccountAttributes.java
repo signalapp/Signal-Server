@@ -40,20 +40,24 @@ public class AccountAttributes {
   @JsonProperty
   private boolean voice;
 
+  @JsonProperty
+  private boolean video;
+
   public AccountAttributes() {}
 
   @VisibleForTesting
   public AccountAttributes(String signalingKey, boolean fetchesMessages, int registrationId) {
-    this(signalingKey, fetchesMessages, registrationId, null, false);
+    this(signalingKey, fetchesMessages, registrationId, null, false, false);
   }
 
   @VisibleForTesting
-  public AccountAttributes(String signalingKey, boolean fetchesMessages, int registrationId, String name, boolean voice) {
+  public AccountAttributes(String signalingKey, boolean fetchesMessages, int registrationId, String name, boolean voice, boolean video) {
     this.signalingKey    = signalingKey;
     this.fetchesMessages = fetchesMessages;
     this.registrationId  = registrationId;
     this.name            = name;
     this.voice           = voice;
+    this.video           = video;
   }
 
   public String getSignalingKey() {
@@ -74,6 +78,10 @@ public class AccountAttributes {
 
   public boolean getVoice() {
     return voice;
+  }
+
+  public boolean getVideo() {
+    return video;
   }
 
 }

@@ -307,6 +307,7 @@ public class AccountController {
     device.setName(attributes.getName());
     device.setLastSeen(Util.todayInMillis());
     device.setVoiceSupported(attributes.getVoice());
+    device.setVideoSupported(attributes.getVideo());
     device.setRegistrationId(attributes.getRegistrationId());
     device.setSignalingKey(attributes.getSignalingKey());
     device.setUserAgent(userAgent);
@@ -332,6 +333,7 @@ public class AccountController {
     device.setRegistrationId(accountAttributes.getRegistrationId());
     device.setName(accountAttributes.getName());
     device.setVoiceSupported(accountAttributes.getVoice());
+    device.setVideoSupported(accountAttributes.getVideo());
     device.setCreated(System.currentTimeMillis());
     device.setLastSeen(Util.todayInMillis());
     device.setUserAgent(userAgent);

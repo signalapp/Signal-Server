@@ -35,13 +35,17 @@ public class ClientContact {
   @JsonProperty
   private boolean voice;
 
+  @JsonProperty
+  private boolean video;
+
   private String  relay;
   private boolean inactive;
 
-  public ClientContact(byte[] token, String relay, boolean voice) {
+  public ClientContact(byte[] token, String relay, boolean voice, boolean video) {
     this.token = token;
     this.relay = relay;
     this.voice = voice;
+    this.video = video;
   }
 
   public ClientContact() {}
@@ -74,6 +78,14 @@ public class ClientContact {
     this.voice = voice;
   }
 
+  public boolean isVideo() {
+    return video;
+  }
+
+  public void setVideo(boolean video) {
+    this.video = video;
+  }
+
   @Override
   public boolean equals(Object other) {
     if (other == null) return false;
@@ -85,6 +97,7 @@ public class ClientContact {
         Arrays.equals(this.token, that.token) &&
         this.inactive == that.inactive &&
         this.voice == that.voice &&
+        this.video == that.video &&
         (this.relay == null ? (that.relay == null) : this.relay.equals(that.relay));
   }
 

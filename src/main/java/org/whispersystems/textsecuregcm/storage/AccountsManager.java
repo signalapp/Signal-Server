@@ -102,7 +102,7 @@ public class AccountsManager {
   private void updateDirectory(Account account) {
     if (account.isActive()) {
       byte[]        token         = Util.getContactToken(account.getNumber());
-      ClientContact clientContact = new ClientContact(token, null, account.isVoiceSupported());
+      ClientContact clientContact = new ClientContact(token, null, account.isVoiceSupported(), account.isVideoSupported());
       directory.add(clientContact);
     } else {
       directory.remove(account.getNumber());

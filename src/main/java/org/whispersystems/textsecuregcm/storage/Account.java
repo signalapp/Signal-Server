@@ -72,7 +72,7 @@ public class Account {
   }
 
   public void removeDevice(long deviceId) {
-    this.devices.remove(new Device(deviceId, null, null, null, null, null, null, null, false, 0, null, 0, 0, false, "NA"));
+    this.devices.remove(new Device(deviceId, null, null, null, null, null, null, null, false, 0, null, 0, 0, false, false, "NA"));
   }
 
   public Set<Device> getDevices() {
@@ -96,6 +96,16 @@ public class Account {
   public boolean isVoiceSupported() {
     for (Device device : devices) {
       if (device.isActive() && device.isVoiceSupported()) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  public boolean isVideoSupported() {
+    for (Device device : devices) {
+      if (device.isActive() && device.isVideoSupported()) {
         return true;
       }
     }

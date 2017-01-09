@@ -142,7 +142,7 @@ public class DeviceControllerTest {
                                  .target("/v1/devices/5678901")
                                  .request()
                                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-                                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 1234, "this is a really long name that is longer than 80 characters", true),
+                                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 1234, "this is a really long name that is longer than 80 characters", true, true),
                                                     MediaType.APPLICATION_JSON_TYPE));
 
     assertEquals(response.getStatus(), 422);
