@@ -686,10 +686,26 @@ public class Base64
             throw e;
         }   // end catch
         finally {
-            try{ oos.close();   } catch( Exception e ){}
-            try{ gzos.close();  } catch( Exception e ){}
-            try{ b64os.close(); } catch( Exception e ){}
-            try{ baos.close();  } catch( Exception e ){}
+            try {
+                if (oos != null) {
+                    oos.close();
+                }
+            } catch( Exception e ){}
+            try {
+                if (gzos != null) {
+                    gzos.close();
+                }
+            } catch( Exception e ){}
+            try {
+                if (b64os != null) {
+                    b64os.close();
+                }
+            } catch( Exception e ){}
+            try {
+                if (baos != null) {
+                    baos.close();
+                }
+            } catch( Exception e ){}
         }   // end finally
         
         // Return value according to relevant encoding.
