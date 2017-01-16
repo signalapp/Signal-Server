@@ -965,9 +965,21 @@ public class Base64
                 throw e;
             }   // end catch
             finally {
-                try{ gzos.close();  } catch( Exception e ){}
-                try{ b64os.close(); } catch( Exception e ){}
-                try{ baos.close();  } catch( Exception e ){}
+                try {
+                    if (gzos != null) {
+                        gzos.close();
+                    }
+                } catch( Exception e ){}
+                try {
+                    if (b64os != null) {
+                        b64os.close();
+                    }
+                } catch( Exception e ){}
+                try {
+                    if (baos != null) {
+                        baos.close();
+                    }
+                } catch( Exception e ){}
             }   // end finally
 
             return baos.toByteArray();
@@ -1333,9 +1345,21 @@ public class Base64
                     // Just return originally-decoded bytes
                 }   // end catch
                 finally {
-                    try{ baos.close(); } catch( Exception e ){}
-                    try{ gzis.close(); } catch( Exception e ){}
-                    try{ bais.close(); } catch( Exception e ){}
+                    try {
+                        if (baos != null) {
+                            baos.close();
+                        }
+                    } catch( Exception e ){}
+                    try {
+                        if (gzis != null) {
+                            gzis.close();
+                        }
+                    } catch( Exception e ){}
+                    try {
+                        if (bais != null) {
+                            bais.close();
+                        }
+                    } catch( Exception e ){}
                 }   // end finally
 
             }   // end if: gzipped
@@ -1425,8 +1449,16 @@ public class Base64
             throw e;    // Catch and throw in order to execute finally{}
         }   // end catch
         finally {
-            try{ bais.close(); } catch( Exception e ){}
-            try{ ois.close();  } catch( Exception e ){}
+            try {
+                if (bais != null) {
+                    bais.close();
+                }
+            } catch( Exception e ){}
+            try {
+                if (ois != null) {
+                    ois.close();
+                }
+            } catch( Exception e ){}
         }   // end finally
         
         return obj;
@@ -1465,7 +1497,11 @@ public class Base64
             throw e; // Catch and throw to execute finally{} block
         }   // end catch: java.io.IOException
         finally {
-            try{ bos.close(); } catch( Exception e ){}
+            try {
+                if (bos != null) {
+                    bos.close();
+                }
+            } catch( Exception e ){}
         }   // end finally
         
     }   // end encodeToFile
@@ -1497,7 +1533,11 @@ public class Base64
             throw e; // Catch and throw to execute finally{} block
         }   // end catch: java.io.IOException
         finally {
-                try{ bos.close(); } catch( Exception e ){}
+                try {
+                    if (bos != null) {
+                        bos.close();
+                    }
+                } catch( Exception e ){}
         }   // end finally
         
     }   // end decodeToFile
@@ -1558,7 +1598,11 @@ public class Base64
             throw e; // Catch and release to execute finally{}
         }   // end catch: java.io.IOException
         finally {
-            try{ bis.close(); } catch( Exception e) {}
+            try {
+                if (bis != null) {
+                    bis.close();
+                }
+            } catch( Exception e) {}
         }   // end finally
         
         return decodedData;
@@ -1611,7 +1655,11 @@ public class Base64
             throw e; // Catch and release to execute finally{}
         }   // end catch: java.io.IOException
         finally {
-            try{ bis.close(); } catch( Exception e) {}
+            try {
+                if (bis != null) {
+                    bis.close();
+                }
+            } catch( Exception e) {}
         }   // end finally
         
         return encodedData;
@@ -1639,7 +1687,11 @@ public class Base64
             throw e; // Catch and release to execute finally{}
         }   // end catch
         finally {
-            try { out.close(); }
+            try {
+                if (out != null) {
+                    out.close();
+                }
+            }
             catch( Exception ex ){}
         }   // end finally    
     }   // end encodeFileToFile
@@ -1667,7 +1719,11 @@ public class Base64
             throw e; // Catch and release to execute finally{}
         }   // end catch
         finally {
-            try { out.close(); }
+            try {
+                if (out != null) {
+                    out.close();
+                }
+            }
             catch( Exception ex ){}
         }   // end finally    
     }   // end decodeFileToFile
