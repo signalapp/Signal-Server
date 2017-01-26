@@ -64,9 +64,9 @@
         </dependency>
 
         <dependency>
-            <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk-s3</artifactId>
-            <version>1.10.6</version>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <version>3.0.3</version>
         </dependency>
         <dependency>
             <groupId>com.google.protobuf</groupId>
