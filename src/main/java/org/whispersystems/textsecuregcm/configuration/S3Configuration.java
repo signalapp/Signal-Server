@@ -33,9 +33,8 @@ public class S3Configuration {
   @JsonProperty
   private String attachmentsBucket;
 
-  @NotEmpty
   @JsonProperty
-  private String providerUrl;
+  private String providerUrl = "https://s3.amazonaws.com/";
 
   public String getAccessKey() {
     return accessKey;
