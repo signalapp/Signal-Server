@@ -48,7 +48,7 @@ public class AuthHelper {
     when(VALID_DEVICE_TWO.getId()).thenReturn(1L);
     when(VALID_ACCOUNT.getDevice(anyLong())).thenReturn(Optional.of(VALID_DEVICE));
     when(VALID_ACCOUNT_TWO.getDevice(eq(1L))).thenReturn(Optional.of(VALID_DEVICE_TWO));
-    when(VALID_ACCOUNT_TWO.getActiveDeviceCount()).thenReturn(4);
+    when(VALID_ACCOUNT_TWO.getActiveDeviceCount()).thenReturn(6);
     when(VALID_ACCOUNT.getNumber()).thenReturn(VALID_NUMBER);
     when(VALID_ACCOUNT_TWO.getNumber()).thenReturn(VALID_NUMBER_TWO);
     when(VALID_ACCOUNT.getAuthenticatedDevice()).thenReturn(Optional.of(VALID_DEVICE));

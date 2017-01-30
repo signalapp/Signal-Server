@@ -94,7 +94,7 @@ public class DeviceControllerTest {
     when(rateLimiters.getVerifyDeviceLimiter()).thenReturn(rateLimiter);
 
     when(account.getNextDeviceId()).thenReturn(42L);
-//    when(maxedAccount.getActiveDeviceCount()).thenReturn(1);
+//    when(maxedAccount.getActiveDeviceCount()).thenReturn(6);
 
     when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of("5678901"));
     when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of("1112223"));
@@ -133,7 +133,7 @@ public class DeviceControllerTest {
                                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER_TWO, AuthHelper.VALID_PASSWORD_TWO))
                                  .get();
 
-    assertEquals(response.getStatus(), 411);
+    assertEquals(411, response.getStatus());
   }
 
   @Test
