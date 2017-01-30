@@ -87,6 +87,7 @@ import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
 import org.whispersystems.textsecuregcm.websocket.DeadLetterHandler;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningConnectListener;
 import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
+import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
 import org.whispersystems.textsecuregcm.workers.DirectoryCommand;
 import org.whispersystems.textsecuregcm.workers.PeriodicStatsCommand;
 import org.whispersystems.textsecuregcm.workers.TrimMessagesCommand;
@@ -122,6 +123,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new VacuumCommand());
     bootstrap.addCommand(new TrimMessagesCommand());
     bootstrap.addCommand(new PeriodicStatsCommand());
+    bootstrap.addCommand(new DeleteUserCommand());
     bootstrap.addBundle(new NameableMigrationsBundle<WhisperServerConfiguration>("accountdb", "accountsdb.xml") {
       @Override
       public DataSourceFactory getDataSourceFactory(WhisperServerConfiguration configuration) {
