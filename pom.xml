@@ -66,7 +66,7 @@
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-s3</artifactId>
-            <version>1.10.6</version>
+            <version>1.11.86</version>
         </dependency>
         <dependency>
             <groupId>com.google.protobuf</groupId>

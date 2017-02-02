@@ -16,11 +16,15 @@
  */
 package org.whispersystems.textsecuregcm.util;
 
+import com.amazonaws.ClientConfiguration;
 import com.amazonaws.HttpMethod;
 import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
 import org.whispersystems.textsecuregcm.configuration.S3Configuration;
 
@@ -32,15 +36,49 @@ public class UrlSigner {
   private static final long   DURATION = 60 * 60 * 1000;
 
   private final AWSCredentials credentials;
+  private final Boolean pathstyle;
   private final String bucket;
+  private final String endpoint;
+  private final String region;
+  private final String signer;
 
   public UrlSigner(S3Configuration config) {
     this.credentials = new BasicAWSCredentials(config.getAccessKey(), config.getAccessSecret());
+    this.pathstyle   = config.getPathStyleAccess();
     this.bucket      = config.getAttachmentsBucket();
+    this.endpoint    = config.getEndpoint();
+    this.region      = config.getRegion();
+    this.signer      = config.getSignerAlgorithm();
   }
 
   public URL getPreSignedUrl(long attachmentId, HttpMethod method) {
-    AmazonS3                    client  = new AmazonS3Client(credentials);
+    AmazonS3ClientBuilder clientBuilder = AmazonS3ClientBuilder.standard();
+    ClientConfiguration clientConfiguration = new ClientConfiguration();
+
+    if (signer != null) {
+      clientConfiguration.setSignerOverride(signer);
+      clientBuilder.setClientConfiguration(clientConfiguration);
+    }
+
+    if (pathstyle != null) {
+      clientBuilder.setPathStyleAccessEnabled(pathstyle);
+    }
+
+    clientBuilder.setCredentials(new AWSStaticCredentialsProvider(credentials));
+
+    if (region != null && (endpoint == null || endpoint.isEmpty())) {
+      clientBuilder.setRegion(region);
+    }
+
+    if (endpoint != null) {
+      // region can be null
+      AwsClientBuilder.EndpointConfiguration endpointConfiguration =
+          new AwsClientBuilder.EndpointConfiguration(endpoint, region);
+      clientBuilder.setEndpointConfiguration(endpointConfiguration);
+    }
+
+    AmazonS3 client = clientBuilder.build();
+
     GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucket, String.valueOf(attachmentId), method);
 
     request.setExpiration(new Date(System.currentTimeMillis() + DURATION));

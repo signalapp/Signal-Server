@@ -33,6 +33,18 @@ public class S3Configuration {
   @JsonProperty
   private String attachmentsBucket;
 
+  @JsonProperty
+  private String endpoint;
+
+  @JsonProperty
+  private String region;
+
+  @JsonProperty
+  private String signerAlgorithm;
+
+  @JsonProperty
+  private Boolean pathStyleAccess;
+
   public String getAccessKey() {
     return accessKey;
   }
@@ -44,4 +56,21 @@ public class S3Configuration {
   public String getAttachmentsBucket() {
     return attachmentsBucket;
   }
+
+  public String getEndpoint() {
+    return endpoint;
+  }
+
+  public String getRegion() {
+    return region;
+  }
+
+  public String getSignerAlgorithm() {
+    return signerAlgorithm;
+  }
+
+  public Boolean getPathStyleAccess() {
+    return pathStyleAccess;
+  }
+
 }
