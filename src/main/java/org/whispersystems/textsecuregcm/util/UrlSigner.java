@@ -55,7 +55,7 @@ public class UrlSigner {
     AmazonS3ClientBuilder clientBuilder = AmazonS3ClientBuilder.standard();
     ClientConfiguration clientConfiguration = new ClientConfiguration();
 
-    if (signer != null) {
+    if (signer != null && !signer.isEmpty()) {
       clientConfiguration.setSignerOverride(signer);
       clientBuilder.setClientConfiguration(clientConfiguration);
     }
@@ -70,8 +70,8 @@ public class UrlSigner {
       clientBuilder.setRegion(region);
     }
 
-    if (endpoint != null) {
-      // region can be null
+    if (endpoint != null && !endpoint.isEmpty()) {
+      // region can be null or empty
       AwsClientBuilder.EndpointConfiguration endpointConfiguration =
           new AwsClientBuilder.EndpointConfiguration(endpoint, region);
       clientBuilder.setEndpointConfiguration(endpointConfiguration);
