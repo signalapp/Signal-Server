@@ -68,9 +68,7 @@ public class UrlSigner {
 
     if (region != null && (endpoint == null || endpoint.isEmpty())) {
       clientBuilder.setRegion(region);
-    }
-
-    if (endpoint != null && !endpoint.isEmpty()) {
+    } else if (endpoint != null && !endpoint.isEmpty()) {
       // region can be null or empty
       AwsClientBuilder.EndpointConfiguration endpointConfiguration =
           new AwsClientBuilder.EndpointConfiguration(endpoint, region);
