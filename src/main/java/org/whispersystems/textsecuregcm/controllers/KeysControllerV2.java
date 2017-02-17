@@ -94,25 +94,26 @@ public class KeysControllerV2 extends KeysController {
       throws RateLimitExceededException
   {
     try {
-      if (account.isRateLimited()) {
-        rateLimiters.getPreKeysLimiter().validate(account.getNumber() +  "__" + number + "." + deviceId);
-      }
-
       if (relay.isPresent()) {
         return federatedClientManager.getClient(relay.get()).getKeysV2(number, deviceId);
       }
 
-      TargetKeys                 targetKeys  = getLocalKeys(number, deviceId);
-      Account                    destination = targetKeys.getDestination();
+      Account target = getAccount(number, deviceId);
+
+      if (account.isRateLimited()) {
+        rateLimiters.getPreKeysLimiter().validate(account.getNumber() +  "__" + number + "." + deviceId);
+      }
+
+      Optional<List<KeyRecord>>  targetKeys  = getLocalKeys(target, deviceId);
       List<PreKeyResponseItemV2> devices     = new LinkedList<>();
 
-      for (Device device : destination.getDevices()) {
+      for (Device device : target.getDevices()) {
         if (device.isActive() && (deviceId.equals("*") || device.getId() == Long.parseLong(deviceId))) {
           SignedPreKey signedPreKey = device.getSignedPreKey();
           PreKeyV2     preKey       = null;
 
-          if (targetKeys.getKeys().isPresent()) {
-            for (KeyRecord keyRecord : targetKeys.getKeys().get()) {
+          if (targetKeys.isPresent()) {
+            for (KeyRecord keyRecord : targetKeys.get()) {
               if (keyRecord.getDeviceId() == device.getId()) {
                 preKey = new PreKeyV2(keyRecord.getKeyId(), keyRecord.getPublicKey());
               }
@@ -126,7 +127,7 @@ public class KeysControllerV2 extends KeysController {
       }
 
       if (devices.isEmpty()) return Optional.absent();
-      else                   return Optional.of(new PreKeyResponseV2(destination.getIdentityKey(), devices));
+      else                   return Optional.of(new PreKeyResponseV2(target.getIdentityKey(), devices));
     } catch (NoSuchPeerException | NoSuchUserException e) {
       throw new WebApplicationException(Response.status(404).build());
     }
@@ -152,5 +153,31 @@ public class KeysControllerV2 extends KeysController {
 
     if (signedPreKey != null) return Optional.of(signedPreKey);
     else                      return Optional.absent();
+  }
+
+  private Account getAccount(String number, String deviceSelector)
+      throws NoSuchUserException
+  {
+    try {
+      Optional<Account> account = accounts.get(number);
+
+      if (!account.isPresent() || !account.get().isActive()) {
+        throw new NoSuchUserException("No active account");
+      }
+
+      if (!deviceSelector.equals("*")) {
+        long deviceId = Long.parseLong(deviceSelector);
+
+        Optional<Device> targetDevice = account.get().getDevice(deviceId);
+
+        if (!targetDevice.isPresent() || !targetDevice.get().isActive()) {
+          throw new NoSuchUserException("No active device");
+        }
+      }
+
+      return account.get();
+    } catch (NumberFormatException e) {
+      throw new WebApplicationException(Response.status(422).build());
+    }
   }
 }

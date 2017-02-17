@@ -68,32 +68,19 @@ public class KeysController {
     return new PreKeyCount(count);
   }
 
-  protected TargetKeys getLocalKeys(String number, String deviceIdSelector)
+  protected Optional<List<KeyRecord>> getLocalKeys(Account destination, String deviceIdSelector)
       throws NoSuchUserException
   {
-    Optional<Account> destination = accounts.get(number);
-
-    if (!destination.isPresent() || !destination.get().isActive()) {
-      throw new NoSuchUserException("Target account is inactive");
-    }
-
     try {
       if (deviceIdSelector.equals("*")) {
-        Optional<List<KeyRecord>> preKeys = keys.get(number);
-        return new TargetKeys(destination.get(), preKeys);
+        return keys.get(destination.getNumber());
       }
 
-      long             deviceId     = Long.parseLong(deviceIdSelector);
-      Optional<Device> targetDevice = destination.get().getDevice(deviceId);
-
-      if (!targetDevice.isPresent() || !targetDevice.get().isActive()) {
-        throw new NoSuchUserException("Target device is inactive.");
-      }
+      long deviceId = Long.parseLong(deviceIdSelector);
 
       for (int i=0;i<20;i++) {
         try {
-          Optional<List<KeyRecord>> preKeys = keys.get(number, deviceId);
-          return new TargetKeys(destination.get(), preKeys);
+          return keys.get(destination.getNumber(), deviceId);
         } catch (UnableToExecuteStatementException e) {
           logger.info(e.getMessage());
         }
@@ -104,24 +91,4 @@ public class KeysController {
       throw new WebApplicationException(Response.status(422).build());
     }
   }
-
-
-  public static class TargetKeys {
-    private final Account         destination;
-    private final Optional<List<KeyRecord>> keys;
-
-    public TargetKeys(Account destination, Optional<List<KeyRecord>> keys) {
-      this.destination = destination;
-      this.keys        = keys;
-    }
-
-    public Optional<List<KeyRecord>> getKeys() {
-      return keys;
-    }
-
-    public Account getDestination() {
-      return destination;
-    }
-  }
-
 }

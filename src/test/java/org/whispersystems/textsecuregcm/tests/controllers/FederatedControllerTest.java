@@ -70,7 +70,7 @@ public class FederatedControllerTest {
                                                             .addProvider(AuthHelper.getAuthFilter())
                                                             .addProvider(new AuthValueFactoryProvider.Binder())
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-                                                            .addResource(new FederationControllerV1(accountsManager, null, messageController, null))
+                                                            .addResource(new FederationControllerV1(accountsManager, null, messageController))
                                                             .addResource(new FederationControllerV2(accountsManager, null, messageController, keysControllerV2))
                                                             .build();
 

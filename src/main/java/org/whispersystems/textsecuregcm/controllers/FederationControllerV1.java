@@ -25,8 +25,6 @@ import org.whispersystems.textsecuregcm.entities.AttachmentUri;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.entities.ClientContacts;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
-import org.whispersystems.textsecuregcm.entities.PreKeyResponseV1;
-import org.whispersystems.textsecuregcm.entities.PreKeyV1;
 import org.whispersystems.textsecuregcm.federation.FederatedPeer;
 import org.whispersystems.textsecuregcm.federation.NonLimitedAccount;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -53,15 +51,11 @@ public class FederationControllerV1 extends FederationController {
 
   private static final int ACCOUNT_CHUNK_SIZE = 10000;
 
-  private final KeysControllerV1 keysControllerV1;
-
   public FederationControllerV1(AccountsManager accounts,
                                 AttachmentController attachmentController,
-                                MessageController messageController,
-                                KeysControllerV1 keysControllerV1)
+                                MessageController messageController)
   {
     super(accounts, attachmentController, messageController);
-    this.keysControllerV1 = keysControllerV1;
   }
 
   @Timed
@@ -74,41 +68,6 @@ public class FederationControllerV1 extends FederationController {
   {
     return attachmentController.redirectToAttachment(new NonLimitedAccount("Unknown", -1, peer.getName()),
                                                      attachmentId, Optional.<String>absent());
-  }
-
-  @Timed
-  @GET
-  @Path("/key/{number}")
-  @Produces(MediaType.APPLICATION_JSON)
-  public Optional<PreKeyV1> getKey(@Auth                FederatedPeer peer,
-                                   @PathParam("number") String number)
-      throws IOException
-  {
-    try {
-      return keysControllerV1.get(new NonLimitedAccount("Unknown", -1, peer.getName()),
-                                  number, Optional.<String>absent());
-    } catch (RateLimitExceededException e) {
-      logger.warn("Rate limiting on federated channel", e);
-      throw new IOException(e);
-    }
-  }
-
-  @Timed
-  @GET
-  @Path("/key/{number}/{device}")
-  @Produces(MediaType.APPLICATION_JSON)
-  public Optional<PreKeyResponseV1> getKeysV1(@Auth                FederatedPeer peer,
-                                              @PathParam("number") String number,
-                                              @PathParam("device") String device)
-      throws IOException
-  {
-    try {
-      return keysControllerV1.getDeviceKey(new NonLimitedAccount("Unknown", -1, peer.getName()),
-                                           number, device, Optional.<String>absent());
-    } catch (RateLimitExceededException e) {
-      logger.warn("Rate limiting on federated channel", e);
-      throw new IOException(e);
-    }
   }
 
   @Timed
