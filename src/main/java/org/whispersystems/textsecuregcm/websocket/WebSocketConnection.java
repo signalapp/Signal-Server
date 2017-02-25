@@ -141,7 +141,7 @@ public class WebSocketConnection implements DispatchChannel {
 
   private void requeueMessage(Envelope message) {
     int     queueDepth = pushSender.getWebSocketSender().queueMessage(account, device, message);
-    boolean fallback   = !message.getSource().equals(account.getNumber());
+    boolean fallback   = !message.getSource().equals(account.getNumber()) && message.getType() != Envelope.Type.RECEIPT;
 
     try {
       pushSender.sendQueuedNotification(account, device, queueDepth, fallback);
