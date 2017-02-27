@@ -19,6 +19,7 @@ package org.whispersystems.textsecuregcm;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.whispersystems.textsecuregcm.configuration.FederationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GraphiteConfiguration;
+import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PushConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedPhoneConfiguration;
@@ -76,6 +77,11 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private List<TestDeviceConfiguration> testDevices = new LinkedList<>();
+
+  @Valid
+  @NotNull
+  @JsonProperty
+  private List<MaxDeviceConfiguration> maxDevices = new LinkedList<>();
 
   @Valid
   @JsonProperty
@@ -174,6 +180,17 @@ public class WhisperServerConfiguration extends Configuration {
     for (TestDeviceConfiguration testDeviceConfiguration : testDevices) {
       results.put(testDeviceConfiguration.getNumber(),
                   testDeviceConfiguration.getCode());
+    }
+
+    return results;
+  }
+
+  public Map<String, Integer> getMaxDevices() {
+    Map<String, Integer> results = new HashMap<>();
+
+    for (MaxDeviceConfiguration maxDeviceConfiguration : maxDevices) {
+      results.put(maxDeviceConfiguration.getNumber(),
+                  maxDeviceConfiguration.getCount());
     }
 
     return results;

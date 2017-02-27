@@ -40,6 +40,9 @@ import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import io.dropwizard.jersey.validation.ConstraintViolationExceptionMapper;
 import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -52,9 +55,10 @@ public class DeviceControllerTest {
     public DumbVerificationDeviceController(PendingDevicesManager pendingDevices,
                                             AccountsManager accounts,
                                             MessagesManager messages,
-                                            RateLimiters rateLimiters)
+                                            RateLimiters rateLimiters,
+                                            Map<String, Integer> deviceConfiguration)
     {
-      super(pendingDevices, accounts, messages, rateLimiters);
+      super(pendingDevices, accounts, messages, rateLimiters, deviceConfiguration);
     }
 
     @Override
@@ -71,6 +75,10 @@ public class DeviceControllerTest {
   private Account               account               = mock(Account.class               );
   private Account               maxedAccount          = mock(Account.class);
 
+  private Map<String, Integer>  deviceConfiguration   = new HashMap<String, Integer>() {{
+
+  }};
+
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
                                                             .addProvider(AuthHelper.getAuthFilter())
@@ -81,7 +89,8 @@ public class DeviceControllerTest {
                                                             .addResource(new DumbVerificationDeviceController(pendingDevicesManager,
                                                                                                               accountsManager,
                                                                                                               messagesManager,
-                                                                                                              rateLimiters))
+                                                                                                              rateLimiters,
+                                                                                                              deviceConfiguration))
                                                             .build();
 
 

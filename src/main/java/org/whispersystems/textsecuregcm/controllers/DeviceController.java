@@ -54,6 +54,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import io.dropwizard.auth.Auth;
 
@@ -68,16 +69,19 @@ public class DeviceController {
   private final AccountsManager       accounts;
   private final MessagesManager       messages;
   private final RateLimiters          rateLimiters;
+  private final Map<String, Integer>  maxDeviceConfiguration;
 
   public DeviceController(PendingDevicesManager pendingDevices,
                           AccountsManager accounts,
                           MessagesManager messages,
-                          RateLimiters rateLimiters)
+                          RateLimiters rateLimiters,
+                          Map<String, Integer> maxDeviceConfiguration)
   {
-    this.pendingDevices  = pendingDevices;
-    this.accounts        = accounts;
-    this.messages        = messages;
-    this.rateLimiters    = rateLimiters;
+    this.pendingDevices         = pendingDevices;
+    this.accounts               = accounts;
+    this.messages               = messages;
+    this.rateLimiters           = rateLimiters;
+    this.maxDeviceConfiguration = maxDeviceConfiguration;
   }
 
   @Timed
@@ -116,7 +120,13 @@ public class DeviceController {
   {
     rateLimiters.getAllocateDeviceLimiter().validate(account.getNumber());
 
-    if (account.getActiveDeviceCount() >= MAX_DEVICES) {
+    int maxDeviceLimit = MAX_DEVICES;
+
+    if (maxDeviceConfiguration.containsKey(account.getNumber())) {
+      maxDeviceLimit = maxDeviceConfiguration.get(account.getNumber());
+    }
+
+    if (account.getActiveDeviceCount() >= maxDeviceLimit) {
       throw new DeviceLimitExceededException(account.getDevices().size(), MAX_DEVICES);
     }
 
