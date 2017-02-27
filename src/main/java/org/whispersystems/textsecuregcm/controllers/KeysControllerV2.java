@@ -114,7 +114,7 @@ public class KeysControllerV2 extends KeysController {
 
           if (targetKeys.isPresent()) {
             for (KeyRecord keyRecord : targetKeys.get()) {
-              if (keyRecord.getDeviceId() == device.getId()) {
+              if (!keyRecord.isLastResort() && keyRecord.getDeviceId() == device.getId()) {
                 preKey = new PreKeyV2(keyRecord.getKeyId(), keyRecord.getPublicKey());
               }
             }
