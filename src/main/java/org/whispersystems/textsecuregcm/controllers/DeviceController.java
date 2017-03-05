@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.AuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.InvalidAuthorizationHeaderException;
+import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
 import org.whispersystems.textsecuregcm.entities.DeviceInfoList;
@@ -49,7 +50,6 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.LinkedList;
@@ -134,8 +134,11 @@ public class DeviceController {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
-    VerificationCode verificationCode = generateVerificationCode();
-    pendingDevices.store(account.getNumber(), verificationCode.getVerificationCode());
+    VerificationCode       verificationCode       = generateVerificationCode();
+    StoredVerificationCode storedVerificationCode = new StoredVerificationCode(verificationCode.getVerificationCode(),
+                                                                               System.currentTimeMillis());
+
+    pendingDevices.store(account.getNumber(), storedVerificationCode);
 
     return verificationCode;
   }
@@ -157,11 +160,9 @@ public class DeviceController {
 
       rateLimiters.getVerifyDeviceLimiter().validate(number);
 
-      Optional<String> storedVerificationCode = pendingDevices.getCodeForNumber(number);
+      Optional<StoredVerificationCode> storedVerificationCode = pendingDevices.getCodeForNumber(number);
 
-      if (!storedVerificationCode.isPresent() ||
-          !MessageDigest.isEqual(verificationCode.getBytes(), storedVerificationCode.get().getBytes()))
-      {
+      if (!storedVerificationCode.isPresent() || !storedVerificationCode.get().isValid(verificationCode)) {
         throw new WebApplicationException(Response.status(403).build());
       }
 
@@ -171,7 +172,13 @@ public class DeviceController {
         throw new WebApplicationException(Response.status(403).build());
       }
 
-      if (account.get().getActiveDeviceCount() >= MAX_DEVICES) {
+      int maxDeviceLimit = MAX_DEVICES;
+
+      if (maxDeviceConfiguration.containsKey(account.get().getNumber())) {
+        maxDeviceLimit = maxDeviceConfiguration.get(account.get().getNumber());
+      }
+
+      if (account.get().getActiveDeviceCount() >= maxDeviceLimit) {
         throw new DeviceLimitExceededException(account.get().getDevices().size(), MAX_DEVICES);
       }
 

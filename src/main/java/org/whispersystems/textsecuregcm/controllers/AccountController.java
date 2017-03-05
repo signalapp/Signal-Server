@@ -29,6 +29,7 @@ import org.whispersystems.textsecuregcm.auth.AuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.AuthorizationToken;
 import org.whispersystems.textsecuregcm.auth.AuthorizationTokenGenerator;
 import org.whispersystems.textsecuregcm.auth.InvalidAuthorizationHeaderException;
+import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -137,8 +138,11 @@ public class AccountController {
         throw new WebApplicationException(Response.status(422).build());
     }
 
-    VerificationCode verificationCode = generateVerificationCode(number);
-    pendingAccounts.store(number, verificationCode.getVerificationCode());
+    VerificationCode       verificationCode       = generateVerificationCode(number);
+    StoredVerificationCode storedVerificationCode = new StoredVerificationCode(verificationCode.getVerificationCode(),
+                                                                               System.currentTimeMillis());
+
+    pendingAccounts.store(number, storedVerificationCode);
 
     if (testDevices.containsKey(number)) {
       // noop
@@ -168,11 +172,9 @@ public class AccountController {
 
       rateLimiters.getVerifyLimiter().validate(number);
 
-      Optional<String> storedVerificationCode = pendingAccounts.getCodeForNumber(number);
+      Optional<StoredVerificationCode> storedVerificationCode = pendingAccounts.getCodeForNumber(number);
 
-      if (!storedVerificationCode.isPresent() ||
-          !verificationCode.equals(storedVerificationCode.get()))
-      {
+      if (!storedVerificationCode.isPresent() || !storedVerificationCode.get().isValid(verificationCode)) {
         throw new WebApplicationException(Response.status(403).build());
       }
 

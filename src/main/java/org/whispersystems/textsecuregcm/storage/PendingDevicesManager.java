@@ -16,28 +16,40 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
+
+import java.io.IOException;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 
 public class PendingDevicesManager {
 
-  private static final String CACHE_PREFIX = "pending_devices::";
+  private final Logger logger = LoggerFactory.getLogger(PendingDevicesManager.class);
+
+  private static final String CACHE_PREFIX = "pending_devices2::";
 
   private final PendingDevices  pendingDevices;
   private final JedisPool       cacheClient;
+  private final ObjectMapper    mapper;
 
   public PendingDevicesManager(PendingDevices pendingDevices,
                                JedisPool      cacheClient)
   {
     this.pendingDevices = pendingDevices;
     this.cacheClient    = cacheClient;
+    this.mapper         = SystemMapper.getMapper();
   }
 
-  public void store(String number, String code) {
+  public void store(String number, StoredVerificationCode code) {
     memcacheSet(number, code);
-    pendingDevices.insert(number, code);
+    pendingDevices.insert(number, code.getCode(), code.getTimestamp());
   }
 
   public void remove(String number) {
@@ -45,8 +57,8 @@ public class PendingDevicesManager {
     pendingDevices.remove(number);
   }
 
-  public Optional<String> getCodeForNumber(String number) {
-    Optional<String> code = memcacheGet(number);
+  public Optional<StoredVerificationCode> getCodeForNumber(String number) {
+    Optional<StoredVerificationCode> code = memcacheGet(number);
 
     if (!code.isPresent()) {
       code = Optional.fromNullable(pendingDevices.getCodeForNumber(number));
@@ -59,15 +71,23 @@ public class PendingDevicesManager {
     return code;
   }
 
-  private void memcacheSet(String number, String code) {
+  private void memcacheSet(String number, StoredVerificationCode code) {
     try (Jedis jedis = cacheClient.getResource()) {
-      jedis.set(CACHE_PREFIX + number, code);
+      jedis.set(CACHE_PREFIX + number, mapper.writeValueAsString(code));
+    } catch (JsonProcessingException e) {
+      throw new IllegalArgumentException(e);
     }
   }
 
-  private Optional<String> memcacheGet(String number) {
+  private Optional<StoredVerificationCode> memcacheGet(String number) {
     try (Jedis jedis = cacheClient.getResource()) {
-      return Optional.fromNullable(jedis.get(CACHE_PREFIX + number));
+      String json = jedis.get(CACHE_PREFIX + number);
+
+      if (json == null) return Optional.absent();
+      else              return Optional.of(mapper.readValue(json, StoredVerificationCode.class));
+    } catch (IOException e) {
+      logger.warn("Could not parse pending device stored verification json");
+      return Optional.absent();
     }
   }
 

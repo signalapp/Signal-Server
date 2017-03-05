@@ -22,6 +22,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.whispersystems.dropwizard.simpleauth.AuthValueFactoryProvider;
+import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.controllers.DeviceController;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceResponse;
@@ -39,9 +40,9 @@ import javax.ws.rs.Path;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import io.dropwizard.jersey.validation.ConstraintViolationExceptionMapper;
 import io.dropwizard.testing.junit.ResourceTestRule;
@@ -105,8 +106,8 @@ public class DeviceControllerTest {
     when(account.getNextDeviceId()).thenReturn(42L);
 //    when(maxedAccount.getActiveDeviceCount()).thenReturn(6);
 
-    when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of("5678901"));
-    when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of("1112223"));
+    when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(new StoredVerificationCode("5678901", System.currentTimeMillis())));
+    when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(new StoredVerificationCode("1112223", System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(31))));
     when(accountsManager.get(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(account));
     when(accountsManager.get(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(maxedAccount));
   }
@@ -132,6 +133,38 @@ public class DeviceControllerTest {
     assertThat(response.getDeviceId()).isEqualTo(42L);
 
     verify(pendingDevicesManager).remove(AuthHelper.VALID_NUMBER);
+  }
+
+  @Test
+  public void invalidDeviceRegisterTest() throws Exception {
+    VerificationCode deviceCode = resources.getJerseyTest()
+                                           .target("/v1/devices/provisioning/code")
+                                           .request()
+                                           .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                           .get(VerificationCode.class);
+
+    assertThat(deviceCode).isEqualTo(new VerificationCode(5678901));
+
+    Response response = resources.getJerseyTest()
+                                 .target("/v1/devices/5678902")
+                                 .request()
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+                                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 1234),
+                                                    MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(403);
+  }
+
+  @Test
+  public void oldDeviceRegisterTest() throws Exception {
+    Response response = resources.getJerseyTest()
+                                 .target("/v1/devices/1112223")
+                                 .request()
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER_TWO, AuthHelper.VALID_PASSWORD_TWO))
+                                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 1234),
+                                                    MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(403);
   }
 
   @Test

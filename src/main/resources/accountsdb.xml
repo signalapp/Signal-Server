@@ -4,7 +4,8 @@
         xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
-         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-2.0.xsd">
+         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-2.0.xsd"
+        logicalFilePath="migrations.xml">
 
     <changeSet id="1" author="moxie">
         <createTable tableName="accounts">
@@ -170,5 +171,19 @@
 
     <changeSet id="4" author="moxie">
         <dropColumn tableName="keys" columnName="identity_key"/>
+    </changeSet>
+
+    <changeSet id="5" author="moxie">
+        <addColumn tableName="pending_accounts">
+            <column name="timestamp" type="bigint" defaultValueComputed="extract(epoch from now()) * 1000">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <addColumn tableName="pending_devices">
+            <column name="timestamp" type="bigint" defaultValueComputed="extract(epoch from now()) * 1000">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
     </changeSet>
 </databaseChangeLog>

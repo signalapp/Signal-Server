@@ -8,6 +8,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.whispersystems.dropwizard.simpleauth.AuthValueFactoryProvider;
+import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -26,6 +27,7 @@ import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.util.HashMap;
+import java.util.concurrent.TimeUnit;
 
 import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,7 +36,8 @@ import static org.mockito.Mockito.*;
 
 public class AccountControllerTest {
 
-  private static final String SENDER = "+14152222222";
+  private static final String SENDER     = "+14152222222";
+  private static final String SENDER_OLD = "+14151111111";
 
   private        PendingAccountsManager pendingAccountsManager = mock(PendingAccountsManager.class);
   private        AccountsManager        accountsManager        = mock(AccountsManager.class       );
@@ -72,7 +75,8 @@ public class AccountControllerTest {
 
     when(timeProvider.getCurrentTimeMillis()).thenReturn(System.currentTimeMillis());
 
-    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of("1234"));
+    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis())));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_OLD)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(31))));
   }
 
   @Test
@@ -115,6 +119,21 @@ public class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
 
     verify(accountsManager, times(1)).create(isA(Account.class));
+  }
+
+  @Test
+  public void testVerifyCodeOld() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/code/%s", "1234"))
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(SENDER_OLD, "bar"))
+                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 2222),
+                                    MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(403);
+
+    verifyNoMoreInteractions(accountsManager);
   }
 
   @Test
