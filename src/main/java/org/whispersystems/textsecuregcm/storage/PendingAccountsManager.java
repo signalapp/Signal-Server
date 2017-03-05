@@ -86,7 +86,7 @@ public class PendingAccountsManager {
       if (json == null) return Optional.absent();
       else              return Optional.of(mapper.readValue(json, StoredVerificationCode.class));
     } catch (IOException e) {
-      logger.warn("PendingAccountsManager", "Error deserializing value...");
+      logger.warn("Error deserializing value...", e);
       return Optional.absent();
     }
   }

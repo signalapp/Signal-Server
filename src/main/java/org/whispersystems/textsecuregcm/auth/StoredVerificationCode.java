@@ -8,10 +8,12 @@ import java.util.concurrent.TimeUnit;
 public class StoredVerificationCode {
 
   @JsonProperty
-  private final String code;
+  private String code;
 
   @JsonProperty
-  private final long   timestamp;
+  private long   timestamp;
+
+  public StoredVerificationCode() {}
 
   public StoredVerificationCode(String code, long timestamp) {
     this.code      = code;
