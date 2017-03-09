@@ -64,7 +64,7 @@ public class FederationControllerV1 extends FederationController {
   @Produces(MediaType.APPLICATION_JSON)
   public AttachmentUri getSignedAttachmentUri(@Auth                      FederatedPeer peer,
                                               @PathParam("attachmentId") long attachmentId)
-      throws IOException
+      throws Exception
   {
     return attachmentController.redirectToAttachment(new NonLimitedAccount("Unknown", -1, peer.getName()),
                                                      attachmentId, Optional.<String>absent());

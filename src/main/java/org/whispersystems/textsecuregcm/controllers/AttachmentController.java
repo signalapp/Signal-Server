@@ -16,7 +16,6 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
-import com.amazonaws.HttpMethod;
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.base.Optional;
 import org.slf4j.Logger;
@@ -68,17 +67,16 @@ public class AttachmentController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   public AttachmentDescriptor allocateAttachment(@Auth Account account)
-      throws RateLimitExceededException
+      throws Exception
   {
     if (account.isRateLimited()) {
       rateLimiters.getAttachmentLimiter().validate(account.getNumber());
     }
 
     long attachmentId = generateAttachmentId();
-    URL  url          = urlSigner.getPreSignedUrl(attachmentId, HttpMethod.PUT);
+    URL  url          = urlSigner.getPreSignedPutUrl(attachmentId);
 
     return new AttachmentDescriptor(attachmentId, url.toExternalForm());
-
   }
 
   @Timed
@@ -88,11 +86,11 @@ public class AttachmentController {
   public AttachmentUri redirectToAttachment(@Auth                      Account account,
                                             @PathParam("attachmentId") long    attachmentId,
                                             @QueryParam("relay")       Optional<String> relay)
-      throws IOException
+      throws Exception
   {
     try {
       if (!relay.isPresent()) {
-        return new AttachmentUri(urlSigner.getPreSignedUrl(attachmentId, HttpMethod.GET));
+        return new AttachmentUri(urlSigner.getPreSignedGetUrl(attachmentId));
       } else {
         return new AttachmentUri(federatedClientManager.getClient(relay.get()).getSignedAttachmentUri(attachmentId));
       }
