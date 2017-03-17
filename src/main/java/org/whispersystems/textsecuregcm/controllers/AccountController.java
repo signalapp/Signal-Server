@@ -252,6 +252,13 @@ public class AccountController {
   @Consumes(MediaType.APPLICATION_JSON)
   public void setGcmRegistrationId(@Auth Account account, @Valid GcmRegistrationId registrationId) {
     Device device = account.getAuthenticatedDevice().get();
+
+    if (device.getGcmId() != null &&
+        device.getGcmId().equals(registrationId.getGcmRegistrationId()))
+    {
+      return;
+    }
+
     device.setApnId(null);
     device.setVoipApnId(null);
     device.setGcmId(registrationId.getGcmRegistrationId());
