@@ -12,8 +12,11 @@ import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.websocket.WebSocketConnectionInfo;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
+import java.util.List;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.*;
 
 public class ApnFallbackManagerTest {
@@ -25,7 +28,7 @@ public class ApnFallbackManagerTest {
     WebsocketAddress   address            = new WebsocketAddress("+14152222223", 1L);
     WebSocketConnectionInfo info         = new WebSocketConnectionInfo(address);
     ApnMessage         message            = new ApnMessage("bar", "123", 1, "hmm", true, 1111);
-    ApnFallbackTask    task               = new ApnFallbackTask("foo", message, 500);
+    ApnFallbackTask    task               = new ApnFallbackTask("foo", "voipfoo", message, 500, 0);
 
     ApnFallbackManager apnFallbackManager = new ApnFallbackManager(pushServiceClient, pubSubManager);
     apnFallbackManager.start();
@@ -35,13 +38,20 @@ public class ApnFallbackManagerTest {
     Util.sleep(1100);
 
     ArgumentCaptor<ApnMessage> captor = ArgumentCaptor.forClass(ApnMessage.class);
-    verify(pushServiceClient, times(1)).send(captor.capture());
+    verify(pushServiceClient, times(2)).send(captor.capture());
     verify(pubSubManager).unsubscribe(eq(info), eq(apnFallbackManager));
 
-    assertEquals(captor.getValue().getMessage(), message.getMessage());
-    assertEquals(captor.getValue().getApnId(), task.getApnId());
-    assertFalse(captor.getValue().isVoip());
-    assertEquals(captor.getValue().getExpirationTime(), Integer.MAX_VALUE * 1000L);
+    List<ApnMessage> arguments = captor.getAllValues();
+
+    assertEquals(arguments.get(0).getMessage(), message.getMessage());
+    assertEquals(arguments.get(0).getApnId(), task.getVoipApnId());
+    assertTrue(arguments.get(0).isVoip());
+//    assertEquals(arguments.get(0).getExpirationTime(), Integer.MAX_VALUE * 1000L);
+
+    assertEquals(arguments.get(1).getMessage(), message.getMessage());
+    assertEquals(arguments.get(1).getApnId(), task.getApnId());
+    assertFalse(arguments.get(1).isVoip());
+    assertEquals(arguments.get(1).getExpirationTime(), Integer.MAX_VALUE * 1000L);
   }
 
   @Test
@@ -51,7 +61,7 @@ public class ApnFallbackManagerTest {
     WebsocketAddress   address            = new WebsocketAddress("+14152222222", 1);
     WebSocketConnectionInfo info          = new WebSocketConnectionInfo(address);
     ApnMessage         message            = new ApnMessage("bar", "123", 1, "hmm", true, 5555);
-    ApnFallbackTask    task               = new ApnFallbackTask   ("foo", message, 500);
+    ApnFallbackTask    task               = new ApnFallbackTask   ("foo", "voipfoo", message, 500, 0);
 
     ApnFallbackManager apnFallbackManager = new ApnFallbackManager(pushServiceClient, pubSubManager);
     apnFallbackManager.start();

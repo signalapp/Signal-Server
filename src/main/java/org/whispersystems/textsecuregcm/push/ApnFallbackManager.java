@@ -30,6 +30,8 @@ public class ApnFallbackManager implements Managed, Runnable, DispatchChannel {
 
   private static final Logger logger = LoggerFactory.getLogger(ApnFallbackManager.class);
 
+  public static final int FALLBACK_DURATION = 15;
+
   private static final MetricRegistry metricRegistry          = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private static final Meter          voipOneSuccess          = metricRegistry.meter(name(ApnFallbackManager.class, "voip_one_success"));
   private static final Meter          voipOneDelivery         = metricRegistry.meter(name(ApnFallbackManager.class, "voip_one_failure"));
@@ -53,6 +55,12 @@ public class ApnFallbackManager implements Managed, Runnable, DispatchChannel {
     voipOneDelivery.mark();
 
     if (taskQueue.put(address, task)) {
+      pubSubManager.subscribe(new WebSocketConnectionInfo(address), this);
+    }
+  }
+
+  private void scheduleRetry(final WebsocketAddress address, ApnFallbackTask task) {
+    if (taskQueue.putIfMissing(address, task)) {
       pubSubManager.subscribe(new WebSocketConnectionInfo(address), this);
     }
   }
@@ -84,9 +92,17 @@ public class ApnFallbackManager implements Managed, Runnable, DispatchChannel {
         Entry<WebsocketAddress, ApnFallbackTask> taskEntry  = taskQueue.get();
         ApnFallbackTask                          task       = taskEntry.getValue();
 
-        pubSubManager.unsubscribe(new WebSocketConnectionInfo(taskEntry.getKey()), this);
-        pushServiceClient.send(new ApnMessage(task.getMessage(), task.getApnId(),
-                                              false, ApnMessage.MAX_EXPIRATION));
+        ApnMessage message;
+
+        if (task.getAttempt() == 0) {
+          message = new ApnMessage(task.getMessage(), task.getVoipApnId(), true, System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(FALLBACK_DURATION));
+          scheduleRetry(taskEntry.getKey(), new ApnFallbackTask(task.getApnId(), task.getVoipApnId(), task.getMessage(), task.getDelay(),1));
+        } else {
+          message = new ApnMessage(task.getMessage(), task.getApnId(), false, ApnMessage.MAX_EXPIRATION);
+          pubSubManager.unsubscribe(new WebSocketConnectionInfo(taskEntry.getKey()), this);
+        }
+
+        pushServiceClient.send(message);
       } catch (Throwable e) {
         logger.warn("ApnFallbackThread", e);
       }
@@ -123,22 +139,30 @@ public class ApnFallbackManager implements Managed, Runnable, DispatchChannel {
     private final long       delay;
     private final long       scheduledTime;
     private final String     apnId;
+    private final String     voipApnId;
     private final ApnMessage message;
+    private final int        attempt;
 
-    public ApnFallbackTask(String apnId, ApnMessage message) {
-      this(apnId, message, TimeUnit.SECONDS.toMillis(30));
+    public ApnFallbackTask(String apnId, String voipApnId, ApnMessage message) {
+      this(apnId, voipApnId, message, TimeUnit.SECONDS.toMillis(FALLBACK_DURATION), 0);
     }
 
     @VisibleForTesting
-    public ApnFallbackTask(String apnId, ApnMessage message, long delay) {
+    public ApnFallbackTask(String apnId, String voipApnId, ApnMessage message, long delay, int attempt) {
       this.scheduledTime = System.currentTimeMillis();
       this.delay         = delay;
       this.apnId         = apnId;
+      this.voipApnId     = voipApnId;
       this.message       = message;
+      this.attempt       = attempt;
     }
 
     public String getApnId() {
       return apnId;
+    }
+
+    public String getVoipApnId() {
+      return voipApnId;
     }
 
     public ApnMessage getMessage() {
@@ -155,6 +179,10 @@ public class ApnFallbackManager implements Managed, Runnable, DispatchChannel {
 
     public long getDelay() {
       return delay;
+    }
+
+    public int getAttempt() {
+      return attempt;
     }
   }
 
@@ -191,6 +219,13 @@ public class ApnFallbackManager implements Managed, Runnable, DispatchChannel {
         tasks.notifyAll();
 
         return previous == null;
+      }
+    }
+
+    public boolean putIfMissing(WebsocketAddress address, ApnFallbackTask task) {
+      synchronized (tasks) {
+        if (tasks.containsKey(address)) return false;
+        return put(address, task);
       }
     }
 
