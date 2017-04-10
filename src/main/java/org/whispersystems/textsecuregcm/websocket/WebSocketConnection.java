@@ -190,5 +190,9 @@ public class WebSocketConnection implements DispatchChannel {
 
       sendMessage(builder.build(), Optional.of(message.getId()), !iterator.hasNext() && messages.hasMore());
     }
+
+    if (!messages.hasMore()) {
+      client.sendRequest("PUT", "/api/v1/queue/empty", null, Optional.<byte[]>absent());
+    }
   }
 }
