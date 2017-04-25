@@ -12,6 +12,7 @@ import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
+import org.whispersystems.textsecuregcm.util.Pair;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
@@ -56,6 +57,10 @@ public abstract class Messages {
                                         @Bind("source")             String source,
                                         @Bind("timestamp")          long timestamp);
 
+  @Mapper(DestinationMapper.class)
+  @SqlQuery("SELECT DISTINCT ON (destination, destination_device) destination, destination_device FROM messages WHERE timestamp > :timestamp ORDER BY destination, destination_device OFFSET :offset LIMIT :limit")
+  public abstract List<Pair<String, Integer>> getPendingDestinations(@Bind("timestamp") long sinceTimestamp, @Bind("offset") int offset, @Bind("limit") int limit);
+
   @Mapper(MessageMapper.class)
   @SqlUpdate("DELETE FROM messages WHERE " + ID + " = :id AND " + DESTINATION + " = :destination")
   abstract void remove(@Bind("destination") String destination, @Bind("id") long id);
@@ -71,6 +76,14 @@ public abstract class Messages {
 
   @SqlUpdate("VACUUM messages")
   public abstract void vacuum();
+
+  public static class DestinationMapper implements ResultSetMapper<Pair<String, Integer>> {
+
+    @Override
+    public Pair<String, Integer> map(int i, ResultSet resultSet, StatementContext statementContext) throws SQLException {
+      return new Pair<>(resultSet.getString(DESTINATION), resultSet.getInt(DESTINATION_DEVICE));
+    }
+  }
 
   public static class MessageMapper implements ResultSetMapper<OutgoingMessageEntity> {
     @Override
