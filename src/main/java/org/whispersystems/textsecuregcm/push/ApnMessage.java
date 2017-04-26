@@ -1,40 +1,15 @@
-package org.whispersystems.textsecuregcm.entities;
-
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.annotations.VisibleForTesting;
-import org.hibernate.validator.constraints.NotEmpty;
-
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+package org.whispersystems.textsecuregcm.push;
 
 public class ApnMessage {
 
   public static long MAX_EXPIRATION = Integer.MAX_VALUE * 1000L;
 
-  @JsonProperty
-  @NotEmpty
-  private String apnId;
-
-  @JsonProperty
-  @NotEmpty
-  private String number;
-
-  @JsonProperty
-  @Min(1)
-  private int deviceId;
-
-  @JsonProperty
-  @NotEmpty
-  private String message;
-
-  @JsonProperty
-  @NotNull
-  private boolean voip;
-
-  @JsonProperty
-  private long expirationTime;
-
-  public ApnMessage() {}
+  private final String apnId;
+  private final String number;
+  private final int deviceId;
+  private final String message;
+  private final boolean voip;
+  private final long expirationTime;
 
   public ApnMessage(String apnId, String number, int deviceId, String message, boolean voip, long expirationTime) {
     this.apnId          = apnId;
@@ -54,23 +29,27 @@ public class ApnMessage {
     this.expirationTime = expirationTime;
   }
 
-  @VisibleForTesting
   public String getApnId() {
     return apnId;
   }
 
-  @VisibleForTesting
   public boolean isVoip() {
     return voip;
   }
 
-  @VisibleForTesting
   public String getMessage() {
     return message;
   }
 
-  @VisibleForTesting
   public long getExpirationTime() {
     return expirationTime;
+  }
+
+  public String getNumber() {
+    return number;
+  }
+
+  public int getDeviceId() {
+    return deviceId;
   }
 }

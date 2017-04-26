@@ -17,7 +17,9 @@
 package org.whispersystems.textsecuregcm;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.FederationConfiguration;
+import org.whispersystems.textsecuregcm.configuration.GcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GraphiteConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PushConfiguration;
@@ -117,6 +119,16 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private TurnConfiguration turn;
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private GcmConfiguration gcm;
+
+  @Valid
+  @NotNull
+  @JsonProperty
+  private ApnConfiguration apn;
+
 
   public WebsocketConfiguration getWebsocketConfiguration() {
     return websocket;
@@ -174,6 +186,14 @@ public class WhisperServerConfiguration extends Configuration {
     return turn;
   }
 
+  public GcmConfiguration getGcmConfiguration() {
+    return gcm;
+  }
+
+  public ApnConfiguration getApnConfiguration() {
+    return apn;
+  }
+
   public Map<String, Integer> getTestDevices() {
     Map<String, Integer> results = new HashMap<>();
 
@@ -195,4 +215,5 @@ public class WhisperServerConfiguration extends Configuration {
 
     return results;
   }
+
 }
