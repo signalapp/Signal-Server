@@ -18,234 +18,131 @@ package org.whispersystems.textsecuregcm.push;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
-import com.notnoop.apns.APNS;
-import com.notnoop.apns.ApnsService;
-import com.notnoop.apns.ApnsServiceBuilder;
-import com.notnoop.exceptions.NetworkIOException;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.relayrides.pushy.apns.ApnsClient;
+import com.relayrides.pushy.apns.ApnsClientBuilder;
 import org.bouncycastle.openssl.PEMReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
+import org.whispersystems.textsecuregcm.push.RetryingApnsClient.ApnResult;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 
+import javax.annotation.Nullable;
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.security.KeyPair;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.Certificate;
-import java.security.cert.CertificateException;
+import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.util.Date;
-import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import io.dropwizard.lifecycle.Managed;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
 
 public class APNSender implements Managed {
 
   private final Logger logger = LoggerFactory.getLogger(APNSender.class);
 
-  private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+  private ExecutorService executor;
 
-  private final AccountsManager accountsManager;
-  private final JedisPool       jedisPool;
+  private final AccountsManager    accountsManager;
+  private final String             bundleId;
+  private final boolean            sandbox;
+  private final RetryingApnsClient apnsClient;
 
-  private final String    pushCertificate;
-  private final String    pushKey;
-
-  private final String    voipCertificate;
-  private final String    voipKey;
-
-  private final boolean   feedbackEnabled;
-  private final boolean   sandbox;
-
-  private ApnsService pushApnService;
-  private ApnsService voipApnService;
-
-  public APNSender(AccountsManager accountsManager,
-                   JedisPool jedisPool,
-                   ApnConfiguration configuration)
+  public APNSender(AccountsManager accountsManager, ApnConfiguration configuration)
+      throws IOException
   {
     this.accountsManager = accountsManager;
-    this.jedisPool       = jedisPool;
-    this.pushCertificate = configuration.getPushCertificate();
-    this.pushKey         = configuration.getPushKey();
-    this.voipCertificate = configuration.getVoipCertificate();
-    this.voipKey         = configuration.getVoipKey();
-    this.feedbackEnabled = configuration.isFeedbackEnabled();
+    this.bundleId        = configuration.getBundleId();
     this.sandbox         = configuration.isSandboxEnabled();
+    this.apnsClient      = new RetryingApnsClient(configuration.getPushCertificate(),
+                                                  configuration.getPushKey(),
+                                                  10);
   }
 
   @VisibleForTesting
-  public APNSender(AccountsManager accountsManager, JedisPool jedisPool,
-                   ApnsService pushApnService, ApnsService voipApnService,
-                   boolean feedbackEnabled, boolean sandbox)
-  {
+  public APNSender(ExecutorService executor, AccountsManager accountsManager, RetryingApnsClient apnsClient, String bundleId, boolean sandbox) {
+    this.executor        = executor;
     this.accountsManager = accountsManager;
-    this.jedisPool       = jedisPool;
-    this.pushApnService  = pushApnService;
-    this.voipApnService  = voipApnService;
-    this.feedbackEnabled = feedbackEnabled;
+    this.apnsClient      = apnsClient;
     this.sandbox         = sandbox;
-    this.pushCertificate = null;
-    this.pushKey         = null;
-    this.voipCertificate = null;
-    this.voipKey         = null;
+    this.bundleId        = bundleId;
   }
 
-  public void sendMessage(ApnMessage message)
+  public ListenableFuture<ApnResult> sendMessage(final ApnMessage message)
       throws TransientPushFailureException
   {
-    try {
-      redisSet(message.getApnId(), message.getNumber(), message.getDeviceId());
+    String topic = bundleId;
 
-      if (message.isVoip()) {
-        voipApnService.push(message.getApnId(), message.getMessage(), new Date(message.getExpirationTime()));
-      } else {
-        pushApnService.push(message.getApnId(), message.getMessage(), new Date(message.getExpirationTime()));
-      }
-    } catch (NetworkIOException nioe) {
-      logger.warn("Network Error", nioe);
-      throw new TransientPushFailureException(nioe);
+    if (message.isVoip()) {
+      topic = topic + ".voip";
     }
-  }
 
-  private static byte[] initializeKeyStore(String pemCertificate, String pemKey)
-      throws KeyStoreException, CertificateException, NoSuchAlgorithmException, IOException
-  {
-    PEMReader       reader           = new PEMReader(new InputStreamReader(new ByteArrayInputStream(pemCertificate.getBytes())));
-    X509Certificate certificate      = (X509Certificate) reader.readObject();
-    Certificate[]   certificateChain = {certificate};
 
-    reader = new PEMReader(new InputStreamReader(new ByteArrayInputStream(pemKey.getBytes())));
-    KeyPair keyPair = (KeyPair) reader.readObject();
+    ListenableFuture<ApnResult> future = apnsClient.send(message.getApnId(), topic,
+                                                         message.getMessage(),
+                                                         new Date(message.getExpirationTime()));
 
-    KeyStore keyStore = KeyStore.getInstance("pkcs12");
-    keyStore.load(null);
-    keyStore.setEntry("apn",
-                      new KeyStore.PrivateKeyEntry(keyPair.getPrivate(), certificateChain),
-                      new KeyStore.PasswordProtection("insecure".toCharArray()));
+    Futures.addCallback(future, new FutureCallback<ApnResult>() {
+      @Override
+      public void onSuccess(@Nullable ApnResult result) {
+        if (result == null) {
+          logger.warn("*** RECEIVED NULL APN RESULT ***");
+        } else if (result.getStatus() == ApnResult.Status.NO_SUCH_USER) {
+          handleUnregisteredUser(message.getApnId(), message.getNumber(), message.getDeviceId());
+        } else if (result.getStatus() == ApnResult.Status.GENERIC_FAILURE) {
+          logger.warn("*** Got APN generic failure: " + result.getReason());
+        }
+      }
 
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    keyStore.store(baos, "insecure".toCharArray());
+      @Override
+      public void onFailure(@Nullable Throwable t) {
+        logger.warn("Got fatal APNS exception", t);
+      }
+    }, executor);
 
-    return baos.toByteArray();
+    return future;
   }
 
   @Override
   public void start() throws Exception {
-    byte[] pushKeyStore = initializeKeyStore(pushCertificate, pushKey);
-    byte[] voipKeyStore = initializeKeyStore(voipCertificate, voipKey);
-
-    ApnsServiceBuilder pushApnServiceBuilder = APNS.newService()
-                                                   .withCert(new ByteArrayInputStream(pushKeyStore), "insecure")
-                                                   .asQueued();
-
-
-    ApnsServiceBuilder voipApnServiceBuilder = APNS.newService()
-                                                   .withCert(new ByteArrayInputStream(voipKeyStore), "insecure")
-                                                   .asQueued();
-
-
-    if (sandbox) {
-      this.pushApnService = pushApnServiceBuilder.withSandboxDestination().build();
-      this.voipApnService = voipApnServiceBuilder.withSandboxDestination().build();
-    } else {
-      this.pushApnService = pushApnServiceBuilder.withProductionDestination().build();
-      this.voipApnService = voipApnServiceBuilder.withProductionDestination().build();
-    }
-
-    if (feedbackEnabled) {
-      this.executor.scheduleAtFixedRate(new FeedbackRunnable(), 0, 1, TimeUnit.HOURS);
-    }
+    this.executor = Executors.newSingleThreadExecutor();
+    this.apnsClient.connect(sandbox);
   }
 
   @Override
   public void stop() throws Exception {
-    pushApnService.stop();
-    voipApnService.stop();
+    this.executor.shutdown();
+    this.apnsClient.disconnect();
   }
 
-  private void redisSet(String registrationId, String number, int deviceId) {
-    try (Jedis jedis = jedisPool.getResource()) {
-      jedis.set("APN-" + registrationId.toLowerCase(), number + "." + deviceId);
-      jedis.expire("APN-" + registrationId.toLowerCase(), (int) TimeUnit.HOURS.toSeconds(1));
-    }
-  }
+  private void handleUnregisteredUser(String registrationId, String number, int deviceId) {
+    logger.info("Got APN Unregistered: " + number + "," + deviceId);
 
-  private Optional<String> redisGet(String registrationId) {
-    try (Jedis jedis = jedisPool.getResource()) {
-      String number = jedis.get("APN-" + registrationId.toLowerCase());
-      return Optional.fromNullable(number);
-    }
-  }
+    Optional<Account> account = accountsManager.get(number);
 
-  @VisibleForTesting
-  public void checkFeedback() {
-    new FeedbackRunnable().run();
-  }
+    if (account.isPresent()) {
+      Optional<Device> device = account.get().getDevice(deviceId);
 
-  private class FeedbackRunnable implements Runnable {
-
-    @Override
-    public void run() {
-      try {
-        Map<String, Date> inactiveDevices = pushApnService.getInactiveDevices();
-        inactiveDevices.putAll(voipApnService.getInactiveDevices());
-
-        for (String registrationId : inactiveDevices.keySet()) {
-          Optional<String> device = redisGet(registrationId);
-
-          if (device.isPresent()) {
-            logger.warn("Got APN unregistered notice!");
-            String[] parts    = device.get().split("\\.", 2);
-
-            if (parts.length == 2) {
-              String number    = parts[0];
-              int    deviceId  = Integer.parseInt(parts[1]);
-              long   timestamp = inactiveDevices.get(registrationId).getTime();
-
-              handleApnUnregistered(registrationId, number, deviceId, timestamp);
-            } else {
-              logger.warn("APN unregister event for device with no parts: " + device.get());
-            }
-          } else {
-            logger.warn("APN unregister event received for uncached ID: " + registrationId);
-          }
-        }
-      } catch (Throwable t) {
-        logger.warn("Exception during feedback", t);
-      }
-    }
-
-    private void handleApnUnregistered(String registrationId, String number, int deviceId, long timestamp) {
-      logger.info("Got APN Unregistered: " + number + "," + deviceId);
-
-      Optional<Account> account = accountsManager.get(number);
-
-      if (account.isPresent()) {
-        Optional<Device> device = account.get().getDevice(deviceId);
-
-        if (device.isPresent()) {
-          if (registrationId.equals(device.get().getApnId())) {
-            logger.info("APN Unregister APN ID matches!");
-            if (device.get().getPushTimestamp() == 0 ||
-                timestamp > device.get().getPushTimestamp())
-            {
-              logger.info("APN Unregister timestamp matches!");
-              device.get().setApnId(null);
-              accountsManager.update(account.get());
-            }
+      if (device.isPresent()) {
+        if (registrationId.equals(device.get().getApnId())) {
+          logger.info("APN Unregister APN ID matches!");
+          if (device.get().getPushTimestamp() == 0 ||
+              System.currentTimeMillis() > device.get().getPushTimestamp() + TimeUnit.SECONDS.toMillis(10))
+          {
+            logger.info("APN Unregister timestamp matches!");
+            device.get().setApnId(null);
+            device.get().setFetchesMessages(false);
+            accountsManager.update(account.get());
           }
         }
       }

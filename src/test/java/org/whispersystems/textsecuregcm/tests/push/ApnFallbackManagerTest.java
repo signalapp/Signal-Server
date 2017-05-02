@@ -43,12 +43,10 @@ public class ApnFallbackManagerTest {
 
     assertEquals(arguments.get(0).getMessage(), message.getMessage());
     assertEquals(arguments.get(0).getApnId(), task.getVoipApnId());
-    assertTrue(arguments.get(0).isVoip());
 //    assertEquals(arguments.get(0).getExpirationTime(), Integer.MAX_VALUE * 1000L);
 
     assertEquals(arguments.get(1).getMessage(), message.getMessage());
     assertEquals(arguments.get(1).getApnId(), task.getApnId());
-    assertFalse(arguments.get(1).isVoip());
     assertEquals(arguments.get(1).getExpirationTime(), Integer.MAX_VALUE * 1000L);
   }
 

@@ -1,23 +1,31 @@
 package org.whispersystems.textsecuregcm.tests.push;
 
 import com.google.common.base.Optional;
-import com.notnoop.apns.ApnsService;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.relayrides.pushy.apns.ApnsClient;
+import com.relayrides.pushy.apns.ApnsServerException;
+import com.relayrides.pushy.apns.ClientNotConnectedException;
+import com.relayrides.pushy.apns.DeliveryPriority;
+import com.relayrides.pushy.apns.PushNotificationResponse;
+import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.ApnMessage;
-import org.whispersystems.textsecuregcm.push.TransientPushFailureException;
+import org.whispersystems.textsecuregcm.push.RetryingApnsClient;
+import org.whispersystems.textsecuregcm.push.RetryingApnsClient.ApnResult;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.tests.util.SynchronousExecutorService;
 
 import java.util.Date;
-import java.util.HashMap;
 
-import static org.mockito.Mockito.mock;
+import io.netty.util.concurrent.DefaultEventExecutor;
+import io.netty.util.concurrent.DefaultPromise;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
 
 public class APNSenderTest {
 
@@ -25,63 +33,255 @@ public class APNSenderTest {
   private static final String DESTINATION_APN_ID = "foo";
 
   private final AccountsManager accountsManager = mock(AccountsManager.class);
-  private final JedisPool       jedisPool       = mock(JedisPool.class);
-  private final Jedis           jedis           = mock(Jedis.class);
-  private final ApnsService     voipService     = mock(ApnsService.class);
-  private final ApnsService     apnsService     = mock(ApnsService.class);
 
   private final Account destinationAccount = mock(Account.class);
   private final Device  destinationDevice  = mock(Device.class );
+
+  private final DefaultEventExecutor executor = new DefaultEventExecutor();
 
   @Before
   public void setup() {
     when(destinationAccount.getDevice(1)).thenReturn(Optional.of(destinationDevice));
     when(destinationDevice.getApnId()).thenReturn(DESTINATION_APN_ID);
     when(accountsManager.get(DESTINATION_NUMBER)).thenReturn(Optional.of(destinationAccount));
-
-    when(jedisPool.getResource()).thenReturn(jedis);
-    when(jedis.get("APN-" + DESTINATION_APN_ID)).thenReturn(DESTINATION_NUMBER + "." + 1);
-
-    when(voipService.getInactiveDevices()).thenReturn(new HashMap<String, Date>() {{
-      put(DESTINATION_APN_ID, new Date(System.currentTimeMillis()));
-    }});
-    when(apnsService.getInactiveDevices()).thenReturn(new HashMap<String, Date>());
   }
 
   @Test
-  public void testSendVoip() throws TransientPushFailureException {
-    APNSender apnSender = new APNSender(accountsManager, jedisPool, apnsService, voipService, false, false);
+  public void testSendVoip() throws Exception {
+    ApnsClient      apnsClient      = mock(ApnsClient.class);
 
-    ApnMessage message = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", true, 30);
-    apnSender.sendMessage(message);
+    PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
+    when(response.isAccepted()).thenReturn(true);
 
+    DefaultPromise<PushNotificationResponse<SimpleApnsPushNotification>> result = new DefaultPromise<>(executor);
+    result.setSuccess(response);
 
-    verify(jedis, times(1)).set(eq("APN-" + DESTINATION_APN_ID.toLowerCase()), eq(DESTINATION_NUMBER + "." + 1));
-    verify(voipService, times(1)).push(eq(DESTINATION_APN_ID), eq(message.getMessage()), eq(new Date(30)));
-    verifyNoMoreInteractions(apnsService);
+    when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
+        .thenReturn(result);
+
+    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
+    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", true, 30);
+    APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
+
+    ListenableFuture<ApnResult> sendFuture = apnSender.sendMessage(message);
+    ApnResult apnResult = sendFuture.get();
+
+    ArgumentCaptor<SimpleApnsPushNotification> notification = ArgumentCaptor.forClass(SimpleApnsPushNotification.class);
+    verify(apnsClient, times(1)).sendNotification(notification.capture());
+
+    assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
+    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(30));
+    assertThat(notification.getValue().getPayload()).isEqualTo("message");
+    assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
+    assertThat(notification.getValue().getTopic()).isEqualTo("foo.voip");
+
+    assertThat(apnResult.getStatus()).isEqualTo(ApnResult.Status.SUCCESS);
+
+    verifyNoMoreInteractions(apnsClient);
+    verifyNoMoreInteractions(accountsManager);
   }
 
   @Test
-  public void testSendApns() throws TransientPushFailureException {
-    APNSender apnSender = new APNSender(accountsManager, jedisPool, apnsService, voipService, false, false);
+  public void testSendApns() throws Exception {
+    ApnsClient apnsClient = mock(ApnsClient.class);
 
+    PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
+    when(response.isAccepted()).thenReturn(true);
+
+    DefaultPromise<PushNotificationResponse<SimpleApnsPushNotification>> result = new DefaultPromise<>(executor);
+    result.setSuccess(response);
+
+    when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
+        .thenReturn(result);
+
+    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
     ApnMessage message = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", false, 30);
-    apnSender.sendMessage(message);
+    APNSender apnSender = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
 
-    verify(jedis, times(1)).set(eq("APN-" + DESTINATION_APN_ID.toLowerCase()), eq(DESTINATION_NUMBER + "." + 1));
-    verify(apnsService, times(1)).push(eq(DESTINATION_APN_ID), eq(message.getMessage()), eq(new Date(30)));
-    verifyNoMoreInteractions(voipService);
+    ListenableFuture<ApnResult> sendFuture = apnSender.sendMessage(message);
+    ApnResult apnResult = sendFuture.get();
+
+    ArgumentCaptor<SimpleApnsPushNotification> notification = ArgumentCaptor.forClass(SimpleApnsPushNotification.class);
+    verify(apnsClient, times(1)).sendNotification(notification.capture());
+
+    assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
+    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(30));
+    assertThat(notification.getValue().getPayload()).isEqualTo("message");
+    assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
+    assertThat(notification.getValue().getTopic()).isEqualTo("foo");
+
+    assertThat(apnResult.getStatus()).isEqualTo(ApnResult.Status.SUCCESS);
+
+    verifyNoMoreInteractions(apnsClient);
+    verifyNoMoreInteractions(accountsManager);
   }
 
   @Test
-  public void testFeedbackUnregistered() {
-    APNSender apnSender = new APNSender(accountsManager, jedisPool, apnsService, voipService, false, false);
-    apnSender.checkFeedback();
+  public void testUnregisteredUser() throws Exception {
+    ApnsClient      apnsClient      = mock(ApnsClient.class);
 
-    verify(jedis, times(1)).get(eq("APN-" +DESTINATION_APN_ID));
+    PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
+    when(response.isAccepted()).thenReturn(false);
+    when(response.getRejectionReason()).thenReturn("Unregistered");
+
+    DefaultPromise<PushNotificationResponse<SimpleApnsPushNotification>> result = new DefaultPromise<>(executor);
+    result.setSuccess(response);
+
+    when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
+        .thenReturn(result);
+
+    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
+    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", true, 30);
+    APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
+
+    ListenableFuture<ApnResult> sendFuture = apnSender.sendMessage(message);
+    ApnResult apnResult = sendFuture.get();
+
+    Thread.sleep(1000); // =(
+
+    ArgumentCaptor<SimpleApnsPushNotification> notification = ArgumentCaptor.forClass(SimpleApnsPushNotification.class);
+    verify(apnsClient, times(1)).sendNotification(notification.capture());
+
+    assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
+    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(30));
+    assertThat(notification.getValue().getPayload()).isEqualTo("message");
+    assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
+
+    assertThat(apnResult.getStatus()).isEqualTo(ApnResult.Status.NO_SUCH_USER);
+
+    verifyNoMoreInteractions(apnsClient);
     verify(accountsManager, times(1)).get(eq(DESTINATION_NUMBER));
+    verify(destinationDevice, times(1)).getApnId();
     verify(destinationDevice, times(1)).setApnId(eq((String)null));
     verify(accountsManager, times(1)).update(eq(destinationAccount));
+
+    verifyNoMoreInteractions(accountsManager);
+  }
+
+  @Test
+  public void testGenericFailure() throws Exception {
+    ApnsClient      apnsClient      = mock(ApnsClient.class);
+
+    PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
+    when(response.isAccepted()).thenReturn(false);
+    when(response.getRejectionReason()).thenReturn("BadTopic");
+
+    DefaultPromise<PushNotificationResponse<SimpleApnsPushNotification>> result = new DefaultPromise<>(executor);
+    result.setSuccess(response);
+
+    when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
+        .thenReturn(result);
+
+    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
+    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", true, 30);
+    APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
+
+    ListenableFuture<ApnResult> sendFuture = apnSender.sendMessage(message);
+    ApnResult apnResult = sendFuture.get();
+
+    ArgumentCaptor<SimpleApnsPushNotification> notification = ArgumentCaptor.forClass(SimpleApnsPushNotification.class);
+    verify(apnsClient, times(1)).sendNotification(notification.capture());
+
+    assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
+    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(30));
+    assertThat(notification.getValue().getPayload()).isEqualTo("message");
+    assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
+
+    assertThat(apnResult.getStatus()).isEqualTo(ApnResult.Status.GENERIC_FAILURE);
+
+    verifyNoMoreInteractions(apnsClient);
+    verifyNoMoreInteractions(accountsManager);
+  }
+
+  @Test
+  public void testTransientFailure() throws Exception {
+    ApnsClient      apnsClient      = mock(ApnsClient.class);
+
+    PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
+    when(response.isAccepted()).thenReturn(true);
+
+    DefaultPromise<PushNotificationResponse<SimpleApnsPushNotification>> result = new DefaultPromise<>(executor);
+    result.setFailure(new ClientNotConnectedException("lost connection"));
+
+    DefaultPromise<Void> connectedResult = new DefaultPromise<>(executor);
+
+    when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
+        .thenReturn(result);
+
+    when(apnsClient.getReconnectionFuture())
+        .thenReturn(connectedResult);
+
+    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
+    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", true, 30);
+    APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
+
+    ListenableFuture<ApnResult> sendFuture = apnSender.sendMessage(message);
+
+    Thread.sleep(1000);
+
+    assertThat(sendFuture.isDone()).isFalse();
+
+    DefaultPromise<PushNotificationResponse<SimpleApnsPushNotification>> updatedResult = new DefaultPromise<>(executor);
+    updatedResult.setSuccess(response);
+
+    when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
+        .thenReturn(updatedResult);
+
+    connectedResult.setSuccess(null);
+
+    ApnResult apnResult = sendFuture.get();
+
+    ArgumentCaptor<SimpleApnsPushNotification> notification = ArgumentCaptor.forClass(SimpleApnsPushNotification.class);
+    verify(apnsClient, times(2)).sendNotification(notification.capture());
+    verify(apnsClient, times(1)).getReconnectionFuture();
+
+    assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
+    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(30));
+    assertThat(notification.getValue().getPayload()).isEqualTo("message");
+    assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
+
+    assertThat(apnResult.getStatus()).isEqualTo(ApnResult.Status.SUCCESS);
+
+    verifyNoMoreInteractions(apnsClient);
+    verifyNoMoreInteractions(accountsManager);
+  }
+
+  @Test
+  public void testPersistentTransientFailure() throws Exception {
+    ApnsClient      apnsClient      = mock(ApnsClient.class);
+
+    PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
+    when(response.isAccepted()).thenReturn(true);
+
+    DefaultPromise<PushNotificationResponse<SimpleApnsPushNotification>> result = new DefaultPromise<>(executor);
+    result.setFailure(new ApnsServerException("apn servers suck again"));
+
+    when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
+        .thenReturn(result);
+
+    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 3);
+    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", true, 30);
+    APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
+
+    ListenableFuture<ApnResult> sendFuture = apnSender.sendMessage(message);
+
+    try {
+      sendFuture.get();
+      throw new AssertionError("future did not throw exception");
+    } catch (Exception e) {
+      // good
+    }
+
+    ArgumentCaptor<SimpleApnsPushNotification> notification = ArgumentCaptor.forClass(SimpleApnsPushNotification.class);
+    verify(apnsClient, times(4)).sendNotification(notification.capture());
+
+    assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
+    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(30));
+    assertThat(notification.getValue().getPayload()).isEqualTo("message");
+    assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
+
+    verifyNoMoreInteractions(apnsClient);
+    verifyNoMoreInteractions(accountsManager);
   }
 
 }

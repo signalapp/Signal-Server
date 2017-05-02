@@ -105,9 +105,9 @@
         </dependency>
 
         <dependency>
-            <groupId>com.notnoop.apns</groupId>
-            <artifactId>apns</artifactId>
-            <version>0.2.3</version>
+            <groupId>com.relayrides</groupId>
+            <artifactId>pushy</artifactId>
+            <version>0.9.3</version>
         </dependency>
         <dependency>
             <groupId>org.whispersystems</groupId>

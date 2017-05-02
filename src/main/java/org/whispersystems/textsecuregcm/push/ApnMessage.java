@@ -8,33 +8,33 @@ public class ApnMessage {
   private final String number;
   private final int deviceId;
   private final String message;
-  private final boolean voip;
+  private final boolean isVoip;
   private final long expirationTime;
 
-  public ApnMessage(String apnId, String number, int deviceId, String message, boolean voip, long expirationTime) {
+  public ApnMessage(String apnId, String number, int deviceId, String message, boolean isVoip, long expirationTime) {
     this.apnId          = apnId;
     this.number         = number;
     this.deviceId       = deviceId;
     this.message        = message;
-    this.voip           = voip;
+    this.isVoip         = isVoip;
     this.expirationTime = expirationTime;
   }
 
-  public ApnMessage(ApnMessage copy, String apnId, boolean voip, long expirationTime) {
+  public ApnMessage(ApnMessage copy, String apnId, boolean isVoip, long expirationTime) {
     this.apnId          = apnId;
     this.number         = copy.number;
     this.deviceId       = copy.deviceId;
     this.message        = copy.message;
-    this.voip           = voip;
+    this.isVoip         = isVoip;
     this.expirationTime = expirationTime;
+  }
+
+  public boolean isVoip() {
+    return isVoip;
   }
 
   public String getApnId() {
     return apnId;
-  }
-
-  public boolean isVoip() {
-    return voip;
   }
 
   public String getMessage() {

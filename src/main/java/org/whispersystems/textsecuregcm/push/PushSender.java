@@ -136,8 +136,8 @@ public class PushSender implements Managed {
 
     if (!Util.isEmpty(device.getVoipApnId())) {
       apnMessage = new ApnMessage(device.getVoipApnId(), account.getNumber(), (int)device.getId(),
-                                  String.format(APN_PAYLOAD, messageQueueDepth),
-                                  true, System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(ApnFallbackManager.FALLBACK_DURATION));
+                                  String.format(APN_PAYLOAD, messageQueueDepth), true,
+                                  System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(ApnFallbackManager.FALLBACK_DURATION));
 
       if (fallback) {
         apnFallbackManager.schedule(new WebsocketAddress(account.getNumber(), device.getId()),
