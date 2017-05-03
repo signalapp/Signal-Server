@@ -20,7 +20,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.FederationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcmConfiguration;
-import org.whispersystems.textsecuregcm.configuration.GraphiteConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PushConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
@@ -30,7 +29,7 @@ import org.whispersystems.textsecuregcm.configuration.S3Configuration;
 import org.whispersystems.textsecuregcm.configuration.TestDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TurnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
-import org.whispersystems.textsecuregcm.configuration.WebsocketConfiguration;
+import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
@@ -102,10 +101,6 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private RateLimitsConfiguration limits = new RateLimitsConfiguration();
 
-  @Valid
-  @JsonProperty
-  private WebsocketConfiguration websocket = new WebsocketConfiguration();
-
   @JsonProperty
   private RedPhoneConfiguration redphone = new RedPhoneConfiguration();
 
@@ -113,6 +108,11 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private JerseyClientConfiguration httpClient = new JerseyClientConfiguration();
+
+  @Valid
+  @NotNull
+  @JsonProperty
+  private WebSocketConfiguration webSocket = new WebSocketConfiguration();
 
   @Valid
   @NotNull
@@ -129,9 +129,8 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private ApnConfiguration apn;
 
-
-  public WebsocketConfiguration getWebsocketConfiguration() {
-    return websocket;
+  public WebSocketConfiguration getWebSocketConfiguration() {
+    return webSocket;
   }
 
   public TwilioConfiguration getTwilioConfiguration() {

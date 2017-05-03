@@ -23,7 +23,6 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.google.common.base.Optional;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
-import org.glassfish.jersey.client.ClientProperties;
 import org.skife.jdbi.v2.DBI;
 import org.whispersystems.dispatch.DispatchChannel;
 import org.whispersystems.dispatch.DispatchManager;
@@ -97,13 +96,11 @@ import org.whispersystems.websocket.setup.WebSocketEnvironment;
 import javax.servlet.DispatcherType;
 import javax.servlet.FilterRegistration;
 import javax.servlet.ServletRegistration;
-import javax.ws.rs.client.Client;
 import java.security.Security;
 import java.util.EnumSet;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import io.dropwizard.Application;
-import io.dropwizard.client.JerseyClientBuilder;
 import io.dropwizard.db.DataSourceFactory;
 import io.dropwizard.jdbi.DBIFactory;
 import io.dropwizard.setup.Bootstrap;
@@ -165,7 +162,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     RedisClientFactory cacheClientFactory = new RedisClientFactory(config.getCacheConfiguration().getUrl());
     JedisPool          cacheClient        = cacheClientFactory.getRedisClientPool();
     JedisPool          directoryClient    = new RedisClientFactory(config.getDirectoryConfiguration().getUrl()).getRedisClientPool();
-    Client             httpClient         = initializeHttpClient(environment, config);
 
     DirectoryManager           directory                  = new DirectoryManager(directoryClient);
     PendingAccountsManager     pendingAccountsManager     = new PendingAccountsManager(pendingAccounts, cacheClient);
@@ -221,40 +217,40 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(keysControllerV2);
     environment.jersey().register(messageController);
 
-    if (config.getWebsocketConfiguration().isEnabled()) {
-      WebSocketEnvironment webSocketEnvironment = new WebSocketEnvironment(environment, config, 90000);
-      webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(deviceAuthenticator));
-      webSocketEnvironment.setConnectListener(new AuthenticatedConnectListener(accountsManager, pushSender, receiptSender, messagesManager, pubSubManager));
-      webSocketEnvironment.jersey().register(new KeepAliveController(pubSubManager));
-      webSocketEnvironment.jersey().register(messageController);
+    ///
+    WebSocketEnvironment webSocketEnvironment = new WebSocketEnvironment(environment, config.getWebSocketConfiguration(), 90000);
+    webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(deviceAuthenticator));
+    webSocketEnvironment.setConnectListener(new AuthenticatedConnectListener(accountsManager, pushSender, receiptSender, messagesManager, pubSubManager));
+    webSocketEnvironment.jersey().register(new KeepAliveController(pubSubManager));
+    webSocketEnvironment.jersey().register(messageController);
 
-      WebSocketEnvironment provisioningEnvironment = new WebSocketEnvironment(environment, config);
-      provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(pubSubManager));
-      provisioningEnvironment.jersey().register(new KeepAliveController(pubSubManager));
-      
-      WebSocketResourceProviderFactory webSocketServlet    = new WebSocketResourceProviderFactory(webSocketEnvironment   );
-      WebSocketResourceProviderFactory provisioningServlet = new WebSocketResourceProviderFactory(provisioningEnvironment);
+    WebSocketEnvironment provisioningEnvironment = new WebSocketEnvironment(environment, webSocketEnvironment.getRequestLog(), 60000);
+    provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(pubSubManager));
+    provisioningEnvironment.jersey().register(new KeepAliveController(pubSubManager));
 
-      ServletRegistration.Dynamic websocket    = environment.servlets().addServlet("WebSocket", webSocketServlet      );
-      ServletRegistration.Dynamic provisioning = environment.servlets().addServlet("Provisioning", provisioningServlet);
+    WebSocketResourceProviderFactory webSocketServlet    = new WebSocketResourceProviderFactory(webSocketEnvironment   );
+    WebSocketResourceProviderFactory provisioningServlet = new WebSocketResourceProviderFactory(provisioningEnvironment);
 
-      websocket.addMapping("/v1/websocket/");
-      websocket.setAsyncSupported(true);
+    ServletRegistration.Dynamic websocket    = environment.servlets().addServlet("WebSocket", webSocketServlet      );
+    ServletRegistration.Dynamic provisioning = environment.servlets().addServlet("Provisioning", provisioningServlet);
 
-      provisioning.addMapping("/v1/websocket/provisioning/");
-      provisioning.setAsyncSupported(true);
+    websocket.addMapping("/v1/websocket/");
+    websocket.setAsyncSupported(true);
 
-      webSocketServlet.start();
-      provisioningServlet.start();
+    provisioning.addMapping("/v1/websocket/provisioning/");
+    provisioning.setAsyncSupported(true);
 
-      FilterRegistration.Dynamic filter = environment.servlets().addFilter("CORS", CrossOriginFilter.class);
-      filter.addMappingForUrlPatterns(EnumSet.allOf(DispatcherType.class), true, "/*");
-      filter.setInitParameter("allowedOrigins", "*");
-      filter.setInitParameter("allowedHeaders", "Content-Type,Authorization,X-Requested-With,Content-Length,Accept,Origin,X-Signal-Agent");
-      filter.setInitParameter("allowedMethods", "GET,PUT,POST,DELETE,OPTIONS");
-      filter.setInitParameter("preflightMaxAge", "5184000");
-      filter.setInitParameter("allowCredentials", "true");
-    }
+    webSocketServlet.start();
+    provisioningServlet.start();
+
+    FilterRegistration.Dynamic filter = environment.servlets().addFilter("CORS", CrossOriginFilter.class);
+    filter.addMappingForUrlPatterns(EnumSet.allOf(DispatcherType.class), true, "/*");
+    filter.setInitParameter("allowedOrigins", "*");
+    filter.setInitParameter("allowedHeaders", "Content-Type,Authorization,X-Requested-With,Content-Length,Accept,Origin,X-Signal-Agent");
+    filter.setInitParameter("allowedMethods", "GET,PUT,POST,DELETE,OPTIONS");
+    filter.setInitParameter("preflightMaxAge", "5184000");
+    filter.setInitParameter("allowCredentials", "true");
+///
 
     environment.healthChecks().register("directory", new RedisHealthCheck(directoryClient));
     environment.healthChecks().register("cache", new RedisHealthCheck(cacheClient));
@@ -269,16 +265,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.metrics().register(name(NetworkSentGauge.class, "bytes_sent"), new NetworkSentGauge());
     environment.metrics().register(name(NetworkReceivedGauge.class, "bytes_received"), new NetworkReceivedGauge());
     environment.metrics().register(name(FileDescriptorGauge.class, "fd_count"), new FileDescriptorGauge());
-  }
-
-  private Client initializeHttpClient(Environment environment, WhisperServerConfiguration config) {
-    Client httpClient = new JerseyClientBuilder(environment).using(config.getJerseyClientConfiguration())
-                                                            .build(getName());
-
-    httpClient.property(ClientProperties.CONNECT_TIMEOUT, 1000);
-    httpClient.property(ClientProperties.READ_TIMEOUT, 1000);
-
-    return httpClient;
   }
 
   public static void main(String[] args) throws Exception {
