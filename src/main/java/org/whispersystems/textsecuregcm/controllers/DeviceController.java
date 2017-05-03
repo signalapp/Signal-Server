@@ -205,12 +205,8 @@ public class DeviceController {
   }
 
   @VisibleForTesting protected VerificationCode generateVerificationCode() {
-    try {
-      SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
-      int randomInt       = 100000 + random.nextInt(900000);
-      return new VerificationCode(randomInt);
-    } catch (NoSuchAlgorithmException e) {
-      throw new AssertionError(e);
-    }
+    SecureRandom random = new SecureRandom();
+    int randomInt       = 100000 + random.nextInt(900000);
+    return new VerificationCode(randomInt);
   }
 }

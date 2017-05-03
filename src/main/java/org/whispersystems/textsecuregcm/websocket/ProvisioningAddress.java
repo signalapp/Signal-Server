@@ -22,11 +22,11 @@ public class ProvisioningAddress extends WebsocketAddress {
   public static ProvisioningAddress generate() {
     try {
       byte[] random = new byte[16];
-      SecureRandom.getInstance("SHA1PRNG").nextBytes(random);
+      new SecureRandom().nextBytes(random);
 
       return new ProvisioningAddress(Base64.encodeBytesWithoutPadding(random)
                                            .replace('+', '-').replace('/', '_'), 0);
-    } catch (NoSuchAlgorithmException | InvalidWebsocketAddressException e) {
+    } catch (InvalidWebsocketAddressException e) {
       throw new AssertionError(e);
     }
   }

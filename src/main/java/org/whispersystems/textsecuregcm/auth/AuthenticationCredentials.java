@@ -38,12 +38,8 @@ public class AuthenticationCredentials {
   }
 
   public AuthenticationCredentials(String authenticationToken) {
-    try {
-      this.salt                      = Math.abs(SecureRandom.getInstance("SHA1PRNG").nextInt()) + "";
-      this.hashedAuthenticationToken = getHashedValue(salt, authenticationToken);
-    } catch (NoSuchAlgorithmException e) {
-      throw new AssertionError(e);
-    }
+    this.salt                      = Math.abs(new SecureRandom().nextInt()) + "";
+    this.hashedAuthenticationToken = getHashedValue(salt, authenticationToken);
   }
 
   public String getHashedAuthenticationToken() {

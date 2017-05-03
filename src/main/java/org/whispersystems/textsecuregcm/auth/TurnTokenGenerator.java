@@ -25,7 +25,7 @@ public class TurnTokenGenerator {
     try {
       Mac    mac                = Mac.getInstance("HmacSHA1");
       long   validUntilSeconds  = (System.currentTimeMillis() + TimeUnit.DAYS.toMillis(1)) / 1000;
-      long   user               = Math.abs(SecureRandom.getInstance("SHA1PRNG").nextInt());
+      long   user               = Math.abs(new SecureRandom().nextInt());
       String userTime           = validUntilSeconds + ":"  + user;
 
       mac.init(new SecretKeySpec(key, "HmacSHA1"));

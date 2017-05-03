@@ -222,7 +222,7 @@ public class FederatedClient {
     trustManagerFactory.init(initializeTrustStore(peer.getName(), peer.getCertificate()));
 
     SSLContext sslContext = SSLContext.getInstance("TLS");
-    sslContext.init(null, trustManagerFactory.getTrustManagers(), SecureRandom.getInstance("SHA1PRNG"));
+    sslContext.init(null, trustManagerFactory.getTrustManagers(), new SecureRandom());
 
     SSLConnectionSocketFactory        sslConnectionSocketFactory = new SSLConnectionSocketFactory(sslContext, new DefaultHostnameVerifier());
     Registry<ConnectionSocketFactory> registry                   = RegistryBuilder.<ConnectionSocketFactory>create().register("https", sslConnectionSocketFactory).build();

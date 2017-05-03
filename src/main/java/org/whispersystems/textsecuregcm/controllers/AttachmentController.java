@@ -103,14 +103,10 @@ public class AttachmentController {
   }
 
   private long generateAttachmentId() {
-    try {
-      byte[] attachmentBytes = new byte[8];
-      SecureRandom.getInstance("SHA1PRNG").nextBytes(attachmentBytes);
+    byte[] attachmentBytes = new byte[8];
+    new SecureRandom().nextBytes(attachmentBytes);
 
-      attachmentBytes[0] = (byte)(attachmentBytes[0] & 0x7F);
-      return Conversions.byteArrayToLong(attachmentBytes);
-    } catch (NoSuchAlgorithmException nsae) {
-      throw new AssertionError(nsae);
-    }
+    attachmentBytes[0] = (byte)(attachmentBytes[0] & 0x7F);
+    return Conversions.byteArrayToLong(attachmentBytes);
   }
 }

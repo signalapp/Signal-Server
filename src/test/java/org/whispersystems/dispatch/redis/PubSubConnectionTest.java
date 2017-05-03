@@ -244,18 +244,14 @@ public class PubSubConnectionTest {
     }
 
     public int read(byte[] input, int offset, int length) {
-      try {
-        int maxCopy    = Math.min(data.length - index, length);
-        int randomCopy = SecureRandom.getInstance("SHA1PRNG").nextInt(maxCopy) + 1;
-        int copyAmount  = Math.min(maxCopy, randomCopy);
+      int maxCopy    = Math.min(data.length - index, length);
+      int randomCopy = new SecureRandom().nextInt(maxCopy) + 1;
+      int copyAmount = Math.min(maxCopy, randomCopy);
 
-        System.arraycopy(data, index, input, offset, copyAmount);
-        index += copyAmount;
+      System.arraycopy(data, index, input, offset, copyAmount);
+      index += copyAmount;
 
-        return copyAmount;
-      } catch (NoSuchAlgorithmException e) {
-        throw new AssertionError(e);
-      }
+      return copyAmount;
     }
 
   }

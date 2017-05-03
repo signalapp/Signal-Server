@@ -360,16 +360,12 @@ public class AccountController {
   }
 
   @VisibleForTesting protected VerificationCode generateVerificationCode(String number) {
-    try {
-      if (testDevices.containsKey(number)) {
-        return new VerificationCode(testDevices.get(number));
-      }
-
-      SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
-      int randomInt       = 100000 + random.nextInt(900000);
-      return new VerificationCode(randomInt);
-    } catch (NoSuchAlgorithmException e) {
-      throw new AssertionError(e);
+    if (testDevices.containsKey(number)) {
+      return new VerificationCode(testDevices.get(number));
     }
+
+    SecureRandom random = new SecureRandom();
+    int randomInt       = 100000 + random.nextInt(900000);
+    return new VerificationCode(randomInt);
   }
 }
