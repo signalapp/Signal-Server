@@ -130,23 +130,39 @@ public class APNSender implements Managed {
 
     Optional<Account> account = accountsManager.get(number);
 
-    if (account.isPresent()) {
-      Optional<Device> device = account.get().getDevice(deviceId);
-
-      if (device.isPresent()) {
-        if (registrationId.equals(device.get().getApnId())) {
-          logger.info("APN Unregister APN ID matches!");
-          if (device.get().getPushTimestamp() == 0 ||
-              System.currentTimeMillis() > device.get().getPushTimestamp() + TimeUnit.SECONDS.toMillis(10))
-          {
-            logger.info("APN Unregister timestamp matches!");
-            device.get().setApnId(null);
-            device.get().setVoipApnId(null);
-            device.get().setFetchesMessages(false);
-            accountsManager.update(account.get());
-          }
-        }
-      }
+    if (!account.isPresent()) {
+      logger.info("No account found: " + number);
+      return;
     }
+
+    Optional<Device> device = account.get().getDevice(deviceId);
+
+    if (!device.isPresent()) {
+      logger.info("No device found: " + number);
+      return;
+    }
+
+    if (!registrationId.equals(device.get().getApnId()) &&
+        !registrationId.equals(device.get().getVoipApnId()))
+    {
+      logger.info("Registration ID does not match: " + registrationId + ", " + device.get().getApnId() + ", " + device.get().getVoipApnId());
+      return;
+    }
+
+    logger.info("APN Unregister APN ID matches! " + number + ", " + deviceId);
+
+    long tokenTimestamp = device.get().getPushTimestamp();
+
+    if (tokenTimestamp != 0 && System.currentTimeMillis() < tokenTimestamp + TimeUnit.SECONDS.toMillis(10))
+    {
+      logger.info("APN Unregister push timestamp is more recent: " + tokenTimestamp + ", " + number);
+      return;
+    }
+
+    logger.info("APN Unregister timestamp matches!");
+    device.get().setApnId(null);
+    device.get().setVoipApnId(null);
+    device.get().setFetchesMessages(false);
+    accountsManager.update(account.get());
   }
 }
