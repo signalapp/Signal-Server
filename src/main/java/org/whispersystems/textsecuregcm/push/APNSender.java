@@ -141,6 +141,7 @@ public class APNSender implements Managed {
           {
             logger.info("APN Unregister timestamp matches!");
             device.get().setApnId(null);
+            device.get().setVoipApnId(null);
             device.get().setFetchesMessages(false);
             accountsManager.update(account.get());
           }
