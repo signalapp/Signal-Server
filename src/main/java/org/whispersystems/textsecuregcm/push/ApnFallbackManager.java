@@ -64,7 +64,7 @@ public class ApnFallbackManager implements Managed, Runnable, DispatchChannel {
     }
   }
 
-  private void cancel(WebsocketAddress address) {
+  public void cancel(WebsocketAddress address) {
     ApnFallbackTask task = taskQueue.remove(address);
 
     if (task != null) {

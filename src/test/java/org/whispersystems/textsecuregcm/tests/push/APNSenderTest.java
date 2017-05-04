@@ -12,6 +12,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.push.APNSender;
+import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.ApnMessage;
 import org.whispersystems.textsecuregcm.push.RetryingApnsClient;
 import org.whispersystems.textsecuregcm.push.RetryingApnsClient.ApnResult;
@@ -19,6 +20,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.SynchronousExecutorService;
+import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
@@ -35,8 +37,9 @@ public class APNSenderTest {
 
   private final AccountsManager accountsManager = mock(AccountsManager.class);
 
-  private final Account destinationAccount = mock(Account.class);
-  private final Device  destinationDevice  = mock(Device.class );
+  private final Account            destinationAccount = mock(Account.class);
+  private final Device             destinationDevice  = mock(Device.class);
+  private final ApnFallbackManager fallbackManager    = mock(ApnFallbackManager.class);
 
   private final DefaultEventExecutor executor = new DefaultEventExecutor();
 
@@ -64,6 +67,7 @@ public class APNSenderTest {
     ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", true, 30);
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
 
+    apnSender.setApnFallbackManager(fallbackManager);
     ListenableFuture<ApnResult> sendFuture = apnSender.sendMessage(message);
     ApnResult apnResult = sendFuture.get();
 
@@ -80,6 +84,7 @@ public class APNSenderTest {
 
     verifyNoMoreInteractions(apnsClient);
     verifyNoMoreInteractions(accountsManager);
+    verifyNoMoreInteractions(fallbackManager);
   }
 
   @Test
@@ -98,6 +103,7 @@ public class APNSenderTest {
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
     ApnMessage message = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", false, 30);
     APNSender apnSender = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
+    apnSender.setApnFallbackManager(fallbackManager);
 
     ListenableFuture<ApnResult> sendFuture = apnSender.sendMessage(message);
     ApnResult apnResult = sendFuture.get();
@@ -115,6 +121,7 @@ public class APNSenderTest {
 
     verifyNoMoreInteractions(apnsClient);
     verifyNoMoreInteractions(accountsManager);
+    verifyNoMoreInteractions(fallbackManager);
   }
 
   @Test
@@ -134,6 +141,7 @@ public class APNSenderTest {
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
     ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", true, 30);
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
+    apnSender.setApnFallbackManager(fallbackManager);
 
     when(destinationDevice.getApnId()).thenReturn(DESTINATION_APN_ID);
     when(destinationDevice.getPushTimestamp()).thenReturn(System.currentTimeMillis() - TimeUnit.SECONDS.toMillis(11));
@@ -162,8 +170,10 @@ public class APNSenderTest {
     verify(destinationDevice, times(1)).setVoipApnId(eq((String)null));
     verify(destinationDevice, times(1)).setFetchesMessages(eq(false));
     verify(accountsManager, times(1)).update(eq(destinationAccount));
+    verify(fallbackManager, times(1)).cancel(eq(new WebsocketAddress(DESTINATION_NUMBER, 1)));
 
     verifyNoMoreInteractions(accountsManager);
+    verifyNoMoreInteractions(fallbackManager);
   }
 
   @Test
@@ -183,6 +193,7 @@ public class APNSenderTest {
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
     ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", true, 30);
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
+    apnSender.setApnFallbackManager(fallbackManager);
 
     when(destinationDevice.getApnId()).thenReturn("baz");
     when(destinationDevice.getVoipApnId()).thenReturn(DESTINATION_APN_ID);
@@ -213,8 +224,10 @@ public class APNSenderTest {
     verify(destinationDevice, times(1)).setVoipApnId(eq((String)null));
     verify(destinationDevice, times(1)).setFetchesMessages(eq(false));
     verify(accountsManager, times(1)).update(eq(destinationAccount));
+    verify(fallbackManager, times(1)).cancel(eq(new WebsocketAddress(DESTINATION_NUMBER, 1)));
 
     verifyNoMoreInteractions(accountsManager);
+    verifyNoMoreInteractions(fallbackManager);
   }
 
   @Test
@@ -234,6 +247,7 @@ public class APNSenderTest {
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
     ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", true, 30);
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
+    apnSender.setApnFallbackManager(fallbackManager);
 
     when(destinationDevice.getApnId()).thenReturn(DESTINATION_APN_ID);
     when(destinationDevice.getPushTimestamp()).thenReturn(System.currentTimeMillis());
@@ -262,6 +276,7 @@ public class APNSenderTest {
     verifyNoMoreInteractions(destinationDevice);
     verifyNoMoreInteractions(destinationAccount);
     verifyNoMoreInteractions(accountsManager);
+    verifyNoMoreInteractions(fallbackManager);
   }
 
   @Test
@@ -281,6 +296,7 @@ public class APNSenderTest {
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
     ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", true, 30);
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
+    apnSender.setApnFallbackManager(fallbackManager);
 
     when(destinationDevice.getApnId()).thenReturn("baz");
     when(destinationDevice.getPushTimestamp()).thenReturn(System.currentTimeMillis() - TimeUnit.SECONDS.toMillis(12));
@@ -309,6 +325,7 @@ public class APNSenderTest {
     verifyNoMoreInteractions(destinationDevice);
     verifyNoMoreInteractions(destinationAccount);
     verifyNoMoreInteractions(accountsManager);
+    verifyNoMoreInteractions(fallbackManager);
   }
 
   @Test
@@ -328,6 +345,7 @@ public class APNSenderTest {
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
     ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", true, 30);
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
+    apnSender.setApnFallbackManager(fallbackManager);
 
     ListenableFuture<ApnResult> sendFuture = apnSender.sendMessage(message);
     ApnResult apnResult = sendFuture.get();
@@ -344,6 +362,7 @@ public class APNSenderTest {
 
     verifyNoMoreInteractions(apnsClient);
     verifyNoMoreInteractions(accountsManager);
+    verifyNoMoreInteractions(fallbackManager);
   }
 
   @Test
@@ -367,6 +386,7 @@ public class APNSenderTest {
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
     ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", true, 30);
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
+    apnSender.setApnFallbackManager(fallbackManager);
 
     ListenableFuture<ApnResult> sendFuture = apnSender.sendMessage(message);
 
@@ -397,6 +417,7 @@ public class APNSenderTest {
 
     verifyNoMoreInteractions(apnsClient);
     verifyNoMoreInteractions(accountsManager);
+    verifyNoMoreInteractions(fallbackManager);
   }
 
   @Test
@@ -415,6 +436,7 @@ public class APNSenderTest {
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 3);
     ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", true, 30);
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
+    apnSender.setApnFallbackManager(fallbackManager);
 
     ListenableFuture<ApnResult> sendFuture = apnSender.sendMessage(message);
 
@@ -435,6 +457,7 @@ public class APNSenderTest {
 
     verifyNoMoreInteractions(apnsClient);
     verifyNoMoreInteractions(accountsManager);
+    verifyNoMoreInteractions(fallbackManager);
   }
 
 }

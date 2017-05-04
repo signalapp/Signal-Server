@@ -21,9 +21,6 @@ import com.google.common.base.Optional;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.relayrides.pushy.apns.ApnsClient;
-import com.relayrides.pushy.apns.ApnsClientBuilder;
-import org.bouncycastle.openssl.PEMReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
@@ -31,18 +28,13 @@ import org.whispersystems.textsecuregcm.push.RetryingApnsClient.ApnResult;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
 import javax.annotation.Nullable;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.security.KeyPair;
-import java.security.PrivateKey;
-import java.security.cert.X509Certificate;
 import java.util.Date;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import io.dropwizard.lifecycle.Managed;
@@ -51,7 +43,8 @@ public class APNSender implements Managed {
 
   private final Logger logger = LoggerFactory.getLogger(APNSender.class);
 
-  private ExecutorService executor;
+  private ExecutorService    executor;
+  private ApnFallbackManager fallbackManager;
 
   private final AccountsManager    accountsManager;
   private final String             bundleId;
@@ -86,8 +79,7 @@ public class APNSender implements Managed {
     if (message.isVoip()) {
       topic = topic + ".voip";
     }
-
-
+    
     ListenableFuture<ApnResult> future = apnsClient.send(message.getApnId(), topic,
                                                          message.getMessage(),
                                                          new Date(message.getExpirationTime()));
@@ -100,7 +92,7 @@ public class APNSender implements Managed {
         } else if (result.getStatus() == ApnResult.Status.NO_SUCH_USER) {
           handleUnregisteredUser(message.getApnId(), message.getNumber(), message.getDeviceId());
         } else if (result.getStatus() == ApnResult.Status.GENERIC_FAILURE) {
-          logger.warn("*** Got APN generic failure: " + result.getReason());
+          logger.warn("*** Got APN generic failure: " + result.getReason() + ", " + message.getNumber());
         }
       }
 
@@ -123,6 +115,10 @@ public class APNSender implements Managed {
   public void stop() throws Exception {
     this.executor.shutdown();
     this.apnsClient.disconnect();
+  }
+
+  public void setApnFallbackManager(ApnFallbackManager fallbackManager) {
+    this.fallbackManager = fallbackManager;
   }
 
   private void handleUnregisteredUser(String registrationId, String number, int deviceId) {
@@ -164,5 +160,9 @@ public class APNSender implements Managed {
     device.get().setVoipApnId(null);
     device.get().setFetchesMessages(false);
     accountsManager.update(account.get());
+
+    if (fallbackManager != null) {
+      fallbackManager.cancel(new WebsocketAddress(number, deviceId));
+    }
   }
 }

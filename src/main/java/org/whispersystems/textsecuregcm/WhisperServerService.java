@@ -188,6 +188,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     TurnTokenGenerator       turnTokenGenerator  = new TurnTokenGenerator(config.getTurnConfiguration());
     Optional<byte[]>         authorizationKey    = config.getRedphoneConfiguration().getAuthorizationKey();
 
+    apnSender.setApnFallbackManager(apnFallbackManager);
     environment.lifecycle().manage(apnFallbackManager);
     environment.lifecycle().manage(pubSubManager);
     environment.lifecycle().manage(pushSender);
