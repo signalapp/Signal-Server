@@ -1,5 +1,8 @@
 package org.whispersystems.textsecuregcm.push;
 
+import com.codahale.metrics.Metric;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -13,11 +16,13 @@ import com.relayrides.pushy.apns.ApnsServerException;
 import com.relayrides.pushy.apns.ClientNotConnectedException;
 import com.relayrides.pushy.apns.DeliveryPriority;
 import com.relayrides.pushy.apns.PushNotificationResponse;
+import com.relayrides.pushy.apns.metrics.dropwizard.DropwizardApnsClientMetricsListener;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 import org.bouncycastle.openssl.PEMReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.util.Constants;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -26,10 +31,12 @@ import java.security.KeyPair;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.util.Date;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.codahale.metrics.MetricRegistry.name;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
@@ -43,24 +50,36 @@ public class RetryingApnsClient {
   RetryingApnsClient(String apnCertificate, String apnKey, int retryCount)
       throws IOException
   {
-    this(new ApnsClientBuilder().setClientCredentials(initializeCertificate(apnCertificate),
-                                                      initializePrivateKey(apnKey), null)
-                                .build(),
-         retryCount);
+    MetricRegistry                      metricRegistry  = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+    DropwizardApnsClientMetricsListener metricsListener = new DropwizardApnsClientMetricsListener();
+
+    for (Map.Entry<String, Metric> entry : metricsListener.getMetrics().entrySet()) {
+      metricRegistry.register(name(getClass(), entry.getKey()), entry.getValue());
+    }
+
+    this.apnsClient = new ApnsClientBuilder().setClientCredentials(initializeCertificate(apnCertificate),
+                                                                   initializePrivateKey(apnKey), null)
+                                             .setMetricsListener(metricsListener)
+                                             .build();
+    this.retryExecutor = initializeExecutor(retryCount);
   }
 
   @VisibleForTesting
   public RetryingApnsClient(ApnsClient apnsClient, int retryCount) {
+    this.apnsClient    = apnsClient;
+    this.retryExecutor = initializeExecutor(retryCount);
+  }
+
+  private static RetryExecutor initializeExecutor(int retryCount) {
     ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
 
-    this.apnsClient = apnsClient;
-    this.retryExecutor = new AsyncRetryExecutor(executorService).retryOn(ClientNotConnectedException.class)
-                                                                .retryOn(InterruptedException.class)
-                                                                .retryOn(ApnsServerException.class)
-                                                                .withExponentialBackoff(100, 2.0)
-                                                                .withUniformJitter()
-                                                                .withMaxDelay(4000)
-                                                                .withMaxRetries(retryCount);
+    return new AsyncRetryExecutor(executorService).retryOn(ClientNotConnectedException.class)
+                                                  .retryOn(InterruptedException.class)
+                                                  .retryOn(ApnsServerException.class)
+                                                  .withExponentialBackoff(100, 2.0)
+                                                  .withUniformJitter()
+                                                  .withMaxDelay(4000)
+                                                  .withMaxRetries(retryCount);
   }
 
   ListenableFuture<ApnResult> send(final String apnId, final String topic, final String payload, final Date expiration) {

@@ -110,6 +110,11 @@
             <version>0.9.3</version>
         </dependency>
         <dependency>
+            <groupId>com.relayrides</groupId>
+            <artifactId>pushy-dropwizard-metrics-listener</artifactId>
+            <version>0.9.3</version>
+        </dependency>
+        <dependency>
             <groupId>org.whispersystems</groupId>
             <artifactId>gcm-sender-async</artifactId>
             <version>0.1.4</version>
