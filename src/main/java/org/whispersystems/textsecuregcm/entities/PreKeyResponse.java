@@ -16,49 +16,46 @@
  */
 package org.whispersystems.textsecuregcm.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 
-public class PreKeyResponseItemV2 {
+import java.util.List;
+
+public class PreKeyResponse {
 
   @JsonProperty
-  private long deviceId;
+  private String identityKey;
 
   @JsonProperty
-  private int registrationId;
+  private List<PreKeyResponseItem> devices;
 
-  @JsonProperty
-  private SignedPreKey signedPreKey;
+  public PreKeyResponse() {}
 
-  @JsonProperty
-  private PreKeyV2 preKey;
-
-  public PreKeyResponseItemV2() {}
-
-  public PreKeyResponseItemV2(long deviceId, int registrationId, SignedPreKey signedPreKey, PreKeyV2 preKey) {
-    this.deviceId       = deviceId;
-    this.registrationId = registrationId;
-    this.signedPreKey   = signedPreKey;
-    this.preKey         = preKey;
+  public PreKeyResponse(String identityKey, List<PreKeyResponseItem> devices) {
+    this.identityKey = identityKey;
+    this.devices     = devices;
   }
 
   @VisibleForTesting
-  public SignedPreKey getSignedPreKey() {
-    return signedPreKey;
+  public String getIdentityKey() {
+    return identityKey;
   }
 
   @VisibleForTesting
-  public PreKeyV2 getPreKey() {
-    return preKey;
+  @JsonIgnore
+  public PreKeyResponseItem getDevice(int deviceId) {
+    for (PreKeyResponseItem device : devices) {
+      if (device.getDeviceId() == deviceId) return device;
+    }
+
+    return null;
   }
 
   @VisibleForTesting
-  public int getRegistrationId() {
-    return registrationId;
+  @JsonIgnore
+  public int getDevicesCount() {
+    return devices.size();
   }
 
-  @VisibleForTesting
-  public long getDeviceId() {
-    return deviceId;
-  }
 }

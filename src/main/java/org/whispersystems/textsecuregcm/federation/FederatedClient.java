@@ -34,8 +34,7 @@ import org.whispersystems.textsecuregcm.entities.AttachmentUri;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.entities.ClientContacts;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
-import org.whispersystems.textsecuregcm.entities.PreKeyResponseV1;
-import org.whispersystems.textsecuregcm.entities.PreKeyResponseV2;
+import org.whispersystems.textsecuregcm.entities.PreKeyResponse;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
@@ -106,28 +105,13 @@ public class FederatedClient {
     }
   }
 
-  public Optional<PreKeyResponseV1> getKeysV1(String destination, String device) {
+  public Optional<PreKeyResponse> getKeysV2(String destination, String device) {
     try {
-      PreKeyResponseV1 response = client.target(peer.getUrl())
-                                        .path(String.format(PREKEY_PATH_DEVICE_V1, destination, device))
-                                        .request()
-                                        .accept(MediaType.APPLICATION_JSON_TYPE)
-                                        .get(PreKeyResponseV1.class);
-
-      return Optional.of(response);
-    } catch (ProcessingException e) {
-      logger.warn("PreKey", e);
-      return Optional.absent();
-    }
-  }
-
-  public Optional<PreKeyResponseV2> getKeysV2(String destination, String device) {
-    try {
-      PreKeyResponseV2 response = client.target(peer.getUrl())
-                                        .path(String.format(PREKEY_PATH_DEVICE_V2, destination, device))
-                                        .request()
-                                        .accept(MediaType.APPLICATION_JSON_TYPE)
-                                        .get(PreKeyResponseV2.class);
+      PreKeyResponse response = client.target(peer.getUrl())
+                                      .path(String.format(PREKEY_PATH_DEVICE_V2, destination, device))
+                                      .request()
+                                      .accept(MediaType.APPLICATION_JSON_TYPE)
+                                      .get(PreKeyResponse.class);
 
       return Optional.of(response);
     } catch (ProcessingException e) {

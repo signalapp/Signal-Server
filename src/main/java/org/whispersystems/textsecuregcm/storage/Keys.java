@@ -30,7 +30,7 @@ import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 import org.skife.jdbi.v2.sqlobject.Transaction;
 import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
-import org.whispersystems.textsecuregcm.entities.PreKeyBase;
+import org.whispersystems.textsecuregcm.entities.PreKey;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
@@ -66,15 +66,12 @@ public abstract class Keys {
   public abstract int getCount(@Bind("number") String number, @Bind("device_id") long deviceId);
 
   @Transaction(TransactionIsolationLevel.SERIALIZABLE)
-  public void store(String number, long deviceId, List<? extends PreKeyBase> keys, PreKeyBase lastResortKey) {
+  public void store(String number, long deviceId, List<PreKey> keys) {
     List<KeyRecord> records = new LinkedList<>();
 
-    for (PreKeyBase key : keys) {
+    for (PreKey key : keys) {
       records.add(new KeyRecord(0, number, deviceId, key.getKeyId(), key.getPublicKey(), false));
     }
-
-    records.add(new KeyRecord(0, number, deviceId, lastResortKey.getKeyId(),
-                              lastResortKey.getPublicKey(), true));
 
     removeKeys(number, deviceId);
     append(records);

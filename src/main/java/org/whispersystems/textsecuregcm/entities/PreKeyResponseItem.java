@@ -19,58 +19,46 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 
-import org.hibernate.validator.constraints.NotEmpty;
-
-import javax.validation.Valid;
-import javax.validation.constraints.NotNull;
-import java.util.List;
-
-public class PreKeyStateV2 {
+public class PreKeyResponseItem {
 
   @JsonProperty
-  @NotNull
-  @Valid
-  private List<PreKeyV2> preKeys;
+  private long deviceId;
 
   @JsonProperty
-  @NotNull
-  @Valid
+  private int registrationId;
+
+  @JsonProperty
   private SignedPreKey signedPreKey;
 
   @JsonProperty
-  @NotNull
-  @Valid
-  private PreKeyV2 lastResortKey;
+  private PreKey preKey;
 
-  @JsonProperty
-  @NotEmpty
-  private String identityKey;
+  public PreKeyResponseItem() {}
 
-  public PreKeyStateV2() {}
+  public PreKeyResponseItem(long deviceId, int registrationId, SignedPreKey signedPreKey, PreKey preKey) {
+    this.deviceId       = deviceId;
+    this.registrationId = registrationId;
+    this.signedPreKey   = signedPreKey;
+    this.preKey         = preKey;
+  }
 
   @VisibleForTesting
-  public PreKeyStateV2(String identityKey, SignedPreKey signedPreKey,
-                       List<PreKeyV2> keys, PreKeyV2 lastResortKey)
-  {
-    this.identityKey   = identityKey;
-    this.signedPreKey  = signedPreKey;
-    this.preKeys       = keys;
-    this.lastResortKey = lastResortKey;
-  }
-
-  public List<PreKeyV2> getPreKeys() {
-    return preKeys;
-  }
-
   public SignedPreKey getSignedPreKey() {
     return signedPreKey;
   }
 
-  public String getIdentityKey() {
-    return identityKey;
+  @VisibleForTesting
+  public PreKey getPreKey() {
+    return preKey;
   }
 
-  public PreKeyV2 getLastResortKey() {
-    return lastResortKey;
+  @VisibleForTesting
+  public int getRegistrationId() {
+    return registrationId;
+  }
+
+  @VisibleForTesting
+  public long getDeviceId() {
+    return deviceId;
   }
 }

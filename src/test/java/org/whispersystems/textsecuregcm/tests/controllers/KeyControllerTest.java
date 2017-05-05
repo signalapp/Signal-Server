@@ -7,11 +7,11 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.dropwizard.simpleauth.AuthValueFactoryProvider;
-import org.whispersystems.textsecuregcm.controllers.KeysControllerV2;
+import org.whispersystems.textsecuregcm.controllers.KeysController;
+import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.entities.PreKeyCount;
-import org.whispersystems.textsecuregcm.entities.PreKeyResponseV2;
-import org.whispersystems.textsecuregcm.entities.PreKeyStateV2;
-import org.whispersystems.textsecuregcm.entities.PreKeyV2;
+import org.whispersystems.textsecuregcm.entities.PreKeyResponse;
+import org.whispersystems.textsecuregcm.entities.PreKeyState;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -65,7 +65,7 @@ public class KeyControllerTest {
                                                             .addProvider(AuthHelper.getAuthFilter())
                                                             .addProvider(new AuthValueFactoryProvider.Binder())
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-                                                            .addResource(new KeysControllerV2(rateLimiters, keys, accounts, null))
+                                                            .addResource(new KeysController(rateLimiters, keys, accounts, null))
                                                             .build();
 
   @Before
@@ -175,11 +175,11 @@ public class KeyControllerTest {
 
   @Test
   public void validSingleRequestTestV2() throws Exception {
-    PreKeyResponseV2 result = resources.getJerseyTest()
-                                       .target(String.format("/v2/keys/%s/1", EXISTS_NUMBER))
-                                       .request()
-                                       .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-                                       .get(PreKeyResponseV2.class);
+    PreKeyResponse result = resources.getJerseyTest()
+                                     .target(String.format("/v2/keys/%s/1", EXISTS_NUMBER))
+                                     .request()
+                                     .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                     .get(PreKeyResponse.class);
 
     assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey());
     assertThat(result.getDevicesCount()).isEqualTo(1);
@@ -193,17 +193,17 @@ public class KeyControllerTest {
 
   @Test
   public void validMultiRequestTestV2() throws Exception {
-    PreKeyResponseV2 results = resources.getJerseyTest()
-                                        .target(String.format("/v2/keys/%s/*", EXISTS_NUMBER))
-                                        .request()
-                                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-                                        .get(PreKeyResponseV2.class);
+    PreKeyResponse results = resources.getJerseyTest()
+                                      .target(String.format("/v2/keys/%s/*", EXISTS_NUMBER))
+                                      .request()
+                                      .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                      .get(PreKeyResponse.class);
 
     assertThat(results.getDevicesCount()).isEqualTo(3);
     assertThat(results.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey());
 
-    PreKeyV2 signedPreKey   = results.getDevice(1).getSignedPreKey();
-    PreKeyV2 preKey         = results.getDevice(1).getPreKey();
+    PreKey signedPreKey   = results.getDevice(1).getSignedPreKey();
+    PreKey preKey         = results.getDevice(1).getPreKey();
     long     registrationId = results.getDevice(1).getRegistrationId();
     long     deviceId       = results.getDevice(1).getDeviceId();
 
@@ -285,16 +285,16 @@ public class KeyControllerTest {
 
   @Test
   public void putKeysTestV2() throws Exception {
-    final PreKeyV2     preKey        = new PreKeyV2(31337, "foobar");
-    final PreKeyV2     lastResortKey = new PreKeyV2(31339, "barbar");
+    final PreKey preKey        = new PreKey(31337, "foobar");
+    final PreKey lastResortKey = new PreKey(31339, "barbar");
     final SignedPreKey signedPreKey  = new SignedPreKey(31338, "foobaz", "myvalidsig");
     final String       identityKey   = "barbar";
 
-    List<PreKeyV2> preKeys = new LinkedList<PreKeyV2>() {{
+    List<PreKey> preKeys = new LinkedList<PreKey>() {{
       add(preKey);
     }};
 
-    PreKeyStateV2 preKeyState = new PreKeyStateV2(identityKey, signedPreKey, preKeys, lastResortKey);
+    PreKeyState preKeyState = new PreKeyState(identityKey, signedPreKey, preKeys);
 
     Response response =
         resources.getJerseyTest()
@@ -306,9 +306,9 @@ public class KeyControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
 
     ArgumentCaptor<List> listCaptor = ArgumentCaptor.forClass(List.class);
-    verify(keys).store(eq(AuthHelper.VALID_NUMBER), eq(1L), listCaptor.capture(), eq(lastResortKey));
+    verify(keys).store(eq(AuthHelper.VALID_NUMBER), eq(1L), listCaptor.capture());
 
-    List<PreKeyV2> capturedList = listCaptor.getValue();
+    List<PreKey> capturedList = listCaptor.getValue();
     assertThat(capturedList.size() == 1);
     assertThat(capturedList.get(0).getKeyId() == 31337);
     assertThat(capturedList.get(0).getPublicKey().equals("foobar"));

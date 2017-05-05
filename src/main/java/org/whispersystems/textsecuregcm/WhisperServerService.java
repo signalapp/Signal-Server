@@ -39,7 +39,7 @@ import org.whispersystems.textsecuregcm.controllers.DirectoryController;
 import org.whispersystems.textsecuregcm.controllers.FederationControllerV1;
 import org.whispersystems.textsecuregcm.controllers.FederationControllerV2;
 import org.whispersystems.textsecuregcm.controllers.KeepAliveController;
-import org.whispersystems.textsecuregcm.controllers.KeysControllerV2;
+import org.whispersystems.textsecuregcm.controllers.KeysController;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.controllers.ProvisioningController;
 import org.whispersystems.textsecuregcm.controllers.ReceiptController;
@@ -194,7 +194,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(pushSender);
 
     AttachmentController attachmentController = new AttachmentController(rateLimiters, federatedClientManager, urlSigner);
-    KeysControllerV2     keysControllerV2     = new KeysControllerV2(rateLimiters, keys, accountsManager, federatedClientManager);
+    KeysController       keysController       = new KeysController(rateLimiters, keys, accountsManager, federatedClientManager);
     MessageController    messageController    = new MessageController(rateLimiters, pushSender, receiptSender, accountsManager, messagesManager, federatedClientManager);
 
     environment.jersey().register(new AuthDynamicFeature(new BasicCredentialAuthFilter.Builder<Account>()
@@ -211,11 +211,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(new DeviceController(pendingDevicesManager, accountsManager, messagesManager, rateLimiters, config.getMaxDevices()));
     environment.jersey().register(new DirectoryController(rateLimiters, directory));
     environment.jersey().register(new FederationControllerV1(accountsManager, attachmentController, messageController));
-    environment.jersey().register(new FederationControllerV2(accountsManager, attachmentController, messageController, keysControllerV2));
+    environment.jersey().register(new FederationControllerV2(accountsManager, attachmentController, messageController, keysController));
     environment.jersey().register(new ReceiptController(receiptSender));
     environment.jersey().register(new ProvisioningController(rateLimiters, pushSender));
     environment.jersey().register(attachmentController);
-    environment.jersey().register(keysControllerV2);
+    environment.jersey().register(keysController);
     environment.jersey().register(messageController);
 
     ///
