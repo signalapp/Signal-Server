@@ -155,14 +155,14 @@ public class APNSender implements Managed {
       return;
     }
 
-    logger.info("APN Unregister timestamp matches!");
-    device.get().setApnId(null);
-    device.get().setVoipApnId(null);
-    device.get().setFetchesMessages(false);
-    accountsManager.update(account.get());
+    logger.info("APN Unregister timestamp matches: " + device.get().getApnId() + ", " + device.get().getVoipApnId());
+//    device.get().setApnId(null);
+//    device.get().setVoipApnId(null);
+//    device.get().setFetchesMessages(false);
+//    accountsManager.update(account.get());
 
-    if (fallbackManager != null) {
-      fallbackManager.cancel(new WebsocketAddress(number, deviceId));
-    }
+//    if (fallbackManager != null) {
+//      fallbackManager.cancel(new WebsocketAddress(number, deviceId));
+//    }
   }
 }
