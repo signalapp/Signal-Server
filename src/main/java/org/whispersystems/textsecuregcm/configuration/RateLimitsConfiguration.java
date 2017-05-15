@@ -53,6 +53,9 @@ public class RateLimitsConfiguration {
   @JsonProperty
   private RateLimitConfiguration turnAllocations = new RateLimitConfiguration(60, 60);
 
+  @JsonProperty
+  private RateLimitConfiguration profile = new RateLimitConfiguration(4320, 3);
+
   public RateLimitConfiguration getAllocateDevice() {
     return allocateDevice;
   }
@@ -95,6 +98,10 @@ public class RateLimitsConfiguration {
 
   public RateLimitConfiguration getTurnAllocations() {
     return turnAllocations;
+  }
+
+  public RateLimitConfiguration getProfile() {
+    return profile;
   }
 
   public static class RateLimitConfiguration {

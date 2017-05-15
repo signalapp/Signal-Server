@@ -145,7 +145,11 @@ public class APNSender implements Managed {
       return;
     }
 
-    logger.info("APN Unregister APN ID matches! " + number + ", " + deviceId);
+    if (registrationId.equals(device.get().getApnId())) {
+      logger.info("APN Unregister APN ID matches! " + number + ", " + deviceId);
+    } else if (registrationId.equals(device.get().getVoipApnId())) {
+      logger.info("APN Unregister VoIP ID matches! " + number + ", " + deviceId);
+    }
 
     long tokenTimestamp = device.get().getPushTimestamp();
 
