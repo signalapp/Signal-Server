@@ -1,21 +1,44 @@
 Signal-Server
 =================
 
-Documentation
+Building
+--------
+
+On macOS
+
+```
+brew install cask java
+brew install maven
+mvn clean validate
+mvn compile test
+```
+
+Running
 -------------
 
-Looking for protocol documentation? Check out the website!
+* Dependent services
+  * Amazon S3
+  * Google Cloud Messages
+  * Apple Push Notifications
+  * Twilio
+  * Heroku
+* Running the server
+  * Configure your access tokens in `config/sample.yml`
+  * Push your branch to a Heroku account, it will launch via the `Procfile`
 
-https://whispersystems.org/docs/
+Developing
+----------
 
+Import project into Eclipse `mvn eclipse:eclipse`
+Debug errors about the missing gcm-server-repository on a legacy repo at 
+https://raw.github.com/whispersystems/maven/master/gcm-server/releases/
 
 Bug tracker
 -----------
 
-Have a bug? Please create an issue here on GitHub!
+Have a bug? Upstream doesn't accept issues so feel free to make a pull request!
 
-https://github.com/WhisperSystems/Signal-Server/issues
-
+https://github.com/WhisperSystems/Signal-Server/pulls
 
 Mailing list
 ------------
