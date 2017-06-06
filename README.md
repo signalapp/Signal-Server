@@ -17,14 +17,13 @@ Have a bug? Please create an issue here on GitHub!
 https://github.com/WhisperSystems/Signal-Server/issues
 
 
-Mailing list
+Support
 ------------
 
-Have a question? Ask on our mailing list!
+This software is not officially supported by Open Whisper Systems.
 
-whispersystems@lists.riseup.net
+However, you can use the [community forum](https://whispersystems.discoursehosting.net) to discuss any server related topics with other interested users.
 
-https://lists.riseup.net/www/info/whispersystems
 
 Current BitHub Payment Per Commit:
 =================
