@@ -30,9 +30,8 @@ public class Util {
     try {
       MessageDigest digest    = MessageDigest.getInstance("SHA1");
       byte[]        result    = digest.digest(number.getBytes());
-      byte[]        truncated = Util.truncate(result, 10);
+      return Util.truncate(result, 10);
 
-      return truncated;
     } catch (NoSuchAlgorithmException e) {
       throw new AssertionError(e);
     }
