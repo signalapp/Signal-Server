@@ -44,6 +44,6 @@ The form and manner of this distribution makes it eligible for export under the 
 License
 ---------------------
 
-Copyright 2013-2016 Open Whisper Systems
+Copyright 2013-2017 Open Whisper Systems
 
 Licensed under the AGPLv3: https://www.gnu.org/licenses/agpl-3.0.html
