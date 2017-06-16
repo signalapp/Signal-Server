@@ -14,7 +14,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.whispersystems.textsecuregcm.util;
+package org.whispersystems.textsecuregcm.s3;
 
 import com.amazonaws.HttpMethod;
 import com.amazonaws.auth.AWSCredentials;
@@ -23,7 +23,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
-import org.whispersystems.textsecuregcm.configuration.S3Configuration;
+import org.whispersystems.textsecuregcm.configuration.AttachmentsConfiguration;
 
 import java.net.URL;
 import java.util.Date;
@@ -35,9 +35,9 @@ public class UrlSigner {
   private final AWSCredentials credentials;
   private final String bucket;
 
-  public UrlSigner(S3Configuration config) {
+  public UrlSigner(AttachmentsConfiguration config) {
     this.credentials = new BasicAWSCredentials(config.getAccessKey(), config.getAccessSecret());
-    this.bucket      = config.getAttachmentsBucket();
+    this.bucket      = config.getBucket();
   }
 
   public URL getPreSignedUrl(long attachmentId, HttpMethod method) {

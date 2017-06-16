@@ -2,8 +2,8 @@ package org.whispersystems.textsecuregcm.tests.util;
 
 import com.amazonaws.HttpMethod;
 import org.junit.Test;
-import org.whispersystems.textsecuregcm.configuration.S3Configuration;
-import org.whispersystems.textsecuregcm.util.UrlSigner;
+import org.whispersystems.textsecuregcm.configuration.AttachmentsConfiguration;
+import org.whispersystems.textsecuregcm.s3.UrlSigner;
 
 import java.net.URL;
 
@@ -15,10 +15,10 @@ public class UrlSignerTest {
 
   @Test
   public void testTransferAcceleration() {
-    S3Configuration configuration = mock(S3Configuration.class);
+    AttachmentsConfiguration configuration = mock(AttachmentsConfiguration.class);
     when(configuration.getAccessKey()).thenReturn("foo");
     when(configuration.getAccessSecret()).thenReturn("bar");
-    when(configuration.getAttachmentsBucket()).thenReturn("attachments-test");
+    when(configuration.getBucket()).thenReturn("attachments-test");
 
     UrlSigner signer = new UrlSigner(configuration);
     URL url = signer.getPreSignedUrl(1234, HttpMethod.GET);

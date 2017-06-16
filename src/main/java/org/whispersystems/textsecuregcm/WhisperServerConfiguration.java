@@ -21,11 +21,12 @@ import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.FederationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
+import org.whispersystems.textsecuregcm.configuration.ProfilesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PushConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedPhoneConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisConfiguration;
-import org.whispersystems.textsecuregcm.configuration.S3Configuration;
+import org.whispersystems.textsecuregcm.configuration.AttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TestDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TurnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
@@ -57,7 +58,12 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
-  private S3Configuration s3;
+  private AttachmentsConfiguration attachments;
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private ProfilesConfiguration profiles;
 
   @NotNull
   @Valid
@@ -145,8 +151,8 @@ public class WhisperServerConfiguration extends Configuration {
     return httpClient;
   }
 
-  public S3Configuration getS3Configuration() {
-    return s3;
+  public AttachmentsConfiguration getAttachmentsConfiguration() {
+    return attachments;
   }
 
   public RedisConfiguration getCacheConfiguration() {
@@ -191,6 +197,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public ApnConfiguration getApnConfiguration() {
     return apn;
+  }
+
+  public ProfilesConfiguration getProfilesConfiguration() {
+    return profiles;
   }
 
   public Map<String, Integer> getTestDevices() {
