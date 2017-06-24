@@ -31,6 +31,32 @@ Current BitHub Payment Per Commit:
 ![Current Price](https://bithub.herokuapp.com/v1/status/payment/commit)
 
 
+This Repository
+-------------
+Signal Server is a dropwizard java application built with maven and
+deployed to Heroku with a Procfile.
+If you have maven and java 8 installed you should be able to do most any development.
+
+Development
+------------
+
+```
+mvn clean teat
+```
+
+You can use docker and alpine linux to test easily without installing maven locally
+
+```
+docker run -it --rm \
+       -v ~/.m2:/var/maven/.m2 \
+       -v "$PWD":/usr/src/mymaven -w /usr/src/mymaven \
+       -u 1000 \
+       -e MAVEN_CONFIG=/var/maven/.m2 \
+       maven:alpine \
+       mvn -Duser.home=/var/maven clean test
+```
+
+
 Cryptography Notice
 ------------
 
@@ -44,6 +70,6 @@ The form and manner of this distribution makes it eligible for export under the 
 License
 ---------------------
 
-Copyright 2013-2016 Open Whisper Systems
+Copyright 2013-2017 Open Whisper Systems
 
 Licensed under the AGPLv3: https://www.gnu.org/licenses/agpl-3.0.html
