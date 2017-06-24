@@ -142,7 +142,7 @@ public class KeyControllerTest {
                                           AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                                   .get(PreKeyCount.class);
 
-    assertThat(result.getCount() == 4);
+    assertThat(result.getCount()).isEqualTo(4);
 
     verify(keys).getCount(eq(AuthHelper.VALID_NUMBER), eq(1L));
   }
@@ -167,7 +167,7 @@ public class KeyControllerTest {
                                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                                        .put(Entity.entity(test, MediaType.APPLICATION_JSON_TYPE));
 
-    assertThat(response.getStatus() == 204);
+    assertThat(response.getStatus()).isEqualTo(204);
 
     verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(test));
     verify(accounts).update(eq(AuthHelper.VALID_ACCOUNT));
@@ -309,9 +309,9 @@ public class KeyControllerTest {
     verify(keys).store(eq(AuthHelper.VALID_NUMBER), eq(1L), listCaptor.capture());
 
     List<PreKey> capturedList = listCaptor.getValue();
-    assertThat(capturedList.size() == 1);
-    assertThat(capturedList.get(0).getKeyId() == 31337);
-    assertThat(capturedList.get(0).getPublicKey().equals("foobar"));
+    assertThat(capturedList.size()).isEqualTo(1);
+    assertThat(capturedList.get(0).getKeyId()).isEqualTo(31337);
+    assertThat(capturedList.get(0).getPublicKey()).isEqualTo("foobar");
 
     verify(AuthHelper.VALID_ACCOUNT).setIdentityKey(eq("barbar"));
     verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(signedPreKey));
