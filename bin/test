@@ -1,0 +1,9 @@
+#!/bin/sh
+set -exu
+docker run -it --rm \
+       -v ~/.m2:/var/maven/.m2 \
+       -v "$PWD":/usr/src/mymaven -w /usr/src/mymaven \
+       -u 1000 \
+       -e MAVEN_CONFIG=/var/maven/.m2 \
+       maven:alpine \
+       mvn -Duser.home=/var/maven clean test
