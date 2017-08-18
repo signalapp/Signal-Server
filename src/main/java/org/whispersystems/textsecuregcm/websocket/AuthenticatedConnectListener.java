@@ -3,6 +3,7 @@ package org.whispersystems.textsecuregcm.websocket;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
+import com.google.protobuf.ByteString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.push.PushSender;
@@ -17,6 +18,8 @@ import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 import org.whispersystems.websocket.setup.WebSocketConnectListener;
+
+import java.security.SecureRandom;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
@@ -45,16 +48,21 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
   @Override
   public void onWebSocketConnect(WebSocketSessionContext context) {
-    final Account                 account    = context.getAuthenticated(Account.class);
-    final Device                  device     = account.getAuthenticatedDevice().get();
-    final Timer.Context           timer      = durationTimer.time();
-    final WebsocketAddress        address    = new WebsocketAddress(account.getNumber(), device.getId());
-    final WebSocketConnectionInfo info       = new WebSocketConnectionInfo(address);
-    final WebSocketConnection     connection = new WebSocketConnection(pushSender, receiptSender,
-                                                                       messagesManager, account, device,
-                                                                       context.getClient());
+    final Account                 account        = context.getAuthenticated(Account.class);
+    final Device                  device         = account.getAuthenticatedDevice().get();
+    final String                  connectionId   = String.valueOf(new SecureRandom().nextLong());
+    final Timer.Context           timer          = durationTimer.time();
+    final WebsocketAddress        address        = new WebsocketAddress(account.getNumber(), device.getId());
+    final WebSocketConnectionInfo info           = new WebSocketConnectionInfo(address);
+    final WebSocketConnection     connection     = new WebSocketConnection(pushSender, receiptSender,
+                                                                         messagesManager, account, device,
+                                                                         context.getClient(), connectionId);
+    final PubSubMessage           connectMessage = PubSubMessage.newBuilder().setType(PubSubMessage.Type.CONNECTED)
+                                                                .setContent(ByteString.copyFrom(connectionId.getBytes()))
+                                                                .build();
 
-    pubSubManager.publish(info, PubSubMessage.newBuilder().setType(PubSubMessage.Type.CONNECTED).build());
+    pubSubManager.publish(info, connectMessage);
+    pubSubManager.publish(address, connectMessage);
     pubSubManager.subscribe(address, connection);
 
     context.addListener(new WebSocketSessionContext.WebSocketEventListener() {

@@ -143,7 +143,7 @@ public class WebSocketConnectionTest {
 
     WebsocketAddress websocketAddress = new WebsocketAddress(account.getNumber(), device.getId());
     WebSocketConnection connection = new WebSocketConnection(pushSender, receiptSender, storedMessages,
-                                                             account, device, client);
+                                                             account, device, client, "someid");
 
     connection.onDispatchSubscribed(websocketAddress.serialize());
     verify(client, times(3)).sendRequest(eq("PUT"), eq("/api/v1/message"), ArgumentMatchers.nullable(List.class), ArgumentMatchers.<Optional<byte[]>>any());
@@ -227,7 +227,7 @@ public class WebSocketConnectionTest {
 
     WebsocketAddress websocketAddress = new WebsocketAddress(account.getNumber(), device.getId());
     WebSocketConnection connection = new WebSocketConnection(pushSender, receiptSender, storedMessages,
-                                                             account, device, client);
+                                                             account, device, client, "anotherid");
 
     connection.onDispatchSubscribed(websocketAddress.serialize());
     connection.onDispatchMessage(websocketAddress.serialize(), PubSubProtos.PubSubMessage.newBuilder()
@@ -333,7 +333,7 @@ public class WebSocketConnectionTest {
 
     WebsocketAddress websocketAddress = new WebsocketAddress(account.getNumber(), device.getId());
     WebSocketConnection connection = new WebSocketConnection(pushSender, receiptSender, storedMessages,
-                                                             account, device, client);
+                                                             account, device, client, "onemoreid");
 
     connection.onDispatchSubscribed(websocketAddress.serialize());
 
