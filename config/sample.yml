@@ -36,10 +36,16 @@ messageStore: # Postgresql database configuration for message store
   password:
   url:
 
-s3: # AWS S3 configuration
+attachments: # AWS S3 configuration
   accessKey:
   accessSecret:
-  attachmentsBucket:
+  bucket:
+
+profiles: # AWS S3 configuration
+  accessKey:
+  accessSecret:
+  bucket:
+  region:
 
 database: # Postgresql database configuration
   driverClass: org.postgresql.Driver
