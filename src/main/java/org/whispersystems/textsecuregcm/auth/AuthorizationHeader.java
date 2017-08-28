@@ -17,6 +17,7 @@
 package org.whispersystems.textsecuregcm.auth;
 
 
+import com.google.common.base.CharMatcher;
 import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -35,6 +36,11 @@ public class AuthorizationHeader {
   }
 
   public static AuthorizationHeader fromUserAndPassword(String user, String password) throws InvalidAuthorizationHeaderException {
+    if (!CharMatcher.ASCII.matchesAllOf(password)) {
+      throw new InvalidAuthorizationHeaderException(
+        "Non-ASCII character in password");
+    }
+
     try {
       String[] numberAndId = user.split("\\.");
       return new AuthorizationHeader(numberAndId[0],

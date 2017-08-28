@@ -227,6 +227,21 @@ public class AccountControllerTest {
     verifyNoMoreInteractions(accountsManager);
   }
 
+  @Test
+  public void testVerifyWithBadPassword() throws Exception {
+    String password = "☺";
+    ClientResponse response =
+        resources.client().resource(String.format("/v1/accounts/code/%s", "1234"))
+            .header("Authorization", AuthHelper.getAuthHeader(SENDER, password))
+            .entity(new AccountAttributes("keykeykeykey", false, false, 2222))
+            .type(MediaType.APPLICATION_JSON_TYPE)
+            .put(ClientResponse.class);
+
+    assertThat(response.getStatus()).isEqualTo(401);
+
+    verifyNoMoreInteractions(accountsManager);
+  }
+
   private static byte[] decodeHex(String hex) {
     try {
       return Hex.decodeHex(hex.toCharArray());
