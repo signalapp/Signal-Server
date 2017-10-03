@@ -21,10 +21,22 @@ public class UrlSignerTest {
     when(configuration.getBucket()).thenReturn("attachments-test");
 
     UrlSigner signer = new UrlSigner(configuration);
-    URL url = signer.getPreSignedUrl(1234, HttpMethod.GET);
+    URL url = signer.getPreSignedUrl(1234, HttpMethod.GET, false);
 
-    System.out.println("The URL: " + url);
     assertThat(url).hasHost("attachments-test.s3-accelerate.amazonaws.com");
+  }
+
+  @Test
+  public void testTransferUnaccelerated() {
+    AttachmentsConfiguration configuration = mock(AttachmentsConfiguration.class);
+    when(configuration.getAccessKey()).thenReturn("foo");
+    when(configuration.getAccessSecret()).thenReturn("bar");
+    when(configuration.getBucket()).thenReturn("attachments-test");
+
+    UrlSigner signer = new UrlSigner(configuration);
+    URL url = signer.getPreSignedUrl(1234, HttpMethod.GET, true);
+
+    assertThat(url).hasHost("s3.amazonaws.com");
   }
 
 }

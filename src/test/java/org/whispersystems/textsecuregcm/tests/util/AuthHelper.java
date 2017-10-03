@@ -25,7 +25,7 @@ public class AuthHelper {
   public static final String VALID_NUMBER   = "+14150000000";
   public static final String VALID_PASSWORD = "foo";
 
-  public static final String VALID_NUMBER_TWO = "+14151111111";
+  public static final String VALID_NUMBER_TWO = "+201511111110";
   public static final String VALID_PASSWORD_TWO = "baz";
 
   public static final String INVVALID_NUMBER  = "+14151111111";

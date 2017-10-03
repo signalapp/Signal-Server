@@ -40,14 +40,18 @@ public class UrlSigner {
     this.bucket      = config.getBucket();
   }
 
-  public URL getPreSignedUrl(long attachmentId, HttpMethod method) {
+  public URL getPreSignedUrl(long attachmentId, HttpMethod method, boolean unaccelerated) {
     AmazonS3                    client  = new AmazonS3Client(credentials);
     GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucket, String.valueOf(attachmentId), method);
     
     request.setExpiration(new Date(System.currentTimeMillis() + DURATION));
     request.setContentType("application/octet-stream");
 
-    client.setS3ClientOptions(S3ClientOptions.builder().setAccelerateModeEnabled(true).build());
+    if (unaccelerated) {
+      client.setS3ClientOptions(S3ClientOptions.builder().setPathStyleAccess(true).build());
+    } else {
+      client.setS3ClientOptions(S3ClientOptions.builder().setAccelerateModeEnabled(true).build());
+    }
 
     return client.generatePresignedUrl(request);
   }
