@@ -8,10 +8,10 @@ public final class PubSubProtos {
   public static void registerAllExtensions(
       com.google.protobuf.ExtensionRegistry registry) {
   }
-  public interface PubSubMessageOrBuilder
-      extends com.google.protobuf.MessageOrBuilder {
+  public interface PubSubMessageOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:textsecure.PubSubMessage)
+      com.google.protobuf.MessageOrBuilder {
 
-    // optional .textsecure.PubSubMessage.Type type = 1;
     /**
      * <code>optional .textsecure.PubSubMessage.Type type = 1;</code>
      */
@@ -21,7 +21,6 @@ public final class PubSubProtos {
      */
     org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage.Type getType();
 
-    // optional bytes content = 2;
     /**
      * <code>optional bytes content = 2;</code>
      */
@@ -35,8 +34,9 @@ public final class PubSubProtos {
    * Protobuf type {@code textsecure.PubSubMessage}
    */
   public static final class PubSubMessage extends
-      com.google.protobuf.GeneratedMessage
-      implements PubSubMessageOrBuilder {
+      com.google.protobuf.GeneratedMessage implements
+      // @@protoc_insertion_point(message_implements:textsecure.PubSubMessage)
+      PubSubMessageOrBuilder {
     // Use PubSubMessage.newBuilder() to construct.
     private PubSubMessage(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
       super(builder);
@@ -256,7 +256,6 @@ public final class PubSubProtos {
     }
 
     private int bitField0_;
-    // optional .textsecure.PubSubMessage.Type type = 1;
     public static final int TYPE_FIELD_NUMBER = 1;
     private org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage.Type type_;
     /**
@@ -272,7 +271,6 @@ public final class PubSubProtos {
       return type_;
     }
 
-    // optional bytes content = 2;
     public static final int CONTENT_FIELD_NUMBER = 2;
     private com.google.protobuf.ByteString content_;
     /**
@@ -295,7 +293,8 @@ public final class PubSubProtos {
     private byte memoizedIsInitialized = -1;
     public final boolean isInitialized() {
       byte isInitialized = memoizedIsInitialized;
-      if (isInitialized != -1) return isInitialized == 1;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
 
       memoizedIsInitialized = 1;
       return true;
@@ -409,8 +408,9 @@ public final class PubSubProtos {
      * Protobuf type {@code textsecure.PubSubMessage}
      */
     public static final class Builder extends
-        com.google.protobuf.GeneratedMessage.Builder<Builder>
-       implements org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessageOrBuilder {
+        com.google.protobuf.GeneratedMessage.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:textsecure.PubSubMessage)
+        org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessageOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
         return org.whispersystems.textsecuregcm.storage.PubSubProtos.internal_static_textsecure_PubSubMessage_descriptor;
@@ -532,7 +532,6 @@ public final class PubSubProtos {
       }
       private int bitField0_;
 
-      // optional .textsecure.PubSubMessage.Type type = 1;
       private org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage.Type type_ = org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage.Type.UNKNOWN;
       /**
        * <code>optional .textsecure.PubSubMessage.Type type = 1;</code>
@@ -568,7 +567,6 @@ public final class PubSubProtos {
         return this;
       }
 
-      // optional bytes content = 2;
       private com.google.protobuf.ByteString content_ = com.google.protobuf.ByteString.EMPTY;
       /**
        * <code>optional bytes content = 2;</code>
@@ -615,7 +613,7 @@ public final class PubSubProtos {
     // @@protoc_insertion_point(class_scope:textsecure.PubSubMessage)
   }
 
-  private static com.google.protobuf.Descriptors.Descriptor
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_textsecure_PubSubMessage_descriptor;
   private static
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
@@ -638,23 +636,23 @@ public final class PubSubProtos {
       "storageB\014PubSubProtos"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
-      new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
-        public com.google.protobuf.ExtensionRegistry assignDescriptors(
-            com.google.protobuf.Descriptors.FileDescriptor root) {
-          descriptor = root;
-          internal_static_textsecure_PubSubMessage_descriptor =
-            getDescriptor().getMessageTypes().get(0);
-          internal_static_textsecure_PubSubMessage_fieldAccessorTable = new
-            com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-              internal_static_textsecure_PubSubMessage_descriptor,
-              new java.lang.String[] { "Type", "Content", });
-          return null;
-        }
-      };
+        new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
+          public com.google.protobuf.ExtensionRegistry assignDescriptors(
+              com.google.protobuf.Descriptors.FileDescriptor root) {
+            descriptor = root;
+            return null;
+          }
+        };
     com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
         }, assigner);
+    internal_static_textsecure_PubSubMessage_descriptor =
+      getDescriptor().getMessageTypes().get(0);
+    internal_static_textsecure_PubSubMessage_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_textsecure_PubSubMessage_descriptor,
+        new java.lang.String[] { "Type", "Content", });
   }
 
   // @@protoc_insertion_point(outer_class_scope)

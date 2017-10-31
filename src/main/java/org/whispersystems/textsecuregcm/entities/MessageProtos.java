@@ -8,10 +8,10 @@ public final class MessageProtos {
   public static void registerAllExtensions(
       com.google.protobuf.ExtensionRegistry registry) {
   }
-  public interface EnvelopeOrBuilder
-      extends com.google.protobuf.MessageOrBuilder {
+  public interface EnvelopeOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:textsecure.Envelope)
+      com.google.protobuf.MessageOrBuilder {
 
-    // optional .textsecure.Envelope.Type type = 1;
     /**
      * <code>optional .textsecure.Envelope.Type type = 1;</code>
      */
@@ -21,7 +21,6 @@ public final class MessageProtos {
      */
     org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope.Type getType();
 
-    // optional string source = 2;
     /**
      * <code>optional string source = 2;</code>
      */
@@ -36,7 +35,6 @@ public final class MessageProtos {
     com.google.protobuf.ByteString
         getSourceBytes();
 
-    // optional uint32 sourceDevice = 7;
     /**
      * <code>optional uint32 sourceDevice = 7;</code>
      */
@@ -46,7 +44,6 @@ public final class MessageProtos {
      */
     int getSourceDevice();
 
-    // optional string relay = 3;
     /**
      * <code>optional string relay = 3;</code>
      */
@@ -61,7 +58,6 @@ public final class MessageProtos {
     com.google.protobuf.ByteString
         getRelayBytes();
 
-    // optional uint64 timestamp = 5;
     /**
      * <code>optional uint64 timestamp = 5;</code>
      */
@@ -71,25 +67,15 @@ public final class MessageProtos {
      */
     long getTimestamp();
 
-    // optional bytes legacyMessage = 6;
     /**
-     * <code>optional bytes legacyMessage = 6;</code>
-     *
-     * <pre>
-     * Contains an encrypted DataMessage XXX -- Remove after 10/01/15
-     * </pre>
+     * <code>optional bytes legacyMessage = 6 [deprecated = true];</code>
      */
-    boolean hasLegacyMessage();
+    @java.lang.Deprecated boolean hasLegacyMessage();
     /**
-     * <code>optional bytes legacyMessage = 6;</code>
-     *
-     * <pre>
-     * Contains an encrypted DataMessage XXX -- Remove after 10/01/15
-     * </pre>
+     * <code>optional bytes legacyMessage = 6 [deprecated = true];</code>
      */
-    com.google.protobuf.ByteString getLegacyMessage();
+    @java.lang.Deprecated com.google.protobuf.ByteString getLegacyMessage();
 
-    // optional bytes content = 8;
     /**
      * <code>optional bytes content = 8;</code>
      *
@@ -111,8 +97,9 @@ public final class MessageProtos {
    * Protobuf type {@code textsecure.Envelope}
    */
   public static final class Envelope extends
-      com.google.protobuf.GeneratedMessage
-      implements EnvelopeOrBuilder {
+      com.google.protobuf.GeneratedMessage implements
+      // @@protoc_insertion_point(message_implements:textsecure.Envelope)
+      EnvelopeOrBuilder {
     // Use Envelope.newBuilder() to construct.
     private Envelope(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
       super(builder);
@@ -170,13 +157,15 @@ public final class MessageProtos {
               break;
             }
             case 18: {
+              com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000002;
-              source_ = input.readBytes();
+              source_ = bs;
               break;
             }
             case 26: {
+              com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000008;
-              relay_ = input.readBytes();
+              relay_ = bs;
               break;
             }
             case 40: {
@@ -348,7 +337,6 @@ public final class MessageProtos {
     }
 
     private int bitField0_;
-    // optional .textsecure.Envelope.Type type = 1;
     public static final int TYPE_FIELD_NUMBER = 1;
     private org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope.Type type_;
     /**
@@ -364,7 +352,6 @@ public final class MessageProtos {
       return type_;
     }
 
-    // optional string source = 2;
     public static final int SOURCE_FIELD_NUMBER = 2;
     private java.lang.Object source_;
     /**
@@ -407,7 +394,6 @@ public final class MessageProtos {
       }
     }
 
-    // optional uint32 sourceDevice = 7;
     public static final int SOURCEDEVICE_FIELD_NUMBER = 7;
     private int sourceDevice_;
     /**
@@ -423,7 +409,6 @@ public final class MessageProtos {
       return sourceDevice_;
     }
 
-    // optional string relay = 3;
     public static final int RELAY_FIELD_NUMBER = 3;
     private java.lang.Object relay_;
     /**
@@ -466,7 +451,6 @@ public final class MessageProtos {
       }
     }
 
-    // optional uint64 timestamp = 5;
     public static final int TIMESTAMP_FIELD_NUMBER = 5;
     private long timestamp_;
     /**
@@ -482,31 +466,21 @@ public final class MessageProtos {
       return timestamp_;
     }
 
-    // optional bytes legacyMessage = 6;
     public static final int LEGACYMESSAGE_FIELD_NUMBER = 6;
     private com.google.protobuf.ByteString legacyMessage_;
     /**
-     * <code>optional bytes legacyMessage = 6;</code>
-     *
-     * <pre>
-     * Contains an encrypted DataMessage XXX -- Remove after 10/01/15
-     * </pre>
+     * <code>optional bytes legacyMessage = 6 [deprecated = true];</code>
      */
-    public boolean hasLegacyMessage() {
+    @java.lang.Deprecated public boolean hasLegacyMessage() {
       return ((bitField0_ & 0x00000020) == 0x00000020);
     }
     /**
-     * <code>optional bytes legacyMessage = 6;</code>
-     *
-     * <pre>
-     * Contains an encrypted DataMessage XXX -- Remove after 10/01/15
-     * </pre>
+     * <code>optional bytes legacyMessage = 6 [deprecated = true];</code>
      */
-    public com.google.protobuf.ByteString getLegacyMessage() {
+    @java.lang.Deprecated public com.google.protobuf.ByteString getLegacyMessage() {
       return legacyMessage_;
     }
 
-    // optional bytes content = 8;
     public static final int CONTENT_FIELD_NUMBER = 8;
     private com.google.protobuf.ByteString content_;
     /**
@@ -542,7 +516,8 @@ public final class MessageProtos {
     private byte memoizedIsInitialized = -1;
     public final boolean isInitialized() {
       byte isInitialized = memoizedIsInitialized;
-      if (isInitialized != -1) return isInitialized == 1;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
 
       memoizedIsInitialized = 1;
       return true;
@@ -691,8 +666,9 @@ public final class MessageProtos {
      * Protobuf type {@code textsecure.Envelope}
      */
     public static final class Builder extends
-        com.google.protobuf.GeneratedMessage.Builder<Builder>
-       implements org.whispersystems.textsecuregcm.entities.MessageProtos.EnvelopeOrBuilder {
+        com.google.protobuf.GeneratedMessage.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:textsecure.Envelope)
+        org.whispersystems.textsecuregcm.entities.MessageProtos.EnvelopeOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
         return org.whispersystems.textsecuregcm.entities.MessageProtos.internal_static_textsecure_Envelope_descriptor;
@@ -863,7 +839,6 @@ public final class MessageProtos {
       }
       private int bitField0_;
 
-      // optional .textsecure.Envelope.Type type = 1;
       private org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope.Type type_ = org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope.Type.UNKNOWN;
       /**
        * <code>optional .textsecure.Envelope.Type type = 1;</code>
@@ -899,7 +874,6 @@ public final class MessageProtos {
         return this;
       }
 
-      // optional string source = 2;
       private java.lang.Object source_ = "";
       /**
        * <code>optional string source = 2;</code>
@@ -913,9 +887,12 @@ public final class MessageProtos {
       public java.lang.String getSource() {
         java.lang.Object ref = source_;
         if (!(ref instanceof java.lang.String)) {
-          java.lang.String s = ((com.google.protobuf.ByteString) ref)
-              .toStringUtf8();
-          source_ = s;
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            source_ = s;
+          }
           return s;
         } else {
           return (java.lang.String) ref;
@@ -973,7 +950,6 @@ public final class MessageProtos {
         return this;
       }
 
-      // optional uint32 sourceDevice = 7;
       private int sourceDevice_ ;
       /**
        * <code>optional uint32 sourceDevice = 7;</code>
@@ -1006,7 +982,6 @@ public final class MessageProtos {
         return this;
       }
 
-      // optional string relay = 3;
       private java.lang.Object relay_ = "";
       /**
        * <code>optional string relay = 3;</code>
@@ -1020,9 +995,12 @@ public final class MessageProtos {
       public java.lang.String getRelay() {
         java.lang.Object ref = relay_;
         if (!(ref instanceof java.lang.String)) {
-          java.lang.String s = ((com.google.protobuf.ByteString) ref)
-              .toStringUtf8();
-          relay_ = s;
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            relay_ = s;
+          }
           return s;
         } else {
           return (java.lang.String) ref;
@@ -1080,7 +1058,6 @@ public final class MessageProtos {
         return this;
       }
 
-      // optional uint64 timestamp = 5;
       private long timestamp_ ;
       /**
        * <code>optional uint64 timestamp = 5;</code>
@@ -1113,36 +1090,23 @@ public final class MessageProtos {
         return this;
       }
 
-      // optional bytes legacyMessage = 6;
       private com.google.protobuf.ByteString legacyMessage_ = com.google.protobuf.ByteString.EMPTY;
       /**
-       * <code>optional bytes legacyMessage = 6;</code>
-       *
-       * <pre>
-       * Contains an encrypted DataMessage XXX -- Remove after 10/01/15
-       * </pre>
+       * <code>optional bytes legacyMessage = 6 [deprecated = true];</code>
        */
-      public boolean hasLegacyMessage() {
+      @java.lang.Deprecated public boolean hasLegacyMessage() {
         return ((bitField0_ & 0x00000020) == 0x00000020);
       }
       /**
-       * <code>optional bytes legacyMessage = 6;</code>
-       *
-       * <pre>
-       * Contains an encrypted DataMessage XXX -- Remove after 10/01/15
-       * </pre>
+       * <code>optional bytes legacyMessage = 6 [deprecated = true];</code>
        */
-      public com.google.protobuf.ByteString getLegacyMessage() {
+      @java.lang.Deprecated public com.google.protobuf.ByteString getLegacyMessage() {
         return legacyMessage_;
       }
       /**
-       * <code>optional bytes legacyMessage = 6;</code>
-       *
-       * <pre>
-       * Contains an encrypted DataMessage XXX -- Remove after 10/01/15
-       * </pre>
+       * <code>optional bytes legacyMessage = 6 [deprecated = true];</code>
        */
-      public Builder setLegacyMessage(com.google.protobuf.ByteString value) {
+      @java.lang.Deprecated public Builder setLegacyMessage(com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
@@ -1152,20 +1116,15 @@ public final class MessageProtos {
         return this;
       }
       /**
-       * <code>optional bytes legacyMessage = 6;</code>
-       *
-       * <pre>
-       * Contains an encrypted DataMessage XXX -- Remove after 10/01/15
-       * </pre>
+       * <code>optional bytes legacyMessage = 6 [deprecated = true];</code>
        */
-      public Builder clearLegacyMessage() {
+      @java.lang.Deprecated public Builder clearLegacyMessage() {
         bitField0_ = (bitField0_ & ~0x00000020);
         legacyMessage_ = getDefaultInstance().getLegacyMessage();
         onChanged();
         return this;
       }
 
-      // optional bytes content = 8;
       private com.google.protobuf.ByteString content_ = com.google.protobuf.ByteString.EMPTY;
       /**
        * <code>optional bytes content = 8;</code>
@@ -1228,10 +1187,10 @@ public final class MessageProtos {
     // @@protoc_insertion_point(class_scope:textsecure.Envelope)
   }
 
-  public interface ProvisioningUuidOrBuilder
-      extends com.google.protobuf.MessageOrBuilder {
+  public interface ProvisioningUuidOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:textsecure.ProvisioningUuid)
+      com.google.protobuf.MessageOrBuilder {
 
-    // optional string uuid = 1;
     /**
      * <code>optional string uuid = 1;</code>
      */
@@ -1250,8 +1209,9 @@ public final class MessageProtos {
    * Protobuf type {@code textsecure.ProvisioningUuid}
    */
   public static final class ProvisioningUuid extends
-      com.google.protobuf.GeneratedMessage
-      implements ProvisioningUuidOrBuilder {
+      com.google.protobuf.GeneratedMessage implements
+      // @@protoc_insertion_point(message_implements:textsecure.ProvisioningUuid)
+      ProvisioningUuidOrBuilder {
     // Use ProvisioningUuid.newBuilder() to construct.
     private ProvisioningUuid(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
       super(builder);
@@ -1298,8 +1258,9 @@ public final class MessageProtos {
               break;
             }
             case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
-              uuid_ = input.readBytes();
+              uuid_ = bs;
               break;
             }
           }
@@ -1342,7 +1303,6 @@ public final class MessageProtos {
     }
 
     private int bitField0_;
-    // optional string uuid = 1;
     public static final int UUID_FIELD_NUMBER = 1;
     private java.lang.Object uuid_;
     /**
@@ -1391,7 +1351,8 @@ public final class MessageProtos {
     private byte memoizedIsInitialized = -1;
     public final boolean isInitialized() {
       byte isInitialized = memoizedIsInitialized;
-      if (isInitialized != -1) return isInitialized == 1;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
 
       memoizedIsInitialized = 1;
       return true;
@@ -1498,8 +1459,9 @@ public final class MessageProtos {
      * Protobuf type {@code textsecure.ProvisioningUuid}
      */
     public static final class Builder extends
-        com.google.protobuf.GeneratedMessage.Builder<Builder>
-       implements org.whispersystems.textsecuregcm.entities.MessageProtos.ProvisioningUuidOrBuilder {
+        com.google.protobuf.GeneratedMessage.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:textsecure.ProvisioningUuid)
+        org.whispersystems.textsecuregcm.entities.MessageProtos.ProvisioningUuidOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
         return org.whispersystems.textsecuregcm.entities.MessageProtos.internal_static_textsecure_ProvisioningUuid_descriptor;
@@ -1614,7 +1576,6 @@ public final class MessageProtos {
       }
       private int bitField0_;
 
-      // optional string uuid = 1;
       private java.lang.Object uuid_ = "";
       /**
        * <code>optional string uuid = 1;</code>
@@ -1628,9 +1589,12 @@ public final class MessageProtos {
       public java.lang.String getUuid() {
         java.lang.Object ref = uuid_;
         if (!(ref instanceof java.lang.String)) {
-          java.lang.String s = ((com.google.protobuf.ByteString) ref)
-              .toStringUtf8();
-          uuid_ = s;
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            uuid_ = s;
+          }
           return s;
         } else {
           return (java.lang.String) ref;
@@ -1699,12 +1663,12 @@ public final class MessageProtos {
     // @@protoc_insertion_point(class_scope:textsecure.ProvisioningUuid)
   }
 
-  private static com.google.protobuf.Descriptors.Descriptor
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_textsecure_Envelope_descriptor;
   private static
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_textsecure_Envelope_fieldAccessorTable;
-  private static com.google.protobuf.Descriptors.Descriptor
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_textsecure_ProvisioningUuid_descriptor;
   private static
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
@@ -1718,41 +1682,41 @@ public final class MessageProtos {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\020TextSecure.proto\022\ntextsecure\"\372\001\n\010Envel" +
+      "\n\020TextSecure.proto\022\ntextsecure\"\376\001\n\010Envel" +
       "ope\022\'\n\004type\030\001 \001(\0162\031.textsecure.Envelope." +
       "Type\022\016\n\006source\030\002 \001(\t\022\024\n\014sourceDevice\030\007 \001" +
-      "(\r\022\r\n\005relay\030\003 \001(\t\022\021\n\ttimestamp\030\005 \001(\004\022\025\n\r" +
-      "legacyMessage\030\006 \001(\014\022\017\n\007content\030\010 \001(\014\"U\n\004" +
-      "Type\022\013\n\007UNKNOWN\020\000\022\016\n\nCIPHERTEXT\020\001\022\020\n\014KEY" +
-      "_EXCHANGE\020\002\022\021\n\rPREKEY_BUNDLE\020\003\022\013\n\007RECEIP" +
-      "T\020\005\" \n\020ProvisioningUuid\022\014\n\004uuid\030\001 \001(\tB:\n" +
-      ")org.whispersystems.textsecuregcm.entiti" +
-      "esB\rMessageProtos"
+      "(\r\022\r\n\005relay\030\003 \001(\t\022\021\n\ttimestamp\030\005 \001(\004\022\031\n\r" +
+      "legacyMessage\030\006 \001(\014B\002\030\001\022\017\n\007content\030\010 \001(\014" +
+      "\"U\n\004Type\022\013\n\007UNKNOWN\020\000\022\016\n\nCIPHERTEXT\020\001\022\020\n" +
+      "\014KEY_EXCHANGE\020\002\022\021\n\rPREKEY_BUNDLE\020\003\022\013\n\007RE" +
+      "CEIPT\020\005\" \n\020ProvisioningUuid\022\014\n\004uuid\030\001 \001(" +
+      "\tB:\n)org.whispersystems.textsecuregcm.en" +
+      "titiesB\rMessageProtos"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
-      new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
-        public com.google.protobuf.ExtensionRegistry assignDescriptors(
-            com.google.protobuf.Descriptors.FileDescriptor root) {
-          descriptor = root;
-          internal_static_textsecure_Envelope_descriptor =
-            getDescriptor().getMessageTypes().get(0);
-          internal_static_textsecure_Envelope_fieldAccessorTable = new
-            com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-              internal_static_textsecure_Envelope_descriptor,
-              new java.lang.String[] { "Type", "Source", "SourceDevice", "Relay", "Timestamp", "LegacyMessage", "Content", });
-          internal_static_textsecure_ProvisioningUuid_descriptor =
-            getDescriptor().getMessageTypes().get(1);
-          internal_static_textsecure_ProvisioningUuid_fieldAccessorTable = new
-            com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-              internal_static_textsecure_ProvisioningUuid_descriptor,
-              new java.lang.String[] { "Uuid", });
-          return null;
-        }
-      };
+        new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
+          public com.google.protobuf.ExtensionRegistry assignDescriptors(
+              com.google.protobuf.Descriptors.FileDescriptor root) {
+            descriptor = root;
+            return null;
+          }
+        };
     com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
         }, assigner);
+    internal_static_textsecure_Envelope_descriptor =
+      getDescriptor().getMessageTypes().get(0);
+    internal_static_textsecure_Envelope_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_textsecure_Envelope_descriptor,
+        new java.lang.String[] { "Type", "Source", "SourceDevice", "Relay", "Timestamp", "LegacyMessage", "Content", });
+    internal_static_textsecure_ProvisioningUuid_descriptor =
+      getDescriptor().getMessageTypes().get(1);
+    internal_static_textsecure_ProvisioningUuid_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_textsecure_ProvisioningUuid_descriptor,
+        new java.lang.String[] { "Uuid", });
   }
 
   // @@protoc_insertion_point(outer_class_scope)

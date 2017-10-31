@@ -90,22 +90,13 @@ public abstract class Messages {
     public OutgoingMessageEntity map(int i, ResultSet resultSet, StatementContext statementContext)
         throws SQLException
     {
-
-      int    type          = resultSet.getInt(TYPE);
-      byte[] legacyMessage = resultSet.getBytes(MESSAGE);
-
-      if (type == Envelope.Type.RECEIPT_VALUE && legacyMessage == null) {
-        /// XXX - REMOVE AFTER 10/01/15
-        legacyMessage = new byte[0];
-      }
-
       return new OutgoingMessageEntity(resultSet.getLong(ID),
-                                       type,
+                                       resultSet.getInt(TYPE),
                                        resultSet.getString(RELAY),
                                        resultSet.getLong(TIMESTAMP),
                                        resultSet.getString(SOURCE),
                                        resultSet.getInt(SOURCE_DEVICE),
-                                       legacyMessage,
+                                       resultSet.getBytes(MESSAGE),
                                        resultSet.getBytes(CONTENT));
     }
   }
