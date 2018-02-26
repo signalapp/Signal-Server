@@ -193,6 +193,7 @@ public class DeviceController {
       device.setCreated(System.currentTimeMillis());
 
       account.get().addDevice(device);
+      messages.clear(account.get().getNumber(), device.getId());
       accounts.update(account.get());
 
       pendingDevices.remove(number);

@@ -102,6 +102,7 @@ public class DeviceControllerTest {
     when(rateLimiters.getVerifyDeviceLimiter()).thenReturn(rateLimiter);
 
     when(account.getNextDeviceId()).thenReturn(42L);
+    when(account.getNumber()).thenReturn(AuthHelper.VALID_NUMBER);
 //    when(maxedAccount.getActiveDeviceCount()).thenReturn(6);
 
     when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(new StoredVerificationCode("5678901", System.currentTimeMillis())));
@@ -131,6 +132,7 @@ public class DeviceControllerTest {
     assertThat(response.getDeviceId()).isEqualTo(42L);
 
     verify(pendingDevicesManager).remove(AuthHelper.VALID_NUMBER);
+    verify(messagesManager).clear(eq(AuthHelper.VALID_NUMBER), eq(42L));
   }
 
   @Test
@@ -151,6 +153,8 @@ public class DeviceControllerTest {
                                                     MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(403);
+
+    verifyNoMoreInteractions(messagesManager);
   }
 
   @Test
@@ -163,6 +167,8 @@ public class DeviceControllerTest {
                                                     MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(403);
+
+    verifyNoMoreInteractions(messagesManager);
   }
 
   @Test
@@ -174,6 +180,7 @@ public class DeviceControllerTest {
                                  .get();
 
     assertEquals(411, response.getStatus());
+    verifyNoMoreInteractions(messagesManager);
   }
 
   @Test
@@ -186,5 +193,6 @@ public class DeviceControllerTest {
                                                     MediaType.APPLICATION_JSON_TYPE));
 
     assertEquals(response.getStatus(), 422);
+    verifyNoMoreInteractions(messagesManager);
   }
 }
