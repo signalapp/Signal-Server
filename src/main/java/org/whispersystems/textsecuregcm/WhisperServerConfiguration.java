@@ -107,9 +107,6 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private RateLimitsConfiguration limits = new RateLimitsConfiguration();
 
-  @JsonProperty
-  private RedPhoneConfiguration redphone = new RedPhoneConfiguration();
-
   @Valid
   @NotNull
   @JsonProperty
@@ -181,10 +178,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public FederationConfiguration getFederationConfiguration() {
     return federation;
-  }
-
-  public RedPhoneConfiguration getRedphoneConfiguration() {
-    return redphone;
   }
 
   public TurnConfiguration getTurnConfiguration() {

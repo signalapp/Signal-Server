@@ -125,7 +125,7 @@ public class DeviceControllerTest {
                                        .target("/v1/devices/5678901")
                                        .request()
                                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-                                       .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 1234),
+                                       .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 1234, null),
                                                           MediaType.APPLICATION_JSON_TYPE),
                                             DeviceResponse.class);
 
@@ -149,7 +149,7 @@ public class DeviceControllerTest {
                                  .target("/v1/devices/5678902")
                                  .request()
                                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-                                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 1234),
+                                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 1234, null),
                                                     MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(403);
@@ -163,7 +163,7 @@ public class DeviceControllerTest {
                                  .target("/v1/devices/1112223")
                                  .request()
                                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER_TWO, AuthHelper.VALID_PASSWORD_TWO))
-                                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 1234),
+                                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 1234, null),
                                                     MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(403);
@@ -189,7 +189,7 @@ public class DeviceControllerTest {
                                  .target("/v1/devices/5678901")
                                  .request()
                                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-                                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 1234, "this is a really long name that is longer than 80 characters", true, true),
+                                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 1234, "this is a really long name that is longer than 80 characters", true, true, null),
                                                     MediaType.APPLICATION_JSON_TYPE));
 
     assertEquals(response.getStatus(), 422);

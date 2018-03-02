@@ -27,6 +27,7 @@ public class RateLimiters {
   private final RateLimiter voiceDestinationLimiter;
   private final RateLimiter voiceDestinationDailyLimiter;
   private final RateLimiter verifyLimiter;
+  private final RateLimiter pinLimiter;
 
   private final RateLimiter attachmentLimiter;
   private final RateLimiter contactsLimiter;
@@ -56,6 +57,10 @@ public class RateLimiters {
     this.verifyLimiter = new RateLimiter(cacheClient, "verify",
                                          config.getVerifyNumber().getBucketSize(),
                                          config.getVerifyNumber().getLeakRatePerMinute());
+
+    this.pinLimiter = new LockingRateLimiter(cacheClient, "pin",
+                                             config.getVerifyPin().getBucketSize(),
+                                             config.getVerifyPin().getLeakRatePerMinute());
 
     this.attachmentLimiter = new RateLimiter(cacheClient, "attachmentCreate",
                                              config.getAttachments().getBucketSize(),
@@ -128,6 +133,10 @@ public class RateLimiters {
 
   public RateLimiter getVerifyLimiter() {
     return verifyLimiter;
+  }
+
+  public RateLimiter getPinLimiter() {
+    return pinLimiter;
   }
 
   public RateLimiter getTurnLimiter() {

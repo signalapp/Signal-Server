@@ -1,8 +1,6 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
 import com.google.common.base.Optional;
-import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
 import org.junit.Rule;
@@ -11,9 +9,13 @@ import org.whispersystems.dropwizard.simpleauth.AuthValueFactoryProvider;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
+import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
+import org.whispersystems.textsecuregcm.entities.RegistrationLock;
+import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.providers.TimeProvider;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -36,23 +38,27 @@ import static org.mockito.Mockito.*;
 
 public class AccountControllerTest {
 
-  private static final String SENDER     = "+14152222222";
-  private static final String SENDER_OLD = "+14151111111";
+  private static final String SENDER          = "+14152222222";
+  private static final String SENDER_OLD      = "+14151111111";
+  private static final String SENDER_PIN      = "+14153333333";
+  private static final String SENDER_OVER_PIN = "+14154444444";
 
   private        PendingAccountsManager pendingAccountsManager = mock(PendingAccountsManager.class);
   private        AccountsManager        accountsManager        = mock(AccountsManager.class       );
   private        RateLimiters           rateLimiters           = mock(RateLimiters.class          );
   private        RateLimiter            rateLimiter            = mock(RateLimiter.class           );
+  private        RateLimiter            pinLimiter             = mock(RateLimiter.class           );
   private        SmsSender              smsSender              = mock(SmsSender.class             );
   private        MessagesManager        storedMessages         = mock(MessagesManager.class       );
   private        TimeProvider           timeProvider           = mock(TimeProvider.class          );
   private        TurnTokenGenerator     turnTokenGenerator     = mock(TurnTokenGenerator.class);
-  private static byte[]                 authorizationKey       = decodeHex("3a078586eea8971155f5c1ebd73c8c923cbec1c3ed22a54722e4e88321dc749f");
+  private        Account                senderPinAccount       = mock(Account.class);
 
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
                                                             .addProvider(AuthHelper.getAuthFilter())
                                                             .addProvider(new AuthValueFactoryProvider.Binder())
+                                                            .addProvider(new RateLimitExceededExceptionMapper())
                                                             .setMapper(SystemMapper.getMapper())
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new AccountController(pendingAccountsManager,
@@ -60,10 +66,8 @@ public class AccountControllerTest {
                                                                                                rateLimiters,
                                                                                                smsSender,
                                                                                                storedMessages,
-                                                                                               timeProvider,
-                                                                                               Optional.of(authorizationKey),
                                                                                                turnTokenGenerator,
-                                                                                               new HashMap<String, Integer>()))
+                                                                                               new HashMap<>()))
                                                             .build();
 
 
@@ -72,11 +76,25 @@ public class AccountControllerTest {
     when(rateLimiters.getSmsDestinationLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getVoiceDestinationLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getVerifyLimiter()).thenReturn(rateLimiter);
+    when(rateLimiters.getPinLimiter()).thenReturn(pinLimiter);
 
     when(timeProvider.getCurrentTimeMillis()).thenReturn(System.currentTimeMillis());
 
+    when(senderPinAccount.getPin()).thenReturn(Optional.of("31337"));
+    when(senderPinAccount.getLastSeen()).thenReturn(System.currentTimeMillis());
+
+
     when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis())));
     when(pendingAccountsManager.getCodeForNumber(SENDER_OLD)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(31))));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_PIN)).thenReturn(Optional.of(new StoredVerificationCode("333333", System.currentTimeMillis())));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PIN)).thenReturn(Optional.of(new StoredVerificationCode("444444", System.currentTimeMillis())));
+
+    when(accountsManager.get(eq(SENDER_PIN))).thenReturn(Optional.of(senderPinAccount));
+    when(accountsManager.get(eq(SENDER_OVER_PIN))).thenReturn(Optional.of(senderPinAccount));
+    when(accountsManager.get(eq(SENDER))).thenReturn(Optional.absent());
+    when(accountsManager.get(eq(SENDER_OLD))).thenReturn(Optional.absent());
+
+    doThrow(new RateLimitExceededException(SENDER_OVER_PIN)).when(pinLimiter).validate(eq(SENDER_OVER_PIN));
   }
 
   @Test
@@ -89,7 +107,7 @@ public class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.<String>absent()), anyString());
+    verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.absent()), anyString());
   }
   
   @Test
@@ -113,7 +131,7 @@ public class AccountControllerTest {
                  .target(String.format("/v1/accounts/code/%s", "1234"))
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(SENDER, "bar"))
-                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 2222),
+                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 2222, null),
                                MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(204);
@@ -128,7 +146,7 @@ public class AccountControllerTest {
                  .target(String.format("/v1/accounts/code/%s", "1234"))
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(SENDER_OLD, "bar"))
-                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 2222),
+                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 2222, null),
                                     MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(403);
@@ -143,7 +161,7 @@ public class AccountControllerTest {
                  .target(String.format("/v1/accounts/code/%s", "1111"))
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(SENDER, "bar"))
-                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 3333),
+                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 3333, null),
                                     MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(403);
@@ -152,87 +170,116 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testVerifyToken() throws Exception {
-    when(timeProvider.getCurrentTimeMillis()).thenReturn(1415917053106L);
-
-    String token = SENDER + ":1415906573:af4f046107c21721224a";
-
+  public void testVerifyPin() throws Exception {
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/accounts/token/%s", token))
+                 .target(String.format("/v1/accounts/code/%s", "333333"))
                  .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(SENDER, "bar"))
-                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 4444),
+                 .header("Authorization", AuthHelper.getAuthHeader(SENDER_PIN, "bar"))
+                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 3333, "31337"),
                                     MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(204);
 
-    verify(accountsManager, times(1)).create(isA(Account.class));
+    verify(pinLimiter).validate(eq(SENDER_PIN));
   }
 
   @Test
-  public void testVerifyBadToken() throws Exception {
-    when(timeProvider.getCurrentTimeMillis()).thenReturn(1415917053106L);
-
-    String token = SENDER + ":1415906574:af4f046107c21721224a";
-
+  public void testVerifyWrongPin() throws Exception {
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/accounts/token/%s", token))
+                 .target(String.format("/v1/accounts/code/%s", "333333"))
                  .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(SENDER, "bar"))
-                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 4444),
+                 .header("Authorization", AuthHelper.getAuthHeader(SENDER_PIN, "bar"))
+                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 3333, "31338"),
                                     MediaType.APPLICATION_JSON_TYPE));
 
-    assertThat(response.getStatus()).isEqualTo(403);
+    assertThat(response.getStatus()).isEqualTo(423);
 
-    verifyNoMoreInteractions(accountsManager);
+    verify(pinLimiter).validate(eq(SENDER_PIN));
   }
 
   @Test
-  public void testVerifyWrongToken() throws Exception {
-    when(timeProvider.getCurrentTimeMillis()).thenReturn(1415917053106L);
-
-    String token = SENDER + ":1415906573:af4f046107c21721224a";
-
+  public void testVerifyNoPin() throws Exception {
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/accounts/token/%s", token))
+                 .target(String.format("/v1/accounts/code/%s", "333333"))
                  .request()
-                 .header("Authorization", AuthHelper.getAuthHeader("+14151111111", "bar"))
-                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 4444),
+                 .header("Authorization", AuthHelper.getAuthHeader(SENDER_PIN, "bar"))
+                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 3333, null),
                                     MediaType.APPLICATION_JSON_TYPE));
 
-    assertThat(response.getStatus()).isEqualTo(403);
+    assertThat(response.getStatus()).isEqualTo(423);
 
-    verifyNoMoreInteractions(accountsManager);
+    RegistrationLockFailure failure = response.readEntity(RegistrationLockFailure.class);
+
+    verify(pinLimiter).validate(eq(SENDER_PIN));
   }
 
   @Test
-  public void testVerifyExpiredToken() throws Exception {
-    when(timeProvider.getCurrentTimeMillis()).thenReturn(1416003757901L);
-
-    String token = SENDER + ":1415906573:af4f046107c21721224a";
-
+  public void testVerifyLimitPin() throws Exception {
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/accounts/token/%s", token))
+                 .target(String.format("/v1/accounts/code/%s", "444444"))
                  .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(SENDER, "bar"))
-                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 4444),
+                 .header("Authorization", AuthHelper.getAuthHeader(SENDER_OVER_PIN, "bar"))
+                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 3333, "31337"),
                                     MediaType.APPLICATION_JSON_TYPE));
 
-    assertThat(response.getStatus()).isEqualTo(403);
+    assertThat(response.getStatus()).isEqualTo(413);
 
-    verifyNoMoreInteractions(accountsManager);
+    verify(rateLimiter).clear(eq(SENDER_OVER_PIN));
   }
 
-  private static byte[] decodeHex(String hex) {
+  @Test
+  public void testVerifyOldPin() throws Exception {
     try {
-      return Hex.decodeHex(hex.toCharArray());
-    } catch (DecoderException e) {
-      throw new AssertionError(e);
+      when(senderPinAccount.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(7));
+
+      Response response =
+          resources.getJerseyTest()
+                   .target(String.format("/v1/accounts/code/%s", "444444"))
+                   .request()
+                   .header("Authorization", AuthHelper.getAuthHeader(SENDER_OVER_PIN, "bar"))
+                   .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 3333, null),
+                                      MediaType.APPLICATION_JSON_TYPE));
+
+      assertThat(response.getStatus()).isEqualTo(204);
+
+    } finally {
+      when(senderPinAccount.getLastSeen()).thenReturn(System.currentTimeMillis());
     }
   }
+
+
+  @Test
+  public void testSetPin() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/accounts/pin/")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.json(new RegistrationLock("31337")));
+
+    assertThat(response.getStatus()).isEqualTo(204);
+
+    verify(AuthHelper.VALID_ACCOUNT).setPin(eq("31337"));
+  }
+
+  @Test
+  public void testSetShortPin() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/accounts/pin/")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.json(new RegistrationLock("313")));
+
+    assertThat(response.getStatus()).isEqualTo(422);
+
+    verify(AuthHelper.VALID_ACCOUNT, never()).setPin(anyString());
+  }
+
+
 
 }

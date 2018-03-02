@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2013 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -31,6 +31,9 @@ public class RateLimitsConfiguration {
 
   @JsonProperty
   private RateLimitConfiguration verifyNumber = new RateLimitConfiguration(2, 2);
+
+  @JsonProperty
+  private RateLimitConfiguration verifyPin = new RateLimitConfiguration(10, 1 / (24.0 * 60.0));
 
   @JsonProperty
   private RateLimitConfiguration attachments = new RateLimitConfiguration(50, 50);
@@ -94,6 +97,10 @@ public class RateLimitsConfiguration {
 
   public RateLimitConfiguration getVerifyNumber() {
     return verifyNumber;
+  }
+
+  public RateLimitConfiguration getVerifyPin() {
+    return verifyPin;
   }
 
   public RateLimitConfiguration getTurnAllocations() {

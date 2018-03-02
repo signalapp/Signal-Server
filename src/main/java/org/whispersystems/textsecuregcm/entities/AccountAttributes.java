@@ -43,21 +43,25 @@ public class AccountAttributes {
   @JsonProperty
   private boolean video;
 
+  @JsonProperty
+  private String pin;
+
   public AccountAttributes() {}
 
   @VisibleForTesting
-  public AccountAttributes(String signalingKey, boolean fetchesMessages, int registrationId) {
-    this(signalingKey, fetchesMessages, registrationId, null, false, false);
+  public AccountAttributes(String signalingKey, boolean fetchesMessages, int registrationId, String pin) {
+    this(signalingKey, fetchesMessages, registrationId, null, false, false, pin);
   }
 
   @VisibleForTesting
-  public AccountAttributes(String signalingKey, boolean fetchesMessages, int registrationId, String name, boolean voice, boolean video) {
+  public AccountAttributes(String signalingKey, boolean fetchesMessages, int registrationId, String name, boolean voice, boolean video, String pin) {
     this.signalingKey    = signalingKey;
     this.fetchesMessages = fetchesMessages;
     this.registrationId  = registrationId;
     this.name            = name;
     this.voice           = voice;
     this.video           = video;
+    this.pin             = pin;
   }
 
   public String getSignalingKey() {
@@ -84,4 +88,7 @@ public class AccountAttributes {
     return video;
   }
 
+  public String getPin() {
+    return pin;
+  }
 }

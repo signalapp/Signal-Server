@@ -38,14 +38,22 @@ public class RateLimiter {
   private final Logger       logger = LoggerFactory.getLogger(RateLimiter.class);
   private final ObjectMapper mapper = SystemMapper.getMapper();
 
-  private final Meter     meter;
-  private final JedisPool cacheClient;
-  private final String    name;
-  private final int       bucketSize;
-  private final double    leakRatePerMillis;
+  private   final Meter     meter;
+  protected final JedisPool cacheClient;
+  protected final String    name;
+  private   final int       bucketSize;
+  private   final double    leakRatePerMillis;
+  private   final boolean   reportLimits;
 
   public RateLimiter(JedisPool cacheClient, String name,
                      int bucketSize, double leakRatePerMinute)
+  {
+    this(cacheClient, name, bucketSize, leakRatePerMinute, false);
+  }
+
+  public RateLimiter(JedisPool cacheClient, String name,
+                     int bucketSize, double leakRatePerMinute,
+                     boolean reportLimits)
   {
     MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
 
@@ -54,6 +62,7 @@ public class RateLimiter {
     this.name              = name;
     this.bucketSize        = bucketSize;
     this.leakRatePerMillis = leakRatePerMinute / (60.0 * 1000.0);
+    this.reportLimits      = reportLimits;
   }
 
   public void validate(String key, int amount) throws RateLimitExceededException {
@@ -69,6 +78,12 @@ public class RateLimiter {
 
   public void validate(String key) throws RateLimitExceededException {
     validate(key, 1);
+  }
+
+  public void clear(String key) {
+    try (Jedis jedis = cacheClient.getResource()) {
+      jedis.del(getBucketName(key));
+    }
   }
 
   private void setBucket(String key, LeakyBucket bucket) {
