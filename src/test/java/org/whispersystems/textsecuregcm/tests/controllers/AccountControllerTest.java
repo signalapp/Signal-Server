@@ -213,7 +213,7 @@ public class AccountControllerTest {
 
     RegistrationLockFailure failure = response.readEntity(RegistrationLockFailure.class);
 
-    verify(pinLimiter).validate(eq(SENDER_PIN));
+    verifyNoMoreInteractions(pinLimiter);
   }
 
   @Test

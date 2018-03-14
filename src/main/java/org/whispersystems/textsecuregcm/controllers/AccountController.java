@@ -175,13 +175,18 @@ public class AccountController {
           System.currentTimeMillis() - existingAccount.get().getLastSeen() < TimeUnit.DAYS.toMillis(7))
       {
         rateLimiters.getVerifyLimiter().clear(number);
+
+        long timeRemaining = TimeUnit.DAYS.toMillis(7) - (System.currentTimeMillis() - existingAccount.get().getLastSeen());
+
+        if (accountAttributes.getPin() == null) {
+          throw new WebApplicationException(Response.status(423)
+                                                    .entity(new RegistrationLockFailure(timeRemaining))
+                                                    .build());
+        }
+
         rateLimiters.getPinLimiter().validate(number);
 
-        if (accountAttributes.getPin() == null ||
-            !MessageDigest.isEqual(existingAccount.get().getPin().get().getBytes(), accountAttributes.getPin().getBytes()))
-        {
-          long timeRemaining = TimeUnit.DAYS.toMillis(7) - (System.currentTimeMillis() - existingAccount.get().getLastSeen());
-
+        if (!MessageDigest.isEqual(existingAccount.get().getPin().get().getBytes(), accountAttributes.getPin().getBytes())) {
           throw new WebApplicationException(Response.status(423)
                                                     .entity(new RegistrationLockFailure(timeRemaining))
                                                     .build());
