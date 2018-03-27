@@ -27,6 +27,7 @@ import org.whispersystems.textsecuregcm.util.Constants;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.FileInputStream;
 import java.security.KeyPair;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
@@ -105,12 +106,12 @@ public class RetryingApnsClient {
   }
 
   private static X509Certificate initializeCertificate(String pemCertificate) throws IOException {
-    PEMReader reader = new PEMReader(new InputStreamReader(new ByteArrayInputStream(pemCertificate.getBytes())));
+    PEMReader reader = new PEMReader(new InputStreamReader(new FileInputStream(pemCertificate)));
     return (X509Certificate) reader.readObject();
   }
 
   private static PrivateKey initializePrivateKey(String pemKey) throws IOException {
-    PEMReader reader = new PEMReader(new InputStreamReader(new ByteArrayInputStream(pemKey.getBytes())));
+    PEMReader reader = new PEMReader(new InputStreamReader(new FileInputStream(pemKey)));
     return ((KeyPair) reader.readObject()).getPrivate();
   }
 
