@@ -6,30 +6,7 @@ Documentation
 
 Looking for protocol documentation? Check out the website!
 
-https://whispersystems.org/docs/
-
-
-Bug tracker
------------
-
-Have a bug? Please create an issue here on GitHub!
-
-https://github.com/WhisperSystems/Signal-Server/issues
-
-
-Mailing list
-------------
-
-Have a question? Ask on our mailing list!
-
-whispersystems@lists.riseup.net
-
-https://lists.riseup.net/www/info/whispersystems
-
-Current BitHub Payment Per Commit:
-=================
-![Current Price](https://bithub.herokuapp.com/v1/status/payment/commit)
-
+https://signal.org/docs/
 
 Cryptography Notice
 ------------
