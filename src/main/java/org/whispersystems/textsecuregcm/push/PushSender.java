@@ -39,7 +39,7 @@ public class PushSender implements Managed {
 
   private final Logger logger = LoggerFactory.getLogger(PushSender.class);
 
-  public static final String APN_PAYLOAD = "{\"aps\":{\"sound\":\"default\",\"badge\":%d,\"alert\":{\"loc-key\":\"APN_Message\"}}}";
+  private static final String APN_PAYLOAD = "{\"aps\":{\"sound\":\"default\",\"alert\":{\"loc-key\":\"APN_Message\"}}}";
 
   private final ApnFallbackManager         apnFallbackManager;
   private final GCMSender                  gcmSender;
@@ -61,12 +61,7 @@ public class PushSender implements Managed {
 
     SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME)
                           .register(name(PushSender.class, "send_queue_depth"),
-                                    new Gauge<Integer>() {
-                                      @Override
-                                      public Integer getValue() {
-                                        return executor.getSize();
-                                      }
-                                    });
+                                    (Gauge<Integer>) executor::getSize);
   }
 
   public void sendMessage(final Account account, final Device device, final Envelope message, final boolean silent)
@@ -77,22 +72,17 @@ public class PushSender implements Managed {
     }
 
     if (queueSize > 0) {
-      executor.execute(new Runnable() {
-        @Override
-        public void run() {
-          sendSynchronousMessage(account, device, message, silent);
-        }
-      });
+      executor.execute(() -> sendSynchronousMessage(account, device, message, silent));
     } else {
       sendSynchronousMessage(account, device, message, silent);
     }
   }
 
-  public void sendQueuedNotification(Account account, Device device, int messageQueueDepth, boolean fallback)
+  public void sendQueuedNotification(Account account, Device device, boolean fallback)
       throws NotPushRegisteredException, TransientPushFailureException
   {
     if      (device.getGcmId() != null)    sendGcmNotification(account, device);
-    else if (device.getApnId() != null)    sendApnNotification(account, device, messageQueueDepth, fallback);
+    else if (device.getApnId() != null)    sendApnNotification(account, device, fallback);
     else if (!device.getFetchesMessages()) throw new NotPushRegisteredException("No notification possible!");
   }
 
@@ -127,16 +117,15 @@ public class PushSender implements Managed {
 
     if (!deliveryStatus.isDelivered() && outgoingMessage.getType() != Envelope.Type.RECEIPT) {
       boolean fallback = !silent && !outgoingMessage.getSource().equals(account.getNumber());
-      sendApnNotification(account, device, deliveryStatus.getMessageQueueDepth(), fallback);
+      sendApnNotification(account, device, fallback);
     }
   }
 
-  private void sendApnNotification(Account account, Device device, int messageQueueDepth, boolean fallback) {
+  private void sendApnNotification(Account account, Device device, boolean fallback) {
     ApnMessage apnMessage;
 
     if (!Util.isEmpty(device.getVoipApnId())) {
-      apnMessage = new ApnMessage(device.getVoipApnId(), account.getNumber(), (int)device.getId(),
-                                  String.format(APN_PAYLOAD, messageQueueDepth), true,
+      apnMessage = new ApnMessage(device.getVoipApnId(), account.getNumber(), (int)device.getId(), APN_PAYLOAD, true,
                                   System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(ApnFallbackManager.FALLBACK_DURATION));
 
       if (fallback) {
@@ -144,8 +133,7 @@ public class PushSender implements Managed {
                                     new ApnFallbackTask(device.getApnId(), device.getVoipApnId(), apnMessage));
       }
     } else {
-      apnMessage = new ApnMessage(device.getApnId(), account.getNumber(), (int)device.getId(),
-                                  String.format(APN_PAYLOAD, messageQueueDepth),
+      apnMessage = new ApnMessage(device.getApnId(), account.getNumber(), (int)device.getId(), APN_PAYLOAD,
                                   false, ApnMessage.MAX_EXPIRATION);
     }
 

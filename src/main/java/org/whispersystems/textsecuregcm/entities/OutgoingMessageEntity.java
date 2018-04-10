@@ -8,6 +8,9 @@ public class OutgoingMessageEntity {
   @JsonIgnore
   private long id;
 
+  @JsonIgnore
+  private boolean cached;
+
   @JsonProperty
   private int type;
 
@@ -31,11 +34,12 @@ public class OutgoingMessageEntity {
 
   public OutgoingMessageEntity() {}
 
-  public OutgoingMessageEntity(long id, int type, String relay, long timestamp,
+  public OutgoingMessageEntity(long id, boolean cached, int type, String relay, long timestamp,
                                String source, int sourceDevice, byte[] message,
                                byte[] content)
   {
     this.id           = id;
+    this.cached       = cached;
     this.type         = type;
     this.relay        = relay;
     this.timestamp    = timestamp;
@@ -73,8 +77,14 @@ public class OutgoingMessageEntity {
     return content;
   }
 
+  @JsonIgnore
   public long getId() {
     return id;
+  }
+
+  @JsonIgnore
+  public boolean isCached() {
+    return cached;
   }
 
 }

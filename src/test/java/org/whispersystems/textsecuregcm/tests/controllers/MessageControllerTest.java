@@ -186,8 +186,8 @@ public class MessageControllerTest {
     final long timestampTwo = 313388;
 
     List<OutgoingMessageEntity> messages = new LinkedList<OutgoingMessageEntity>() {{
-      add(new OutgoingMessageEntity(1L, Envelope.Type.CIPHERTEXT_VALUE, null, timestampOne, "+14152222222", 2, "hi there".getBytes(), null));
-      add(new OutgoingMessageEntity(2L, Envelope.Type.RECEIPT_VALUE, null, timestampTwo, "+14152222222", 2, null, null));
+      add(new OutgoingMessageEntity(1L, false, Envelope.Type.CIPHERTEXT_VALUE, null, timestampOne, "+14152222222", 2, "hi there".getBytes(), null));
+      add(new OutgoingMessageEntity(2L, false, Envelope.Type.RECEIPT_VALUE, null, timestampTwo, "+14152222222", 2, null, null));
     }};
 
     OutgoingMessageEntityList messagesList = new OutgoingMessageEntityList(messages, false);
@@ -217,8 +217,8 @@ public class MessageControllerTest {
     final long timestampTwo = 313388;
 
     List<OutgoingMessageEntity> messages = new LinkedList<OutgoingMessageEntity>() {{
-      add(new OutgoingMessageEntity(1L, Envelope.Type.CIPHERTEXT_VALUE, null, timestampOne, "+14152222222", 2, "hi there".getBytes(), null));
-      add(new OutgoingMessageEntity(2L, Envelope.Type.RECEIPT_VALUE, null, timestampTwo, "+14152222222", 2, null, null));
+      add(new OutgoingMessageEntity(1L, false, Envelope.Type.CIPHERTEXT_VALUE, null, timestampOne, "+14152222222", 2, "hi there".getBytes(), null));
+      add(new OutgoingMessageEntity(2L, false, Envelope.Type.RECEIPT_VALUE, null, timestampTwo, "+14152222222", 2, null, null));
     }};
 
     OutgoingMessageEntityList messagesList = new OutgoingMessageEntityList(messages, false);
@@ -239,13 +239,13 @@ public class MessageControllerTest {
   public synchronized void testDeleteMessages() throws Exception {
     long timestamp = System.currentTimeMillis();
     when(messagesManager.delete(AuthHelper.VALID_NUMBER, 1, "+14152222222", 31337))
-        .thenReturn(Optional.of(new OutgoingMessageEntity(31337L,
+        .thenReturn(Optional.of(new OutgoingMessageEntity(31337L, true,
                                                           Envelope.Type.CIPHERTEXT_VALUE,
                                                           null, timestamp,
                                                           "+14152222222", 1, "hi".getBytes(), null)));
 
     when(messagesManager.delete(AuthHelper.VALID_NUMBER, 1, "+14152222222", 31338))
-        .thenReturn(Optional.of(new OutgoingMessageEntity(31337L,
+        .thenReturn(Optional.of(new OutgoingMessageEntity(31337L, true,
                                                           Envelope.Type.RECEIPT_VALUE,
                                                           null, System.currentTimeMillis(),
                                                           "+14152222222", 1, null, null)));

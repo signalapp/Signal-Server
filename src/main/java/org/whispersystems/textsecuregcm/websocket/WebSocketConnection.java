@@ -82,7 +82,7 @@ public class WebSocketConnection implements DispatchChannel {
           processStoredMessages();
           break;
         case PubSubMessage.Type.DELIVER_VALUE:
-          sendMessage(Envelope.parseFrom(pubSubMessage.getContent()), Optional.<Long>absent(), false);
+          sendMessage(Envelope.parseFrom(pubSubMessage.getContent()), Optional.absent(), false);
           break;
         case PubSubMessage.Type.CONNECTED_VALUE:
           if (pubSubMessage.hasContent() && !new String(pubSubMessage.getContent().toByteArray()).equals(connectionId)) {
@@ -106,9 +106,9 @@ public class WebSocketConnection implements DispatchChannel {
     processStoredMessages();
   }
 
-  private void sendMessage(final Envelope       message,
-                           final Optional<Long> storedMessageId,
-                           final boolean        requery)
+  private void sendMessage(final Envelope                    message,
+                           final Optional<StoredMessageInfo> storedMessageInfo,
+                           final boolean                     requery)
   {
     try {
       EncryptedOutgoingMessage                   encryptedMessage = new EncryptedOutgoingMessage(message, device.getSignalingKey());
@@ -125,17 +125,17 @@ public class WebSocketConnection implements DispatchChannel {
           }
 
           if (isSuccessResponse(response)) {
-            if (storedMessageId.isPresent()) messagesManager.delete(account.getNumber(), storedMessageId.get());
-            if (!isReceipt)                  sendDeliveryReceiptFor(message);
-            if (requery)                     processStoredMessages();
-          } else if (!isSuccessResponse(response) && !storedMessageId.isPresent()) {
+            if (storedMessageInfo.isPresent()) messagesManager.delete(account.getNumber(), device.getId(), storedMessageInfo.get().id, storedMessageInfo.get().cached);
+            if (!isReceipt)                    sendDeliveryReceiptFor(message);
+            if (requery)                       processStoredMessages();
+          } else if (!isSuccessResponse(response) && !storedMessageInfo.isPresent()) {
             requeueMessage(message);
           }
         }
 
         @Override
         public void onFailure(@Nonnull Throwable throwable) {
-          if (!storedMessageId.isPresent()) requeueMessage(message);
+          if (!storedMessageInfo.isPresent()) requeueMessage(message);
         }
 
         private boolean isSuccessResponse(WebSocketResponseMessage response) {
@@ -148,11 +148,12 @@ public class WebSocketConnection implements DispatchChannel {
   }
 
   private void requeueMessage(Envelope message) {
-    int     queueDepth = pushSender.getWebSocketSender().queueMessage(account, device, message);
-    boolean fallback   = !message.getSource().equals(account.getNumber()) && message.getType() != Envelope.Type.RECEIPT;
+    pushSender.getWebSocketSender().queueMessage(account, device, message);
+
+    boolean fallback = !message.getSource().equals(account.getNumber()) && message.getType() != Envelope.Type.RECEIPT;
 
     try {
-      pushSender.sendQueuedNotification(account, device, queueDepth, fallback);
+      pushSender.sendQueuedNotification(account, device, fallback);
     } catch (NotPushRegisteredException | TransientPushFailureException e) {
       logger.warn("requeueMessage", e);
     }
@@ -162,7 +163,7 @@ public class WebSocketConnection implements DispatchChannel {
     try {
       receiptSender.sendReceipt(account, message.getSource(), message.getTimestamp(),
                                 message.hasRelay() ? Optional.of(message.getRelay()) :
-                                                     Optional.<String>absent());
+                                                     Optional.absent());
     } catch (NoSuchUserException | NotPushRegisteredException  e) {
       logger.info("No longer registered " + e.getMessage());
     } catch(IOException | TransientPushFailureException e) {
@@ -196,11 +197,21 @@ public class WebSocketConnection implements DispatchChannel {
         builder.setRelay(message.getRelay());
       }
 
-      sendMessage(builder.build(), Optional.of(message.getId()), !iterator.hasNext() && messages.hasMore());
+      sendMessage(builder.build(), Optional.of(new StoredMessageInfo(message.getId(), message.isCached())), !iterator.hasNext() && messages.hasMore());
     }
 
     if (!messages.hasMore()) {
       client.sendRequest("PUT", "/api/v1/queue/empty", null, Optional.<byte[]>absent());
+    }
+  }
+
+  private static class StoredMessageInfo {
+    private final long    id;
+    private final boolean cached;
+
+    private StoredMessageInfo(long id, boolean cached) {
+      this.id     = id;
+      this.cached = cached;
     }
   }
 }

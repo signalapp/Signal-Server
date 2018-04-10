@@ -25,7 +25,7 @@ import java.util.List;
 
 public abstract class Messages {
 
-  public static final int RESULT_SET_CHUNK_SIZE = 100;
+  static final int RESULT_SET_CHUNK_SIZE = 100;
 
   private static final String ID                 = "id";
   private static final String TYPE               = "type";
@@ -38,10 +38,9 @@ public abstract class Messages {
   private static final String MESSAGE            = "message";
   private static final String CONTENT            = "content";
 
-  @SqlQuery("INSERT INTO messages (" + TYPE + ", " + RELAY + ", " + TIMESTAMP + ", " + SOURCE + ", " + SOURCE_DEVICE + ", " + DESTINATION + ", " + DESTINATION_DEVICE + ", " + MESSAGE + ", " + CONTENT + ") " +
-            "VALUES (:type, :relay, :timestamp, :source, :source_device, :destination, :destination_device, :message, :content) " +
-            "RETURNING (SELECT COUNT(id) FROM messages WHERE " + DESTINATION + " = :destination AND " + DESTINATION_DEVICE + " = :destination_device AND " + TYPE + " != " + Envelope.Type.RECEIPT_VALUE + ")")
-  abstract int store(@MessageBinder Envelope message,
+  @SqlUpdate("INSERT INTO messages (" + TYPE + ", " + RELAY + ", " + TIMESTAMP + ", " + SOURCE + ", " + SOURCE_DEVICE + ", " + DESTINATION + ", " + DESTINATION_DEVICE + ", " + MESSAGE + ", " + CONTENT + ") " +
+             "VALUES (:type, :relay, :timestamp, :source, :source_device, :destination, :destination_device, :message, :content)")
+  abstract void store(@MessageBinder Envelope message,
                      @Bind("destination") String destination,
                      @Bind("destination_device") long destinationDevice);
 
@@ -100,6 +99,7 @@ public abstract class Messages {
       }
 
       return new OutgoingMessageEntity(resultSet.getLong(ID),
+                                       false,
                                        type,
                                        resultSet.getString(RELAY),
                                        resultSet.getLong(TIMESTAMP),
