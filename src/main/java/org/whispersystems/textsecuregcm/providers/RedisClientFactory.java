@@ -20,12 +20,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.dispatch.io.RedisPubSubConnectionFactory;
 import org.whispersystems.dispatch.redis.PubSubConnection;
+import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.io.IOException;
 import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.LinkedList;
+import java.util.List;
 
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
@@ -37,9 +40,9 @@ public class RedisClientFactory implements RedisPubSubConnectionFactory {
 
   private final String    host;
   private final int       port;
-  private final JedisPool jedisPool;
+  private final ReplicatedJedisPool jedisPool;
 
-  public RedisClientFactory(String url) throws URISyntaxException {
+  public RedisClientFactory(String url, List<String> replicaUrls) throws URISyntaxException {
     JedisPoolConfig poolConfig = new JedisPoolConfig();
     poolConfig.setTestOnBorrow(true);
 
@@ -47,11 +50,23 @@ public class RedisClientFactory implements RedisPubSubConnectionFactory {
 
     this.host      = redisURI.getHost();
     this.port      = redisURI.getPort();
-    this.jedisPool = new JedisPool(poolConfig, host, port,
-                                   Protocol.DEFAULT_TIMEOUT, null);
+
+    JedisPool       masterPool   = new JedisPool(poolConfig, host, port, Protocol.DEFAULT_TIMEOUT, null);
+    List<JedisPool> replicaPools = new LinkedList<>();
+
+    for (String replicaUrl : replicaUrls) {
+      URI replicaURI = new URI(replicaUrl);
+
+      replicaPools.add(new JedisPool(poolConfig, replicaURI.getHost(), replicaURI.getPort(),
+                                     500, Protocol.DEFAULT_TIMEOUT, null,
+                                     Protocol.DEFAULT_DATABASE, null, false, null ,
+                                     null, null));
+    }
+
+    this.jedisPool = new ReplicatedJedisPool(masterPool, replicaPools);
   }
 
-  public JedisPool getRedisClientPool() {
+  public ReplicatedJedisPool getRedisClientPool() {
     return jedisPool;
   }
 

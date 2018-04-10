@@ -63,6 +63,7 @@ import org.whispersystems.textsecuregcm.push.GCMSender;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.push.WebsocketSender;
+import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.s3.UrlSigner;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
@@ -104,7 +105,6 @@ import io.dropwizard.db.DataSourceFactory;
 import io.dropwizard.jdbi.DBIFactory;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
-import redis.clients.jedis.JedisPool;
 
 public class WhisperServerService extends Application<WhisperServerConfiguration> {
 
@@ -158,10 +158,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     Keys            keys            = database.onDemand(Keys.class);
     Messages        messages        = messagedb.onDemand(Messages.class);
 
-    RedisClientFactory cacheClientFactory = new RedisClientFactory(config.getCacheConfiguration().getUrl());
-    JedisPool          cacheClient        = cacheClientFactory.getRedisClientPool();
-    JedisPool          directoryClient    = new RedisClientFactory(config.getDirectoryConfiguration().getUrl()).getRedisClientPool();
-    JedisPool          messagesClient     = new RedisClientFactory(config.getMessageCacheConfiguration().getRedisConfiguration().getUrl()).getRedisClientPool();
+    RedisClientFactory  cacheClientFactory     = new RedisClientFactory(config.getCacheConfiguration().getUrl(), config.getCacheConfiguration().getReplicaUrls()        );
+    RedisClientFactory  directoryClientFactory = new RedisClientFactory(config.getDirectoryConfiguration().getUrl(), config.getDirectoryConfiguration().getReplicaUrls());
+    RedisClientFactory  messagesClientFactory  = new RedisClientFactory(config.getMessageCacheConfiguration().getRedisConfiguration().getUrl(), config.getMessageCacheConfiguration().getRedisConfiguration().getReplicaUrls());
+    ReplicatedJedisPool cacheClient            = cacheClientFactory.getRedisClientPool();
+    ReplicatedJedisPool directoryClient        = directoryClientFactory.getRedisClientPool();
+    ReplicatedJedisPool messagesClient         = messagesClientFactory.getRedisClientPool();
 
     DirectoryManager           directory                  = new DirectoryManager(directoryClient);
     PendingAccountsManager     pendingAccountsManager     = new PendingAccountsManager(pendingAccounts, cacheClient);

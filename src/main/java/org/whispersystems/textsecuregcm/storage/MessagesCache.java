@@ -14,6 +14,7 @@ import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.push.TransientPushFailureException;
 import org.whispersystems.textsecuregcm.redis.LuaScript;
+import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -32,7 +33,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.codahale.metrics.MetricRegistry.name;
 import io.dropwizard.lifecycle.Managed;
 import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.Tuple;
 import redis.clients.util.SafeEncoder;
 
@@ -48,10 +48,10 @@ public class MessagesCache implements Managed {
   private static final Timer          clearAccountTimer = metricRegistry.timer(name(MessagesCache.class, "clearAccount"));
   private static final Timer          clearDeviceTimer  = metricRegistry.timer(name(MessagesCache.class, "clearDevice" ));
 
-  private final JedisPool       jedisPool;
-  private final Messages        database;
-  private final AccountsManager accountsManager;
-  private final int             delayMinutes;
+  private final ReplicatedJedisPool jedisPool;
+  private final Messages            database;
+  private final AccountsManager     accountsManager;
+  private final int                 delayMinutes;
 
   private InsertOperation  insertOperation;
   private RemoveOperation  removeOperation;
@@ -61,7 +61,7 @@ public class MessagesCache implements Managed {
   private PushSender       pushSender;
   private MessagePersister messagePersister;
 
-  public MessagesCache(JedisPool jedisPool, Messages database, AccountsManager accountsManager, int delayMinutes) {
+  public MessagesCache(ReplicatedJedisPool jedisPool, Messages database, AccountsManager accountsManager, int delayMinutes) {
     this.jedisPool       = jedisPool;
     this.database        = database;
     this.accountsManager = accountsManager;
@@ -244,7 +244,7 @@ public class MessagesCache implements Managed {
   private static class InsertOperation {
     private final LuaScript insert;
 
-    InsertOperation(JedisPool jedisPool) throws IOException {
+    InsertOperation(ReplicatedJedisPool jedisPool) throws IOException {
       this.insert = LuaScript.fromResource(jedisPool, "lua/insert_item.lua");
     }
 
@@ -265,7 +265,7 @@ public class MessagesCache implements Managed {
     private final LuaScript removeBySender;
     private final LuaScript removeQueue;
 
-    RemoveOperation(JedisPool jedisPool) throws IOException {
+    RemoveOperation(ReplicatedJedisPool jedisPool) throws IOException {
       this.removeById     = LuaScript.fromResource(jedisPool, "lua/remove_item_by_id.lua"    );
       this.removeBySender = LuaScript.fromResource(jedisPool, "lua/remove_item_by_sender.lua");
       this.removeQueue    = LuaScript.fromResource(jedisPool, "lua/remove_queue.lua"         );
@@ -305,7 +305,7 @@ public class MessagesCache implements Managed {
     private final LuaScript getQueues;
     private final LuaScript getItems;
 
-    GetOperation(JedisPool jedisPool) throws IOException {
+    GetOperation(ReplicatedJedisPool jedisPool) throws IOException {
       this.getQueues = LuaScript.fromResource(jedisPool, "lua/get_queues_to_persist.lua");
       this.getItems  = LuaScript.fromResource(jedisPool, "lua/get_items.lua");
     }
@@ -346,10 +346,10 @@ public class MessagesCache implements Managed {
 
     private final AtomicBoolean running = new AtomicBoolean(true);
 
-    private final JedisPool     jedisPool;
-    private final Messages      database;
-    private final long          delayTime;
-    private final TimeUnit      delayTimeUnit;
+    private final ReplicatedJedisPool jedisPool;
+    private final Messages            database;
+    private final long                delayTime;
+    private final TimeUnit            delayTimeUnit;
 
     private final PubSubManager   pubSubManager;
     private final PushSender      pushSender;
@@ -360,13 +360,13 @@ public class MessagesCache implements Managed {
 
     private boolean finished = false;
 
-    MessagePersister(JedisPool       jedisPool,
-                     Messages        database,
-                     PubSubManager   pubSubManager,
-                     PushSender      pushSender,
-                     AccountsManager accountsManager,
-                     long            delayTime,
-                     TimeUnit        delayTimeUnit)
+    MessagePersister(ReplicatedJedisPool jedisPool,
+                     Messages            database,
+                     PubSubManager       pubSubManager,
+                     PushSender          pushSender,
+                     AccountsManager     accountsManager,
+                     long                delayTime,
+                     TimeUnit            delayTimeUnit)
         throws IOException
     {
       super(MessagePersister.class.getSimpleName());
@@ -416,12 +416,12 @@ public class MessagesCache implements Managed {
       while (!finished) Util.wait(this);
     }
 
-    private void persistQueue(JedisPool jedisPool, Key key) throws IOException {
+    private void persistQueue(ReplicatedJedisPool jedisPool, Key key) throws IOException {
       Timer.Context timer = persistQueueTimer.time();
 
       int messagesPersistedCount = 0;
 
-      try (Jedis jedis = jedisPool.getResource()) {
+      try (Jedis jedis = jedisPool.getWriteResource()) {
         while (true) {
           jedis.setex(key.getUserMessageQueuePersistInProgress(), 30, "1".getBytes());
 

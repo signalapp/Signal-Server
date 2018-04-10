@@ -4,13 +4,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.dispatch.DispatchChannel;
 import org.whispersystems.dispatch.DispatchManager;
-
-import java.util.Arrays;
+import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 
 import io.dropwizard.lifecycle.Managed;
 import static org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
 import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
 
 public class PubSubManager implements Managed {
 
@@ -18,14 +16,14 @@ public class PubSubManager implements Managed {
 
   private final Logger logger = LoggerFactory.getLogger(PubSubManager.class);
 
-  private final DispatchManager dispatchManager;
-  private final JedisPool       jedisPool;
+  private final DispatchManager     dispatchManager;
+  private final ReplicatedJedisPool jedisPool;
 
   private boolean subscribed = false;
 
-  public PubSubManager(JedisPool jedisPool, DispatchManager dispatchManager) {
+  public PubSubManager(ReplicatedJedisPool jedisPool, DispatchManager dispatchManager) {
     this.dispatchManager = dispatchManager;
-    this.jedisPool         = jedisPool;
+    this.jedisPool       = jedisPool;
   }
 
   @Override
@@ -64,7 +62,7 @@ public class PubSubManager implements Managed {
   }
 
   private boolean publish(byte[] channel, PubSubMessage message) {
-    try (Jedis jedis = jedisPool.getResource()) {
+    try (Jedis jedis = jedisPool.getWriteResource()) {
       long result = jedis.publish(channel, message.toByteArray());
 
       if (result < 0) {

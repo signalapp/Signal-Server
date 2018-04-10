@@ -18,8 +18,7 @@ package org.whispersystems.textsecuregcm.limits;
 
 
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
-
-import redis.clients.jedis.JedisPool;
+import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 
 public class RateLimiters {
 
@@ -41,7 +40,7 @@ public class RateLimiters {
 
   private final RateLimiter profileLimiter;
 
-  public RateLimiters(RateLimitsConfiguration config, JedisPool cacheClient) {
+  public RateLimiters(RateLimitsConfiguration config, ReplicatedJedisPool cacheClient) {
     this.smsDestinationLimiter = new RateLimiter(cacheClient, "smsDestination",
                                                  config.getSmsDestination().getBucketSize(),
                                                  config.getSmsDestination().getLeakRatePerMinute());

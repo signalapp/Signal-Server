@@ -24,6 +24,7 @@ import com.google.common.base.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
+import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.IterablePair;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -33,7 +34,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.Pipeline;
 import redis.clients.jedis.Response;
 
@@ -44,9 +44,9 @@ public class DirectoryManager {
   private static final byte[] DIRECTORY_KEY = {'d', 'i', 'r', 'e', 'c', 't', 'o', 'r', 'y'};
 
   private final ObjectMapper objectMapper;
-  private final JedisPool redisPool;
+  private final ReplicatedJedisPool redisPool;
 
-  public DirectoryManager(JedisPool redisPool) {
+  public DirectoryManager(ReplicatedJedisPool redisPool) {
     this.redisPool    = redisPool;
     this.objectMapper = new ObjectMapper();
     this.objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -61,7 +61,7 @@ public class DirectoryManager {
   }
 
   public void remove(byte[] token) {
-    try (Jedis jedis = redisPool.getResource()) {
+    try (Jedis jedis = redisPool.getWriteResource()) {
       jedis.hdel(DIRECTORY_KEY, token);
     }
   }
@@ -74,7 +74,7 @@ public class DirectoryManager {
   public void add(ClientContact contact) {
     TokenValue tokenValue = new TokenValue(contact.getRelay(), contact.isVoice(), contact.isVideo());
 
-    try (Jedis jedis = redisPool.getResource()) {
+    try (Jedis jedis = redisPool.getWriteResource()) {
       jedis.hset(DIRECTORY_KEY, contact.getToken(), objectMapper.writeValueAsBytes(tokenValue));
     } catch (JsonProcessingException e) {
       logger.warn("JSON Serialization", e);
@@ -98,7 +98,7 @@ public class DirectoryManager {
   }
 
   public Optional<ClientContact> get(byte[] token) {
-    try (Jedis jedis = redisPool.getResource()) {
+    try (Jedis jedis = redisPool.getWriteResource()) {
       byte[] result = jedis.hget(DIRECTORY_KEY, token);
 
       if (result == null) {
@@ -114,7 +114,7 @@ public class DirectoryManager {
   }
 
   public List<ClientContact> get(List<byte[]> tokens) {
-    try (Jedis jedis = redisPool.getResource()) {
+    try (Jedis jedis = redisPool.getWriteResource()) {
       Pipeline               pipeline = jedis.pipelined();
       List<Response<byte[]>> futures  = new LinkedList<>();
       List<ClientContact>    results  = new LinkedList<>();
@@ -147,7 +147,7 @@ public class DirectoryManager {
   }
 
   public BatchOperationHandle startBatchOperation() {
-    Jedis jedis = redisPool.getResource();
+    Jedis jedis = redisPool.getWriteResource();
     return new BatchOperationHandle(jedis, jedis.pipelined());
   }
 
@@ -156,7 +156,7 @@ public class DirectoryManager {
     Jedis    jedis    = handle.jedis;
 
     pipeline.sync();
-    redisPool.returnResource(jedis);
+    redisPool.returnWriteResource(jedis);
   }
 
   public static class BatchOperationHandle {

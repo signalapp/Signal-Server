@@ -4,17 +4,17 @@ import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.Constants;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
 
 public class LockingRateLimiter extends RateLimiter {
 
   private final Meter meter;
 
-  public LockingRateLimiter(JedisPool cacheClient, String name, int bucketSize, double leakRatePerMinute) {
+  public LockingRateLimiter(ReplicatedJedisPool cacheClient, String name, int bucketSize, double leakRatePerMinute) {
     super(cacheClient, name, bucketSize, leakRatePerMinute);
 
     MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
@@ -41,13 +41,13 @@ public class LockingRateLimiter extends RateLimiter {
   }
 
   private void releaseLock(String key) {
-    try (Jedis jedis = cacheClient.getResource()) {
+    try (Jedis jedis = cacheClient.getWriteResource()) {
       jedis.del(getLockName(key));
     }
   }
 
   private boolean acquireLock(String key) {
-    try (Jedis jedis = cacheClient.getResource()) {
+    try (Jedis jedis = cacheClient.getWriteResource()) {
       return jedis.set(getLockName(key), "L", "NX", "EX", 10) != null;
     }
   }

@@ -1,27 +1,20 @@
 package org.whispersystems.textsecuregcm.redis;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.util.List;
 
 import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.exceptions.JedisDataException;
 
 public class LuaScript {
 
-  private final JedisPool jedisPool;
-  private final String    script;
-  private final byte[]    sha;
+  private final ReplicatedJedisPool jedisPool;
+  private final String              script;
+  private final byte[]              sha;
 
-  public static LuaScript fromResource(JedisPool jedisPool, String resource) throws IOException {
+  public static LuaScript fromResource(ReplicatedJedisPool jedisPool, String resource) throws IOException {
     InputStream           inputStream = LuaScript.class.getClassLoader().getResourceAsStream(resource);
     ByteArrayOutputStream baos        = new ByteArrayOutputStream();
 
@@ -38,14 +31,14 @@ public class LuaScript {
     return new LuaScript(jedisPool, new String(baos.toByteArray()));
   }
 
-  private LuaScript(JedisPool jedisPool, String script) {
+  private LuaScript(ReplicatedJedisPool jedisPool, String script) {
     this.jedisPool = jedisPool;
     this.script    = script;
     this.sha       = storeScript(jedisPool, script).getBytes();
   }
 
   public Object execute(List<byte[]> keys, List<byte[]> args) {
-    try (Jedis jedis = jedisPool.getResource()) {
+    try (Jedis jedis = jedisPool.getWriteResource()) {
       try {
         return jedis.evalsha(sha, keys, args);
       } catch (JedisDataException e) {
@@ -55,8 +48,8 @@ public class LuaScript {
     }
   }
 
-  private String storeScript(JedisPool jedisPool, String script) {
-    try (Jedis jedis = jedisPool.getResource()) {
+  private String storeScript(ReplicatedJedisPool jedisPool, String script) {
+    try (Jedis jedis = jedisPool.getWriteResource()) {
       return jedis.scriptLoad(script);
     }
   }

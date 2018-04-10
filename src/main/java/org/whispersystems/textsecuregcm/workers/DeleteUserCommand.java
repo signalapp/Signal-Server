@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.providers.RedisClientFactory;
+import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -72,11 +73,11 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
       dbi.registerContainerFactory(new ImmutableSetContainerFactory());
       dbi.registerContainerFactory(new OptionalContainerFactory());
 
-      Accounts         accounts        = dbi.onDemand(Accounts.class);
-      JedisPool        cacheClient     = new RedisClientFactory(configuration.getCacheConfiguration().getUrl()).getRedisClientPool();
-      JedisPool        redisClient     = new RedisClientFactory(configuration.getDirectoryConfiguration().getUrl()).getRedisClientPool();
-      DirectoryManager directory       = new DirectoryManager(redisClient);
-      AccountsManager  accountsManager = new AccountsManager(accounts, directory, cacheClient);
+      Accounts            accounts        = dbi.onDemand(Accounts.class);
+      ReplicatedJedisPool cacheClient     = new RedisClientFactory(configuration.getCacheConfiguration().getUrl(), configuration.getCacheConfiguration().getReplicaUrls()).getRedisClientPool();
+      ReplicatedJedisPool redisClient     = new RedisClientFactory(configuration.getDirectoryConfiguration().getUrl(), configuration.getDirectoryConfiguration().getReplicaUrls()).getRedisClientPool();
+      DirectoryManager    directory       = new DirectoryManager(redisClient);
+      AccountsManager     accountsManager = new AccountsManager(accounts, directory, cacheClient);
 
       for (String user: users) {
         Optional<Account> account = accountsManager.get(user);
