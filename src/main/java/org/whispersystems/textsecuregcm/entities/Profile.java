@@ -18,12 +18,20 @@ public class Profile {
   @JsonProperty
   private String avatar;
 
+  @JsonProperty
+  private String unidentifiedAccess;
+
+  @JsonProperty
+  private boolean unrestrictedUnidentifiedAccess;
+
   public Profile() {}
 
-  public Profile(String name, String avatar, String identityKey) {
-    this.name        = name;
-    this.avatar      = avatar;
-    this.identityKey = identityKey;
+  public Profile(String name, String avatar, String identityKey, String unidentifiedAccess, boolean unrestrictedUnidentifiedAccess) {
+    this.name                           = name;
+    this.avatar                         = avatar;
+    this.identityKey                    = identityKey;
+    this.unidentifiedAccess             = unidentifiedAccess;
+    this.unrestrictedUnidentifiedAccess = unrestrictedUnidentifiedAccess;
   }
 
   @VisibleForTesting
@@ -39,6 +47,16 @@ public class Profile {
   @VisibleForTesting
   public String getAvatar() {
     return avatar;
+  }
+
+  @VisibleForTesting
+  public String getUnidentifiedAccess() {
+    return unidentifiedAccess;
+  }
+
+  @VisibleForTesting
+  public boolean isUnrestrictedUnidentifiedAccess() {
+    return unrestrictedUnidentifiedAccess;
   }
 
 }

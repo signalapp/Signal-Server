@@ -17,10 +17,11 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
-import com.google.common.base.Optional;
 import com.google.protobuf.ByteString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.Anonymous;
+import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
@@ -29,15 +30,11 @@ import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
 import org.whispersystems.textsecuregcm.entities.SendMessageResponse;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
-import org.whispersystems.textsecuregcm.federation.FederatedClient;
-import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
-import org.whispersystems.textsecuregcm.federation.NoSuchPeerException;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
-import org.whispersystems.textsecuregcm.push.TransientPushFailureException;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -51,6 +48,7 @@ import javax.validation.Valid;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
+import javax.ws.rs.HeaderParam;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -62,10 +60,13 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 import io.dropwizard.auth.Auth;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/messages")
 public class MessageController {
 
@@ -74,7 +75,6 @@ public class MessageController {
   private final RateLimiters           rateLimiters;
   private final PushSender             pushSender;
   private final ReceiptSender          receiptSender;
-  private final FederatedClientManager federatedClientManager;
   private final AccountsManager        accountsManager;
   private final MessagesManager        messagesManager;
   private final ApnFallbackManager     apnFallbackManager;
@@ -84,7 +84,6 @@ public class MessageController {
                            ReceiptSender receiptSender,
                            AccountsManager accountsManager,
                            MessagesManager messagesManager,
-                           FederatedClientManager federatedClientManager,
                            ApnFallbackManager apnFallbackManager)
   {
     this.rateLimiters           = rateLimiters;
@@ -92,7 +91,6 @@ public class MessageController {
     this.receiptSender          = receiptSender;
     this.accountsManager        = accountsManager;
     this.messagesManager        = messagesManager;
-    this.federatedClientManager = federatedClientManager;
     this.apnFallbackManager     = apnFallbackManager;
   }
 
@@ -101,22 +99,41 @@ public class MessageController {
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public SendMessageResponse sendMessage(@Auth                     Account source,
-                                         @PathParam("destination") String destinationName,
-                                         @Valid                    IncomingMessageList messages)
-      throws IOException, RateLimitExceededException
+  public SendMessageResponse sendMessage(@Auth                                     Optional<Account>   source,
+                                         @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
+                                         @PathParam("destination")                 String              destinationName,
+                                         @Valid                                    IncomingMessageList messages)
+      throws RateLimitExceededException
   {
-    if (!source.getNumber().equals(destinationName)) {
-      rateLimiters.getMessagesLimiter().validate(source.getNumber() + "__" + destinationName);
+    if (!source.isPresent() && !accessKey.isPresent()) {
+      throw new WebApplicationException(Response.Status.UNAUTHORIZED);
+    }
+
+    if (source.isPresent() && !source.get().getNumber().equals(destinationName)) {
+      rateLimiters.getMessagesLimiter().validate(source.get().getNumber() + "__" + destinationName);
     }
 
     try {
-      boolean isSyncMessage = source.getNumber().equals(destinationName);
+      boolean isSyncMessage = source.isPresent() && source.get().getNumber().equals(destinationName);
 
-      if (Util.isEmpty(messages.getRelay())) sendLocalMessage(source, destinationName, messages, isSyncMessage);
-      else                                   sendRelayMessage(source, destinationName, messages, isSyncMessage);
+      Optional<Account> destination;
 
-      return new SendMessageResponse(!isSyncMessage && source.getActiveDeviceCount() > 1);
+      if (!isSyncMessage) destination = accountsManager.get(destinationName);
+      else                destination = source;
+
+      OptionalAccess.verify(source, accessKey, destination);
+      validateCompleteDeviceList(destination.get(), messages.getMessages(), isSyncMessage);
+      validateRegistrationIds(destination.get(), messages.getMessages());
+
+      for (IncomingMessage incomingMessage : messages.getMessages()) {
+        Optional<Device> destinationDevice = destination.get().getDevice(incomingMessage.getDestinationDeviceId());
+
+        if (destinationDevice.isPresent()) {
+          sendMessage(source, destination.get(), destinationDevice.get(), messages.getTimestamp(), incomingMessage);
+        }
+      }
+
+      return new SendMessageResponse(!isSyncMessage && source.isPresent() && source.get().getActiveDeviceCount() > 1);
     } catch (NoSuchUserException e) {
       throw new WebApplicationException(Response.status(404).build());
     } catch (MismatchedDevicesException e) {
@@ -130,8 +147,6 @@ public class MessageController {
                                                 .type(MediaType.APPLICATION_JSON)
                                                 .entity(new StaleDevices(e.getStaleDevices()))
                                                 .build());
-    } catch (InvalidDestinationException e) {
-      throw new WebApplicationException(Response.status(400).build());
     }
   }
 
@@ -155,7 +170,6 @@ public class MessageController {
   public void removePendingMessage(@Auth Account account,
                                    @PathParam("source") String source,
                                    @PathParam("timestamp") long timestamp)
-      throws IOException
   {
     try {
       WebSocketConnection.messageTime.update(System.currentTimeMillis() - timestamp);
@@ -167,45 +181,41 @@ public class MessageController {
       if (message.isPresent() && message.get().getType() != Envelope.Type.RECEIPT_VALUE) {
         receiptSender.sendReceipt(account,
                                   message.get().getSource(),
-                                  message.get().getTimestamp(),
-                                  Optional.fromNullable(message.get().getRelay()));
+                                  message.get().getTimestamp());
       }
     } catch (NotPushRegisteredException e) {
       logger.info("User no longer push registered for delivery receipt: " + e.getMessage());
-    } catch (NoSuchUserException | TransientPushFailureException e) {
+    } catch (NoSuchUserException e) {
       logger.warn("Sending delivery receipt", e);
     }
   }
 
+  @Timed
+  @DELETE
+  @Path("/uuid/{uuid}")
+  public void removePendingMessage(@Auth Account account, @PathParam("uuid") UUID uuid) {
+    try {
+      Optional<OutgoingMessageEntity> message = messagesManager.delete(account.getNumber(),
+                                                                       account.getAuthenticatedDevice().get().getId(),
+                                                                       uuid);
 
-  private void sendLocalMessage(Account source,
-                                String destinationName,
-                                IncomingMessageList messages,
-                                boolean isSyncMessage)
-      throws NoSuchUserException, MismatchedDevicesException, StaleDevicesException
-  {
-    Account destination;
+      message.ifPresent(outgoingMessageEntity -> WebSocketConnection.messageTime.update(System.currentTimeMillis() - outgoingMessageEntity.getTimestamp()));
 
-    if (!isSyncMessage) destination = getDestinationAccount(destinationName);
-    else                destination = source;
-
-    validateCompleteDeviceList(destination, messages.getMessages(), isSyncMessage);
-    validateRegistrationIds(destination, messages.getMessages());
-
-    for (IncomingMessage incomingMessage : messages.getMessages()) {
-      Optional<Device> destinationDevice = destination.getDevice(incomingMessage.getDestinationDeviceId());
-
-      if (destinationDevice.isPresent()) {
-        sendLocalMessage(source, destination, destinationDevice.get(), messages.getTimestamp(), incomingMessage);
+      if (message.isPresent() && !Util.isEmpty(message.get().getSource()) && message.get().getType() != Envelope.Type.RECEIPT_VALUE) {
+        receiptSender.sendReceipt(account, message.get().getSource(), message.get().getTimestamp());
       }
+    } catch (NoSuchUserException e) {
+      logger.warn("Sending delivery receipt", e);
+    } catch (NotPushRegisteredException e) {
+      logger.info("User no longer push registered for delivery receipt: " + e.getMessage());
     }
   }
 
-  private void sendLocalMessage(Account source,
-                                Account destinationAccount,
-                                Device destinationDevice,
-                                long timestamp,
-                                IncomingMessage incomingMessage)
+  private void sendMessage(Optional<Account> source,
+                           Account destinationAccount,
+                           Device destinationDevice,
+                           long timestamp,
+                           IncomingMessage incomingMessage)
       throws NoSuchUserException
   {
     try {
@@ -214,9 +224,13 @@ public class MessageController {
       Envelope.Builder messageBuilder = Envelope.newBuilder();
 
       messageBuilder.setType(Envelope.Type.valueOf(incomingMessage.getType()))
-                    .setSource(source.getNumber())
                     .setTimestamp(timestamp == 0 ? System.currentTimeMillis() : timestamp)
-                    .setSourceDevice((int) source.getAuthenticatedDevice().get().getId());
+                    .setServerTimestamp(System.currentTimeMillis());
+
+      if (source.isPresent()) {
+        messageBuilder.setSource(source.get().getNumber())
+                      .setSourceDevice((int)source.get().getAuthenticatedDevice().get().getId());
+      }
 
       if (messageBody.isPresent()) {
         messageBuilder.setLegacyMessage(ByteString.copyFrom(messageBody.get()));
@@ -226,44 +240,11 @@ public class MessageController {
         messageBuilder.setContent(ByteString.copyFrom(messageContent.get()));
       }
 
-      if (source.getRelay().isPresent()) {
-        messageBuilder.setRelay(source.getRelay().get());
-      }
-
       pushSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build());
     } catch (NotPushRegisteredException e) {
       if (destinationDevice.isMaster()) throw new NoSuchUserException(e);
       else                              logger.debug("Not registered", e);
     }
-  }
-
-  private void sendRelayMessage(Account source,
-                                String destinationName,
-                                IncomingMessageList messages,
-                                boolean isSyncMessage)
-      throws IOException, NoSuchUserException, InvalidDestinationException
-  {
-    if (isSyncMessage) throw new InvalidDestinationException("Transcript messages can't be relayed!");
-
-    try {
-      FederatedClient client = federatedClientManager.getClient(messages.getRelay());
-      client.sendMessages(source.getNumber(), source.getAuthenticatedDevice().get().getId(),
-                          destinationName, messages);
-    } catch (NoSuchPeerException e) {
-      throw new NoSuchUserException(e);
-    }
-  }
-
-  private Account getDestinationAccount(String destination)
-      throws NoSuchUserException
-  {
-    Optional<Account> account = accountsManager.get(destination);
-
-    if (!account.isPresent() || !account.get().isActive()) {
-      throw new NoSuchUserException(destination);
-    }
-
-    return account.get();
   }
 
   private void validateRegistrationIds(Account account, List<IncomingMessage> messages)
@@ -326,24 +307,24 @@ public class MessageController {
   }
 
   private Optional<byte[]> getMessageBody(IncomingMessage message) {
-    if (Util.isEmpty(message.getBody())) return Optional.absent();
+    if (Util.isEmpty(message.getBody())) return Optional.empty();
 
     try {
       return Optional.of(Base64.decode(message.getBody()));
     } catch (IOException ioe) {
       logger.debug("Bad B64", ioe);
-      return Optional.absent();
+      return Optional.empty();
     }
   }
 
   private Optional<byte[]> getMessageContent(IncomingMessage message) {
-    if (Util.isEmpty(message.getContent())) return Optional.absent();
+    if (Util.isEmpty(message.getContent())) return Optional.empty();
 
     try {
       return Optional.of(Base64.decode(message.getContent()));
     } catch (IOException ioe) {
       logger.debug("Bad B64", ioe);
-      return Optional.absent();
+      return Optional.empty();
     }
   }
 }

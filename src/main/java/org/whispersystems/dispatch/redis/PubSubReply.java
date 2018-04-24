@@ -1,7 +1,9 @@
 package org.whispersystems.dispatch.redis;
 
-import com.google.common.base.Optional;
 
+import java.util.Optional;
+
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class PubSubReply {
 
   public enum Type {
@@ -11,7 +13,7 @@ public class PubSubReply {
   }
 
   private final Type             type;
-  private final String          channel;
+  private final String           channel;
   private final Optional<byte[]> content;
 
   public PubSubReply(Type type, String channel, Optional<byte[]> content) {

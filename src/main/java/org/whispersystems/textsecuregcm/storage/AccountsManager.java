@@ -19,7 +19,6 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
@@ -30,6 +29,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 
 import redis.clients.jedis.Jedis;
 
@@ -79,7 +79,7 @@ public class AccountsManager {
     Optional<Account> account = memcacheGet(number);
 
     if (!account.isPresent()) {
-      account = Optional.fromNullable(accounts.get(number));
+      account = Optional.ofNullable(accounts.get(number));
 
       if (account.isPresent()) {
         memcacheSet(number, account.get());
@@ -99,7 +99,7 @@ public class AccountsManager {
   private void updateDirectory(Account account) {
     if (account.isActive()) {
       byte[]        token         = Util.getContactToken(account.getNumber());
-      ClientContact clientContact = new ClientContact(token, null, account.isVoiceSupported(), account.isVideoSupported());
+      ClientContact clientContact = new ClientContact(token, null, true, true);
       directory.add(clientContact);
     } else {
       directory.remove(account.getNumber());
@@ -123,10 +123,10 @@ public class AccountsManager {
       String json = jedis.get(getKey(number));
 
       if (json != null) return Optional.of(mapper.readValue(json, Account.class));
-      else              return Optional.absent();
+      else              return Optional.empty();
     } catch (IOException e) {
       logger.warn("AccountsManager", "Deserialization error", e);
-      return Optional.absent();
+      return Optional.empty();
     }
   }
 

@@ -1,11 +1,9 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
-import com.google.common.base.Optional;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.whispersystems.dropwizard.simpleauth.AuthValueFactoryProvider;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
@@ -30,8 +28,10 @@ import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.util.HashMap;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Matchers.anyString;
@@ -59,7 +59,7 @@ public class AccountControllerTest {
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
                                                             .addProvider(AuthHelper.getAuthFilter())
-                                                            .addProvider(new AuthValueFactoryProvider.Binder())
+                                                            .addProvider(new AuthValueFactoryProvider.Binder<>(Account.class))
                                                             .addProvider(new RateLimitExceededExceptionMapper())
                                                             .setMapper(SystemMapper.getMapper())
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
@@ -94,8 +94,8 @@ public class AccountControllerTest {
 
     when(accountsManager.get(eq(SENDER_PIN))).thenReturn(Optional.of(senderPinAccount));
     when(accountsManager.get(eq(SENDER_OVER_PIN))).thenReturn(Optional.of(senderPinAccount));
-    when(accountsManager.get(eq(SENDER))).thenReturn(Optional.absent());
-    when(accountsManager.get(eq(SENDER_OLD))).thenReturn(Optional.absent());
+    when(accountsManager.get(eq(SENDER))).thenReturn(Optional.empty());
+    when(accountsManager.get(eq(SENDER_OLD))).thenReturn(Optional.empty());
 
     doThrow(new RateLimitExceededException(SENDER_OVER_PIN)).when(pinLimiter).validate(eq(SENDER_OVER_PIN));
   }
@@ -110,7 +110,7 @@ public class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.absent()), anyString());
+    verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.empty()), anyString());
   }
   
   @Test
@@ -268,6 +268,17 @@ public class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
 
     verify(AuthHelper.VALID_ACCOUNT).setPin(eq("31337"));
+  }
+
+  @Test
+  public void testSetPinUnauthorized() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/accounts/pin/")
+                 .request()
+                 .put(Entity.json(new RegistrationLock("31337")));
+
+    assertThat(response.getStatus()).isEqualTo(401);
   }
 
   @Test

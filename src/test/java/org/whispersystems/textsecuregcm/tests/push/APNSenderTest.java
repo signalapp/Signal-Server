@@ -1,6 +1,5 @@
 package org.whispersystems.textsecuregcm.tests.push;
 
-import com.google.common.base.Optional;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.relayrides.pushy.apns.ApnsClient;
 import com.relayrides.pushy.apns.ApnsServerException;
@@ -22,6 +21,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.SynchronousExecutorService;
 
 import java.util.Date;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import io.netty.util.concurrent.DefaultEventExecutor;

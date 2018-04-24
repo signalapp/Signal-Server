@@ -30,23 +30,12 @@ public class IncomingMessageList {
   private List<IncomingMessage> messages;
 
   @JsonProperty
-  private String relay;
-
-  @JsonProperty
   private long timestamp;
 
   public IncomingMessageList() {}
 
   public List<IncomingMessage> getMessages() {
     return messages;
-  }
-
-  public String getRelay() {
-    return relay;
-  }
-
-  public void setRelay(String relay) {
-    this.relay = relay;
   }
 
   public long getTimestamp() {

@@ -20,6 +20,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -118,6 +119,12 @@ public class Util {
     System.arraycopy(input, firstLength + secondLength + thirdLength, parts[3], 0, fourthLength);
 
     return parts;
+  }
+
+  public static byte[] generateSecretBytes(int size) {
+    byte[] data = new byte[size];
+    new SecureRandom().nextBytes(data);
+    return data;
   }
 
   public static void sleep(long i) {

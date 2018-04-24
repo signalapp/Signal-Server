@@ -4,7 +4,6 @@ import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import com.google.common.base.Optional;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +24,9 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -43,6 +44,7 @@ public class MessagesCache implements Managed {
   private static final Timer          insertTimer       = metricRegistry.timer(name(MessagesCache.class, "insert"      ));
   private static final Timer          removeByIdTimer   = metricRegistry.timer(name(MessagesCache.class, "removeById"  ));
   private static final Timer          removeByNameTimer = metricRegistry.timer(name(MessagesCache.class, "removeByName"));
+  private static final Timer          removeByGuidTimer = metricRegistry.timer(name(MessagesCache.class, "removeByGuid"));
   private static final Timer          getTimer          = metricRegistry.timer(name(MessagesCache.class, "get"         ));
   private static final Timer          clearAccountTimer = metricRegistry.timer(name(MessagesCache.class, "clearAccount"));
   private static final Timer          clearDeviceTimer  = metricRegistry.timer(name(MessagesCache.class, "clearDevice" ));
@@ -67,11 +69,13 @@ public class MessagesCache implements Managed {
     this.delayMinutes    = delayMinutes;
   }
 
-  public void insert(String destination, long destinationDevice, Envelope message) {
+  public void insert(UUID guid, String destination, long destinationDevice, Envelope message) {
+    message = message.toBuilder().setServerGuid(guid.toString()).build();
+
     Timer.Context timer = insertTimer.time();
 
     try {
-      insertOperation.insert(destination, destinationDevice, System.currentTimeMillis(), message);
+      insertOperation.insert(guid, destination, destinationDevice, System.currentTimeMillis(), message);
     } finally {
       timer.stop();
     }
@@ -103,7 +107,26 @@ public class MessagesCache implements Managed {
       timer.stop();
     }
 
-    return Optional.absent();
+    return Optional.empty();
+  }
+
+  public Optional<OutgoingMessageEntity> remove(String destination, long destinationDevice, UUID guid) {
+    Timer.Context timer = removeByGuidTimer.time();
+
+    try {
+      byte[] serialized = removeOperation.remove(destination, destinationDevice, guid);
+
+      if (serialized != null) {
+        Envelope envelope = Envelope.parseFrom(serialized);
+        return Optional.of(constructEntityFromEnvelope(0, envelope));
+      }
+    } catch (InvalidProtocolBufferException e) {
+      logger.warn("Failed to parse envelope", e);
+    } finally {
+      timer.stop();
+    }
+
+    return Optional.empty();
   }
 
   public List<OutgoingMessageEntity> get(String destination, long destinationDevice, int limit) {
@@ -175,13 +198,15 @@ public class MessagesCache implements Managed {
 
   private OutgoingMessageEntity constructEntityFromEnvelope(long id, Envelope envelope) {
     return new OutgoingMessageEntity(id, true,
+                                     envelope.hasServerGuid() ? UUID.fromString(envelope.getServerGuid()) : null,
                                      envelope.getType().getNumber(),
                                      envelope.getRelay(),
                                      envelope.getTimestamp(),
                                      envelope.getSource(),
                                      envelope.getSourceDevice(),
                                      envelope.hasLegacyMessage() ? envelope.getLegacyMessage().toByteArray() : null,
-                                     envelope.hasContent() ? envelope.getContent().toByteArray() : null);
+                                     envelope.hasContent() ? envelope.getContent().toByteArray() : null,
+                                     envelope.hasServerTimestamp() ? envelope.getServerTimestamp() : 0);
   }
 
   private static class Key {
@@ -247,12 +272,12 @@ public class MessagesCache implements Managed {
       this.insert = LuaScript.fromResource(jedisPool, "lua/insert_item.lua");
     }
 
-    public void insert(String destination, long destinationDevice, long timestamp, Envelope message) {
+    public void insert(UUID guid, String destination, long destinationDevice, long timestamp, Envelope message) {
       Key    key    = new Key(destination, destinationDevice);
-      String sender = message.getSource() + "::" + message.getTimestamp();
+      String sender = message.hasSource() ? (message.getSource() + "::" + message.getTimestamp()) : "nil";
 
       List<byte[]> keys = Arrays.asList(key.getUserMessageQueue(), key.getUserMessageQueueMetadata(), Key.getUserMessageQueueIndex());
-      List<byte[]> args = Arrays.asList(message.toByteArray(), String.valueOf(timestamp).getBytes(), sender.getBytes());
+      List<byte[]> args = Arrays.asList(message.toByteArray(), String.valueOf(timestamp).getBytes(), sender.getBytes(), guid.toString().getBytes());
 
       insert.execute(keys, args);
     }
@@ -262,11 +287,13 @@ public class MessagesCache implements Managed {
 
     private final LuaScript removeById;
     private final LuaScript removeBySender;
+    private final LuaScript removeByGuid;
     private final LuaScript removeQueue;
 
     RemoveOperation(ReplicatedJedisPool jedisPool) throws IOException {
       this.removeById     = LuaScript.fromResource(jedisPool, "lua/remove_item_by_id.lua"    );
       this.removeBySender = LuaScript.fromResource(jedisPool, "lua/remove_item_by_sender.lua");
+      this.removeByGuid   = LuaScript.fromResource(jedisPool, "lua/remove_item_by_guid.lua"  );
       this.removeQueue    = LuaScript.fromResource(jedisPool, "lua/remove_queue.lua"         );
     }
 
@@ -287,6 +314,15 @@ public class MessagesCache implements Managed {
       List<byte[]> args = Collections.singletonList(senderKey.getBytes());
 
       return (byte[])this.removeBySender.execute(keys, args);
+    }
+
+    public byte[] remove(String destination, long destinationDevice, UUID guid) {
+      Key key = new Key(destination, destinationDevice);
+
+      List<byte[]> keys = Arrays.asList(key.getUserMessageQueue(), key.getUserMessageQueueMetadata(), Key.getUserMessageQueueIndex());
+      List<byte[]> args = Collections.singletonList(guid.toString().getBytes());
+
+      return (byte[])this.removeByGuid.execute(keys, args);
     }
 
     public void clear(String destination, long deviceId) {
@@ -445,8 +481,11 @@ public class MessagesCache implements Managed {
     private void persistMessage(Key key, long score, byte[] message) {
       try {
         Envelope envelope = Envelope.parseFrom(message);
-        database.store(envelope, key.getAddress(), key.getDeviceId());
+        UUID     guid     = envelope.hasServerGuid() ? UUID.fromString(envelope.getServerGuid()) : null;
 
+        envelope = envelope.toBuilder().clearServerGuid().build();
+
+        database.store(guid, envelope, key.getAddress(), key.getDeviceId());
       } catch (InvalidProtocolBufferException e) {
         logger.error("Error parsing envelope", e);
       }
@@ -464,9 +503,7 @@ public class MessagesCache implements Managed {
       }
     }
 
-    private void notifyClients(AccountsManager accountsManager, PubSubManager pubSubManager, PushSender pushSender, Key key)
-        throws IOException
-    {
+    private void notifyClients(AccountsManager accountsManager, PubSubManager pubSubManager, PushSender pushSender, Key key) {
       Timer.Context timer = notifyTimer.time();
 
       try {

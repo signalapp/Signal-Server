@@ -16,7 +16,6 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
-import com.google.common.base.Optional;
 import org.whispersystems.textsecuregcm.redis.LuaScript;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import redis.clients.jedis.Jedis;
@@ -24,7 +23,9 @@ import redis.clients.jedis.Jedis;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class DirectoryReconciliationCache {
 
   private static final String ACTIVE_WORKER_KEY = "directory_reconciliation_active_worker";
@@ -62,7 +63,7 @@ public class DirectoryReconciliationCache {
 
   public Optional<String> getLastNumber() {
     try (Jedis jedis = jedisPool.getWriteResource()) {
-      return Optional.fromNullable(jedis.get(LAST_NUMBER_KEY));
+      return Optional.ofNullable(jedis.get(LAST_NUMBER_KEY));
     }
   }
 

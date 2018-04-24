@@ -1,21 +1,18 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
-import com.google.common.base.Optional;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
-import org.whispersystems.dropwizard.simpleauth.AuthValueFactoryProvider;
 import org.whispersystems.textsecuregcm.auth.DirectoryCredentials;
 import org.whispersystems.textsecuregcm.auth.DirectoryCredentialsGenerator;
-import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
-import org.whispersystems.textsecuregcm.configuration.DirectoryClientConfiguration;
 import org.whispersystems.textsecuregcm.controllers.DirectoryController;
 import org.whispersystems.textsecuregcm.entities.ClientContactTokens;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.Base64;
@@ -26,11 +23,11 @@ import javax.ws.rs.core.Response;
 import java.util.LinkedList;
 import java.util.List;
 
+import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyListOf;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Matchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -46,7 +43,7 @@ public class DirectoryControllerTest {
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
                                                             .addProvider(AuthHelper.getAuthFilter())
-                                                            .addProvider(new AuthValueFactoryProvider.Binder())
+                                                            .addProvider(new AuthValueFactoryProvider.Binder<>(Account.class))
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new DirectoryController(rateLimiters,
                                                                                                  directoryManager,

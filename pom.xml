@@ -102,12 +102,12 @@
         <dependency>
             <groupId>org.whispersystems</groupId>
             <artifactId>websocket-resources</artifactId>
-            <version>0.5.4</version>
+            <version>0.5.8</version>
         </dependency>
         <dependency>
             <groupId>org.whispersystems</groupId>
-            <artifactId>dropwizard-simpleauth</artifactId>
-            <version>0.3.0</version>
+            <artifactId>curve25519-java</artifactId>
+            <version>0.5.0</version>
         </dependency>
 
         <dependency>

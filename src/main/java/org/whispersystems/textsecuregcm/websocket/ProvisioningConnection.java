@@ -1,6 +1,5 @@
 package org.whispersystems.textsecuregcm.websocket;
 
-import com.google.common.base.Optional;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -12,6 +11,8 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos.ProvisioningUuid;
 import org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
 import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
+
+import java.util.Optional;
 
 public class ProvisioningConnection implements DispatchChannel {
 

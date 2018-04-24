@@ -1,6 +1,5 @@
 package org.whispersystems.dispatch.redis;
 
-import com.google.common.base.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.dispatch.io.RedisInputStream;
@@ -14,6 +13,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PubSubConnection {
@@ -98,12 +98,12 @@ public class PubSubConnection {
 
   private PubSubReply readUnsubscribeReply() throws IOException {
     String channelName = readSubscriptionReply();
-    return new PubSubReply(PubSubReply.Type.UNSUBSCRIBE, channelName, Optional.<byte[]>absent());
+    return new PubSubReply(PubSubReply.Type.UNSUBSCRIBE, channelName, Optional.empty());
   }
 
   private PubSubReply readSubscribeReply() throws IOException {
     String channelName = readSubscriptionReply();
-    return new PubSubReply(PubSubReply.Type.SUBSCRIBE, channelName, Optional.<byte[]>absent());
+    return new PubSubReply(PubSubReply.Type.SUBSCRIBE, channelName, Optional.empty());
   }
 
   private String readSubscriptionReply() throws IOException {

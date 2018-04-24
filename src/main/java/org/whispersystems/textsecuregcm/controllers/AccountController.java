@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2013 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,6 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
@@ -66,11 +65,13 @@ import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import io.dropwizard.auth.Auth;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/accounts")
 public class AccountController {
 
@@ -311,13 +312,14 @@ public class AccountController {
     device.setFetchesMessages(attributes.getFetchesMessages());
     device.setName(attributes.getName());
     device.setLastSeen(Util.todayInMillis());
-    device.setVoiceSupported(attributes.getVoice());
-    device.setVideoSupported(attributes.getVideo());
+    device.setUnauthenticatedDeliverySupported(attributes.getUnidentifiedAccessKey() != null);
     device.setRegistrationId(attributes.getRegistrationId());
     device.setSignalingKey(attributes.getSignalingKey());
     device.setUserAgent(userAgent);
 
     account.setPin(attributes.getPin());
+    account.setUnidentifiedAccessKey(attributes.getUnidentifiedAccessKey());
+    account.setUnrestrictedUnidentifiedAccess(attributes.isUnrestrictedUnidentifiedAccess());
 
     accounts.update(account);
   }
@@ -339,8 +341,7 @@ public class AccountController {
     device.setFetchesMessages(accountAttributes.getFetchesMessages());
     device.setRegistrationId(accountAttributes.getRegistrationId());
     device.setName(accountAttributes.getName());
-    device.setVoiceSupported(accountAttributes.getVoice());
-    device.setVideoSupported(accountAttributes.getVideo());
+    device.setUnauthenticatedDeliverySupported(accountAttributes.getUnidentifiedAccessKey() != null);
     device.setCreated(System.currentTimeMillis());
     device.setLastSeen(Util.todayInMillis());
     device.setUserAgent(userAgent);
@@ -349,6 +350,8 @@ public class AccountController {
     account.setNumber(number);
     account.addDevice(device);
     account.setPin(accountAttributes.getPin());
+    account.setUnidentifiedAccessKey(accountAttributes.getUnidentifiedAccessKey());
+    account.setUnrestrictedUnidentifiedAccess(accountAttributes.isUnrestrictedUnidentifiedAccess());
 
     if (accounts.create(account)) {
       newUserMeter.mark();

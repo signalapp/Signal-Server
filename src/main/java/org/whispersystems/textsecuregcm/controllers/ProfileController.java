@@ -7,10 +7,12 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.codahale.metrics.annotation.Timed;
-import com.google.common.base.Optional;
 import org.apache.commons.codec.binary.Base64;
 import org.hibernate.validator.constraints.Length;
 import org.hibernate.validator.valuehandling.UnwrapValidatedValue;
+import org.whispersystems.textsecuregcm.auth.OptionalAccess;
+import org.whispersystems.textsecuregcm.auth.Anonymous;
+import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
 import org.whispersystems.textsecuregcm.configuration.ProfilesConfiguration;
 import org.whispersystems.textsecuregcm.entities.Profile;
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
@@ -22,6 +24,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.util.Pair;
 
 import javax.ws.rs.GET;
+import javax.ws.rs.HeaderParam;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -33,9 +36,11 @@ import javax.ws.rs.core.Response;
 import java.security.SecureRandom;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.Optional;
 
 import io.dropwizard.auth.Auth;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/profile")
 public class ProfileController {
 
@@ -75,22 +80,29 @@ public class ProfileController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{number}")
-  public Profile getProfile(@Auth Account account,
-                            @PathParam("number") String number,
-                            @QueryParam("ca") boolean useCaCertificate)
+  public Profile getProfile(@Auth                                     Optional<Account>   requestAccount,
+                            @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
+                            @PathParam("number")                      String number,
+                            @QueryParam("ca")                         boolean useCaCertificate)
       throws RateLimitExceededException
   {
-    rateLimiters.getProfileLimiter().validate(account.getNumber());
-
-    Optional<Account> accountProfile = accountsManager.get(number);
-
-    if (!accountProfile.isPresent()) {
-      throw new WebApplicationException(Response.status(404).build());
+    if (!requestAccount.isPresent() && !accessKey.isPresent()) {
+      throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
-    return new Profile(accountProfile.get().getName(),
+    if (requestAccount.isPresent()) {
+      rateLimiters.getProfileLimiter().validate(requestAccount.get().getNumber());
+    }
+
+    Optional<Account> accountProfile = accountsManager.get(number);
+    OptionalAccess.verify(requestAccount, accessKey, accountProfile);
+
+    //noinspection ConstantConditions,OptionalGetWithoutIsPresent
+    return new Profile(accountProfile.get().getProfileName(),
                        accountProfile.get().getAvatar(),
-                       accountProfile.get().getIdentityKey());
+                       accountProfile.get().getIdentityKey(),
+                       accountProfile.get().isUnauthenticatedDeliverySupported() ? UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()) : null,
+                       accountProfile.get().isUnrestrictedUnidentifiedAccess());
   }
 
   @Timed
@@ -98,7 +110,7 @@ public class ProfileController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/name/{name}")
   public void setProfile(@Auth Account account, @PathParam("name") @UnwrapValidatedValue(true) @Length(min = 72,max= 72) Optional<String> name) {
-    account.setName(name.orNull());
+    account.setProfileName(name.orElse(null));
     accountsManager.update(account);
   }
 

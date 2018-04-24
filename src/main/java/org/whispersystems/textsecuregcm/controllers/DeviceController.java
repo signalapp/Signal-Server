@@ -18,7 +18,6 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
@@ -55,6 +54,7 @@ import java.security.SecureRandom;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import io.dropwizard.auth.Auth;
 
@@ -211,6 +211,15 @@ public class DeviceController {
       logger.info("Bad Authorization Header", e);
       throw new WebApplicationException(Response.status(401).build());
     }
+  }
+
+  @Timed
+  @PUT
+  @Path("/unauthenticated_delivery")
+  public void setUnauthenticatedDelivery(@Auth Account account) {
+    assert(account.getAuthenticatedDevice().isPresent());
+    account.getAuthenticatedDevice().get().setUnauthenticatedDeliverySupported(true);
+    accounts.update(account);
   }
 
   @VisibleForTesting protected VerificationCode generateVerificationCode() {

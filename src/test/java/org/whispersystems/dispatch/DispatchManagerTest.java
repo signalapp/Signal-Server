@@ -1,6 +1,6 @@
 package org.whispersystems.dispatch;
 
-import com.google.common.base.Optional;
+import java.util.Optional;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExternalResource;
@@ -42,7 +42,7 @@ public class DispatchManagerTest {
         }
       });
 
-      dispatchManager = new DispatchManager(socketFactory, Optional.<DispatchChannel>absent());
+      dispatchManager = new DispatchManager(socketFactory, Optional.empty());
       dispatchManager.start();
     }
 
@@ -61,7 +61,7 @@ public class DispatchManagerTest {
   public void testSubscribe() throws IOException {
     DispatchChannel dispatchChannel = mock(DispatchChannel.class);
     dispatchManager.subscribe("foo", dispatchChannel);
-    pubSubReplyInputStream.write(new PubSubReply(PubSubReply.Type.SUBSCRIBE, "foo", Optional.<byte[]>absent()));
+    pubSubReplyInputStream.write(new PubSubReply(PubSubReply.Type.SUBSCRIBE, "foo", Optional.empty()));
 
     verify(dispatchChannel, timeout(1000)).onDispatchSubscribed(eq("foo"));
   }
@@ -72,8 +72,8 @@ public class DispatchManagerTest {
     dispatchManager.subscribe("foo", dispatchChannel);
     dispatchManager.unsubscribe("foo", dispatchChannel);
 
-    pubSubReplyInputStream.write(new PubSubReply(PubSubReply.Type.SUBSCRIBE, "foo", Optional.<byte[]>absent()));
-    pubSubReplyInputStream.write(new PubSubReply(PubSubReply.Type.UNSUBSCRIBE, "foo", Optional.<byte[]>absent()));
+    pubSubReplyInputStream.write(new PubSubReply(PubSubReply.Type.SUBSCRIBE, "foo", Optional.empty()));
+    pubSubReplyInputStream.write(new PubSubReply(PubSubReply.Type.UNSUBSCRIBE, "foo", Optional.empty()));
 
     verify(dispatchChannel, timeout(1000)).onDispatchUnsubscribed(eq("foo"));
   }
@@ -86,8 +86,8 @@ public class DispatchManagerTest {
     dispatchManager.subscribe("foo", fooChannel);
     dispatchManager.subscribe("bar", barChannel);
 
-    pubSubReplyInputStream.write(new PubSubReply(PubSubReply.Type.SUBSCRIBE, "foo", Optional.<byte[]>absent()));
-    pubSubReplyInputStream.write(new PubSubReply(PubSubReply.Type.SUBSCRIBE, "bar", Optional.<byte[]>absent()));
+    pubSubReplyInputStream.write(new PubSubReply(PubSubReply.Type.SUBSCRIBE, "foo", Optional.empty()));
+    pubSubReplyInputStream.write(new PubSubReply(PubSubReply.Type.SUBSCRIBE, "bar", Optional.empty()));
 
     verify(fooChannel, timeout(1000)).onDispatchSubscribed(eq("foo"));
     verify(barChannel, timeout(1000)).onDispatchSubscribed(eq("bar"));

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2018 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -21,8 +21,6 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
-import io.dropwizard.lifecycle.Managed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
@@ -37,10 +35,13 @@ import javax.ws.rs.ProcessingException;
 import java.security.SecureRandom;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.codahale.metrics.MetricRegistry.name;
+import io.dropwizard.lifecycle.Managed;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class DirectoryReconciler implements Managed, Runnable {
 
   private static final Logger logger = LoggerFactory.getLogger(DirectoryReconciler.class);
@@ -62,7 +63,6 @@ public class DirectoryReconciler implements Managed, Runnable {
   private final int                           chunkSize;
   private final long                          chunkIntervalMs;
   private final String                        workerId;
-  private final SecureRandom                  random;
 
   private boolean running;
   private boolean finished;
@@ -72,21 +72,15 @@ public class DirectoryReconciler implements Managed, Runnable {
                              DirectoryManager directoryManager,
                              Accounts accounts,
                              int chunkSize,
-                             long chunkIntervalMs) {
+                             long chunkIntervalMs)
+  {
     this.accounts             = accounts;
     this.directoryManager     = directoryManager;
     this.reconciliationClient = reconciliationClient;
     this.reconciliationCache  = reconciliationCache;
     this.chunkSize            = chunkSize;
     this.chunkIntervalMs      = chunkIntervalMs;
-    this.random               = new SecureRandom();
-    this.workerId             = generateWorkerId(random);
-  }
-
-  private static String generateWorkerId(SecureRandom random) {
-    byte[] workerIdBytes = new byte[16];
-    random.nextBytes(workerIdBytes);
-    return Hex.toString(workerIdBytes);
+    this.workerId             = Hex.toString(Util.generateSecretBytes(16));
   }
 
   @Override
@@ -141,6 +135,94 @@ public class DirectoryReconciler implements Managed, Runnable {
     return intervalMs;
   }
 
+  private boolean processChunk() {
+    Optional<String> fromNumber    = reconciliationCache.getLastNumber();
+    List<Account>    chunkAccounts = readChunk(fromNumber, chunkSize);
+
+    updateDirectoryCache(chunkAccounts);
+
+    DirectoryReconciliationRequest  request           = createChunkRequest(fromNumber, chunkAccounts);
+    DirectoryReconciliationResponse sendChunkResponse = sendChunk(request);
+
+    if (sendChunkResponse.getStatus() == DirectoryReconciliationResponse.Status.MISSING || request.getToNumber() == null) {
+      reconciliationCache.clearAccelerate();
+    }
+
+    if (sendChunkResponse.getStatus() == DirectoryReconciliationResponse.Status.OK) {
+      reconciliationCache.setLastNumber(Optional.ofNullable(request.getToNumber()));
+    } else if (sendChunkResponse.getStatus() == DirectoryReconciliationResponse.Status.MISSING) {
+      reconciliationCache.setLastNumber(Optional.empty());
+    }
+
+    return sendChunkResponse.getStatus() == DirectoryReconciliationResponse.Status.OK;
+  }
+
+  private List<Account> readChunk(Optional<String> fromNumber, int chunkSize) {
+    try (Timer.Context timer = readChunkTimer.time()) {
+      Optional<List<Account>> chunkAccounts;
+
+      if (fromNumber.isPresent()) {
+        chunkAccounts = Optional.ofNullable(accounts.getAllFrom(fromNumber.get(), chunkSize));
+      } else {
+        chunkAccounts = Optional.ofNullable(accounts.getAllFrom(chunkSize));
+      }
+
+      return chunkAccounts.orElse(Collections.emptyList());
+    }
+  }
+
+  private void updateDirectoryCache(List<Account> accounts) {
+    if (accounts.isEmpty()) {
+      return;
+    }
+
+    BatchOperationHandle batchOperation = directoryManager.startBatchOperation();
+
+    try {
+      for (Account account : accounts) {
+        if (account.isActive()) {
+          byte[]        token         = Util.getContactToken(account.getNumber());
+          ClientContact clientContact = new ClientContact(token, null, true, true);
+
+          directoryManager.add(batchOperation, clientContact);
+        } else {
+          directoryManager.remove(batchOperation, account.getNumber());
+        }
+      }
+    } finally {
+      directoryManager.stopBatchOperation(batchOperation);
+    }
+  }
+
+  private DirectoryReconciliationRequest createChunkRequest(Optional<String> fromNumber, List<Account> accounts) {
+    List<String> numbers = accounts.stream()
+                                   .filter(Account::isActive)
+                                   .map(Account::getNumber)
+                                   .collect(Collectors.toList());
+
+    Optional<String> toNumber = Optional.empty();
+    if (!accounts.isEmpty()) {
+      toNumber = Optional.of(accounts.get(accounts.size() - 1).getNumber());
+    }
+
+    return new DirectoryReconciliationRequest(fromNumber.orElse(null), toNumber.orElse(null), numbers);
+  }
+
+  private DirectoryReconciliationResponse sendChunk(DirectoryReconciliationRequest request) {
+    try (Timer.Context timer = sendChunkTimer.time()) {
+      DirectoryReconciliationResponse response = reconciliationClient.sendChunk(request);
+      if (response.getStatus() != DirectoryReconciliationResponse.Status.OK) {
+        sendChunkErrorMeter.mark();
+        logger.warn("reconciliation error: " + response.getStatus());
+      }
+      return response;
+    } catch (ProcessingException ex) {
+      sendChunkErrorMeter.mark();
+      logger.warn("request error: ", ex);
+      throw new ProcessingException(ex);
+    }
+  }
+
   private synchronized boolean sleepWhileRunning(long delayMs) {
     long startTimeMs = System.currentTimeMillis();
     while (running && delayMs > 0) {
@@ -162,96 +244,8 @@ public class DirectoryReconciler implements Managed, Runnable {
   }
 
   private long getDelayWithJitter(long delayMs) {
-    long randomJitterMs = (long) (random.nextDouble() * JITTER_MAX * delayMs);
+    long randomJitterMs = (long) (new SecureRandom().nextDouble() * JITTER_MAX * delayMs);
     return delayMs + randomJitterMs;
-  }
-
-  private boolean processChunk() {
-    Optional<String> fromNumber    = reconciliationCache.getLastNumber();
-    List<Account>    chunkAccounts = readChunk(fromNumber, chunkSize);
-
-    writeChunktoDirectoryCache(chunkAccounts);
-
-    DirectoryReconciliationRequest  request           = createChunkRequest(fromNumber, chunkAccounts);
-    DirectoryReconciliationResponse sendChunkResponse = sendChunk(request);
-
-    if (sendChunkResponse.getStatus() == DirectoryReconciliationResponse.Status.MISSING ||
-        request.getToNumber() == null) {
-      reconciliationCache.clearAccelerate();
-    }
-
-    if (sendChunkResponse.getStatus() == DirectoryReconciliationResponse.Status.OK) {
-      reconciliationCache.setLastNumber(Optional.fromNullable(request.getToNumber()));
-    } else if (sendChunkResponse.getStatus() == DirectoryReconciliationResponse.Status.MISSING) {
-      reconciliationCache.setLastNumber(Optional.absent());
-    }
-
-    return sendChunkResponse.getStatus() == DirectoryReconciliationResponse.Status.OK;
-  }
-
-  private List<Account> readChunk(Optional<String> fromNumber, int chunkSize) {
-    try (Timer.Context timer = readChunkTimer.time()) {
-      Optional<List<Account>> chunkAccounts;
-
-      if (fromNumber.isPresent()) {
-        chunkAccounts = Optional.fromNullable(accounts.getAllFrom(fromNumber.get(), chunkSize));
-      } else {
-        chunkAccounts = Optional.fromNullable(accounts.getAllFrom(chunkSize));
-      }
-
-      return chunkAccounts.or(Collections::emptyList);
-    }
-  }
-
-  private void writeChunktoDirectoryCache(List<Account> accounts) {
-    if (accounts.isEmpty()) {
-      return;
-    }
-
-    BatchOperationHandle batchOperation = directoryManager.startBatchOperation();
-    try {
-      for (Account account : accounts) {
-        if (account.isActive()) {
-          byte[]        token         = Util.getContactToken(account.getNumber());
-          ClientContact clientContact = new ClientContact(token, null, account.isVoiceSupported(), account.isVideoSupported());
-
-          directoryManager.add(batchOperation, clientContact);
-        } else {
-          directoryManager.remove(batchOperation, account.getNumber());
-        }
-      }
-    } finally {
-      directoryManager.stopBatchOperation(batchOperation);
-    }
-  }
-
-  private DirectoryReconciliationRequest createChunkRequest(Optional<String> fromNumber, List<Account> accounts) {
-    List<String> numbers = accounts.stream()
-                                   .filter(Account::isActive)
-                                   .map(Account::getNumber)
-                                   .collect(Collectors.toList());
-
-    Optional<String> toNumber = Optional.absent();
-    if (!accounts.isEmpty()) {
-      toNumber = Optional.of(accounts.get(accounts.size() - 1).getNumber());
-    }
-
-    return new DirectoryReconciliationRequest(fromNumber.orNull(), toNumber.orNull(), numbers);
-  }
-
-  private DirectoryReconciliationResponse sendChunk(DirectoryReconciliationRequest request) {
-    try (Timer.Context timer = sendChunkTimer.time()) {
-      DirectoryReconciliationResponse response = reconciliationClient.sendChunk(request);
-      if (response.getStatus() != DirectoryReconciliationResponse.Status.OK) {
-        sendChunkErrorMeter.mark();
-        logger.warn("reconciliation error: " + response.getStatus());
-      }
-      return response;
-    } catch (ProcessingException ex) {
-      sendChunkErrorMeter.mark();
-      logger.warn("request error: ", ex);
-      throw new ProcessingException(ex);
-    }
   }
 
 }

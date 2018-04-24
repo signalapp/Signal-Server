@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2013 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,13 +20,9 @@ import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.annotation.Timed;
-import com.google.common.base.Optional;
-import org.apache.commons.codec.DecoderException;
-import org.hibernate.validator.constraints.NotEmpty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.DirectoryCredentialsGenerator;
-import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.entities.ClientContactTokens;
 import org.whispersystems.textsecuregcm.entities.ClientContacts;
@@ -49,6 +45,7 @@ import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import io.dropwizard.auth.Auth;

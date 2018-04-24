@@ -17,20 +17,7 @@
 package org.whispersystems.textsecuregcm;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
-import org.whispersystems.textsecuregcm.configuration.AttachmentsConfiguration;
-import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
-import org.whispersystems.textsecuregcm.configuration.FederationConfiguration;
-import org.whispersystems.textsecuregcm.configuration.GcmConfiguration;
-import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
-import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
-import org.whispersystems.textsecuregcm.configuration.ProfilesConfiguration;
-import org.whispersystems.textsecuregcm.configuration.PushConfiguration;
-import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
-import org.whispersystems.textsecuregcm.configuration.RedisConfiguration;
-import org.whispersystems.textsecuregcm.configuration.TestDeviceConfiguration;
-import org.whispersystems.textsecuregcm.configuration.TurnConfiguration;
-import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
+import org.whispersystems.textsecuregcm.configuration.*;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 
 import javax.validation.Valid;
@@ -102,10 +89,6 @@ public class WhisperServerConfiguration extends Configuration {
   private List<MaxDeviceConfiguration> maxDevices = new LinkedList<>();
 
   @Valid
-  @JsonProperty
-  private FederationConfiguration federation = new FederationConfiguration();
-
-  @Valid
   @NotNull
   @JsonProperty
   private DataSourceFactory database = new DataSourceFactory();
@@ -142,6 +125,11 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private ApnConfiguration apn;
+
+  @Valid
+  @NotNull
+  @JsonProperty
+  private UnidentifiedDeliveryConfiguration unidentifiedDelivery;
 
   public WebSocketConfiguration getWebSocketConfiguration() {
     return webSocket;
@@ -195,10 +183,6 @@ public class WhisperServerConfiguration extends Configuration {
     return limits;
   }
 
-  public FederationConfiguration getFederationConfiguration() {
-    return federation;
-  }
-
   public TurnConfiguration getTurnConfiguration() {
     return turn;
   }
@@ -213,6 +197,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public ProfilesConfiguration getProfilesConfiguration() {
     return profiles;
+  }
+
+  public UnidentifiedDeliveryConfiguration getDeliveryCertificate() {
+    return unidentifiedDelivery;
   }
 
   public Map<String, Integer> getTestDevices() {

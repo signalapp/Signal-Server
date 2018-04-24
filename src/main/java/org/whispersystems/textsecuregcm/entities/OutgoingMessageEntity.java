@@ -3,6 +3,8 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.UUID;
+
 public class OutgoingMessageEntity {
 
   @JsonIgnore
@@ -10,6 +12,9 @@ public class OutgoingMessageEntity {
 
   @JsonIgnore
   private boolean cached;
+
+  @JsonProperty
+  private UUID guid;
 
   @JsonProperty
   private int type;
@@ -32,21 +37,31 @@ public class OutgoingMessageEntity {
   @JsonProperty
   private byte[] content;
 
+  @JsonProperty
+  private long serverTimestamp;
+
   public OutgoingMessageEntity() {}
 
-  public OutgoingMessageEntity(long id, boolean cached, int type, String relay, long timestamp,
+  public OutgoingMessageEntity(long id, boolean cached,
+                               UUID guid, int type, String relay, long timestamp,
                                String source, int sourceDevice, byte[] message,
-                               byte[] content)
+                               byte[] content, long serverTimestamp)
   {
-    this.id           = id;
-    this.cached       = cached;
-    this.type         = type;
-    this.relay        = relay;
-    this.timestamp    = timestamp;
-    this.source       = source;
-    this.sourceDevice = sourceDevice;
-    this.message      = message;
-    this.content      = content;
+    this.id              = id;
+    this.cached          = cached;
+    this.guid            = guid;
+    this.type            = type;
+    this.relay           = relay;
+    this.timestamp       = timestamp;
+    this.source          = source;
+    this.sourceDevice    = sourceDevice;
+    this.message         = message;
+    this.content         = content;
+    this.serverTimestamp = serverTimestamp;
+  }
+
+  public UUID getGuid() {
+    return guid;
   }
 
   public int getType() {
@@ -85,6 +100,10 @@ public class OutgoingMessageEntity {
   @JsonIgnore
   public boolean isCached() {
     return cached;
+  }
+
+  public long getServerTimestamp() {
+    return serverTimestamp;
   }
 
 }

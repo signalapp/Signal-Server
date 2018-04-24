@@ -1,6 +1,5 @@
 package org.whispersystems.textsecuregcm.tests.websocket;
 
-import com.google.common.base.Optional;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.ByteString;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
@@ -27,6 +26,8 @@ import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 import org.whispersystems.websocket.WebSocketClient;
+import org.whispersystems.websocket.auth.WebSocketAuthenticator;
+import org.whispersystems.websocket.auth.WebSocketAuthenticator.AuthenticationResult;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 
@@ -35,7 +36,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 import io.dropwizard.auth.basic.BasicCredentials;
 import static org.junit.Assert.*;
@@ -72,7 +75,7 @@ public class WebSocketConnectionTest {
         .thenReturn(Optional.of(account));
 
     when(accountAuthenticator.authenticate(eq(new BasicCredentials(INVALID_USER, INVALID_PASSWORD))))
-        .thenReturn(Optional.<Account>absent());
+        .thenReturn(Optional.<Account>empty());
 
     when(account.getAuthenticatedDevice()).thenReturn(Optional.of(device));
 
@@ -81,8 +84,8 @@ public class WebSocketConnectionTest {
       put("password", new LinkedList<String>() {{add(VALID_PASSWORD);}});
     }});
 
-    Optional<Account> account = webSocketAuthenticator.authenticate(upgradeRequest);
-    when(sessionContext.getAuthenticated(Account.class)).thenReturn(account.get());
+    AuthenticationResult<Account> account = webSocketAuthenticator.authenticate(upgradeRequest);
+    when(sessionContext.getAuthenticated(Account.class)).thenReturn(account.getUser().orElse(null));
 
     connectListener.onWebSocketConnect(sessionContext);
 
@@ -94,7 +97,8 @@ public class WebSocketConnectionTest {
     }});
 
     account = webSocketAuthenticator.authenticate(upgradeRequest);
-    assertFalse(account.isPresent());
+    assertFalse(account.getUser().isPresent());
+    assertTrue(account.isRequired());
   }
 
   @Test
@@ -125,7 +129,7 @@ public class WebSocketConnectionTest {
     when(sender1.getDevices()).thenReturn(sender1devices);
 
     when(accountsManager.get("sender1")).thenReturn(Optional.of(sender1));
-    when(accountsManager.get("sender2")).thenReturn(Optional.<Account>absent());
+    when(accountsManager.get("sender2")).thenReturn(Optional.empty());
 
     when(storedMessages.getMessagesForDevice(account.getNumber(), device.getId()))
         .thenReturn(outgoingMessagesList);
@@ -160,7 +164,7 @@ public class WebSocketConnectionTest {
     futures.get(2).setException(new IOException());
 
     verify(storedMessages, times(1)).delete(eq(account.getNumber()), eq(2L), eq(2L), eq(false));
-    verify(receiptSender, times(1)).sendReceipt(eq(account), eq("sender1"), eq(2222L), eq(Optional.<String>absent()));
+    verify(receiptSender, times(1)).sendReceipt(eq(account), eq("sender1"), eq(2222L));
 
     connection.onDispatchUnsubscribed(websocketAddress.serialize());
     verify(client).close(anyInt(), anyString());
@@ -208,7 +212,7 @@ public class WebSocketConnectionTest {
     when(sender1.getDevices()).thenReturn(sender1devices);
 
     when(accountsManager.get("sender1")).thenReturn(Optional.of(sender1));
-    when(accountsManager.get("sender2")).thenReturn(Optional.<Account>absent());
+    when(accountsManager.get("sender2")).thenReturn(Optional.<Account>empty());
 
     when(storedMessages.getMessagesForDevice(account.getNumber(), device.getId()))
         .thenReturn(pendingMessagesList);
@@ -250,7 +254,7 @@ public class WebSocketConnectionTest {
     futures.get(1).set(response);
     futures.get(0).setException(new IOException());
 
-    verify(receiptSender, times(1)).sendReceipt(eq(account), eq("sender2"), eq(secondMessage.getTimestamp()), eq(Optional.<String>absent()));
+    verify(receiptSender, times(1)).sendReceipt(eq(account), eq("sender2"), eq(secondMessage.getTimestamp()));
     verify(websocketSender, times(1)).queueMessage(eq(account), eq(device), any(Envelope.class));
     verify(pushSender, times(1)).sendQueuedNotification(eq(account), eq(device));
 
@@ -285,14 +289,14 @@ public class WebSocketConnectionTest {
                                      .build();
 
     List<OutgoingMessageEntity> pendingMessages     = new LinkedList<OutgoingMessageEntity>() {{
-      add(new OutgoingMessageEntity(1, true, firstMessage.getType().getNumber(), firstMessage.getRelay(),
+      add(new OutgoingMessageEntity(1, true, UUID.randomUUID(), firstMessage.getType().getNumber(), firstMessage.getRelay(),
                                     firstMessage.getTimestamp(), firstMessage.getSource(),
                                     firstMessage.getSourceDevice(), firstMessage.getLegacyMessage().toByteArray(),
-                                    firstMessage.getContent().toByteArray()));
-      add(new OutgoingMessageEntity(2, false, secondMessage.getType().getNumber(), secondMessage.getRelay(),
+                                    firstMessage.getContent().toByteArray(), 0));
+      add(new OutgoingMessageEntity(2, false, UUID.randomUUID(), secondMessage.getType().getNumber(), secondMessage.getRelay(),
                                     secondMessage.getTimestamp(), secondMessage.getSource(),
                                     secondMessage.getSourceDevice(), secondMessage.getLegacyMessage().toByteArray(),
-                                    secondMessage.getContent().toByteArray()));
+                                    secondMessage.getContent().toByteArray(), 0));
     }};
 
     OutgoingMessageEntityList   pendingMessagesList = new OutgoingMessageEntityList(pendingMessages, false);
@@ -313,7 +317,7 @@ public class WebSocketConnectionTest {
     when(sender1.getDevices()).thenReturn(sender1devices);
 
     when(accountsManager.get("sender1")).thenReturn(Optional.of(sender1));
-    when(accountsManager.get("sender2")).thenReturn(Optional.<Account>absent());
+    when(accountsManager.get("sender2")).thenReturn(Optional.<Account>empty());
 
     when(storedMessages.getMessagesForDevice(account.getNumber(), device.getId()))
         .thenReturn(pendingMessagesList);
@@ -346,7 +350,7 @@ public class WebSocketConnectionTest {
     futures.get(1).set(response);
     futures.get(0).setException(new IOException());
 
-    verify(receiptSender, times(1)).sendReceipt(eq(account), eq("sender2"), eq(secondMessage.getTimestamp()), eq(Optional.<String>absent()));
+    verify(receiptSender, times(1)).sendReceipt(eq(account), eq("sender2"), eq(secondMessage.getTimestamp()));
     verifyNoMoreInteractions(websocketSender);
     verifyNoMoreInteractions(pushSender);
 
@@ -356,8 +360,8 @@ public class WebSocketConnectionTest {
 
 
   private OutgoingMessageEntity createMessage(long id, boolean cached, String sender, long timestamp, boolean receipt, String content) {
-    return new OutgoingMessageEntity(id, cached, receipt ? Envelope.Type.RECEIPT_VALUE : Envelope.Type.CIPHERTEXT_VALUE,
-                                     null, timestamp, sender, 1, content.getBytes(), null);
+    return new OutgoingMessageEntity(id, cached, UUID.randomUUID(), receipt ? Envelope.Type.RECEIPT_VALUE : Envelope.Type.CIPHERTEXT_VALUE,
+                                     null, timestamp, sender, 1, content.getBytes(), null, 0);
   }
 
 }

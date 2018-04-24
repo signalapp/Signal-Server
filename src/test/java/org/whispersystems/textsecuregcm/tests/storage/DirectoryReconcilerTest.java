@@ -1,6 +1,5 @@
 package org.whispersystems.textsecuregcm.tests.storage;
 
-import com.google.common.base.Optional;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -18,17 +17,14 @@ import org.whispersystems.textsecuregcm.util.Util;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 public class DirectoryReconcilerTest {
 
@@ -53,8 +49,6 @@ public class DirectoryReconcilerTest {
   public void setup() {
     when(account.getNumber()).thenReturn(VALID_NUMBER);
     when(account.isActive()).thenReturn(true);
-    when(account.isVideoSupported()).thenReturn(true);
-    when(account.isVoiceSupported()).thenReturn(true);
     when(inactiveAccount.getNumber()).thenReturn(INACTIVE_NUMBER);
     when(inactiveAccount.isActive()).thenReturn(false);
 
@@ -66,7 +60,7 @@ public class DirectoryReconcilerTest {
 
     when(reconciliationClient.sendChunk(any())).thenReturn(successResponse);
 
-    when(reconciliationCache.getLastNumber()).thenReturn(Optional.absent());
+    when(reconciliationCache.getLastNumber()).thenReturn(Optional.empty());
     when(reconciliationCache.claimActiveWork(any(), anyLong())).thenReturn(true);
     when(reconciliationCache.isAccelerated()).thenReturn(false);
   }
@@ -155,7 +149,7 @@ public class DirectoryReconcilerTest {
     assertThat(request.getValue().getNumbers()).isEqualTo(Collections.emptyList());
 
     verify(reconciliationCache, times(1)).getLastNumber();
-    verify(reconciliationCache, times(1)).setLastNumber(eq(Optional.absent()));
+    verify(reconciliationCache, times(1)).setLastNumber(eq(Optional.empty()));
     verify(reconciliationCache, times(1)).clearAccelerate();
     verify(reconciliationCache, times(1)).isAccelerated();
     verify(reconciliationCache, times(2)).claimActiveWork(any(), anyLong());
@@ -192,7 +186,7 @@ public class DirectoryReconcilerTest {
     assertThat(addedContact.getValue().getToken()).isEqualTo(Util.getContactToken(VALID_NUMBER));
 
     verify(reconciliationCache, times(1)).getLastNumber();
-    verify(reconciliationCache, times(1)).setLastNumber(eq(Optional.absent()));
+    verify(reconciliationCache, times(1)).setLastNumber(eq(Optional.empty()));
     verify(reconciliationCache, times(1)).clearAccelerate();
     verify(reconciliationCache, times(1)).claimActiveWork(any(), anyLong());
 

@@ -1,12 +1,11 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
-import com.google.common.base.Optional;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
-import org.whispersystems.dropwizard.simpleauth.AuthValueFactoryProvider;
+import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.controllers.KeysController;
 import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.entities.PreKeyCount;
@@ -28,8 +27,10 @@ import javax.ws.rs.core.Response;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
+import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -63,9 +64,9 @@ public class KeyControllerTest {
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
                                                             .addProvider(AuthHelper.getAuthFilter())
-                                                            .addProvider(new AuthValueFactoryProvider.Binder())
+                                                            .addProvider(new AuthValueFactoryProvider.Binder<>(Account.class))
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-                                                            .addResource(new KeysController(rateLimiters, keys, accounts, null))
+                                                            .addResource(new KeysController(rateLimiters, keys, accounts))
                                                             .build();
 
   @Before
@@ -103,14 +104,15 @@ public class KeyControllerTest {
     when(existsAccount.getDevice(2L)).thenReturn(Optional.of(sampleDevice2));
     when(existsAccount.getDevice(3L)).thenReturn(Optional.of(sampleDevice3));
     when(existsAccount.getDevice(4L)).thenReturn(Optional.of(sampleDevice4));
-    when(existsAccount.getDevice(22L)).thenReturn(Optional.<Device>absent());
+    when(existsAccount.getDevice(22L)).thenReturn(Optional.<Device>empty());
     when(existsAccount.getDevices()).thenReturn(allDevices);
     when(existsAccount.isActive()).thenReturn(true);
     when(existsAccount.getIdentityKey()).thenReturn("existsidentitykey");
     when(existsAccount.getNumber()).thenReturn(EXISTS_NUMBER);
+    when(existsAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of("1337".getBytes()));
 
     when(accounts.get(EXISTS_NUMBER)).thenReturn(Optional.of(existsAccount));
-    when(accounts.get(NOT_EXISTS_NUMBER)).thenReturn(Optional.<Account>absent());
+    when(accounts.get(NOT_EXISTS_NUMBER)).thenReturn(Optional.<Account>empty());
 
     when(rateLimiters.getPreKeysLimiter()).thenReturn(rateLimiter);
 
@@ -118,7 +120,7 @@ public class KeyControllerTest {
     singleDevice.add(SAMPLE_KEY);
     when(keys.get(eq(EXISTS_NUMBER), eq(1L))).thenReturn(Optional.of(singleDevice));
 
-    when(keys.get(eq(NOT_EXISTS_NUMBER), eq(1L))).thenReturn(Optional.<List<KeyRecord>>absent());
+    when(keys.get(eq(NOT_EXISTS_NUMBER), eq(1L))).thenReturn(Optional.<List<KeyRecord>>empty());
 
     List<KeyRecord> multiDevice = new LinkedList<>();
     multiDevice.add(SAMPLE_KEY);
@@ -190,6 +192,49 @@ public class KeyControllerTest {
     verify(keys).get(eq(EXISTS_NUMBER), eq(1L));
     verifyNoMoreInteractions(keys);
   }
+
+  @Test
+  public void testUnidentifiedRequest() throws Exception {
+    PreKeyResponse result = resources.getJerseyTest()
+                                     .target(String.format("/v2/keys/%s/1", EXISTS_NUMBER))
+                                     .request()
+                                     .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("1337".getBytes()))
+                                     .get(PreKeyResponse.class);
+
+    assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey());
+    assertThat(result.getDevicesCount()).isEqualTo(1);
+    assertThat(result.getDevice(1).getPreKey().getKeyId()).isEqualTo(SAMPLE_KEY.getKeyId());
+    assertThat(result.getDevice(1).getPreKey().getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
+    assertThat(result.getDevice(1).getSignedPreKey()).isEqualTo(existsAccount.getDevice(1).get().getSignedPreKey());
+
+    verify(keys).get(eq(EXISTS_NUMBER), eq(1L));
+    verifyNoMoreInteractions(keys);
+  }
+
+  @Test
+  public void testUnauthorizedUnidentifiedRequest() throws Exception {
+    Response response = resources.getJerseyTest()
+                                     .target(String.format("/v2/keys/%s/1", EXISTS_NUMBER))
+                                     .request()
+                                     .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("9999".getBytes()))
+                                     .get();
+
+    assertThat(response.getStatus()).isEqualTo(401);
+    verifyNoMoreInteractions(keys);
+  }
+
+  @Test
+  public void testMalformedUnidentifiedRequest() throws Exception {
+    Response response = resources.getJerseyTest()
+                                 .target(String.format("/v2/keys/%s/1", EXISTS_NUMBER))
+                                 .request()
+                                 .header(OptionalAccess.UNIDENTIFIED, "$$$$$$$$$")
+                                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(401);
+    verifyNoMoreInteractions(keys);
+  }
+
 
   @Test
   public void validMultiRequestTestV2() throws Exception {

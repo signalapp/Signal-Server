@@ -4,7 +4,6 @@ import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -22,6 +21,7 @@ import org.whispersystems.textsecuregcm.util.Constants;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -174,7 +174,7 @@ public class GCMSender implements Managed {
       }
     }
 
-    return Optional.absent();
+    return Optional.empty();
   }
 
   private void markOutboundMeter(String key) {
