@@ -26,9 +26,15 @@ turn: # TURN server configuration
 
 cache: # Redis server configuration for cache cluster
   url:
+  replicaUrls:
 
 directory: # Redis server configuration for directory cluster
   url:
+  replicaUrls:
+
+messageCache: # Redis server configuration for message store cache
+  url:
+  replicaUrls:
 
 messageStore: # Postgresql database configuration for message store
   driverClass: org.postgresql.Driver
