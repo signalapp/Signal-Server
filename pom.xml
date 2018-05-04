@@ -54,9 +54,9 @@
             <version>${dropwizard.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.dcsquare</groupId>
-            <artifactId>dropwizard-papertrail</artifactId>
-            <version>1.2</version>
+            <groupId>com.papertrailapp</groupId>
+            <artifactId>logback-syslog4j</artifactId>
+            <version>1.0.0</version>
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
