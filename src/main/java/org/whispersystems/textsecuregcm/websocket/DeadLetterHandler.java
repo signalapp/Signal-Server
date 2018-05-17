@@ -20,24 +20,22 @@ public class DeadLetterHandler implements DispatchChannel {
 
   @Override
   public void onDispatchMessage(String channel, byte[] data) {
-    if (!WebSocketConnectionInfo.isType(channel)) {
-      try {
-        logger.info("Handling dead letter to: " + channel);
+    try {
+      logger.info("Handling dead letter to: " + channel);
 
-        WebsocketAddress address       = new WebsocketAddress(channel);
-        PubSubMessage    pubSubMessage = PubSubMessage.parseFrom(data);
+      WebsocketAddress address       = new WebsocketAddress(channel);
+      PubSubMessage    pubSubMessage = PubSubMessage.parseFrom(data);
 
-        switch (pubSubMessage.getType().getNumber()) {
-          case PubSubMessage.Type.DELIVER_VALUE:
-            Envelope message = Envelope.parseFrom(pubSubMessage.getContent());
-            messagesManager.insert(address.getNumber(), address.getDeviceId(), message);
-            break;
-        }
-      } catch (InvalidProtocolBufferException e) {
-        logger.warn("Bad pubsub message", e);
-      } catch (InvalidWebsocketAddressException e) {
-        logger.warn("Invalid websocket address", e);
+      switch (pubSubMessage.getType().getNumber()) {
+        case PubSubMessage.Type.DELIVER_VALUE:
+          Envelope message = Envelope.parseFrom(pubSubMessage.getContent());
+          messagesManager.insert(address.getNumber(), address.getDeviceId(), message);
+          break;
       }
+    } catch (InvalidProtocolBufferException e) {
+      logger.warn("Bad pubsub message", e);
+    } catch (InvalidWebsocketAddressException e) {
+      logger.warn("Invalid websocket address", e);
     }
   }
 
