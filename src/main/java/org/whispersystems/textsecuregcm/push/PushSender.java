@@ -115,10 +115,10 @@ public class PushSender implements Managed {
   private void sendApnMessage(Account account, Device device, Envelope outgoingMessage, boolean silent) {
     DeliveryStatus deliveryStatus = webSocketSender.sendMessage(account, device, outgoingMessage, WebsocketSender.Type.APN);
 
-    if (!deliveryStatus.isDelivered() && outgoingMessage.getType() != Envelope.Type.RECEIPT) {
-      boolean fallback = !silent && !outgoingMessage.getSource().equals(account.getNumber());
-      sendApnNotification(account, device, fallback);
-    }
+  //  if (!deliveryStatus.isDelivered() && outgoingMessage.getType() != Envelope.Type.RECEIPT) {
+    //    boolean fallback = !silent && !outgoingMessage.getSource().equals(account.getNumber());
+    //  sendApnNotification(account, device, fallback);
+    //}
   }
 
   private void sendApnNotification(Account account, Device device, boolean fallback) {
