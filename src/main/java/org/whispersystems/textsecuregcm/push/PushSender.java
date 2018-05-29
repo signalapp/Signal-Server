@@ -122,7 +122,7 @@ public class PushSender implements Managed {
   }
 
   private void sendApnNotification(Account account, Device device, boolean fallback) {
-    ApnMessage apnMessage;
+/*    ApnMessage apnMessage;
 
     if (!Util.isEmpty(device.getVoipApnId())) {
       apnMessage = new ApnMessage(device.getVoipApnId(), account.getNumber(), (int)device.getId(), APN_PAYLOAD, true,
@@ -142,6 +142,7 @@ public class PushSender implements Managed {
     } catch (TransientPushFailureException e) {
       logger.warn("SILENT PUSH LOSS", e);
     }
+    */
   }
 
   private void sendWebSocketMessage(Account account, Device device, Envelope outgoingMessage)
