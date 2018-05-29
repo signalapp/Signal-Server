@@ -41,9 +41,9 @@ public class PushSender implements Managed {
 
   private static final String APN_PAYLOAD = "{\"aps\":{\"sound\":\"default\",\"alert\":{\"loc-key\":\"APN_Message\"}}}";
 
-  private final ApnFallbackManager         apnFallbackManager;
+  //private final ApnFallbackManager         apnFallbackManager;
   private final GCMSender                  gcmSender;
-  private final APNSender                  apnSender;
+  //private final APNSender                  apnSender;
   private final WebsocketSender            webSocketSender;
   private final BlockingThreadPoolExecutor executor;
   private final int                        queueSize;
@@ -52,9 +52,9 @@ public class PushSender implements Managed {
                     GCMSender gcmSender, APNSender apnSender,
                     WebsocketSender websocketSender, int queueSize)
   {
-    this.apnFallbackManager = apnFallbackManager;
+    //this.apnFallbackManager = apnFallbackManager;
     this.gcmSender          = gcmSender;
-    this.apnSender          = apnSender;
+    //this.apnSender          = apnSender;
     this.webSocketSender    = websocketSender;
     this.queueSize          = queueSize;
     this.executor           = new BlockingThreadPoolExecutor(50, queueSize);
