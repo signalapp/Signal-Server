@@ -26,9 +26,9 @@ import java.io.IOException;
 
 public class SmsSender {
 
-  static final String SMS_IOS_VERIFICATION_TEXT = "Your Bitcopal Messenger verification code: %s\n\nOr tap: bitcopal://verify/%s";
-  static final String SMS_VERIFICATION_TEXT     = "Your Bitcopal Messenger verification code: %s";
-  static final String VOX_VERIFICATION_TEXT     = "Your Bitcopal Messenger verification code is: ";
+  static final String SMS_IOS_VERIFICATION_TEXT = "Your Bitcostar Messenger verification code: %s\n\nOr tap: bitcostar://verify/%s";
+  static final String SMS_VERIFICATION_TEXT     = "Your Bitcostar Messenger verification code: %s";
+  static final String VOX_VERIFICATION_TEXT     = "Your Bitcostar Messenger verification code is: ";
 
   private final Logger logger = LoggerFactory.getLogger(SmsSender.class);
 
