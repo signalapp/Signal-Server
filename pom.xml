@@ -265,6 +265,28 @@
                 </executions>
             </plugin>
 
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-pmd-plugin</artifactId>
+                <version>3.10.0</version>
+                <configuration>
+                    <rulesets>
+                        <ruleset>/category/java/bestpractices.xml</ruleset>
+                        <!-- additional rulesets to enable over time -->
+                        <!-- <ruleset>/category/java/errorprone.xml</ruleset> -->
+                        <!-- <ruleset>/category/java/multithreading.xml</ruleset> -->
+                        <!-- <ruleset>/category/java/performance.xml</ruleset> -->
+                    </rulesets>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
         </plugins>
     </build>
 
