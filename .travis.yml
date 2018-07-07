@@ -1,8 +1,8 @@
 language: java
 
+notifications:
+  email: false
+
 cache:
   directories:
   - $HOME/.m2
-
-
-
