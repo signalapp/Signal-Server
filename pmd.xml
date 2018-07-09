@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<ruleset name="Custom ruleset" xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 http://pmd.sourceforge.net/ruleset_2_0_0.xsd">
+
+    <description>
+        PMD configuration for the Signal server. Disables some buggy or overly verbose rules
+    </description>
+
+    <!-- don't lint generated code -->
+    <exclude-pattern>.*/org/whispersystems/textsecuregcm/.*Protos.java</exclude-pattern>
+
+    <rule ref="category/java/bestpractices.xml">
+        <exclude name="GuardLogStatement" /> <!-- following adds unnecessary verbosity -->
+        <exclude name="AccessorMethodGeneration" /> <!-- only really matters for Android -->
+        <exclude name="PreserveStackTrace" /> <!-- lots of these extant -->
+    </rule>
+
+    <!-- additional rulesets to enable over time -->
+    <!-- <ruleset>/category/java/errorprone.xml</ruleset> -->
+    <!-- <ruleset>/category/java/multithreading.xml</ruleset> -->
+    <!-- <ruleset>/category/java/performance.xml</ruleset> -->
+</ruleset>
