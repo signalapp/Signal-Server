@@ -35,10 +35,12 @@ public class WebsocketAddress implements PubSubAddress {
     return deviceId;
   }
 
+  @Override
   public String serialize() {
     return number + ":" + deviceId;
   }
 
+  @Override
   public String toString() {
     return serialize();
   }

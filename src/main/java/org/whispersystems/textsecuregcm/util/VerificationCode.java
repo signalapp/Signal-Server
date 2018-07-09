@@ -63,10 +63,12 @@ public class VerificationCode {
     return delimited;
   }
 
+  @Override
   @VisibleForTesting public boolean equals(Object o) {
     return o instanceof VerificationCode && verificationCode.equals(((VerificationCode) o).verificationCode);
   }
 
+  @Override
   public int hashCode() {
     return Integer.parseInt(verificationCode);
   }

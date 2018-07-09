@@ -101,6 +101,7 @@ public class ClientContact {
         (this.relay == null ? (that.relay == null) : this.relay.equals(that.relay));
   }
 
+  @Override
   public int hashCode() {
     return Arrays.hashCode(this.token);
   }

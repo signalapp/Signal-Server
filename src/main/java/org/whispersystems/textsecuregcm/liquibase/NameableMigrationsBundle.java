@@ -17,11 +17,13 @@ public abstract class NameableMigrationsBundle<T extends Configuration> implemen
     this.migrations = migrations;
   }
 
+  @Override
   public final void initialize(Bootstrap<?> bootstrap) {
     Class klass = Generics.getTypeParameter(this.getClass(), Configuration.class);
     bootstrap.addCommand(new NameableDbCommand(name, migrations, this, klass));
   }
 
+  @Override
   public final void run(Environment environment) {
   }
 }

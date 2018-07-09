@@ -74,10 +74,12 @@ public class LoggingNetworkAppenderFactory extends AbstractAppenderFactory<ILogg
     this.port = port;
   }
 
+  @Override
   public TimeZone getTimeZone() {
     return timeZone;
   }
 
+  @Override
   public void setTimeZone(final TimeZone timeZone) {
     this.timeZone = timeZone;
   }

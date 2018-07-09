@@ -102,6 +102,7 @@ public class WebSocketConnection implements DispatchChannel {
     client.close(1000, "OK");
   }
 
+  @Override
   public void onDispatchSubscribed(String channel) {
     processStoredMessages();
   }

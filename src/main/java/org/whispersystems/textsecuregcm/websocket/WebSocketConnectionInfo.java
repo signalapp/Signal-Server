@@ -25,6 +25,7 @@ public class WebSocketConnectionInfo implements PubSubAddress {
     }
   }
 
+  @Override
   public String serialize() {
     return address.serialize() + ":c";
   }

@@ -35,12 +35,14 @@ public class Pair<T1, T2> {
     return v2;
   }
 
+  @Override
   public boolean equals(Object o) {
     return o instanceof Pair &&
         equal(((Pair) o).first(), first()) &&
         equal(((Pair) o).second(), second());
   }
 
+  @Override
   public int hashCode() {
     return first().hashCode() ^ second().hashCode();
   }
