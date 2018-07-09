@@ -28,7 +28,6 @@ import io.dropwizard.jdbi.ImmutableSetContainerFactory;
 import io.dropwizard.jdbi.OptionalContainerFactory;
 import io.dropwizard.jdbi.args.OptionalArgumentFactory;
 import io.dropwizard.setup.Environment;
-import redis.clients.jedis.JedisPool;
 
 public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfiguration> {
 

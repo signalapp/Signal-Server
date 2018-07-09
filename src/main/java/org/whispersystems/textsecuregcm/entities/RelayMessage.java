@@ -24,7 +24,6 @@ import org.hibernate.validator.constraints.NotEmpty;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 
 import javax.validation.constraints.NotNull;
-import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 public class RelayMessage {
 

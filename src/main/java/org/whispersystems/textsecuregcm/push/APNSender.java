@@ -28,7 +28,6 @@ import org.whispersystems.textsecuregcm.push.RetryingApnsClient.ApnResult;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
