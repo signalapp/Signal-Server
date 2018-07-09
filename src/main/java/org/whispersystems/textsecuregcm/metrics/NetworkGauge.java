@@ -14,8 +14,8 @@ public abstract class NetworkGauge implements Gauge<Double> {
   protected Pair<Long, Long> getSentReceived() throws IOException {
     File           proc          = new File("/proc/net/dev");
     BufferedReader reader        = new BufferedReader(new FileReader(proc));
-    String         header        = reader.readLine();
-    String         header2       = reader.readLine();
+    String         header        = reader.readLine(); // NOPMD
+    String         header2       = reader.readLine(); // NOPMD
 
     long           bytesSent     = 0;
     long           bytesReceived = 0;

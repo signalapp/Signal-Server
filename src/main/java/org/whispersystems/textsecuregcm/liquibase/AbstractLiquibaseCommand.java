@@ -43,7 +43,7 @@ public abstract class AbstractLiquibaseCommand<T extends Configuration> extends 
     final PooledDataSourceFactory dbConfig = strategy.getDataSourceFactory(configuration);
     dbConfig.asSingleConnectionPool();
 
-    try (final CloseableLiquibase liquibase = openLiquibase(dbConfig, namespace)) {
+    try (final CloseableLiquibase liquibase = openLiquibase(dbConfig)) {
       run(namespace, liquibase);
     } catch (ValidationFailedException e) {
       e.printDescriptiveError(System.err);
@@ -51,7 +51,7 @@ public abstract class AbstractLiquibaseCommand<T extends Configuration> extends 
     }
   }
 
-  private CloseableLiquibase openLiquibase(final PooledDataSourceFactory dataSourceFactory, final Namespace namespace)
+  private CloseableLiquibase openLiquibase(final PooledDataSourceFactory dataSourceFactory)
       throws ClassNotFoundException, SQLException, LiquibaseException
   {
     final ManagedDataSource dataSource = dataSourceFactory.build(new MetricRegistry(), "liquibase");

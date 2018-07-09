@@ -13,7 +13,11 @@
     <rule ref="category/java/bestpractices.xml">
         <exclude name="GuardLogStatement" /> <!-- following adds unnecessary verbosity -->
         <exclude name="AccessorMethodGeneration" /> <!-- only really matters for Android -->
-        <exclude name="PreserveStackTrace" /> <!-- lots of these extant -->
+        <exclude name="PositionLiteralsFirstInComparisons" /> <!-- hurts readability, low priority -->
+        <!-- lots of the following rules extant in the codebase -->
+        <exclude name="PreserveStackTrace" />
+        <exclude name="AccessorClassGeneration" />
+        <exclude name="UnusedPrivateField" />
     </rule>
 
     <!-- additional rulesets to enable over time -->

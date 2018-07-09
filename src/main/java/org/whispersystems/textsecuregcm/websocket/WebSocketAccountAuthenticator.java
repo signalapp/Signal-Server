@@ -28,8 +28,8 @@ public class WebSocketAccountAuthenticator implements WebSocketAuthenticator<Acc
       List<String>              usernames  = parameters.get("login");
       List<String>              passwords  = parameters.get("password");
 
-      if (usernames == null || usernames.size() == 0 ||
-          passwords == null || passwords.size() == 0)
+      if (usernames == null || usernames.isEmpty() ||
+          passwords == null || passwords.isEmpty())
       {
         return Optional.absent();
       }

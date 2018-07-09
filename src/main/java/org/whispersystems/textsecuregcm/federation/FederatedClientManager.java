@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import io.dropwizard.client.JerseyClientConfiguration;
 import io.dropwizard.setup.Environment;
@@ -32,7 +33,7 @@ public class FederatedClientManager {
 
   private final Logger logger = LoggerFactory.getLogger(FederatedClientManager.class);
 
-  private final HashMap<String, FederatedClient> clients = new HashMap<>();
+  private final Map<String, FederatedClient> clients = new HashMap<>();
 
   public FederatedClientManager(Environment environment,
                                 JerseyClientConfiguration clientConfig,

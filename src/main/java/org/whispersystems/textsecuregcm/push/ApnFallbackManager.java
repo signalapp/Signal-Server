@@ -19,6 +19,7 @@ import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 
@@ -188,7 +189,7 @@ public class ApnFallbackManager implements Managed, Runnable, DispatchChannel {
   @VisibleForTesting
   public static class ApnFallbackTaskQueue {
 
-    private final LinkedHashMap<WebsocketAddress, ApnFallbackTask> tasks = new LinkedHashMap<>();
+    private final Map<WebsocketAddress, ApnFallbackTask> tasks = new LinkedHashMap<>();
 
     public Entry<WebsocketAddress, ApnFallbackTask> get() {
       while (true) {

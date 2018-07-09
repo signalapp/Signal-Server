@@ -19,7 +19,7 @@ public class ReplicatedJedisPool {
   private final JedisPool[] replicas;
 
   public ReplicatedJedisPool(JedisPool master, List<JedisPool> replicas) {
-    if (replicas.size() < 1) throw new IllegalArgumentException("There must be at least one replica");
+    if (replicas.isEmpty()) throw new IllegalArgumentException("There must be at least one replica");
 
     this.master   = master;
     this.replicas = new JedisPool[replicas.size()];

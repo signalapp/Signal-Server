@@ -53,7 +53,7 @@ public class TwilioSmsSender {
 
   private final String            accountId;
   private final String            accountToken;
-  private final ArrayList<String> numbers;
+  private final List<String>      numbers;
   private final String            messagingServicesId;
   private final String            localDomain;
   private final Random            random;
@@ -115,7 +115,7 @@ public class TwilioSmsSender {
     voxMeter.mark();
   }
 
-  private String getRandom(Random random, ArrayList<String> elements) {
+  private String getRandom(Random random, List<String> elements) {
     return elements.get(random.nextInt(elements.size()));
   }
 

@@ -32,6 +32,8 @@ public class DeadLetterHandler implements DispatchChannel {
             Envelope message = Envelope.parseFrom(pubSubMessage.getContent());
             messagesManager.insert(address.getNumber(), address.getDeviceId(), message);
             break;
+          default:
+            break;
         }
       } catch (InvalidProtocolBufferException e) {
         logger.warn("Bad pubsub message", e);

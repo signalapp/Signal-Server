@@ -111,7 +111,7 @@ public class PubSubConnection {
     byte[]            channelName       = inputStream.readFully(channelNameHeader.getStringLength());
     inputStream.readLine();
 
-    IntReply subscriptionCount = new IntReply(inputStream.readLine());
+    IntReply subscriptionCount = new IntReply(inputStream.readLine()); // NOPMD
 
     return new String(channelName);
   }
