@@ -30,6 +30,7 @@ import org.whispersystems.textsecuregcm.entities.DeviceInfo;
 import org.whispersystems.textsecuregcm.entities.DeviceInfoList;
 import org.whispersystems.textsecuregcm.entities.DeviceResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.sqs.ContactDiscoveryQueueSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -68,18 +69,21 @@ public class DeviceController {
   private final PendingDevicesManager pendingDevices;
   private final AccountsManager       accounts;
   private final MessagesManager       messages;
+  private final ContactDiscoveryQueueSender cdsSender;
   private final RateLimiters          rateLimiters;
   private final Map<String, Integer>  maxDeviceConfiguration;
 
   public DeviceController(PendingDevicesManager pendingDevices,
                           AccountsManager accounts,
                           MessagesManager messages,
+                          ContactDiscoveryQueueSender cdsSender,
                           RateLimiters rateLimiters,
                           Map<String, Integer> maxDeviceConfiguration)
   {
     this.pendingDevices         = pendingDevices;
     this.accounts               = accounts;
     this.messages               = messages;
+    this.cdsSender              = cdsSender;
     this.rateLimiters           = rateLimiters;
     this.maxDeviceConfiguration = maxDeviceConfiguration;
   }
@@ -108,6 +112,9 @@ public class DeviceController {
 
     account.removeDevice(deviceId);
     accounts.update(account);
+    if (!account.isActive()) {
+      cdsSender.deleteRegisteredUser(account.getNumber());
+    }
     messages.clear(account.getNumber(), deviceId);
   }
 
