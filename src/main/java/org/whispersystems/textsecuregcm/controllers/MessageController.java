@@ -1,4 +1,4 @@
-/*
+/**
  * Copyright (C) 2013 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -33,12 +33,10 @@ import org.whispersystems.textsecuregcm.federation.FederatedClient;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.federation.NoSuchPeerException;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.push.TransientPushFailureException;
-import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -77,15 +75,13 @@ public class MessageController {
   private final FederatedClientManager federatedClientManager;
   private final AccountsManager        accountsManager;
   private final MessagesManager        messagesManager;
-  private final ApnFallbackManager     apnFallbackManager;
 
   public MessageController(RateLimiters rateLimiters,
                            PushSender pushSender,
                            ReceiptSender receiptSender,
                            AccountsManager accountsManager,
                            MessagesManager messagesManager,
-                           FederatedClientManager federatedClientManager,
-                           ApnFallbackManager apnFallbackManager)
+                           FederatedClientManager federatedClientManager)
   {
     this.rateLimiters           = rateLimiters;
     this.pushSender             = pushSender;
@@ -93,7 +89,6 @@ public class MessageController {
     this.accountsManager        = accountsManager;
     this.messagesManager        = messagesManager;
     this.federatedClientManager = federatedClientManager;
-    this.apnFallbackManager     = apnFallbackManager;
   }
 
   @Timed
@@ -139,12 +134,6 @@ public class MessageController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   public OutgoingMessageEntityList getPendingMessages(@Auth Account account) {
-    assert account.getAuthenticatedDevice().isPresent();
-
-    if (!Util.isEmpty(account.getAuthenticatedDevice().get().getApnId())) {
-      RedisOperation.unchecked(() -> apnFallbackManager.cancel(account, account.getAuthenticatedDevice().get()));
-    }
-
     return messagesManager.getMessagesForDevice(account.getNumber(),
                                                 account.getAuthenticatedDevice().get().getId());
   }
@@ -230,7 +219,7 @@ public class MessageController {
         messageBuilder.setRelay(source.getRelay().get());
       }
 
-      pushSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build());
+      pushSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build(), incomingMessage.isSilent());
     } catch (NotPushRegisteredException e) {
       if (destinationDevice.isMaster()) throw new NoSuchUserException(e);
       else                              logger.debug("Not registered", e);

@@ -85,11 +85,6 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
-  private RedisConfiguration pushScheduler;
-
-  @NotNull
-  @Valid
-  @JsonProperty
   private MessageCacheConfiguration messageCache;
 
   @Valid
@@ -183,10 +178,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public MessageCacheConfiguration getMessageCacheConfiguration() {
     return messageCache;
-  }
-
-  public RedisConfiguration getPushScheduler() {
-    return pushScheduler;
   }
 
   public DataSourceFactory getMessageStoreConfiguration() {

@@ -12,6 +12,7 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushSender;
+import org.whispersystems.textsecuregcm.push.TransientPushFailureException;
 import org.whispersystems.textsecuregcm.redis.LuaScript;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -482,9 +483,11 @@ public class MessagesCache implements Managed {
 
             if (device.isPresent()) {
               try {
-                pushSender.sendQueuedNotification(account.get(), device.get());
+                pushSender.sendQueuedNotification(account.get(), device.get(), false);
               } catch (NotPushRegisteredException e) {
                 logger.warn("After message persistence, no longer push registered!");
+              } catch (TransientPushFailureException e) {
+                logger.warn("Transient push failure!", e);
               }
             }
           }

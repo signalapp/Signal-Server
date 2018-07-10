@@ -1,4 +1,4 @@
-/*
+/**
  * Copyright (C) 2013 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -16,9 +16,6 @@
  */
 package org.whispersystems.textsecuregcm.push;
 
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.FutureCallback;
@@ -28,11 +25,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
 import org.whispersystems.textsecuregcm.push.RetryingApnsClient.ApnResult;
-import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
@@ -41,16 +37,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static com.codahale.metrics.MetricRegistry.name;
 import io.dropwizard.lifecycle.Managed;
 
 public class APNSender implements Managed {
 
   private final Logger logger = LoggerFactory.getLogger(APNSender.class);
-
-  private static final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private static final Meter unregisteredEventStale  = metricRegistry.meter(name(APNSender.class, "unregistered_event_stale"));
-  private static final Meter unregisteredEventFresh  = metricRegistry.meter(name(APNSender.class, "unregistered_event_fresh"));
 
   private ExecutorService    executor;
   private ApnFallbackManager fallbackManager;
@@ -80,7 +71,9 @@ public class APNSender implements Managed {
     this.bundleId        = bundleId;
   }
 
-  public ListenableFuture<ApnResult> sendMessage(final ApnMessage message) {
+  public ListenableFuture<ApnResult> sendMessage(final ApnMessage message)
+      throws TransientPushFailureException
+  {
     String topic = bundleId;
 
     if (message.isVoip()) {
@@ -113,13 +106,13 @@ public class APNSender implements Managed {
   }
 
   @Override
-  public void start() {
+  public void start() throws Exception {
     this.executor = Executors.newSingleThreadExecutor();
     this.apnsClient.connect(sandbox);
   }
 
   @Override
-  public void stop() {
+  public void stop() throws Exception {
     this.executor.shutdown();
     this.apnsClient.disconnect();
   }
@@ -128,14 +121,13 @@ public class APNSender implements Managed {
     this.fallbackManager = fallbackManager;
   }
 
-  private void handleUnregisteredUser(String registrationId, String number, long deviceId) {
-//    logger.info("Got APN Unregistered: " + number + "," + deviceId);
+  private void handleUnregisteredUser(String registrationId, String number, int deviceId) {
+    logger.info("Got APN Unregistered: " + number + "," + deviceId);
 
     Optional<Account> account = accountsManager.get(number);
 
     if (!account.isPresent()) {
       logger.info("No account found: " + number);
-      unregisteredEventStale.mark();
       return;
     }
 
@@ -143,7 +135,6 @@ public class APNSender implements Managed {
 
     if (!device.isPresent()) {
       logger.info("No device found: " + number);
-      unregisteredEventStale.mark();
       return;
     }
 
@@ -151,26 +142,24 @@ public class APNSender implements Managed {
         !registrationId.equals(device.get().getVoipApnId()))
     {
       logger.info("Registration ID does not match: " + registrationId + ", " + device.get().getApnId() + ", " + device.get().getVoipApnId());
-      unregisteredEventStale.mark();
       return;
     }
 
-//    if (registrationId.equals(device.get().getApnId())) {
-//      logger.info("APN Unregister APN ID matches! " + number + ", " + deviceId);
-//    } else if (registrationId.equals(device.get().getVoipApnId())) {
-//      logger.info("APN Unregister VoIP ID matches! " + number + ", " + deviceId);
-//    }
+    if (registrationId.equals(device.get().getApnId())) {
+      logger.info("APN Unregister APN ID matches! " + number + ", " + deviceId);
+    } else if (registrationId.equals(device.get().getVoipApnId())) {
+      logger.info("APN Unregister VoIP ID matches! " + number + ", " + deviceId);
+    }
 
     long tokenTimestamp = device.get().getPushTimestamp();
 
     if (tokenTimestamp != 0 && System.currentTimeMillis() < tokenTimestamp + TimeUnit.SECONDS.toMillis(10))
     {
       logger.info("APN Unregister push timestamp is more recent: " + tokenTimestamp + ", " + number);
-      unregisteredEventStale.mark();
       return;
     }
 
-//    logger.info("APN Unregister timestamp matches: " + device.get().getApnId() + ", " + device.get().getVoipApnId());
+    logger.info("APN Unregister timestamp matches: " + device.get().getApnId() + ", " + device.get().getVoipApnId());
 //    device.get().setApnId(null);
 //    device.get().setVoipApnId(null);
 //    device.get().setFetchesMessages(false);
@@ -179,10 +168,5 @@ public class APNSender implements Managed {
 //    if (fallbackManager != null) {
 //      fallbackManager.cancel(new WebsocketAddress(number, deviceId));
 //    }
-
-    if (fallbackManager != null) {
-      RedisOperation.unchecked(() -> fallbackManager.cancel(account.get(), device.get()));
-      unregisteredEventFresh.mark();
-    }
   }
 }

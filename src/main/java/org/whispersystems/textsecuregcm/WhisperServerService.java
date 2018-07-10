@@ -159,15 +159,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     Keys            keys            = database.onDemand(Keys.class);
     Messages        messages        = messagedb.onDemand(Messages.class);
 
-    RedisClientFactory cacheClientFactory         = new RedisClientFactory(config.getCacheConfiguration().getUrl(), config.getCacheConfiguration().getReplicaUrls()                                                              );
-    RedisClientFactory directoryClientFactory     = new RedisClientFactory(config.getDirectoryConfiguration().getUrl(), config.getDirectoryConfiguration().getReplicaUrls()                                                      );
-    RedisClientFactory messagesClientFactory      = new RedisClientFactory(config.getMessageCacheConfiguration().getRedisConfiguration().getUrl(), config.getMessageCacheConfiguration().getRedisConfiguration().getReplicaUrls());
-    RedisClientFactory pushSchedulerClientFactory = new RedisClientFactory(config.getPushScheduler().getUrl(), config.getPushScheduler().getReplicaUrls()                                                                        );
-
-    ReplicatedJedisPool cacheClient         = cacheClientFactory.getRedisClientPool();
-    ReplicatedJedisPool directoryClient     = directoryClientFactory.getRedisClientPool();
-    ReplicatedJedisPool messagesClient      = messagesClientFactory.getRedisClientPool();
-    ReplicatedJedisPool pushSchedulerClient = pushSchedulerClientFactory.getRedisClientPool();
+    RedisClientFactory  cacheClientFactory     = new RedisClientFactory(config.getCacheConfiguration().getUrl(), config.getCacheConfiguration().getReplicaUrls()        );
+    RedisClientFactory  directoryClientFactory = new RedisClientFactory(config.getDirectoryConfiguration().getUrl(), config.getDirectoryConfiguration().getReplicaUrls());
+    RedisClientFactory  messagesClientFactory  = new RedisClientFactory(config.getMessageCacheConfiguration().getRedisConfiguration().getUrl(), config.getMessageCacheConfiguration().getRedisConfiguration().getReplicaUrls());
+    ReplicatedJedisPool cacheClient            = cacheClientFactory.getRedisClientPool();
+    ReplicatedJedisPool directoryClient        = directoryClientFactory.getRedisClientPool();
+    ReplicatedJedisPool messagesClient         = messagesClientFactory.getRedisClientPool();
 
     DirectoryManager           directory                  = new DirectoryManager(directoryClient);
     PendingAccountsManager     pendingAccountsManager     = new PendingAccountsManager(pendingAccounts, cacheClient);
@@ -186,7 +183,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     FederatedPeerAuthenticator federatedPeerAuthenticator = new FederatedPeerAuthenticator(config.getFederationConfiguration());
     RateLimiters               rateLimiters               = new RateLimiters(config.getLimitsConfiguration(), cacheClient);
 
-    ApnFallbackManager       apnFallbackManager  = new ApnFallbackManager(pushSchedulerClient, apnSender, accountsManager);
+    ApnFallbackManager       apnFallbackManager  = new ApnFallbackManager(apnSender, pubSubManager);
     TwilioSmsSender          twilioSmsSender     = new TwilioSmsSender(config.getTwilioConfiguration());
     SmsSender                smsSender           = new SmsSender(twilioSmsSender);
     UrlSigner                urlSigner           = new UrlSigner(config.getAttachmentsConfiguration());
@@ -205,7 +202,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     AttachmentController attachmentController = new AttachmentController(rateLimiters, federatedClientManager, urlSigner);
     KeysController       keysController       = new KeysController(rateLimiters, keys, accountsManager, federatedClientManager);
-    MessageController    messageController    = new MessageController(rateLimiters, pushSender, receiptSender, accountsManager, messagesManager, federatedClientManager, apnFallbackManager);
+    MessageController    messageController    = new MessageController(rateLimiters, pushSender, receiptSender, accountsManager, messagesManager, federatedClientManager);
     ProfileController    profileController    = new ProfileController(rateLimiters , accountsManager, config.getProfilesConfiguration());
 
     environment.jersey().register(new AuthDynamicFeature(new BasicCredentialAuthFilter.Builder<Account>()
@@ -232,7 +229,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ///
     WebSocketEnvironment webSocketEnvironment = new WebSocketEnvironment(environment, config.getWebSocketConfiguration(), 90000);
     webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(deviceAuthenticator));
-    webSocketEnvironment.setConnectListener(new AuthenticatedConnectListener(pushSender, receiptSender, messagesManager, pubSubManager, apnFallbackManager));
+    webSocketEnvironment.setConnectListener(new AuthenticatedConnectListener(accountsManager, pushSender, receiptSender, messagesManager, pubSubManager));
     webSocketEnvironment.jersey().register(new KeepAliveController(pubSubManager));
     webSocketEnvironment.jersey().register(messageController);
     webSocketEnvironment.jersey().register(profileController);
