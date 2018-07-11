@@ -17,6 +17,8 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
 import org.hibernate.validator.constraints.NotEmpty;
 
 public class ContactDiscoveryConfiguration {
@@ -33,6 +35,14 @@ public class ContactDiscoveryConfiguration {
   @JsonProperty
   private String queueUrl;
 
+  @NotEmpty
+  @JsonProperty
+  private String userAuthenticationTokenSharedSecret;
+
+  @NotEmpty
+  @JsonProperty
+  private String userAuthenticationTokenUserIdSecret;
+
   public String getAccessKey() {
     return accessKey;
   }
@@ -43,5 +53,13 @@ public class ContactDiscoveryConfiguration {
 
   public String getQueueUrl() {
     return queueUrl;
+  }
+
+  public byte[] getUserAuthenticationTokenSharedSecret() throws DecoderException {
+    return Hex.decodeHex(userAuthenticationTokenSharedSecret.toCharArray());
+  }
+
+  public byte[] getUserAuthenticationTokenUserIdSecret() throws DecoderException {
+    return Hex.decodeHex(userAuthenticationTokenUserIdSecret.toCharArray());
   }
 }
