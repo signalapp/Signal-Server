@@ -69,14 +69,15 @@ public class DeviceController {
   private final PendingDevicesManager pendingDevices;
   private final AccountsManager       accounts;
   private final MessagesManager       messages;
-  private final ContactDiscoveryQueueSender cdsSender;
   private final RateLimiters          rateLimiters;
   private final Map<String, Integer>  maxDeviceConfiguration;
+
+  private final Optional<ContactDiscoveryQueueSender> cdsSender;
 
   public DeviceController(PendingDevicesManager pendingDevices,
                           AccountsManager accounts,
                           MessagesManager messages,
-                          ContactDiscoveryQueueSender cdsSender,
+                          Optional<ContactDiscoveryQueueSender> cdsSender,
                           RateLimiters rateLimiters,
                           Map<String, Integer> maxDeviceConfiguration)
   {
@@ -112,8 +113,14 @@ public class DeviceController {
 
     account.removeDevice(deviceId);
     accounts.update(account);
-    if (!account.isActive()) {
-      cdsSender.deleteRegisteredUser(account.getNumber());
+    if (cdsSender.isPresent()) {
+      try {
+        if (!account.isActive()) {
+          cdsSender.get().deleteRegisteredUser(account.getNumber());
+        }
+      } catch (Throwable t) {
+        logger.warn("DeviceController", "ContactDiscoveryQueueSender.deleteRegisteredUser error", t);
+      }
     }
     messages.clear(account.getNumber(), deviceId);
   }

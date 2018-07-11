@@ -82,7 +82,7 @@ public class AccountController {
   private final AccountsManager                       accounts;
   private final RateLimiters                          rateLimiters;
   private final SmsSender                             smsSender;
-  private final ContactDiscoveryQueueSender           cdsSender;
+  private final Optional<ContactDiscoveryQueueSender> cdsSender;
   private final MessagesManager                       messagesManager;
   private final TurnTokenGenerator                    turnTokenGenerator;
   private final Map<String, Integer>                  testDevices;
@@ -91,7 +91,7 @@ public class AccountController {
                            AccountsManager accounts,
                            RateLimiters rateLimiters,
                            SmsSender smsSenderFactory,
-                           ContactDiscoveryQueueSender cdsSender,
+                           Optional<ContactDiscoveryQueueSender> cdsSender,
                            MessagesManager messagesManager,
                            TurnTokenGenerator turnTokenGenerator,
                            Map<String, Integer> testDevices)
@@ -343,7 +343,13 @@ public class AccountController {
     if (accounts.create(account)) {
       newUserMeter.mark();
     }
-    cdsSender.addRegisteredUser(number);
+    if (cdsSender.isPresent()) {
+      try {
+        cdsSender.get().addRegisteredUser(number);
+      } catch (Throwable t) {
+        logger.warn("AccountController", "ContactDiscoveryQueueSender.addRegisteredUser error", t);
+      }
+    }
 
     messagesManager.clear(number);
     pendingAccounts.remove(number);

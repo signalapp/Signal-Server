@@ -62,7 +62,6 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private AttachmentsConfiguration attachments;
 
-  @NotNull
   @Valid
   @JsonProperty
   private ContactDiscoveryConfiguration contactDiscovery;
@@ -164,9 +163,7 @@ public class WhisperServerConfiguration extends Configuration {
     return attachments;
   }
 
-  public ContactDiscoveryConfiguration getContactDiscoveryConfiguration() {
-    return contactDiscovery;
-  }
+  public ContactDiscoveryConfiguration getContactDiscoveryConfiguration() { return contactDiscovery; }
 
   public RedisConfiguration getCacheConfiguration() {
     return cache;

@@ -187,10 +187,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     TwilioSmsSender          twilioSmsSender     = new TwilioSmsSender(config.getTwilioConfiguration());
     SmsSender                smsSender           = new SmsSender(twilioSmsSender);
     UrlSigner                urlSigner           = new UrlSigner(config.getAttachmentsConfiguration());
-    ContactDiscoveryQueueSender cdsSender        = new ContactDiscoveryQueueSender(config.getContactDiscoveryConfiguration());
     PushSender               pushSender          = new PushSender(apnFallbackManager, gcmSender, apnSender, websocketSender, config.getPushConfiguration().getQueueSize());
     ReceiptSender            receiptSender       = new ReceiptSender(accountsManager, pushSender, federatedClientManager);
     TurnTokenGenerator       turnTokenGenerator  = new TurnTokenGenerator(config.getTurnConfiguration());
+
+    Optional<ContactDiscoveryQueueSender> cdsSender = Optional.fromNullable(config.getContactDiscoveryConfiguration())
+                                                              .transform(ContactDiscoveryQueueSender::new);
 
     messagesCache.setPubSubManager(pubSubManager, pushSender);
 
