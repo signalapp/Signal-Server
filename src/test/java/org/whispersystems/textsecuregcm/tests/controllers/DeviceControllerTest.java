@@ -74,6 +74,7 @@ public class DeviceControllerTest {
   private RateLimiter           rateLimiter           = mock(RateLimiter.class           );
   private Account               account               = mock(Account.class               );
   private Account               maxedAccount          = mock(Account.class);
+  private Device                masterDevice          = mock(Device.class);
 
   private Map<String, Integer>  deviceConfiguration   = new HashMap<String, Integer>() {{
 
@@ -102,9 +103,12 @@ public class DeviceControllerTest {
     when(rateLimiters.getAllocateDeviceLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getVerifyDeviceLimiter()).thenReturn(rateLimiter);
 
+    when(masterDevice.getId()).thenReturn(1L);
+
     when(account.getNextDeviceId()).thenReturn(42L);
     when(account.getNumber()).thenReturn(AuthHelper.VALID_NUMBER);
 //    when(maxedAccount.getActiveDeviceCount()).thenReturn(6);
+    when(account.getAuthenticatedDevice()).thenReturn(Optional.of(masterDevice));
     when(account.isActive()).thenReturn(false);
 
     when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(new StoredVerificationCode("5678901", System.currentTimeMillis())));
@@ -203,7 +207,7 @@ public class DeviceControllerTest {
     Response response = resources.getJerseyTest()
             .target("/v1/devices/12345")
             .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
             .delete();
 
     assertEquals(204, response.getStatus());
