@@ -49,6 +49,8 @@ public class ContactDiscoveryQueueSender {
     SendMessageRequest send_msg_request = new SendMessageRequest()
             .withQueueUrl(queueUrl)
             .withMessageBody("-")
+            .withMessageDeduplicationId(user + action)
+            .withMessageGroupId(user)
             .withMessageAttributes(messageAttributes);
     SendMessageResult result = sqs.sendMessage(send_msg_request);
     System.out.println(result.toString());
