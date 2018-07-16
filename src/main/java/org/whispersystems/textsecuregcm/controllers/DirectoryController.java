@@ -21,8 +21,12 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.base.Optional;
+import org.apache.commons.codec.DecoderException;
+import org.hibernate.validator.constraints.NotEmpty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.AuthorizationTokenGenerator;
+import org.whispersystems.textsecuregcm.configuration.ContactDiscoveryConfiguration;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.entities.ClientContactTokens;
 import org.whispersystems.textsecuregcm.entities.ClientContacts;
@@ -59,10 +63,83 @@ public class DirectoryController {
   private final RateLimiters     rateLimiters;
   private final DirectoryManager directory;
 
-  public DirectoryController(RateLimiters rateLimiters, DirectoryManager directory) {
+  private final Optional<AuthorizationTokenGenerator> userTokenGenerator;
+
+  public DirectoryController(RateLimiters rateLimiters,
+                             DirectoryManager directory,
+                             Optional<ContactDiscoveryConfiguration> cdsConfig)
+  {
     this.directory    = directory;
     this.rateLimiters = rateLimiters;
+
+    if (cdsConfig.isPresent()) {
+      try {
+        this.userTokenGenerator = Optional.of(new AuthorizationTokenGenerator(
+                cdsConfig.get().getUserAuthenticationTokenSharedSecret(),
+                Optional.of(cdsConfig.get().getUserAuthenticationTokenUserIdSecret())
+        ));
+      } catch (DecoderException e) {
+        throw new IllegalArgumentException(e);
+      }
+    } else {
+      this.userTokenGenerator = Optional.absent();
+    }
   }
+
+  @Timed
+  @GET
+  @Path("/auth")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getAuthToken(@Auth Account account) {
+    if (userTokenGenerator.isPresent()) {
+      return Response.ok().entity(userTokenGenerator.get().generateFor(account.getNumber())).build();
+    } else {
+      return Response.status(404).build();
+    }
+  }
+
+  @Timed
+  @PUT
+  @Path("/feedback/ok")
+  public Response putFeedbackOk(@Auth Account account) {
+    return Response.ok().build();
+  }
+
+  @Timed
+  @PUT
+  @Path("/feedback/mismatch")
+  public Response putFeedbackMismatch(@Auth Account account) {
+    return Response.ok().build();
+  }
+
+  @Timed
+  @PUT
+  @Path("/feedback/server-error")
+  public Response putFeedbackServerError(@Auth Account account) {
+    return Response.ok().build();
+  }
+
+  @Timed
+  @PUT
+  @Path("/feedback/client-error")
+  public Response putFeedbackClientError(@Auth Account account) {
+    return Response.ok().build();
+  }
+
+  @Timed
+  @PUT
+  @Path("/feedback/attestation-error")
+  public Response putFeedbackAttestationError(@Auth Account account) {
+    return Response.ok().build();
+  }
+
+  @Timed
+  @PUT
+  @Path("/feedback/unexpected-error")
+  public Response putFeedbackUnexpectedError(@Auth Account account) {
+    return Response.ok().build();
+  }
+
 
   @Timed
   @GET
