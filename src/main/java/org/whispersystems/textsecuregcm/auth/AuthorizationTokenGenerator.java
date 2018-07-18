@@ -29,14 +29,15 @@ public class AuthorizationTokenGenerator {
   public AuthorizationToken generateFor(String number) {
     try {
       Mac    mac                = Mac.getInstance("HmacSHA256");
+      String username           = getUserId(number);
       long   currentTimeSeconds = System.currentTimeMillis() / 1000;
-      String prefix             = getUserId(number) + ":"  + currentTimeSeconds;
+      String prefix             = username + ":"  + currentTimeSeconds;
 
       mac.init(new SecretKeySpec(key, "HmacSHA256"));
       String output = Hex.encodeHexString(Util.truncate(mac.doFinal(prefix.getBytes()), 10));
       String token  = prefix + ":" + output;
 
-      return new AuthorizationToken(token);
+      return new AuthorizationToken(username, token);
     } catch (NoSuchAlgorithmException | InvalidKeyException e) {
       throw new AssertionError(e);
     }

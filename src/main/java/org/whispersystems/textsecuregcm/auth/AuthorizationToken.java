@@ -18,12 +18,23 @@ import java.util.concurrent.TimeUnit;
 public class AuthorizationToken {
 
   @JsonProperty
+  private String username;
+
+  @JsonProperty
   private String token;
 
-  public AuthorizationToken(String token) {
-    this.token = token;
+  public AuthorizationToken(String username, String token) {
+    this.username = username;
+    this.token    = token;
   }
 
   public AuthorizationToken() {}
 
+  public String getUsername() {
+    return username;
+  }
+
+  public String getToken() {
+    return token;
+  }
 }

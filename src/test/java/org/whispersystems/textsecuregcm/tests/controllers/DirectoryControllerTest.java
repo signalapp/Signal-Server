@@ -75,11 +75,14 @@ public class DirectoryControllerTest {
 
   @Test
   public void testGetAuthToken() {
-    resources.getJerseyTest()
-             .target("/v1/directory/auth")
-             .request()
-             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-             .get(AuthorizationToken.class);
+    AuthorizationToken token =
+            resources.getJerseyTest()
+                     .target("/v1/directory/auth")
+                     .request()
+                     .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                     .get(AuthorizationToken.class);
+    assertThat(token.getUsername()).isNotEqualTo(AuthHelper.VALID_NUMBER);
+    assertThat(token.getToken()).startsWith(token.getUsername() + ":");
   }
 
   @Test
