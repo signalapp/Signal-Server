@@ -208,7 +208,7 @@ public class DirectoryReconciler implements Managed {
                                   .put(Entity.json(new DirectoryReconciliationRequest(numbers)));
         if (response.getStatus() != 200) {
           sendBucketErrorMeter.mark();
-          logger.warn("http error %d", response.getStatus());
+          logger.warn("http error " + response.getStatus());
         }
       } catch (ProcessingException ex) {
         sendBucketErrorMeter.mark();
