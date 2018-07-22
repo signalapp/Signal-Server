@@ -119,7 +119,7 @@ public class DeviceController {
           cdsSender.get().deleteRegisteredUser(account.getNumber());
         }
       } catch (Throwable t) {
-        logger.warn("DeviceController", "ContactDiscoveryQueueSender.deleteRegisteredUser error", t);
+        logger.warn("ContactDiscoveryQueueSender.deleteRegisteredUser error: ", t);
       }
     }
     messages.clear(account.getNumber(), deviceId);

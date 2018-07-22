@@ -92,7 +92,7 @@ public class DirectoryReconciler implements Managed {
     try {
       sslConfig.trustStore(initializeKeyStore(cdsConfig.getServerApiCaCertificate()));
     } catch(CertificateException ex) {
-      logger.error("DirectoryReconciler", "error reading serverApiCaCertificate from contactDiscovery config", ex);
+      logger.error("error reading serverApiCaCertificate from contactDiscovery config", ex);
     }
 
     this.client = ClientBuilder.newBuilder()
@@ -132,7 +132,6 @@ public class DirectoryReconciler implements Managed {
   @Override
   public void stop() {
     directoryReconciliationWorker.shutdown();
-    logger.info("Directory reconciliation worker shut down");
   }
 
   private static class DirectoryReconciliationWorker extends Thread {
@@ -205,11 +204,11 @@ public class DirectoryReconciler implements Managed {
                                   .put(Entity.json(new DirectoryReconciliationRequest(numbers)));
         if (response.getStatus() != 200) {
           sendBucketErrorMeter.mark();
-          logger.warn("DirectoryReconciler", String.format("http error %d", response.getStatus()));
+          logger.warn("http error %d", response.getStatus());
         }
       } catch (ProcessingException ex) {
         sendBucketErrorMeter.mark();
-        logger.warn("DirectoryReconciler", "request error", ex);
+        logger.warn("request error: ", ex);
       } finally {
         timer.stop();
       }
@@ -217,13 +216,24 @@ public class DirectoryReconciler implements Managed {
 
     @Override
     public void run() {
+      logger.info("Directory reconciliation worker %s started", workerId);
+
+      try (Jedis jedis = jedisPool.getWriteResource()) {
+        long nowMs = System.currentTimeMillis();
+        jedis.zremrangeByScore(WORKERS_KEY, Double.NEGATIVE_INFINITY, (double) (nowMs - WORKER_TTL_MS));
+      }
+
       long workIntervalMs = 0;
       long lastWorkTimeMs = 0;
+      long lastPingTimeMs = 0;
       long randomJitterMs = 0;
-      while (sleepWhileRunning(Math.min(workIntervalMs + randomJitterMs, WORKER_TTL_MS / 2))) {
+      while (sleepWhileRunning(Math.min(lastWorkTimeMs + workIntervalMs + randomJitterMs,
+                                        lastPingTimeMs + WORKER_TTL_MS / 2) - System.currentTimeMillis())) {
         long nowMs = System.currentTimeMillis();
 
         try (Jedis jedis = jedisPool.getWriteResource()) {
+          lastPingTimeMs = nowMs;
+
           jedis.zadd(WORKERS_KEY, (double) nowMs, workerId);
 
           if (nowMs - lastWorkTimeMs > workIntervalMs + randomJitterMs) {
@@ -244,6 +254,12 @@ public class DirectoryReconciler implements Managed {
           }
         }
       }
+
+      try (Jedis jedis = jedisPool.getWriteResource()) {
+        jedis.zrem(WORKERS_KEY, workerId);
+      }
+
+      logger.info("Directory reconciliation worker %s shut down", workerId);
 
       synchronized (this) {
         finished = true;

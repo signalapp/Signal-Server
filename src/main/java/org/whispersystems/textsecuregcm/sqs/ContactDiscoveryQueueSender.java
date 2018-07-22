@@ -71,10 +71,10 @@ public class ContactDiscoveryQueueSender {
       sqs.sendMessage(send_msg_request);
     } catch (AmazonServiceException ex) {
       serviceErrorMeter.mark();
-      logger.warn("ContactDiscoveryQueueSender", "sqs service error", ex);
+      logger.warn("sqs service error: ", ex);
     } catch (AmazonClientException ex) {
       clientErrorMeter.mark();
-      logger.warn("ContactDiscoveryQueueSender", "sqs client error", ex);
+      logger.warn("sqs client error: ", ex);
     }
   }
 

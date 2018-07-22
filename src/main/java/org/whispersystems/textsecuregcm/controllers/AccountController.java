@@ -347,7 +347,7 @@ public class AccountController {
       try {
         cdsSender.get().addRegisteredUser(number);
       } catch (Throwable t) {
-        logger.warn("AccountController", "ContactDiscoveryQueueSender.addRegisteredUser error", t);
+        logger.warn("ContactDiscoveryQueueSender.addRegisteredUser error: ", t);
       }
     }
 
