@@ -16,21 +16,36 @@
  */
 package org.whispersystems.textsecuregcm.sqs;
 
+import com.amazonaws.AmazonClientException;
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.sqs.AmazonSQS;
 import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
 import com.amazonaws.services.sqs.model.SendMessageRequest;
-import com.amazonaws.services.sqs.model.SendMessageResult;
 import com.amazonaws.services.sqs.model.MessageAttributeValue;
 
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.ContactDiscoveryConfiguration;
+import org.whispersystems.textsecuregcm.util.Constants;
 
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 public class ContactDiscoveryQueueSender {
+
+  private static final Logger logger = LoggerFactory.getLogger(ContactDiscoveryQueueSender.class);
+
+  private final MetricRegistry metricRegistry    = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  private final Meter          serviceErrorMeter = metricRegistry.meter(name(ContactDiscoveryQueueSender.class, "serviceError"));
+  private final Meter          clientErrorMeter  = metricRegistry.meter(name(ContactDiscoveryQueueSender.class, "clientError"));
 
   private final String queueUrl;
   private final AmazonSQS sqs;
@@ -52,8 +67,15 @@ public class ContactDiscoveryQueueSender {
             .withMessageDeduplicationId(user + action)
             .withMessageGroupId(user)
             .withMessageAttributes(messageAttributes);
-    SendMessageResult result = sqs.sendMessage(send_msg_request);
-    System.out.println(result.toString());
+    try {
+      sqs.sendMessage(send_msg_request);
+    } catch (AmazonServiceException ex) {
+      serviceErrorMeter.mark();
+      logger.warn("ContactDiscoveryQueueSender", "sqs service error", ex);
+    } catch (AmazonClientException ex) {
+      clientErrorMeter.mark();
+      logger.warn("ContactDiscoveryQueueSender", "sqs client error", ex);
+    }
   }
 
 
