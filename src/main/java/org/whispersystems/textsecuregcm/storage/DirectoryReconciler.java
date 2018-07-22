@@ -263,7 +263,7 @@ public class DirectoryReconciler implements Managed {
         jedis.zrem(WORKERS_KEY, workerId);
       }
 
-      logger.info("Directory reconciliation worker %s shut down", workerId);
+      logger.info("Directory reconciliation worker " + workerId + " shut down");
 
       synchronized (this) {
         finished = true;
