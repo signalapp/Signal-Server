@@ -47,8 +47,9 @@ contactDiscovery: # Configuration for interfacing with Contact Discovery Service
   accessSecret:   # AWS SQS accessSecret
   queueUrl:       # AWS SQS queue url
   serverApiUrl:   # CDS server-api base url
+  serverAptToken: # CDS server-api auth token
   serverApiCaCertificate: # CDS server-api TLS certificate trust root
-  userAuthenticationTokenSharedSecret: # hex-encoded secret shared with CDS used to authenticate Signal users
+  userAuthenticationTokenSharedSecret: # hex-encoded secret shared with CDS used to generate auth tokens for Signal users
   userAuthenticationTokenUserIdSecret: # hex-encoded secret shared among Signal-Servers to obscure user phone numbers from CDS
 
 attachments: # AWS S3 configuration

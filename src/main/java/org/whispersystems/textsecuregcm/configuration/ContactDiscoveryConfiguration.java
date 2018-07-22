@@ -41,6 +41,10 @@ public class ContactDiscoveryConfiguration {
 
   @NotEmpty
   @JsonProperty
+  private String serverApiToken;
+
+  @NotEmpty
+  @JsonProperty
   private String serverApiCaCertificate;
 
   @NotEmpty
@@ -65,6 +69,10 @@ public class ContactDiscoveryConfiguration {
 
   public String getServerApiUrl() {
     return serverApiUrl;
+  }
+
+  public String getServerApiToken() {
+    return serverApiToken;
   }
 
   public String getServerApiCaCertificate() {

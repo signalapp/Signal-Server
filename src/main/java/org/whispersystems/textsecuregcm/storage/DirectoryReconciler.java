@@ -23,6 +23,7 @@ import com.codahale.metrics.Timer;
 import io.dropwizard.lifecycle.Managed;
 import org.bouncycastle.openssl.PEMReader;
 import org.glassfish.jersey.SslConfigurator;
+import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.ContactDiscoveryConfiguration;
@@ -82,7 +83,8 @@ public class DirectoryReconciler implements Managed {
 
   public DirectoryReconciler(ContactDiscoveryConfiguration cdsConfig,
                              ReplicatedJedisPool jedisPool,
-                             AccountsManager accountsManager) {
+                             AccountsManager accountsManager)
+  {
     this.serverApiUrl = cdsConfig.getServerApiUrl();
     this.jedisPool = jedisPool;
     this.accountsManager = accountsManager;
@@ -91,17 +93,18 @@ public class DirectoryReconciler implements Managed {
                                                .securityProtocol("TLSv1.2");
     try {
       sslConfig.trustStore(initializeKeyStore(cdsConfig.getServerApiCaCertificate()));
-    } catch(CertificateException ex) {
+    } catch (CertificateException ex) {
       logger.error("error reading serverApiCaCertificate from contactDiscovery config", ex);
     }
 
     this.client = ClientBuilder.newBuilder()
+                               .register(HttpAuthenticationFeature.basic("", cdsConfig.getServerApiToken().getBytes()))
                                .sslContext(sslConfig.createSSLContext())
                                .build();
   }
 
   private static KeyStore initializeKeyStore(String pemCaCertificate)
-    throws CertificateException
+          throws CertificateException
   {
     try {
       PEMReader       reader      = new PEMReader(new InputStreamReader(new ByteArrayInputStream(pemCaCertificate.getBytes())));
@@ -150,7 +153,8 @@ public class DirectoryReconciler implements Managed {
     DirectoryReconciliationWorker(String serverApiUrl,
                                   ReplicatedJedisPool jedisPool,
                                   AccountsManager accountsManager,
-                                  Client client) {
+                                  Client client)
+    {
       super(DirectoryReconciliationWorker.class.getSimpleName());
 
       this.serverApiUrl = serverApiUrl;
