@@ -21,6 +21,8 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import io.dropwizard.lifecycle.Managed;
+import org.bouncycastle.openssl.PEMReader;
+import org.glassfish.jersey.SslConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.ContactDiscoveryConfiguration;
@@ -37,7 +39,15 @@ import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.Random;
 
@@ -76,9 +86,40 @@ public class DirectoryReconciler implements Managed {
     this.serverApiUrl = cdsConfig.getServerApiUrl();
     this.jedisPool = jedisPool;
     this.accountsManager = accountsManager;
+
+    SslConfigurator sslConfig = SslConfigurator.newInstance()
+                                               .securityProtocol("TLSv1.2");
+    try {
+      sslConfig.trustStore(initializeKeyStore(cdsConfig.getServerApiCaCertificate()));
+    } catch(CertificateException ex) {
+      logger.error("DirectoryReconciler", "error reading serverApiCaCertificate from contactDiscovery config", ex);
+    }
+
     this.client = ClientBuilder.newBuilder()
-                               // XXX SSL context
+                               .sslContext(sslConfig.createSSLContext())
                                .build();
+  }
+
+  private static KeyStore initializeKeyStore(String pemCaCertificate)
+    throws CertificateException
+  {
+    try {
+      PEMReader       reader      = new PEMReader(new InputStreamReader(new ByteArrayInputStream(pemCaCertificate.getBytes())));
+      X509Certificate certificate = (X509Certificate) reader.readObject();
+
+      if (certificate == null) {
+        throw new CertificateException("No certificate found in parsing!");
+      }
+
+      KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+      keyStore.load(null);
+      keyStore.setCertificateEntry("ca", certificate);
+      return keyStore;
+    } catch (IOException | KeyStoreException ex) {
+      throw new CertificateException(ex.toString());
+    } catch (NoSuchAlgorithmException ex) {
+      throw new AssertionError(ex);
+    }
   }
 
   @Override

@@ -41,6 +41,10 @@ public class ContactDiscoveryConfiguration {
 
   @NotEmpty
   @JsonProperty
+  private String serverApiCaCertificate;
+
+  @NotEmpty
+  @JsonProperty
   private String userAuthenticationTokenSharedSecret;
 
   @NotEmpty
@@ -61,6 +65,10 @@ public class ContactDiscoveryConfiguration {
 
   public String getServerApiUrl() {
     return serverApiUrl;
+  }
+
+  public String getServerApiCaCertificate() {
+    return serverApiCaCertificate;
   }
 
   public byte[] getUserAuthenticationTokenSharedSecret() throws DecoderException {
