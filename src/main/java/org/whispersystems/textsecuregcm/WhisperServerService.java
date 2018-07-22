@@ -73,6 +73,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager;
+import org.whispersystems.textsecuregcm.storage.DirectoryReconciler;
 import org.whispersystems.textsecuregcm.storage.Keys;
 import org.whispersystems.textsecuregcm.storage.Messages;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
@@ -194,7 +195,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ReceiptSender            receiptSender       = new ReceiptSender(accountsManager, pushSender, federatedClientManager);
     TurnTokenGenerator       turnTokenGenerator  = new TurnTokenGenerator(config.getTurnConfiguration());
 
-    Optional<ContactDiscoveryQueueSender> cdsSender = cdsConfig.transform(ContactDiscoveryQueueSender::new);
+    Optional<ContactDiscoveryQueueSender> cdsSender   = cdsConfig.transform(ContactDiscoveryQueueSender::new);
+    Optional<DirectoryReconciler> directoryReconciler = cdsConfig.transform(
+            gotCdsConfig -> new DirectoryReconciler(gotCdsConfig, cacheClient, accountsManager)
+    );
 
     messagesCache.setPubSubManager(pubSubManager, pushSender);
 
@@ -203,6 +207,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(pubSubManager);
     environment.lifecycle().manage(pushSender);
     environment.lifecycle().manage(messagesCache);
+    if (directoryReconciler.isPresent()) {
+      environment.lifecycle().manage(directoryReconciler.get());
+    }
 
     AttachmentController attachmentController = new AttachmentController(rateLimiters, federatedClientManager, urlSigner);
     KeysController       keysController       = new KeysController(rateLimiters, keys, accountsManager, federatedClientManager);

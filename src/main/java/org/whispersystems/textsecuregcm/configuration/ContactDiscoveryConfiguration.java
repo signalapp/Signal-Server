@@ -37,6 +37,10 @@ public class ContactDiscoveryConfiguration {
 
   @NotEmpty
   @JsonProperty
+  private String serverApiUrl;
+
+  @NotEmpty
+  @JsonProperty
   private String userAuthenticationTokenSharedSecret;
 
   @NotEmpty
@@ -53,6 +57,10 @@ public class ContactDiscoveryConfiguration {
 
   public String getQueueUrl() {
     return queueUrl;
+  }
+
+  public String getServerApiUrl() {
+    return serverApiUrl;
   }
 
   public byte[] getUserAuthenticationTokenSharedSecret() throws DecoderException {

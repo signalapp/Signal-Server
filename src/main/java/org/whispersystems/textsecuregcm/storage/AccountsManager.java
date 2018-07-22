@@ -61,6 +61,10 @@ public class AccountsManager {
     return accounts.getAll();
   }
 
+  public List<String> getNumbersInBucket(long mask, long bucket) {
+    return accounts.getNumbersInBucket(mask, bucket);
+  }
+
   public boolean create(Account account) {
     boolean freshUser = accounts.create(account);
     memcacheSet(account.getNumber(), account);
