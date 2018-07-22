@@ -220,7 +220,7 @@ public class DirectoryReconciler implements Managed {
 
     @Override
     public void run() {
-      logger.info("Directory reconciliation worker %s started", workerId);
+      logger.info("Directory reconciliation worker " + workerId + " started");
 
       try (Jedis jedis = jedisPool.getWriteResource()) {
         long nowMs = System.currentTimeMillis();
