@@ -2,33 +2,21 @@ package org.whispersystems.textsecuregcm.push;
 
 public class ApnMessage {
 
-  public static long MAX_EXPIRATION = Integer.MAX_VALUE * 1000L;
+  public static final String APN_PAYLOAD    = "{\"aps\":{\"sound\":\"default\",\"alert\":{\"loc-key\":\"APN_Message\"}}}";
+  public static final long   MAX_EXPIRATION = Integer.MAX_VALUE * 1000L;
 
   private final String apnId;
   private final String number;
-  private final int deviceId;
-  private final String message;
+  private final long   deviceId;
   private final boolean isVoip;
-  private final long expirationTime;
 
-  public ApnMessage(String apnId, String number, int deviceId, String message, boolean isVoip, long expirationTime) {
+  public ApnMessage(String apnId, String number, long deviceId, boolean isVoip) {
     this.apnId          = apnId;
     this.number         = number;
     this.deviceId       = deviceId;
-    this.message        = message;
     this.isVoip         = isVoip;
-    this.expirationTime = expirationTime;
   }
-
-  public ApnMessage(ApnMessage copy, String apnId, boolean isVoip, long expirationTime) {
-    this.apnId          = apnId;
-    this.number         = copy.number;
-    this.deviceId       = copy.deviceId;
-    this.message        = copy.message;
-    this.isVoip         = isVoip;
-    this.expirationTime = expirationTime;
-  }
-
+  
   public boolean isVoip() {
     return isVoip;
   }
@@ -38,18 +26,18 @@ public class ApnMessage {
   }
 
   public String getMessage() {
-    return message;
+    return APN_PAYLOAD;
   }
 
   public long getExpirationTime() {
-    return expirationTime;
+    return MAX_EXPIRATION;
   }
 
   public String getNumber() {
     return number;
   }
 
-  public int getDeviceId() {
+  public long getDeviceId() {
     return deviceId;
   }
 }

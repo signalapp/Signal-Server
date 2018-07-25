@@ -20,6 +20,7 @@ import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -56,13 +57,14 @@ public class FederatedControllerTest {
   private MessagesManager        messagesManager        = mock(MessagesManager.class);
   private RateLimiters           rateLimiters           = mock(RateLimiters.class          );
   private RateLimiter            rateLimiter            = mock(RateLimiter.class           );
+  private ApnFallbackManager     apnFallbackManager     = mock(ApnFallbackManager.class);
 
   private final SignedPreKey signedPreKey = new SignedPreKey(3333, "foo", "baar");
   private final PreKeyResponse preKeyResponseV2 = new PreKeyResponse("foo", new LinkedList<PreKeyResponseItem>());
 
   private final ObjectMapper mapper = new ObjectMapper();
 
-  private final MessageController messageController = new MessageController(rateLimiters, pushSender, receiptSender, accountsManager, messagesManager, federatedClientManager);
+  private final MessageController messageController = new MessageController(rateLimiters, pushSender, receiptSender, accountsManager, messagesManager, federatedClientManager, apnFallbackManager);
   private final KeysController    keysControllerV2  = mock(KeysController.class);
 
   @Rule
@@ -112,7 +114,7 @@ public class FederatedControllerTest {
 
     assertThat("Good Response", response.getStatus(), is(equalTo(204)));
 
-    verify(pushSender).sendMessage(any(Account.class), any(Device.class), any(MessageProtos.Envelope.class), eq(false));
+    verify(pushSender).sendMessage(any(Account.class), any(Device.class), any(MessageProtos.Envelope.class));
   }
 
   @Test

@@ -20,7 +20,6 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.SynchronousExecutorService;
-import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
@@ -64,7 +63,7 @@ public class APNSenderTest {
         .thenReturn(result);
 
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
-    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", true, 30);
+    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true);
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
 
     apnSender.setApnFallbackManager(fallbackManager);
@@ -75,8 +74,8 @@ public class APNSenderTest {
     verify(apnsClient, times(1)).sendNotification(notification.capture());
 
     assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
-    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(30));
-    assertThat(notification.getValue().getPayload()).isEqualTo("message");
+    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(ApnMessage.MAX_EXPIRATION));
+    assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_PAYLOAD);
     assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
     assertThat(notification.getValue().getTopic()).isEqualTo("foo.voip");
 
@@ -101,7 +100,7 @@ public class APNSenderTest {
         .thenReturn(result);
 
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
-    ApnMessage message = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", false, 30);
+    ApnMessage message = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, false);
     APNSender apnSender = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
     apnSender.setApnFallbackManager(fallbackManager);
 
@@ -112,8 +111,8 @@ public class APNSenderTest {
     verify(apnsClient, times(1)).sendNotification(notification.capture());
 
     assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
-    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(30));
-    assertThat(notification.getValue().getPayload()).isEqualTo("message");
+    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(ApnMessage.MAX_EXPIRATION));
+    assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_PAYLOAD);
     assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
     assertThat(notification.getValue().getTopic()).isEqualTo("foo");
 
@@ -124,57 +123,57 @@ public class APNSenderTest {
     verifyNoMoreInteractions(fallbackManager);
   }
 
-//  @Test
-//  public void testUnregisteredUser() throws Exception {
-//    ApnsClient      apnsClient      = mock(ApnsClient.class);
-//
-//    PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
-//    when(response.isAccepted()).thenReturn(false);
-//    when(response.getRejectionReason()).thenReturn("Unregistered");
-//
-//    DefaultPromise<PushNotificationResponse<SimpleApnsPushNotification>> result = new DefaultPromise<>(executor);
-//    result.setSuccess(response);
-//
-//    when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
-//        .thenReturn(result);
-//
-//    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
-//    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", true, 30);
-//    APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
-//    apnSender.setApnFallbackManager(fallbackManager);
-//
-//    when(destinationDevice.getApnId()).thenReturn(DESTINATION_APN_ID);
-//    when(destinationDevice.getPushTimestamp()).thenReturn(System.currentTimeMillis() - TimeUnit.SECONDS.toMillis(11));
-//
-//    ListenableFuture<ApnResult> sendFuture = apnSender.sendMessage(message);
-//    ApnResult apnResult = sendFuture.get();
-//
-//    Thread.sleep(1000); // =(
-//
-//    ArgumentCaptor<SimpleApnsPushNotification> notification = ArgumentCaptor.forClass(SimpleApnsPushNotification.class);
-//    verify(apnsClient, times(1)).sendNotification(notification.capture());
-//
-//    assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
-//    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(30));
-//    assertThat(notification.getValue().getPayload()).isEqualTo("message");
-//    assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
-//
-//    assertThat(apnResult.getStatus()).isEqualTo(ApnResult.Status.NO_SUCH_USER);
-//
-//    verifyNoMoreInteractions(apnsClient);
-//    verify(accountsManager, times(1)).get(eq(DESTINATION_NUMBER));
-//    verify(destinationAccount, times(1)).getDevice(1);
-//    verify(destinationDevice, times(1)).getApnId();
-//    verify(destinationDevice, times(1)).getPushTimestamp();
+  @Test
+  public void testUnregisteredUser() throws Exception {
+    ApnsClient      apnsClient      = mock(ApnsClient.class);
+
+    PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
+    when(response.isAccepted()).thenReturn(false);
+    when(response.getRejectionReason()).thenReturn("Unregistered");
+
+    DefaultPromise<PushNotificationResponse<SimpleApnsPushNotification>> result = new DefaultPromise<>(executor);
+    result.setSuccess(response);
+
+    when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
+        .thenReturn(result);
+
+    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
+    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true);
+    APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
+    apnSender.setApnFallbackManager(fallbackManager);
+
+    when(destinationDevice.getApnId()).thenReturn(DESTINATION_APN_ID);
+    when(destinationDevice.getPushTimestamp()).thenReturn(System.currentTimeMillis() - TimeUnit.SECONDS.toMillis(11));
+
+    ListenableFuture<ApnResult> sendFuture = apnSender.sendMessage(message);
+    ApnResult apnResult = sendFuture.get();
+
+    Thread.sleep(1000); // =(
+
+    ArgumentCaptor<SimpleApnsPushNotification> notification = ArgumentCaptor.forClass(SimpleApnsPushNotification.class);
+    verify(apnsClient, times(1)).sendNotification(notification.capture());
+
+    assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
+    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(ApnMessage.MAX_EXPIRATION));
+    assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_PAYLOAD);
+    assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
+
+    assertThat(apnResult.getStatus()).isEqualTo(ApnResult.Status.NO_SUCH_USER);
+
+    verifyNoMoreInteractions(apnsClient);
+    verify(accountsManager, times(1)).get(eq(DESTINATION_NUMBER));
+    verify(destinationAccount, times(1)).getDevice(1);
+    verify(destinationDevice, times(1)).getApnId();
+    verify(destinationDevice, times(1)).getPushTimestamp();
 //    verify(destinationDevice, times(1)).setApnId(eq((String)null));
 //    verify(destinationDevice, times(1)).setVoipApnId(eq((String)null));
 //    verify(destinationDevice, times(1)).setFetchesMessages(eq(false));
 //    verify(accountsManager, times(1)).update(eq(destinationAccount));
-//    verify(fallbackManager, times(1)).cancel(eq(new WebsocketAddress(DESTINATION_NUMBER, 1)));
-//
-//    verifyNoMoreInteractions(accountsManager);
-//    verifyNoMoreInteractions(fallbackManager);
-//  }
+    verify(fallbackManager, times(1)).cancel(eq(destinationAccount), eq(destinationDevice));
+
+    verifyNoMoreInteractions(accountsManager);
+    verifyNoMoreInteractions(fallbackManager);
+  }
 
 //  @Test
 //  public void testVoipUnregisteredUser() throws Exception {
@@ -230,54 +229,54 @@ public class APNSenderTest {
 //    verifyNoMoreInteractions(fallbackManager);
 //  }
 
-//  @Test
-//  public void testRecentUnregisteredUser() throws Exception {
-//    ApnsClient      apnsClient      = mock(ApnsClient.class);
-//
-//    PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
-//    when(response.isAccepted()).thenReturn(false);
-//    when(response.getRejectionReason()).thenReturn("Unregistered");
-//
-//    DefaultPromise<PushNotificationResponse<SimpleApnsPushNotification>> result = new DefaultPromise<>(executor);
-//    result.setSuccess(response);
-//
-//    when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
-//        .thenReturn(result);
-//
-//    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
-//    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", true, 30);
-//    APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
-//    apnSender.setApnFallbackManager(fallbackManager);
-//
-//    when(destinationDevice.getApnId()).thenReturn(DESTINATION_APN_ID);
-//    when(destinationDevice.getPushTimestamp()).thenReturn(System.currentTimeMillis());
-//
-//    ListenableFuture<ApnResult> sendFuture = apnSender.sendMessage(message);
-//    ApnResult apnResult = sendFuture.get();
-//
-//    Thread.sleep(1000); // =(
-//
-//    ArgumentCaptor<SimpleApnsPushNotification> notification = ArgumentCaptor.forClass(SimpleApnsPushNotification.class);
-//    verify(apnsClient, times(1)).sendNotification(notification.capture());
-//
-//    assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
-//    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(30));
-//    assertThat(notification.getValue().getPayload()).isEqualTo("message");
-//    assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
-//
-//    assertThat(apnResult.getStatus()).isEqualTo(ApnResult.Status.NO_SUCH_USER);
-//
-//    verifyNoMoreInteractions(apnsClient);
-//    verify(accountsManager, times(1)).get(eq(DESTINATION_NUMBER));
-//    verify(destinationAccount, times(1)).getDevice(1);
-//    verify(destinationDevice, times(1)).getApnId();
-//    verify(destinationDevice, times(1)).getPushTimestamp();
-//
-//    verifyNoMoreInteractions(destinationDevice);
-//    verifyNoMoreInteractions(destinationAccount);
-//    verifyNoMoreInteractions(accountsManager);
-//    verifyNoMoreInteractions(fallbackManager);
-//  }
+  @Test
+  public void testRecentUnregisteredUser() throws Exception {
+    ApnsClient      apnsClient      = mock(ApnsClient.class);
+
+    PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
+    when(response.isAccepted()).thenReturn(false);
+    when(response.getRejectionReason()).thenReturn("Unregistered");
+
+    DefaultPromise<PushNotificationResponse<SimpleApnsPushNotification>> result = new DefaultPromise<>(executor);
+    result.setSuccess(response);
+
+    when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
+        .thenReturn(result);
+
+    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
+    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true);
+    APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
+    apnSender.setApnFallbackManager(fallbackManager);
+
+    when(destinationDevice.getApnId()).thenReturn(DESTINATION_APN_ID);
+    when(destinationDevice.getPushTimestamp()).thenReturn(System.currentTimeMillis());
+
+    ListenableFuture<ApnResult> sendFuture = apnSender.sendMessage(message);
+    ApnResult apnResult = sendFuture.get();
+
+    Thread.sleep(1000); // =(
+
+    ArgumentCaptor<SimpleApnsPushNotification> notification = ArgumentCaptor.forClass(SimpleApnsPushNotification.class);
+    verify(apnsClient, times(1)).sendNotification(notification.capture());
+
+    assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
+    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(ApnMessage.MAX_EXPIRATION));
+    assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_PAYLOAD);
+    assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
+
+    assertThat(apnResult.getStatus()).isEqualTo(ApnResult.Status.NO_SUCH_USER);
+
+    verifyNoMoreInteractions(apnsClient);
+    verify(accountsManager, times(1)).get(eq(DESTINATION_NUMBER));
+    verify(destinationAccount, times(1)).getDevice(1);
+    verify(destinationDevice, times(1)).getApnId();
+    verify(destinationDevice, times(1)).getPushTimestamp();
+
+    verifyNoMoreInteractions(destinationDevice);
+    verifyNoMoreInteractions(destinationAccount);
+    verifyNoMoreInteractions(accountsManager);
+    verifyNoMoreInteractions(fallbackManager);
+  }
 
 //  @Test
 //  public void testUnregisteredUserOldApnId() throws Exception {
@@ -343,7 +342,7 @@ public class APNSenderTest {
         .thenReturn(result);
 
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
-    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", true, 30);
+    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true);
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
     apnSender.setApnFallbackManager(fallbackManager);
 
@@ -354,8 +353,8 @@ public class APNSenderTest {
     verify(apnsClient, times(1)).sendNotification(notification.capture());
 
     assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
-    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(30));
-    assertThat(notification.getValue().getPayload()).isEqualTo("message");
+    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(ApnMessage.MAX_EXPIRATION));
+    assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_PAYLOAD);
     assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
 
     assertThat(apnResult.getStatus()).isEqualTo(ApnResult.Status.GENERIC_FAILURE);
@@ -384,7 +383,7 @@ public class APNSenderTest {
         .thenReturn(connectedResult);
 
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
-    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", true, 30);
+    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true);
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
     apnSender.setApnFallbackManager(fallbackManager);
 
@@ -409,8 +408,8 @@ public class APNSenderTest {
     verify(apnsClient, times(1)).getReconnectionFuture();
 
     assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
-    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(30));
-    assertThat(notification.getValue().getPayload()).isEqualTo("message");
+    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(ApnMessage.MAX_EXPIRATION));
+    assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_PAYLOAD);
     assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
 
     assertThat(apnResult.getStatus()).isEqualTo(ApnResult.Status.SUCCESS);
@@ -434,7 +433,7 @@ public class APNSenderTest {
         .thenReturn(result);
 
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 3);
-    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, "message", true, 30);
+    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true);
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
     apnSender.setApnFallbackManager(fallbackManager);
 
@@ -451,8 +450,8 @@ public class APNSenderTest {
     verify(apnsClient, times(4)).sendNotification(notification.capture());
 
     assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
-    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(30));
-    assertThat(notification.getValue().getPayload()).isEqualTo("message");
+    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(ApnMessage.MAX_EXPIRATION));
+    assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_PAYLOAD);
     assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
 
     verifyNoMoreInteractions(apnsClient);

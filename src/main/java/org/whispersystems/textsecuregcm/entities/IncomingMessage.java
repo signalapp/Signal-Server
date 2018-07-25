@@ -17,7 +17,6 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.hibernate.validator.constraints.NotEmpty;
 
 public class IncomingMessage {
 
@@ -44,10 +43,6 @@ public class IncomingMessage {
 
   @JsonProperty
   private long   timestamp; // deprecated
-
-  @JsonProperty
-  private boolean silent = false;
-
 
   public String getDestination() {
     return destination;
@@ -77,7 +72,4 @@ public class IncomingMessage {
     return content;
   }
 
-  public boolean isSilent() {
-    return silent;
-  }
 }

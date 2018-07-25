@@ -72,7 +72,7 @@ public class ReceiptSender {
     }
 
     for (Device destinationDevice : destinationDevices) {
-      pushSender.sendMessage(destinationAccount, destinationDevice, message.build(), true);
+      pushSender.sendMessage(destinationAccount, destinationDevice, message.build());
     }
   }
 

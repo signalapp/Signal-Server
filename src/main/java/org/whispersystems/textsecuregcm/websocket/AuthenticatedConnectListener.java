@@ -6,16 +6,16 @@ import com.codahale.metrics.Timer;
 import com.google.protobuf.ByteString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
+import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
 import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 import org.whispersystems.websocket.setup.WebSocketConnectListener;
 
@@ -29,21 +29,23 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private static final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private static final Timer          durationTimer  = metricRegistry.timer(name(WebSocketConnection.class, "connected_duration"));
 
-  private final AccountsManager    accountsManager;
   private final PushSender         pushSender;
   private final ReceiptSender      receiptSender;
   private final MessagesManager    messagesManager;
   private final PubSubManager      pubSubManager;
+  private final ApnFallbackManager apnFallbackManager;
 
-  public AuthenticatedConnectListener(AccountsManager accountsManager, PushSender pushSender,
-                                      ReceiptSender receiptSender,  MessagesManager messagesManager,
-                                      PubSubManager pubSubManager)
+  public AuthenticatedConnectListener(PushSender pushSender,
+                                      ReceiptSender receiptSender,
+                                      MessagesManager messagesManager,
+                                      PubSubManager pubSubManager,
+                                      ApnFallbackManager apnFallbackManager)
   {
-    this.accountsManager = accountsManager;
-    this.pushSender      = pushSender;
-    this.receiptSender   = receiptSender;
-    this.messagesManager = messagesManager;
-    this.pubSubManager   = pubSubManager;
+    this.pushSender         = pushSender;
+    this.receiptSender      = receiptSender;
+    this.messagesManager    = messagesManager;
+    this.pubSubManager      = pubSubManager;
+    this.apnFallbackManager = apnFallbackManager;
   }
 
   @Override
@@ -53,15 +55,14 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     final String                  connectionId   = String.valueOf(new SecureRandom().nextLong());
     final Timer.Context           timer          = durationTimer.time();
     final WebsocketAddress        address        = new WebsocketAddress(account.getNumber(), device.getId());
-    final WebSocketConnectionInfo info           = new WebSocketConnectionInfo(address);
     final WebSocketConnection     connection     = new WebSocketConnection(pushSender, receiptSender,
-                                                                         messagesManager, account, device,
-                                                                         context.getClient(), connectionId);
+                                                                           messagesManager, account, device,
+                                                                           context.getClient(), connectionId);
     final PubSubMessage           connectMessage = PubSubMessage.newBuilder().setType(PubSubMessage.Type.CONNECTED)
                                                                 .setContent(ByteString.copyFrom(connectionId.getBytes()))
                                                                 .build();
 
-    pubSubManager.publish(info, connectMessage);
+    RedisOperation.unchecked(() -> apnFallbackManager.cancel(account, device));
     pubSubManager.publish(address, connectMessage);
     pubSubManager.subscribe(address, connection);
 
