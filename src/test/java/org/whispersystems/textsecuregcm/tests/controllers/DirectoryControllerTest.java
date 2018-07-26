@@ -82,7 +82,7 @@ public class DirectoryControllerTest {
                      .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                      .get(AuthorizationToken.class);
     assertThat(token.getUsername()).isNotEqualTo(AuthHelper.VALID_NUMBER);
-    assertThat(token.getToken()).startsWith(token.getUsername() + ":");
+    assertThat(token.getPassword()).startsWith(token.getUsername() + ":");
   }
 
   @Test

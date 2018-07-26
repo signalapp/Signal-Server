@@ -98,7 +98,7 @@ public class DirectoryReconciler implements Managed {
     }
 
     this.client = ClientBuilder.newBuilder()
-                               .register(HttpAuthenticationFeature.basic("", cdsConfig.getServerApiToken().getBytes()))
+                               .register(HttpAuthenticationFeature.basic("signal", cdsConfig.getServerApiToken().getBytes()))
                                .sslContext(sslConfig.createSSLContext())
                                .build();
   }
