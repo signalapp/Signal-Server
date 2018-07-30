@@ -1,5 +1,6 @@
 package org.whispersystems.textsecuregcm.auth;
 
+import com.google.common.base.Optional;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
@@ -17,23 +18,26 @@ public class AuthorizationTokenGenerator {
 
   private final Logger logger = LoggerFactory.getLogger(AuthorizationTokenGenerator.class);
 
-  private final byte[] key;
+  private final byte[]           key;
+  private final Optional<byte[]> userIdKey;
 
-  public AuthorizationTokenGenerator(byte[] key) {
-    this.key = key;
+  public AuthorizationTokenGenerator(byte[] key, Optional<byte[]> userIdKey) {
+    this.key       = key;
+    this.userIdKey = userIdKey;
   }
 
   public AuthorizationToken generateFor(String number) {
     try {
       Mac    mac                = Mac.getInstance("HmacSHA256");
+      String username           = getUserId(number);
       long   currentTimeSeconds = System.currentTimeMillis() / 1000;
-      String prefix             = number + ":"  + currentTimeSeconds;
+      String prefix             = username + ":"  + currentTimeSeconds;
 
       mac.init(new SecretKeySpec(key, "HmacSHA256"));
       String output = Hex.encodeHexString(Util.truncate(mac.doFinal(prefix.getBytes()), 10));
       String token  = prefix + ":" + output;
 
-      return new AuthorizationToken(token);
+      return new AuthorizationToken(username, token);
     } catch (NoSuchAlgorithmException | InvalidKeyException e) {
       throw new AssertionError(e);
     }
@@ -47,7 +51,7 @@ public class AuthorizationTokenGenerator {
       return false;
     }
 
-    if (!number.equals(parts[0])) {
+    if (!getUserId(number).equals(parts[0])) {
       return false;
     }
 
@@ -56,6 +60,20 @@ public class AuthorizationTokenGenerator {
     }
 
     return isValidSignature(parts[0] + ":" + parts[1], parts[2]);
+  }
+
+  private String getUserId(String number) {
+    if (userIdKey.isPresent()) {
+      try {
+        Mac mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec(userIdKey.get(), "HmacSHA256"));
+        return Hex.encodeHexString(Util.truncate(mac.doFinal(number.getBytes()), 10));
+      } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+        throw new AssertionError(e);
+      }
+    } else {
+      return number;
+    }
   }
 
   private boolean isValidTime(String timeString, long currentTimeMillis) {

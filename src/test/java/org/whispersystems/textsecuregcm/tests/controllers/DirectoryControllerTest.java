@@ -1,5 +1,6 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
+import com.google.common.base.Optional;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
 import org.junit.Rule;
@@ -7,6 +8,8 @@ import org.junit.Test;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.dropwizard.simpleauth.AuthValueFactoryProvider;
+import org.whispersystems.textsecuregcm.auth.AuthorizationToken;
+import org.whispersystems.textsecuregcm.configuration.ContactDiscoveryConfiguration;
 import org.whispersystems.textsecuregcm.controllers.DirectoryController;
 import org.whispersystems.textsecuregcm.entities.ClientContactTokens;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -34,13 +37,25 @@ public class DirectoryControllerTest {
   private final RateLimiter      rateLimiter      = mock(RateLimiter.class     );
   private final DirectoryManager directoryManager = mock(DirectoryManager.class);
 
+  private final ContactDiscoveryConfiguration cdsConfig = mock(ContactDiscoveryConfiguration.class);
+
+  {
+    try {
+      when(cdsConfig.getUserAuthenticationTokenSharedSecret()).thenReturn(new byte[100]);
+      when(cdsConfig.getUserAuthenticationTokenUserIdSecret()).thenReturn(new byte[100]);
+    } catch (Exception e) {
+      throw new AssertionError(e);
+    }
+  }
+
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
                                                             .addProvider(AuthHelper.getAuthFilter())
                                                             .addProvider(new AuthValueFactoryProvider.Binder())
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new DirectoryController(rateLimiters,
-                                                                                                 directoryManager))
+                                                                                                 directoryManager,
+                                                                                                 Optional.of(cdsConfig)))
                                                             .build();
 
 
@@ -56,6 +71,18 @@ public class DirectoryControllerTest {
         return response;
       }
     });
+  }
+
+  @Test
+  public void testGetAuthToken() {
+    AuthorizationToken token =
+            resources.getJerseyTest()
+                     .target("/v1/directory/auth")
+                     .request()
+                     .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                     .get(AuthorizationToken.class);
+    assertThat(token.getUsername()).isNotEqualTo(AuthHelper.VALID_NUMBER);
+    assertThat(token.getPassword()).startsWith(token.getUsername() + ":");
   }
 
   @Test

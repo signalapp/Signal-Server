@@ -76,6 +76,9 @@ public abstract class Accounts {
   @SqlQuery("SELECT * FROM accounts")
   public abstract Iterator<Account> getAll();
 
+  @SqlQuery("SELECT " + NUMBER + " FROM accounts WHERE " + ID + " & " + ":mask = :bucket")
+  public abstract List<String> getNumbersInBucket(@Bind("mask") long mask, @Bind("bucket") long bucket);
+
   @SqlQuery("SELECT COUNT(*) FROM accounts a, json_array_elements(a.data->'devices') devices WHERE devices->>'id' = '1' AND (devices->>'gcmId') is not null AND (devices->>'lastSeen')\\:\\:bigint >= :since")
   public abstract int getAndroidActiveSinceCount(@Bind("since") long since);
 
