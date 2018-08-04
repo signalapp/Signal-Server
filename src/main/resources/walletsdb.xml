@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-2.0.xsd"
+        logicalFilePath="migrations.xml">
+
+    <changeSet id="1" author="alex">
+        <createTable tableName="wallets">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="phone_number" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="wallet_type" type="varchar(10)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="wallet_address" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="wallets" columnNames="phone_number, wallet_type" constraintName="wallet_type_uk"/>
+
+        <rollback>
+            <dropTable tableName="wallets"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

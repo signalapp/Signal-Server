@@ -81,6 +81,7 @@ import org.whispersystems.textsecuregcm.storage.PendingDevices;
 import org.whispersystems.textsecuregcm.storage.PendingDevicesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
 import org.whispersystems.textsecuregcm.websocket.DeadLetterHandler;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningConnectListener;
@@ -90,6 +91,10 @@ import org.whispersystems.textsecuregcm.workers.DirectoryCommand;
 import org.whispersystems.textsecuregcm.workers.PeriodicStatsCommand;
 import org.whispersystems.textsecuregcm.workers.TrimMessagesCommand;
 import org.whispersystems.textsecuregcm.workers.VacuumCommand;
+import org.whispersystems.wallet.controller.WalletController;
+import org.whispersystems.wallet.dao.WalletDao;
+import org.whispersystems.wallet.service.WalletsCacheManager;
+import org.whispersystems.wallet.service.WalletsManager;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
 
@@ -132,6 +137,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         return configuration.getMessageStoreConfiguration();
       }
     });
+    bootstrap.addBundle(new NameableMigrationsBundle<WhisperServerConfiguration>("walletsdb", "walletsdb.xml") {
+      @Override
+      public DataSourceFactory getDataSourceFactory(WhisperServerConfiguration configuration) {
+        return configuration.getDataSourceFactory();
+      }
+    });
   }
 
   @Override
@@ -151,14 +162,16 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     DBIFactory dbiFactory = new DBIFactory();
     DBI        database   = dbiFactory.build(environment, config.getDataSourceFactory(), "accountdb");
     DBI        messagedb  = dbiFactory.build(environment, config.getMessageStoreConfiguration(), "messagedb");
+    DBI        walletsdb  = dbiFactory.build(environment, config.getDataSourceFactory(), "walletsdb");
 
     Accounts        accounts        = database.onDemand(Accounts.class);
     PendingAccounts pendingAccounts = database.onDemand(PendingAccounts.class);
     PendingDevices  pendingDevices  = database.onDemand(PendingDevices.class);
     Keys            keys            = database.onDemand(Keys.class);
     Messages        messages        = messagedb.onDemand(Messages.class);
+    WalletDao       walletDao       = walletsdb.onDemand(WalletDao.class);
 
-    RedisClientFactory  cacheClientFactory     = new RedisClientFactory(config.getCacheConfiguration().getUrl(), config.getCacheConfiguration().getReplicaUrls()        );
+      RedisClientFactory  cacheClientFactory     = new RedisClientFactory(config.getCacheConfiguration().getUrl(), config.getCacheConfiguration().getReplicaUrls()        );
     RedisClientFactory  directoryClientFactory = new RedisClientFactory(config.getDirectoryConfiguration().getUrl(), config.getDirectoryConfiguration().getReplicaUrls());
     RedisClientFactory  messagesClientFactory  = new RedisClientFactory(config.getMessageCacheConfiguration().getRedisConfiguration().getUrl(), config.getMessageCacheConfiguration().getRedisConfiguration().getReplicaUrls());
     ReplicatedJedisPool cacheClient            = cacheClientFactory.getRedisClientPool();
@@ -181,8 +194,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     AccountAuthenticator       deviceAuthenticator        = new AccountAuthenticator(accountsManager                 );
     FederatedPeerAuthenticator federatedPeerAuthenticator = new FederatedPeerAuthenticator(config.getFederationConfiguration());
     RateLimiters               rateLimiters               = new RateLimiters(config.getLimitsConfiguration(), cacheClient);
+    WalletsCacheManager        walletsCacheManager        = new WalletsCacheManager(SystemMapper.getMapper(), cacheClient);
+    WalletsManager             walletsManager             = new WalletsManager(walletDao, walletsCacheManager);
 
-       ApnFallbackManager       apnFallbackManager  = new ApnFallbackManager(apnSender, pubSubManager);
+    ApnFallbackManager       apnFallbackManager  = new ApnFallbackManager(apnSender, pubSubManager);
     TwilioSmsSender          twilioSmsSender     = new TwilioSmsSender(config.getTwilioConfiguration());
     SmsSender                smsSender           = new SmsSender(twilioSmsSender);
     UrlSigner                urlSigner           = new UrlSigner(config.getAttachmentsConfiguration());
@@ -224,6 +239,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(keysController);
     environment.jersey().register(messageController);
     environment.jersey().register(profileController);
+    environment.jersey().register(new WalletController(walletsManager));
 
     ///
     WebSocketEnvironment webSocketEnvironment = new WebSocketEnvironment(environment, config.getWebSocketConfiguration(), 90000);
