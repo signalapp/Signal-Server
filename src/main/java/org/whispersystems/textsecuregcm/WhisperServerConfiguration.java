@@ -25,7 +25,6 @@ import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ProfilesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PushConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
-import org.whispersystems.textsecuregcm.configuration.RedPhoneConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TestDeviceConfiguration;
@@ -129,7 +128,7 @@ public class WhisperServerConfiguration extends Configuration {
   private WebSocketConfiguration webSocket = new WebSocketConfiguration();
 
   @Valid
-  @NotNull
+  // @NotNull
   @JsonProperty
   private TurnConfiguration turn;
 
