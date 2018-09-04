@@ -2,9 +2,6 @@ server:
   applicationConnectors:
     - type: http
       port: ${PORT}
-  adminConnectors:
-    - type: http
-      port: ${PORT}
 
 twilio:
   accountId: ${TWILIO_ACCOUNTID}
