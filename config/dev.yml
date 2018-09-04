@@ -15,25 +15,25 @@ turn: # TURN server configuration
     - turn:localhost:3478?transport=udp
 
 cache: # Redis server configuration for cache cluster
-  url: ${REDIS_URL}/0
+  url: ${REDIS_URL}
   replicaUrls:
-    - ${REDIS_URL}/1
+    - ${REDIS_URL}
 
 directory: # Redis server configuration for directory cluster
-  url: ${REDIS_URL}/2
+  url: ${REDIS_URL}
   replicaUrls:
-    - ${REDIS_URL}/3
+    - ${REDIS_URL}
 
 messageCache:
   redis:
-    url: ${REDIS_URL}/4
+    url: ${REDIS_URL}
     replicaUrls:
-    - ${REDIS_URL}/5
+    - ${REDIS_URL}
 
 pushScheduler:
-  url: ${REDIS_URL}/6
+  url: ${REDIS_URL}
   replicaUrls:
-    - ${REDIS_URL}/7
+    - ${REDIS_URL}
 
 messageStore: # Postgresql database configuration for message store
   driverClass: org.postgresql.Driver
