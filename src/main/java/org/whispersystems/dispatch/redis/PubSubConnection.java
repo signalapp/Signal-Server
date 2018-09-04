@@ -24,6 +24,7 @@ public class PubSubConnection {
   private static final byte[] SUBSCRIBE_TYPE      = {'s', 'u', 'b', 's', 'c', 'r', 'i', 'b', 'e'               };
   private static final byte[] MESSAGE_TYPE        = {'m', 'e', 's', 's', 'a', 'g', 'e'                         };
 
+  private static final byte[] AUTH_COMMAND        = {'A', 'U', 'T', 'H', ' '                                   };
   private static final byte[] SUBSCRIBE_COMMAND   = {'S', 'U', 'B', 'S', 'C', 'R', 'I', 'B', 'E', ' '          };
   private static final byte[] UNSUBSCRIBE_COMMAND = {'U', 'N', 'S', 'U', 'B', 'S', 'C', 'R', 'I', 'B', 'E', ' '};
   private static final byte[] CRLF                = {'\r', '\n'                                                };
@@ -32,12 +33,30 @@ public class PubSubConnection {
   private final RedisInputStream inputStream;
   private final Socket           socket;
   private final AtomicBoolean    closed;
+  private final String           password;
 
-  public PubSubConnection(Socket socket) throws IOException {
+  public PubSubConnection(Socket socket, String password) throws IOException {
     this.socket       = socket;
+    this.password = password;
     this.outputStream = socket.getOutputStream();
     this.inputStream  = new RedisInputStream(new BufferedInputStream(socket.getInputStream()));
     this.closed       = new AtomicBoolean(false);
+    this.auth();
+  }
+
+  public PubSubConnection(Socket socket) throws IOException {
+    this(socket, null);
+  }
+
+  public void auth() throws IOException {
+    if (closed.get()) throw new IOException("Connection closed!");
+    if (password != null) {
+      byte[] command = Util.combine(AUTH_COMMAND, password.getBytes(), CRLF);
+      outputStream.write(command);
+      flush();
+      String authResult = inputStream.readLine();
+      logger.info("Redis AUTH result: " + authResult);
+    }
   }
 
   public void subscribe(String channelName) throws IOException {
@@ -81,6 +100,14 @@ public class PubSubConnection {
       this.socket.close();
     } catch (IOException e) {
       logger.warn("Exception while closing", e);
+    }
+  }
+
+  protected void flush() {
+    try {
+      outputStream.flush();
+    } catch (IOException e) {
+      logger.warn("Exception while flushing", e);
     }
   }
 

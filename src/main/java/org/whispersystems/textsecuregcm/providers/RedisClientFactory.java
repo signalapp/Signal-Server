@@ -33,6 +33,7 @@ import java.util.List;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Protocol;
+import redis.clients.util.JedisURIHelper;
 
 public class RedisClientFactory implements RedisPubSubConnectionFactory {
 
@@ -40,6 +41,7 @@ public class RedisClientFactory implements RedisPubSubConnectionFactory {
 
   private final String    host;
   private final int       port;
+  private final String    password;
   private final ReplicatedJedisPool jedisPool;
 
   public RedisClientFactory(String url, List<String> replicaUrls) throws URISyntaxException {
@@ -47,9 +49,9 @@ public class RedisClientFactory implements RedisPubSubConnectionFactory {
     poolConfig.setTestOnBorrow(true);
 
     URI redisURI = new URI(url);
-
     this.host      = redisURI.getHost();
     this.port      = redisURI.getPort();
+    this.password  = JedisURIHelper.getPassword(redisURI);
 
     JedisPool       masterPool   = new JedisPool(poolConfig, host, port, Protocol.DEFAULT_TIMEOUT, null);
     List<JedisPool> replicaPools = new LinkedList<>();
@@ -75,7 +77,7 @@ public class RedisClientFactory implements RedisPubSubConnectionFactory {
     while (true) {
       try {
         Socket socket = new Socket(host, port);
-        return new PubSubConnection(socket);
+        return new PubSubConnection(socket, password);
       } catch (IOException e) {
         logger.warn("Error connecting", e);
         Util.sleep(200);
