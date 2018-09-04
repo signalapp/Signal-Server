@@ -21,6 +21,8 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.google.common.base.Optional;
+import io.dropwizard.configuration.EnvironmentVariableSubstitutor;
+import io.dropwizard.configuration.SubstitutingSourceProvider;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
 import org.skife.jdbi.v2.DBI;
@@ -119,6 +121,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new TrimMessagesCommand());
     bootstrap.addCommand(new PeriodicStatsCommand());
     bootstrap.addCommand(new DeleteUserCommand());
+    bootstrap.setConfigurationSourceProvider(new SubstitutingSourceProvider(bootstrap.getConfigurationSourceProvider(),
+        new EnvironmentVariableSubstitutor(false)
+    ));
     bootstrap.addBundle(new NameableMigrationsBundle<WhisperServerConfiguration>("accountdb", "accountsdb.xml") {
       @Override
       public DataSourceFactory getDataSourceFactory(WhisperServerConfiguration configuration) {

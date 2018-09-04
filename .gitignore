@@ -4,7 +4,5 @@ local.properties
 *.iml
 run.sh
 *~
-local.yml
-config/
 .opsmanage
 put.sh

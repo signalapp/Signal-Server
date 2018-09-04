@@ -1,0 +1,72 @@
+twilio:
+  accountId: ${TWILIO_ACCOUNTID}
+  accountToken: ${TWILIO_ACCOUNT_TOKEN}
+  numbers:
+    - ${TWILIO_NUMBER}
+  messagingServicesId:
+  localDomain: localhost:${PORT}
+
+push:
+  queueSize: ${PUSH_QUEUE_SIZE}
+
+# turn: # TURN server configuration
+#  secret: test
+#  uris:
+#    - turn:localhost:3478?transport=udp
+
+cache: # Redis server configuration for cache cluster
+  url: ${REDIS_URL}
+  replicaUrls:
+    - ${REDIS_URL}
+
+directory: # Redis server configuration for directory cluster
+  url: ${REDIS_URL}
+  replicaUrls:
+    - ${REDIS_URL}
+
+messageCache:
+  redis:
+    url: ${REDIS_URL}
+    replicaUrls:
+    - ${REDIS_URL}
+
+pushScheduler:
+  url: ${REDIS_URL}
+  replicaUrls:
+    - ${REDIS_URL}
+
+messageStore: # Postgresql database configuration for message store
+  driverClass: org.postgresql.Driver
+  user: ${MESSAGES_DB_USER}
+  password: ${MESSAGES_DB_PASSWORD}
+  url: ${MESSAGES_DB_URL}
+
+attachments: # AWS S3 configuration
+  accessKey: ${S3_ACCESS_KEY}
+  accessSecret: ${S3_ACCESS_SECRET}
+  bucket: ${S3_ATTACHMENTS_BUCKET}
+
+profiles: # AWS S3 configuration
+  accessKey: ${S3_ACCESS_KEY}
+  accessSecret: ${S3_ACCESS_SECRET}
+  bucket: ${S3_PROFILES_BUCKET}
+  region: ${S3_REGION}
+
+database: # Postgresql database configuration
+  driverClass: org.postgresql.Driver
+  user: ${ACCOUNTS_DB_USER}
+  password: ${ACCOUNTS_DB_PASSWORD}
+  url: ${ACCOUNTS_DB_URL}
+
+apn: # Apple Push Notifications configuration
+  bundleId: ${APN_BUNDLE_ID}
+  pushCertificate: "${APN_PUSH_CERTIFICATE}"
+  pushKey: "${APN_PUSH_KEY}"
+
+gcm: # GCM Configuration
+  apiKey: ${GCM_API_KEY}
+  senderId: ${GCM_SENDER_ID}
+
+testDevices:
+  - number: ${TEST_DEVICE_NUMBER}
+    code: ${TEST_DEVICE_CODE}
