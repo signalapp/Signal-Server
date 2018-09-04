@@ -9,37 +9,37 @@ twilio:
 push:
   queueSize: ${PUSH_QUEUE_SIZE}
 
-# turn: # TURN server configuration
-#  secret: test
-#  uris:
-#    - turn:localhost:3478?transport=udp
+turn: # TURN server configuration
+  secret: test
+  uris:
+    - turn:localhost:3478?transport=udp
 
 cache: # Redis server configuration for cache cluster
-  url: ${REDIS_URL}
+  url: ${REDIS_URL}/0
   replicaUrls:
-    - ${REDIS_URL}
+    - ${REDIS_URL}/1
 
 directory: # Redis server configuration for directory cluster
-  url: ${REDIS_URL}
+  url: ${REDIS_URL}/2
   replicaUrls:
-    - ${REDIS_URL}
+    - ${REDIS_URL}/3
 
 messageCache:
   redis:
-    url: ${REDIS_URL}
+    url: ${REDIS_URL}/4
     replicaUrls:
-    - ${REDIS_URL}
+    - ${REDIS_URL}/5
 
 pushScheduler:
-  url: ${REDIS_URL}
+  url: ${REDIS_URL}/6
   replicaUrls:
-    - ${REDIS_URL}
+    - ${REDIS_URL}/7
 
 messageStore: # Postgresql database configuration for message store
   driverClass: org.postgresql.Driver
   user: ${MESSAGES_DB_USER}
   password: ${MESSAGES_DB_PASSWORD}
-  url: ${MESSAGES_DB_URL}
+  url: jdbc:${MESSAGES_DB_URL}
 
 attachments: # AWS S3 configuration
   accessKey: ${S3_ACCESS_KEY}
@@ -56,7 +56,7 @@ database: # Postgresql database configuration
   driverClass: org.postgresql.Driver
   user: ${ACCOUNTS_DB_USER}
   password: ${ACCOUNTS_DB_PASSWORD}
-  url: ${ACCOUNTS_DB_URL}
+  url: jdbc:${ACCOUNTS_DB_URL}
 
 apn: # Apple Push Notifications configuration
   bundleId: ${APN_BUNDLE_ID}
