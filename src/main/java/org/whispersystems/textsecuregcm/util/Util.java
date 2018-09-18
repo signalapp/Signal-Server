@@ -134,6 +134,14 @@ public class Util {
     }
   }
 
+  public static void wait(Object object, long timeoutMs) {
+    try {
+      object.wait(timeoutMs);
+    } catch (InterruptedException e) {
+      throw new AssertionError(e);
+    }
+  }
+
   public static int hashCode(Object... objects) {
     return Arrays.hashCode(objects);
   }

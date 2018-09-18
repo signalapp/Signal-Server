@@ -29,10 +29,8 @@ import org.whispersystems.textsecuregcm.entities.DeviceResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
-import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.MessagesManager;
-import org.whispersystems.textsecuregcm.storage.PendingDevicesManager;
+import org.whispersystems.textsecuregcm.sqs.ContactDiscoveryQueueSender;
+import org.whispersystems.textsecuregcm.storage.*;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
 
@@ -55,10 +53,11 @@ public class DeviceControllerTest {
     public DumbVerificationDeviceController(PendingDevicesManager pendingDevices,
                                             AccountsManager accounts,
                                             MessagesManager messages,
+                                            ContactDiscoveryQueueSender cdsSender,
                                             RateLimiters rateLimiters,
                                             Map<String, Integer> deviceConfiguration)
     {
-      super(pendingDevices, accounts, messages, rateLimiters, deviceConfiguration);
+      super(pendingDevices, accounts, messages, cdsSender, rateLimiters, deviceConfiguration);
     }
 
     @Override
@@ -70,10 +69,12 @@ public class DeviceControllerTest {
   private PendingDevicesManager pendingDevicesManager = mock(PendingDevicesManager.class);
   private AccountsManager       accountsManager       = mock(AccountsManager.class       );
   private MessagesManager       messagesManager       = mock(MessagesManager.class);
+  private ContactDiscoveryQueueSender cdsSender       = mock(ContactDiscoveryQueueSender.class);
   private RateLimiters          rateLimiters          = mock(RateLimiters.class          );
   private RateLimiter           rateLimiter           = mock(RateLimiter.class           );
   private Account               account               = mock(Account.class               );
   private Account               maxedAccount          = mock(Account.class);
+  private Device                masterDevice          = mock(Device.class);
 
   private Map<String, Integer>  deviceConfiguration   = new HashMap<String, Integer>() {{
 
@@ -88,6 +89,7 @@ public class DeviceControllerTest {
                                                             .addResource(new DumbVerificationDeviceController(pendingDevicesManager,
                                                                                                               accountsManager,
                                                                                                               messagesManager,
+                                                                                                              cdsSender,
                                                                                                               rateLimiters,
                                                                                                               deviceConfiguration))
                                                             .build();
@@ -101,9 +103,13 @@ public class DeviceControllerTest {
     when(rateLimiters.getAllocateDeviceLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getVerifyDeviceLimiter()).thenReturn(rateLimiter);
 
+    when(masterDevice.getId()).thenReturn(1L);
+
     when(account.getNextDeviceId()).thenReturn(42L);
     when(account.getNumber()).thenReturn(AuthHelper.VALID_NUMBER);
 //    when(maxedAccount.getActiveDeviceCount()).thenReturn(6);
+    when(account.getAuthenticatedDevice()).thenReturn(Optional.of(masterDevice));
+    when(account.isActive()).thenReturn(false);
 
     when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(new StoredVerificationCode("5678901", System.currentTimeMillis())));
     when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(new StoredVerificationCode("1112223", System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(31))));
@@ -194,5 +200,17 @@ public class DeviceControllerTest {
 
     assertEquals(response.getStatus(), 422);
     verifyNoMoreInteractions(messagesManager);
+  }
+
+  @Test
+  public void removeDeviceTest() throws Exception {
+    Response response = resources.getJerseyTest()
+            .target("/v1/devices/12345")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+            .delete();
+
+    assertEquals(204, response.getStatus());
+    verify(cdsSender).deleteRegisteredUser(eq(AuthHelper.VALID_NUMBER));
   }
 }

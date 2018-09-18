@@ -28,6 +28,7 @@ import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedPhoneConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AttachmentsConfiguration;
+import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TestDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TurnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
@@ -74,7 +75,7 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
-  private RedisConfiguration directory;
+  private DirectoryConfiguration directory;
 
   @NotNull
   @Valid
@@ -167,7 +168,7 @@ public class WhisperServerConfiguration extends Configuration {
     return cache;
   }
 
-  public RedisConfiguration getDirectoryConfiguration() {
+  public DirectoryConfiguration getDirectoryConfiguration() {
     return directory;
   }
 

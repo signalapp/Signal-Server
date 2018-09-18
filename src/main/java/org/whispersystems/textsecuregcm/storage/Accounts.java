@@ -66,7 +66,7 @@ public abstract class Accounts {
   abstract Account get(@Bind("number") String number);
 
   @SqlQuery("SELECT COUNT(DISTINCT " + NUMBER + ") from accounts")
-  abstract long getCount();
+  public abstract long getCount();
 
   @Mapper(AccountMapper.class)
   @SqlQuery("SELECT * FROM accounts OFFSET :offset LIMIT :limit")
@@ -75,6 +75,14 @@ public abstract class Accounts {
   @Mapper(AccountMapper.class)
   @SqlQuery("SELECT * FROM accounts")
   public abstract Iterator<Account> getAll();
+
+  @Mapper(AccountMapper.class)
+  @SqlQuery("SELECT * FROM accounts ORDER BY " + NUMBER + " LIMIT :limit")
+  public abstract List<Account> getAllFrom(@Bind("limit") int length);
+
+  @Mapper(AccountMapper.class)
+  @SqlQuery("SELECT * FROM accounts WHERE " + NUMBER + " > :from ORDER BY " + NUMBER + " LIMIT :limit")
+  public abstract List<Account> getAllFrom(@Bind("from") String from, @Bind("limit") int length);
 
   @SqlQuery("SELECT COUNT(*) FROM accounts a, json_array_elements(a.data->'devices') devices WHERE devices->>'id' = '1' AND (devices->>'gcmId') is not null AND (devices->>'lastSeen')\\:\\:bigint >= :since")
   public abstract int getAndroidActiveSinceCount(@Bind("since") long since);

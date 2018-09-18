@@ -21,8 +21,12 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.base.Optional;
+import org.apache.commons.codec.DecoderException;
+import org.hibernate.validator.constraints.NotEmpty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.DirectoryCredentialsGenerator;
+import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.entities.ClientContactTokens;
 import org.whispersystems.textsecuregcm.entities.ClientContacts;
@@ -56,13 +60,55 @@ public class DirectoryController {
   private final MetricRegistry metricRegistry    = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private final Histogram      contactsHistogram = metricRegistry.histogram(name(getClass(), "contacts"));
 
-  private final RateLimiters     rateLimiters;
-  private final DirectoryManager directory;
+  private final RateLimiters                  rateLimiters;
+  private final DirectoryManager              directory;
+  private final DirectoryCredentialsGenerator userTokenGenerator;
 
-  public DirectoryController(RateLimiters rateLimiters, DirectoryManager directory) {
-    this.directory    = directory;
-    this.rateLimiters = rateLimiters;
+  public DirectoryController(RateLimiters rateLimiters,
+                             DirectoryManager directory,
+                             DirectoryCredentialsGenerator userTokenGenerator)
+  {
+    this.directory          = directory;
+    this.rateLimiters       = rateLimiters;
+    this.userTokenGenerator = userTokenGenerator;
   }
+
+  @Timed
+  @GET
+  @Path("/auth")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getAuthToken(@Auth Account account) {
+    return Response.ok().entity(userTokenGenerator.generateFor(account.getNumber())).build();
+  }
+
+  @Timed
+  @PUT
+  @Path("/feedback/ok")
+  public Response setFeedbackOk(@Auth Account account) {
+    return Response.ok().build();
+  }
+
+  @Timed
+  @PUT
+  @Path("/feedback/mismatch")
+  public Response setFeedbackMismatch(@Auth Account account) {
+    return Response.ok().build();
+  }
+
+  @Timed
+  @PUT
+  @Path("/feedback/attestation-error")
+  public Response setFeedbackAttestationError(@Auth Account account) {
+    return Response.ok().build();
+  }
+
+  @Timed
+  @PUT
+  @Path("/feedback/unexpected-error")
+  public Response setFeedbackUnexpectedError(@Auth Account account) {
+    return Response.ok().build();
+  }
+
 
   @Timed
   @GET

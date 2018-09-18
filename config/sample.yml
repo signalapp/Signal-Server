@@ -28,9 +28,22 @@ cache: # Redis server configuration for cache cluster
   url:
   replicaUrls:
 
-directory: # Redis server configuration for directory cluster
-  url:
-  replicaUrls:
+directory:
+  redis: # Redis server configuration for directory cluster
+    url:
+    replicaUrls:
+  client: # Configuration for interfacing with Contact Discovery Service cluster
+    userAuthenticationTokenSharedSecret: # hex-encoded secret shared with CDS used to generate auth tokens for Signal users
+    userAuthenticationTokenUserIdSecret: # hex-encoded secret shared among Signal-Servers to obscure user phone numbers from CDS
+  sqs:
+    accessKey:      # AWS SQS accessKey
+    accessSecret:   # AWS SQS accessSecret
+    queueUrl:       # AWS SQS queue url
+  server:
+    replicationUrl:           # CDS replication endpoint base url
+    replicationPassword:      # CDS replication endpoint password
+    replicationCaCertificate: # CDS replication endpoint TLS certificate trust root
+
 
 messageCache: # Redis server configuration for message store cache
   url:

@@ -9,7 +9,7 @@
 
     <groupId>org.whispersystems.textsecure</groupId>
     <artifactId>TextSecureServer</artifactId>
-    <version>1.88</version>
+    <version>1.89-RC2</version>
 
     <properties>
         <dropwizard.version>1.3.1</dropwizard.version>
@@ -68,7 +68,12 @@
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-s3</artifactId>
-            <version>1.11.115</version>
+            <version>1.11.366</version>
+        </dependency>
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-sqs</artifactId>
+            <version>1.11.362</version>
         </dependency>
         <dependency>
             <groupId>com.google.protobuf</groupId>
