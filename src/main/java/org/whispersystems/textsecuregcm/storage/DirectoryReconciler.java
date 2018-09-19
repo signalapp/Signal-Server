@@ -59,7 +59,7 @@ public class DirectoryReconciler implements Managed, Runnable {
   private static final int    CHUNK_SIZE                 = 1000;
   private static final double JITTER_MAX                 = 0.20;
 
-  private final Accounts                      readOnlyAccounts;
+  private final Accounts                      accounts;
   private final DirectoryManager              directoryManager;
   private final DirectoryReconciliationClient reconciliationClient;
   private final DirectoryReconciliationCache  reconciliationCache;
@@ -72,8 +72,8 @@ public class DirectoryReconciler implements Managed, Runnable {
   public DirectoryReconciler(DirectoryReconciliationClient reconciliationClient,
                              DirectoryReconciliationCache reconciliationCache,
                              DirectoryManager directoryManager,
-                             Accounts readOnlyAccounts) {
-    this.readOnlyAccounts     = readOnlyAccounts;
+                             Accounts accounts) {
+    this.accounts             = accounts;
     this.directoryManager     = directoryManager;
     this.reconciliationClient = reconciliationClient;
     this.reconciliationCache  = reconciliationCache;
@@ -148,7 +148,7 @@ public class DirectoryReconciler implements Managed, Runnable {
       return cachedCount.get();
     }
 
-    long count = readOnlyAccounts.getCount();
+    long count = accounts.getCount();
     reconciliationCache.setCachedAccountCount(count);
     return count;
   }
@@ -206,9 +206,9 @@ public class DirectoryReconciler implements Managed, Runnable {
       Optional<List<Account>> chunkAccounts;
 
       if (fromNumber.isPresent()) {
-        chunkAccounts = Optional.fromNullable(readOnlyAccounts.getAllFrom(fromNumber.get(), chunkSize));
+        chunkAccounts = Optional.fromNullable(accounts.getAllFrom(fromNumber.get(), chunkSize));
       } else {
-        chunkAccounts = Optional.fromNullable(readOnlyAccounts.getAllFrom(chunkSize));
+        chunkAccounts = Optional.fromNullable(accounts.getAllFrom(chunkSize));
       }
 
       return chunkAccounts.or(Collections::emptyList);
