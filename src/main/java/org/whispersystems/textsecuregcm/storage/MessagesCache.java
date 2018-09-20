@@ -369,8 +369,8 @@ public class MessagesCache implements Managed {
         throws IOException
     {
       super(MessagePersister.class.getSimpleName());
-      this.jedisPool     = jedisPool;
-      this.database      = database;
+      this.jedisPool = jedisPool;
+      this.database  = database;
 
       this.pubSubManager   = pubSubManager;
       this.pushSender      = pushSender;
@@ -446,6 +446,7 @@ public class MessagesCache implements Managed {
       try {
         Envelope envelope = Envelope.parseFrom(message);
         database.store(envelope, key.getAddress(), key.getDeviceId());
+
       } catch (InvalidProtocolBufferException e) {
         logger.error("Error parsing envelope", e);
       }

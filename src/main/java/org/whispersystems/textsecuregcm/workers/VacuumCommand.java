@@ -51,7 +51,7 @@ public class VacuumCommand extends ConfiguredCommand<WhisperServerConfiguration>
     Accounts        accounts        = dbi.onDemand(Accounts.class       );
     Keys            keys            = dbi.onDemand(Keys.class           );
     PendingAccounts pendingAccounts = dbi.onDemand(PendingAccounts.class);
-    Messages        messages        = messageDbi.onDemand(Messages.class       );
+    Messages        messages        = messageDbi.onDemand(Messages.class);
 
     logger.info("Vacuuming accounts...");
     accounts.vacuum();

@@ -18,7 +18,7 @@ import io.dropwizard.jdbi.args.OptionalArgumentFactory;
 import io.dropwizard.setup.Bootstrap;
 
 public class TrimMessagesCommand extends ConfiguredCommand<WhisperServerConfiguration> {
-  private final Logger logger = LoggerFactory.getLogger(VacuumCommand.class);
+  private final Logger logger = LoggerFactory.getLogger(TrimMessagesCommand.class);
 
   public TrimMessagesCommand() {
     super("trim", "Trim Messages Database");
@@ -39,7 +39,7 @@ public class TrimMessagesCommand extends ConfiguredCommand<WhisperServerConfigur
     messageDbi.registerContainerFactory(new OptionalContainerFactory());
 
     Messages messages  = messageDbi.onDemand(Messages.class);
-    long     timestamp = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(60);
+    long     timestamp = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(90);
 
     logger.info("Trimming old messages: " + timestamp + "...");
     messages.removeOld(timestamp);

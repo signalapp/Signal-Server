@@ -8,5 +8,6 @@ local.yml
 config/production.yml
 config/federated.yml
 config/staging.yml
+config/testing.yml
 .opsmanage
 put.sh

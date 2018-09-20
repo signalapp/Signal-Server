@@ -12,7 +12,6 @@ import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
-import org.whispersystems.textsecuregcm.util.Pair;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
@@ -45,7 +44,7 @@ public abstract class Messages {
                      @Bind("destination_device") long destinationDevice);
 
   @Mapper(MessageMapper.class)
-  @SqlQuery("SELECT * FROM messages WHERE " + DESTINATION + " = :destination AND " + DESTINATION_DEVICE + " = :destination_device  ORDER BY " + TIMESTAMP + " ASC LIMIT " + RESULT_SET_CHUNK_SIZE)
+  @SqlQuery("SELECT * FROM messages WHERE " + DESTINATION + " = :destination AND " + DESTINATION_DEVICE + " = :destination_device ORDER BY " + TIMESTAMP + " ASC LIMIT " + RESULT_SET_CHUNK_SIZE)
   abstract List<OutgoingMessageEntity> load(@Bind("destination")        String destination,
                                             @Bind("destination_device") long destinationDevice);
 
@@ -55,10 +54,6 @@ public abstract class Messages {
                                         @Bind("destination_device") long destinationDevice,
                                         @Bind("source")             String source,
                                         @Bind("timestamp")          long timestamp);
-
-  @Mapper(DestinationMapper.class)
-  @SqlQuery("SELECT DISTINCT ON (destination, destination_device) destination, destination_device FROM messages WHERE timestamp > :timestamp ORDER BY destination, destination_device OFFSET :offset LIMIT :limit")
-  public abstract List<Pair<String, Integer>> getPendingDestinations(@Bind("timestamp") long sinceTimestamp, @Bind("offset") int offset, @Bind("limit") int limit);
 
   @Mapper(MessageMapper.class)
   @SqlUpdate("DELETE FROM messages WHERE " + ID + " = :id AND " + DESTINATION + " = :destination")
@@ -75,14 +70,6 @@ public abstract class Messages {
 
   @SqlUpdate("VACUUM messages")
   public abstract void vacuum();
-
-  public static class DestinationMapper implements ResultSetMapper<Pair<String, Integer>> {
-
-    @Override
-    public Pair<String, Integer> map(int i, ResultSet resultSet, StatementContext statementContext) throws SQLException {
-      return new Pair<>(resultSet.getString(DESTINATION), resultSet.getInt(DESTINATION_DEVICE));
-    }
-  }
 
   public static class MessageMapper implements ResultSetMapper<OutgoingMessageEntity> {
     @Override
@@ -110,11 +97,11 @@ public abstract class Messages {
     }
   }
 
-  @BindingAnnotation(MessageBinder.AccountBinderFactory.class)
+  @BindingAnnotation(MessageBinder.MessageBinderFactory.class)
   @Retention(RetentionPolicy.RUNTIME)
   @Target({ElementType.PARAMETER})
   public @interface MessageBinder {
-    public static class AccountBinderFactory implements BinderFactory {
+    public static class MessageBinderFactory implements BinderFactory {
       @Override
       public Binder build(Annotation annotation) {
         return new Binder<MessageBinder, Envelope>() {

@@ -74,5 +74,35 @@
         <sql>CREATE RULE bounded_message_queue AS ON INSERT TO messages DO ALSO DELETE FROM messages WHERE id IN (SELECT id FROM messages WHERE destination = NEW.destination AND destination_device = NEW.destination_device ORDER BY timestamp DESC OFFSET 1000);</sql>
     </changeSet>
 
+    <changeSet id="5" author="moxie">
+        <addColumn tableName="messages">
+            <column name="deleted" type="integer"/>
+        </addColumn>
+
+        <sql>DROP RULE bounded_message_queue ON messages;</sql>
+    </changeSet>
+
+    <changeSet id="6" author="moxie">
+        <sql>CREATE RULE bounded_message_queue AS ON INSERT TO messages DO ALSO DELETE FROM messages WHERE id IN (SELECT id FROM messages WHERE destination = NEW.destination AND destination_device = NEW.destination_device ORDER BY timestamp DESC OFFSET 1000);</sql>
+    </changeSet>
+
+    <changeSet id="7" author="moxie">
+        <dropColumn tableName="messages" columnName="deleted"/>
+
+        <sql>DROP RULE bounded_message_queue ON messages;</sql>
+    </changeSet>
+
+    <changeSet id="8" author="moxie">
+        <sql>CREATE RULE bounded_message_queue AS ON INSERT TO messages DO ALSO DELETE FROM messages WHERE id IN (SELECT id FROM messages WHERE destination = NEW.destination AND destination_device = NEW.destination_device ORDER BY timestamp DESC OFFSET 1000);</sql>
+    </changeSet>
+
+    <changeSet id="9" author="moxie">
+        <sql>DROP RULE bounded_message_queue ON messages;</sql>
+    </changeSet>
+
+    <changeSet id="10" author="moxie">
+        <sql>CREATE RULE bounded_message_queue AS ON INSERT TO messages DO ALSO DELETE FROM messages WHERE id IN (SELECT id FROM messages WHERE destination = NEW.destination AND destination_device = NEW.destination_device ORDER BY timestamp DESC OFFSET 1000);</sql>
+    </changeSet>
+
 
 </databaseChangeLog>

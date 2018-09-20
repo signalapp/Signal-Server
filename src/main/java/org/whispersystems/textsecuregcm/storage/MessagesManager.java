@@ -9,10 +9,7 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
 import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.Conversions;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -27,20 +24,14 @@ public class MessagesManager {
 
   private final Messages      messages;
   private final MessagesCache messagesCache;
-  private final Distribution  distribution;
 
-  public MessagesManager(Messages messages, MessagesCache messagesCache, float cacheRate) {
+  public MessagesManager(Messages messages, MessagesCache messagesCache) {
     this.messages      = messages;
     this.messagesCache = messagesCache;
-    this.distribution  = new Distribution(cacheRate);
   }
 
   public void insert(String destination, long destinationDevice, Envelope message) {
-    if (distribution.isQualified(destination, destinationDevice)) {
-      messagesCache.insert(destination, destinationDevice, message);
-    } else {
-      messages.store(message, destination, destinationDevice);
-    }
+    messagesCache.insert(destination, destinationDevice, message);
   }
 
   public OutgoingMessageEntityList getMessagesForDevice(String destination, long destinationDevice) {
@@ -85,34 +76,6 @@ public class MessagesManager {
       this.messages.remove(destination, id);
       cacheMissByIdMeter.mark();
     }
-  }
-
-  public static class Distribution {
-
-    private final float percentage;
-
-    public Distribution(float percentage) {
-      this.percentage = percentage;
-    }
-
-    public boolean isQualified(String address, long device) {
-      if (percentage <= 0)   return false;
-      if (percentage >= 100) return true;
-
-      try {
-        MessageDigest digest = MessageDigest.getInstance("SHA1");
-        digest.update(address.getBytes());
-        digest.update(Conversions.longToByteArray(device));
-
-        byte[] result = digest.digest();
-        int hashCode = Conversions.byteArrayToShort(result);
-
-        return hashCode <= 65535 * percentage;
-      } catch (NoSuchAlgorithmException e) {
-        throw new AssertionError(e);
-      }
-    }
-
   }
 
 }
