@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2013 Open WhisperSystems
+/*
+ * Copyright (C) 2013-2018 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -30,7 +30,7 @@ import org.whispersystems.textsecuregcm.entities.DeviceInfo;
 import org.whispersystems.textsecuregcm.entities.DeviceInfoList;
 import org.whispersystems.textsecuregcm.entities.DeviceResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.sqs.ContactDiscoveryQueueSender;
+import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -51,7 +51,6 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.LinkedList;
 import java.util.List;
@@ -71,20 +70,19 @@ public class DeviceController {
   private final MessagesManager       messages;
   private final RateLimiters          rateLimiters;
   private final Map<String, Integer>  maxDeviceConfiguration;
-
-  private final ContactDiscoveryQueueSender cdsSender;
+  private final DirectoryQueue        directoryQueue;
 
   public DeviceController(PendingDevicesManager pendingDevices,
                           AccountsManager accounts,
                           MessagesManager messages,
-                          ContactDiscoveryQueueSender cdsSender,
+                          DirectoryQueue directoryQueue,
                           RateLimiters rateLimiters,
                           Map<String, Integer> maxDeviceConfiguration)
   {
     this.pendingDevices         = pendingDevices;
     this.accounts               = accounts;
     this.messages               = messages;
-    this.cdsSender              = cdsSender;
+    this.directoryQueue         = directoryQueue;
     this.rateLimiters           = rateLimiters;
     this.maxDeviceConfiguration = maxDeviceConfiguration;
   }
@@ -113,9 +111,11 @@ public class DeviceController {
 
     account.removeDevice(deviceId);
     accounts.update(account);
+
     if (!account.isActive()) {
-      cdsSender.deleteRegisteredUser(account.getNumber());
+      directoryQueue.deleteRegisteredUser(account.getNumber());
     }
+
     messages.clear(account.getNumber(), deviceId);
   }
 

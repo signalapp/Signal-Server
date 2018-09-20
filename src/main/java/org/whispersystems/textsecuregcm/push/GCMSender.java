@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.gcm.server.Message;
 import org.whispersystems.gcm.server.Result;
 import org.whispersystems.gcm.server.Sender;
+import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -46,17 +47,20 @@ public class GCMSender implements Managed {
 
   private final AccountsManager   accountsManager;
   private final Sender            signalSender;
+  private final DirectoryQueue    directoryQueue;
   private       ExecutorService   executor;
 
-  public GCMSender(AccountsManager accountsManager, String signalKey) {
+  public GCMSender(AccountsManager accountsManager, String signalKey, DirectoryQueue directoryQueue) {
     this.accountsManager = accountsManager;
     this.signalSender    = new Sender(signalKey, 50);
+    this.directoryQueue  = directoryQueue;
   }
 
   @VisibleForTesting
-  public GCMSender(AccountsManager accountsManager, Sender sender, ExecutorService executor) {
+  public GCMSender(AccountsManager accountsManager, Sender sender, DirectoryQueue directoryQueue, ExecutorService executor) {
     this.accountsManager = accountsManager;
     this.signalSender    = sender;
+    this.directoryQueue  = directoryQueue;
     this.executor        = executor;
   }
 
@@ -115,6 +119,10 @@ public class GCMSender implements Managed {
       device.setFetchesMessages(false);
 
       accountsManager.update(account.get());
+
+      if (!account.get().isActive()) {
+        directoryQueue.deleteRegisteredUser(account.get().getNumber());
+      }
     }
 
     unregistered.mark();

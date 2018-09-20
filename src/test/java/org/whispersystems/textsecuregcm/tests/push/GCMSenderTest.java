@@ -9,6 +9,7 @@ import org.whispersystems.gcm.server.Result;
 import org.whispersystems.gcm.server.Sender;
 import org.whispersystems.textsecuregcm.push.GCMSender;
 import org.whispersystems.textsecuregcm.push.GcmMessage;
+import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -24,6 +25,7 @@ public class GCMSenderTest {
     AccountsManager            accountsManager = mock(AccountsManager.class);
     Sender                     sender          = mock(Sender.class         );
     Result                     successResult   = mock(Result.class         );
+    DirectoryQueue             directoryQueue  = mock(DirectoryQueue.class );
     SynchronousExecutorService executorService = new SynchronousExecutorService();
 
     when(successResult.isInvalidRegistrationId()).thenReturn(false);
@@ -32,7 +34,7 @@ public class GCMSenderTest {
     when(successResult.isSuccess()).thenReturn(true);
 
     GcmMessage message = new GcmMessage("foo", "+12223334444", 1, false);
-    GCMSender gcmSender = new GCMSender(accountsManager, sender, executorService);
+    GCMSender gcmSender = new GCMSender(accountsManager, sender, directoryQueue, executorService);
 
     SettableFuture<Result> successFuture = SettableFuture.create();
     successFuture.set(successResult);
@@ -53,6 +55,7 @@ public class GCMSenderTest {
     AccountsManager            accountsManager = mock(AccountsManager.class);
     Sender                     sender          = mock(Sender.class         );
     Result                     invalidResult   = mock(Result.class         );
+    DirectoryQueue             directoryQueue  = mock(DirectoryQueue.class );
     SynchronousExecutorService executorService = new SynchronousExecutorService();
 
     Account destinationAccount = mock(Account.class);
@@ -68,7 +71,7 @@ public class GCMSenderTest {
     when(invalidResult.isSuccess()).thenReturn(true);
 
     GcmMessage message = new GcmMessage(gcmId, destinationNumber, 1, false);
-    GCMSender gcmSender = new GCMSender(accountsManager, sender, executorService);
+    GCMSender gcmSender = new GCMSender(accountsManager, sender, directoryQueue, executorService);
 
     SettableFuture<Result> invalidFuture = SettableFuture.create();
     invalidFuture.set(invalidResult);
@@ -95,8 +98,9 @@ public class GCMSenderTest {
     Result                     canonicalResult = mock(Result.class         );
     SynchronousExecutorService executorService = new SynchronousExecutorService();
 
-    Account destinationAccount = mock(Account.class);
-    Device  destinationDevice  = mock(Device.class );
+    Account        destinationAccount = mock(Account.class       );
+    Device         destinationDevice  = mock(Device.class        );
+    DirectoryQueue directoryQueue     = mock(DirectoryQueue.class);
 
     when(destinationAccount.getDevice(1)).thenReturn(Optional.of(destinationDevice));
     when(accountsManager.get(destinationNumber)).thenReturn(Optional.of(destinationAccount));
@@ -109,7 +113,7 @@ public class GCMSenderTest {
     when(canonicalResult.getCanonicalRegistrationId()).thenReturn(canonicalId);
 
     GcmMessage message = new GcmMessage(gcmId, destinationNumber, 1, false);
-    GCMSender gcmSender = new GCMSender(accountsManager, sender, executorService);
+    GCMSender gcmSender = new GCMSender(accountsManager, sender, directoryQueue, executorService);
 
     SettableFuture<Result> invalidFuture = SettableFuture.create();
     invalidFuture.set(canonicalResult);

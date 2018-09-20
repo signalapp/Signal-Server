@@ -18,7 +18,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.providers.TimeProvider;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
-import org.whispersystems.textsecuregcm.sqs.ContactDiscoveryQueueSender;
+import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
@@ -50,7 +50,7 @@ public class AccountControllerTest {
   private        RateLimiter            rateLimiter            = mock(RateLimiter.class           );
   private        RateLimiter            pinLimiter             = mock(RateLimiter.class           );
   private        SmsSender              smsSender              = mock(SmsSender.class             );
-  private        ContactDiscoveryQueueSender cdsSender         = mock(ContactDiscoveryQueueSender.class);
+  private        DirectoryQueue         directoryQueue         = mock(DirectoryQueue.class);
   private        MessagesManager        storedMessages         = mock(MessagesManager.class       );
   private        TimeProvider           timeProvider           = mock(TimeProvider.class          );
   private        TurnTokenGenerator     turnTokenGenerator     = mock(TurnTokenGenerator.class);
@@ -67,7 +67,7 @@ public class AccountControllerTest {
                                                                                                accountsManager,
                                                                                                rateLimiters,
                                                                                                smsSender,
-                                                                                               cdsSender,
+                                                                                               directoryQueue,
                                                                                                storedMessages,
                                                                                                turnTokenGenerator,
                                                                                                new HashMap<>()))
@@ -140,7 +140,7 @@ public class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
 
     verify(accountsManager, times(1)).create(isA(Account.class));
-    verify(cdsSender, times(1)).addRegisteredUser(eq(SENDER));
+    verify(directoryQueue, times(1)).addRegisteredUser(eq(SENDER));
   }
 
   @Test
