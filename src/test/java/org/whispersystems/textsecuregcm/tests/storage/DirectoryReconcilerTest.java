@@ -35,7 +35,6 @@ public class DirectoryReconcilerTest {
   private static final String VALID_NUMBER    = "valid";
   private static final String INACTIVE_NUMBER = "inactive";
 
-  private static final long ACCOUNT_COUNT = 0L;
   private static final long INTERVAL_MS   = 30_000L;
 
   private final Account                       account              = mock(Account.class);
@@ -45,7 +44,7 @@ public class DirectoryReconcilerTest {
   private final DirectoryManager              directoryManager     = mock(DirectoryManager.class);
   private final DirectoryReconciliationClient reconciliationClient = mock(DirectoryReconciliationClient.class);
   private final DirectoryReconciliationCache  reconciliationCache  = mock(DirectoryReconciliationCache.class);
-  private final DirectoryReconciler           directoryReconciler  = new DirectoryReconciler(reconciliationClient, reconciliationCache, directoryManager, accounts);
+  private final DirectoryReconciler           directoryReconciler  = new DirectoryReconciler(reconciliationClient, reconciliationCache, directoryManager, accounts, 1000, INTERVAL_MS);
 
   private final DirectoryReconciliationResponse successResponse  = new DirectoryReconciliationResponse(DirectoryReconciliationResponse.Status.OK);
   private final DirectoryReconciliationResponse notFoundResponse = new DirectoryReconciliationResponse(DirectoryReconciliationResponse.Status.MISSING);
@@ -64,48 +63,12 @@ public class DirectoryReconcilerTest {
     when(accounts.getAllFrom(anyInt())).thenReturn(Arrays.asList(account, inactiveAccount));
     when(accounts.getAllFrom(eq(VALID_NUMBER), anyInt())).thenReturn(Arrays.asList(inactiveAccount));
     when(accounts.getAllFrom(eq(INACTIVE_NUMBER), anyInt())).thenReturn(Collections.emptyList());
-    when(accounts.getCount()).thenReturn(ACCOUNT_COUNT);
 
     when(reconciliationClient.sendChunk(any())).thenReturn(successResponse);
 
     when(reconciliationCache.getLastNumber()).thenReturn(Optional.absent());
     when(reconciliationCache.claimActiveWork(any(), anyLong())).thenReturn(true);
     when(reconciliationCache.isAccelerated()).thenReturn(false);
-  }
-
-  @Test
-  public void testGetUncachedAccountCount() {
-    when(reconciliationCache.getCachedAccountCount()).thenReturn(Optional.absent());
-
-    long accountCount = directoryReconciler.getAccountCount();
-
-    assertThat(accountCount).isEqualTo(ACCOUNT_COUNT);
-
-    verify(accounts, times(1)).getCount();
-
-    verify(reconciliationCache, times(1)).getCachedAccountCount();
-    verify(reconciliationCache, times(1)).setCachedAccountCount(eq(ACCOUNT_COUNT));
-
-    verifyNoMoreInteractions(directoryManager);
-    verifyNoMoreInteractions(accounts);
-    verifyNoMoreInteractions(reconciliationClient);
-    verifyNoMoreInteractions(reconciliationCache);
-  }
-
-  @Test
-  public void testGetCachedAccountCount() {
-    when(reconciliationCache.getCachedAccountCount()).thenReturn(Optional.of(ACCOUNT_COUNT));
-
-    long accountCount = directoryReconciler.getAccountCount();
-
-    assertThat(accountCount).isEqualTo(ACCOUNT_COUNT);
-
-    verify(reconciliationCache, times(1)).getCachedAccountCount();
-
-    verifyNoMoreInteractions(directoryManager);
-    verifyNoMoreInteractions(accounts);
-    verifyNoMoreInteractions(reconciliationClient);
-    verifyNoMoreInteractions(reconciliationCache);
   }
 
   @Test

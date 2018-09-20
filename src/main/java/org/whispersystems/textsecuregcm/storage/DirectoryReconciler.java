@@ -51,18 +51,16 @@ public class DirectoryReconciler implements Managed, Runnable {
   private static final Meter          sendChunkErrorMeter = metricRegistry.meter(name(DirectoryReconciler.class, "sendChunkError"));
 
   private static final long   WORKER_TTL_MS              = 120_000L;
-  private static final long   PERIOD                     = 86400_000L;
-  private static final long   MAXIMUM_CHUNK_INTERVAL     = 30_000L;
-  private static final long   DEFAULT_CHUNK_INTERVAL     = 10_000L;
   private static final long   MINIMUM_CHUNK_INTERVAL     = 500L;
   private static final long   ACCELERATED_CHUNK_INTERVAL = 10L;
-  private static final int    CHUNK_SIZE                 = 1000;
   private static final double JITTER_MAX                 = 0.20;
 
   private final Accounts                      accounts;
   private final DirectoryManager              directoryManager;
   private final DirectoryReconciliationClient reconciliationClient;
   private final DirectoryReconciliationCache  reconciliationCache;
+  private final int                           chunkSize;
+  private final long                          chunkIntervalMs;
   private final String                        workerId;
   private final SecureRandom                  random;
 
@@ -72,11 +70,15 @@ public class DirectoryReconciler implements Managed, Runnable {
   public DirectoryReconciler(DirectoryReconciliationClient reconciliationClient,
                              DirectoryReconciliationCache reconciliationCache,
                              DirectoryManager directoryManager,
-                             Accounts accounts) {
+                             Accounts accounts,
+                             int chunkSize,
+                             long chunkIntervalMs) {
     this.accounts             = accounts;
     this.directoryManager     = directoryManager;
     this.reconciliationClient = reconciliationClient;
     this.reconciliationCache  = reconciliationCache;
+    this.chunkSize            = chunkSize;
+    this.chunkIntervalMs      = chunkIntervalMs;
     this.random               = new SecureRandom();
     this.workerId             = generateWorkerId(random);
   }
@@ -104,12 +106,11 @@ public class DirectoryReconciler implements Managed, Runnable {
 
   @Override
   public void run() {
-    long delayMs = DEFAULT_CHUNK_INTERVAL;
+    long delayMs = chunkIntervalMs;
 
     while (sleepWhileRunning(getDelayWithJitter(delayMs))) {
       try {
-        delayMs = DEFAULT_CHUNK_INTERVAL;
-        delayMs = getBoundedChunkInterval(PERIOD * CHUNK_SIZE / getAccountCount());
+        delayMs = getBoundedChunkInterval(chunkIntervalMs);
         delayMs = doPeriodicWork(delayMs);
       } catch (Throwable t) {
         logger.warn("error in directory reconciliation: ", t);
@@ -140,19 +141,6 @@ public class DirectoryReconciler implements Managed, Runnable {
     return intervalMs;
   }
 
-  @VisibleForTesting
-  public long getAccountCount() {
-    Optional<Long> cachedCount = reconciliationCache.getCachedAccountCount();
-
-    if (cachedCount.isPresent()) {
-      return cachedCount.get();
-    }
-
-    long count = accounts.getCount();
-    reconciliationCache.setCachedAccountCount(count);
-    return count;
-  }
-
   private synchronized boolean sleepWhileRunning(long delayMs) {
     long startTimeMs = System.currentTimeMillis();
     while (running && delayMs > 0) {
@@ -170,7 +158,7 @@ public class DirectoryReconciler implements Managed, Runnable {
   }
 
   private long getBoundedChunkInterval(long intervalMs) {
-    return Math.max(Math.min(intervalMs, MAXIMUM_CHUNK_INTERVAL), MINIMUM_CHUNK_INTERVAL);
+    return Math.max(Math.min(intervalMs, chunkIntervalMs), MINIMUM_CHUNK_INTERVAL);
   }
 
   private long getDelayWithJitter(long delayMs) {
@@ -180,7 +168,7 @@ public class DirectoryReconciler implements Managed, Runnable {
 
   private boolean processChunk() {
     Optional<String> fromNumber    = reconciliationCache.getLastNumber();
-    List<Account>    chunkAccounts = readChunk(fromNumber, CHUNK_SIZE);
+    List<Account>    chunkAccounts = readChunk(fromNumber, chunkSize);
 
     writeChunktoDirectoryCache(chunkAccounts);
 

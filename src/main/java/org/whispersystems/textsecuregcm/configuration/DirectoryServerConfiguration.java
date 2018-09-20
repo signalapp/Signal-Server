@@ -33,6 +33,12 @@ public class DirectoryServerConfiguration {
   @JsonProperty
   private String replicationCaCertificate;
 
+  @JsonProperty
+  private int reconciliationChunkSize = 1000;
+
+  @JsonProperty
+  private long reconciliationChunkIntervalMs = 8000L;
+
   public String getReplicationUrl() {
     return replicationUrl;
   }
@@ -43,5 +49,13 @@ public class DirectoryServerConfiguration {
 
   public String getReplicationCaCertificate() {
     return replicationCaCertificate;
+  }
+
+  public int getReconciliationChunkSize() {
+    return reconciliationChunkSize;
+  }
+
+  public long getReconciliationChunkIntervalMs() {
+    return reconciliationChunkIntervalMs;
   }
 }

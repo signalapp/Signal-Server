@@ -29,10 +29,8 @@ public class DirectoryReconciliationCache {
 
   private static final String ACTIVE_WORKER_KEY = "directory_reconciliation_active_worker";
   private static final String LAST_NUMBER_KEY   = "directory_reconciliation_last_number";
-  private static final String CACHED_COUNT_KEY  = "directory_reconciliation_cached_count";
   private static final String ACCELERATE_KEY    = "directory_reconciliation_accelerate";
 
-  private static final long CACHED_COUNT_TTL_MS = 21600_000L;
   private static final long LAST_NUMBER_TTL_MS  = 86400_000L;
 
   private final ReplicatedJedisPool jedisPool;
@@ -75,27 +73,6 @@ public class DirectoryReconciliationCache {
       } else {
         jedis.del(LAST_NUMBER_KEY);
       }
-    }
-  }
-
-  public Optional<Long> getCachedAccountCount() {
-    try (Jedis jedis = jedisPool.getWriteResource()) {
-      Optional<String> cachedAccountCount = Optional.fromNullable(jedis.get(CACHED_COUNT_KEY));
-      if (!cachedAccountCount.isPresent()) {
-        return Optional.absent();
-      }
-
-      try {
-        return Optional.of(Long.parseUnsignedLong(cachedAccountCount.get()));
-      } catch (NumberFormatException ex) {
-        return Optional.absent();
-      }
-    }
-  }
-
-  public void setCachedAccountCount(long accountCount) {
-    try (Jedis jedis = jedisPool.getWriteResource()) {
-      jedis.psetex(CACHED_COUNT_KEY, CACHED_COUNT_TTL_MS, Long.toString(accountCount));
     }
   }
 

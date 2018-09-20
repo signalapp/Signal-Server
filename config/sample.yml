@@ -40,10 +40,11 @@ directory:
     accessSecret:   # AWS SQS accessSecret
     queueUrl:       # AWS SQS queue url
   server:
-    replicationUrl:           # CDS replication endpoint base url
-    replicationPassword:      # CDS replication endpoint password
-    replicationCaCertificate: # CDS replication endpoint TLS certificate trust root
-
+    replicationUrl:                # CDS replication endpoint base url
+    replicationPassword:           # CDS replication endpoint password
+    replicationCaCertificate:      # CDS replication endpoint TLS certificate trust root
+    reconciliationChunkSize:       # CDS reconciliation chunk size
+    reconciliationChunkIntervalMs: # CDS reconciliation chunk interval, in milliseconds
 
 messageCache: # Redis server configuration for message store cache
   url:
