@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2013 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -32,6 +32,9 @@ public class IncomingMessageList {
   @JsonProperty
   private long timestamp;
 
+  @JsonProperty
+  private boolean online;
+
   public IncomingMessageList() {}
 
   public List<IncomingMessage> getMessages() {
@@ -40,5 +43,9 @@ public class IncomingMessageList {
 
   public long getTimestamp() {
     return timestamp;
+  }
+
+  public boolean isOnline() {
+    return online;
   }
 }

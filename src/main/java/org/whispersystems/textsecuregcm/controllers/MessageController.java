@@ -129,7 +129,7 @@ public class MessageController {
         Optional<Device> destinationDevice = destination.get().getDevice(incomingMessage.getDestinationDeviceId());
 
         if (destinationDevice.isPresent()) {
-          sendMessage(source, destination.get(), destinationDevice.get(), messages.getTimestamp(), incomingMessage);
+          sendMessage(source, destination.get(), destinationDevice.get(), messages.getTimestamp(), messages.isOnline(), incomingMessage);
         }
       }
 
@@ -215,6 +215,7 @@ public class MessageController {
                            Account destinationAccount,
                            Device destinationDevice,
                            long timestamp,
+                           boolean online,
                            IncomingMessage incomingMessage)
       throws NoSuchUserException
   {
@@ -240,7 +241,7 @@ public class MessageController {
         messageBuilder.setContent(ByteString.copyFrom(messageContent.get()));
       }
 
-      pushSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build());
+      pushSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build(), online);
     } catch (NotPushRegisteredException e) {
       if (destinationDevice.isMaster()) throw new NoSuchUserException(e);
       else                              logger.debug("Not registered", e);

@@ -109,7 +109,7 @@ public class MessageControllerTest {
     assertThat("Good Response", response.getStatus(), is(equalTo(200)));
 
     ArgumentCaptor<Envelope> captor = ArgumentCaptor.forClass(Envelope.class);
-    verify(pushSender, times(1)).sendMessage(any(Account.class), any(Device.class), captor.capture());
+    verify(pushSender, times(1)).sendMessage(any(Account.class), any(Device.class), captor.capture(), eq(false));
 
     assertTrue(captor.getValue().hasSource());
     assertTrue(captor.getValue().hasSourceDevice());
@@ -128,7 +128,7 @@ public class MessageControllerTest {
     assertThat("Good Response", response.getStatus(), is(equalTo(200)));
 
     ArgumentCaptor<Envelope> captor = ArgumentCaptor.forClass(Envelope.class);
-    verify(pushSender, times(1)).sendMessage(any(Account.class), any(Device.class), captor.capture());
+    verify(pushSender, times(1)).sendMessage(any(Account.class), any(Device.class), captor.capture(), eq(false));
 
     assertFalse(captor.getValue().hasSource());
     assertFalse(captor.getValue().hasSourceDevice());
@@ -197,7 +197,7 @@ public class MessageControllerTest {
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(200)));
 
-    verify(pushSender, times(2)).sendMessage(any(Account.class), any(Device.class), any(Envelope.class));
+    verify(pushSender, times(2)).sendMessage(any(Account.class), any(Device.class), any(Envelope.class), eq(false));
   }
 
   @Test
