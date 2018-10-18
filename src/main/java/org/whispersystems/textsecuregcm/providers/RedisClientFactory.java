@@ -53,16 +53,11 @@ public class RedisClientFactory implements RedisPubSubConnectionFactory {
     this.port      = redisURI.getPort();
     this.password  = JedisURIHelper.getPassword(redisURI);
 
-    JedisPool       masterPool   = new JedisPool(poolConfig, host, port, Protocol.DEFAULT_TIMEOUT, null);
+    JedisPool       masterPool   = new JedisPool(poolConfig, redisURI, Protocol.DEFAULT_TIMEOUT);
     List<JedisPool> replicaPools = new LinkedList<>();
 
     for (String replicaUrl : replicaUrls) {
-      URI replicaURI = new URI(replicaUrl);
-
-      replicaPools.add(new JedisPool(poolConfig, replicaURI.getHost(), replicaURI.getPort(),
-                                     500, Protocol.DEFAULT_TIMEOUT, null,
-                                     Protocol.DEFAULT_DATABASE, null, false, null ,
-                                     null, null));
+      replicaPools.add(new JedisPool(poolConfig, new URI(replicaUrl), 500, Protocol.DEFAULT_TIMEOUT));
     }
 
     this.jedisPool = new ReplicatedJedisPool(masterPool, replicaPools);

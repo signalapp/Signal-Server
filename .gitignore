@@ -4,9 +4,5 @@ local.properties
 *.iml
 run.sh
 *~
-local.yml
-config/production.yml
-config/federated.yml
-config/staging.yml
 .opsmanage
 put.sh
