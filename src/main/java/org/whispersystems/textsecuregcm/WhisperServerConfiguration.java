@@ -131,6 +131,10 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private UnidentifiedDeliveryConfiguration unidentifiedDelivery;
 
+  @NotNull
+  @JsonProperty
+  private Map<String, Object> hystrix = new HashMap<>();
+
   public WebSocketConfiguration getWebSocketConfiguration() {
     return webSocket;
   }
@@ -225,4 +229,7 @@ public class WhisperServerConfiguration extends Configuration {
     return results;
   }
 
+  public Map<String, Object> getHystrixConfiguration() {
+    return hystrix;
+  }
 }

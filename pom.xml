@@ -14,6 +14,7 @@
     <properties>
         <dropwizard.version>1.3.7</dropwizard.version>
         <jackson.api.version>2.9.6</jackson.api.version>
+        <hystrix.version>1.5.12</hystrix.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -108,6 +109,17 @@
             <groupId>org.whispersystems</groupId>
             <artifactId>curve25519-java</artifactId>
             <version>0.5.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.netflix.hystrix</groupId>
+            <artifactId>hystrix-core</artifactId>
+            <version>${hystrix.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.netflix.hystrix</groupId>
+            <artifactId>hystrix-codahale-metrics-publisher</artifactId>
+            <version>${hystrix.version}</version>
         </dependency>
 
         <dependency>
