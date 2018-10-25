@@ -32,6 +32,10 @@ public class SqsConfiguration {
   @JsonProperty
   private String queueUrl;
 
+  @NotEmpty
+  @JsonProperty
+  private String region = "us-east-1";
+
   public String getAccessKey() {
     return accessKey;
   }
@@ -42,6 +46,10 @@ public class SqsConfiguration {
 
   public String getQueueUrl() {
     return queueUrl;
+  }
+
+  public String getRegion() {
+    return region;
   }
 }
 
