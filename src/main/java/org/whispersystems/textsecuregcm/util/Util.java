@@ -45,10 +45,14 @@ public class Util {
 
   public static boolean isValidNumber(String number) {
     return number.matches("^\\+[0-9]{10,}")  ||
-           number.matches("^\\+298[0-9]{6}") ||
-           number.matches("^\\+240[0-9]{6}") ||
-           number.matches("^\\+687[0-9]{6}") ||
-           number.matches("^\\+689[0-9]{6}");
+           number.matches("^\\+240[0-9]{6}") ||  // Equatorial Guinea
+           number.matches("^\\+298[0-9]{6}") ||  // Faroe Islands
+           number.matches("^\\+299[0-9]{6}") ||  // Greenland
+           number.matches("^\\+376[0-9]{6}") ||  // Andorra
+           number.matches("^\\+597[0-9]{6}") ||  // Suriname
+           number.matches("^\\+685[0-9]{5}") ||  // Samoa
+           number.matches("^\\+687[0-9]{6}") ||  // New Caledonia
+           number.matches("^\\+689[0-9]{6}");    // French Polynesia     
   }
 
   public static String encodeFormParams(Map<String, String> params) {
