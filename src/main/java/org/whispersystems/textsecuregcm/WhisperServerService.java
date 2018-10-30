@@ -192,6 +192,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                                                                                           config.getDirectoryConfiguration().getDirectoryServerConfiguration().getReconciliationChunkSize(),
                                                                                           config.getDirectoryConfiguration().getDirectoryServerConfiguration().getReconciliationChunkIntervalMs());
 
+    ActiveUserCache   activeUserCache    = new ActiveUserCache(cacheClient);
+    ActiveUserCounter activeUserCounter  = new ActiveUserCounter(activeUserCache, accounts);
+
     messagesCache.setPubSubManager(pubSubManager, pushSender);
 
     apnSender.setApnFallbackManager(apnFallbackManager);
@@ -200,6 +203,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(pushSender);
     environment.lifecycle().manage(messagesCache);
     environment.lifecycle().manage(directoryReconciler);
+    environment.lifecycle().manage(activeUserCounter);
 
     AttachmentController attachmentController = new AttachmentController(rateLimiters, federatedClientManager, urlSigner);
     KeysController       keysController       = new KeysController(rateLimiters, keys, accountsManager, federatedClientManager);

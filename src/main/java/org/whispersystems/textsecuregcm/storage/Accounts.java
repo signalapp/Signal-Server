@@ -84,6 +84,13 @@ public abstract class Accounts {
   @SqlQuery("SELECT * FROM accounts WHERE " + NUMBER + " > :from ORDER BY " + NUMBER + " LIMIT :limit")
   public abstract List<Account> getAllFrom(@Bind("from") String from, @Bind("limit") int length);
 
+  @Mapper(ActiveUserMapper.class)
+  @SqlQuery("SELECT (devices->>'lastSeen') as lastSeen, case when (devices->>'gcmId') is not null then 'a' when (devices->>'apnId') is not null then 'i' end as platform FROM accounts a, json_array_elements(a.data->'devices') devices WHERE devices->>'id' = '1' and ((devices->>'gcmId') is not null or (devices->>'apnId') is not null) ORDER BY id OFFSET :offset LIMIT :limit")
+  public abstract List<ActiveUser> getActiveUsers(@Bind("offset") long offset, @Bind("limit") int length);
+
+  @SqlQuery("SELECT COUNT(*) FROM accounts a")
+  public abstract int getRecordCount();
+
   @SqlQuery("SELECT COUNT(*) FROM accounts a, json_array_elements(a.data->'devices') devices WHERE devices->>'id' = '1' AND (devices->>'gcmId') is not null AND (devices->>'lastSeen')\\:\\:bigint >= :since")
   public abstract int getAndroidActiveSinceCount(@Bind("since") long since);
 
@@ -103,6 +110,27 @@ public abstract class Accounts {
 
   @SqlUpdate("VACUUM accounts")
   public abstract void vacuum();
+
+  public class ActiveUser {
+    private long lastActiveMs;
+    private String platform;
+
+    public ActiveUser() { }
+
+    public ActiveUser(long lastActiveMs, String platform) {
+      this.lastActiveMs = lastActiveMs;
+      this.platform = platform;
+    }
+
+    public long   getLastActiveMs() { return lastActiveMs; }
+    public String getPlatform()     { return platform;    }
+  }
+
+  public class ActiveUserMapper implements ResultSetMapper<ActiveUser> {
+    public ActiveUser map(int index, ResultSet resultSet, StatementContext statementContext) throws SQLException {
+      return new ActiveUser(resultSet.getLong("lastSeen"), resultSet.getString("platform"));
+    }
+  }
 
   public static class AccountMapper implements ResultSetMapper<Account> {
     @Override
