@@ -56,11 +56,10 @@ public class ActiveUserCounter implements Managed, Runnable {
   private final ActiveUserCache activeUserCache;
   private final String          workerId;
   private final SecureRandom    random;
-  
-  private int lastDate   = ActiveUserCache.DEFAULT_DATE;
-  private int lastCount  = ActiveUserCache.DEFAULT_COUNT;
-  private int lastOffset = ActiveUserCache.DEFAULT_OFFSET;
-    
+
+  private int            lastDate = ActiveUserCache.DEFAULT_DATE;
+  private Optional<Long> lastId;
+
   private boolean running;
   private boolean finished;
 
@@ -92,7 +91,6 @@ public class ActiveUserCounter implements Managed, Runnable {
     }
   }
 
-    
   @Override
   public void run() {
 
@@ -100,11 +98,10 @@ public class ActiveUserCounter implements Managed, Runnable {
       int today = getDateOfToday();
 
       if (today > lastDate) {
-        lastCount = ActiveUserCache.DEFAULT_COUNT;
-        lastOffset = ActiveUserCache.DEFAULT_OFFSET;
+        lastId = Optional.of(ActiveUserCache.INITIAL_ID);
       }
 
-      if (lastOffset < lastCount) {
+      if (lastId.isPresent()) {
         try {
           doPeriodicWork(today);
         } catch (Throwable t) {
@@ -124,32 +121,26 @@ public class ActiveUserCounter implements Managed, Runnable {
 
     if (activeUserCache.claimActiveWorker(workerId, WORKER_TTL_MS)) {
       try {
-        int offset = activeUserCache.getOffset();
-        int count = activeUserCache.getCount();
+        Optional<Long> id = activeUserCache.getId();
         int date = activeUserCache.getDate();
 
         if (today > date) {
           date = today;
-          offset = 0;
-          count = accounts.getRecordCount();
+          id = Optional.of(ActiveUserCache.INITIAL_ID);
           activeUserCache.setDate(date);
-          activeUserCache.setOffset(offset);
-          activeUserCache.setCount(count);
+          activeUserCache.setId(id);
           activeUserCache.resetTallies();
         }
-                    
-        if (offset < count) {
-          processChunk(date, offset, CHUNK_SIZE);
-          offset += CHUNK_SIZE;
-          activeUserCache.setOffset(offset);
+
+        if (id.isPresent()) {
+          id = processChunk(date, id.get(), CHUNK_SIZE);
+          activeUserCache.setId(id);
+          if (!id.isPresent())
+            activeUserCache.registerTallies();
         }
 
         lastDate = date;
-        lastCount = count;
-        lastOffset = offset;
-
-        if (lastOffset >= lastCount)
-          activeUserCache.registerTallies();
+        lastId = id;
 
       } finally {
         activeUserCache.releaseActiveWorker(workerId);
@@ -171,7 +162,8 @@ public class ActiveUserCounter implements Managed, Runnable {
     return (long) (JITTER_BASE_MS + random.nextDouble() * JITTER_VARIATION_MS);
   }
 
-  private void processChunk(int date, long offset, int count) {
+  private Optional<Long> processChunk(int date, long id, int count) {
+    Long lastId = null;
     long nowDays  = TimeUnit.MILLISECONDS.toDays(getDateMidnightMs(date));
     long agoMs[]  = {TimeUnit.DAYS.toMillis(nowDays - 1),
                      TimeUnit.DAYS.toMillis(nowDays - 7),
@@ -180,11 +172,17 @@ public class ActiveUserCounter implements Managed, Runnable {
                      TimeUnit.DAYS.toMillis(nowDays - 365)};
     long ios[]     = {0, 0, 0, 0, 0};
     long android[] = {0, 0, 0, 0, 0};
-        
-    List<Accounts.ActiveUser> chunkAccounts = readChunk(offset, count);
+
+    List<Accounts.ActiveUser> chunkAccounts = readChunk(id, count);
     for (Accounts.ActiveUser user : chunkAccounts) {
-      String platform = user.getPlatform();
+      lastId = user.getId();
       long lastActiveMs = user.getLastActiveMs();
+
+      int deviceId = user.getDeviceId();
+      if (deviceId != 1)
+        continue;
+
+      String platform = user.getPlatform();
       switch (platform) {
       case "i":
         for (int i = 0; i < agoMs.length; i++)
@@ -195,16 +193,17 @@ public class ActiveUserCounter implements Managed, Runnable {
           if (lastActiveMs > agoMs[i]) android[i]++;
         break;
       default:
-        throw new AssertionError("unexpected: " + platform);
+        break;
       }
     }
     activeUserCache.incrementTallies(ios, android);
+    return Optional.fromNullable(lastId);
   }
 
-  private List<Accounts.ActiveUser> readChunk(long offset, int count) {
+  private List<Accounts.ActiveUser> readChunk(long id, int count) {
     try (Timer.Context timer = readChunkTimer.time()) {
       Optional<List<Accounts.ActiveUser>> activeUsers;
-      activeUsers = Optional.fromNullable(accounts.getActiveUsers(offset, count));
+      activeUsers = Optional.fromNullable(accounts.getActiveUsersFrom(id, count));
       return activeUsers.or(Collections::emptyList);
     }
   }

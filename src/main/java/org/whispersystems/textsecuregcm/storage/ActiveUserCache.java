@@ -33,21 +33,22 @@ import java.util.List;
 
 public class ActiveUserCache {
 
-  public static final int DEFAULT_DATE   = 2000_01_01;
-  public static final int DEFAULT_COUNT  = 0;
-  public static final int DEFAULT_OFFSET = -1;
-    
+  public static final int  DEFAULT_DATE = 2000_01_01;
+  public static final long INITIAL_ID   = 0L;
+
   private static final MetricRegistry metrics = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-    
+
   private static final String PREFIX     = "active_user_";
   private static final String DATE_KEY   = PREFIX + "date";
   private static final String WORKER_KEY = PREFIX + "worker";
-  private static final String OFFSET_KEY = PREFIX + "offset";
-  private static final String COUNT_KEY  = PREFIX + "count";
+  private static final String ID_KEY     = PREFIX + "id";
 
-  private static final String PLATFORMS[] = {"ios", "android"};
+  private static final String PLATFORM_IOS     = "ios";
+  private static final String PLATFORM_ANDROID = "android";
+
+  private static final String PLATFORMS[] = {PLATFORM_IOS, PLATFORM_ANDROID};
   private static final String NAMES[]     = {"daily", "weekly", "monthly", "quarterly", "yearly"};
-      
+
   private final ReplicatedJedisPool                          jedisPool;
   private final DirectoryReconciliationCache.UnlockOperation unlockOperation;
 
@@ -66,13 +67,35 @@ public class ActiveUserCache {
     unlockOperation.unlock(WORKER_KEY, workerId);
   }
 
-  public int getDate()   { return getIntegerValue(DATE_KEY,   DEFAULT_DATE); }
-  public int getOffset() { return getIntegerValue(OFFSET_KEY, DEFAULT_OFFSET); }
-  public int getCount()  { return getIntegerValue(COUNT_KEY,  DEFAULT_COUNT);  }
+  public int getDate() {
+    try (Jedis jedis = jedisPool.getWriteResource()) {
+      String value = jedis.get(DATE_KEY);
+      return value == null ? DEFAULT_DATE : Integer.valueOf(value);
+    }
+  }
 
-  public void setDate(int date)     { setIntegerValue(DATE_KEY,   date); }
-  public void setOffset(int offset) { setIntegerValue(OFFSET_KEY, offset); }
-  public void setCount(int count)   { setIntegerValue(COUNT_KEY,  count);  }
+  public void setDate(Integer date) {
+    try (Jedis jedis = jedisPool.getWriteResource()) {
+      jedis.set(DATE_KEY, date.toString());
+    }
+  }
+
+  public Optional<Long> getId() {
+    try (Jedis jedis = jedisPool.getWriteResource()) {
+      String value = jedis.get(ID_KEY);
+      return Optional.fromNullable(value == null ? null : Long.valueOf(value));
+    }
+  }
+
+  public void setId(Optional<Long> id) {
+    try (Jedis jedis = jedisPool.getWriteResource()) {
+      if (id.isPresent()) {
+        jedis.set(ID_KEY, id.get().toString());
+      } else {
+        jedis.del(ID_KEY);
+      }
+    }
+  }
 
   public void resetTallies() {
     try (Jedis jedis = jedisPool.getWriteResource()) {
@@ -89,17 +112,18 @@ public class ActiveUserCache {
       for (String platform : PLATFORMS) {
         long platformTallies[];
         switch (platform) {
-        case "ios":
+        case PLATFORM_IOS:
           platformTallies = ios;
           break;
-        case "android":
+        case PLATFORM_ANDROID:
           platformTallies = android;
           break;
         default:
           throw new AssertionError("unknown platform" + platform);
         }
         for (int i = 0; i < NAMES.length; i++) {
-          jedis.incrBy(tallyKey(platform, NAMES[i]), platformTallies[i]);
+          if (platformTallies[i] > 0)
+            jedis.incrBy(tallyKey(platform, NAMES[i]), platformTallies[i]);
         }
       }
     }
@@ -133,26 +157,13 @@ public class ActiveUserCache {
   private String metricKey(String platform, String intervalName) {
     return MetricRegistry.name(ActiveUserCache.class, intervalName + "_active_" + platform);
   }
-        
+
   private String metricKey(String intervalName) {
     return MetricRegistry.name(ActiveUserCache.class, intervalName + "_active");
   }
-        
+
   private String tallyKey(String platform, String intervalName) {
     return PREFIX + platform + "_tally_" + intervalName;
-  }
-        
-  private int getIntegerValue(String key, int defaultValue) {
-    try (Jedis jedis = jedisPool.getWriteResource()) {
-      String value = jedis.get(key);
-      return value == null ? defaultValue : Integer.valueOf(value);
-    }
-  }
-
-  private void setIntegerValue(String key, Integer value) {
-    try (Jedis jedis = jedisPool.getWriteResource()) {
-      jedis.set(key, value.toString());
-    }
   }
 
 }

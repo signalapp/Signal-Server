@@ -85,8 +85,8 @@ public abstract class Accounts {
   public abstract List<Account> getAllFrom(@Bind("from") String from, @Bind("limit") int length);
 
   @Mapper(ActiveUserMapper.class)
-  @SqlQuery("SELECT (devices->>'lastSeen') as lastSeen, case when (devices->>'gcmId') is not null then 'a' when (devices->>'apnId') is not null then 'i' end as platform FROM accounts a, json_array_elements(a.data->'devices') devices WHERE devices->>'id' = '1' and ((devices->>'gcmId') is not null or (devices->>'apnId') is not null) ORDER BY id OFFSET :offset LIMIT :limit")
-  public abstract List<ActiveUser> getActiveUsers(@Bind("offset") long offset, @Bind("limit") int length);
+  @SqlQuery("SELECT " + ID + "as id, (devices->>'lastSeen') as lastSeen, (devices->>'id') as deviceId, case when (devices->>'gcmId') is not null then 'a' when (devices->>'apnId') is not null then 'i' else 'u' end as platform FROM accounts a, json_array_elements(a.data->'devices') devices WHERE " + ID + " > :from ORDER BY " + ID + " LIMIT :limit")
+  public abstract List<ActiveUser> getActiveUsersFrom(@Bind("from") long from, @Bind("limit") int length);
 
   @SqlQuery("SELECT COUNT(*) FROM accounts a")
   public abstract int getRecordCount();
@@ -112,23 +112,29 @@ public abstract class Accounts {
   public abstract void vacuum();
 
   public class ActiveUser {
+    private long id;
     private long lastActiveMs;
+    private int deviceId;
     private String platform;
 
     public ActiveUser() { }
 
-    public ActiveUser(long lastActiveMs, String platform) {
+    public ActiveUser(long id, long lastActiveMs, int deviceId, String platform) {
+      this.id = id;
       this.lastActiveMs = lastActiveMs;
+      this.deviceId = deviceId;
       this.platform = platform;
     }
 
+    public long   getId()           { return id; }
     public long   getLastActiveMs() { return lastActiveMs; }
-    public String getPlatform()     { return platform;    }
+    public int    getDeviceId()     { return deviceId;     }
+    public String getPlatform()     { return platform;     }
   }
 
   public class ActiveUserMapper implements ResultSetMapper<ActiveUser> {
     public ActiveUser map(int index, ResultSet resultSet, StatementContext statementContext) throws SQLException {
-      return new ActiveUser(resultSet.getLong("lastSeen"), resultSet.getString("platform"));
+      return new ActiveUser(resultSet.getLong("id"), resultSet.getLong("lastSeen"), resultSet.getInt("deviceId"), resultSet.getString("platform"));
     }
   }
 
