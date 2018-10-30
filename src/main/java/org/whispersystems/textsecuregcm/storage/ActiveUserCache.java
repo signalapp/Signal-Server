@@ -47,7 +47,7 @@ public class ActiveUserCache {
   private static final String PLATFORM_ANDROID = "android";
 
   private static final String PLATFORMS[] = {PLATFORM_IOS, PLATFORM_ANDROID};
-  private static final String NAMES[]     = {"daily", "weekly", "monthly", "quarterly", "yearly"};
+  private static final String INTERVALS[] = {"daily", "weekly", "monthly", "quarterly", "yearly"};
 
   private final ReplicatedJedisPool                          jedisPool;
   private final DirectoryReconciliationCache.UnlockOperation unlockOperation;
@@ -100,8 +100,8 @@ public class ActiveUserCache {
   public void resetTallies() {
     try (Jedis jedis = jedisPool.getWriteResource()) {
       for (String platform : PLATFORMS) {
-        for (String intervalName : NAMES) {
-          jedis.set(tallyKey(platform, intervalName), "0");
+        for (String interval : INTERVALS) {
+          jedis.set(tallyKey(platform, interval), "0");
         }
       }
     }
@@ -121,9 +121,9 @@ public class ActiveUserCache {
         default:
           throw new AssertionError("unknown platform" + platform);
         }
-        for (int i = 0; i < NAMES.length; i++) {
+        for (int i = 0; i < INTERVALS.length; i++) {
           if (platformTallies[i] > 0)
-            jedis.incrBy(tallyKey(platform, NAMES[i]), platformTallies[i]);
+            jedis.incrBy(tallyKey(platform, INTERVALS[i]), platformTallies[i]);
         }
       }
     }
@@ -131,11 +131,11 @@ public class ActiveUserCache {
 
   public void registerTallies() {
     try (Jedis jedis = jedisPool.getWriteResource()) {
-      for (String intervalName: NAMES) {
+      for (String interval: INTERVALS) {
         int total = 0;
         for (String platform : PLATFORMS) {
-          int tally = Integer.valueOf(jedis.get(tallyKey(platform, intervalName)));
-          metrics.register(metricKey(platform, intervalName),
+          int tally = Integer.valueOf(jedis.get(tallyKey(platform, interval)));
+          metrics.register(metricKey(platform, interval),
                            new Gauge<Integer>() {
                              @Override
                              public Integer getValue() { return tally; }
@@ -145,7 +145,7 @@ public class ActiveUserCache {
         }
 
         final int finalTotal = total;
-        metrics.register(metricKey(intervalName),
+        metrics.register(metricKey(interval),
                          new Gauge<Integer>() {
                            @Override
                            public Integer getValue() { return finalTotal; }
@@ -154,12 +154,12 @@ public class ActiveUserCache {
     }
   }
 
-  private String metricKey(String platform, String intervalName) {
-    return MetricRegistry.name(ActiveUserCache.class, intervalName + "_active_" + platform);
+  private String metricKey(String platform, String interval) {
+    return MetricRegistry.name(ActiveUserCache.class, interval + "_active_" + platform);
   }
 
-  private String metricKey(String intervalName) {
-    return MetricRegistry.name(ActiveUserCache.class, intervalName + "_active");
+  private String metricKey(String interval) {
+    return MetricRegistry.name(ActiveUserCache.class, interval + "_active");
   }
 
   private String tallyKey(String platform, String intervalName) {
