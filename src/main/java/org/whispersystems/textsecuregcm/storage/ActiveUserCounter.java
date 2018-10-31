@@ -46,7 +46,7 @@ public class ActiveUserCounter implements Managed, Runnable {
   private static final long WORKER_TTL_MS       = 3600_000L;
   private static final int  JITTER_BASE_MS      = 45_000;
   private static final int  JITTER_VARIATION_MS = 30_000;
-  private static final int  CHUNK_SIZE          = 10_000;
+  private static final int  CHUNK_SIZE          = 16_384;
 
   private static final Logger         logger         = LoggerFactory.getLogger(ActiveUserCounter.class);
   private static final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
