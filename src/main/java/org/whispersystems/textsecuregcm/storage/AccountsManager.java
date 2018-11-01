@@ -54,10 +54,6 @@ public class AccountsManager {
   private static final Timer          redisSetTimer       = metricRegistry.timer(name(AccountsManager.class, "redisSet"      ));
   private static final Timer          redisGetTimer       = metricRegistry.timer(name(AccountsManager.class, "redisGet"      ));
 
-  private static final Timer          databaseCreateTimer = metricRegistry.timer(name(AccountsManager.class, "databaseCreate"));
-  private static final Timer          databaseGetTimer    = metricRegistry.timer(name(AccountsManager.class, "databaseGet"   ));
-  private static final Timer          databaseUpdateTimer = metricRegistry.timer(name(AccountsManager.class, "databaseUpdate"));
-
   private final Logger logger = LoggerFactory.getLogger(AccountsManager.class);
 
   private final Accounts            accounts;
@@ -139,92 +135,86 @@ public class AccountsManager {
   }
 
   private void redisSet(String number, Account account, boolean optional) {
-    try (Timer.Context context = redisSetTimer.time()) {
-      new HystrixCommand<Boolean>(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GroupKeys.REDIS_CACHE))
-                                        .andCommandKey(HystrixCommandKey.Factory.asKey(AccountsManager.class.getSimpleName() + ".redisSet"))) {
-        @Override
-        protected Boolean run() {
-          try (Jedis jedis = cacheClient.getWriteResource()) {
-            jedis.set(getKey(number), mapper.writeValueAsString(account));
-          } catch (JsonProcessingException e) {
-            throw new HystrixBadRequestException("Json processing error", e);
-          }
-
-          return true;
+    new HystrixCommand<Boolean>(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GroupKeys.REDIS_CACHE))
+                                      .andCommandKey(HystrixCommandKey.Factory.asKey(AccountsManager.class.getSimpleName() + ".redisSet"))) {
+      @Override
+      protected Boolean run() {
+        try (Jedis         jedis = cacheClient.getWriteResource();
+             Timer.Context timer = redisSetTimer.time())
+        {
+          jedis.set(getKey(number), mapper.writeValueAsString(account));
+        } catch (JsonProcessingException e) {
+          throw new HystrixBadRequestException("Json processing error", e);
         }
 
-        @Override
-        protected Boolean getFallback() {
-          if (optional) return true;
-          else return super.getFallback();
-        }
-      }.execute();
-    }
+        return true;
+      }
+
+      @Override
+      protected Boolean getFallback() {
+        if (optional) return true;
+        else return super.getFallback();
+      }
+    }.execute();
   }
 
   private Optional<Account> redisGet(String number) {
-    try (Timer.Context context = redisGetTimer.time()) {
-      return new HystrixCommand<Optional<Account>>(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GroupKeys.REDIS_CACHE))
-                                                         .andCommandKey(HystrixCommandKey.Factory.asKey(AccountsManager.class.getSimpleName() + ".redisGet")))
-      {
-        @Override
-        protected Optional<Account> run() {
-          try (Jedis jedis = cacheClient.getReadResource()) {
-            String json = jedis.get(getKey(number));
-
-            if (json != null) return Optional.of(mapper.readValue(json, Account.class));
-            else              return Optional.empty();
-          } catch (IOException e) {
-            logger.warn("AccountsManager", "Deserialization error", e);
-            return Optional.empty();
-          }
-        }
-
-        @Override
-        protected Optional<Account> getFallback() {
+    return new HystrixCommand<Optional<Account>>(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GroupKeys.REDIS_CACHE))
+                                                       .andCommandKey(HystrixCommandKey.Factory.asKey(AccountsManager.class.getSimpleName() + ".redisGet")))
+    {
+      @Override
+      protected Optional<Account> run() {
+        try (Jedis         jedis = cacheClient.getReadResource();
+             Timer.Context timer = redisGetTimer.time())
+        {
+          String json = jedis.get(getKey(number));
+          
+          if (json != null) return Optional.of(mapper.readValue(json, Account.class));
+          else              return Optional.empty();
+        } catch (IOException e) {
+          logger.warn("AccountsManager", "Deserialization error", e);
           return Optional.empty();
         }
-      }.execute();
-    }
+      }
+
+      @Override
+      protected Optional<Account> getFallback() {
+          return Optional.empty();
+        }
+    }.execute();
   }
 
   private Optional<Account> databaseGet(String number) {
-    try (Timer.Context context = databaseGetTimer.time()) {
-      return new HystrixCommand<Optional<Account>>(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GroupKeys.DATABASE_ACCOUNTS))
-                                                         .andCommandKey(HystrixCommandKey.Factory.asKey(AccountsManager.class.getSimpleName() + ".databaseGet")))
-      {
-        @Override
-        protected Optional<Account> run() {
+    return new HystrixCommand<Optional<Account>>(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GroupKeys.DATABASE_ACCOUNTS))
+                                                       .andCommandKey(HystrixCommandKey.Factory.asKey(AccountsManager.class.getSimpleName() + ".databaseGet")))
+    {
+      @Override
+      protected Optional<Account> run() {
           return Optional.ofNullable(accounts.get(number));
         }
-      }.execute();
-    }
+    }.execute();
   }
 
   private boolean databaseCreate(Account account) {
-    try (Timer.Context context = databaseCreateTimer.time()) {
-      return new HystrixCommand<Boolean>(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GroupKeys.DATABASE_ACCOUNTS))
-                                               .andCommandKey(HystrixCommandKey.Factory.asKey(AccountsManager.class.getSimpleName() + ".databaseCreate")))
-      {
-        @Override
-        protected Boolean run() {
+    return new HystrixCommand<Boolean>(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GroupKeys.DATABASE_ACCOUNTS))
+                                             .andCommandKey(HystrixCommandKey.Factory.asKey(AccountsManager.class.getSimpleName() + ".databaseCreate")))
+    {
+      @Override
+      protected Boolean run() {
           return accounts.create(account);
         }
-      }.execute();
-    }
+    }.execute();
   }
 
   private void databaseUpdate(Account account) {
-    try (Timer.Context context = databaseUpdateTimer.time()) {
-      new HystrixCommand<Void>(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GroupKeys.DATABASE_ACCOUNTS))
-                                     .andCommandKey(HystrixCommandKey.Factory.asKey(AccountsManager.class.getSimpleName() + ".databaseUpdate")))
-      {
-        @Override
-        protected Void run() {
-          accounts.update(account);
-          return null;
-        }
-      }.execute();
-    }
+    new HystrixCommand<Void>(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GroupKeys.DATABASE_ACCOUNTS))
+                                   .andCommandKey(HystrixCommandKey.Factory.asKey(AccountsManager.class.getSimpleName() + ".databaseUpdate")))
+    {
+      @Override
+      protected Void run() {
+        accounts.update(account);
+        return null;
+      }
+    }.execute();
   }
 }
