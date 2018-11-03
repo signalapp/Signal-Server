@@ -136,7 +136,8 @@ public class AccountsManager {
 
   private void redisSet(String number, Account account, boolean optional) {
     new HystrixCommand<Boolean>(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GroupKeys.REDIS_CACHE))
-                                      .andCommandKey(HystrixCommandKey.Factory.asKey(AccountsManager.class.getSimpleName() + ".redisSet"))) {
+                                      .andCommandKey(HystrixCommandKey.Factory.asKey("accountsRedisSet")))
+    {
       @Override
       protected Boolean run() {
         try (Jedis         jedis = cacheClient.getWriteResource();
@@ -160,7 +161,7 @@ public class AccountsManager {
 
   private Optional<Account> redisGet(String number) {
     return new HystrixCommand<Optional<Account>>(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GroupKeys.REDIS_CACHE))
-                                                       .andCommandKey(HystrixCommandKey.Factory.asKey(AccountsManager.class.getSimpleName() + ".redisGet")))
+                                                       .andCommandKey(HystrixCommandKey.Factory.asKey("accountsRedisGet")))
     {
       @Override
       protected Optional<Account> run() {
@@ -168,7 +169,7 @@ public class AccountsManager {
              Timer.Context timer = redisGetTimer.time())
         {
           String json = jedis.get(getKey(number));
-          
+
           if (json != null) return Optional.of(mapper.readValue(json, Account.class));
           else              return Optional.empty();
         } catch (IOException e) {
@@ -186,7 +187,7 @@ public class AccountsManager {
 
   private Optional<Account> databaseGet(String number) {
     return new HystrixCommand<Optional<Account>>(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GroupKeys.DATABASE_ACCOUNTS))
-                                                       .andCommandKey(HystrixCommandKey.Factory.asKey(AccountsManager.class.getSimpleName() + ".databaseGet")))
+                                                       .andCommandKey(HystrixCommandKey.Factory.asKey("accountsDatabaseGet")))
     {
       @Override
       protected Optional<Account> run() {
@@ -197,7 +198,7 @@ public class AccountsManager {
 
   private boolean databaseCreate(Account account) {
     return new HystrixCommand<Boolean>(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GroupKeys.DATABASE_ACCOUNTS))
-                                             .andCommandKey(HystrixCommandKey.Factory.asKey(AccountsManager.class.getSimpleName() + ".databaseCreate")))
+                                             .andCommandKey(HystrixCommandKey.Factory.asKey("accountsDatabaseCreate")))
     {
       @Override
       protected Boolean run() {
@@ -208,7 +209,7 @@ public class AccountsManager {
 
   private void databaseUpdate(Account account) {
     new HystrixCommand<Void>(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GroupKeys.DATABASE_ACCOUNTS))
-                                   .andCommandKey(HystrixCommandKey.Factory.asKey(AccountsManager.class.getSimpleName() + ".databaseUpdate")))
+                                   .andCommandKey(HystrixCommandKey.Factory.asKey("accountsDatabaseUpdate")))
     {
       @Override
       protected Void run() {
