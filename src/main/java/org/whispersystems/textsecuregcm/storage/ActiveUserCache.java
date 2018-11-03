@@ -39,6 +39,7 @@ public class ActiveUserCache {
   public static final int  DEFAULT_DATE = 2000_01_01;
   public static final long INITIAL_ID   = 0L;
 
+  private static final Logger         logger  = LoggerFactory.getLogger(ActiveUserCache.class);
   private static final MetricRegistry metrics = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
 
   private static final String PREFIX     = "active_user_";
@@ -54,8 +55,6 @@ public class ActiveUserCache {
 
   private final ReplicatedJedisPool                          jedisPool;
   private final DirectoryReconciliationCache.UnlockOperation unlockOperation;
-
-  private static final Logger         logger         = LoggerFactory.getLogger(ActiveUserCache.class);
 
   public ActiveUserCache(ReplicatedJedisPool jedisPool) throws IOException {
     this.jedisPool       = jedisPool;
@@ -127,6 +126,7 @@ public class ActiveUserCache {
           throw new AssertionError("unknown platform" + platform);
         }
         for (int i = 0; i < INTERVALS.length; i++) {
+          logger.debug(tallyKey(platform, INTERVALS[i]) + " " + platformTallies[i]);
           if (platformTallies[i] > 0)
             jedis.incrBy(tallyKey(platform, INTERVALS[i]), platformTallies[i]);
         }
@@ -140,7 +140,7 @@ public class ActiveUserCache {
         int total = 0;
         for (String platform : PLATFORMS) {
           int tally = Integer.valueOf(jedis.get(tallyKey(platform, interval)));
-          logger.info(metricKey(platform, interval) + " " + tally);
+          logger.debug(metricKey(platform, interval) + " " + tally);
           metrics.register(metricKey(platform, interval),
                            new Gauge<Integer>() {
                              @Override
@@ -151,7 +151,7 @@ public class ActiveUserCache {
         }
 
         final int finalTotal = total;
-        logger.info(metricKey(interval) + " " + finalTotal);
+        logger.debug(metricKey(interval) + " " + finalTotal);
         metrics.register(metricKey(interval),
                          new Gauge<Integer>() {
                            @Override

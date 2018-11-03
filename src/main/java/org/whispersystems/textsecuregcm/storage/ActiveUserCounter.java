@@ -163,6 +163,7 @@ public class ActiveUserCounter implements Managed, Runnable {
   }
 
   private Optional<Long> processChunk(int date, long id, int count) {
+    logger.debug("processChunk date=" + date + " id=" + id + " count=" + count);
     Long lastId = null;
     long nowDays  = TimeUnit.MILLISECONDS.toDays(getDateMidnightMs(date));
     long agoMs[]  = {TimeUnit.DAYS.toMillis(nowDays - 1),
