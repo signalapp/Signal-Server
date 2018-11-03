@@ -46,6 +46,10 @@ import java.util.List;
 
 public abstract class Accounts {
 
+  public static final int PLATFORM_ANDROID = 0;
+  public static final int PLATFORM_IOS     = 1;
+  public static final int PLATFORM_UNKNOWN = 2;
+
   private static final String ID     = "id";
   private static final String NUMBER = "number";
   private static final String DATA   = "data";
@@ -85,7 +89,7 @@ public abstract class Accounts {
   public abstract List<Account> getAllFrom(@Bind("from") String from, @Bind("limit") int length);
 
   @Mapper(ActiveUserMapper.class)
-  @SqlQuery("SELECT " + ID + "as id, (devices->>'lastSeen') as lastSeen, (devices->>'id') as deviceId, case when (devices->>'gcmId') is not null then 'a' when (devices->>'apnId') is not null then 'i' else 'u' end as platform FROM accounts a, json_array_elements(a.data->'devices') devices WHERE " + ID + " > :from ORDER BY " + ID + " LIMIT :limit")
+  @SqlQuery("SELECT " + ID + " as id, (devices->>'lastSeen') as lastSeen, (devices->>'id') as deviceId, case when (devices->>'gcmId') is not null then " + PLATFORM_ANDROID + " when (devices->>'apnId') is not null then " + PLATFORM_IOS + " else " + PLATFORM_UNKNOWN + " end as platform FROM accounts a, json_array_elements(a.data->'devices') devices WHERE " + ID + " > :from ORDER BY " + ID + " LIMIT :limit")
   public abstract List<ActiveUser> getActiveUsersFrom(@Bind("from") long from, @Bind("limit") int length);
 
   @SqlQuery("SELECT COUNT(*) FROM accounts a")
@@ -111,30 +115,10 @@ public abstract class Accounts {
   @SqlUpdate("VACUUM accounts")
   public abstract void vacuum();
 
-  public class ActiveUser {
-    private long id;
-    private long lastActiveMs;
-    private int deviceId;
-    private String platform;
-
-    public ActiveUser() { }
-
-    public ActiveUser(long id, long lastActiveMs, int deviceId, String platform) {
-      this.id = id;
-      this.lastActiveMs = lastActiveMs;
-      this.deviceId = deviceId;
-      this.platform = platform;
-    }
-
-    public long   getId()           { return id; }
-    public long   getLastActiveMs() { return lastActiveMs; }
-    public int    getDeviceId()     { return deviceId;     }
-    public String getPlatform()     { return platform;     }
-  }
-
-  public class ActiveUserMapper implements ResultSetMapper<ActiveUser> {
+  public static class ActiveUserMapper implements ResultSetMapper<ActiveUser> {
+    @Override
     public ActiveUser map(int index, ResultSet resultSet, StatementContext statementContext) throws SQLException {
-      return new ActiveUser(resultSet.getLong("id"), resultSet.getLong("lastSeen"), resultSet.getInt("deviceId"), resultSet.getString("platform"));
+      return new ActiveUser(resultSet.getLong("id"), resultSet.getLong("lastSeen"), resultSet.getInt("deviceId"), resultSet.getInt("platform"));
     }
   }
 

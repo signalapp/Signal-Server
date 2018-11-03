@@ -44,8 +44,8 @@ import static com.codahale.metrics.MetricRegistry.name;
 public class ActiveUserCounter implements Managed, Runnable {
 
   private static final long WORKER_TTL_MS       = 3600_000L;
-  private static final int  JITTER_BASE_MS      = 45_000;
-  private static final int  JITTER_VARIATION_MS = 30_000;
+  private static final int  JITTER_BASE_MS      = 10_000;
+  private static final int  JITTER_VARIATION_MS = 10_000;
   private static final int  CHUNK_SIZE          = 16_384;
 
   private static final Logger         logger         = LoggerFactory.getLogger(ActiveUserCounter.class);
@@ -173,8 +173,8 @@ public class ActiveUserCounter implements Managed, Runnable {
     long ios[]     = {0, 0, 0, 0, 0};
     long android[] = {0, 0, 0, 0, 0};
 
-    List<Accounts.ActiveUser> chunkAccounts = readChunk(id, count);
-    for (Accounts.ActiveUser user : chunkAccounts) {
+    List<ActiveUser> chunkAccounts = readChunk(id, count);
+    for (ActiveUser user : chunkAccounts) {
       lastId = user.getId();
       long lastActiveMs = user.getLastActiveMs();
 
@@ -182,13 +182,13 @@ public class ActiveUserCounter implements Managed, Runnable {
       if (deviceId != 1)
         continue;
 
-      String platform = user.getPlatform();
+      int platform = user.getPlatform();
       switch (platform) {
-      case "i":
+      case Accounts.PLATFORM_IOS:
         for (int i = 0; i < agoMs.length; i++)
           if (lastActiveMs > agoMs[i]) ios[i]++;
         break;
-      case "a":
+      case Accounts.PLATFORM_ANDROID:
         for (int i = 0; i < agoMs.length; i++)
           if (lastActiveMs > agoMs[i]) android[i]++;
         break;
@@ -200,9 +200,9 @@ public class ActiveUserCounter implements Managed, Runnable {
     return Optional.fromNullable(lastId);
   }
 
-  private List<Accounts.ActiveUser> readChunk(long id, int count) {
+  private List<ActiveUser> readChunk(long id, int count) {
     try (Timer.Context timer = readChunkTimer.time()) {
-      Optional<List<Accounts.ActiveUser>> activeUsers;
+      Optional<List<ActiveUser>> activeUsers;
       activeUsers = Optional.fromNullable(accounts.getActiveUsersFrom(id, count));
       return activeUsers.or(Collections::emptyList);
     }
