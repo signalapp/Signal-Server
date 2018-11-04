@@ -107,6 +107,8 @@ public class ActiveUserCounter implements Managed, Runnable {
         } catch (Throwable t) {
           logger.warn("error in active user count: ", t);
         }
+      } else {
+        logger.debug("run: no work available");
       }
     }
 
@@ -130,13 +132,16 @@ public class ActiveUserCounter implements Managed, Runnable {
           activeUserCache.setDate(date);
           activeUserCache.setId(id);
           activeUserCache.resetTallies();
+          logger.info(date + " started");
         }
 
         if (id.isPresent()) {
           id = processChunk(date, id.get(), CHUNK_SIZE);
           activeUserCache.setId(id);
-          if (!id.isPresent())
+          if (!id.isPresent()) {
             activeUserCache.registerTallies();
+            logger.info(date + " completed");
+          }
         }
 
         lastDate = date;
