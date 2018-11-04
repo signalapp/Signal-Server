@@ -89,7 +89,7 @@ public abstract class Accounts {
   public abstract List<Account> getAllFrom(@Bind("from") String from, @Bind("limit") int length);
 
   @Mapper(ActiveUserMapper.class)
-  @SqlQuery("SELECT " + ID + " as id, (devices->>'lastSeen') as lastSeen, (devices->>'id') as deviceId, case when (devices->>'gcmId') is not null then " + PLATFORM_ID_ANDROID + " when (devices->>'apnId') is not null then " + PLATFORM_ID_IOS + " else " + PLATFORM_ID_UNKNOWN + " end as platform FROM accounts a, json_array_elements(a.data->'devices') devices WHERE " + ID + " > :from ORDER BY " + ID + " LIMIT :limit")
+  @SqlQuery("SELECT " + ID + " as id, (devices->>'lastSeen') as lastSeen, (devices->>'id') as deviceId, case when (devices->>'gcmId') is not null then " + PLATFORM_ID_ANDROID + " when (devices->>'apnId') is not null then " + PLATFORM_ID_IOS + " else " + PLATFORM_ID_UNKNOWN + " end as platformId FROM accounts a, json_array_elements(a.data->'devices') devices WHERE " + ID + " > :from ORDER BY " + ID + " LIMIT :limit")
   public abstract List<ActiveUser> getActiveUsersFrom(@Bind("from") long from, @Bind("limit") int length);
 
   @SqlQuery("SELECT COUNT(*) FROM accounts a, json_array_elements(a.data->'devices') devices WHERE devices->>'id' = '1' AND (devices->>'gcmId') is not null AND (devices->>'lastSeen')\\:\\:bigint >= :since")
@@ -115,7 +115,7 @@ public abstract class Accounts {
   public static class ActiveUserMapper implements ResultSetMapper<ActiveUser> {
     @Override
     public ActiveUser map(int index, ResultSet resultSet, StatementContext statementContext) throws SQLException {
-      return new ActiveUser(resultSet.getLong("id"), resultSet.getLong("lastSeen"), resultSet.getInt("deviceId"), resultSet.getInt("platform"));
+      return new ActiveUser(resultSet.getLong("id"), resultSet.getLong("lastSeen"), resultSet.getInt("deviceId"), resultSet.getInt("platformId"));
     }
   }
 
