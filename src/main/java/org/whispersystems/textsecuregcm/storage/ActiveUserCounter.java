@@ -129,8 +129,8 @@ public class ActiveUserCounter implements Managed, Runnable {
         if (today > date) {
           date = today;
           id = Optional.of(ActiveUserCache.INITIAL_ID);
-          activeUserCache.setDate(date);
           activeUserCache.setId(id);
+          activeUserCache.setDate(date);
           activeUserCache.resetTallies();
           logger.info(date + " started");
         }
