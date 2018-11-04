@@ -46,9 +46,9 @@ import java.util.List;
 
 public abstract class Accounts {
 
-  public static final int PLATFORM_ANDROID = 0;
-  public static final int PLATFORM_IOS     = 1;
-  public static final int PLATFORM_UNKNOWN = 2;
+  public static final int PLATFORM_ID_ANDROID = 0;
+  public static final int PLATFORM_ID_IOS     = 1;
+  public static final int PLATFORM_ID_UNKNOWN = 2;
 
   private static final String ID     = "id";
   private static final String NUMBER = "number";
@@ -89,7 +89,7 @@ public abstract class Accounts {
   public abstract List<Account> getAllFrom(@Bind("from") String from, @Bind("limit") int length);
 
   @Mapper(ActiveUserMapper.class)
-  @SqlQuery("SELECT " + ID + " as id, (devices->>'lastSeen') as lastSeen, (devices->>'id') as deviceId, case when (devices->>'gcmId') is not null then " + PLATFORM_ANDROID + " when (devices->>'apnId') is not null then " + PLATFORM_IOS + " else " + PLATFORM_UNKNOWN + " end as platform FROM accounts a, json_array_elements(a.data->'devices') devices WHERE " + ID + " > :from ORDER BY " + ID + " LIMIT :limit")
+  @SqlQuery("SELECT " + ID + " as id, (devices->>'lastSeen') as lastSeen, (devices->>'id') as deviceId, case when (devices->>'gcmId') is not null then " + PLATFORM_ID_ANDROID + " when (devices->>'apnId') is not null then " + PLATFORM_ID_IOS + " else " + PLATFORM_ID_UNKNOWN + " end as platform FROM accounts a, json_array_elements(a.data->'devices') devices WHERE " + ID + " > :from ORDER BY " + ID + " LIMIT :limit")
   public abstract List<ActiveUser> getActiveUsersFrom(@Bind("from") long from, @Bind("limit") int length);
 
   @SqlQuery("SELECT COUNT(*) FROM accounts a, json_array_elements(a.data->'devices') devices WHERE devices->>'id' = '1' AND (devices->>'gcmId') is not null AND (devices->>'lastSeen')\\:\\:bigint >= :since")

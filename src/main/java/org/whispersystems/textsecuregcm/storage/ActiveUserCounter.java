@@ -183,13 +183,13 @@ public class ActiveUserCounter implements Managed, Runnable {
       if (deviceId != 1)
         continue;
 
-      int platform = user.getPlatform();
+      int platform = user.getPlatformId();
       switch (platform) {
-      case Accounts.PLATFORM_IOS:
+      case Accounts.PLATFORM_ID_IOS:
         for (int i = 0; i < agoMs.length; i++)
           if (lastActiveMs > agoMs[i]) ios[i]++;
         break;
-      case Accounts.PLATFORM_ANDROID:
+      case Accounts.PLATFORM_ID_ANDROID:
         for (int i = 0; i < agoMs.length; i++)
           if (lastActiveMs > agoMs[i]) android[i]++;
         break;

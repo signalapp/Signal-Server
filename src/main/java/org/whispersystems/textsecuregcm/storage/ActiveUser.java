@@ -20,20 +20,20 @@ public class ActiveUser {
     private long id;
     private long lastActiveMs;
     private int deviceId;
-    private int platform;
+    private int platformId;
 
     public ActiveUser() { }
 
-    public ActiveUser(long id, long lastActiveMs, int deviceId, int platform) {
+    public ActiveUser(long id, long lastActiveMs, int deviceId, int platformId) {
       this.id           = id;
       this.lastActiveMs = lastActiveMs;
       this.deviceId     = deviceId;
-      this.platform     = platform;
+      this.platformId   = platformId;
     }
 
     public long getId()           { return id; }
     public long getLastActiveMs() { return lastActiveMs; }
     public int  getDeviceId()     { return deviceId;     }
-    public int  getPlatform()     { return platform;     }
+    public int  getPlatformId()   { return platformId;     }
   }
 
