@@ -140,7 +140,7 @@ public class ActiveUserCache {
         int total = 0;
         for (String platform : PLATFORMS) {
           int tally = Integer.valueOf(jedis.get(tallyKey(platform, interval)));
-          logger.debug(metricKey(platform, interval) + " " + tally);
+          logger.info(metricKey(platform, interval) + " " + tally);
           metrics.register(metricKey(platform, interval),
                            new Gauge<Integer>() {
                              @Override
@@ -151,7 +151,7 @@ public class ActiveUserCache {
         }
 
         final int finalTotal = total;
-        logger.debug(metricKey(interval) + " " + finalTotal);
+        logger.info(metricKey(interval) + " " + finalTotal);
         metrics.register(metricKey(interval),
                          new Gauge<Integer>() {
                            @Override
