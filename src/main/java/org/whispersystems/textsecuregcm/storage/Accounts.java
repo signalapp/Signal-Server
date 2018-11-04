@@ -92,9 +92,6 @@ public abstract class Accounts {
   @SqlQuery("SELECT " + ID + " as id, (devices->>'lastSeen') as lastSeen, (devices->>'id') as deviceId, case when (devices->>'gcmId') is not null then " + PLATFORM_ANDROID + " when (devices->>'apnId') is not null then " + PLATFORM_IOS + " else " + PLATFORM_UNKNOWN + " end as platform FROM accounts a, json_array_elements(a.data->'devices') devices WHERE " + ID + " > :from ORDER BY " + ID + " LIMIT :limit")
   public abstract List<ActiveUser> getActiveUsersFrom(@Bind("from") long from, @Bind("limit") int length);
 
-  @SqlQuery("SELECT COUNT(*) FROM accounts a")
-  public abstract int getRecordCount();
-
   @SqlQuery("SELECT COUNT(*) FROM accounts a, json_array_elements(a.data->'devices') devices WHERE devices->>'id' = '1' AND (devices->>'gcmId') is not null AND (devices->>'lastSeen')\\:\\:bigint >= :since")
   public abstract int getAndroidActiveSinceCount(@Bind("since") long since);
 
