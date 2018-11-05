@@ -18,8 +18,11 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.ScheduledReporter;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.base.Optional;
+import io.dropwizard.metrics.ReporterFactory;
+import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.redis.LuaScript;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.storage.DirectoryReconciliationCache;
@@ -53,10 +56,12 @@ public class ActiveUserCache {
   private static final String PLATFORMS[] = {PLATFORM_IOS, PLATFORM_ANDROID};
   private static final String INTERVALS[] = {"daily", "weekly", "monthly", "quarterly", "yearly"};
 
+  private final WhisperServerConfiguration                   configuration;
   private final ReplicatedJedisPool                          jedisPool;
   private final DirectoryReconciliationCache.UnlockOperation unlockOperation;
 
-  public ActiveUserCache(ReplicatedJedisPool jedisPool) throws IOException {
+  public ActiveUserCache(WhisperServerConfiguration configuration, ReplicatedJedisPool jedisPool) throws IOException {
+    this.configuration   = configuration;
     this.jedisPool       = jedisPool;
     this.unlockOperation = new DirectoryReconciliationCache.UnlockOperation(jedisPool);
   }
@@ -158,6 +163,13 @@ public class ActiveUserCache {
                            public Integer getValue() { return finalTotal; }
                          });
       }
+    }
+
+    for (ReporterFactory reporterFactory : configuration.getMetricsFactory().getReporters()) {
+      ScheduledReporter reporter = reporterFactory.build(metrics);
+      logger.info("Reporting via: " + reporter);
+      reporter.report();
+      logger.info("Reporting finished...");
     }
   }
 

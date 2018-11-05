@@ -192,7 +192,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                                                                                           config.getDirectoryConfiguration().getDirectoryServerConfiguration().getReconciliationChunkSize(),
                                                                                           config.getDirectoryConfiguration().getDirectoryServerConfiguration().getReconciliationChunkIntervalMs());
 
-    ActiveUserCache   activeUserCache    = new ActiveUserCache(cacheClient);
+    ActiveUserCache   activeUserCache    = new ActiveUserCache(config, cacheClient);
     ActiveUserCounter activeUserCounter  = new ActiveUserCounter(activeUserCache, accounts);
 
     messagesCache.setPubSubManager(pubSubManager, pushSender);
