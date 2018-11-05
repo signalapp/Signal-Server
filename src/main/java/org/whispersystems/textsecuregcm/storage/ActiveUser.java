@@ -17,23 +17,23 @@
 package org.whispersystems.textsecuregcm.storage;
 
 public class ActiveUser {
-    private long id;
-    private long lastActiveMs;
-    private int deviceId;
-    private int platformId;
+  private long id;
+  private long lastActiveMs;
+  private int deviceId;
+  private int platformId;
 
-    public ActiveUser() { }
+  public ActiveUser() { }
 
-    public ActiveUser(long id, long lastActiveMs, int deviceId, int platformId) {
-      this.id           = id;
-      this.lastActiveMs = lastActiveMs;
-      this.deviceId     = deviceId;
-      this.platformId   = platformId;
-    }
-
-    public long getId()           { return id; }
-    public long getLastActiveMs() { return lastActiveMs; }
-    public int  getDeviceId()     { return deviceId;     }
-    public int  getPlatformId()   { return platformId;     }
+  public ActiveUser(long id, long lastActiveMs, int deviceId, int platformId) {
+    this.id           = id;
+    this.lastActiveMs = lastActiveMs;
+    this.deviceId     = deviceId;
+    this.platformId   = platformId;
   }
+
+  public long getId()           { return id; }
+  public long getLastActiveMs() { return lastActiveMs; }
+  public int  getDeviceId()     { return deviceId;     }
+  public int  getPlatformId()   { return platformId;     }
+}
 
