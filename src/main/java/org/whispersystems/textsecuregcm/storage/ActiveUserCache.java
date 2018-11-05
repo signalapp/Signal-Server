@@ -16,13 +16,9 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
-import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.ScheduledReporter;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.base.Optional;
-import io.dropwizard.metrics.ReporterFactory;
-import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.redis.LuaScript;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.storage.DirectoryReconciliationCache;
@@ -42,26 +38,15 @@ public class ActiveUserCache {
   public static final int  DEFAULT_DATE = 2000_01_01;
   public static final long INITIAL_ID   = 0L;
 
-  private static final Logger         logger  = LoggerFactory.getLogger(ActiveUserCache.class);
-  private static final MetricRegistry metrics = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-
   private static final String PREFIX     = "active_user_";
   private static final String DATE_KEY   = PREFIX + "date";
   private static final String WORKER_KEY = PREFIX + "worker";
   private static final String ID_KEY     = PREFIX + "id";
 
-  private static final String PLATFORM_IOS     = "ios";
-  private static final String PLATFORM_ANDROID = "android";
-
-  private static final String PLATFORMS[] = {PLATFORM_IOS, PLATFORM_ANDROID};
-  private static final String INTERVALS[] = {"daily", "weekly", "monthly", "quarterly", "yearly"};
-
-  private final WhisperServerConfiguration                   configuration;
   private final ReplicatedJedisPool                          jedisPool;
   private final DirectoryReconciliationCache.UnlockOperation unlockOperation;
 
-  public ActiveUserCache(WhisperServerConfiguration configuration, ReplicatedJedisPool jedisPool) throws IOException {
-    this.configuration   = configuration;
+  public ActiveUserCache(ReplicatedJedisPool jedisPool) throws IOException {
     this.jedisPool       = jedisPool;
     this.unlockOperation = new DirectoryReconciliationCache.UnlockOperation(jedisPool);
   }
@@ -106,79 +91,34 @@ public class ActiveUserCache {
     }
   }
 
-  public void resetTallies() {
+  public void resetTallies(String platforms[], String intervals[]) {
     try (Jedis jedis = jedisPool.getWriteResource()) {
-      for (String platform : PLATFORMS) {
-        for (String interval : INTERVALS) {
+      for (String platform : platforms) {
+        for (String interval : intervals) {
           jedis.set(tallyKey(platform, interval), "0");
         }
       }
     }
   }
 
-  public void incrementTallies(long ios[], long android[]) {
+  public void incrementTallies(String platform, String intervals[], long tallies[]) {
     try (Jedis jedis = jedisPool.getWriteResource()) {
-      for (String platform : PLATFORMS) {
-        long platformTallies[];
-        switch (platform) {
-        case PLATFORM_IOS:
-          platformTallies = ios;
-          break;
-        case PLATFORM_ANDROID:
-          platformTallies = android;
-          break;
-        default:
-          throw new AssertionError("unknown platform" + platform);
-        }
-        for (int i = 0; i < INTERVALS.length; i++) {
-          logger.debug(tallyKey(platform, INTERVALS[i]) + " " + platformTallies[i]);
-          if (platformTallies[i] > 0)
-            jedis.incrBy(tallyKey(platform, INTERVALS[i]), platformTallies[i]);
+      for (int i = 0; i < intervals.length; i++) {
+        if (tallies[i] > 0) {
+          jedis.incrBy(tallyKey(platform, intervals[i]), tallies[i]);
         }
       }
     }
   }
 
-  public void registerTallies() {
+  public long[] getFinalTallies(String platform, String intervals[]) {
     try (Jedis jedis = jedisPool.getWriteResource()) {
-      for (String interval: INTERVALS) {
-        int total = 0;
-        for (String platform : PLATFORMS) {
-          int tally = Integer.valueOf(jedis.get(tallyKey(platform, interval)));
-          logger.info(metricKey(platform, interval) + " " + tally);
-          metrics.register(metricKey(platform, interval),
-                           new Gauge<Integer>() {
-                             @Override
-                             public Integer getValue() { return tally; }
-                           });
-          total += tally;
-
-        }
-
-        final int finalTotal = total;
-        logger.info(metricKey(interval) + " " + finalTotal);
-        metrics.register(metricKey(interval),
-                         new Gauge<Integer>() {
-                           @Override
-                           public Integer getValue() { return finalTotal; }
-                         });
+      long tallies[] = new long[intervals.length];
+      for (int i = 0; i < intervals.length; i++) {
+        tallies[i] = Long.valueOf(jedis.get(tallyKey(platform, intervals[i])));
       }
+      return tallies;
     }
-
-    for (ReporterFactory reporterFactory : configuration.getMetricsFactory().getReporters()) {
-      ScheduledReporter reporter = reporterFactory.build(metrics);
-      logger.info("Reporting via: " + reporter);
-      reporter.report();
-      logger.info("Reporting finished...");
-    }
-  }
-
-  private String metricKey(String platform, String interval) {
-    return MetricRegistry.name(ActiveUserCache.class, interval + "_active_" + platform);
-  }
-
-  private String metricKey(String interval) {
-    return MetricRegistry.name(ActiveUserCache.class, interval + "_active");
   }
 
   private String tallyKey(String platform, String intervalName) {

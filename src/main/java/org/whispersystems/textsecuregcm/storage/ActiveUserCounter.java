@@ -16,14 +16,18 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
+import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.ScheduledReporter;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import io.dropwizard.lifecycle.Managed;
+import io.dropwizard.metrics.ReporterFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -52,10 +56,18 @@ public class ActiveUserCounter implements Managed, Runnable {
   private static final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private static final Timer          readChunkTimer = metricRegistry.timer(name(ActiveUserCounter.class, "readChunk"));
 
-  private final Accounts        accounts;
-  private final ActiveUserCache activeUserCache;
-  private final String          workerId;
-  private final SecureRandom    random;
+  private static final String PLATFORM_IOS     = "ios";
+  private static final String PLATFORM_ANDROID = "android";
+
+  private static final String PLATFORMS[] = {PLATFORM_IOS, PLATFORM_ANDROID};
+  private static final String INTERVALS[] = {"daily", "weekly", "monthly", "quarterly", "yearly"};
+
+
+  private final WhisperServerConfiguration configuration;
+  private final Accounts                   accounts;
+  private final ActiveUserCache            activeUserCache;
+  private final String                     workerId;
+  private final SecureRandom               random;
 
   private int            lastDate = ActiveUserCache.DEFAULT_DATE;
   private Optional<Long> lastId;
@@ -63,7 +75,8 @@ public class ActiveUserCounter implements Managed, Runnable {
   private boolean running;
   private boolean finished;
 
-  public ActiveUserCounter(ActiveUserCache activeUserCache, Accounts accounts) {
+  public ActiveUserCounter(WhisperServerConfiguration configuration, Accounts accounts, ActiveUserCache activeUserCache) {
+    this.configuration   = configuration;
     this.accounts        = accounts;
     this.activeUserCache = activeUserCache;
     this.random          = new SecureRandom();
@@ -131,7 +144,7 @@ public class ActiveUserCounter implements Managed, Runnable {
           id = Optional.of(ActiveUserCache.INITIAL_ID);
           activeUserCache.setId(id);
           activeUserCache.setDate(date);
-          activeUserCache.resetTallies();
+          activeUserCache.resetTallies(PLATFORMS, INTERVALS);
           logger.info(date + " started");
         }
 
@@ -139,7 +152,7 @@ public class ActiveUserCounter implements Managed, Runnable {
           id = processChunk(date, id.get(), CHUNK_SIZE);
           activeUserCache.setId(id);
           if (!id.isPresent()) {
-            activeUserCache.registerTallies();
+            registerMetrics();
             logger.info(date + " completed");
           }
         }
@@ -151,6 +164,48 @@ public class ActiveUserCounter implements Managed, Runnable {
         activeUserCache.releaseActiveWorker(workerId);
       }
     }
+  }
+
+  private void registerMetrics() {
+    long intervalTallies[] = new long[INTERVALS.length];
+    for (String platform : PLATFORMS) {
+      long platformTallies[] = activeUserCache.getFinalTallies(platform, INTERVALS);
+      for (int i = 0; i < INTERVALS.length; i++) {
+        final long tally = platformTallies[i];
+        logger.info(metricKey(platform, INTERVALS[i]) + " " + tally);
+        metricRegistry.register(metricKey(platform, INTERVALS[i]),
+                                new Gauge<Long>() {
+                                  @Override
+                                  public Long getValue() { return tally; }
+                                });
+        intervalTallies[i] += tally;
+      }
+    }
+
+    for (int i = 0; i < INTERVALS.length; i++) {
+      final long intervalTotal = intervalTallies[i];
+      logger.info(metricKey(INTERVALS[i]) + " " + intervalTallies);
+      metricRegistry.register(metricKey(INTERVALS[i]),
+                              new Gauge<Long>() {
+                                @Override
+                                public Long getValue() { return intervalTotal; }
+                              });
+    }
+
+    for (ReporterFactory reporterFactory : configuration.getMetricsFactory().getReporters()) {
+      ScheduledReporter reporter = reporterFactory.build(metricRegistry);
+      logger.info("Reporting via: " + reporter);
+      reporter.report();
+      logger.info("Reporting finished...");
+    }
+  }
+
+  private String metricKey(String platform, String interval) {
+    return MetricRegistry.name(ActiveUserCounter.class, interval + "_active_" + platform);
+  }
+
+  private String metricKey(String interval) {
+    return MetricRegistry.name(ActiveUserCounter.class, interval + "_active");
   }
 
   private int getDateOfToday() {
@@ -202,7 +257,8 @@ public class ActiveUserCounter implements Managed, Runnable {
         break;
       }
     }
-    activeUserCache.incrementTallies(ios, android);
+    activeUserCache.incrementTallies(PLATFORM_IOS, INTERVALS, ios);
+    activeUserCache.incrementTallies(PLATFORM_ANDROID, INTERVALS, android);
     return Optional.fromNullable(lastId);
   }
 
