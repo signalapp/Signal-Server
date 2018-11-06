@@ -21,8 +21,11 @@ import com.google.common.base.Optional;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
+import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Accounts;
+import org.whispersystems.textsecuregcm.storage.ActiveUserCache;
+import org.whispersystems.textsecuregcm.storage.ActiveUserCounter;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.util.Arrays;
@@ -43,12 +46,25 @@ public class ActiveUserCounterTest {
   private final Account  account  = mock(Account.class);
   private final Accounts accounts = mock(Accounts.class);
 
+  private final WhisperServerConfiguration configuration = new WhisperServerConfiguration(); //mock(WhisperServerConfiguration.class);
+  private final ActiveUserCache activeUserCache = mock(ActiveUserCache.class);
+  private final ActiveUserCounter activeUserCounter = new ActiveUserCounter(configuration, accounts, activeUserCache);
+
+  private long[] EMPTY_TALLIES = {0L,0L,0L,0L,0L};
+
   @Before
   public void setup() {
+    when(accounts.getActiveUsersFrom(anyLong(), anyInt())).thenReturn(Collections.emptyList());
+    when(activeUserCache.getId()).thenReturn(Optional.of(0L));
+    when(activeUserCache.getDate()).thenReturn(20181101);
+    when(activeUserCache.claimActiveWorker(any(), anyLong())).thenReturn(true);
+    when(activeUserCache.getFinalTallies(any(), any())).thenReturn(EMPTY_TALLIES);
   }
 
   @Test
   public void testValid() {
+    int today = activeUserCounter.getDateOfToday();
+    activeUserCounter.doPeriodicWork(today);
   }
 
   @Test

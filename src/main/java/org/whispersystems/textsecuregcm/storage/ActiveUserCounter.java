@@ -208,7 +208,8 @@ public class ActiveUserCounter implements Managed, Runnable {
     return MetricRegistry.name(ActiveUserCounter.class, interval + "_active");
   }
 
-  private int getDateOfToday() {
+  @VisibleForTesting
+  public int getDateOfToday() {
     ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
     return Integer.valueOf(now.format(DateTimeFormatter.ofPattern("yyyyMMdd")));
   }
