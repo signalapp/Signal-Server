@@ -20,10 +20,6 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.netflix.config.ConfigurationManager;
-import com.netflix.hystrix.contrib.codahalemetricspublisher.HystrixCodaHaleMetricsPublisher;
-import com.netflix.hystrix.strategy.HystrixPlugins;
-import org.apache.commons.configuration.MapConfiguration;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
 import org.skife.jdbi.v2.DBI;
@@ -106,9 +102,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
   @Override
   public void initialize(Bootstrap<WhisperServerConfiguration> bootstrap) {
-    HystrixCodaHaleMetricsPublisher hystrixMetricsPublisher = new HystrixCodaHaleMetricsPublisher(bootstrap.getMetricRegistry());
-    HystrixPlugins.getInstance().registerMetricsPublisher(hystrixMetricsPublisher);
-
     bootstrap.addCommand(new DirectoryCommand());
     bootstrap.addCommand(new VacuumCommand());
     bootstrap.addCommand(new TrimMessagesCommand());
@@ -143,8 +136,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     environment.getObjectMapper().setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);
     environment.getObjectMapper().setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
-
-    ConfigurationManager.install(new MapConfiguration(config.getHystrixConfiguration()));
 
     DBIFactory dbiFactory = new DBIFactory();
     DBI        database   = dbiFactory.build(environment, config.getDataSourceFactory(), "accountdb");

@@ -112,17 +112,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.netflix.hystrix</groupId>
-            <artifactId>hystrix-core</artifactId>
-            <version>${hystrix.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.netflix.hystrix</groupId>
-            <artifactId>hystrix-codahale-metrics-publisher</artifactId>
-            <version>${hystrix.version}</version>
-        </dependency>
-
-        <dependency>
             <groupId>com.relayrides</groupId>
             <artifactId>pushy</artifactId>
             <version>0.9.3</version>

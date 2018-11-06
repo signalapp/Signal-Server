@@ -1,8 +1,6 @@
 package org.whispersystems.textsecuregcm.tests.storage;
 
-import com.netflix.hystrix.exception.HystrixRuntimeException;
 import org.junit.Test;
-import org.skife.jdbi.v2.exceptions.UnableToObtainConnectionException;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Accounts;
@@ -101,34 +99,6 @@ public class AccountsManagerTest {
     verifyNoMoreInteractions(accounts);
   }
 
-  @Test
-  public void testGetAccountEmptyCacheBrokenDatabase() {
-    ReplicatedJedisPool cacheClient      = mock(ReplicatedJedisPool.class);
-    Jedis               jedis            = mock(Jedis.class              );
-    Accounts            accounts         = mock(Accounts.class           );
-    DirectoryManager    directoryManager = mock(DirectoryManager.class   );
-    Account             account          = new Account("+14152222222", new HashSet<>(), new byte[16]);
-
-    when(cacheClient.getReadResource()).thenReturn(jedis);
-    when(cacheClient.getWriteResource()).thenReturn(jedis);
-    when(jedis.get(eq("Account5+14152222222"))).thenReturn(null);
-    when(accounts.get(eq("+14152222222"))).thenThrow(new UnableToObtainConnectionException(new Exception()));
-
-    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheClient);
-
-    try {
-      Optional<Account> retrieved = accountsManager.get("+14152222222");
-      throw new AssertionError("Should not have succeeded!");
-    } catch (HystrixRuntimeException e) {
-      // good
-      verify(jedis, times(1)).get(eq("Account5+14152222222"));
-      verify(jedis, times(1)).close();
-      verifyNoMoreInteractions(jedis);
-
-      verify(accounts, times(1)).get(eq("+14152222222"));
-      verifyNoMoreInteractions(accounts);
-    }
-  }
 
 
 }

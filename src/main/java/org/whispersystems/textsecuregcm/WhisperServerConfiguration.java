@@ -229,7 +229,4 @@ public class WhisperServerConfiguration extends Configuration {
     return results;
   }
 
-  public Map<String, Object> getHystrixConfiguration() {
-    return hystrix;
-  }
 }

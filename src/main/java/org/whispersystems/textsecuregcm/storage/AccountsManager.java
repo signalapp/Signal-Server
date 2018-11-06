@@ -22,15 +22,9 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.netflix.hystrix.HystrixCommand;
-import com.netflix.hystrix.HystrixCommand.Setter;
-import com.netflix.hystrix.HystrixCommandGroupKey;
-import com.netflix.hystrix.HystrixCommandKey;
-import com.netflix.hystrix.exception.HystrixBadRequestException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
-import org.whispersystems.textsecuregcm.hystrix.GroupKeys;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -43,6 +37,7 @@ import java.util.Optional;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.exceptions.JedisException;
 
 public class AccountsManager {
 
@@ -112,22 +107,13 @@ public class AccountsManager {
   }
 
   private void updateDirectory(Account account) {
-    new HystrixCommand<Void>(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GroupKeys.DIRECTORY_SERVICE))
-                                   .andCommandKey(HystrixCommandKey.Factory.asKey(AccountsManager.class.getSimpleName() + ".updateDirectory")))
-    {
-      @Override
-      protected Void run() {
-        if (account.isActive()) {
-          byte[]        token         = Util.getContactToken(account.getNumber());
-          ClientContact clientContact = new ClientContact(token, null, true, true);
-          directory.add(clientContact);
-        } else {
-          directory.remove(account.getNumber());
-        }
-
-        return null;
-      }
-    }.execute();
+    if (account.isActive()) {
+      byte[]        token         = Util.getContactToken(account.getNumber());
+      ClientContact clientContact = new ClientContact(token, null, true, true);
+      directory.add(clientContact);
+    } else {
+      directory.remove(account.getNumber());
+    }
   }
 
   private String getKey(String number) {
@@ -135,87 +121,41 @@ public class AccountsManager {
   }
 
   private void redisSet(String number, Account account, boolean optional) {
-    new HystrixCommand<Boolean>(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GroupKeys.REDIS_CACHE))
-                                      .andCommandKey(HystrixCommandKey.Factory.asKey("accountsRedisSet")))
+    try (Jedis         jedis = cacheClient.getWriteResource();
+         Timer.Context timer = redisSetTimer.time())
     {
-      @Override
-      protected Boolean run() {
-        try (Jedis         jedis = cacheClient.getWriteResource();
-             Timer.Context timer = redisSetTimer.time())
-        {
-          jedis.set(getKey(number), mapper.writeValueAsString(account));
-        } catch (JsonProcessingException e) {
-          throw new HystrixBadRequestException("Json processing error", e);
-        }
-
-        return true;
-      }
-
-      @Override
-      protected Boolean getFallback() {
-        if (optional) return true;
-        else return super.getFallback();
-      }
-    }.execute();
+      jedis.set(getKey(number), mapper.writeValueAsString(account));
+    } catch (JsonProcessingException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   private Optional<Account> redisGet(String number) {
-    return new HystrixCommand<Optional<Account>>(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GroupKeys.REDIS_CACHE))
-                                                       .andCommandKey(HystrixCommandKey.Factory.asKey("accountsRedisGet")))
+    try (Jedis         jedis = cacheClient.getReadResource();
+         Timer.Context timer = redisGetTimer.time())
     {
-      @Override
-      protected Optional<Account> run() {
-        try (Jedis         jedis = cacheClient.getReadResource();
-             Timer.Context timer = redisGetTimer.time())
-        {
-          String json = jedis.get(getKey(number));
+      String json = jedis.get(getKey(number));
 
-          if (json != null) return Optional.of(mapper.readValue(json, Account.class));
-          else              return Optional.empty();
-        } catch (IOException e) {
-          logger.warn("AccountsManager", "Deserialization error", e);
-          return Optional.empty();
-        }
-      }
-
-      @Override
-      protected Optional<Account> getFallback() {
-          return Optional.empty();
-        }
-    }.execute();
+      if (json != null) return Optional.of(mapper.readValue(json, Account.class));
+      else              return Optional.empty();
+    } catch (IOException e) {
+      logger.warn("AccountsManager", "Deserialization error", e);
+      return Optional.empty();
+    } catch (JedisException e) {
+      logger.warn("Redis failure", e);
+      return Optional.empty();
+    }
   }
 
   private Optional<Account> databaseGet(String number) {
-    return new HystrixCommand<Optional<Account>>(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GroupKeys.DATABASE_ACCOUNTS))
-                                                       .andCommandKey(HystrixCommandKey.Factory.asKey("accountsDatabaseGet")))
-    {
-      @Override
-      protected Optional<Account> run() {
-          return Optional.ofNullable(accounts.get(number));
-        }
-    }.execute();
+    return Optional.ofNullable(accounts.get(number));
   }
 
   private boolean databaseCreate(Account account) {
-    return new HystrixCommand<Boolean>(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GroupKeys.DATABASE_ACCOUNTS))
-                                             .andCommandKey(HystrixCommandKey.Factory.asKey("accountsDatabaseCreate")))
-    {
-      @Override
-      protected Boolean run() {
-          return accounts.create(account);
-        }
-    }.execute();
+    return accounts.create(account);
   }
 
   private void databaseUpdate(Account account) {
-    new HystrixCommand<Void>(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GroupKeys.DATABASE_ACCOUNTS))
-                                   .andCommandKey(HystrixCommandKey.Factory.asKey("accountsDatabaseUpdate")))
-    {
-      @Override
-      protected Void run() {
-        accounts.update(account);
-        return null;
-      }
-    }.execute();
+    accounts.update(account);
   }
 }
