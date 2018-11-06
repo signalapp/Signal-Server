@@ -184,7 +184,7 @@ public class ActiveUserCounter implements Managed, Runnable {
 
     for (int i = 0; i < INTERVALS.length; i++) {
       final long intervalTotal = intervalTallies[i];
-      logger.info(metricKey(INTERVALS[i]) + " " + intervalTallies);
+      logger.info(metricKey(INTERVALS[i]) + " " + intervalTotal);
       metricRegistry.register(metricKey(INTERVALS[i]),
                               new Gauge<Long>() {
                                 @Override
