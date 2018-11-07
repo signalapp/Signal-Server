@@ -18,6 +18,9 @@
 package org.whispersystems.textsecuregcm.tests.storage;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+import io.dropwizard.metrics.ConsoleReporterFactory;
+import io.dropwizard.metrics.MetricsFactory;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -46,7 +49,9 @@ public class ActiveUserCounterTest {
   private final Account  account  = mock(Account.class);
   private final Accounts accounts = mock(Accounts.class);
 
-  private final WhisperServerConfiguration configuration = new WhisperServerConfiguration(); //mock(WhisperServerConfiguration.class);
+  private final WhisperServerConfiguration configuration = mock(WhisperServerConfiguration.class);
+  private final MetricsFactory metricsFactory = mock(MetricsFactory.class);
+  private final ConsoleReporterFactory consoleReporterFactory = new ConsoleReporterFactory();
   private final ActiveUserCache activeUserCache = mock(ActiveUserCache.class);
   private final ActiveUserCounter activeUserCounter = new ActiveUserCounter(configuration, accounts, activeUserCache);
 
@@ -54,6 +59,8 @@ public class ActiveUserCounterTest {
 
   @Before
   public void setup() {
+    when(configuration.getMetricsFactory()).thenReturn(metricsFactory);
+    when(metricsFactory.getReporters()).thenReturn(ImmutableList.of(consoleReporterFactory));
     when(accounts.getActiveUsersFrom(anyLong(), anyInt())).thenReturn(Collections.emptyList());
     when(activeUserCache.getId()).thenReturn(Optional.of(0L));
     when(activeUserCache.getDate()).thenReturn(20181101);
