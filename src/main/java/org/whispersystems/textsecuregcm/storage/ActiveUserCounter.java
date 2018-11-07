@@ -40,6 +40,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -47,8 +48,8 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 public class ActiveUserCounter implements Managed, Runnable {
 
-  private static final long WORKER_TTL_MS       = 3600_000L;
-  private static final int  JITTER_BASE_MS      = 10_000;
+  private static final long WORKER_TTL_MS       = 120_000L;
+  private static final int  JITTER_BASE_MS      = 25_000;
   private static final int  JITTER_VARIATION_MS = 10_000;
   private static final int  CHUNK_SIZE          = 16_384;
 
@@ -80,13 +81,7 @@ public class ActiveUserCounter implements Managed, Runnable {
     this.accounts        = accounts;
     this.activeUserCache = activeUserCache;
     this.random          = new SecureRandom();
-    this.workerId        = generateWorkerId(random);
-  }
-
-  private static String generateWorkerId(SecureRandom random) {
-    byte[] workerIdBytes = new byte[16];
-    random.nextBytes(workerIdBytes);
-    return Hex.toString(workerIdBytes);
+    this.workerId        = UUID.randomUUID().toString();
   }
 
   @Override
@@ -136,6 +131,7 @@ public class ActiveUserCounter implements Managed, Runnable {
 
     if (activeUserCache.claimActiveWorker(workerId, WORKER_TTL_MS)) {
       try {
+        long startTimeMs = System.currentTimeMillis();
         Optional<Long> id = activeUserCache.getId();
         int date = activeUserCache.getDate();
 
@@ -159,6 +155,10 @@ public class ActiveUserCounter implements Managed, Runnable {
 
         lastDate = date;
         lastId = id;
+
+        long endTimeMs = System.currentTimeMillis();
+        long sleepInterval = getDelayWithJitter() - (endTimeMs - startTimeMs);
+        if (sleepInterval > 0) Util.wait(this, sleepInterval);
 
       } finally {
         activeUserCache.releaseActiveWorker(workerId);
