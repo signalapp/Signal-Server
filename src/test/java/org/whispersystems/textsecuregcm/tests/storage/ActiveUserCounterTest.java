@@ -69,22 +69,9 @@ public class ActiveUserCounterTest {
   }
 
   @Test
-  public void testValid() {
+  public void test() {
     int today = activeUserCounter.getDateOfToday();
     activeUserCounter.doPeriodicWork(today);
   }
-
-  @Test
-  public void testInProgress() {
-  }
-  
-  @Test
-  public void testLastChunk() {
-  }
-  
-  @Test
-  public void testNotFound() {
-  }
-  
 }
 
