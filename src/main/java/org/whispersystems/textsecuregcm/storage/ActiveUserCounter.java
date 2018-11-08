@@ -249,9 +249,7 @@ public class ActiveUserCounter implements Managed, Runnable {
 
   private List<ActiveUser> readChunk(long id, int count) {
     try (Timer.Context timer = readChunkTimer.time()) {
-      Optional<List<ActiveUser>> activeUsers;
-      activeUsers = Optional.fromNullable(accounts.getActiveUsersFrom(id, count));
-      return activeUsers.or(Collections::emptyList);
+      return accounts.getActiveUsersFrom(id, count);
     }
   }
 
