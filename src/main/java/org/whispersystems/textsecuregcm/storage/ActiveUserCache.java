@@ -112,7 +112,7 @@ public class ActiveUserCache {
   }
 
   public long[] getFinalTallies(String platform, String intervals[]) {
-    try (Jedis jedis = jedisPool.getWriteResource()) {
+    try (Jedis jedis = jedisPool.getReadResource()) {
       long tallies[] = new long[intervals.length];
       for (int i = 0; i < intervals.length; i++) {
         tallies[i] = Long.valueOf(jedis.get(tallyKey(platform, intervals[i])));
