@@ -30,6 +30,7 @@ import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.security.SecureRandom;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -257,7 +258,7 @@ public class ActiveUserCounter implements Managed, Runnable {
     SimpleDateFormat format = new SimpleDateFormat("yyyyMMddz");
     try {
       return format.parse(date + "UTC").getTime();
-    } catch (Exception e) {
+    } catch (ParseException e) {
       throw new AssertionError("unexpected: " + date);
     }
   }
