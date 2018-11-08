@@ -46,9 +46,6 @@ import java.util.List;
 
 public abstract class Accounts {
 
-  public static final int PLATFORM_ID_ANDROID = 0;
-  public static final int PLATFORM_ID_IOS     = 1;
-
   private static final String ID     = "id";
   private static final String NUMBER = "number";
   private static final String DATA   = "data";
@@ -87,10 +84,6 @@ public abstract class Accounts {
   @SqlQuery("SELECT * FROM accounts WHERE " + NUMBER + " > :from ORDER BY " + NUMBER + " LIMIT :limit")
   public abstract List<Account> getAllFrom(@Bind("from") String from, @Bind("limit") int length);
 
-  @Mapper(ActiveUserMapper.class)
-  @SqlQuery("SELECT " + ID + " as id, (devices->>'lastSeen') as lastSeen, case when (devices->>'gcmId') is not null then " + PLATFORM_ID_ANDROID + " when (devices->>'apnId') is not null then " + PLATFORM_ID_IOS + " end as platformId FROM accounts a, json_array_elements(a.data->'devices') devices WHERE " + ID + " > :from and devices->>'id' = '1' and ((devices->>'gcmId') is not null or (devices->>'apnId') is not null) ORDER BY " + ID + " LIMIT :limit")
-  public abstract List<ActiveUser> getActiveUsersFrom(@Bind("from") long from, @Bind("limit") int length);
-
   @SqlQuery("SELECT COUNT(*) FROM accounts a, json_array_elements(a.data->'devices') devices WHERE devices->>'id' = '1' AND (devices->>'gcmId') is not null AND (devices->>'lastSeen')\\:\\:bigint >= :since")
   public abstract int getAndroidActiveSinceCount(@Bind("since") long since);
 
@@ -110,13 +103,6 @@ public abstract class Accounts {
 
   @SqlUpdate("VACUUM accounts")
   public abstract void vacuum();
-
-  public static class ActiveUserMapper implements ResultSetMapper<ActiveUser> {
-    @Override
-    public ActiveUser map(int index, ResultSet resultSet, StatementContext statementContext) throws SQLException {
-      return new ActiveUser(resultSet.getLong("id"), resultSet.getLong("lastSeen"), resultSet.getInt("platformId"));
-    }
-  }
 
   public static class AccountMapper implements ResultSetMapper<Account> {
     @Override

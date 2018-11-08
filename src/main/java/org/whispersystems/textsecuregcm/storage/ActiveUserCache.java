@@ -35,8 +35,8 @@ import java.util.List;
 
 public class ActiveUserCache {
 
-  public static final int  DEFAULT_DATE = 2000_01_01;
-  public static final long INITIAL_ID   = 0L;
+  public static final int    DEFAULT_DATE = 2000_01_01;
+  public static final String INITIAL_ID   = "+";
 
   private static final String PREFIX     = "active_user_";
   private static final String DATE_KEY   = PREFIX + "date";
@@ -74,17 +74,16 @@ public class ActiveUserCache {
     }
   }
 
-  public Optional<Long> getId() {
+  public Optional<String> getId() {
     try (Jedis jedis = jedisPool.getWriteResource()) {
-      String value = jedis.get(ID_KEY);
-      return Optional.fromNullable(value == null ? null : Long.valueOf(value));
+      return Optional.fromNullable(jedis.get(ID_KEY));
     }
   }
 
-  public void setId(Optional<Long> id) {
+  public void setId(Optional<String> id) {
     try (Jedis jedis = jedisPool.getWriteResource()) {
       if (id.isPresent()) {
-        jedis.set(ID_KEY, id.get().toString());
+        jedis.set(ID_KEY, id.get());
       } else {
         jedis.del(ID_KEY);
       }

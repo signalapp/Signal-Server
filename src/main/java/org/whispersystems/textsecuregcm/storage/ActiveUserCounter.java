@@ -47,8 +47,8 @@ import static com.codahale.metrics.MetricRegistry.name;
 public class ActiveUserCounter implements Managed, Runnable {
 
   private static final long WORKER_TTL_MS       = 120_000L;
-  private static final int  JITTER_BASE_MS      = 25_000;
-  private static final int  JITTER_VARIATION_MS = 10_000;
+  private static final int  JITTER_BASE_MS      = 4_000; //25_000;
+  private static final int  JITTER_VARIATION_MS = 2_000; //10_000;
   private static final int  CHUNK_SIZE          = 16_384;
 
   private static final Logger         logger         = LoggerFactory.getLogger(ActiveUserCounter.class);
@@ -68,7 +68,7 @@ public class ActiveUserCounter implements Managed, Runnable {
   private final SecureRandom               random;
 
   private int            lastDate = ActiveUserCache.DEFAULT_DATE;
-  private Optional<Long> lastId;
+  private Optional<String> lastId;
 
   private boolean running;
   private boolean finished;
@@ -128,7 +128,7 @@ public class ActiveUserCounter implements Managed, Runnable {
     if (activeUserCache.claimActiveWorker(workerId, WORKER_TTL_MS)) {
       try {
         long startTimeMs = System.currentTimeMillis();
-        Optional<Long> id = activeUserCache.getId();
+        Optional<String> id = activeUserCache.getId();
         int date = activeUserCache.getDate();
 
         if (today > date) {
@@ -212,9 +212,9 @@ public class ActiveUserCounter implements Managed, Runnable {
     return (long) (JITTER_BASE_MS + random.nextDouble() * JITTER_VARIATION_MS);
   }
 
-  private Optional<Long> processChunk(int date, long id, int count) {
+  private Optional<String> processChunk(int date, String id, int count) {
     logger.debug("processChunk date=" + date + " id=" + id + " count=" + count);
-    Long lastId = null;
+    String lastId = null;
     long nowDays  = TimeUnit.MILLISECONDS.toDays(getDateMidnightMs(date));
     long agoMs[]  = {TimeUnit.DAYS.toMillis(nowDays - 1),
                      TimeUnit.DAYS.toMillis(nowDays - 7),
@@ -224,23 +224,23 @@ public class ActiveUserCounter implements Managed, Runnable {
     long ios[]     = {0, 0, 0, 0, 0};
     long android[] = {0, 0, 0, 0, 0};
 
-    List<ActiveUser> chunkAccounts = readChunk(id, count);
-    for (ActiveUser user : chunkAccounts) {
-      lastId = user.getId();
-      long lastActiveMs = user.getLastActiveMs();
+    List<Account> chunkAccounts = readChunk(id, count);
+    for (Account account : chunkAccounts) {
+      lastId = account.getNumber();
+      logger.debug("lastId=" + lastId);
 
-      int platform = user.getPlatformId();
-      switch (platform) {
-      case Accounts.PLATFORM_ID_IOS:
+      Optional<Device> device = account.getMasterDevice();
+
+      if (!device.isPresent()) continue;
+
+      long lastActiveMs = device.get().getLastSeen();
+
+      if (device.get().getApnId() != null) {
         for (int i = 0; i < agoMs.length; i++)
           if (lastActiveMs > agoMs[i]) ios[i]++;
-        break;
-      case Accounts.PLATFORM_ID_ANDROID:
+      } else if (device.get().getGcmId() != null) {
         for (int i = 0; i < agoMs.length; i++)
           if (lastActiveMs > agoMs[i]) android[i]++;
-        break;
-      default:
-        break;
       }
     }
     activeUserCache.incrementTallies(PLATFORM_IOS, INTERVALS, ios);
@@ -248,9 +248,9 @@ public class ActiveUserCounter implements Managed, Runnable {
     return Optional.fromNullable(lastId);
   }
 
-  private List<ActiveUser> readChunk(long id, int count) {
+  private List<Account> readChunk(String id, int count) {
     try (Timer.Context timer = readChunkTimer.time()) {
-      return accounts.getActiveUsersFrom(id, count);
+      return accounts.getAllFrom(id, count);
     }
   }
 
