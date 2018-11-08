@@ -18,16 +18,13 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.ScheduledReporter;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import io.dropwizard.lifecycle.Managed;
-import io.dropwizard.metrics.ReporterFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -64,7 +61,6 @@ public class ActiveUserCounter implements Managed, Runnable {
   private static final String INTERVALS[] = {"daily", "weekly", "monthly", "quarterly", "yearly"};
 
 
-  private final WhisperServerConfiguration configuration;
   private final Accounts                   accounts;
   private final ActiveUserCache            activeUserCache;
   private final String                     workerId;
@@ -76,8 +72,7 @@ public class ActiveUserCounter implements Managed, Runnable {
   private boolean running;
   private boolean finished;
 
-  public ActiveUserCounter(WhisperServerConfiguration configuration, Accounts accounts, ActiveUserCache activeUserCache) {
-    this.configuration   = configuration;
+  public ActiveUserCounter(Accounts accounts, ActiveUserCache activeUserCache) {
     this.accounts        = accounts;
     this.activeUserCache = activeUserCache;
     this.random          = new SecureRandom();
@@ -190,13 +185,6 @@ public class ActiveUserCounter implements Managed, Runnable {
                                 @Override
                                 public Long getValue() { return intervalTotal; }
                               });
-    }
-
-    for (ReporterFactory reporterFactory : configuration.getMetricsFactory().getReporters()) {
-      ScheduledReporter reporter = reporterFactory.build(metricRegistry);
-      logger.info("Reporting via: " + reporter);
-      reporter.report();
-      logger.info("Reporting finished...");
     }
   }
 
