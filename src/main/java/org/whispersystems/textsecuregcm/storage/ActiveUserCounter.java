@@ -158,7 +158,7 @@ public class ActiveUserCounter implements Managed, Runnable {
 
         long endTimeMs = System.currentTimeMillis();
         long sleepInterval = getDelayWithJitter() - (endTimeMs - startTimeMs);
-        if (sleepInterval > 0) Util.wait(this, sleepInterval);
+        if (sleepInterval > 0) sleepWhileRunning(sleepInterval);
 
       } finally {
         activeUserCache.releaseActiveWorker(workerId);
@@ -239,10 +239,6 @@ public class ActiveUserCounter implements Managed, Runnable {
     for (ActiveUser user : chunkAccounts) {
       lastId = user.getId();
       long lastActiveMs = user.getLastActiveMs();
-
-      int deviceId = user.getDeviceId();
-      if (deviceId != 1)
-        continue;
 
       int platform = user.getPlatformId();
       switch (platform) {
