@@ -11,3 +11,7 @@ config/staging.yml
 config/testing.yml
 .opsmanage
 put.sh
+.classpath
+.project
+.settings
+dependency-reduced-pom.xml
