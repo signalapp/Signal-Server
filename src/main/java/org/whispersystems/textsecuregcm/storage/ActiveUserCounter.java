@@ -67,8 +67,8 @@ public class ActiveUserCounter implements Managed, Runnable {
   private final String                     workerId;
   private final SecureRandom               random;
 
-  private int            lastDate = ActiveUserCache.DEFAULT_DATE;
-  private Optional<String> lastId;
+  private int              lastDate = ActiveUserCache.DEFAULT_DATE;
+  private Optional<String> lastNumber;
 
   private boolean running;
   private boolean finished;
@@ -102,10 +102,10 @@ public class ActiveUserCounter implements Managed, Runnable {
       int today = getDateOfToday();
 
       if (today > lastDate) {
-        lastId = Optional.of(ActiveUserCache.INITIAL_ID);
+        lastNumber = Optional.of(ActiveUserCache.INITIAL_NUMBER);
       }
 
-      if (lastId.isPresent()) {
+      if (lastNumber.isPresent()) {
         try {
           doPeriodicWork(today);
         } catch (Throwable t) {
@@ -128,29 +128,29 @@ public class ActiveUserCounter implements Managed, Runnable {
     if (activeUserCache.claimActiveWorker(workerId, WORKER_TTL_MS)) {
       try {
         long startTimeMs = System.currentTimeMillis();
-        Optional<String> id = activeUserCache.getId();
+        Optional<String> number = activeUserCache.getNumber();
         int date = activeUserCache.getDate();
 
         if (today > date) {
           date = today;
-          id = Optional.of(ActiveUserCache.INITIAL_ID);
-          activeUserCache.setId(id);
+          number = Optional.of(ActiveUserCache.INITIAL_NUMBER);
+          activeUserCache.setNumber(number);
           activeUserCache.setDate(date);
           activeUserCache.resetTallies(PLATFORMS, INTERVALS);
           logger.info(date + " started");
         }
 
-        if (id.isPresent()) {
-          id = processChunk(date, id.get(), CHUNK_SIZE);
-          activeUserCache.setId(id);
-          if (!id.isPresent()) {
+        if (number.isPresent()) {
+          number = processChunk(date, number.get(), CHUNK_SIZE);
+          activeUserCache.setNumber(number);
+          if (!number.isPresent()) {
             registerMetrics();
             logger.info(date + " completed");
           }
         }
 
         lastDate = date;
-        lastId = id;
+        lastNumber = number;
 
         long endTimeMs = System.currentTimeMillis();
         long sleepInterval = getDelayWithJitter() - (endTimeMs - startTimeMs);
@@ -212,9 +212,9 @@ public class ActiveUserCounter implements Managed, Runnable {
     return (long) (JITTER_BASE_MS + random.nextDouble() * JITTER_VARIATION_MS);
   }
 
-  private Optional<String> processChunk(int date, String id, int count) {
-    logger.debug("processChunk date=" + date + " id=" + id + " count=" + count);
-    String lastId = null;
+  private Optional<String> processChunk(int date, String number, int count) {
+    logger.debug("processChunk date=" + date + " number=" + number + " count=" + count);
+    String lastNumber = null;
     long nowDays  = TimeUnit.MILLISECONDS.toDays(getDateMidnightMs(date));
     long agoMs[]  = {TimeUnit.DAYS.toMillis(nowDays - 1),
                      TimeUnit.DAYS.toMillis(nowDays - 7),
@@ -224,10 +224,9 @@ public class ActiveUserCounter implements Managed, Runnable {
     long ios[]     = {0, 0, 0, 0, 0};
     long android[] = {0, 0, 0, 0, 0};
 
-    List<Account> chunkAccounts = readChunk(id, count);
+    List<Account> chunkAccounts = readChunk(number, count);
     for (Account account : chunkAccounts) {
-      lastId = account.getNumber();
-      logger.debug("lastId=" + lastId);
+      lastNumber = account.getNumber();
 
       Optional<Device> device = account.getMasterDevice();
 
@@ -245,12 +244,12 @@ public class ActiveUserCounter implements Managed, Runnable {
     }
     activeUserCache.incrementTallies(PLATFORM_IOS, INTERVALS, ios);
     activeUserCache.incrementTallies(PLATFORM_ANDROID, INTERVALS, android);
-    return Optional.fromNullable(lastId);
+    return Optional.fromNullable(lastNumber);
   }
 
-  private List<Account> readChunk(String id, int count) {
+  private List<Account> readChunk(String number, int count) {
     try (Timer.Context timer = readChunkTimer.time()) {
-      return accounts.getAllFrom(id, count);
+      return accounts.getAllFrom(number, count);
     }
   }
 

@@ -35,13 +35,13 @@ import java.util.List;
 
 public class ActiveUserCache {
 
-  public static final int    DEFAULT_DATE = 2000_01_01;
-  public static final String INITIAL_ID   = "+";
+  public static final int    DEFAULT_DATE   = 2000_01_01;
+  public static final String INITIAL_NUMBER = "+";
 
   private static final String PREFIX     = "active_user_";
   private static final String DATE_KEY   = PREFIX + "date";
   private static final String WORKER_KEY = PREFIX + "worker";
-  private static final String ID_KEY     = PREFIX + "id";
+  private static final String NUMBER_KEY = PREFIX + "number";
 
   private final ReplicatedJedisPool                          jedisPool;
   private final DirectoryReconciliationCache.UnlockOperation unlockOperation;
@@ -74,18 +74,18 @@ public class ActiveUserCache {
     }
   }
 
-  public Optional<String> getId() {
+  public Optional<String> getNumber() {
     try (Jedis jedis = jedisPool.getWriteResource()) {
-      return Optional.fromNullable(jedis.get(ID_KEY));
+      return Optional.fromNullable(jedis.get(NUMBER_KEY));
     }
   }
 
-  public void setId(Optional<String> id) {
+  public void setNumber(Optional<String> number) {
     try (Jedis jedis = jedisPool.getWriteResource()) {
-      if (id.isPresent()) {
-        jedis.set(ID_KEY, id.get());
+      if (number.isPresent()) {
+        jedis.set(NUMBER_KEY, number.get());
       } else {
-        jedis.del(ID_KEY);
+        jedis.del(NUMBER_KEY);
       }
     }
   }
