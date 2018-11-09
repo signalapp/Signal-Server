@@ -54,7 +54,7 @@ public class ActiveUserCounterTest {
   @Before
   public void setup() {
     when(accounts.getAllFrom(any(), anyInt())).thenReturn(Collections.emptyList());
-    when(activeUserCache.getId()).thenReturn(Optional.of("+"));
+    when(activeUserCache.getNumber()).thenReturn(Optional.of("+"));
     when(activeUserCache.getDate()).thenReturn(20181101);
     when(activeUserCache.claimActiveWorker(any(), anyLong())).thenReturn(true);
     when(activeUserCache.getFinalTallies(any(), any())).thenReturn(EMPTY_TALLIES);
