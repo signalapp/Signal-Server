@@ -38,10 +38,10 @@ public class ActiveUserCache {
   public static final int    DEFAULT_DATE   = 2000_01_01;
   public static final String INITIAL_NUMBER = "+";
 
-  private static final String PREFIX     = "active_user_";
-  private static final String DATE_KEY   = PREFIX + "date";
-  private static final String WORKER_KEY = PREFIX + "worker";
-  private static final String NUMBER_KEY = PREFIX + "number";
+  private static final String PREFIX                  = "active_user_";
+  private static final String DATE_TO_REPORT_KEY      = PREFIX + "date_to_report";
+  private static final String ACTIVE_WORKER_ID_KEY    = PREFIX + "worker_id";
+  private static final String LAST_NUMBER_VISITED_KEY = PREFIX + "last_number_visited";
 
   private final ReplicatedJedisPool                          jedisPool;
   private final DirectoryReconciliationCache.UnlockOperation unlockOperation;
@@ -53,39 +53,39 @@ public class ActiveUserCache {
 
   public boolean claimActiveWorker(String workerId, long ttlMs) {
     try (Jedis jedis = jedisPool.getWriteResource()) {
-      return "OK".equals(jedis.set(WORKER_KEY, workerId, "NX", "PX", ttlMs));
+      return "OK".equals(jedis.set(ACTIVE_WORKER_ID_KEY, workerId, "NX", "PX", ttlMs));
     }
   }
 
   public void releaseActiveWorker(String workerId) {
-    unlockOperation.unlock(WORKER_KEY, workerId);
+    unlockOperation.unlock(ACTIVE_WORKER_ID_KEY, workerId);
   }
 
-  public int getDate() {
+  public int getDateToReport() {
     try (Jedis jedis = jedisPool.getWriteResource()) {
-      String value = jedis.get(DATE_KEY);
+      String value = jedis.get(DATE_TO_REPORT_KEY);
       return value == null ? DEFAULT_DATE : Integer.valueOf(value);
     }
   }
 
-  public void setDate(Integer date) {
+  public void setDateToReport(Integer date) {
     try (Jedis jedis = jedisPool.getWriteResource()) {
-      jedis.set(DATE_KEY, date.toString());
+      jedis.set(DATE_TO_REPORT_KEY, date.toString());
     }
   }
 
-  public Optional<String> getNumber() {
+  public Optional<String> getLastNumberVisited() {
     try (Jedis jedis = jedisPool.getWriteResource()) {
-      return Optional.fromNullable(jedis.get(NUMBER_KEY));
+      return Optional.fromNullable(jedis.get(LAST_NUMBER_VISITED_KEY));
     }
   }
 
-  public void setNumber(Optional<String> number) {
+  public void setLastNumberVisited(Optional<String> number) {
     try (Jedis jedis = jedisPool.getWriteResource()) {
       if (number.isPresent()) {
-        jedis.set(NUMBER_KEY, number.get());
+        jedis.set(LAST_NUMBER_VISITED_KEY, number.get());
       } else {
-        jedis.del(NUMBER_KEY);
+        jedis.del(LAST_NUMBER_VISITED_KEY);
       }
     }
   }

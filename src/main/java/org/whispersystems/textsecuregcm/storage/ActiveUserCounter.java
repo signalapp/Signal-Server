@@ -132,21 +132,21 @@ public class ActiveUserCounter implements Managed, Runnable {
     if (activeUserCache.claimActiveWorker(workerId, WORKER_TTL_MS)) {
       try {
         long startTimeMs = System.currentTimeMillis();
-        Optional<String> number = activeUserCache.getNumber();
-        int date = activeUserCache.getDate();
+        Optional<String> number = activeUserCache.getLastNumberVisited();
+        int date = activeUserCache.getDateToReport();
 
         if (today > date) {
           date = today;
           number = Optional.of(ActiveUserCache.INITIAL_NUMBER);
-          activeUserCache.setNumber(number);
-          activeUserCache.setDate(date);
+          activeUserCache.setLastNumberVisited(number);
+          activeUserCache.setDateToReport(date);
           activeUserCache.resetTallies(PLATFORMS, INTERVALS);
           logger.info(date + " started");
         }
 
         if (number.isPresent()) {
           number = processChunk(date, number.get(), CHUNK_SIZE);
-          activeUserCache.setNumber(number);
+          activeUserCache.setLastNumberVisited(number);
           if (!number.isPresent()) {
             registerMetrics();
             logger.info(date + " completed");
