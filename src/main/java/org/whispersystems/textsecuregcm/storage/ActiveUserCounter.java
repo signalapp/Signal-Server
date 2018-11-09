@@ -23,6 +23,8 @@ import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import io.dropwizard.lifecycle.Managed;
+import io.dropwizard.metrics.MetricsFactory;
+import io.dropwizard.metrics.ReporterFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -62,6 +64,7 @@ public class ActiveUserCounter implements Managed, Runnable {
   private static final String INTERVALS[] = {"daily", "weekly", "monthly", "quarterly", "yearly"};
 
 
+  private final MetricsFactory             metricsFactory;
   private final Accounts                   accounts;
   private final ActiveUserCache            activeUserCache;
   private final String                     workerId;
@@ -73,7 +76,8 @@ public class ActiveUserCounter implements Managed, Runnable {
   private boolean running;
   private boolean finished;
 
-  public ActiveUserCounter(Accounts accounts, ActiveUserCache activeUserCache) {
+  public ActiveUserCounter(MetricsFactory metricsFactory, Accounts accounts, ActiveUserCache activeUserCache) {
+    this.metricsFactory  = metricsFactory;
     this.accounts        = accounts;
     this.activeUserCache = activeUserCache;
     this.random          = new SecureRandom();
@@ -163,13 +167,14 @@ public class ActiveUserCounter implements Managed, Runnable {
   }
 
   private void registerMetrics() {
+    MetricRegistry metrics = new MetricRegistry();
     long intervalTallies[] = new long[INTERVALS.length];
     for (String platform : PLATFORMS) {
       long platformTallies[] = activeUserCache.getFinalTallies(platform, INTERVALS);
       for (int i = 0; i < INTERVALS.length; i++) {
         final long tally = platformTallies[i];
         logger.info(metricKey(platform, INTERVALS[i]) + " " + tally);
-        metricRegistry.register(metricKey(platform, INTERVALS[i]),
+        metrics.register(metricKey(platform, INTERVALS[i]),
                                 new Gauge<Long>() {
                                   @Override
                                   public Long getValue() { return tally; }
@@ -181,11 +186,14 @@ public class ActiveUserCounter implements Managed, Runnable {
     for (int i = 0; i < INTERVALS.length; i++) {
       final long intervalTotal = intervalTallies[i];
       logger.info(metricKey(INTERVALS[i]) + " " + intervalTotal);
-      metricRegistry.register(metricKey(INTERVALS[i]),
+      metrics.register(metricKey(INTERVALS[i]),
                               new Gauge<Long>() {
                                 @Override
                                 public Long getValue() { return intervalTotal; }
                               });
+    }
+    for (ReporterFactory reporterFactory : metricsFactory.getReporters()) {
+      reporterFactory.build(metrics).report();
     }
   }
 

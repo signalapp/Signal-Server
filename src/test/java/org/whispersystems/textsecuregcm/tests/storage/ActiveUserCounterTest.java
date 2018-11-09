@@ -28,6 +28,8 @@ import org.whispersystems.textsecuregcm.storage.ActiveUserCache;
 import org.whispersystems.textsecuregcm.storage.ActiveUserCounter;
 import org.whispersystems.textsecuregcm.util.Util;
 
+import io.dropwizard.metrics.MetricsFactory;
+
 import java.util.Arrays;
 import java.util.Collections;
 
@@ -45,15 +47,17 @@ import static org.mockito.Mockito.when;
 public class ActiveUserCounterTest {
   private final Account  account  = mock(Account.class);
   private final Accounts accounts = mock(Accounts.class);
+  private final MetricsFactory metricsFactory = mock(MetricsFactory.class);
 
   private final ActiveUserCache activeUserCache = mock(ActiveUserCache.class);
-  private final ActiveUserCounter activeUserCounter = new ActiveUserCounter(accounts, activeUserCache);
+  private final ActiveUserCounter activeUserCounter = new ActiveUserCounter(metricsFactory, accounts, activeUserCache);
 
   private long[] EMPTY_TALLIES = {0L,0L,0L,0L,0L};
 
   @Before
   public void setup() {
     when(accounts.getAllFrom(any(), anyInt())).thenReturn(Collections.emptyList());
+    when(metricsFactory.getReporters()).thenReturn(ImmutableList.of());
     when(activeUserCache.getNumber()).thenReturn(Optional.of("+"));
     when(activeUserCache.getDate()).thenReturn(20181101);
     when(activeUserCache.claimActiveWorker(any(), anyLong())).thenReturn(true);
