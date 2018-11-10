@@ -97,7 +97,6 @@ public class ActiveUserCounter implements Managed, Runnable {
 
   @Override
   public void run() {
-
     int     lastDate   = INITIAL_DATE;
     boolean doMoreWork = true;
 
