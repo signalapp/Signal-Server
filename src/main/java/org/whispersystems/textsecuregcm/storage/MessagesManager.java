@@ -4,13 +4,14 @@ package org.whispersystems.textsecuregcm.storage;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
-import com.google.common.base.Optional;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
 import org.whispersystems.textsecuregcm.util.Constants;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
@@ -21,6 +22,9 @@ public class MessagesManager {
   private static final Meter          cacheMissByIdMeter   = metricRegistry.meter(name(MessagesManager.class, "cacheMissById"  ));
   private static final Meter          cacheHitByNameMeter  = metricRegistry.meter(name(MessagesManager.class, "cacheHitByName" ));
   private static final Meter          cacheMissByNameMeter = metricRegistry.meter(name(MessagesManager.class, "cacheMissByName"));
+  private static final Meter          cacheHitByGuidMeter  = metricRegistry.meter(name(MessagesManager.class, "cacheHitByGuid" ));
+  private static final Meter          cacheMissByGuidMeter = metricRegistry.meter(name(MessagesManager.class, "cacheMissByGuid"));
+
 
   private final Messages      messages;
   private final MessagesCache messagesCache;
@@ -31,7 +35,8 @@ public class MessagesManager {
   }
 
   public void insert(String destination, long destinationDevice, Envelope message) {
-    messagesCache.insert(destination, destinationDevice, message);
+    UUID guid = UUID.randomUUID();
+    messagesCache.insert(guid, destination, destinationDevice, message);
   }
 
   public OutgoingMessageEntityList getMessagesForDevice(String destination, long destinationDevice) {
@@ -59,10 +64,23 @@ public class MessagesManager {
     Optional<OutgoingMessageEntity> removed = this.messagesCache.remove(destination, destinationDevice, source, timestamp);
 
     if (!removed.isPresent()) {
-      removed = Optional.fromNullable(this.messages.remove(destination, destinationDevice, source, timestamp));
+      removed = Optional.ofNullable(this.messages.remove(destination, destinationDevice, source, timestamp));
       cacheMissByNameMeter.mark();
     } else {
       cacheHitByNameMeter.mark();
+    }
+
+    return removed;
+  }
+
+  public Optional<OutgoingMessageEntity> delete(String destination, long deviceId, UUID guid) {
+    Optional<OutgoingMessageEntity> removed = this.messagesCache.remove(destination, deviceId, guid);
+
+    if (!removed.isPresent()) {
+      removed = Optional.ofNullable(this.messages.remove(destination, guid));
+      cacheMissByGuidMeter.mark();
+    } else {
+      cacheHitByGuidMeter.mark();
     }
 
     return removed;

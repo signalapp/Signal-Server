@@ -1,7 +1,6 @@
 package org.whispersystems.textsecuregcm.workers;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.google.common.base.Optional;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.skife.jdbi.v2.DBI;
@@ -19,6 +18,7 @@ import org.whispersystems.textsecuregcm.storage.DirectoryManager;
 import org.whispersystems.textsecuregcm.util.Base64;
 
 import java.security.SecureRandom;
+import java.util.Optional;
 
 import io.dropwizard.Application;
 import io.dropwizard.cli.EnvironmentCommand;

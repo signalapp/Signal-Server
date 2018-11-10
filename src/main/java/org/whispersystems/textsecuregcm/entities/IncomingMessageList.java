@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2013 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -30,10 +30,10 @@ public class IncomingMessageList {
   private List<IncomingMessage> messages;
 
   @JsonProperty
-  private String relay;
+  private long timestamp;
 
   @JsonProperty
-  private long timestamp;
+  private boolean online;
 
   public IncomingMessageList() {}
 
@@ -41,15 +41,11 @@ public class IncomingMessageList {
     return messages;
   }
 
-  public String getRelay() {
-    return relay;
-  }
-
-  public void setRelay(String relay) {
-    this.relay = relay;
-  }
-
   public long getTimestamp() {
     return timestamp;
+  }
+
+  public boolean isOnline() {
+    return online;
   }
 }

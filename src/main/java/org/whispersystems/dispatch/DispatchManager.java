@@ -1,6 +1,5 @@
 package org.whispersystems.dispatch;
 
-import com.google.common.base.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.dispatch.io.RedisPubSubConnectionFactory;
@@ -9,10 +8,12 @@ import org.whispersystems.dispatch.redis.PubSubReply;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class DispatchManager extends Thread {
 
   private final Logger                       logger        = LoggerFactory.getLogger(DispatchManager.class);
@@ -45,7 +46,7 @@ public class DispatchManager extends Thread {
   }
 
   public synchronized void subscribe(String name, DispatchChannel dispatchChannel) {
-    Optional<DispatchChannel> previous = Optional.fromNullable(subscriptions.get(name));
+    Optional<DispatchChannel> previous = Optional.ofNullable(subscriptions.get(name));
     subscriptions.put(name, dispatchChannel);
 
     try {
@@ -60,7 +61,7 @@ public class DispatchManager extends Thread {
   }
 
   public synchronized void unsubscribe(String name, DispatchChannel channel) {
-    Optional<DispatchChannel> subscription = Optional.fromNullable(subscriptions.get(name));
+    Optional<DispatchChannel> subscription = Optional.ofNullable(subscriptions.get(name));
 
     if (subscription.isPresent() && subscription.get() == channel) {
       subscriptions.remove(name);
@@ -105,7 +106,7 @@ public class DispatchManager extends Thread {
   }
 
   private void dispatchSubscribe(final PubSubReply reply) {
-    Optional<DispatchChannel> subscription = Optional.fromNullable(subscriptions.get(reply.getChannel()));
+    Optional<DispatchChannel> subscription = Optional.ofNullable(subscriptions.get(reply.getChannel()));
 
     if (subscription.isPresent()) {
       dispatchSubscription(reply.getChannel(), subscription.get());
@@ -115,7 +116,7 @@ public class DispatchManager extends Thread {
   }
 
   private void dispatchMessage(PubSubReply reply) {
-    Optional<DispatchChannel> subscription = Optional.fromNullable(subscriptions.get(reply.getChannel()));
+    Optional<DispatchChannel> subscription = Optional.ofNullable(subscriptions.get(reply.getChannel()));
 
     if (subscription.isPresent()) {
       dispatchMessage(reply.getChannel(), subscription.get(), reply.getContent().get());

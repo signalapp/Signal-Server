@@ -17,13 +17,14 @@
 package org.whispersystems.textsecuregcm.sms;
 
 
-import com.google.common.base.Optional;
 import com.twilio.sdk.TwilioRestException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Optional;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class SmsSender {
 
   static final String SMS_IOS_VERIFICATION_TEXT = "Your Signal verification code: %s\n\nOr tap: sgnl://verify/%s";

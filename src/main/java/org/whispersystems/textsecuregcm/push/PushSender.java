@@ -62,7 +62,7 @@ public class PushSender implements Managed {
                                     (Gauge<Integer>) executor::getSize);
   }
 
-  public void sendMessage(final Account account, final Device device, final Envelope message)
+  public void sendMessage(final Account account, final Device device, final Envelope message, boolean online)
       throws NotPushRegisteredException
   {
     if (device.getGcmId() == null && device.getApnId() == null && !device.getFetchesMessages()) {
@@ -70,9 +70,9 @@ public class PushSender implements Managed {
     }
 
     if (queueSize > 0) {
-      executor.execute(() -> sendSynchronousMessage(account, device, message));
+      executor.execute(() -> sendSynchronousMessage(account, device, message, online));
     } else {
-      sendSynchronousMessage(account, device, message);
+      sendSynchronousMessage(account, device, message, online);
     }
   }
 
@@ -88,17 +88,17 @@ public class PushSender implements Managed {
     return webSocketSender;
   }
 
-  private void sendSynchronousMessage(Account account, Device device, Envelope message) {
-    if      (device.getGcmId() != null)   sendGcmMessage(account, device, message);
-    else if (device.getApnId() != null)   sendApnMessage(account, device, message);
-    else if (device.getFetchesMessages()) sendWebSocketMessage(account, device, message);
+  private void sendSynchronousMessage(Account account, Device device, Envelope message, boolean online) {
+    if      (device.getGcmId() != null)   sendGcmMessage(account, device, message, online);
+    else if (device.getApnId() != null)   sendApnMessage(account, device, message, online);
+    else if (device.getFetchesMessages()) sendWebSocketMessage(account, device, message, online);
     else                                  throw new AssertionError();
   }
 
-  private void sendGcmMessage(Account account, Device device, Envelope message) {
-    DeliveryStatus deliveryStatus = webSocketSender.sendMessage(account, device, message, WebsocketSender.Type.GCM);
+  private void sendGcmMessage(Account account, Device device, Envelope message, boolean online) {
+    DeliveryStatus deliveryStatus = webSocketSender.sendMessage(account, device, message, WebsocketSender.Type.GCM, online);
 
-    if (!deliveryStatus.isDelivered()) {
+    if (!deliveryStatus.isDelivered() && !online) {
       sendGcmNotification(account, device);
     }
   }
@@ -110,10 +110,10 @@ public class PushSender implements Managed {
     gcmSender.sendMessage(gcmMessage);
   }
 
-  private void sendApnMessage(Account account, Device device, Envelope outgoingMessage) {
-    DeliveryStatus deliveryStatus = webSocketSender.sendMessage(account, device, outgoingMessage, WebsocketSender.Type.APN);
+  private void sendApnMessage(Account account, Device device, Envelope outgoingMessage, boolean online) {
+    DeliveryStatus deliveryStatus = webSocketSender.sendMessage(account, device, outgoingMessage, WebsocketSender.Type.APN, online);
 
-    if (!deliveryStatus.isDelivered() && outgoingMessage.getType() != Envelope.Type.RECEIPT) {
+    if (!deliveryStatus.isDelivered() && outgoingMessage.getType() != Envelope.Type.RECEIPT && !online) {
       sendApnNotification(account, device, false);
     }
   }
@@ -135,9 +135,9 @@ public class PushSender implements Managed {
     apnSender.sendMessage(apnMessage);
   }
 
-  private void sendWebSocketMessage(Account account, Device device, Envelope outgoingMessage)
+  private void sendWebSocketMessage(Account account, Device device, Envelope outgoingMessage, boolean online)
   {
-    webSocketSender.sendMessage(account, device, outgoingMessage, WebsocketSender.Type.WEB);
+    webSocketSender.sendMessage(account, device, outgoingMessage, WebsocketSender.Type.WEB, online);
   }
 
   @Override

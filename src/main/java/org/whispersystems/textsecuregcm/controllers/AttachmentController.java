@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2013 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -18,26 +18,20 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.amazonaws.HttpMethod;
 import com.codahale.metrics.annotation.Timed;
-import com.google.common.base.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.AttachmentDescriptor;
 import org.whispersystems.textsecuregcm.entities.AttachmentUri;
-import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
-import org.whispersystems.textsecuregcm.federation.NoSuchPeerException;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.s3.UrlSigner;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.Conversions;
-import org.whispersystems.textsecuregcm.s3.UrlSigner;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.net.URL;
 import java.security.SecureRandom;
@@ -49,21 +43,18 @@ import io.dropwizard.auth.Auth;
 @Path("/v1/attachments")
 public class AttachmentController {
 
+  @SuppressWarnings("unused")
   private final Logger logger = LoggerFactory.getLogger(AttachmentController.class);
 
   private static final String[] UNACCELERATED_REGIONS = {"+20", "+971", "+968", "+974"};
 
-  private final RateLimiters           rateLimiters;
-  private final FederatedClientManager federatedClientManager;
-  private final UrlSigner              urlSigner;
+  private final RateLimiters rateLimiters;
+  private final UrlSigner    urlSigner;
 
-  public AttachmentController(RateLimiters rateLimiters,
-                              FederatedClientManager federatedClientManager,
-                              UrlSigner urlSigner)
+  public AttachmentController(RateLimiters rateLimiters, UrlSigner urlSigner)
   {
-    this.rateLimiters           = rateLimiters;
-    this.federatedClientManager = federatedClientManager;
-    this.urlSigner              = urlSigner;
+    this.rateLimiters = rateLimiters;
+    this.urlSigner    = urlSigner;
   }
 
   @Timed
@@ -88,20 +79,10 @@ public class AttachmentController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{attachmentId}")
   public AttachmentUri redirectToAttachment(@Auth                      Account account,
-                                            @PathParam("attachmentId") long    attachmentId,
-                                            @QueryParam("relay")       Optional<String> relay)
+                                            @PathParam("attachmentId") long    attachmentId)
       throws IOException
   {
-    try {
-      if (!relay.isPresent()) {
-        return new AttachmentUri(urlSigner.getPreSignedUrl(attachmentId, HttpMethod.GET, Stream.of(UNACCELERATED_REGIONS).anyMatch(region -> account.getNumber().startsWith(region))));
-      } else {
-        return new AttachmentUri(federatedClientManager.getClient(relay.get()).getSignedAttachmentUri(attachmentId));
-      }
-    } catch (NoSuchPeerException e) {
-      logger.info("No such peer: " + relay);
-      throw new WebApplicationException(Response.status(404).build());
-    }
+    return new AttachmentUri(urlSigner.getPreSignedUrl(attachmentId, HttpMethod.GET, Stream.of(UNACCELERATED_REGIONS).anyMatch(region -> account.getNumber().startsWith(region))));
   }
 
   private long generateAttachmentId() {

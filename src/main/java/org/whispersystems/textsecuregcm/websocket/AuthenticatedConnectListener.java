@@ -25,9 +25,10 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
-  private static final Logger         logger         = LoggerFactory.getLogger(WebSocketConnection.class);
-  private static final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private static final Timer          durationTimer  = metricRegistry.timer(name(WebSocketConnection.class, "connected_duration"));
+  private static final Logger         logger                       = LoggerFactory.getLogger(WebSocketConnection.class);
+  private static final MetricRegistry metricRegistry               = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  private static final Timer          durationTimer                = metricRegistry.timer(name(WebSocketConnection.class, "connected_duration"                 ));
+  private static final Timer          unauthenticatedDurationTimer = metricRegistry.timer(name(WebSocketConnection.class, "unauthenticated_connection_duration"));
 
   private final PushSender         pushSender;
   private final ReceiptSender      receiptSender;
@@ -50,29 +51,34 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
   @Override
   public void onWebSocketConnect(WebSocketSessionContext context) {
-    final Account                 account        = context.getAuthenticated(Account.class);
-    final Device                  device         = account.getAuthenticatedDevice().get();
-    final String                  connectionId   = String.valueOf(new SecureRandom().nextLong());
-    final Timer.Context           timer          = durationTimer.time();
-    final WebsocketAddress        address        = new WebsocketAddress(account.getNumber(), device.getId());
-    final WebSocketConnection     connection     = new WebSocketConnection(pushSender, receiptSender,
-                                                                           messagesManager, account, device,
-                                                                           context.getClient(), connectionId);
-    final PubSubMessage           connectMessage = PubSubMessage.newBuilder().setType(PubSubMessage.Type.CONNECTED)
-                                                                .setContent(ByteString.copyFrom(connectionId.getBytes()))
-                                                                .build();
+    if (context.getAuthenticated() != null) {
+      final Account                 account        = context.getAuthenticated(Account.class);
+      final Device                  device         = account.getAuthenticatedDevice().get();
+      final String                  connectionId   = String.valueOf(new SecureRandom().nextLong());
+      final Timer.Context           timer          = durationTimer.time();
+      final WebsocketAddress        address        = new WebsocketAddress(account.getNumber(), device.getId());
+      final WebSocketConnection     connection     = new WebSocketConnection(pushSender, receiptSender,
+                                                                             messagesManager, account, device,
+                                                                             context.getClient(), connectionId);
+      final PubSubMessage           connectMessage = PubSubMessage.newBuilder().setType(PubSubMessage.Type.CONNECTED)
+                                                                  .setContent(ByteString.copyFrom(connectionId.getBytes()))
+                                                                  .build();
 
-    RedisOperation.unchecked(() -> apnFallbackManager.cancel(account, device));
-    pubSubManager.publish(address, connectMessage);
-    pubSubManager.subscribe(address, connection);
+      RedisOperation.unchecked(() -> apnFallbackManager.cancel(account, device));
+      pubSubManager.publish(address, connectMessage);
+      pubSubManager.subscribe(address, connection);
 
-    context.addListener(new WebSocketSessionContext.WebSocketEventListener() {
-      @Override
-      public void onWebSocketClose(WebSocketSessionContext context, int statusCode, String reason) {
-        pubSubManager.unsubscribe(address, connection);
-        timer.stop();
-      }
-    });
+      context.addListener(new WebSocketSessionContext.WebSocketEventListener() {
+        @Override
+        public void onWebSocketClose(WebSocketSessionContext context, int statusCode, String reason) {
+          pubSubManager.unsubscribe(address, connection);
+          timer.stop();
+        }
+      });
+    } else {
+      final Timer.Context timer = unauthenticatedDurationTimer.time();
+      context.addListener((context1, statusCode, reason) -> timer.stop());
+    }
   }
 }
 

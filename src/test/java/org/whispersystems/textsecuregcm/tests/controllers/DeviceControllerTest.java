@@ -16,12 +16,10 @@
  */
 package org.whispersystems.textsecuregcm.tests.controllers;
 
-import com.google.common.base.Optional;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.whispersystems.dropwizard.simpleauth.AuthValueFactoryProvider;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.controllers.DeviceController;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -40,8 +38,10 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -83,7 +83,7 @@ public class DeviceControllerTest {
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
                                                             .addProvider(AuthHelper.getAuthFilter())
-                                                            .addProvider(new AuthValueFactoryProvider.Binder())
+                                                            .addProvider(new AuthValueFactoryProvider.Binder<>(Account.class))
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addProvider(new DeviceLimitExceededExceptionMapper())
                                                             .addResource(new DumbVerificationDeviceController(pendingDevicesManager,
@@ -202,15 +202,4 @@ public class DeviceControllerTest {
     verifyNoMoreInteractions(messagesManager);
   }
 
-  @Test
-  public void removeDeviceTest() throws Exception {
-    Response response = resources.getJerseyTest()
-            .target("/v1/devices/12345")
-            .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-            .delete();
-
-    assertEquals(204, response.getStatus());
-    verify(directoryQueue).deleteRegisteredUser(eq(AuthHelper.VALID_NUMBER));
-  }
 }

@@ -3,20 +3,20 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.ClassRule;
 import org.junit.Test;
-import org.whispersystems.dropwizard.simpleauth.AuthValueFactoryProvider;
 import org.whispersystems.textsecuregcm.configuration.AttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.controllers.AttachmentController;
 import org.whispersystems.textsecuregcm.entities.AttachmentDescriptor;
 import org.whispersystems.textsecuregcm.entities.AttachmentUri;
-import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.s3.UrlSigner;
+import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 import java.net.MalformedURLException;
 
+import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -24,10 +24,9 @@ import static org.mockito.Mockito.when;
 
 public class AttachmentControllerTest {
 
-  private static AttachmentsConfiguration configuration          = mock(AttachmentsConfiguration.class);
-  private static FederatedClientManager   federatedClientManager = mock(FederatedClientManager.class  );
-  private static RateLimiters             rateLimiters           = mock(RateLimiters.class            );
-  private static RateLimiter              rateLimiter            = mock(RateLimiter.class             );
+  private static AttachmentsConfiguration configuration = mock(AttachmentsConfiguration.class);
+  private static RateLimiters             rateLimiters  = mock(RateLimiters.class            );
+  private static RateLimiter              rateLimiter   = mock(RateLimiter.class             );
 
   private static UrlSigner urlSigner;
 
@@ -43,10 +42,10 @@ public class AttachmentControllerTest {
   @ClassRule
   public static final ResourceTestRule resources = ResourceTestRule.builder()
                                                                    .addProvider(AuthHelper.getAuthFilter())
-                                                                   .addProvider(new AuthValueFactoryProvider.Binder())
+                                                                   .addProvider(new AuthValueFactoryProvider.Binder<>(Account.class))
                                                                    .setMapper(SystemMapper.getMapper())
                                                                    .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-                                                                   .addResource(new AttachmentController(rateLimiters, federatedClientManager, urlSigner))
+                                                                   .addResource(new AttachmentController(rateLimiters, urlSigner))
                                                                    .build();
 
   @Test

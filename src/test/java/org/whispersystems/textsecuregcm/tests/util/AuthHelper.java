@@ -1,21 +1,16 @@
 package org.whispersystems.textsecuregcm.tests.util;
 
-import com.google.common.base.Optional;
-import org.whispersystems.dropwizard.simpleauth.AuthDynamicFeature;
-import org.whispersystems.dropwizard.simpleauth.BasicCredentialAuthFilter;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
-import org.whispersystems.textsecuregcm.auth.FederatedPeerAuthenticator;
-import org.whispersystems.textsecuregcm.configuration.FederationConfiguration;
-import org.whispersystems.textsecuregcm.federation.FederatedPeer;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Base64;
 
-import java.util.LinkedList;
-import java.util.List;
+import java.util.Optional;
 
+import io.dropwizard.auth.AuthDynamicFeature;
+import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
@@ -30,6 +25,8 @@ public class AuthHelper {
 
   public static final String INVVALID_NUMBER  = "+14151111111";
   public static final String INVALID_PASSWORD = "bar";
+
+  public static final String VALID_IDENTITY = "BcxxDU9FGMda70E7+Uvm7pnQcEdXQ64aJCpPUeRSfcFo";
 
   public static AccountsManager           ACCOUNTS_MANAGER  = mock(AccountsManager.class          );
   public static Account                   VALID_ACCOUNT     = mock(Account.class                  );
@@ -53,29 +50,24 @@ public class AuthHelper {
     when(VALID_ACCOUNT_TWO.getNumber()).thenReturn(VALID_NUMBER_TWO);
     when(VALID_ACCOUNT.getAuthenticatedDevice()).thenReturn(Optional.of(VALID_DEVICE));
     when(VALID_ACCOUNT_TWO.getAuthenticatedDevice()).thenReturn(Optional.of(VALID_DEVICE_TWO));
-    when(VALID_ACCOUNT.getRelay()).thenReturn(Optional.<String>absent());
-    when(VALID_ACCOUNT_TWO.getRelay()).thenReturn(Optional.<String>absent());
+    when(VALID_ACCOUNT.getRelay()).thenReturn(Optional.<String>empty());
+    when(VALID_ACCOUNT_TWO.getRelay()).thenReturn(Optional.<String>empty());
+    when(VALID_ACCOUNT.isActive()).thenReturn(true);
+    when(VALID_ACCOUNT_TWO.isActive()).thenReturn(true);
+    when(VALID_ACCOUNT.getIdentityKey()).thenReturn(VALID_IDENTITY);
     when(ACCOUNTS_MANAGER.get(VALID_NUMBER)).thenReturn(Optional.of(VALID_ACCOUNT));
     when(ACCOUNTS_MANAGER.get(VALID_NUMBER_TWO)).thenReturn(Optional.of(VALID_ACCOUNT_TWO));
 
-    List<FederatedPeer> peer = new LinkedList<FederatedPeer>() {{
-      add(new FederatedPeer("cyanogen", "https://foo", "foofoo", "bazzzzz"));
-    }};
-
-    FederationConfiguration federationConfiguration = mock(FederationConfiguration.class);
-    when(federationConfiguration.getPeers()).thenReturn(peer);
-
     return new AuthDynamicFeature(new BasicCredentialAuthFilter.Builder<Account>()
                                       .setAuthenticator(new AccountAuthenticator(ACCOUNTS_MANAGER))
-                                      .setPrincipal(Account.class)
-                                      .buildAuthFilter(),
-                                  new BasicCredentialAuthFilter.Builder<FederatedPeer>()
-                                      .setAuthenticator(new FederatedPeerAuthenticator(federationConfiguration))
-                                      .setPrincipal(FederatedPeer.class)
                                       .buildAuthFilter());
   }
 
   public static String getAuthHeader(String number, String password) {
     return "Basic " + Base64.encodeBytes((number + ":" + password).getBytes());
+  }
+
+  public static String getUnidentifiedAccessHeader(byte[] key) {
+    return Base64.encodeBytes(key);
   }
 }

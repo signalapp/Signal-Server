@@ -21,22 +21,48 @@ option java_outer_classname = "MessageProtos";
 
 message Envelope {
   enum Type {
-    UNKNOWN       = 0;
-    CIPHERTEXT    = 1;
-    KEY_EXCHANGE  = 2;
-    PREKEY_BUNDLE = 3;
-    RECEIPT       = 5;
+    UNKNOWN             = 0;
+    CIPHERTEXT          = 1;
+    KEY_EXCHANGE        = 2;
+    PREKEY_BUNDLE       = 3;
+    RECEIPT             = 5;
+    UNIDENTIFIED_SENDER = 6;
   }
 
-  optional Type   type          = 1;
-  optional string source        = 2;
-  optional uint32 sourceDevice  = 7;
-  optional string relay         = 3;
-  optional uint64 timestamp     = 5;
-  optional bytes  legacyMessage = 6; // Contains an encrypted DataMessage XXX -- Remove after 10/01/15
-  optional bytes  content       = 8; // Contains an encrypted Content
+  optional Type   type             = 1;
+  optional string source           = 2;
+  optional uint32 sourceDevice     = 7;
+  optional string relay            = 3;
+  optional uint64 timestamp        = 5;
+  optional bytes  legacyMessage    = 6; // Contains an encrypted DataMessage XXX -- Remove after 10/01/15
+  optional bytes  content          = 8; // Contains an encrypted Content
+  optional string serverGuid       = 9;
+  optional uint64 server_timestamp = 10;
 }
 
 message ProvisioningUuid {
   optional string uuid = 1;
+}
+
+message ServerCertificate {
+    message Certificate {
+        optional uint32 id  = 1;
+        optional bytes  key = 2;
+    }
+
+    optional bytes certificate = 1;
+    optional bytes signature   = 2;
+}
+
+message SenderCertificate {
+    message Certificate {
+        optional string            sender        = 1;
+        optional uint32            senderDevice  = 2;
+        optional fixed64           expires       = 3;
+        optional bytes             identityKey   = 4;
+        optional ServerCertificate signer        = 5;
+    }
+
+    optional bytes certificate = 1;
+    optional bytes signature   = 2;
 }

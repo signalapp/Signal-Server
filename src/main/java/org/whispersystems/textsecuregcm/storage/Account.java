@@ -20,13 +20,15 @@ package org.whispersystems.textsecuregcm.storage;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
 
+import javax.security.auth.Subject;
+import java.security.Principal;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-public class Account {
+public class Account implements Principal  {
 
   public static final int MEMCACHE_VERION = 5;
 
@@ -51,19 +53,26 @@ public class Account {
   @JsonProperty
   private String pin;
 
+  @JsonProperty("uak")
+  private byte[] unidentifiedAccessKey;
+
+  @JsonProperty("uua")
+  private boolean unrestrictedUnidentifiedAccess;
+
   @JsonIgnore
   private Device authenticatedDevice;
 
   public Account() {}
 
   @VisibleForTesting
-  public Account(String number, Set<Device> devices) {
-    this.number  = number;
-    this.devices = devices;
+  public Account(String number, Set<Device> devices, byte[] unidentifiedAccessKey) {
+    this.number                = number;
+    this.devices               = devices;
+    this.unidentifiedAccessKey = unidentifiedAccessKey;
   }
 
   public Optional<Device> getAuthenticatedDevice() {
-    return Optional.fromNullable(authenticatedDevice);
+    return Optional.ofNullable(authenticatedDevice);
   }
 
   public void setAuthenticatedDevice(Device device) {
@@ -84,7 +93,7 @@ public class Account {
   }
 
   public void removeDevice(long deviceId) {
-    this.devices.remove(new Device(deviceId, null, null, null, null, null, null, null, false, 0, null, 0, 0, false, false, "NA"));
+    this.devices.remove(new Device(deviceId, null, null, null, null, null, null, null, false, 0, null, 0, 0, "NA", false));
   }
 
   public Set<Device> getDevices() {
@@ -102,27 +111,11 @@ public class Account {
       }
     }
 
-    return Optional.absent();
+    return Optional.empty();
   }
 
-  public boolean isVoiceSupported() {
-    for (Device device : devices) {
-      if (device.isActive() && device.isVoiceSupported()) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  public boolean isVideoSupported() {
-    for (Device device : devices) {
-      if (device.isActive() && device.isVideoSupported()) {
-        return true;
-      }
-    }
-
-    return false;
+  public boolean isUnauthenticatedDeliverySupported() {
+    return devices.stream().filter(Device::isActive).allMatch(Device::isUnauthenticatedDeliverySupported);
   }
 
   public boolean isActive() {
@@ -161,7 +154,7 @@ public class Account {
   }
 
   public Optional<String> getRelay() {
-    return Optional.absent();
+    return Optional.empty();
   }
 
   public void setIdentityKey(String identityKey) {
@@ -184,11 +177,11 @@ public class Account {
     return lastSeen;
   }
 
-  public String getName() {
+  public String getProfileName() {
     return name;
   }
 
-  public void setName(String name) {
+  public void setProfileName(String name) {
     this.name = name;
   }
 
@@ -209,10 +202,40 @@ public class Account {
   }
 
   public Optional<String> getPin() {
-    return Optional.fromNullable(pin);
+    return Optional.ofNullable(pin);
   }
 
   public void setPin(String pin) {
     this.pin = pin;
+  }
+
+  public Optional<byte[]> getUnidentifiedAccessKey() {
+    return Optional.ofNullable(unidentifiedAccessKey);
+  }
+
+  public void setUnidentifiedAccessKey(byte[] unidentifiedAccessKey) {
+    this.unidentifiedAccessKey = unidentifiedAccessKey;
+  }
+
+  public boolean isUnrestrictedUnidentifiedAccess() {
+    return unrestrictedUnidentifiedAccess;
+  }
+
+  public void setUnrestrictedUnidentifiedAccess(boolean unrestrictedUnidentifiedAccess) {
+    this.unrestrictedUnidentifiedAccess = unrestrictedUnidentifiedAccess;
+  }
+
+  // Principal implementation
+
+  @Override
+  @JsonIgnore
+  public String getName() {
+    return null;
+  }
+
+  @Override
+  @JsonIgnore
+  public boolean implies(Subject subject) {
+    return false;
   }
 }

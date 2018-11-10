@@ -19,7 +19,6 @@ package org.whispersystems.textsecuregcm.sms;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
-import com.google.common.base.Optional;
 import com.twilio.sdk.TwilioRestClient;
 import com.twilio.sdk.TwilioRestException;
 import com.twilio.sdk.resource.factory.CallFactory;
@@ -36,10 +35,12 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class TwilioSmsSender {
 
   public static final String SAY_TWIML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
@@ -81,7 +82,7 @@ public class TwilioSmsSender {
       messageParams.add(new BasicNameValuePair("MessagingServiceSid", messagingServicesId));
     }
     
-    if ("ios".equals(clientType.orNull())) {
+    if ("ios".equals(clientType.orElse(null))) {
       messageParams.add(new BasicNameValuePair("Body", String.format(SmsSender.SMS_IOS_VERIFICATION_TEXT, verificationCode, verificationCode)));
     } else {
       messageParams.add(new BasicNameValuePair("Body", String.format(SmsSender.SMS_VERIFICATION_TEXT, verificationCode)));

@@ -4,7 +4,6 @@ import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.RatioGauge;
 import com.codahale.metrics.SharedMetricRegistries;
-import com.google.common.base.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.redis.LuaScript;
@@ -21,6 +20,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -28,7 +28,6 @@ import io.dropwizard.lifecycle.Managed;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.exceptions.JedisException;
 
-@SuppressWarnings("Guava")
 public class ApnFallbackManager implements Managed, Runnable {
 
   private static final Logger logger = LoggerFactory.getLogger(ApnFallbackManager.class);
@@ -167,19 +166,19 @@ public class ApnFallbackManager implements Managed, Runnable {
 
   private Optional<Pair<String, Long>> getSeparated(String encoded) {
     try {
-      if (encoded == null) return Optional.absent();
+      if (encoded == null) return Optional.empty();
 
       String[] parts = encoded.split(":");
 
       if (parts.length != 2) {
         logger.warn("Got strange encoded number: " + encoded);
-        return Optional.absent();
+        return Optional.empty();
       }
 
       return Optional.of(new Pair<>(parts[0], Long.parseLong(parts[1])));
     } catch (NumberFormatException e) {
       logger.warn("Badly formatted: " + encoded, e);
-      return Optional.absent();
+      return Optional.empty();
     }
   }
 

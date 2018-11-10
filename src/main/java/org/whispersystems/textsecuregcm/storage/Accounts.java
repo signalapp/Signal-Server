@@ -63,7 +63,7 @@ public abstract class Accounts {
 
   @Mapper(AccountMapper.class)
   @SqlQuery("SELECT * FROM accounts WHERE " + NUMBER + " = :number")
-  abstract Account get(@Bind("number") String number);
+  public abstract Account get(@Bind("number") String number);
 
   @SqlQuery("SELECT COUNT(DISTINCT " + NUMBER + ") from accounts")
   public abstract long getCount();

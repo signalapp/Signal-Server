@@ -22,7 +22,6 @@ import org.skife.jdbi.v2.DBI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
-import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.providers.RedisClientFactory;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.storage.Accounts;
@@ -30,16 +29,13 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager;
 
 import io.dropwizard.Application;
-import io.dropwizard.cli.ConfiguredCommand;
 import io.dropwizard.cli.EnvironmentCommand;
 import io.dropwizard.db.DataSourceFactory;
 import io.dropwizard.jdbi.ImmutableListContainerFactory;
 import io.dropwizard.jdbi.ImmutableSetContainerFactory;
 import io.dropwizard.jdbi.OptionalContainerFactory;
 import io.dropwizard.jdbi.args.OptionalArgumentFactory;
-import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
-import redis.clients.jedis.JedisPool;
 
 public class DirectoryCommand extends EnvironmentCommand<WhisperServerConfiguration> {
 
@@ -77,14 +73,10 @@ public class DirectoryCommand extends EnvironmentCommand<WhisperServerConfigurat
       ReplicatedJedisPool redisClient     = new RedisClientFactory(configuration.getDirectoryConfiguration().getRedisConfiguration().getUrl(), configuration.getDirectoryConfiguration().getRedisConfiguration().getReplicaUrls()).getRedisClientPool();
       DirectoryManager    directory       = new DirectoryManager(redisClient);
       AccountsManager     accountsManager = new AccountsManager(accounts, directory, cacheClient);
-//      FederatedClientManager federatedClientManager = new FederatedClientManager(environment,
-//                                                                                 configuration.getJerseyClientConfiguration(),
-//                                                                                 configuration.getFederationConfiguration());
 
       DirectoryUpdater update = new DirectoryUpdater(accountsManager, directory);
 
       update.updateFromLocalDatabase();
-//      update.updateFromPeers();
     } catch (Exception ex) {
       logger.warn("Directory Exception", ex);
       throw new RuntimeException(ex);

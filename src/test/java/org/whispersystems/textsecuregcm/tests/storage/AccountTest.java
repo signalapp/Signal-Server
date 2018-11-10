@@ -6,6 +6,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertFalse;
@@ -49,21 +50,21 @@ public class AccountTest {
     Account recentAccount = new Account("+14152222222", new HashSet<Device>() {{
       add(recentMasterDevice);
       add(recentSecondaryDevice);
-    }});
+    }}, "1234".getBytes());
 
     assertTrue(recentAccount.isActive());
 
     Account oldSecondaryAccount = new Account("+14152222222", new HashSet<Device>() {{
       add(recentMasterDevice);
       add(agingSecondaryDevice);
-    }});
+    }}, "1234".getBytes());
 
     assertTrue(oldSecondaryAccount.isActive());
 
     Account agingPrimaryAccount = new Account("+14152222222", new HashSet<Device>() {{
       add(oldMasterDevice);
       add(agingSecondaryDevice);
-    }});
+    }}, "1234".getBytes());
 
     assertTrue(agingPrimaryAccount.isActive());
   }
@@ -73,7 +74,7 @@ public class AccountTest {
     Account oldPrimaryAccount = new Account("+14152222222", new HashSet<Device>() {{
       add(oldMasterDevice);
       add(oldSecondaryDevice);
-    }});
+    }}, "1234".getBytes());
 
     assertFalse(oldPrimaryAccount.isActive());
   }

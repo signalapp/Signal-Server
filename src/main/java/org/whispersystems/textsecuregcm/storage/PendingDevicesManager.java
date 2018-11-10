@@ -18,7 +18,6 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
@@ -26,6 +25,7 @@ import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import redis.clients.jedis.Jedis;
 
@@ -59,7 +59,7 @@ public class PendingDevicesManager {
     Optional<StoredVerificationCode> code = memcacheGet(number);
 
     if (!code.isPresent()) {
-      code = Optional.fromNullable(pendingDevices.getCodeForNumber(number));
+      code = Optional.ofNullable(pendingDevices.getCodeForNumber(number));
 
       if (code.isPresent()) {
         memcacheSet(number, code.get());
@@ -81,11 +81,11 @@ public class PendingDevicesManager {
     try (Jedis jedis = cacheClient.getReadResource()) {
       String json = jedis.get(CACHE_PREFIX + number);
 
-      if (json == null) return Optional.absent();
+      if (json == null) return Optional.empty();
       else              return Optional.of(mapper.readValue(json, StoredVerificationCode.class));
     } catch (IOException e) {
       logger.warn("Could not parse pending device stored verification json");
-      return Optional.absent();
+      return Optional.empty();
     }
   }
 

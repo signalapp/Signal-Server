@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2013 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -16,24 +16,16 @@
  */
 package org.whispersystems.textsecuregcm.workers;
 
-import com.google.common.base.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
-import org.whispersystems.textsecuregcm.federation.FederatedClient;
-import org.whispersystems.textsecuregcm.federation.FederatedClientManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager.BatchOperationHandle;
 import org.whispersystems.textsecuregcm.util.Util;
 
-import java.io.IOException;
-import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
-
-import static org.whispersystems.textsecuregcm.storage.DirectoryManager.PendingClientContact;
 
 public class DirectoryUpdater {
 
@@ -68,7 +60,7 @@ public class DirectoryUpdater {
         for (Account account : accounts) {
           if (account.isActive()) {
             byte[]        token         = Util.getContactToken(account.getNumber());
-            ClientContact clientContact = new ClientContact(token, null, account.isVoiceSupported(), account.isVideoSupported());
+            ClientContact clientContact = new ClientContact(token, null, true, true);
 
             directory.add(batchOperation, clientContact);
             contactsAdded++;

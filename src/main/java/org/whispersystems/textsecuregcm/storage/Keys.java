@@ -16,7 +16,6 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
-import com.google.common.base.Optional;
 import org.skife.jdbi.v2.SQLStatement;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.TransactionIsolationLevel;
@@ -41,6 +40,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 
 public abstract class Keys {
 
@@ -84,7 +84,7 @@ public abstract class Keys {
     if (record != null && !record.isLastResort()) {
       removeKey(record.getId());
     } else if (record == null) {
-      return Optional.absent();
+      return Optional.empty();
     }
 
     List<KeyRecord> results = new LinkedList<>();
@@ -106,7 +106,7 @@ public abstract class Keys {
     }
 
     if (preKeys != null) return Optional.of(preKeys);
-    else                 return Optional.absent();
+    else                 return Optional.empty();
   }
 
   @SqlUpdate("VACUUM keys")

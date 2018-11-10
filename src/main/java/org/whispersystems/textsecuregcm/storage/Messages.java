@@ -21,15 +21,18 @@ import java.lang.annotation.Target;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.UUID;
 
 public abstract class Messages {
 
   static final int RESULT_SET_CHUNK_SIZE = 100;
 
   private static final String ID                 = "id";
+  private static final String GUID               = "guid";
   private static final String TYPE               = "type";
   private static final String RELAY              = "relay";
   private static final String TIMESTAMP          = "timestamp";
+  private static final String SERVER_TIMESTAMP   = "server_timestamp";
   private static final String SOURCE             = "source";
   private static final String SOURCE_DEVICE      = "source_device";
   private static final String DESTINATION        = "destination";
@@ -37,11 +40,12 @@ public abstract class Messages {
   private static final String MESSAGE            = "message";
   private static final String CONTENT            = "content";
 
-  @SqlUpdate("INSERT INTO messages (" + TYPE + ", " + RELAY + ", " + TIMESTAMP + ", " + SOURCE + ", " + SOURCE_DEVICE + ", " + DESTINATION + ", " + DESTINATION_DEVICE + ", " + MESSAGE + ", " + CONTENT + ") " +
-             "VALUES (:type, :relay, :timestamp, :source, :source_device, :destination, :destination_device, :message, :content)")
-  abstract void store(@MessageBinder Envelope message,
-                     @Bind("destination") String destination,
-                     @Bind("destination_device") long destinationDevice);
+  @SqlUpdate("INSERT INTO messages (" + GUID + ", " + TYPE + ", " + RELAY + ", " + TIMESTAMP + ", " + SERVER_TIMESTAMP + ", " + SOURCE + ", " + SOURCE_DEVICE + ", " + DESTINATION + ", " + DESTINATION_DEVICE + ", " + MESSAGE + ", " + CONTENT + ") " +
+             "VALUES (:guid, :type, :relay, :timestamp, :server_timestamp, :source, :source_device, :destination, :destination_device, :message, :content)")
+  abstract void store(@Bind("guid") UUID guid,
+                      @MessageBinder Envelope message,
+                      @Bind("destination") String destination,
+                      @Bind("destination_device") long destinationDevice);
 
   @Mapper(MessageMapper.class)
   @SqlQuery("SELECT * FROM messages WHERE " + DESTINATION + " = :destination AND " + DESTINATION_DEVICE + " = :destination_device ORDER BY " + TIMESTAMP + " ASC LIMIT " + RESULT_SET_CHUNK_SIZE)
@@ -54,6 +58,10 @@ public abstract class Messages {
                                         @Bind("destination_device") long destinationDevice,
                                         @Bind("source")             String source,
                                         @Bind("timestamp")          long timestamp);
+
+  @Mapper(MessageMapper.class)
+  @SqlQuery("DELETE FROM messages WHERE "+  ID + " IN (SELECT " + ID + " FROM MESSAGES WHERE " + GUID + " = :guid AND " + DESTINATION + " = :destination ORDER BY " + ID + " LIMIT 1) RETURNING *")
+  abstract OutgoingMessageEntity remove(@Bind("destination") String destination, @Bind("guid") UUID guid);
 
   @Mapper(MessageMapper.class)
   @SqlUpdate("DELETE FROM messages WHERE " + ID + " = :id AND " + DESTINATION + " = :destination")
@@ -79,6 +87,7 @@ public abstract class Messages {
 
       int    type          = resultSet.getInt(TYPE);
       byte[] legacyMessage = resultSet.getBytes(MESSAGE);
+      String guid          = resultSet.getString(GUID);
 
       if (type == Envelope.Type.RECEIPT_VALUE && legacyMessage == null) {
         /// XXX - REMOVE AFTER 10/01/15
@@ -87,13 +96,15 @@ public abstract class Messages {
 
       return new OutgoingMessageEntity(resultSet.getLong(ID),
                                        false,
+                                       guid == null ? null : UUID.fromString(guid),
                                        type,
                                        resultSet.getString(RELAY),
                                        resultSet.getLong(TIMESTAMP),
                                        resultSet.getString(SOURCE),
                                        resultSet.getInt(SOURCE_DEVICE),
                                        legacyMessage,
-                                       resultSet.getBytes(CONTENT));
+                                       resultSet.getBytes(CONTENT),
+                                       resultSet.getLong(SERVER_TIMESTAMP));
     }
   }
 
@@ -113,8 +124,9 @@ public abstract class Messages {
             sql.bind(TYPE, message.getType().getNumber());
             sql.bind(RELAY, message.getRelay());
             sql.bind(TIMESTAMP, message.getTimestamp());
-            sql.bind(SOURCE, message.getSource());
-            sql.bind(SOURCE_DEVICE, message.getSourceDevice());
+            sql.bind(SERVER_TIMESTAMP, message.getServerTimestamp());
+            sql.bind(SOURCE, message.hasSource() ? message.getSource() : null);
+            sql.bind(SOURCE_DEVICE, message.hasSourceDevice() ? message.getSourceDevice() : null);
             sql.bind(MESSAGE, message.hasLegacyMessage() ? message.getLegacyMessage().toByteArray() : null);
             sql.bind(CONTENT, message.hasContent() ? message.getContent().toByteArray() : null);
           }
@@ -122,6 +134,4 @@ public abstract class Messages {
       }
     }
   }
-
-
 }

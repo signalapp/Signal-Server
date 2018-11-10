@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2013 Open WhisperSystems
+/*
+ * Copyright (C) 2013-2018 Signal
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -17,23 +17,37 @@
 package org.whispersystems.textsecuregcm.storage;
 
 
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
+import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 
+import static com.codahale.metrics.MetricRegistry.name;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.exceptions.JedisException;
 
 public class AccountsManager {
+
+  private static final MetricRegistry metricRegistry      = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  private static final Timer          createTimer         = metricRegistry.timer(name(AccountsManager.class, "create"        ));
+  private static final Timer          updateTimer         = metricRegistry.timer(name(AccountsManager.class, "update"        ));
+  private static final Timer          getTimer            = metricRegistry.timer(name(AccountsManager.class, "get"           ));
+
+  private static final Timer          redisSetTimer       = metricRegistry.timer(name(AccountsManager.class, "redisSet"      ));
+  private static final Timer          redisGetTimer       = metricRegistry.timer(name(AccountsManager.class, "redisGet"      ));
 
   private final Logger logger = LoggerFactory.getLogger(AccountsManager.class);
 
@@ -62,44 +76,40 @@ public class AccountsManager {
   }
 
   public boolean create(Account account) {
-    boolean freshUser = accounts.create(account);
-    memcacheSet(account.getNumber(), account);
-    updateDirectory(account);
+    try (Timer.Context context = createTimer.time()) {
+      boolean freshUser = databaseCreate(account);
+      redisSet(account.getNumber(), account, false);
+      updateDirectory(account);
 
-    return freshUser;
+      return freshUser;
+    }
   }
 
   public void update(Account account) {
-    memcacheSet(account.getNumber(), account);
-    accounts.update(account);
-    updateDirectory(account);
+    try (Timer.Context context = updateTimer.time()) {
+      redisSet(account.getNumber(), account, false);
+      databaseUpdate(account);
+      updateDirectory(account);
+    }
   }
 
   public Optional<Account> get(String number) {
-    Optional<Account> account = memcacheGet(number);
+    try (Timer.Context context = getTimer.time()) {
+      Optional<Account> account = redisGet(number);
 
-    if (!account.isPresent()) {
-      account = Optional.fromNullable(accounts.get(number));
-
-      if (account.isPresent()) {
-        memcacheSet(number, account.get());
+      if (!account.isPresent()) {
+        account = databaseGet(number);
+        account.ifPresent(value -> redisSet(number, value, true));
       }
+
+      return account;
     }
-
-    return account;
-  }
-
-  public boolean isRelayListed(String number) {
-    byte[]                  token   = Util.getContactToken(number);
-    Optional<ClientContact> contact = directory.get(token);
-
-    return contact.isPresent() && !Util.isEmpty(contact.get().getRelay());
   }
 
   private void updateDirectory(Account account) {
     if (account.isActive()) {
       byte[]        token         = Util.getContactToken(account.getNumber());
-      ClientContact clientContact = new ClientContact(token, null, account.isVoiceSupported(), account.isVideoSupported());
+      ClientContact clientContact = new ClientContact(token, null, true, true);
       directory.add(clientContact);
     } else {
       directory.remove(account.getNumber());
@@ -110,24 +120,42 @@ public class AccountsManager {
     return Account.class.getSimpleName() + Account.MEMCACHE_VERION + number;
   }
 
-  private void memcacheSet(String number, Account account) {
-    try (Jedis jedis = cacheClient.getWriteResource()) {
+  private void redisSet(String number, Account account, boolean optional) {
+    try (Jedis         jedis = cacheClient.getWriteResource();
+         Timer.Context timer = redisSetTimer.time())
+    {
       jedis.set(getKey(number), mapper.writeValueAsString(account));
     } catch (JsonProcessingException e) {
-      throw new IllegalArgumentException(e);
+      throw new IllegalStateException(e);
     }
   }
 
-  private Optional<Account> memcacheGet(String number) {
-    try (Jedis jedis = cacheClient.getReadResource()) {
+  private Optional<Account> redisGet(String number) {
+    try (Jedis         jedis = cacheClient.getReadResource();
+         Timer.Context timer = redisGetTimer.time())
+    {
       String json = jedis.get(getKey(number));
 
       if (json != null) return Optional.of(mapper.readValue(json, Account.class));
-      else              return Optional.absent();
+      else              return Optional.empty();
     } catch (IOException e) {
       logger.warn("AccountsManager", "Deserialization error", e);
-      return Optional.absent();
+      return Optional.empty();
+    } catch (JedisException e) {
+      logger.warn("Redis failure", e);
+      return Optional.empty();
     }
   }
 
+  private Optional<Account> databaseGet(String number) {
+    return Optional.ofNullable(accounts.get(number));
+  }
+
+  private boolean databaseCreate(Account account) {
+    return accounts.create(account);
+  }
+
+  private void databaseUpdate(Account account) {
+    accounts.update(account);
+  }
 }

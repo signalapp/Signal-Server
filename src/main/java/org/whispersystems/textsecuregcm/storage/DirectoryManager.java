@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2013 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
@@ -32,6 +31,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Pipeline;
@@ -102,14 +102,14 @@ public class DirectoryManager {
       byte[] result = jedis.hget(DIRECTORY_KEY, token);
 
       if (result == null) {
-        return Optional.absent();
+        return Optional.empty();
       }
 
       TokenValue tokenValue = objectMapper.readValue(result, TokenValue.class);
       return Optional.of(new ClientContact(token, tokenValue.relay, tokenValue.voice, tokenValue.video));
     } catch (IOException e) {
       logger.warn("JSON Error", e);
-      return Optional.absent();
+      return Optional.empty();
     }
   }
 
@@ -205,7 +205,7 @@ public class DirectoryManager {
       byte[] result = response.get();
 
       if (result == null) {
-        return Optional.absent();
+        return Optional.empty();
       }
 
       TokenValue tokenValue = objectMapper.readValue(result, TokenValue.class);

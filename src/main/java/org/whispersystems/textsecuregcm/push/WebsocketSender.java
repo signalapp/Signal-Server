@@ -68,7 +68,7 @@ public class WebsocketSender {
     this.pubSubManager   = pubSubManager;
   }
 
-  public DeliveryStatus sendMessage(Account account, Device device, Envelope message, Type channel) {
+  public DeliveryStatus sendMessage(Account account, Device device, Envelope message, Type channel, boolean online) {
     WebsocketAddress address       = new WebsocketAddress(account.getNumber(), device.getId());
     PubSubMessage    pubSubMessage = PubSubMessage.newBuilder()
                                                   .setType(PubSubMessage.Type.DELIVER)
@@ -86,7 +86,7 @@ public class WebsocketSender {
       else if (channel == Type.GCM) gcmOfflineMeter.mark();
       else                          websocketOfflineMeter.mark();
 
-      queueMessage(account, device, message);
+      if (!online) queueMessage(account, device, message);
       return new DeliveryStatus(false);
     }
   }

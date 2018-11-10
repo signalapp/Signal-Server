@@ -1,6 +1,5 @@
 package org.whispersystems.textsecuregcm.tests.push;
 
-import com.google.common.base.Optional;
 import com.google.common.util.concurrent.SettableFuture;
 import org.junit.Test;
 import org.mockito.Matchers;
@@ -14,6 +13,8 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.SynchronousExecutorService;
+
+import java.util.Optional;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.*;

@@ -3,10 +3,16 @@
 
 local removedCount = redis.call("ZREMRANGEBYSCORE", KEYS[1], ARGV[1], ARGV[1])
 local senderIndex  = redis.call("HGET", KEYS[2], ARGV[1])
+local guidIndex    = redis.call("HGET", KEYS[2], ARGV[1] .. "guid")
 
 if senderIndex then
     redis.call("HDEL", KEYS[2], senderIndex)
     redis.call("HDEL", KEYS[2], ARGV[1])
+end
+
+if guidIndex then
+    redis.call("HDEL", KEYS[2], guidIndex)
+    redis.call("HDEL", KEYS[2], ARGV[1] .. "guid")
 end
 
 if (redis.call("ZCARD", KEYS[1]) == 0) then

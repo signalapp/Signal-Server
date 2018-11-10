@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2013 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -71,13 +71,10 @@ public class Device {
   private long created;
 
   @JsonProperty
-  private boolean voice;
-
-  @JsonProperty
-  private boolean video;
-
-  @JsonProperty
   private String userAgent;
+
+  @JsonProperty
+  private boolean unauthenticatedDelivery;
 
   public Device() {}
 
@@ -85,25 +82,24 @@ public class Device {
                 String signalingKey, String gcmId, String apnId,
                 String voipApnId, boolean fetchesMessages,
                 int registrationId, SignedPreKey signedPreKey,
-                long lastSeen, long created, boolean voice, boolean video,
-                String userAgent)
+                long lastSeen, long created, String userAgent,
+                boolean unauthenticatedDelivery)
   {
-    this.id              = id;
-    this.name            = name;
-    this.authToken       = authToken;
-    this.salt            = salt;
-    this.signalingKey    = signalingKey;
-    this.gcmId           = gcmId;
-    this.apnId           = apnId;
-    this.voipApnId       = voipApnId;
-    this.fetchesMessages = fetchesMessages;
-    this.registrationId  = registrationId;
-    this.signedPreKey    = signedPreKey;
-    this.lastSeen        = lastSeen;
-    this.created         = created;
-    this.voice           = voice;
-    this.video           = video;
-    this.userAgent       = userAgent;
+    this.id                      = id;
+    this.name                    = name;
+    this.authToken               = authToken;
+    this.salt                    = salt;
+    this.signalingKey            = signalingKey;
+    this.gcmId                   = gcmId;
+    this.apnId                   = apnId;
+    this.voipApnId               = voipApnId;
+    this.fetchesMessages         = fetchesMessages;
+    this.registrationId          = registrationId;
+    this.signedPreKey            = signedPreKey;
+    this.lastSeen                = lastSeen;
+    this.created                 = created;
+    this.userAgent               = userAgent;
+    this.unauthenticatedDelivery = unauthenticatedDelivery;
   }
 
   public String getApnId() {
@@ -170,20 +166,12 @@ public class Device {
     this.name = name;
   }
 
-  public boolean isVoiceSupported() {
-    return voice;
+  public boolean isUnauthenticatedDeliverySupported() {
+    return unauthenticatedDelivery;
   }
 
-  public void setVoiceSupported(boolean voice) {
-    this.voice = voice;
-  }
-
-  public boolean isVideoSupported() {
-    return video;
-  }
-
-  public void setVideoSupported(boolean video) {
-    this.video = video;
+  public void setUnauthenticatedDeliverySupported(boolean unauthenticatedDelivery) {
+    this.unauthenticatedDelivery = unauthenticatedDelivery;
   }
 
   public void setAuthenticationCredentials(AuthenticationCredentials credentials) {
