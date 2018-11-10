@@ -16,10 +16,7 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.base.Optional;
-import org.whispersystems.textsecuregcm.redis.LuaScript;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.storage.DirectoryReconciliationCache;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -31,7 +28,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-
 
 public class ActiveUserCache {
 
