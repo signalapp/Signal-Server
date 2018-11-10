@@ -35,9 +35,6 @@ import java.util.List;
 
 public class ActiveUserCache {
 
-  public static final int    DEFAULT_DATE   = 2000_01_01;
-  public static final String INITIAL_NUMBER = "+";
-
   private static final String PREFIX                  = "active_user_";
   private static final String DATE_TO_REPORT_KEY      = PREFIX + "date_to_report";
   private static final String ACTIVE_WORKER_ID_KEY    = PREFIX + "worker_id";
@@ -61,10 +58,10 @@ public class ActiveUserCache {
     unlockOperation.unlock(ACTIVE_WORKER_ID_KEY, workerId);
   }
 
-  public int getDateToReport() {
+  public int getDateToReport(int initialDate) {
     try (Jedis jedis = jedisPool.getWriteResource()) {
       String value = jedis.get(DATE_TO_REPORT_KEY);
-      return value == null ? DEFAULT_DATE : Integer.valueOf(value);
+      return value == null ? initialDate : Integer.valueOf(value);
     }
   }
 

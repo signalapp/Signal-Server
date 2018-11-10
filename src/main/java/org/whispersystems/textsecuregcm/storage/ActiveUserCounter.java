@@ -48,10 +48,12 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 public class ActiveUserCounter implements Managed, Runnable {
 
-  private static final long WORKER_TTL_MS       = 120_000L;
-  private static final int  JITTER_BASE_MS      = 4_000; //25_000;
-  private static final int  JITTER_VARIATION_MS = 2_000; //10_000;
-  private static final int  CHUNK_SIZE          = 16_384;
+  private static final long   WORKER_TTL_MS       = 120_000L;
+  private static final int    JITTER_BASE_MS      = 4_000; //25_000;
+  private static final int    JITTER_VARIATION_MS = 2_000; //10_000;
+  private static final int    CHUNK_SIZE          = 16_384;
+  private static final String INITIAL_NUMBER      = "+";
+  private static final int    INITIAL_DATE        = 2000_01_01;
 
   private static final Logger         logger         = LoggerFactory.getLogger(ActiveUserCounter.class);
   private static final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
@@ -63,15 +65,11 @@ public class ActiveUserCounter implements Managed, Runnable {
   private static final String PLATFORMS[] = {PLATFORM_IOS, PLATFORM_ANDROID};
   private static final String INTERVALS[] = {"daily", "weekly", "monthly", "quarterly", "yearly"};
 
-
   private final MetricsFactory  metricsFactory;
   private final Accounts        accounts;
   private final ActiveUserCache activeUserCache;
   private final String          workerId;
   private final SecureRandom    random;
-
-  private int              lastDate = ActiveUserCache.DEFAULT_DATE;
-  private Optional<String> lastNumber;
 
   private boolean running;
   private boolean finished;
@@ -102,16 +100,20 @@ public class ActiveUserCounter implements Managed, Runnable {
   @Override
   public void run() {
 
+    int     lastDate   = INITIAL_DATE;
+    boolean doMoreWork = true;
+
     while (sleepWhileRunning(getDelayWithJitter())) {
       int today = getDateOfToday();
 
       if (today > lastDate) {
-        lastNumber = Optional.of(ActiveUserCache.INITIAL_NUMBER);
+        lastDate = today;
+        doMoreWork = true;
       }
 
-      if (lastNumber.isPresent()) {
+      if (doMoreWork) {
         try {
-          doPeriodicWork(today);
+          doMoreWork = doPeriodicWork(today);
         } catch (Throwable t) {
           logger.warn("error in active user count: ", t);
         }
@@ -127,34 +129,32 @@ public class ActiveUserCounter implements Managed, Runnable {
   }
 
   @VisibleForTesting
-  public void doPeriodicWork(int today) {
+  public boolean doPeriodicWork(int today) {
 
     if (activeUserCache.claimActiveWorker(workerId, WORKER_TTL_MS)) {
       try {
         long startTimeMs = System.currentTimeMillis();
         Optional<String> number = activeUserCache.getLastNumberVisited();
-        int date = activeUserCache.getDateToReport();
+        int date = activeUserCache.getDateToReport(INITIAL_DATE);
 
         if (today > date) {
+          logger.info(date + " started");
           date = today;
-          number = Optional.of(ActiveUserCache.INITIAL_NUMBER);
+          number = Optional.of(INITIAL_NUMBER);
           activeUserCache.setLastNumberVisited(number);
           activeUserCache.setDateToReport(date);
           activeUserCache.resetTallies(PLATFORMS, INTERVALS);
-          logger.info(date + " started");
         }
 
-        if (number.isPresent()) {
-          number = processChunk(date, number.get(), CHUNK_SIZE);
-          activeUserCache.setLastNumberVisited(number);
-          if (!number.isPresent()) {
-            registerMetrics();
-            logger.info(date + " completed");
-          }
-        }
+        if (!number.isPresent()) return false;
+        number = processChunk(date, number.get(), CHUNK_SIZE);
+        activeUserCache.setLastNumberVisited(number);
 
-        lastDate = date;
-        lastNumber = number;
+        if (!number.isPresent()) {
+          logger.info(date + " completed");
+          registerMetrics();
+          return false;
+        }
 
         long endTimeMs = System.currentTimeMillis();
         long sleepInterval = getDelayWithJitter() - (endTimeMs - startTimeMs);
@@ -164,6 +164,7 @@ public class ActiveUserCounter implements Managed, Runnable {
         activeUserCache.releaseActiveWorker(workerId);
       }
     }
+    return true;
   }
 
   private void registerMetrics() {

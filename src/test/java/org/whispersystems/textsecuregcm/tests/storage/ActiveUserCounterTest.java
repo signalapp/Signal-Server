@@ -58,8 +58,8 @@ public class ActiveUserCounterTest {
   public void setup() {
     when(accounts.getAllFrom(any(), anyInt())).thenReturn(Collections.emptyList());
     when(metricsFactory.getReporters()).thenReturn(ImmutableList.of());
-    when(activeUserCache.getNumber()).thenReturn(Optional.of("+"));
-    when(activeUserCache.getDate()).thenReturn(20181101);
+    when(activeUserCache.getLastNumberVisited()).thenReturn(Optional.of("+"));
+    when(activeUserCache.getDateToReport(anyInt())).thenReturn(20181101);
     when(activeUserCache.claimActiveWorker(any(), anyLong())).thenReturn(true);
     when(activeUserCache.getFinalTallies(any(), any())).thenReturn(EMPTY_TALLIES);
   }
