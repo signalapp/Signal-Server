@@ -28,7 +28,6 @@ import io.dropwizard.metrics.ReporterFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.security.SecureRandom;
@@ -42,7 +41,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 public class ActiveUserCounter implements Managed, Runnable {
 
