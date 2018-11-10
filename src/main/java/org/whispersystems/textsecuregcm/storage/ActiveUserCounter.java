@@ -64,11 +64,11 @@ public class ActiveUserCounter implements Managed, Runnable {
   private static final String INTERVALS[] = {"daily", "weekly", "monthly", "quarterly", "yearly"};
 
 
-  private final MetricsFactory             metricsFactory;
-  private final Accounts                   accounts;
-  private final ActiveUserCache            activeUserCache;
-  private final String                     workerId;
-  private final SecureRandom               random;
+  private final MetricsFactory  metricsFactory;
+  private final Accounts        accounts;
+  private final ActiveUserCache activeUserCache;
+  private final String          workerId;
+  private final SecureRandom    random;
 
   private int              lastDate = ActiveUserCache.DEFAULT_DATE;
   private Optional<String> lastNumber;
