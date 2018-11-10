@@ -45,8 +45,8 @@ import java.util.concurrent.TimeUnit;
 public class ActiveUserCounter implements Managed, Runnable {
 
   private static final long   WORKER_TTL_MS       = 120_000L;
-  private static final int    JITTER_BASE_MS      = 4_000; //25_000;
-  private static final int    JITTER_VARIATION_MS = 2_000; //10_000;
+  private static final int    JITTER_BASE_MS      = 25_000;
+  private static final int    JITTER_VARIATION_MS = 10_000;
   private static final int    CHUNK_SIZE          = 16_384;
   private static final String INITIAL_NUMBER      = "+";
   private static final int    INITIAL_DATE        = 2000_01_01;
