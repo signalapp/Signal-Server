@@ -44,8 +44,6 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.codahale.metrics.MetricRegistry.name;
-
 public class ActiveUserCounter implements Managed, Runnable {
 
   private static final long   WORKER_TTL_MS       = 120_000L;
@@ -57,7 +55,7 @@ public class ActiveUserCounter implements Managed, Runnable {
 
   private static final Logger         logger         = LoggerFactory.getLogger(ActiveUserCounter.class);
   private static final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private static final Timer          readChunkTimer = metricRegistry.timer(name(ActiveUserCounter.class, "readChunk"));
+  private static final Timer          readChunkTimer = metricRegistry.timer(MetricRegistry.name(ActiveUserCounter.class, "readChunk"));
 
   private static final String PLATFORM_IOS     = "ios";
   private static final String PLATFORM_ANDROID = "android";
