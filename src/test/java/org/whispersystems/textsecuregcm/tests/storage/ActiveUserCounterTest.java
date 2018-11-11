@@ -17,7 +17,6 @@
 
 package org.whispersystems.textsecuregcm.tests.storage;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.junit.Before;
 import org.junit.Test;
@@ -26,12 +25,15 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.ActiveUserCache;
 import org.whispersystems.textsecuregcm.storage.ActiveUserCounter;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import io.dropwizard.metrics.MetricsFactory;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.concurrent.TimeUnit;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -45,7 +47,13 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 public class ActiveUserCounterTest {
-  private final Account  account  = mock(Account.class);
+  private final Device iosDevice     = mock(Device.class);
+  private final Device androidDevice = mock(Device.class);
+
+  private final Account androidAccount = mock(Account.class);
+  private final Account iosAccount     = mock(Account.class);
+  private final Account invalidAccount = mock(Account.class);
+
   private final Accounts accounts = mock(Accounts.class);
   private final MetricsFactory metricsFactory = mock(MetricsFactory.class);
 
@@ -56,8 +64,31 @@ public class ActiveUserCounterTest {
 
   @Before
   public void setup() {
-    when(accounts.getAllFrom(any(), anyInt())).thenReturn(Collections.emptyList());
+
+    long oneDayAgo = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1);
+
+    when(androidDevice.getApnId()).thenReturn(null);
+    when(androidDevice.getGcmId()).thenReturn("mock-gcm-id");
+    when(androidDevice.getLastSeen()).thenReturn(oneDayAgo);
+
+    when(iosDevice.getApnId()).thenReturn("mock-apn-id");
+    when(iosDevice.getGcmId()).thenReturn(null);
+    when(iosDevice.getLastSeen()).thenReturn(oneDayAgo);
+
+    when(iosAccount.getNumber()).thenReturn("+1");
+    when(iosAccount.getMasterDevice()).thenReturn(Optional.of(iosDevice));
+
+    when(androidAccount.getNumber()).thenReturn("+2");
+    when(androidAccount.getMasterDevice()).thenReturn(Optional.of(androidDevice));
+
+    when(invalidAccount.getNumber()).thenReturn("+3");
+    when(invalidAccount.getMasterDevice()).thenReturn(Optional.ofNullable(null));
+
+    when(accounts.getAllFrom(eq("+"), anyInt())).thenReturn(Arrays.asList(iosAccount, androidAccount, invalidAccount));
+    when(accounts.getAllFrom(eq("+3"), anyInt())).thenReturn(Collections.emptyList());
+
     when(metricsFactory.getReporters()).thenReturn(ImmutableList.of());
+
     when(activeUserCache.getLastNumberVisited()).thenReturn(Optional.of("+"));
     when(activeUserCache.getDateToReport(anyInt())).thenReturn(20181101);
     when(activeUserCache.claimActiveWorker(any(), anyLong())).thenReturn(true);
@@ -66,8 +97,21 @@ public class ActiveUserCounterTest {
 
   @Test
   public void test() {
-    //int today = activeUserCounter.getDateOfToday();
-    //activeUserCounter.doPeriodicWork(today);
+
+    int today = activeUserCounter.getDateOfToday();
+    activeUserCounter.doPeriodicWork(today);
+    /*
+    verifyNoMoreInteractions(iosDevice);
+    verifyNoMoreInteractions(androidDevice);
+
+    verifyNoMoreInteractions(iosAccount);
+    verifyNoMoreInteractions(androidAccount);
+    verifyNoMoreInteractions(invalidAccount);
+
+    verifyNoMoreInteractions(accounts);
+    verifyNoMoreInteractions(metricsFactory);
+    verifyNoMoreInteractions(activeUserCache);
+    */
+
   }
 }
-
