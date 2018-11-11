@@ -21,7 +21,6 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
 import io.dropwizard.lifecycle.Managed;
 import io.dropwizard.metrics.MetricsFactory;
 import io.dropwizard.metrics.ReporterFactory;
@@ -39,6 +38,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -162,6 +162,12 @@ public class ActiveUserCounter implements Managed, Runnable {
     return true;
   }
 
+  @VisibleForTesting
+  public int getDateOfToday() {
+    ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+    return Integer.valueOf(now.format(DateTimeFormatter.ofPattern("yyyyMMdd")));
+  }
+
   private void registerMetrics() {
     MetricRegistry metrics = new MetricRegistry();
     long intervalTallies[] = new long[INTERVALS.length];
@@ -199,12 +205,6 @@ public class ActiveUserCounter implements Managed, Runnable {
 
   private String metricKey(String interval) {
     return MetricRegistry.name(ActiveUserCounter.class, interval + "_active");
-  }
-
-  @VisibleForTesting
-  public int getDateOfToday() {
-    ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
-    return Integer.valueOf(now.format(DateTimeFormatter.ofPattern("yyyyMMdd")));
   }
 
   private synchronized boolean sleepWhileRunning(long delayMs) {
@@ -248,7 +248,7 @@ public class ActiveUserCounter implements Managed, Runnable {
     }
     activeUserCache.incrementTallies(PLATFORM_IOS, INTERVALS, ios);
     activeUserCache.incrementTallies(PLATFORM_ANDROID, INTERVALS, android);
-    return Optional.fromNullable(lastNumber);
+    return Optional.ofNullable(lastNumber);
   }
 
   private List<Account> readChunk(String number, int count) {

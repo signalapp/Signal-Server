@@ -16,7 +16,6 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
-import com.google.common.base.Optional;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.storage.DirectoryReconciliationCache;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -26,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Optional;
 
 public class ActiveUserCache {
 
@@ -67,7 +67,7 @@ public class ActiveUserCache {
 
   public Optional<String> getLastNumberVisited() {
     try (Jedis jedis = jedisPool.getWriteResource()) {
-      return Optional.fromNullable(jedis.get(LAST_NUMBER_VISITED_KEY));
+      return Optional.ofNullable(jedis.get(LAST_NUMBER_VISITED_KEY));
     }
   }
 
