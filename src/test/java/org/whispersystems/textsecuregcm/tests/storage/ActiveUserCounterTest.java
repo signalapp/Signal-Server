@@ -89,7 +89,6 @@ public class ActiveUserCounterTest {
 
     when(metricsFactory.getReporters()).thenReturn(ImmutableList.of());
 
-    //when(activeUserCache.setLastNumberVisited(any())).thenReturn(Optional.of("+"));
     when(activeUserCache.getLastNumberVisited()).thenReturn(Optional.of("+"));
     when(activeUserCache.getDateToReport(anyInt())).thenReturn(20181101);
     when(activeUserCache.claimActiveWorker(any(), anyLong())).thenReturn(true);
@@ -171,7 +170,6 @@ public class ActiveUserCounterTest {
     verify(activeUserCache, times(0)).setDateToReport(anyInt());
     verify(activeUserCache, times(0)).resetTallies(any(), any());
 
-    //ProcessChunk
     verify(accounts, times(1)).getAllFrom(any(), anyInt());
     verify(activeUserCache,times(2)).incrementTallies(any(), any(), any());
 
@@ -186,8 +184,6 @@ public class ActiveUserCounterTest {
     verify(activeUserCache).setLastNumberVisited(eq(Optional.of("+1")));
     verify(activeUserCache, times(1)).setLastNumberVisited(any());
 
-
-    //registerMetrics
     verify(activeUserCache, times(0)).getFinalTallies(any(), any());
     verify(metricsFactory, times(0)).getReporters();
 
@@ -223,7 +219,6 @@ public class ActiveUserCounterTest {
     verify(activeUserCache, times(0)).setDateToReport(anyInt());
     verify(activeUserCache, times(0)).resetTallies(any(), any());
 
-    //ProcessChunk
     verify(accounts, times(1)).getAllFrom(any(), anyInt());
     verify(activeUserCache,times(2)).incrementTallies(any(), any(), any());
 
@@ -234,8 +229,6 @@ public class ActiveUserCounterTest {
     verify(activeUserCache).setLastNumberVisited(eq(Optional.of("+3")));
     verify(activeUserCache, times(1)).setLastNumberVisited(any());
 
-
-    //registerMetrics
     verify(activeUserCache, times(0)).getFinalTallies(any(), any());
     verify(metricsFactory, times(0)).getReporters();
 
@@ -271,13 +264,11 @@ public class ActiveUserCounterTest {
     verify(activeUserCache, times(0)).setDateToReport(anyInt());
     verify(activeUserCache, times(0)).resetTallies(any(), any());
 
-    //ProcessChunk
     verify(accounts, times(1)).getAllFrom(any(), anyInt());
     verify(activeUserCache,times(2)).incrementTallies(any(), any(), any());
     verify(activeUserCache).setLastNumberVisited(eq(Optional.ofNullable(null)));
     verify(activeUserCache, times(1)).setLastNumberVisited(any());
 
-    //registerMetrics
     verify(activeUserCache, times(2)).getFinalTallies(any(), any());
     verify(metricsFactory, times(1)).getReporters();
 
