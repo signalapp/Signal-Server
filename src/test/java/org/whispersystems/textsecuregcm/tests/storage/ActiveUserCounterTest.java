@@ -200,7 +200,7 @@ public class ActiveUserCounterTest {
     verifyNoMoreInteractions(activeUserCache);
   }
 
-    @Test
+  @Test
   public void testInProgressInvalid() {
 
     int today = activeUserCounter.getDateOfToday();
