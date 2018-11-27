@@ -118,14 +118,14 @@ public class KeysController {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
-    if (account.isPresent()) {
-      rateLimiters.getPreKeysLimiter().validate(account.get().getNumber() +  "__" + number + "." + deviceId);
-    }
-
     Optional<Account> target = accounts.get(number);
     OptionalAccess.verify(account, accessKey, target, deviceId);
 
     assert(target.isPresent());
+
+    if (account.isPresent()) {
+      rateLimiters.getPreKeysLimiter().validate(account.get().getNumber() +  "__" + number + "." + deviceId);
+    }
 
     Optional<List<KeyRecord>> targetKeys = getLocalKeys(target.get(), deviceId);
     List<PreKeyResponseItem>  devices    = new LinkedList<>();
