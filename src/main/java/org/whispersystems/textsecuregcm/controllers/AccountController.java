@@ -110,14 +110,22 @@ public class AccountController {
   @Timed
   @GET
   @Path("/{transport}/code/{number}")
-  public Response createAccount(@PathParam("transport") String transport,
-                                @PathParam("number")    String number,
-                                @QueryParam("client")   Optional<String> client)
+  public Response createAccount(@PathParam("transport")         String transport,
+                                @PathParam("number")            String number,
+                                @HeaderParam("X-Forwarded-For") String requester,
+                                @QueryParam("client")           Optional<String> client)
       throws IOException, RateLimitExceededException
   {
     if (!Util.isValidNumber(number)) {
       logger.debug("Invalid number: " + number);
       throw new WebApplicationException(Response.status(400).build());
+    }
+
+    try {
+      rateLimiters.getSmsVoiceIpLimiter().validate(requester);
+    } catch (RateLimitExceededException e) {
+      logger.info("Rate limited exceeded: " + transport + ", " + number + ", " + requester);
+      return Response.ok().build();
     }
 
     switch (transport) {

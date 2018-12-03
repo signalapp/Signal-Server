@@ -30,6 +30,9 @@ public class RateLimitsConfiguration {
   private RateLimitConfiguration voiceDestinationDaily = new RateLimitConfiguration(10, 10.0 / (24.0 * 60.0));
 
   @JsonProperty
+  private RateLimitConfiguration smsVoiceIp = new RateLimitConfiguration(1000, 1000);
+
+  @JsonProperty
   private RateLimitConfiguration verifyNumber = new RateLimitConfiguration(2, 2);
 
   @JsonProperty
@@ -93,6 +96,10 @@ public class RateLimitsConfiguration {
 
   public RateLimitConfiguration getVoiceDestinationDaily() {
     return voiceDestinationDaily;
+  }
+
+  public RateLimitConfiguration getSmsVoiceIp() {
+    return smsVoiceIp;
   }
 
   public RateLimitConfiguration getVerifyNumber() {
