@@ -30,9 +30,9 @@ import java.util.concurrent.TimeUnit;
 
 public class Account implements Principal  {
 
-  public static final int MEMCACHE_VERION = 5;
+  static final int MEMCACHE_VERION = 5;
 
-  @JsonProperty
+  @JsonIgnore
   private String number;
 
   @JsonProperty

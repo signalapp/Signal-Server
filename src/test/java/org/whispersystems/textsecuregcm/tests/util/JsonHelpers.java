@@ -5,13 +5,15 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.whispersystems.textsecuregcm.util.SystemMapper;
+
 import java.io.IOException;
 
 import static io.dropwizard.testing.FixtureHelpers.fixture;
 
 public class JsonHelpers {
 
-  private static final ObjectMapper objectMapper = new ObjectMapper();
+  private static final ObjectMapper objectMapper = SystemMapper.getMapper();
 
   public static String asJson(Object object) throws JsonProcessingException {
     return objectMapper.writeValueAsString(object);

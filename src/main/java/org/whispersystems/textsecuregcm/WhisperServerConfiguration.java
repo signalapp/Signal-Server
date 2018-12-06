@@ -141,6 +141,8 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private VoiceVerificationConfiguration voiceVerification;
 
+  private Map<String, String> transparentDataIndex = new HashMap<>();
+
 
   public VoiceVerificationConfiguration getVoiceVerificationConfiguration() {
     return voiceVerification;
@@ -242,6 +244,10 @@ public class WhisperServerConfiguration extends Configuration {
     }
 
     return results;
+  }
+
+  public Map<String, String> getTransparentDataIndex() {
+    return transparentDataIndex;
   }
 
 }
