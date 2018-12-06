@@ -31,6 +31,7 @@ import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.ws.rs.WebApplicationException;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.Optional;
 
@@ -111,9 +112,18 @@ public class WebSocketConnection implements DispatchChannel {
                            final boolean                     requery)
   {
     try {
-      EncryptedOutgoingMessage                   encryptedMessage = new EncryptedOutgoingMessage(message, device.getSignalingKey());
-      Optional<byte[]>                           body             = Optional.ofNullable(encryptedMessage.toByteArray());
-      ListenableFuture<WebSocketResponseMessage> response         = client.sendRequest("PUT", "/api/v1/message", null, body);
+      String           header;
+      Optional<byte[]> body;
+
+      if (Util.isEmpty(device.getSignalingKey())) {
+        header = "X-Signal-Key: false";
+        body   = Optional.ofNullable(message.toByteArray());
+      } else {
+        header = "X-Signal-Key: true";
+        body   = Optional.ofNullable(new EncryptedOutgoingMessage(message, device.getSignalingKey()).toByteArray());
+      }
+
+      ListenableFuture<WebSocketResponseMessage> response = client.sendRequest("PUT", "/api/v1/message", Collections.singletonList(header), body);
 
       Futures.addCallback(response, new FutureCallback<WebSocketResponseMessage>() {
         @Override
