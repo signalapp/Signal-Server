@@ -113,6 +113,7 @@ public class AccountController {
   public Response createAccount(@PathParam("transport")         String transport,
                                 @PathParam("number")            String number,
                                 @HeaderParam("X-Forwarded-For") String requester,
+                                @HeaderParam("Accept-Language") Optional<String> locale,
                                 @QueryParam("client")           Optional<String> client)
       throws IOException, RateLimitExceededException
   {
@@ -151,7 +152,7 @@ public class AccountController {
     } else if (transport.equals("sms")) {
       smsSender.deliverSmsVerification(number, client, verificationCode.getVerificationCodeDisplay());
     } else if (transport.equals("voice")) {
-      smsSender.deliverVoxVerification(number, verificationCode.getVerificationCodeSpeech());
+      smsSender.deliverVoxVerification(number, verificationCode.getVerificationCode(), locale);
     }
 
     return Response.ok().build();
@@ -337,8 +338,7 @@ public class AccountController {
   @Path("/voice/twiml/{code}")
   @Produces(MediaType.APPLICATION_XML)
   public Response getTwiml(@PathParam("code") String encodedVerificationText) {
-    return Response.ok().entity(String.format(TwilioSmsSender.SAY_TWIML,
-        encodedVerificationText)).build();
+    return Response.ok().entity(String.format(TwilioSmsSender.SAY_TWIML, encodedVerificationText)).build();
   }
 
   private void createAccount(String number, String password, String userAgent, AccountAttributes accountAttributes) {

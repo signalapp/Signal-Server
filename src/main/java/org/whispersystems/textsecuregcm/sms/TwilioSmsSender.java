@@ -97,15 +97,21 @@ public class TwilioSmsSender {
     smsMeter.mark();
   }
 
-  public void deliverVoxVerification(String destination, String verificationCode)
+  public void deliverVoxVerification(String destination, String verificationCode, Optional<String> locale)
       throws IOException, TwilioRestException
   {
+    String url = "https://" + localDomain + "/v1/voice/description/" + verificationCode;
+
+    if (locale.isPresent()) {
+      url += "?l=" + locale.get();
+    }
+
     TwilioRestClient    client      = new TwilioRestClient(accountId, accountToken);
     CallFactory         callFactory = client.getAccount().getCallFactory();
     Map<String, String> callParams  = new HashMap<>();
     callParams.put("To", destination);
     callParams.put("From", getRandom(random, numbers));
-    callParams.put("Url", "https://" + localDomain + "/v1/accounts/voice/twiml/" + verificationCode);
+    callParams.put("Url", url);
 
     try {
       callFactory.create(callParams);

@@ -35,9 +35,12 @@ public class VerificationCode {
   @VisibleForTesting VerificationCode() {}
 
   public VerificationCode(int verificationCode) {
-    this.verificationCode        = verificationCode + "";
-    this.verificationCodeDisplay = this.verificationCode.substring(0, 3) + "-" +
-                                   this.verificationCode.substring(3, 6);
+    this(verificationCode + "");
+  }
+
+  public VerificationCode(String verificationCode) {
+    this.verificationCode        = verificationCode;
+    this.verificationCodeDisplay = this.verificationCode.substring(0, 3) + "-" + this.verificationCode.substring(3, 6);
     this.verificationCodeSpeech  = delimit(verificationCode + "");
   }
 

@@ -131,9 +131,15 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private UnidentifiedDeliveryConfiguration unidentifiedDelivery;
 
+  @Valid
   @NotNull
   @JsonProperty
-  private Map<String, Object> hystrix = new HashMap<>();
+  private VoiceVerificationConfiguration voiceVerification;
+
+
+  public VoiceVerificationConfiguration getVoiceVerificationConfiguration() {
+    return voiceVerification;
+  }
 
   public WebSocketConfiguration getWebSocketConfiguration() {
     return webSocket;

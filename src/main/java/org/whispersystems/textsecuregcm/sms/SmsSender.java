@@ -55,11 +55,11 @@ public class SmsSender {
     }
   }
 
-  public void deliverVoxVerification(String destination, String verificationCode)
+  public void deliverVoxVerification(String destination, String verificationCode, Optional<String> locale)
       throws IOException
   {
     try {
-      twilioSender.deliverVoxVerification(destination, verificationCode);
+      twilioSender.deliverVoxVerification(destination, verificationCode, locale);
     } catch (TwilioRestException e) {
       logger.info("Twilio Vox Failed: " + e.getErrorMessage());
     }
