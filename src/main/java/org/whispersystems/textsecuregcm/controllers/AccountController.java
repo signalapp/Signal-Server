@@ -31,6 +31,7 @@ import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
+import org.whispersystems.textsecuregcm.entities.DeviceName;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
@@ -305,6 +306,14 @@ public class AccountController {
   @Path("/pin/")
   public void removePin(@Auth Account account) {
     account.setPin(null);
+    accounts.update(account);
+  }
+
+  @Timed
+  @PUT
+  @Path("/name/")
+  public void setName(@Auth Account account, @Valid DeviceName deviceName) {
+    account.getAuthenticatedDevice().get().setName(deviceName.getDeviceName());
     accounts.update(account);
   }
 
