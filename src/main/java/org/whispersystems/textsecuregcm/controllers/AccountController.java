@@ -37,7 +37,6 @@ import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
-import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -53,7 +52,6 @@ import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
-import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -340,14 +338,6 @@ public class AccountController {
     account.setUnrestrictedUnidentifiedAccess(attributes.isUnrestrictedUnidentifiedAccess());
 
     accounts.update(account);
-  }
-
-  @Timed
-  @POST
-  @Path("/voice/twiml/{code}")
-  @Produces(MediaType.APPLICATION_XML)
-  public Response getTwiml(@PathParam("code") String encodedVerificationText) {
-    return Response.ok().entity(String.format(TwilioSmsSender.SAY_TWIML, encodedVerificationText)).build();
   }
 
   private void createAccount(String number, String password, String userAgent, AccountAttributes accountAttributes) {
