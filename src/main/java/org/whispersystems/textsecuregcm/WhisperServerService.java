@@ -91,6 +91,7 @@ import io.dropwizard.auth.AuthDynamicFeature;
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
 import io.dropwizard.db.DataSourceFactory;
+import io.dropwizard.db.PooledDataSourceFactory;
 import io.dropwizard.jdbi.DBIFactory;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
@@ -122,6 +123,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         return configuration.getMessageStoreConfiguration();
       }
     });
+
+    bootstrap.addBundle(new NameableMigrationsBundle<WhisperServerConfiguration>("abusedb", "abusedb.xml") {
+      @Override
+      public PooledDataSourceFactory getDataSourceFactory(WhisperServerConfiguration configuration) {
+        return configuration.getAbuseDatabaseConfiguration();
+      }
+    });
   }
 
   @Override
@@ -141,12 +149,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     DBIFactory dbiFactory = new DBIFactory();
     DBI        database   = dbiFactory.build(environment, config.getDataSourceFactory(), "accountdb");
     DBI        messagedb  = dbiFactory.build(environment, config.getMessageStoreConfiguration(), "messagedb");
+    DBI        abusedb    = dbiFactory.build(environment, config.getAbuseDatabaseConfiguration(), "abusedb");
 
-    Accounts        accounts        = database.onDemand(Accounts.class);
-    PendingAccounts pendingAccounts = database.onDemand(PendingAccounts.class);
-    PendingDevices  pendingDevices  = database.onDemand(PendingDevices.class);
-    Keys            keys            = database.onDemand(Keys.class);
-    Messages        messages        = messagedb.onDemand(Messages.class);
+    Accounts         accounts         = database.onDemand(Accounts.class       );
+    PendingAccounts  pendingAccounts  = database.onDemand(PendingAccounts.class);
+    PendingDevices   pendingDevices   = database.onDemand(PendingDevices.class );
+    Keys             keys             = database.onDemand(Keys.class           );
+    Messages         messages         = messagedb.onDemand(Messages.class);
+    AbusiveHostRules abusiveHostRules = abusedb.onDemand(AbusiveHostRules.class);
 
     RedisClientFactory cacheClientFactory         = new RedisClientFactory(config.getCacheConfiguration().getUrl(), config.getCacheConfiguration().getReplicaUrls()                                                              );
     RedisClientFactory directoryClientFactory     = new RedisClientFactory(config.getDirectoryConfiguration().getRedisConfiguration().getUrl(), config.getDirectoryConfiguration().getRedisConfiguration().getReplicaUrls()      );
@@ -209,7 +219,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                                                              .buildAuthFilter()));
     environment.jersey().register(new AuthValueFactoryProvider.Binder<>(Account.class));
 
-    environment.jersey().register(new AccountController(pendingAccountsManager, accountsManager, rateLimiters, smsSender, directoryQueue, messagesManager, turnTokenGenerator, config.getTestDevices()));
+    environment.jersey().register(new AccountController(pendingAccountsManager, accountsManager, abusiveHostRules, rateLimiters, smsSender, directoryQueue, messagesManager, turnTokenGenerator, config.getTestDevices()));
     environment.jersey().register(new DeviceController(pendingDevicesManager, accountsManager, messagesManager, directoryQueue, rateLimiters, config.getMaxDevices()));
     environment.jersey().register(new DirectoryController(rateLimiters, directory, directoryCredentialsGenerator));
     environment.jersey().register(new ProvisioningController(rateLimiters, pushSender));

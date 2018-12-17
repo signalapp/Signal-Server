@@ -38,6 +38,8 @@ import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
+import org.whispersystems.textsecuregcm.storage.AbusiveHostRule;
+import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -63,6 +65,7 @@ import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -80,6 +83,7 @@ public class AccountController {
 
   private final PendingAccountsManager                pendingAccounts;
   private final AccountsManager                       accounts;
+  private final AbusiveHostRules                      abusiveHostRules;
   private final RateLimiters                          rateLimiters;
   private final SmsSender                             smsSender;
   private final DirectoryQueue                        directoryQueue;
@@ -89,6 +93,7 @@ public class AccountController {
 
   public AccountController(PendingAccountsManager pendingAccounts,
                            AccountsManager accounts,
+                           AbusiveHostRules abusiveHostRules,
                            RateLimiters rateLimiters,
                            SmsSender smsSenderFactory,
                            DirectoryQueue directoryQueue,
@@ -98,6 +103,7 @@ public class AccountController {
   {
     this.pendingAccounts    = pendingAccounts;
     this.accounts           = accounts;
+    this.abusiveHostRules   = abusiveHostRules;
     this.rateLimiters       = rateLimiters;
     this.smsSender          = smsSenderFactory;
     this.directoryQueue     = directoryQueue;
@@ -119,6 +125,22 @@ public class AccountController {
     if (!Util.isValidNumber(number)) {
       logger.debug("Invalid number: " + number);
       throw new WebApplicationException(Response.status(400).build());
+    }
+
+    List<AbusiveHostRule> abuseRules = abusiveHostRules.getAbusiveHostRulesFor(requester);
+
+    for (AbusiveHostRule abuseRule : abuseRules) {
+      if (abuseRule.isBlocked()) {
+        logger.info("Blocked host: " + transport + ", " + number + ", " + requester);
+        return Response.ok().build();
+      }
+
+      if (!abuseRule.getRegions().isEmpty()) {
+        if (abuseRule.getRegions().stream().noneMatch(number::startsWith)) {
+          logger.info("Restricted host: " + transport + ", " + number + ", " + requester);
+          return Response.ok().build();
+        }
+      }
     }
 
     try {

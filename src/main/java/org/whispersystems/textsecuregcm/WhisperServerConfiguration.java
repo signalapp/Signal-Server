@@ -81,6 +81,11 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
+  private DataSourceFactory abuseDatabase;
+
+  @Valid
+  @NotNull
+  @JsonProperty
   private List<TestDeviceConfiguration> testDevices = new LinkedList<>();
 
   @Valid
@@ -179,6 +184,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public DataSourceFactory getMessageStoreConfiguration() {
     return messageStore;
+  }
+
+  public DataSourceFactory getAbuseDatabaseConfiguration() {
+    return abuseDatabase;
   }
 
   public DataSourceFactory getDataSourceFactory() {
