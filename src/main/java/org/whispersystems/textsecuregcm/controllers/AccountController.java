@@ -176,6 +176,8 @@ public class AccountController {
       smsSender.deliverVoxVerification(number, verificationCode.getVerificationCode(), locale);
     }
 
+    metricRegistry.meter(name(AccountController.class, "create", Util.getCountryCode(number))).mark();
+
     return Response.ok().build();
   }
 
@@ -231,6 +233,8 @@ public class AccountController {
       }
 
       createAccount(number, password, userAgent, accountAttributes);
+
+      metricRegistry.meter(name(AccountController.class, "verify", Util.getCountryCode(number))).mark();
     } catch (InvalidAuthorizationHeaderException e) {
       logger.info("Bad Authorization Header", e);
       throw new WebApplicationException(Response.status(401).build());
