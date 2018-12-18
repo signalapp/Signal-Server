@@ -20,6 +20,8 @@ import org.whispersystems.textsecuregcm.util.Base64;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
+import javax.ws.rs.core.Response.Status.Family;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -64,6 +66,28 @@ public class DirectoryControllerTest {
       }
     });
     when(directoryCredentialsGenerator.generateFor(eq(AuthHelper.VALID_NUMBER))).thenReturn(validCredentials);
+  }
+
+  @Test
+  public void testFeedbackOk() {
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/directory/feedback/ok")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.text(""));
+    assertThat(response.getStatusInfo().getFamily()).isEqualTo(Family.SUCCESSFUL);
+  }
+
+  @Test
+  public void testNotFoundFeedback() {
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/directory/feedback/test-not-found")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.text(""));
+    assertThat(response.getStatusInfo()).isEqualTo(Status.NOT_FOUND);
   }
 
   @Test
