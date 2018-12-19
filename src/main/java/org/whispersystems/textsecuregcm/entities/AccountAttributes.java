@@ -24,7 +24,6 @@ import org.hibernate.validator.constraints.NotEmpty;
 public class AccountAttributes {
 
   @JsonProperty
-  @NotEmpty
   private String signalingKey;
 
   @JsonProperty
