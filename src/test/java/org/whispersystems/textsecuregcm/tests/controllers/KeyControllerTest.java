@@ -14,6 +14,7 @@ import org.whispersystems.textsecuregcm.entities.PreKeyState;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -54,9 +55,10 @@ public class KeyControllerTest {
   private final SignedPreKey SAMPLE_SIGNED_KEY2 = new SignedPreKey(2222, "foobar", "sig22");
   private final SignedPreKey SAMPLE_SIGNED_KEY3 = new SignedPreKey(3333, "barfoo", "sig33");
 
-  private final Keys            keys          = mock(Keys.class           );
-  private final AccountsManager accounts      = mock(AccountsManager.class);
-  private final Account         existsAccount = mock(Account.class        );
+  private final Keys            keys           = mock(Keys.class           );
+  private final AccountsManager accounts       = mock(AccountsManager.class);
+  private final DirectoryQueue  directoryQueue = mock(DirectoryQueue.class);
+  private final Account         existsAccount  = mock(Account.class        );
 
   private RateLimiters          rateLimiters  = mock(RateLimiters.class);
   private RateLimiter           rateLimiter   = mock(RateLimiter.class );
@@ -66,7 +68,7 @@ public class KeyControllerTest {
                                                             .addProvider(AuthHelper.getAuthFilter())
                                                             .addProvider(new AuthValueFactoryProvider.Binder<>(Account.class))
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-                                                            .addResource(new KeysController(rateLimiters, keys, accounts))
+                                                            .addResource(new KeysController(rateLimiters, keys, accounts, directoryQueue))
                                                             .build();
 
   @Before

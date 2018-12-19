@@ -236,7 +236,7 @@ public class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
 
     verify(accountsManager, times(1)).create(isA(Account.class));
-    verify(directoryQueue, times(1)).addRegisteredUser(eq(SENDER));
+    verify(directoryQueue, times(1)).deleteRegisteredUser(eq(SENDER));
   }
 
   @Test

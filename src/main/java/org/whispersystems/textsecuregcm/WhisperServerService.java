@@ -211,7 +211,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(directoryReconciler);
 
     AttachmentController attachmentController = new AttachmentController(rateLimiters, urlSigner);
-    KeysController       keysController       = new KeysController(rateLimiters, keys, accountsManager);
+    KeysController       keysController       = new KeysController(rateLimiters, keys, accountsManager, directoryQueue);
     MessageController    messageController    = new MessageController(rateLimiters, pushSender, receiptSender, accountsManager, messagesManager, apnFallbackManager);
     ProfileController    profileController    = new ProfileController(rateLimiters , accountsManager, config.getProfilesConfiguration());
 

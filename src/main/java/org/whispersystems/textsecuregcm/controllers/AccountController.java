@@ -270,7 +270,8 @@ public class AccountController {
   @Path("/gcm/")
   @Consumes(MediaType.APPLICATION_JSON)
   public void setGcmRegistrationId(@Auth Account account, @Valid GcmRegistrationId registrationId) {
-    Device device = account.getAuthenticatedDevice().get();
+    Device  device           = account.getAuthenticatedDevice().get();
+    boolean wasAccountActive = account.isActive();
 
     if (device.getGcmId() != null &&
         device.getGcmId().equals(registrationId.getGcmRegistrationId()))
@@ -286,6 +287,10 @@ public class AccountController {
     else                                     device.setFetchesMessages(false);
 
     accounts.update(account);
+
+    if (!wasAccountActive && account.isActive()) {
+      directoryQueue.addRegisteredUser(account.getNumber());
+    }
   }
 
   @Timed
@@ -308,12 +313,18 @@ public class AccountController {
   @Path("/apn/")
   @Consumes(MediaType.APPLICATION_JSON)
   public void setApnRegistrationId(@Auth Account account, @Valid ApnRegistrationId registrationId) {
-    Device device = account.getAuthenticatedDevice().get();
+    Device  device           = account.getAuthenticatedDevice().get();
+    boolean wasAccountActive = account.isActive();
+
     device.setApnId(registrationId.getApnRegistrationId());
     device.setVoipApnId(registrationId.getVoipRegistrationId());
     device.setGcmId(null);
     device.setFetchesMessages(true);
     accounts.update(account);
+
+    if (!wasAccountActive && account.isActive()) {
+      directoryQueue.addRegisteredUser(account.getNumber());
+    }
   }
 
   @Timed
@@ -413,7 +424,11 @@ public class AccountController {
       newUserMeter.mark();
     }
 
-    directoryQueue.addRegisteredUser(number);
+    if (account.isActive()) {
+      directoryQueue.addRegisteredUser(number);
+    } else {
+      directoryQueue.deleteRegisteredUser(number);
+    }
 
     messagesManager.clear(number);
     pendingAccounts.remove(number);
