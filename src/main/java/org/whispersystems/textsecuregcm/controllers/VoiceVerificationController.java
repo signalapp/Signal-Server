@@ -65,6 +65,10 @@ public class VoiceVerificationController {
       return getLocalizedDescription(code, locale);
     }
 
+    if (locale != null && locale.split("-").length >= 1 && supportedLocales.contains(locale.split("-")[0])) {
+      return getLocalizedDescription(code, locale.split("-")[0]);
+    }
+
     return getLocalizedDescription(code, "en-US");
   }
 

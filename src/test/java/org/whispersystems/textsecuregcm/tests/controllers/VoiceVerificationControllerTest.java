@@ -10,7 +10,9 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 import javax.ws.rs.core.Response;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.FixtureHelpers;
@@ -27,7 +29,7 @@ public class VoiceVerificationControllerTest {
                                                             .setMapper(SystemMapper.getMapper())
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new VoiceVerificationController("https://foo.com/bar",
-                                                                                                         Collections.singleton("pt-BR")))
+                                                                                                         new HashSet<>(Arrays.asList("pt-BR", "ru"))))
                                                             .build();
 
   @Test
@@ -41,6 +43,19 @@ public class VoiceVerificationControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.readEntity(String.class)).isXmlEqualTo(FixtureHelpers.fixture("fixtures/voice_verification_pt_br.xml"));
+  }
+
+  @Test
+  public void testTwimlSplitLocale() {
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/voice/description/123456")
+                 .queryParam("l", "ru-RU")
+                 .request()
+                 .post(null);
+
+    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.readEntity(String.class)).isXmlEqualTo(FixtureHelpers.fixture("fixtures/voice_verification_ru.xml"));
   }
 
   @Test
