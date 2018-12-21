@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2018 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -14,35 +14,13 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.whispersystems.textsecuregcm.configuration;
+package org.whispersystems.textsecuregcm.storage;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import org.hibernate.validator.constraints.NotEmpty;
+import java.util.List;
+import java.util.Optional;
 
-public class DirectoryServerConfiguration {
-
-  @NotEmpty
-  @JsonProperty
-  private String replicationUrl;
-
-  @NotEmpty
-  @JsonProperty
-  private String replicationPassword;
-
-  @NotEmpty
-  @JsonProperty
-  private String replicationCaCertificate;
-
-  public String getReplicationUrl() {
-    return replicationUrl;
-  }
-
-  public String getReplicationPassword() {
-    return replicationPassword;
-  }
-
-  public String getReplicationCaCertificate() {
-    return replicationCaCertificate;
-  }
-
+public interface AccountDatabaseCrawlerListener {
+  void onCrawlStart();
+  void onCrawlChunk(Optional<String> fromNumber, List<Account> chunkAccounts);
+  void onCrawlEnd(Optional<String> fromNumber);
 }

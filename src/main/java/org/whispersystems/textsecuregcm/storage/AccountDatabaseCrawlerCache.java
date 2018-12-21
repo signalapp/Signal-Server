@@ -25,21 +25,20 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public class DirectoryReconciliationCache {
+public class AccountDatabaseCrawlerCache {
 
-  private static final String ACTIVE_WORKER_KEY = "directory_reconciliation_active_worker";
-  private static final String LAST_NUMBER_KEY   = "directory_reconciliation_last_number";
-  private static final String ACCELERATE_KEY    = "directory_reconciliation_accelerate";
+  private static final String ACTIVE_WORKER_KEY = "account_database_crawler_cache_active_worker";
+  private static final String LAST_NUMBER_KEY   = "account_database_crawler_cache_last_number";
+  private static final String ACCELERATE_KEY    = "account_database_crawler_cache_accelerate";
 
   private static final long LAST_NUMBER_TTL_MS  = 86400_000L;
 
   private final ReplicatedJedisPool jedisPool;
-  private final UnlockOperation     unlockOperation;
+  private final LuaScript           luaScript;
 
-  public DirectoryReconciliationCache(ReplicatedJedisPool jedisPool) throws IOException {
-    this.jedisPool       = jedisPool;
-    this.unlockOperation = new UnlockOperation(jedisPool);
+  public AccountDatabaseCrawlerCache(ReplicatedJedisPool jedisPool) throws IOException {
+    this.jedisPool = jedisPool;
+    this.luaScript = LuaScript.fromResource(jedisPool, "lua/account_database_crawler/unlock.lua");
   }
 
   public void clearAccelerate() {
@@ -55,10 +54,15 @@ public class DirectoryReconciliationCache {
   }
 
   public boolean claimActiveWork(String workerId, long ttlMs) {
-    unlockOperation.unlock(ACTIVE_WORKER_KEY, workerId);
     try (Jedis jedis = jedisPool.getWriteResource()) {
       return "OK".equals(jedis.set(ACTIVE_WORKER_KEY, workerId, "NX", "PX", ttlMs));
     }
+  }
+
+  public void releaseActiveWork(String workerId) {
+    List<byte[]> keys = Arrays.asList(ACTIVE_WORKER_KEY.getBytes());
+    List<byte[]> args = Arrays.asList(workerId.getBytes());
+    luaScript.execute(keys, args);
   }
 
   public Optional<String> getLastNumber() {
@@ -74,22 +78,6 @@ public class DirectoryReconciliationCache {
       } else {
         jedis.del(LAST_NUMBER_KEY);
       }
-    }
-  }
-
-  public static class UnlockOperation {
-
-    private final LuaScript luaScript;
-
-    UnlockOperation(ReplicatedJedisPool jedisPool) throws IOException {
-      this.luaScript = LuaScript.fromResource(jedisPool, "lua/unlock.lua");
-    }
-
-    public boolean unlock(String key, String value) {
-      List<byte[]> keys = Arrays.asList(key.getBytes());
-      List<byte[]> args = Arrays.asList(value.getBytes());
-
-      return ((long) luaScript.execute(keys, args)) > 0;
     }
   }
 

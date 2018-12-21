@@ -17,32 +17,20 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.hibernate.validator.constraints.NotEmpty;
 
-public class DirectoryServerConfiguration {
+public class AccountDatabaseCrawlerConfiguration {
 
-  @NotEmpty
   @JsonProperty
-  private String replicationUrl;
+  private int chunkSize = 1000;
 
-  @NotEmpty
   @JsonProperty
-  private String replicationPassword;
+  private long chunkIntervalMs = 8000L;
 
-  @NotEmpty
-  @JsonProperty
-  private String replicationCaCertificate;
-
-  public String getReplicationUrl() {
-    return replicationUrl;
+  public int getChunkSize() {
+    return chunkSize;
   }
 
-  public String getReplicationPassword() {
-    return replicationPassword;
+  public long getChunkIntervalMs() {
+    return chunkIntervalMs;
   }
-
-  public String getReplicationCaCertificate() {
-    return replicationCaCertificate;
-  }
-
 }

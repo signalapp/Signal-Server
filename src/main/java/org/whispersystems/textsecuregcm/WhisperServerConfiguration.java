@@ -66,6 +66,11 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
+  private AccountDatabaseCrawlerConfiguration accountDatabaseCrawler;
+
+  @NotNull
+  @Valid
+  @JsonProperty
   private RedisConfiguration pushScheduler;
 
   @NotNull
@@ -174,6 +179,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public DirectoryConfiguration getDirectoryConfiguration() {
     return directory;
+  }
+
+  public AccountDatabaseCrawlerConfiguration getAccountDatabaseCrawlerConfiguration() {
+    return accountDatabaseCrawler;
   }
 
   public MessageCacheConfiguration getMessageCacheConfiguration() {
