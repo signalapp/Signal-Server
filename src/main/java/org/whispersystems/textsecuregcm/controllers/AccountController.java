@@ -79,9 +79,11 @@ import io.dropwizard.auth.Auth;
 @Path("/v1/accounts")
 public class AccountController {
 
-  private final Logger         logger         = LoggerFactory.getLogger(AccountController.class);
-  private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private final Meter          newUserMeter   = metricRegistry.meter(name(AccountController.class, "brand_new_user"));
+  private final Logger         logger            = LoggerFactory.getLogger(AccountController.class);
+  private final MetricRegistry metricRegistry    = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  private final Meter          newUserMeter      = metricRegistry.meter(name(AccountController.class, "brand_new_user"));
+  private final Meter          blockedHostMeter  = metricRegistry.meter(name(AccountController.class, "blocked_host"));
+  private final Meter          filteredHostMeter = metricRegistry.meter(name(AccountController.class, "filtered_host"));
 
   private final PendingAccountsManager                pendingAccounts;
   private final AccountsManager                       accounts;
@@ -142,12 +144,14 @@ public class AccountController {
       for (AbusiveHostRule abuseRule : abuseRules) {
         if (abuseRule.isBlocked()) {
           logger.info("Blocked host: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
+          blockedHostMeter.mark();
           return Response.ok().build();
         }
 
         if (!abuseRule.getRegions().isEmpty()) {
           if (abuseRule.getRegions().stream().noneMatch(number::startsWith)) {
             logger.info("Restricted host: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
+            filteredHostMeter.mark();
             return Response.ok().build();
           }
         }
