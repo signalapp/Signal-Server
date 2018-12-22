@@ -176,6 +176,25 @@ public class AccountControllerTest {
   }
 
   @Test
+  public void testSendMultipleHost() {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .request()
+                 .header("X-Forwarded-For", NICE_HOST + ", " + ABUSIVE_HOST)
+                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    verify(abusiveHostRules, times(1)).getAbusiveHostRulesFor(eq(ABUSIVE_HOST));
+    verify(abusiveHostRules, times(1)).getAbusiveHostRulesFor(eq(NICE_HOST));
+
+    verifyNoMoreInteractions(abusiveHostRules);
+    verifyNoMoreInteractions(smsSender);
+  }
+
+
+  @Test
   public void testSendRestrictedHostOut() {
     Response response =
         resources.getJerseyTest()
