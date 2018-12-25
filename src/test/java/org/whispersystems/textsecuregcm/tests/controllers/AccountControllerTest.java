@@ -213,14 +213,14 @@ public class AccountControllerTest {
   public void testSendRestrictedIn() throws Exception {
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/accounts/sms/code/%s", "+1234567890"))
+                 .target(String.format("/v1/accounts/sms/code/%s", "+12345678901"))
                  .request()
                  .header("X-Forwarded-For", RESTRICTED_HOST)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    verify(smsSender).deliverSmsVerification(eq("+1234567890"), eq(Optional.empty()), anyString());
+    verify(smsSender).deliverSmsVerification(eq("+12345678901"), eq(Optional.empty()), anyString());
   }
 
   @Test
