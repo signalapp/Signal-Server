@@ -33,7 +33,7 @@ public class AccountAttributes {
   private int registrationId;
 
   @JsonProperty
-  @Length(max = 50, message = "This field must be less than 50 characters")
+  @Length(max = 204, message = "This field must be less than 50 characters")
   private String name;
 
   @JsonProperty
