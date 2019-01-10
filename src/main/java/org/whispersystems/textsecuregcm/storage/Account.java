@@ -32,7 +32,7 @@ public class Account implements Principal  {
 
   static final int MEMCACHE_VERION = 5;
 
-  @JsonIgnore
+  @JsonProperty
   private String number;
 
   @JsonProperty
