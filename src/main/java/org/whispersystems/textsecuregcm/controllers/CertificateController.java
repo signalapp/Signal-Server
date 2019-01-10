@@ -39,7 +39,6 @@ public class CertificateController {
     if (!account.getAuthenticatedDevice().isPresent()) throw new AssertionError();
 
     if (Util.isEmpty(account.getIdentityKey())) {
-      logger.info("Requested certificate without identity key: " + account.getNumber());
       throw new WebApplicationException(Response.Status.BAD_REQUEST);
     }
 
