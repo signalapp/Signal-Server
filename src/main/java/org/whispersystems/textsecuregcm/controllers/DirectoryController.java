@@ -17,6 +17,7 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.Histogram;
+import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.annotation.Timed;
@@ -28,6 +29,7 @@ import org.whispersystems.textsecuregcm.entities.ClientContactTokens;
 import org.whispersystems.textsecuregcm.entities.ClientContacts;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager;
 import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -42,9 +44,12 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -53,9 +58,32 @@ import io.dropwizard.auth.Auth;
 @Path("/v1/directory")
 public class DirectoryController {
 
+  private static final String[] FEEDBACK_STATUSES = {
+      "ok",
+      "mismatch",
+      "attestation-error",
+      "unexpected-error",
+  };
+
   private final Logger         logger            = LoggerFactory.getLogger(DirectoryController.class);
   private final MetricRegistry metricRegistry    = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private final Histogram      contactsHistogram = metricRegistry.histogram(name(getClass(), "contacts"));
+
+  private final Map<String, Meter> iosFeedbackMeters = new HashMap<String, Meter>() {{
+    for (String status : FEEDBACK_STATUSES) {
+      put(status, metricRegistry.meter(name(DirectoryController.class, "feedback", "ios", status)));
+    }
+  }};
+  private final Map<String, Meter> androidFeedbackMeters = new HashMap<String, Meter>() {{
+    for (String status : FEEDBACK_STATUSES) {
+      put(status, metricRegistry.meter(name(DirectoryController.class, "feedback", "android", status)));
+    }
+  }};
+  private final Map<String, Meter> unknownFeedbackMeters = new HashMap<String, Meter>() {{
+    for (String status : FEEDBACK_STATUSES) {
+      put(status, metricRegistry.meter(name(DirectoryController.class, "feedback", "unknown", status)));
+    }
+  }};
 
   private final RateLimiters                  rateLimiters;
   private final DirectoryManager              directory;
@@ -78,32 +106,29 @@ public class DirectoryController {
     return Response.ok().entity(userTokenGenerator.generateFor(account.getNumber())).build();
   }
 
-  @Timed
   @PUT
-  @Path("/feedback/ok")
-  public Response setFeedbackOk(@Auth Account account) {
-    return Response.ok().build();
-  }
+  @Path("/feedback/{status}")
+  public Response setFeedback(@Auth                Account account,
+                              @PathParam("status") String  status)
+  {
+    Map<String, Meter> platformFeedbackMeters = unknownFeedbackMeters;
 
-  @Timed
-  @PUT
-  @Path("/feedback/mismatch")
-  public Response setFeedbackMismatch(@Auth Account account) {
-    return Response.ok().build();
-  }
+    Optional<Device> masterDevice = account.getMasterDevice();
+    if (masterDevice.isPresent()) {
+      if (masterDevice.get().getApnId() != null) {
+        platformFeedbackMeters = iosFeedbackMeters;
+      } else if (masterDevice.get().getGcmId() != null) {
+        platformFeedbackMeters = androidFeedbackMeters;
+      }
+    }
 
-  @Timed
-  @PUT
-  @Path("/feedback/attestation-error")
-  public Response setFeedbackAttestationError(@Auth Account account) {
-    return Response.ok().build();
-  }
-
-  @Timed
-  @PUT
-  @Path("/feedback/unexpected-error")
-  public Response setFeedbackUnexpectedError(@Auth Account account) {
-    return Response.ok().build();
+    Optional<Meter> meter = Optional.ofNullable(platformFeedbackMeters.get(status));
+    if (meter.isPresent()) {
+      meter.get().mark();
+      return Response.ok().build();
+    } else {
+      return Response.status(Status.NOT_FOUND).build();
+    }
   }
 
 

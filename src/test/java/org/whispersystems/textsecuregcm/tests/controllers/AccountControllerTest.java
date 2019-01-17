@@ -17,6 +17,8 @@ import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper
 import org.whispersystems.textsecuregcm.providers.TimeProvider;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
+import org.whispersystems.textsecuregcm.storage.AbusiveHostRule;
+import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
@@ -27,7 +29,9 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -44,11 +48,17 @@ public class AccountControllerTest {
   private static final String SENDER_PIN      = "+14153333333";
   private static final String SENDER_OVER_PIN = "+14154444444";
 
+  private static final String ABUSIVE_HOST    = "192.168.1.1";
+  private static final String RESTRICTED_HOST = "192.168.1.2";
+  private static final String NICE_HOST       = "127.0.0.1";
+
   private        PendingAccountsManager pendingAccountsManager = mock(PendingAccountsManager.class);
   private        AccountsManager        accountsManager        = mock(AccountsManager.class       );
+  private        AbusiveHostRules       abusiveHostRules       = mock(AbusiveHostRules.class      );
   private        RateLimiters           rateLimiters           = mock(RateLimiters.class          );
   private        RateLimiter            rateLimiter            = mock(RateLimiter.class           );
   private        RateLimiter            pinLimiter             = mock(RateLimiter.class           );
+  private        RateLimiter            smsVoiceIpLimiter      = mock(RateLimiter.class           );
   private        SmsSender              smsSender              = mock(SmsSender.class             );
   private        DirectoryQueue         directoryQueue         = mock(DirectoryQueue.class);
   private        MessagesManager        storedMessages         = mock(MessagesManager.class       );
@@ -65,6 +75,7 @@ public class AccountControllerTest {
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new AccountController(pendingAccountsManager,
                                                                                                accountsManager,
+                                                                                               abusiveHostRules,
                                                                                                rateLimiters,
                                                                                                smsSender,
                                                                                                directoryQueue,
@@ -80,12 +91,12 @@ public class AccountControllerTest {
     when(rateLimiters.getVoiceDestinationLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getVerifyLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getPinLimiter()).thenReturn(pinLimiter);
+    when(rateLimiters.getSmsVoiceIpLimiter()).thenReturn(smsVoiceIpLimiter);
 
     when(timeProvider.getCurrentTimeMillis()).thenReturn(System.currentTimeMillis());
 
     when(senderPinAccount.getPin()).thenReturn(Optional.of("31337"));
     when(senderPinAccount.getLastSeen()).thenReturn(System.currentTimeMillis());
-
 
     when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis())));
     when(pendingAccountsManager.getCodeForNumber(SENDER_OLD)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(31))));
@@ -97,6 +108,10 @@ public class AccountControllerTest {
     when(accountsManager.get(eq(SENDER))).thenReturn(Optional.empty());
     when(accountsManager.get(eq(SENDER_OLD))).thenReturn(Optional.empty());
 
+    when(abusiveHostRules.getAbusiveHostRulesFor(eq(ABUSIVE_HOST))).thenReturn(Collections.singletonList(new AbusiveHostRule(ABUSIVE_HOST, true, Collections.emptyList())));
+    when(abusiveHostRules.getAbusiveHostRulesFor(eq(RESTRICTED_HOST))).thenReturn(Collections.singletonList(new AbusiveHostRule(RESTRICTED_HOST, false, Collections.singletonList("+123"))));
+    when(abusiveHostRules.getAbusiveHostRulesFor(eq(NICE_HOST))).thenReturn(Collections.emptyList());
+
     doThrow(new RateLimitExceededException(SENDER_OVER_PIN)).when(pinLimiter).validate(eq(SENDER_OVER_PIN));
   }
 
@@ -106,11 +121,13 @@ public class AccountControllerTest {
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
                  .request()
+                 .header("X-Forwarded-For", NICE_HOST)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(200);
 
     verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.empty()), anyString());
+    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
   }
   
   @Test
@@ -120,11 +137,90 @@ public class AccountControllerTest {
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
                  .queryParam("client", "ios")
                  .request()
+                 .header("X-Forwarded-For", NICE_HOST)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(200);
 
     verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.of("ios")), anyString());
+  }
+
+  @Test
+  public void testSendAndroidNgCode() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .queryParam("client", "android-ng")
+                 .request()
+                 .header("X-Forwarded-For", NICE_HOST)
+                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.of("android-ng")), anyString());
+  }
+
+  @Test
+  public void testSendAbusiveHost() {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .request()
+                 .header("X-Forwarded-For", ABUSIVE_HOST)
+                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(ABUSIVE_HOST));
+    verifyNoMoreInteractions(smsSender);
+  }
+
+  @Test
+  public void testSendMultipleHost() {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .request()
+                 .header("X-Forwarded-For", NICE_HOST + ", " + ABUSIVE_HOST)
+                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    verify(abusiveHostRules, times(1)).getAbusiveHostRulesFor(eq(ABUSIVE_HOST));
+    verify(abusiveHostRules, times(1)).getAbusiveHostRulesFor(eq(NICE_HOST));
+
+    verifyNoMoreInteractions(abusiveHostRules);
+    verifyNoMoreInteractions(smsSender);
+  }
+
+
+  @Test
+  public void testSendRestrictedHostOut() {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .request()
+                 .header("X-Forwarded-For", RESTRICTED_HOST)
+                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(RESTRICTED_HOST));
+    verifyNoMoreInteractions(smsSender);
+  }
+
+  @Test
+  public void testSendRestrictedIn() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", "+12345678901"))
+                 .request()
+                 .header("X-Forwarded-For", RESTRICTED_HOST)
+                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    verify(smsSender).deliverSmsVerification(eq("+12345678901"), eq(Optional.empty()), anyString());
   }
 
   @Test
@@ -140,7 +236,7 @@ public class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
 
     verify(accountsManager, times(1)).create(isA(Account.class));
-    verify(directoryQueue, times(1)).addRegisteredUser(eq(SENDER));
+    verify(directoryQueue, times(1)).deleteRegisteredUser(eq(SENDER));
   }
 
   @Test

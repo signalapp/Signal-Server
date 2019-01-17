@@ -25,15 +25,9 @@ public class GcmRegistrationId {
   @NotEmpty
   private String gcmRegistrationId;
 
-  @JsonProperty
-  private boolean webSocketChannel;
-
   public String getGcmRegistrationId() {
     return gcmRegistrationId;
   }
 
-  public boolean isWebSocketChannel() {
-    return webSocketChannel;
-  }
 }
 

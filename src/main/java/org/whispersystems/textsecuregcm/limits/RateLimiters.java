@@ -25,6 +25,7 @@ public class RateLimiters {
   private final RateLimiter smsDestinationLimiter;
   private final RateLimiter voiceDestinationLimiter;
   private final RateLimiter voiceDestinationDailyLimiter;
+  private final RateLimiter smsVoiceIpLimiter;
   private final RateLimiter verifyLimiter;
   private final RateLimiter pinLimiter;
 
@@ -52,6 +53,10 @@ public class RateLimiters {
     this.voiceDestinationDailyLimiter = new RateLimiter(cacheClient, "voxDestinationDaily",
                                                         config.getVoiceDestinationDaily().getBucketSize(),
                                                         config.getVoiceDestinationDaily().getLeakRatePerMinute());
+
+    this.smsVoiceIpLimiter = new RateLimiter(cacheClient, "smsVoiceIp",
+                                             config.getSmsVoiceIp().getBucketSize(),
+                                             config.getSmsVoiceIp().getLeakRatePerMinute());
 
     this.verifyLimiter = new RateLimiter(cacheClient, "verify",
                                          config.getVerifyNumber().getBucketSize(),
@@ -120,6 +125,10 @@ public class RateLimiters {
 
   public RateLimiter getSmsDestinationLimiter() {
     return smsDestinationLimiter;
+  }
+
+  public RateLimiter getSmsVoiceIpLimiter() {
+    return smsVoiceIpLimiter;
   }
 
   public RateLimiter getVoiceDestinationLimiter() {

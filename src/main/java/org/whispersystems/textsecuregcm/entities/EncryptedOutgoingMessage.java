@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2013 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -42,21 +42,15 @@ public class EncryptedOutgoingMessage {
   private static final int    MAC_SIZE        = 10;
 
   private final byte[] serialized;
-  private final String serializedAndEncoded;
 
   public EncryptedOutgoingMessage(Envelope outgoingMessage, String signalingKey)
       throws CryptoEncodingException
   {
-    byte[]        plaintext  = outgoingMessage.toByteArray();
-    SecretKeySpec cipherKey  = getCipherKey (signalingKey);
-    SecretKeySpec macKey     = getMacKey(signalingKey);
+    byte[]        plaintext = outgoingMessage.toByteArray();
+    SecretKeySpec cipherKey = getCipherKey (signalingKey);
+    SecretKeySpec macKey    = getMacKey(signalingKey);
 
-    this.serialized           = getCiphertext(plaintext, cipherKey, macKey);
-    this.serializedAndEncoded = Base64.encodeBytes(this.serialized);
-  }
-
-  public String toEncodedString() {
-    return serializedAndEncoded;
+    this.serialized         = getCiphertext(plaintext, cipherKey, macKey);
   }
 
   public byte[] toByteArray() {

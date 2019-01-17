@@ -14,35 +14,44 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.whispersystems.textsecuregcm.configuration;
+package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.hibernate.validator.constraints.NotEmpty;
+import java.util.Map;
+import java.util.HashMap;
 
-public class DirectoryServerConfiguration {
-
-  @NotEmpty
+public class ActiveUserTally {
   @JsonProperty
-  private String replicationUrl;
+  private String fromNumber;
 
-  @NotEmpty
   @JsonProperty
-  private String replicationPassword;
+  private Map<String, long[]> platforms;
 
-  @NotEmpty
   @JsonProperty
-  private String replicationCaCertificate;
+  private Map<String, long[]> countries;
 
-  public String getReplicationUrl() {
-    return replicationUrl;
+  public ActiveUserTally() {}
+
+  public ActiveUserTally(String fromNumber, Map<String, long[]> platforms, Map<String, long[]> countries) {
+    this.fromNumber = fromNumber;
+    this.platforms  = platforms;
+    this.countries  = countries;
   }
 
-  public String getReplicationPassword() {
-    return replicationPassword;
+  public String getFromNumber() {
+    return this.fromNumber;
   }
 
-  public String getReplicationCaCertificate() {
-    return replicationCaCertificate;
+  public Map<String, long[]> getPlatforms() {
+    return this.platforms;
+  }
+
+  public Map<String, long[]> getCountries() {
+    return this.countries;
+  }
+
+  public void setFromNumber(String fromNumber) {
+    this.fromNumber = fromNumber;
   }
 
 }

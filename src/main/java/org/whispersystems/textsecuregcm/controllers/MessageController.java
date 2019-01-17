@@ -16,6 +16,9 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.annotation.Timed;
 import com.google.protobuf.ByteString;
 import org.slf4j.Logger;
@@ -41,6 +44,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Base64;
+import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
 
@@ -64,13 +68,17 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.codahale.metrics.MetricRegistry.name;
 import io.dropwizard.auth.Auth;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/messages")
 public class MessageController {
 
-  private final Logger logger = LoggerFactory.getLogger(MessageController.class);
+  private final Logger         logger            = LoggerFactory.getLogger(MessageController.class);
+  private final MetricRegistry metricRegistry    = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  private final Meter          unidentifiedMeter = metricRegistry.meter(name(getClass(), "delivery", "unidentified"));
+  private final Meter          identifiedMeter   = metricRegistry.meter(name(getClass(), "delivery", "identified"  ));
 
   private final RateLimiters           rateLimiters;
   private final PushSender             pushSender;
@@ -113,6 +121,12 @@ public class MessageController {
       rateLimiters.getMessagesLimiter().validate(source.get().getNumber() + "__" + destinationName);
     }
 
+    if (source.isPresent() && !source.get().getNumber().equals(destinationName)) {
+      identifiedMeter.mark();
+    } else {
+      unidentifiedMeter.mark();
+    }
+
     try {
       boolean isSyncMessage = source.isPresent() && source.get().getNumber().equals(destinationName);
 
@@ -122,6 +136,8 @@ public class MessageController {
       else                destination = source;
 
       OptionalAccess.verify(source, accessKey, destination);
+      assert(destination.isPresent());
+
       validateCompleteDeviceList(destination.get(), messages.getMessages(), isSyncMessage);
       validateRegistrationIds(destination.get(), messages.getMessages());
 

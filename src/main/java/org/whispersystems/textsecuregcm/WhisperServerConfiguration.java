@@ -66,6 +66,11 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
+  private AccountDatabaseCrawlerConfiguration accountDatabaseCrawler;
+
+  @NotNull
+  @Valid
+  @JsonProperty
   private RedisConfiguration pushScheduler;
 
   @NotNull
@@ -77,6 +82,11 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private DataSourceFactory messageStore;
+
+  @Valid
+  @NotNull
+  @JsonProperty
+  private DataSourceFactory abuseDatabase;
 
   @Valid
   @NotNull
@@ -131,9 +141,17 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private UnidentifiedDeliveryConfiguration unidentifiedDelivery;
 
+  @Valid
   @NotNull
   @JsonProperty
-  private Map<String, Object> hystrix = new HashMap<>();
+  private VoiceVerificationConfiguration voiceVerification;
+
+  private Map<String, String> transparentDataIndex = new HashMap<>();
+
+
+  public VoiceVerificationConfiguration getVoiceVerificationConfiguration() {
+    return voiceVerification;
+  }
 
   public WebSocketConfiguration getWebSocketConfiguration() {
     return webSocket;
@@ -163,6 +181,10 @@ public class WhisperServerConfiguration extends Configuration {
     return directory;
   }
 
+  public AccountDatabaseCrawlerConfiguration getAccountDatabaseCrawlerConfiguration() {
+    return accountDatabaseCrawler;
+  }
+
   public MessageCacheConfiguration getMessageCacheConfiguration() {
     return messageCache;
   }
@@ -173,6 +195,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public DataSourceFactory getMessageStoreConfiguration() {
     return messageStore;
+  }
+
+  public DataSourceFactory getAbuseDatabaseConfiguration() {
+    return abuseDatabase;
   }
 
   public DataSourceFactory getDataSourceFactory() {
@@ -227,6 +253,10 @@ public class WhisperServerConfiguration extends Configuration {
     }
 
     return results;
+  }
+
+  public Map<String, String> getTransparentDataIndex() {
+    return transparentDataIndex;
   }
 
 }

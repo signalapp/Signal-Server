@@ -136,8 +136,14 @@ public class AccountsManager {
     {
       String json = jedis.get(getKey(number));
 
-      if (json != null) return Optional.of(mapper.readValue(json, Account.class));
-      else              return Optional.empty();
+      if (json != null) {
+        Account account = mapper.readValue(json, Account.class);
+        account.setNumber(number);
+
+        return Optional.of(account);
+      }
+
+      return Optional.empty();
     } catch (IOException e) {
       logger.warn("AccountsManager", "Deserialization error", e);
       return Optional.empty();

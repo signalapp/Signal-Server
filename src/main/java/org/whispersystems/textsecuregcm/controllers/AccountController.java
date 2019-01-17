@@ -31,13 +31,15 @@ import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
+import org.whispersystems.textsecuregcm.entities.DeviceName;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
-import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
+import org.whispersystems.textsecuregcm.storage.AbusiveHostRule;
+import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -52,7 +54,6 @@ import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
-import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -64,9 +65,12 @@ import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import io.dropwizard.auth.Auth;
@@ -75,12 +79,15 @@ import io.dropwizard.auth.Auth;
 @Path("/v1/accounts")
 public class AccountController {
 
-  private final Logger         logger         = LoggerFactory.getLogger(AccountController.class);
-  private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private final Meter          newUserMeter   = metricRegistry.meter(name(AccountController.class, "brand_new_user"));
+  private final Logger         logger            = LoggerFactory.getLogger(AccountController.class);
+  private final MetricRegistry metricRegistry    = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  private final Meter          newUserMeter      = metricRegistry.meter(name(AccountController.class, "brand_new_user"));
+  private final Meter          blockedHostMeter  = metricRegistry.meter(name(AccountController.class, "blocked_host"));
+  private final Meter          filteredHostMeter = metricRegistry.meter(name(AccountController.class, "filtered_host"));
 
   private final PendingAccountsManager                pendingAccounts;
   private final AccountsManager                       accounts;
+  private final AbusiveHostRules                      abusiveHostRules;
   private final RateLimiters                          rateLimiters;
   private final SmsSender                             smsSender;
   private final DirectoryQueue                        directoryQueue;
@@ -90,6 +97,7 @@ public class AccountController {
 
   public AccountController(PendingAccountsManager pendingAccounts,
                            AccountsManager accounts,
+                           AbusiveHostRules abusiveHostRules,
                            RateLimiters rateLimiters,
                            SmsSender smsSenderFactory,
                            DirectoryQueue directoryQueue,
@@ -99,6 +107,7 @@ public class AccountController {
   {
     this.pendingAccounts    = pendingAccounts;
     this.accounts           = accounts;
+    this.abusiveHostRules   = abusiveHostRules;
     this.rateLimiters       = rateLimiters;
     this.smsSender          = smsSenderFactory;
     this.directoryQueue     = directoryQueue;
@@ -110,14 +119,50 @@ public class AccountController {
   @Timed
   @GET
   @Path("/{transport}/code/{number}")
-  public Response createAccount(@PathParam("transport") String transport,
-                                @PathParam("number")    String number,
-                                @QueryParam("client")   Optional<String> client)
+  public Response createAccount(@PathParam("transport")         String transport,
+                                @PathParam("number")            String number,
+                                @HeaderParam("X-Forwarded-For") String forwardedFor,
+                                @HeaderParam("Accept-Language") Optional<String> locale,
+                                @QueryParam("client")           Optional<String> client)
       throws IOException, RateLimitExceededException
   {
     if (!Util.isValidNumber(number)) {
-      logger.debug("Invalid number: " + number);
+      logger.info("Invalid number: " + number);
       throw new WebApplicationException(Response.status(400).build());
+    }
+
+    List<String> requesters = Arrays.stream(forwardedFor.split(",")).map(String::trim).collect(Collectors.toList());
+
+    if (requesters.size() > 10) {
+      logger.info("Request with more than 10 hops: " + transport + ", " + number + ", " + forwardedFor);
+      return Response.status(400).build();
+    }
+
+    for (String requester : requesters) {
+      List<AbusiveHostRule> abuseRules = abusiveHostRules.getAbusiveHostRulesFor(requester);
+
+      for (AbusiveHostRule abuseRule : abuseRules) {
+        if (abuseRule.isBlocked()) {
+          logger.info("Blocked host: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
+          blockedHostMeter.mark();
+          return Response.ok().build();
+        }
+
+        if (!abuseRule.getRegions().isEmpty()) {
+          if (abuseRule.getRegions().stream().noneMatch(number::startsWith)) {
+            logger.info("Restricted host: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
+            filteredHostMeter.mark();
+            return Response.ok().build();
+          }
+        }
+      }
+
+      try {
+        rateLimiters.getSmsVoiceIpLimiter().validate(requester);
+      } catch (RateLimitExceededException e) {
+        logger.info("Rate limited exceeded: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
+        return Response.ok().build();
+      }
     }
 
     switch (transport) {
@@ -143,8 +188,10 @@ public class AccountController {
     } else if (transport.equals("sms")) {
       smsSender.deliverSmsVerification(number, client, verificationCode.getVerificationCodeDisplay());
     } else if (transport.equals("voice")) {
-      smsSender.deliverVoxVerification(number, verificationCode.getVerificationCodeSpeech());
+      smsSender.deliverVoxVerification(number, verificationCode.getVerificationCode(), locale);
     }
+
+    metricRegistry.meter(name(AccountController.class, "create", Util.getCountryCode(number))).mark();
 
     return Response.ok().build();
   }
@@ -201,6 +248,8 @@ public class AccountController {
       }
 
       createAccount(number, password, userAgent, accountAttributes);
+
+      metricRegistry.meter(name(AccountController.class, "verify", Util.getCountryCode(number))).mark();
     } catch (InvalidAuthorizationHeaderException e) {
       logger.info("Bad Authorization Header", e);
       throw new WebApplicationException(Response.status(401).build());
@@ -221,7 +270,8 @@ public class AccountController {
   @Path("/gcm/")
   @Consumes(MediaType.APPLICATION_JSON)
   public void setGcmRegistrationId(@Auth Account account, @Valid GcmRegistrationId registrationId) {
-    Device device = account.getAuthenticatedDevice().get();
+    Device  device           = account.getAuthenticatedDevice().get();
+    boolean wasAccountActive = account.isActive();
 
     if (device.getGcmId() != null &&
         device.getGcmId().equals(registrationId.getGcmRegistrationId()))
@@ -232,11 +282,13 @@ public class AccountController {
     device.setApnId(null);
     device.setVoipApnId(null);
     device.setGcmId(registrationId.getGcmRegistrationId());
-
-    if (registrationId.isWebSocketChannel()) device.setFetchesMessages(true);
-    else                                     device.setFetchesMessages(false);
+    device.setFetchesMessages(false);
 
     accounts.update(account);
+
+    if (!wasAccountActive && account.isActive()) {
+      directoryQueue.addRegisteredUser(account.getNumber());
+    }
   }
 
   @Timed
@@ -259,12 +311,18 @@ public class AccountController {
   @Path("/apn/")
   @Consumes(MediaType.APPLICATION_JSON)
   public void setApnRegistrationId(@Auth Account account, @Valid ApnRegistrationId registrationId) {
-    Device device = account.getAuthenticatedDevice().get();
+    Device  device           = account.getAuthenticatedDevice().get();
+    boolean wasAccountActive = account.isActive();
+
     device.setApnId(registrationId.getApnRegistrationId());
     device.setVoipApnId(registrationId.getVoipRegistrationId());
     device.setGcmId(null);
-    device.setFetchesMessages(true);
+    device.setFetchesMessages(false);
     accounts.update(account);
+
+    if (!wasAccountActive && account.isActive()) {
+      directoryQueue.addRegisteredUser(account.getNumber());
+    }
   }
 
   @Timed
@@ -301,6 +359,22 @@ public class AccountController {
 
   @Timed
   @PUT
+  @Path("/name/")
+  public void setName(@Auth Account account, @Valid DeviceName deviceName) {
+    account.getAuthenticatedDevice().get().setName(deviceName.getDeviceName());
+    accounts.update(account);
+  }
+
+  @Timed
+  @DELETE
+  @Path("/signaling_key")
+  public void removeSignalingKey(@Auth Account account) {
+    account.getAuthenticatedDevice().get().setSignalingKey(null);
+    accounts.update(account);
+  }
+
+  @Timed
+  @PUT
   @Path("/attributes/")
   @Consumes(MediaType.APPLICATION_JSON)
   public void setAccountAttributes(@Auth Account account,
@@ -322,15 +396,6 @@ public class AccountController {
     account.setUnrestrictedUnidentifiedAccess(attributes.isUnrestrictedUnidentifiedAccess());
 
     accounts.update(account);
-  }
-
-  @Timed
-  @POST
-  @Path("/voice/twiml/{code}")
-  @Produces(MediaType.APPLICATION_XML)
-  public Response getTwiml(@PathParam("code") String encodedVerificationText) {
-    return Response.ok().entity(String.format(TwilioSmsSender.SAY_TWIML,
-        encodedVerificationText)).build();
   }
 
   private void createAccount(String number, String password, String userAgent, AccountAttributes accountAttributes) {
@@ -357,7 +422,11 @@ public class AccountController {
       newUserMeter.mark();
     }
 
-    directoryQueue.addRegisteredUser(number);
+    if (account.isActive()) {
+      directoryQueue.addRegisteredUser(number);
+    } else {
+      directoryQueue.deleteRegisteredUser(number);
+    }
 
     messagesManager.clear(number);
     pendingAccounts.remove(number);

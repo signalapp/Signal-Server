@@ -10,6 +10,7 @@ import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.providers.RedisClientFactory;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
+import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -76,6 +77,7 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
       Accounts            accounts        = dbi.onDemand(Accounts.class);
       ReplicatedJedisPool cacheClient     = new RedisClientFactory(configuration.getCacheConfiguration().getUrl(), configuration.getCacheConfiguration().getReplicaUrls()).getRedisClientPool();
       ReplicatedJedisPool redisClient     = new RedisClientFactory(configuration.getDirectoryConfiguration().getRedisConfiguration().getUrl(), configuration.getDirectoryConfiguration().getRedisConfiguration().getReplicaUrls()).getRedisClientPool();
+      DirectoryQueue      directoryQueue  = new DirectoryQueue(configuration.getDirectoryConfiguration().getSqsConfiguration());
       DirectoryManager    directory       = new DirectoryManager(redisClient);
       AccountsManager     accountsManager = new AccountsManager(accounts, directory, cacheClient);
 
@@ -94,6 +96,7 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
             device.get().setAuthenticationCredentials(new AuthenticationCredentials(Base64.encodeBytes(random)));
 
             accountsManager.update(account.get());
+            directoryQueue.deleteRegisteredUser(account.get().getNumber());
 
             logger.warn("Removed " + account.get().getNumber());
           } else {

@@ -16,6 +16,8 @@
  */
 package org.whispersystems.textsecuregcm.util;
 
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
+
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.security.MessageDigest;
@@ -24,8 +26,12 @@ import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Util {
+
+  private static final Pattern COUNTRY_CODE_PATTERN = Pattern.compile("^\\+([17]|2[07]|3[0123469]|4[013456789]|5[12345678]|6[0123456]|8[1246]|9[0123458]|\\d{3})");
 
   public static byte[] getContactToken(String number) {
     try {
@@ -44,15 +50,14 @@ public class Util {
   }
 
   public static boolean isValidNumber(String number) {
-    return number.matches("^\\+[0-9]{10,}")  ||
-           number.matches("^\\+240[0-9]{6}") ||  // Equatorial Guinea
-           number.matches("^\\+298[0-9]{6}") ||  // Faroe Islands
-           number.matches("^\\+299[0-9]{6}") ||  // Greenland
-           number.matches("^\\+376[0-9]{6}") ||  // Andorra
-           number.matches("^\\+597[0-9]{6}") ||  // Suriname
-           number.matches("^\\+685[0-9]{5}") ||  // Samoa
-           number.matches("^\\+687[0-9]{6}") ||  // New Caledonia
-           number.matches("^\\+689[0-9]{6}");    // French Polynesia     
+    return number.matches("^\\+[0-9]+") && PhoneNumberUtil.getInstance().isPossibleNumber(number, null);
+  }
+
+  public static String getCountryCode(String number) {
+    Matcher matcher = COUNTRY_CODE_PATTERN.matcher(number);
+
+    if (matcher.find()) return matcher.group(1);
+    else                return "0";
   }
 
   public static String encodeFormParams(Map<String, String> params) {
