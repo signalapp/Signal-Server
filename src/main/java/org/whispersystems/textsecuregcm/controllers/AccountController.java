@@ -282,9 +282,7 @@ public class AccountController {
     device.setApnId(null);
     device.setVoipApnId(null);
     device.setGcmId(registrationId.getGcmRegistrationId());
-
-    if (registrationId.isWebSocketChannel()) device.setFetchesMessages(true);
-    else                                     device.setFetchesMessages(false);
+    device.setFetchesMessages(false);
 
     accounts.update(account);
 
@@ -319,7 +317,7 @@ public class AccountController {
     device.setApnId(registrationId.getApnRegistrationId());
     device.setVoipApnId(registrationId.getVoipRegistrationId());
     device.setGcmId(null);
-    device.setFetchesMessages(true);
+    device.setFetchesMessages(false);
     accounts.update(account);
 
     if (!wasAccountActive && account.isActive()) {
