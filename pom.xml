@@ -12,8 +12,8 @@
     <version>2.21</version>
 
     <properties>
-        <dropwizard.version>1.3.7</dropwizard.version>
-        <jackson.api.version>2.9.6</jackson.api.version>
+        <dropwizard.version>1.3.8</dropwizard.version>
+        <jackson.api.version>2.9.8</jackson.api.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -123,7 +123,7 @@
         <dependency>
             <groupId>org.whispersystems</groupId>
             <artifactId>gcm-sender-async</artifactId>
-            <version>0.1.5</version>
+            <version>0.1.6</version>
         </dependency>
 
         <dependency>
@@ -177,12 +177,6 @@
                 <groupId>com.fasterxml.jackson.core</groupId>
                 <artifactId>jackson-databind</artifactId>
                 <version>${jackson.api.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.dropwizard</groupId>
-                <artifactId>dropwizard-core</artifactId>
-                <version>1.3.1</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
