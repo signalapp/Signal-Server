@@ -41,9 +41,11 @@ public class AuthHelper {
     when(VALID_CREDENTIALS_TWO.verify("baz")).thenReturn(true);
     when(VALID_DEVICE.getAuthenticationCredentials()).thenReturn(VALID_CREDENTIALS);
     when(VALID_DEVICE_TWO.getAuthenticationCredentials()).thenReturn(VALID_CREDENTIALS_TWO);
+    when(VALID_DEVICE.isMaster()).thenReturn(true);
+    when(VALID_DEVICE_TWO.isMaster()).thenReturn(true);
     when(VALID_DEVICE.getId()).thenReturn(1L);
     when(VALID_DEVICE_TWO.getId()).thenReturn(1L);
-    when(VALID_ACCOUNT.getDevice(anyLong())).thenReturn(Optional.of(VALID_DEVICE));
+    when(VALID_ACCOUNT.getDevice(1L)).thenReturn(Optional.of(VALID_DEVICE));
     when(VALID_ACCOUNT_TWO.getDevice(eq(1L))).thenReturn(Optional.of(VALID_DEVICE_TWO));
     when(VALID_ACCOUNT_TWO.getActiveDeviceCount()).thenReturn(6);
     when(VALID_ACCOUNT.getNumber()).thenReturn(VALID_NUMBER);

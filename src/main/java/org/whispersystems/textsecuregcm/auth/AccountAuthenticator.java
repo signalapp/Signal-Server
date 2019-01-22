@@ -66,6 +66,10 @@ public class AccountAuthenticator implements Authenticator<BasicCredentials, Acc
         return Optional.empty();
       }
 
+      if (!device.get().isMaster() && !device.get().isActive()) {
+        return Optional.empty();
+      }
+
       if (device.get().getAuthenticationCredentials().verify(basicCredentials.getPassword())) {
         authenticationSucceededMeter.mark();
         account.get().setAuthenticatedDevice(device.get());
