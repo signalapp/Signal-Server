@@ -63,13 +63,15 @@ public class DirectoryReconciler implements AccountDatabaseCrawlerListener {
 
   }
 
-  public void onCrawlChunk(Optional<String> fromNumber, List<Account> chunkAccounts) {
+  public void onCrawlChunk(Optional<String> fromNumber, List<Account> chunkAccounts) throws AccountDatabaseCrawlerRestartException {
 
     updateDirectoryCache(chunkAccounts);
 
     DirectoryReconciliationRequest  request  = createChunkRequest(fromNumber, chunkAccounts);
     DirectoryReconciliationResponse response = sendChunk(request);
-
+    if (response.getStatus() == DirectoryReconciliationResponse.Status.MISSING) {
+      throw new AccountDatabaseCrawlerRestartException("directory reconciler missing");
+    }
   }
 
   private void updateDirectoryCache(List<Account> accounts) {

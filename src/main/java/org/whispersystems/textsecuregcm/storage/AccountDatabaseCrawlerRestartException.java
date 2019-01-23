@@ -16,11 +16,12 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
-import java.util.List;
-import java.util.Optional;
+public class AccountDatabaseCrawlerRestartException extends Exception {
+  public AccountDatabaseCrawlerRestartException(String s) {
+    super(s);
+  }
 
-public interface AccountDatabaseCrawlerListener {
-  void onCrawlStart();
-  void onCrawlChunk(Optional<String> fromNumber, List<Account> chunkAccounts) throws AccountDatabaseCrawlerRestartException;
-  void onCrawlEnd(Optional<String> fromNumber);
+  public AccountDatabaseCrawlerRestartException(Exception e) {
+    super(e);
+  }
 }

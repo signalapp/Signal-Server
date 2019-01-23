@@ -22,12 +22,14 @@ import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawler;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerCache;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerListener;
+import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
 
 import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,7 +70,7 @@ public class AccountDatabaseCrawlerTest {
   }
 
   @Test
-  public void testCrawlStart() {
+  public void testCrawlStart() throws AccountDatabaseCrawlerRestartException {
     when(cache.getLastNumber()).thenReturn(Optional.empty());
 
     boolean accelerated = crawler.doPeriodicWork();
@@ -94,7 +96,7 @@ public class AccountDatabaseCrawlerTest {
   }
 
   @Test
-  public void testCrawlChunk() {
+  public void testCrawlChunk() throws AccountDatabaseCrawlerRestartException {
     when(cache.getLastNumber()).thenReturn(Optional.of(ACCOUNT1));
 
     boolean accelerated = crawler.doPeriodicWork();
@@ -119,7 +121,7 @@ public class AccountDatabaseCrawlerTest {
   }
 
   @Test
-  public void testCrawlChunkAccelerated() {
+  public void testCrawlChunkAccelerated() throws AccountDatabaseCrawlerRestartException {
     when(cache.isAccelerated()).thenReturn(true);
     when(cache.getLastNumber()).thenReturn(Optional.of(ACCOUNT1));
 
@@ -133,6 +135,33 @@ public class AccountDatabaseCrawlerTest {
     verify(account2, times(1)).getNumber();
     verify(listener, times(1)).onCrawlChunk(eq(Optional.of(ACCOUNT1)), eq(Arrays.asList(account2)));
     verify(cache, times(1)).setLastNumber(eq(Optional.of(ACCOUNT2)));
+    verify(cache, times(1)).isAccelerated();
+    verify(cache, times(1)).releaseActiveWork(any(String.class));
+
+    verifyZeroInteractions(account1);
+
+    verifyNoMoreInteractions(account2);
+    verifyNoMoreInteractions(accounts);
+    verifyNoMoreInteractions(listener);
+    verifyNoMoreInteractions(cache);
+  }
+
+  @Test
+  public void testCrawlChunkRestart() throws AccountDatabaseCrawlerRestartException {
+    when(cache.getLastNumber()).thenReturn(Optional.of(ACCOUNT1));
+    doThrow(AccountDatabaseCrawlerRestartException.class).when(listener).onCrawlChunk(eq(Optional.of(ACCOUNT1)), eq(Arrays.asList(account2)));
+
+    boolean accelerated = crawler.doPeriodicWork();
+    assertThat(accelerated).isFalse();
+
+    verify(cache, times(1)).claimActiveWork(any(String.class), anyLong());
+    verify(cache, times(1)).getLastNumber();
+    verify(accounts, times(0)).getAllFrom(eq(CHUNK_SIZE));
+    verify(accounts, times(1)).getAllFrom(eq(ACCOUNT1), eq(CHUNK_SIZE));
+    verify(account2, times(0)).getNumber();
+    verify(listener, times(1)).onCrawlChunk(eq(Optional.of(ACCOUNT1)), eq(Arrays.asList(account2)));
+    verify(cache, times(1)).setLastNumber(eq(Optional.empty()));
+    verify(cache, times(1)).clearAccelerate();
     verify(cache, times(1)).isAccelerated();
     verify(cache, times(1)).releaseActiveWork(any(String.class));
 

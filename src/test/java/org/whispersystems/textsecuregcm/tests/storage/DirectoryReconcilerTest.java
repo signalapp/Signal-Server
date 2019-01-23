@@ -21,6 +21,7 @@ import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationRequest;
 import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationResponse;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager.BatchOperationHandle;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager;
 import org.whispersystems.textsecuregcm.storage.DirectoryReconciler;
@@ -63,7 +64,7 @@ public class DirectoryReconcilerTest {
   }
 
   @Test
-  public void testCrawlChunkValid() {
+  public void testCrawlChunkValid() throws AccountDatabaseCrawlerRestartException {
     when(reconciliationClient.sendChunk(any())).thenReturn(successResponse);
     directoryReconciler.onCrawlChunk(Optional.of(VALID_NUMBER), Arrays.asList(activeAccount, inactiveAccount));
 

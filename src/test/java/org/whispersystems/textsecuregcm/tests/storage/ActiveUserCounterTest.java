@@ -20,6 +20,7 @@ package org.whispersystems.textsecuregcm.tests.storage;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.ActiveUserCounter;
+import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -135,7 +136,7 @@ public class ActiveUserCounterTest {
   }
 
   @Test
-  public void testCrawlChunkValidAccount() {
+  public void testCrawlChunkValidAccount() throws AccountDatabaseCrawlerRestartException {
     activeUserCounter.onCrawlChunk(Optional.of(NUMBER_IOS), Arrays.asList(iosAccount));
 
     verify(iosAccount, times(1)).getMasterDevice();
@@ -164,7 +165,7 @@ public class ActiveUserCounterTest {
   }
 
   @Test
-  public void testCrawlChunkNoDeviceAccount() {
+  public void testCrawlChunkNoDeviceAccount() throws AccountDatabaseCrawlerRestartException {
     activeUserCounter.onCrawlChunk(Optional.of(NUMBER_NODEVICE), Arrays.asList(noDeviceAccount));
 
     verify(noDeviceAccount, times(1)).getMasterDevice();
@@ -188,7 +189,7 @@ public class ActiveUserCounterTest {
   }
 
   @Test
-  public void testCrawlChunkMixedAccount() {
+  public void testCrawlChunkMixedAccount() throws AccountDatabaseCrawlerRestartException {
     activeUserCounter.onCrawlChunk(Optional.of(NUMBER_IOS), Arrays.asList(iosAccount, androidAccount, noDeviceAccount));
 
     verify(iosAccount, times(1)).getMasterDevice();

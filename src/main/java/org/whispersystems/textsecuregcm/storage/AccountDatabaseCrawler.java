@@ -133,8 +133,16 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
       cache.setLastNumber(Optional.empty());
       cache.clearAccelerate();
     } else {
-      listeners.forEach(listener -> { listener.onCrawlChunk(fromNumber, chunkAccounts); });
-      cache.setLastNumber(Optional.of(chunkAccounts.get(chunkAccounts.size() - 1).getNumber()));
+      try {
+        for (AccountDatabaseCrawlerListener listener : listeners) {
+          listener.onCrawlChunk(fromNumber, chunkAccounts);
+        }
+        cache.setLastNumber(Optional.of(chunkAccounts.get(chunkAccounts.size() - 1).getNumber()));
+      } catch (AccountDatabaseCrawlerRestartException e) {
+        cache.setLastNumber(Optional.empty());
+        cache.clearAccelerate();
+      }
+
     }
 
   }
