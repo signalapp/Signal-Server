@@ -66,7 +66,7 @@ public class AccountAuthenticator implements Authenticator<BasicCredentials, Acc
         return Optional.empty();
       }
 
-      if (!device.get().isMaster() && !device.get().isActive()) {
+      if (!device.get().isMaster() && device.get().isIdleInactive()) {
         return Optional.empty();
       }
 
