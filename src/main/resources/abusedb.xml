@@ -28,4 +28,10 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="2" author="moxie">
+        <addColumn tableName="abusive_host_rules">
+            <column name="notes" type="text"/>
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>
