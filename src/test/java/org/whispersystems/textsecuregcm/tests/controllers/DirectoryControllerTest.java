@@ -10,6 +10,7 @@ import org.whispersystems.textsecuregcm.auth.DirectoryCredentials;
 import org.whispersystems.textsecuregcm.auth.DirectoryCredentialsGenerator;
 import org.whispersystems.textsecuregcm.controllers.DirectoryController;
 import org.whispersystems.textsecuregcm.entities.ClientContactTokens;
+import org.whispersystems.textsecuregcm.entities.DirectoryFeedbackRequest;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -24,6 +25,7 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.Response.Status.Family;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
@@ -72,10 +74,10 @@ public class DirectoryControllerTest {
   public void testFeedbackOk() {
     Response response =
         resources.getJerseyTest()
-                 .target("/v1/directory/feedback/ok")
+                 .target("/v1/directory/feedback-v2/ok")
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-                 .put(Entity.text(""));
+                 .put(Entity.entity(new DirectoryFeedbackRequest(Optional.of("test reason")), MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatusInfo().getFamily()).isEqualTo(Family.SUCCESSFUL);
   }
 
@@ -83,11 +85,55 @@ public class DirectoryControllerTest {
   public void testNotFoundFeedback() {
     Response response =
         resources.getJerseyTest()
-                 .target("/v1/directory/feedback/test-not-found")
+                 .target("/v1/directory/feedback-v2/test-not-found")
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-                 .put(Entity.text(""));
+                 .put(Entity.entity(new DirectoryFeedbackRequest(Optional.of("test reason")), MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatusInfo()).isEqualTo(Status.NOT_FOUND);
+  }
+
+  @Test
+  public void testFeedbackEmptyRequest() {
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/directory/feedback-v2/mismatch")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.json(""));
+    assertThat(response.getStatusInfo().getFamily()).isEqualTo(Family.SUCCESSFUL);
+  }
+
+  @Test
+  public void testFeedbackNoReason() {
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/directory/feedback-v2/mismatch")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.entity(new DirectoryFeedbackRequest(Optional.empty()), MediaType.APPLICATION_JSON_TYPE));
+    assertThat(response.getStatusInfo().getFamily()).isEqualTo(Family.SUCCESSFUL);
+  }
+
+  @Test
+  public void testFeedbackEmptyReason() {
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/directory/feedback-v2/mismatch")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.entity(new DirectoryFeedbackRequest(Optional.of("")), MediaType.APPLICATION_JSON_TYPE));
+    assertThat(response.getStatusInfo().getFamily()).isEqualTo(Family.SUCCESSFUL);
+  }
+
+  @Test
+  public void testFeedbackTooLargeReason() {
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/directory/feedback-v2/mismatch")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.entity(new DirectoryFeedbackRequest(Optional.of(new String(new char[102400]))), MediaType.APPLICATION_JSON_TYPE));
+    assertThat(response.getStatusInfo().getFamily()).isEqualTo(Family.CLIENT_ERROR);
   }
 
   @Test

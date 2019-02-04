@@ -27,6 +27,7 @@ import org.whispersystems.textsecuregcm.auth.DirectoryCredentialsGenerator;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.entities.ClientContactTokens;
 import org.whispersystems.textsecuregcm.entities.ClientContacts;
+import org.whispersystems.textsecuregcm.entities.DirectoryFeedbackRequest;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -71,17 +72,17 @@ public class DirectoryController {
 
   private final Map<String, Meter> iosFeedbackMeters = new HashMap<String, Meter>() {{
     for (String status : FEEDBACK_STATUSES) {
-      put(status, metricRegistry.meter(name(DirectoryController.class, "feedback", "ios", status)));
+      put(status, metricRegistry.meter(name(DirectoryController.class, "feedback-v2", "ios", status)));
     }
   }};
   private final Map<String, Meter> androidFeedbackMeters = new HashMap<String, Meter>() {{
     for (String status : FEEDBACK_STATUSES) {
-      put(status, metricRegistry.meter(name(DirectoryController.class, "feedback", "android", status)));
+      put(status, metricRegistry.meter(name(DirectoryController.class, "feedback-v2", "android", status)));
     }
   }};
   private final Map<String, Meter> unknownFeedbackMeters = new HashMap<String, Meter>() {{
     for (String status : FEEDBACK_STATUSES) {
-      put(status, metricRegistry.meter(name(DirectoryController.class, "feedback", "unknown", status)));
+      put(status, metricRegistry.meter(name(DirectoryController.class, "feedback-v2", "unknown", status)));
     }
   }};
 
@@ -107,11 +108,15 @@ public class DirectoryController {
   }
 
   @PUT
-  @Path("/feedback/{status}")
-  public Response setFeedback(@Auth                Account account,
-                              @PathParam("status") String  status)
+  @Path("/feedback-v2/{status}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response setFeedback(@Auth                Account                  account,
+                              @PathParam("status") String                   status,
+                              @Valid               DirectoryFeedbackRequest request)
   {
     Map<String, Meter> platformFeedbackMeters = unknownFeedbackMeters;
+    String             platformName           = "unknown";
 
     Optional<Device> masterDevice = account.getMasterDevice();
     if (masterDevice.isPresent()) {
@@ -125,6 +130,15 @@ public class DirectoryController {
     Optional<Meter> meter = Optional.ofNullable(platformFeedbackMeters.get(status));
     if (meter.isPresent()) {
       meter.get().mark();
+
+      if (!"ok".equals(status) &&
+          request != null &&
+          request.getReason().isPresent() &&
+          request.getReason().get().length() != 0)
+      {
+        logger.info("directory feedback platform=" + platformName + " status=" + status + ": " + request.getReason().get());
+      }
+
       return Response.ok().build();
     } else {
       return Response.status(Status.NOT_FOUND).build();
