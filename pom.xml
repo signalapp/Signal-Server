@@ -15,6 +15,9 @@
         <dropwizard.version>1.3.8</dropwizard.version>
         <jackson.api.version>2.9.8</jackson.api.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!--suppress UnresolvedMavenProperty -->
+        <ecr.repository>${env.ECR_REPOSITORY}</ecr.repository>
+
     </properties>
 
     <dependencies>
@@ -277,10 +280,109 @@
                 </executions>
             </plugin>
 
+            <plugin>
+                <groupId>com.spotify</groupId>
+                <artifactId>dockerfile-maven-plugin</artifactId>
+                <version>1.4.8</version>
+                <executions>
+                    <execution>
+                        <id>production</id>
+                        <goals>
+                            <goal>build</goal>
+                            <goal>push</goal>
+                        </goals>
+                        <configuration>
+                            <repository>${ecr.repository}/signal-service</repository>
+                            <pullNewerImage>false</pullNewerImage>
+                            <tag>${project.version}-production</tag>
+                            <buildArgs>
+                                <JAR_FILE>${project.build.finalName}.jar</JAR_FILE>
+                                <CONFIG_FILE>production.yml</CONFIG_FILE>
+                            </buildArgs>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>staging</id>
+                        <goals>
+                            <goal>build</goal>
+                            <goal>push</goal>
+                        </goals>
+                        <configuration>
+                            <repository>${ecr.repository}/signal-service</repository>
+                            <pullNewerImage>false</pullNewerImage>
+                            <tag>${project.version}-staging</tag>
+                            <buildArgs>
+                                <JAR_FILE>${project.build.finalName}.jar</JAR_FILE>
+                                <CONFIG_FILE>staging.yml</CONFIG_FILE>
+                            </buildArgs>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.signal</groupId>
+                <artifactId>ecs-maven-plugin</artifactId>
+                <version>1.0-SNAPSHOT</version>
+                <configuration>
+                    <awsRegion>US_EAST_1</awsRegion>
+                    <taskFamily>signal-service</taskFamily>
+                    <environment>staging</environment>
+                    <version>${project.version}-staging</version>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>staging</id>
+                        <goals>
+                            <goal>create-task-revision</goal>
+                        </goals>
+                        <configuration>
+                            <environment>staging</environment>
+                            <version>${project.version}-staging</version>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>production</id>
+                        <goals>
+                            <goal>create-task-revision</goal>
+                        </goals>
+                        <configuration>
+                            <environment>production</environment>
+                            <version>${project.version}-production</version>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-deploy-plugin</artifactId>
+                <version>3.0.0-M1</version>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+
         </plugins>
+
+        <extensions>
+            <extension>
+                <groupId>com.gkatzioura.maven.cloud</groupId>
+                <artifactId>s3-storage-wagon</artifactId>
+                <version>1.6</version>
+            </extension>
+        </extensions>
     </build>
 
     <repositories>
+        <repository>
+            <id>maven-staging-repo-snapshot</id>
+            <url>s3://maven-staging-repo.signal.org/snapshot</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
         <repository>
             <id>gcm-server-repository</id>
             <url>https://raw.github.com/whispersystems/maven/master/gcm-server/releases/</url>
