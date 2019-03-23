@@ -131,13 +131,13 @@ public class DirectoryController {
     if (meter.isPresent()) {
       meter.get().mark();
 
-      if (!"ok".equals(status) &&
-          request != null &&
-          request.getReason().isPresent() &&
-          request.getReason().get().length() != 0)
-      {
+//      if (!"ok".equals(status) &&
+//          request != null &&
+//          request.getReason().isPresent() &&
+//          request.getReason().get().length() != 0)
+//      {
 //        logger.info("directory feedback platform=" + platformName + " status=" + status + ": " + request.getReason().get());
-      }
+//      }
 
       return Response.ok().build();
     } else {
