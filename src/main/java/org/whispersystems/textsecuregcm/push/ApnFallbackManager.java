@@ -39,6 +39,7 @@ public class ApnFallbackManager implements Managed, Runnable {
   private static final Meter          delivered      = metricRegistry.meter(name(ApnFallbackManager.class, "voip_delivered"));
   private static final Meter          sent           = metricRegistry.meter(name(ApnFallbackManager.class, "voip_sent"     ));
   private static final Meter          retry          = metricRegistry.meter(name(ApnFallbackManager.class, "voip_retry"));
+  private static final Meter          evicted        = metricRegistry.meter(name(ApnFallbackManager.class, "voip_evicted"));
 
   static {
     metricRegistry.register(name(ApnFallbackManager.class, "voip_ratio"), new VoipRatioGauge(delivered, sent));
@@ -151,7 +152,7 @@ public class ApnFallbackManager implements Managed, Runnable {
           long deviceLastSeen = device.get().getLastSeen();
 
           if (deviceLastSeen < System.currentTimeMillis() - TimeUnit.DAYS.toMillis(90)) {
-            logger.info("Evicting retry after 90 days: " + account.get().getNumber() + ", " + device.get().getId());
+            evicted.mark();
             removeOperation.remove(account.get(), device.get());
             continue;
           }
