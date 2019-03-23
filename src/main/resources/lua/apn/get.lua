@@ -36,7 +36,11 @@ local getNextInterval = function(interval)
         return 600000
     end
 
-    return 1800000
+    if interval < 1800000 then
+        return 1800000
+    end
+
+    return 3600000
 end
 
 
