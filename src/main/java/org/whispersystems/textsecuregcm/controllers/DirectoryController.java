@@ -136,7 +136,7 @@ public class DirectoryController {
           request.getReason().isPresent() &&
           request.getReason().get().length() != 0)
       {
-        logger.info("directory feedback platform=" + platformName + " status=" + status + ": " + request.getReason().get());
+//        logger.info("directory feedback platform=" + platformName + " status=" + status + ": " + request.getReason().get());
       }
 
       return Response.ok().build();
