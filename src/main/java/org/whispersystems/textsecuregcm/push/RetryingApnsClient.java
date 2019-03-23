@@ -141,8 +141,10 @@ public class RetryingApnsClient {
         }
 
       } catch (InterruptedException e) {
+        logger.warn("Interrupted exception", e);
         future.setException(e);
       } catch (ExecutionException e) {
+        logger.warn("Execution exception", e);
         if (e.getCause() instanceof ClientNotConnectedException) setDisconnected(e.getCause());
         else                                                     future.setException(e.getCause());
       }
