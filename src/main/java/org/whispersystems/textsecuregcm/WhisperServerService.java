@@ -199,10 +199,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                                                                                                     config.getDirectoryConfiguration().getDirectoryClientConfiguration().getUserAuthenticationTokenUserIdSecret());
     DirectoryReconciliationClient directoryReconciliationClient = new DirectoryReconciliationClient(config.getDirectoryConfiguration().getDirectoryServerConfiguration());
 
-    ActiveUserCounter                    activeUserCounter               = new ActiveUserCounter(config.getMetricsFactory(), cacheClient);
-    DirectoryReconciler                  directoryReconciler             = new DirectoryReconciler(directoryReconciliationClient, directory);
-    AccountCleaner                       accountCleaner                  = new AccountCleaner(accountsManager, directoryQueue);
-    List<AccountDatabaseCrawlerListener> accountDatabaseCrawlerListeners = Arrays.asList(activeUserCounter, directoryReconciler, accountCleaner);
+    DirectoryReconciler                        directoryReconciler             = new DirectoryReconciler(directoryReconciliationClient, directory);
+    ActiveUserCounter                          activeUserCounter               = new ActiveUserCounter(config.getMetricsFactory(), cacheClient);
+    List<AccountDatabaseCrawlerListener>       accountDatabaseCrawlerListeners = Arrays.asList(activeUserCounter, directoryReconciler);
 
     AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(cacheClient);
     AccountDatabaseCrawler      accountDatabaseCrawler      = new AccountDatabaseCrawler(accounts, accountDatabaseCrawlerCache, accountDatabaseCrawlerListeners, config.getAccountDatabaseCrawlerConfiguration().getChunkSize(), config.getAccountDatabaseCrawlerConfiguration().getChunkIntervalMs());
