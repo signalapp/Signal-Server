@@ -1,15 +1,16 @@
 package org.whispersystems.textsecuregcm.tests.push;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import com.relayrides.pushy.apns.ApnsClient;
-import com.relayrides.pushy.apns.ApnsServerException;
-import com.relayrides.pushy.apns.ClientNotConnectedException;
-import com.relayrides.pushy.apns.DeliveryPriority;
-import com.relayrides.pushy.apns.PushNotificationResponse;
-import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
+import com.turo.pushy.apns.ApnsClient;
+import com.turo.pushy.apns.ApnsPushNotification;
+import com.turo.pushy.apns.DeliveryPriority;
+import com.turo.pushy.apns.PushNotificationResponse;
+import com.turo.pushy.apns.util.SimpleApnsPushNotification;
+import com.turo.pushy.apns.util.concurrent.PushNotificationFuture;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.ApnMessage;
@@ -22,10 +23,12 @@ import org.whispersystems.textsecuregcm.tests.util.SynchronousExecutorService;
 
 import java.util.Date;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import io.netty.util.concurrent.DefaultEventExecutor;
 import io.netty.util.concurrent.DefaultPromise;
+import io.netty.util.concurrent.EventExecutor;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
@@ -56,13 +59,10 @@ public class APNSenderTest {
     PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
     when(response.isAccepted()).thenReturn(true);
 
-    DefaultPromise<PushNotificationResponse<SimpleApnsPushNotification>> result = new DefaultPromise<>(executor);
-    result.setSuccess(response);
-
     when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
-        .thenReturn(result);
+        .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(executor, invocationOnMock.getArgument(0), response));
 
-    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
+    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
     ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true);
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
 
@@ -93,13 +93,10 @@ public class APNSenderTest {
     PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
     when(response.isAccepted()).thenReturn(true);
 
-    DefaultPromise<PushNotificationResponse<SimpleApnsPushNotification>> result = new DefaultPromise<>(executor);
-    result.setSuccess(response);
-
     when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
-        .thenReturn(result);
+        .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(executor, invocationOnMock.getArgument(0), response));
 
-    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
+    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
     ApnMessage message = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, false);
     APNSender apnSender = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
     apnSender.setApnFallbackManager(fallbackManager);
@@ -131,13 +128,11 @@ public class APNSenderTest {
     when(response.isAccepted()).thenReturn(false);
     when(response.getRejectionReason()).thenReturn("Unregistered");
 
-    DefaultPromise<PushNotificationResponse<SimpleApnsPushNotification>> result = new DefaultPromise<>(executor);
-    result.setSuccess(response);
-
     when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
-        .thenReturn(result);
+        .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(executor, invocationOnMock.getArgument(0), response));
 
-    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
+
+    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
     ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true);
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
     apnSender.setApnFallbackManager(fallbackManager);
@@ -237,13 +232,10 @@ public class APNSenderTest {
     when(response.isAccepted()).thenReturn(false);
     when(response.getRejectionReason()).thenReturn("Unregistered");
 
-    DefaultPromise<PushNotificationResponse<SimpleApnsPushNotification>> result = new DefaultPromise<>(executor);
-    result.setSuccess(response);
-
     when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
-        .thenReturn(result);
+        .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(executor, invocationOnMock.getArgument(0), response));
 
-    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
+    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
     ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true);
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
     apnSender.setApnFallbackManager(fallbackManager);
@@ -335,13 +327,10 @@ public class APNSenderTest {
     when(response.isAccepted()).thenReturn(false);
     when(response.getRejectionReason()).thenReturn("BadTopic");
 
-    DefaultPromise<PushNotificationResponse<SimpleApnsPushNotification>> result = new DefaultPromise<>(executor);
-    result.setSuccess(response);
-
     when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
-        .thenReturn(result);
+        .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(executor, invocationOnMock.getArgument(0), response));
 
-    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
+    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
     ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true);
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
     apnSender.setApnFallbackManager(fallbackManager);
@@ -365,74 +354,16 @@ public class APNSenderTest {
   }
 
   @Test
-  public void testTransientFailure() throws Exception {
+  public void testFailure() throws Exception {
     ApnsClient      apnsClient      = mock(ApnsClient.class);
 
     PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
     when(response.isAccepted()).thenReturn(true);
 
-    DefaultPromise<PushNotificationResponse<SimpleApnsPushNotification>> result = new DefaultPromise<>(executor);
-    result.setFailure(new ClientNotConnectedException("lost connection"));
-
-    DefaultPromise<Void> connectedResult = new DefaultPromise<>(executor);
-
     when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
-        .thenReturn(result);
+        .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(executor, invocationOnMock.getArgument(0), new Exception("lost connection")));
 
-    when(apnsClient.getReconnectionFuture())
-        .thenReturn(connectedResult);
-
-    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 10);
-    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true);
-    APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
-    apnSender.setApnFallbackManager(fallbackManager);
-
-    ListenableFuture<ApnResult> sendFuture = apnSender.sendMessage(message);
-
-    Thread.sleep(1000);
-
-    assertThat(sendFuture.isDone()).isFalse();
-
-    DefaultPromise<PushNotificationResponse<SimpleApnsPushNotification>> updatedResult = new DefaultPromise<>(executor);
-    updatedResult.setSuccess(response);
-
-    when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
-        .thenReturn(updatedResult);
-
-    connectedResult.setSuccess(null);
-
-    ApnResult apnResult = sendFuture.get();
-
-    ArgumentCaptor<SimpleApnsPushNotification> notification = ArgumentCaptor.forClass(SimpleApnsPushNotification.class);
-    verify(apnsClient, times(2)).sendNotification(notification.capture());
-    verify(apnsClient, times(1)).getReconnectionFuture();
-
-    assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
-    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(ApnMessage.MAX_EXPIRATION));
-    assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_PAYLOAD);
-    assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
-
-    assertThat(apnResult.getStatus()).isEqualTo(ApnResult.Status.SUCCESS);
-
-    verifyNoMoreInteractions(apnsClient);
-    verifyNoMoreInteractions(accountsManager);
-    verifyNoMoreInteractions(fallbackManager);
-  }
-
-  @Test
-  public void testPersistentTransientFailure() throws Exception {
-    ApnsClient      apnsClient      = mock(ApnsClient.class);
-
-    PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
-    when(response.isAccepted()).thenReturn(true);
-
-    DefaultPromise<PushNotificationResponse<SimpleApnsPushNotification>> result = new DefaultPromise<>(executor);
-    result.setFailure(new ApnsServerException("apn servers suck again"));
-
-    when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
-        .thenReturn(result);
-
-    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient, 3);
+    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
     ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true);
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
     apnSender.setApnFallbackManager(fallbackManager);
@@ -441,13 +372,15 @@ public class APNSenderTest {
 
     try {
       sendFuture.get();
-      throw new AssertionError("future did not throw exception");
-    } catch (Exception e) {
+      throw new AssertionError();
+    } catch (InterruptedException e) {
+      throw new AssertionError(e);
+    } catch (ExecutionException e) {
       // good
     }
 
     ArgumentCaptor<SimpleApnsPushNotification> notification = ArgumentCaptor.forClass(SimpleApnsPushNotification.class);
-    verify(apnsClient, times(4)).sendNotification(notification.capture());
+    verify(apnsClient, times(1)).sendNotification(notification.capture());
 
     assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
     assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(ApnMessage.MAX_EXPIRATION));
@@ -457,6 +390,34 @@ public class APNSenderTest {
     verifyNoMoreInteractions(apnsClient);
     verifyNoMoreInteractions(accountsManager);
     verifyNoMoreInteractions(fallbackManager);
+  }
+
+  private static class MockPushNotificationFuture <P extends ApnsPushNotification, V> extends DefaultPromise<V> implements PushNotificationFuture<P, V> {
+
+    private final P pushNotification;
+
+    MockPushNotificationFuture(final EventExecutor eventExecutor, final P pushNotification) {
+      super(eventExecutor);
+      this.pushNotification = pushNotification;
+    }
+
+    MockPushNotificationFuture(final EventExecutor eventExecutor, final P pushNotification, final V response) {
+      super(eventExecutor);
+      this.pushNotification = pushNotification;
+      setSuccess(response);
+    }
+
+    MockPushNotificationFuture(final EventExecutor eventExecutor, final P pushNotification, final Exception exception) {
+      super(eventExecutor);
+      this.pushNotification = pushNotification;
+      setFailure(exception);
+    }
+
+
+    @Override
+    public P getPushNotification() {
+      return pushNotification;
+    }
   }
 
 }

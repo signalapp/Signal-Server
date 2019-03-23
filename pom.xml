@@ -110,16 +110,25 @@
             <version>0.5.0</version>
         </dependency>
 
+
         <dependency>
-            <groupId>com.relayrides</groupId>
+            <groupId>com.turo</groupId>
             <artifactId>pushy</artifactId>
-            <version>0.9.3</version>
+            <version>0.13.7</version>
         </dependency>
         <dependency>
-            <groupId>com.relayrides</groupId>
+            <groupId>com.turo</groupId>
             <artifactId>pushy-dropwizard-metrics-listener</artifactId>
-            <version>0.9.3</version>
+            <version>0.13.7</version>
         </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-tcnative-boringssl-static</artifactId>
+            <version>2.0.20.Final</version>
+            <scope>runtime</scope>
+        </dependency>
+
+
         <dependency>
             <groupId>org.whispersystems</groupId>
             <artifactId>gcm-sender-async</artifactId>

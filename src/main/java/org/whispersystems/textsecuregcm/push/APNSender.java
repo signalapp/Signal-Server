@@ -68,7 +68,7 @@ public class APNSender implements Managed {
     this.sandbox         = configuration.isSandboxEnabled();
     this.apnsClient      = new RetryingApnsClient(configuration.getPushCertificate(),
                                                   configuration.getPushKey(),
-                                                  10);
+                                                  sandbox);
   }
 
   @VisibleForTesting
@@ -115,7 +115,6 @@ public class APNSender implements Managed {
   @Override
   public void start() {
     this.executor = Executors.newSingleThreadExecutor();
-    this.apnsClient.connect(sandbox);
   }
 
   @Override

@@ -6,19 +6,12 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import com.nurkiewicz.asyncretry.AsyncRetryExecutor;
-import com.nurkiewicz.asyncretry.RetryContext;
-import com.nurkiewicz.asyncretry.RetryExecutor;
-import com.nurkiewicz.asyncretry.function.RetryCallable;
-import com.relayrides.pushy.apns.ApnsClient;
-import com.relayrides.pushy.apns.ApnsClientBuilder;
-import com.relayrides.pushy.apns.ApnsServerException;
-import com.relayrides.pushy.apns.ClientNotConnectedException;
-import com.relayrides.pushy.apns.DeliveryPriority;
-import com.relayrides.pushy.apns.PushNotificationResponse;
-import com.relayrides.pushy.apns.metrics.dropwizard.DropwizardApnsClientMetricsListener;
-import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
-
+import com.turo.pushy.apns.ApnsClient;
+import com.turo.pushy.apns.ApnsClientBuilder;
+import com.turo.pushy.apns.DeliveryPriority;
+import com.turo.pushy.apns.PushNotificationResponse;
+import com.turo.pushy.apns.metrics.dropwizard.DropwizardApnsClientMetricsListener;
+import com.turo.pushy.apns.util.SimpleApnsPushNotification;
 import org.bouncycastle.openssl.PEMReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,21 +26,17 @@ import java.security.cert.X509Certificate;
 import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 
 import static com.codahale.metrics.MetricRegistry.name;
-import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
 public class RetryingApnsClient {
 
   private static final Logger logger = LoggerFactory.getLogger(RetryingApnsClient.class);
 
-  private final ApnsClient    apnsClient;
-  private final RetryExecutor retryExecutor;
+  private final ApnsClient apnsClient;
 
-  RetryingApnsClient(String apnCertificate, String apnKey, int retryCount)
+  RetryingApnsClient(String apnCertificate, String apnKey, boolean sandbox)
       throws IOException
   {
     MetricRegistry                      metricRegistry  = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
@@ -60,48 +49,26 @@ public class RetryingApnsClient {
     this.apnsClient = new ApnsClientBuilder().setClientCredentials(initializeCertificate(apnCertificate),
                                                                    initializePrivateKey(apnKey), null)
                                              .setMetricsListener(metricsListener)
+                                             .setApnsServer(sandbox ? ApnsClientBuilder.DEVELOPMENT_APNS_HOST : ApnsClientBuilder.PRODUCTION_APNS_HOST)
                                              .build();
-    this.retryExecutor = initializeExecutor(retryCount);
   }
 
   @VisibleForTesting
-  public RetryingApnsClient(ApnsClient apnsClient, int retryCount) {
-    this.apnsClient    = apnsClient;
-    this.retryExecutor = initializeExecutor(retryCount);
-  }
-
-  private static RetryExecutor initializeExecutor(int retryCount) {
-    ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
-
-    return new AsyncRetryExecutor(executorService).retryOn(ClientNotConnectedException.class)
-                                                  .retryOn(InterruptedException.class)
-                                                  .retryOn(ApnsServerException.class)
-                                                  .withExponentialBackoff(100, 2.0)
-                                                  .withUniformJitter()
-                                                  .withMaxDelay(4000)
-                                                  .withMaxRetries(retryCount);
+  public RetryingApnsClient(ApnsClient apnsClient) {
+    this.apnsClient = apnsClient;
   }
 
   ListenableFuture<ApnResult> send(final String apnId, final String topic, final String payload, final Date expiration) {
-    return this.retryExecutor.getFutureWithRetry(new RetryCallable<ListenableFuture<ApnResult>>() {
-      @Override
-      public ListenableFuture<ApnResult> call(RetryContext context) throws Exception {
-        SettableFuture<ApnResult>  result       = SettableFuture.create();
-        SimpleApnsPushNotification notification = new SimpleApnsPushNotification(apnId, topic, payload, expiration, DeliveryPriority.IMMEDIATE);
+    SettableFuture<ApnResult>  result       = SettableFuture.create();
+    SimpleApnsPushNotification notification = new SimpleApnsPushNotification(apnId, topic, payload, expiration, DeliveryPriority.IMMEDIATE);
         
-        apnsClient.sendNotification(notification).addListener(new ResponseHandler(apnsClient, result));
+    apnsClient.sendNotification(notification).addListener(new ResponseHandler(result));
 
-        return result;
-      }
-    });
-  }
-
-  void connect(boolean sandbox) {
-    apnsClient.connect(sandbox ? ApnsClient.DEVELOPMENT_APNS_HOST : ApnsClient.PRODUCTION_APNS_HOST).awaitUninterruptibly();
+    return result;
   }
 
   void disconnect() {
-    apnsClient.disconnect();
+    apnsClient.close();
   }
 
   private static X509Certificate initializeCertificate(String pemCertificate) throws IOException {
@@ -116,11 +83,9 @@ public class RetryingApnsClient {
 
   private static final class ResponseHandler implements GenericFutureListener<io.netty.util.concurrent.Future<PushNotificationResponse<SimpleApnsPushNotification>>> {
 
-    private final ApnsClient                client;
     private final SettableFuture<ApnResult> future;
 
-    private ResponseHandler(ApnsClient client, SettableFuture<ApnResult> future) {
-      this.client = client;
+    private ResponseHandler(SettableFuture<ApnResult> future) {
       this.future = future;
     }
 
@@ -145,20 +110,8 @@ public class RetryingApnsClient {
         future.setException(e);
       } catch (ExecutionException e) {
         logger.warn("Execution exception", e);
-        if (e.getCause() instanceof ClientNotConnectedException) setDisconnected(e.getCause());
-        else                                                     future.setException(e.getCause());
+        future.setException(e.getCause());
       }
-    }
-
-    private void setDisconnected(final Throwable t) {
-      logger.warn("Client disconnected, waiting for reconnect...", t);
-      client.getReconnectionFuture().addListener(new GenericFutureListener<Future<Void>>() {
-        @Override
-        public void operationComplete(Future<Void> complete) {
-          logger.warn("Client reconnected...");
-          future.setException(t);
-        }
-      });
     }
   }
 
