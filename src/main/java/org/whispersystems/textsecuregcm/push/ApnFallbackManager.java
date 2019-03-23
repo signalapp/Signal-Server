@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -143,6 +144,14 @@ public class ApnFallbackManager implements Managed, Runnable {
           String apnId = device.get().getVoipApnId();
 
           if (apnId == null) {
+            removeOperation.remove(account.get(), device.get());
+            continue;
+          }
+
+          long deviceLastSeen = device.get().getLastSeen();
+
+          if (deviceLastSeen < System.currentTimeMillis() - TimeUnit.DAYS.toMillis(90)) {
+            logger.info("Evicting retry after 90 days: " + account.get().getNumber() + ", " + device.get().getId());
             removeOperation.remove(account.get(), device.get());
             continue;
           }
