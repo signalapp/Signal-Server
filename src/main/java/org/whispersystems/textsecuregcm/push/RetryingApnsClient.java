@@ -131,7 +131,9 @@ public class RetryingApnsClient {
 
         if (response.isAccepted()) {
           future.set(new ApnResult(ApnResult.Status.SUCCESS, null));
-        } else if ("Unregistered".equals(response.getRejectionReason())) {
+        } else if ("Unregistered".equals(response.getRejectionReason()) ||
+                   "BadDeviceToken".equals(response.getRejectionReason()))
+        {
           future.set(new ApnResult(ApnResult.Status.NO_SUCH_USER, response.getRejectionReason()));
         } else {
           logger.warn("Got APN failure: " + response.getRejectionReason());
