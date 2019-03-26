@@ -73,7 +73,6 @@ import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
 import org.whispersystems.textsecuregcm.workers.DirectoryCommand;
-import org.whispersystems.textsecuregcm.workers.PeriodicStatsCommand;
 import org.whispersystems.textsecuregcm.workers.TrimMessagesCommand;
 import org.whispersystems.textsecuregcm.workers.VacuumCommand;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
@@ -110,7 +109,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new DirectoryCommand());
     bootstrap.addCommand(new VacuumCommand());
     bootstrap.addCommand(new TrimMessagesCommand());
-    bootstrap.addCommand(new PeriodicStatsCommand());
     bootstrap.addCommand(new DeleteUserCommand());
     bootstrap.addCommand(new CertificateCommand());
     bootstrap.addBundle(new NameableMigrationsBundle<WhisperServerConfiguration>("accountdb", "accountsdb.xml") {

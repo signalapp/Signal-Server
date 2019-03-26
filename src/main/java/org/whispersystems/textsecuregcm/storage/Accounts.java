@@ -84,15 +84,6 @@ public abstract class Accounts {
   @SqlQuery("SELECT * FROM accounts WHERE " + NUMBER + " > :from ORDER BY " + NUMBER + " LIMIT :limit")
   public abstract List<Account> getAllFrom(@Bind("from") String from, @Bind("limit") int length);
 
-  @SqlQuery("SELECT COUNT(*) FROM accounts a, json_array_elements(a.data->'devices') devices WHERE devices->>'id' = '1' AND (devices->>'gcmId') is not null AND (devices->>'lastSeen')\\:\\:bigint >= :since")
-  public abstract int getAndroidActiveSinceCount(@Bind("since") long since);
-
-  @SqlQuery("SELECT COUNT(*) FROM accounts a, json_array_elements(a.data->'devices') devices WHERE devices->>'id' = '1' AND (devices->>'apnId') is not null AND (devices->>'lastSeen')\\:\\:bigint >= :since")
-  public abstract int getIosActiveSinceCount(@Bind("since") long since);
-
-  @SqlQuery("SELECT count(*) FROM accounts a, json_array_elements(a.data->'devices') devices WHERE devices->>'id' = '1' AND (devices->>'lastSeen')\\:\\:bigint >= :since AND (devices->>'signedPreKey') is null AND (devices->>'gcmId') is not null")
-  public abstract int getUnsignedKeysCount(@Bind("since") long since);
-
   @Transaction(TransactionIsolationLevel.SERIALIZABLE)
   public boolean create(Account account) {
     int rows = removeAccount(account.getNumber());
