@@ -7,17 +7,13 @@ public class KeyRecord {
   private long    deviceId;
   private long    keyId;
   private String  publicKey;
-  private boolean lastResort;
 
-  public KeyRecord(long id, String number, long deviceId, long keyId,
-                   String publicKey, boolean lastResort)
-  {
+  public KeyRecord(long id, String number, long deviceId, long keyId, String publicKey) {
     this.id         = id;
     this.number     = number;
     this.deviceId   = deviceId;
     this.keyId      = keyId;
     this.publicKey  = publicKey;
-    this.lastResort = lastResort;
   }
 
   public long getId() {
@@ -40,7 +36,4 @@ public class KeyRecord {
     return publicKey;
   }
 
-  public boolean isLastResort() {
-    return lastResort;
-  }
 }

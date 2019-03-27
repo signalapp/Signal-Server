@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2013 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -38,97 +38,69 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 public abstract class Keys {
 
   @SqlUpdate("DELETE FROM keys WHERE number = :number AND device_id = :device_id")
-  abstract void removeKeys(@Bind("number") String number, @Bind("device_id") long deviceId);
+  abstract void remove(@Bind("number") String number, @Bind("device_id") long deviceId);
 
-  @SqlUpdate("DELETE FROM keys WHERE id = :id")
-  abstract void removeKey(@Bind("id") long id);
+  @SqlBatch("INSERT INTO keys (number, device_id, key_id, public_key) VALUES (:number, :device_id, :key_id, :public_key)")
+  abstract void append(@KeyRecordBinder List<KeyRecord> preKeys);
 
-  @SqlBatch("INSERT INTO keys (number, device_id, key_id, public_key, last_resort) VALUES " +
-            "(:number, :device_id, :key_id, :public_key, :last_resort)")
-  abstract void append(@PreKeyBinder List<KeyRecord> preKeys);
+  @SqlQuery("DELETE FROM keys WHERE id IN (SELECT id FROM keys WHERE number = :number AND device_id = :device_id ORDER BY key_id ASC LIMIT 1) RETURNING *")
+  @Mapper(KeyRecordMapper.class)
+  abstract List<KeyRecord> getInternal(@Bind("number") String number, @Bind("device_id") long deviceId);
 
-  @SqlQuery("SELECT * FROM keys WHERE number = :number AND device_id = :device_id ORDER BY key_id ASC FOR UPDATE")
-  @Mapper(PreKeyMapper.class)
-  abstract KeyRecord retrieveFirst(@Bind("number") String number, @Bind("device_id") long deviceId);
-
-  @SqlQuery("SELECT DISTINCT ON (number, device_id) * FROM keys WHERE number = :number ORDER BY number, device_id, key_id ASC")
-  @Mapper(PreKeyMapper.class)
-  abstract List<KeyRecord> retrieveFirst(@Bind("number") String number);
+  @SqlQuery("DELETE FROM keys WHERE id IN (SELECT DISTINCT ON (number, device_id) id FROM keys WHERE number = :number ORDER BY number, device_id, key_id ASC) RETURNING *")
+  @Mapper(KeyRecordMapper.class)
+  abstract List<KeyRecord> getInternal(@Bind("number") String number);
 
   @SqlQuery("SELECT COUNT(*) FROM keys WHERE number = :number AND device_id = :device_id")
   public abstract int getCount(@Bind("number") String number, @Bind("device_id") long deviceId);
 
+  // Apparently transaction annotations don't work on the annotated query methods
+  @Transaction(TransactionIsolationLevel.SERIALIZABLE)
+  public List<KeyRecord> get(String number) {
+    return getInternal(number);
+  }
+
+  @Transaction(TransactionIsolationLevel.SERIALIZABLE)
+  public List<KeyRecord> get(String number, long deviceId) {
+    return getInternal(number, deviceId);
+  }
+
   @Transaction(TransactionIsolationLevel.SERIALIZABLE)
   public void store(String number, long deviceId, List<PreKey> keys) {
-    List<KeyRecord> records = new LinkedList<>();
+    List<KeyRecord> records = keys.stream()
+                                  .map(key -> new KeyRecord(0, number, deviceId, key.getKeyId(), key.getPublicKey()))
+                                  .collect(Collectors.toList());
 
-    for (PreKey key : keys) {
-      records.add(new KeyRecord(0, number, deviceId, key.getKeyId(), key.getPublicKey(), false));
-    }
-
-    removeKeys(number, deviceId);
+    remove(number, deviceId);
     append(records);
   }
 
-  @Transaction(TransactionIsolationLevel.SERIALIZABLE)
-  public Optional<List<KeyRecord>> get(String number, long deviceId) {
-    final KeyRecord record = retrieveFirst(number, deviceId);
-
-    if (record != null && !record.isLastResort()) {
-      removeKey(record.getId());
-    } else if (record == null) {
-      return Optional.empty();
-    }
-
-    List<KeyRecord> results = new LinkedList<>();
-    results.add(record);
-
-    return Optional.of(results);
-  }
-
-  @Transaction(TransactionIsolationLevel.SERIALIZABLE)
-  public Optional<List<KeyRecord>> get(String number) {
-    List<KeyRecord> preKeys = retrieveFirst(number);
-
-    if (preKeys != null) {
-      for (KeyRecord preKey : preKeys) {
-        if (!preKey.isLastResort()) {
-          removeKey(preKey.getId());
-        }
-      }
-    }
-
-    if (preKeys != null) return Optional.of(preKeys);
-    else                 return Optional.empty();
-  }
 
   @SqlUpdate("VACUUM keys")
   public abstract void vacuum();
 
-  @BindingAnnotation(PreKeyBinder.PreKeyBinderFactory.class)
+  @BindingAnnotation(KeyRecordBinder.PreKeyBinderFactory.class)
   @Retention(RetentionPolicy.RUNTIME)
   @Target({ElementType.PARAMETER})
-  public @interface PreKeyBinder {
+  public @interface KeyRecordBinder {
     public static class PreKeyBinderFactory implements BinderFactory {
       @Override
       public Binder build(Annotation annotation) {
-        return new Binder<PreKeyBinder, KeyRecord>() {
+        return new Binder<KeyRecordBinder, KeyRecord>() {
           @Override
-          public void bind(SQLStatement<?> sql, PreKeyBinder accountBinder, KeyRecord record)
+          public void bind(SQLStatement<?> sql, KeyRecordBinder keyRecordBinder, KeyRecord record)
           {
             sql.bind("id", record.getId());
             sql.bind("number", record.getNumber());
             sql.bind("device_id", record.getDeviceId());
             sql.bind("key_id", record.getKeyId());
             sql.bind("public_key", record.getPublicKey());
-            sql.bind("last_resort", record.isLastResort() ? 1 : 0);
           }
         };
       }
@@ -136,14 +108,14 @@ public abstract class Keys {
   }
 
 
-  public static class PreKeyMapper implements ResultSetMapper<KeyRecord> {
+  public static class KeyRecordMapper implements ResultSetMapper<KeyRecord> {
     @Override
     public KeyRecord map(int i, ResultSet resultSet, StatementContext statementContext)
         throws SQLException
     {
       return new KeyRecord(resultSet.getLong("id"), resultSet.getString("number"),
                            resultSet.getLong("device_id"), resultSet.getLong("key_id"),
-                           resultSet.getString("public_key"), resultSet.getInt("last_resort") == 1);
+                           resultSet.getString("public_key"));
     }
   }
 

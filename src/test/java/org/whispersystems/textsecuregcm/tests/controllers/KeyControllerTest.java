@@ -45,15 +45,16 @@ public class KeyControllerTest {
   private static int SAMPLE_REGISTRATION_ID2 = 1002;
   private static int SAMPLE_REGISTRATION_ID4 = 1555;
 
-  private final KeyRecord SAMPLE_KEY    = new KeyRecord(1, EXISTS_NUMBER, Device.MASTER_ID, 1234, "test1", false);
-  private final KeyRecord SAMPLE_KEY2   = new KeyRecord(2, EXISTS_NUMBER, 2, 5667, "test3", false               );
-  private final KeyRecord SAMPLE_KEY3   = new KeyRecord(3, EXISTS_NUMBER, 3, 334, "test5", false                );
-  private final KeyRecord SAMPLE_KEY4   = new KeyRecord(4, EXISTS_NUMBER, 4, 336, "test6", false                );
+  private final KeyRecord SAMPLE_KEY    = new KeyRecord(1, EXISTS_NUMBER, Device.MASTER_ID, 1234, "test1");
+  private final KeyRecord SAMPLE_KEY2   = new KeyRecord(2, EXISTS_NUMBER, 2, 5667, "test3");
+  private final KeyRecord SAMPLE_KEY3   = new KeyRecord(3, EXISTS_NUMBER, 3, 334, "test5");
+  private final KeyRecord SAMPLE_KEY4   = new KeyRecord(4, EXISTS_NUMBER, 4, 336, "test6");
 
 
-  private final SignedPreKey SAMPLE_SIGNED_KEY  = new SignedPreKey(1111, "foofoo", "sig11");
-  private final SignedPreKey SAMPLE_SIGNED_KEY2 = new SignedPreKey(2222, "foobar", "sig22");
-  private final SignedPreKey SAMPLE_SIGNED_KEY3 = new SignedPreKey(3333, "barfoo", "sig33");
+  private final SignedPreKey SAMPLE_SIGNED_KEY       = new SignedPreKey( 1111, "foofoo", "sig11"    );
+  private final SignedPreKey SAMPLE_SIGNED_KEY2      = new SignedPreKey( 2222, "foobar", "sig22"    );
+  private final SignedPreKey SAMPLE_SIGNED_KEY3      = new SignedPreKey( 3333, "barfoo", "sig33"    );
+  private final SignedPreKey VALID_DEVICE_SIGNED_KEY = new SignedPreKey(89898, "zoofarb", "sigvalid");
 
   private final Keys            keys           = mock(Keys.class           );
   private final AccountsManager accounts       = mock(AccountsManager.class);
@@ -120,20 +121,20 @@ public class KeyControllerTest {
 
     List<KeyRecord> singleDevice = new LinkedList<>();
     singleDevice.add(SAMPLE_KEY);
-    when(keys.get(eq(EXISTS_NUMBER), eq(1L))).thenReturn(Optional.of(singleDevice));
+    when(keys.get(eq(EXISTS_NUMBER), eq(1L))).thenReturn(singleDevice);
 
-    when(keys.get(eq(NOT_EXISTS_NUMBER), eq(1L))).thenReturn(Optional.<List<KeyRecord>>empty());
+    when(keys.get(eq(NOT_EXISTS_NUMBER), eq(1L))).thenReturn(new LinkedList<>());
 
     List<KeyRecord> multiDevice = new LinkedList<>();
     multiDevice.add(SAMPLE_KEY);
     multiDevice.add(SAMPLE_KEY2);
     multiDevice.add(SAMPLE_KEY3);
     multiDevice.add(SAMPLE_KEY4);
-    when(keys.get(EXISTS_NUMBER)).thenReturn(Optional.of(multiDevice));
+    when(keys.get(EXISTS_NUMBER)).thenReturn(multiDevice);
 
     when(keys.getCount(eq(AuthHelper.VALID_NUMBER), eq(1L))).thenReturn(5);
 
-    when(AuthHelper.VALID_DEVICE.getSignedPreKey()).thenReturn(new SignedPreKey(89898, "zoofarb", "sigvalid"));
+    when(AuthHelper.VALID_DEVICE.getSignedPreKey()).thenReturn(VALID_DEVICE_SIGNED_KEY);
     when(AuthHelper.VALID_ACCOUNT.getIdentityKey()).thenReturn(null);
   }
 
@@ -146,7 +147,7 @@ public class KeyControllerTest {
                                           AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                                   .get(PreKeyCount.class);
 
-    assertThat(result.getCount() == 4);
+    assertThat(result.getCount()).isEqualTo(4);
 
     verify(keys).getCount(eq(AuthHelper.VALID_NUMBER), eq(1L));
   }
@@ -159,7 +160,9 @@ public class KeyControllerTest {
                                    .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                                    .get(SignedPreKey.class);
 
-    assertThat(result.equals(SAMPLE_SIGNED_KEY));
+    assertThat(result.getSignature()).isEqualTo(VALID_DEVICE_SIGNED_KEY.getSignature());
+    assertThat(result.getKeyId()).isEqualTo(VALID_DEVICE_SIGNED_KEY.getKeyId());
+    assertThat(result.getPublicKey()).isEqualTo(VALID_DEVICE_SIGNED_KEY.getPublicKey());
   }
 
   @Test
@@ -171,7 +174,7 @@ public class KeyControllerTest {
                                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                                        .put(Entity.entity(test, MediaType.APPLICATION_JSON_TYPE));
 
-    assertThat(response.getStatus() == 204);
+    assertThat(response.getStatus()).isEqualTo(204);
 
     verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(test));
     verify(accounts).update(eq(AuthHelper.VALID_ACCOUNT));
@@ -332,10 +335,9 @@ public class KeyControllerTest {
 
   @Test
   public void putKeysTestV2() throws Exception {
-    final PreKey preKey        = new PreKey(31337, "foobar");
-    final PreKey lastResortKey = new PreKey(31339, "barbar");
-    final SignedPreKey signedPreKey  = new SignedPreKey(31338, "foobaz", "myvalidsig");
-    final String       identityKey   = "barbar";
+    final PreKey       preKey       = new PreKey(31337, "foobar");
+    final SignedPreKey signedPreKey = new SignedPreKey(31338, "foobaz", "myvalidsig");
+    final String       identityKey  = "barbar";
 
     List<PreKey> preKeys = new LinkedList<PreKey>() {{
       add(preKey);
@@ -356,9 +358,9 @@ public class KeyControllerTest {
     verify(keys).store(eq(AuthHelper.VALID_NUMBER), eq(1L), listCaptor.capture());
 
     List<PreKey> capturedList = listCaptor.getValue();
-    assertThat(capturedList.size() == 1);
-    assertThat(capturedList.get(0).getKeyId() == 31337);
-    assertThat(capturedList.get(0).getPublicKey().equals("foobar"));
+    assertThat(capturedList.size()).isEqualTo(1);
+    assertThat(capturedList.get(0).getKeyId()).isEqualTo(31337);
+    assertThat(capturedList.get(0).getPublicKey()).isEqualTo("foobar");
 
     verify(AuthHelper.VALID_ACCOUNT).setIdentityKey(eq("barbar"));
     verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(signedPreKey));

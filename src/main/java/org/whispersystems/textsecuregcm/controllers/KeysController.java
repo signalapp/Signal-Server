@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2014 Open Whisper Systems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -135,19 +135,17 @@ public class KeysController {
       rateLimiters.getPreKeysLimiter().validate(account.get().getNumber() +  "__" + number + "." + deviceId);
     }
 
-    Optional<List<KeyRecord>> targetKeys = getLocalKeys(target.get(), deviceId);
-    List<PreKeyResponseItem>  devices    = new LinkedList<>();
+    List<KeyRecord>          targetKeys = getLocalKeys(target.get(), deviceId);
+    List<PreKeyResponseItem> devices    = new LinkedList<>();
 
     for (Device device : target.get().getDevices()) {
       if (device.isActive() && (deviceId.equals("*") || device.getId() == Long.parseLong(deviceId))) {
         SignedPreKey signedPreKey = device.getSignedPreKey();
         PreKey preKey       = null;
 
-        if (targetKeys.isPresent()) {
-          for (KeyRecord keyRecord : targetKeys.get()) {
-            if (!keyRecord.isLastResort() && keyRecord.getDeviceId() == device.getId()) {
+        for (KeyRecord keyRecord : targetKeys) {
+          if (keyRecord.getDeviceId() == device.getId()) {
               preKey = new PreKey(keyRecord.getKeyId(), keyRecord.getPublicKey());
-            }
           }
         }
 
@@ -189,7 +187,7 @@ public class KeysController {
     else                      return Optional.empty();
   }
 
-  private Optional<List<KeyRecord>> getLocalKeys(Account destination, String deviceIdSelector) {
+  private List<KeyRecord> getLocalKeys(Account destination, String deviceIdSelector) {
     try {
       if (deviceIdSelector.equals("*")) {
         return keys.get(destination.getNumber());
