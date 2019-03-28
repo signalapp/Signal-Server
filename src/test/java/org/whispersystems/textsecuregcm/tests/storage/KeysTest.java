@@ -241,16 +241,8 @@ public class KeysTest {
 
     for (int i=0;i<50;i++) {
       Thread thread = new Thread(() -> {
-        for (int j=0;j<10;j++) {
-          try {
-            List<KeyRecord> results = keys.get("+14152222222");
-            assertThat(results.size()).isEqualTo(2);
-            return;
-          } catch (Exception e) {
-            System.err.println(e.getMessage());
-          }
-        }
-        throw new AssertionError();
+        List<KeyRecord> results = keys.get("+14152222222");
+        assertThat(results.size()).isEqualTo(2);
       });
       thread.start();
       threads.add(thread);

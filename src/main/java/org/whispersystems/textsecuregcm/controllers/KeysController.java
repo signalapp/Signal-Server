@@ -17,7 +17,6 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
-import org.skife.jdbi.v2.exceptions.UnableToExecuteStatementException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
@@ -195,15 +194,7 @@ public class KeysController {
 
       long deviceId = Long.parseLong(deviceIdSelector);
 
-      for (int i=0;i<20;i++) {
-        try {
-          return keys.get(destination.getNumber(), deviceId);
-        } catch (UnableToExecuteStatementException e) {
-          logger.info(e.getMessage());
-        }
-      }
-
-      throw new WebApplicationException(Response.status(500).build());
+      return keys.get(destination.getNumber(), deviceId);
     } catch (NumberFormatException e) {
       throw new WebApplicationException(Response.status(422).build());
     }
