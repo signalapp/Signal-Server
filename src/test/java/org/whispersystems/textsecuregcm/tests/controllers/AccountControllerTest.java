@@ -15,6 +15,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.providers.TimeProvider;
+import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.AbusiveHostRule;
@@ -29,9 +30,9 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -52,6 +53,9 @@ public class AccountControllerTest {
   private static final String RESTRICTED_HOST = "192.168.1.2";
   private static final String NICE_HOST       = "127.0.0.1";
 
+  private static final String VALID_CAPTCHA_TOKEN   = "valid_token";
+  private static final String INVALID_CAPTCHA_TOKEN = "invalid_token";
+
   private        PendingAccountsManager pendingAccountsManager = mock(PendingAccountsManager.class);
   private        AccountsManager        accountsManager        = mock(AccountsManager.class       );
   private        AbusiveHostRules       abusiveHostRules       = mock(AbusiveHostRules.class      );
@@ -65,6 +69,7 @@ public class AccountControllerTest {
   private        TimeProvider           timeProvider           = mock(TimeProvider.class          );
   private        TurnTokenGenerator     turnTokenGenerator     = mock(TurnTokenGenerator.class);
   private        Account                senderPinAccount       = mock(Account.class);
+  private        RecaptchaClient        recaptchaClient        = mock(RecaptchaClient.class);
 
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
@@ -81,7 +86,8 @@ public class AccountControllerTest {
                                                                                                directoryQueue,
                                                                                                storedMessages,
                                                                                                turnTokenGenerator,
-                                                                                               new HashMap<>()))
+                                                                                               new HashMap<>(),
+                                                                                               recaptchaClient))
                                                             .build();
 
 
@@ -111,6 +117,9 @@ public class AccountControllerTest {
     when(abusiveHostRules.getAbusiveHostRulesFor(eq(ABUSIVE_HOST))).thenReturn(Collections.singletonList(new AbusiveHostRule(ABUSIVE_HOST, true, Collections.emptyList())));
     when(abusiveHostRules.getAbusiveHostRulesFor(eq(RESTRICTED_HOST))).thenReturn(Collections.singletonList(new AbusiveHostRule(RESTRICTED_HOST, false, Collections.singletonList("+123"))));
     when(abusiveHostRules.getAbusiveHostRulesFor(eq(NICE_HOST))).thenReturn(Collections.emptyList());
+
+    when(recaptchaClient.verify(eq(INVALID_CAPTCHA_TOKEN))).thenReturn(false);
+    when(recaptchaClient.verify(eq(VALID_CAPTCHA_TOKEN))).thenReturn(true);
 
     doThrow(new RateLimitExceededException(SENDER_OVER_PIN)).when(pinLimiter).validate(eq(SENDER_OVER_PIN));
   }
@@ -169,9 +178,43 @@ public class AccountControllerTest {
                  .header("X-Forwarded-For", ABUSIVE_HOST)
                  .get();
 
-    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.getStatus()).isEqualTo(402);
 
     verify(abusiveHostRules).getAbusiveHostRulesFor(eq(ABUSIVE_HOST));
+    verifyNoMoreInteractions(smsSender);
+  }
+
+  @Test
+  public void testSendAbusiveHostWithValidCaptcha() throws IOException {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .queryParam("captcha", VALID_CAPTCHA_TOKEN)
+                 .request()
+                 .header("X-Forwarded-For", ABUSIVE_HOST)
+                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    verifyNoMoreInteractions(abusiveHostRules);
+    verify(recaptchaClient).verify(eq(VALID_CAPTCHA_TOKEN));
+    verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.empty()), anyString());
+  }
+
+  @Test
+  public void testSendAbusiveHostWithInvalidCaptcha() {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .queryParam("captcha", INVALID_CAPTCHA_TOKEN)
+                 .request()
+                 .header("X-Forwarded-For", ABUSIVE_HOST)
+                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(402);
+
+    verifyNoMoreInteractions(abusiveHostRules);
+    verify(recaptchaClient).verify(eq(INVALID_CAPTCHA_TOKEN));
     verifyNoMoreInteractions(smsSender);
   }
 
@@ -184,7 +227,7 @@ public class AccountControllerTest {
                  .header("X-Forwarded-For", NICE_HOST + ", " + ABUSIVE_HOST)
                  .get();
 
-    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.getStatus()).isEqualTo(402);
 
     verify(abusiveHostRules, times(1)).getAbusiveHostRulesFor(eq(ABUSIVE_HOST));
     verify(abusiveHostRules, times(1)).getAbusiveHostRulesFor(eq(NICE_HOST));
@@ -203,7 +246,7 @@ public class AccountControllerTest {
                  .header("X-Forwarded-For", RESTRICTED_HOST)
                  .get();
 
-    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.getStatus()).isEqualTo(402);
 
     verify(abusiveHostRules).getAbusiveHostRulesFor(eq(RESTRICTED_HOST));
     verifyNoMoreInteractions(smsSender);

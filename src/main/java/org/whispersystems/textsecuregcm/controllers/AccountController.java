@@ -36,6 +36,7 @@ import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.AbusiveHostRule;
@@ -79,11 +80,13 @@ import io.dropwizard.auth.Auth;
 @Path("/v1/accounts")
 public class AccountController {
 
-  private final Logger         logger            = LoggerFactory.getLogger(AccountController.class);
-  private final MetricRegistry metricRegistry    = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private final Meter          newUserMeter      = metricRegistry.meter(name(AccountController.class, "brand_new_user"));
-  private final Meter          blockedHostMeter  = metricRegistry.meter(name(AccountController.class, "blocked_host"));
-  private final Meter          filteredHostMeter = metricRegistry.meter(name(AccountController.class, "filtered_host"));
+  private final Logger         logger              = LoggerFactory.getLogger(AccountController.class);
+  private final MetricRegistry metricRegistry      = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  private final Meter          newUserMeter        = metricRegistry.meter(name(AccountController.class, "brand_new_user" ));
+  private final Meter          blockedHostMeter    = metricRegistry.meter(name(AccountController.class, "blocked_host"   ));
+  private final Meter          filteredHostMeter   = metricRegistry.meter(name(AccountController.class, "filtered_host"  ));
+  private final Meter          captchaSuccessMeter = metricRegistry.meter(name(AccountController.class, "captcha_success"));
+  private final Meter          captchaFailureMeter = metricRegistry.meter(name(AccountController.class, "captcha_failure"));
 
   private final PendingAccountsManager                pendingAccounts;
   private final AccountsManager                       accounts;
@@ -94,6 +97,7 @@ public class AccountController {
   private final MessagesManager                       messagesManager;
   private final TurnTokenGenerator                    turnTokenGenerator;
   private final Map<String, Integer>                  testDevices;
+  private final RecaptchaClient                       recaptchaClient;
 
   public AccountController(PendingAccountsManager pendingAccounts,
                            AccountsManager accounts,
@@ -103,7 +107,8 @@ public class AccountController {
                            DirectoryQueue directoryQueue,
                            MessagesManager messagesManager,
                            TurnTokenGenerator turnTokenGenerator,
-                           Map<String, Integer> testDevices)
+                           Map<String, Integer> testDevices,
+                           RecaptchaClient recaptchaClient)
   {
     this.pendingAccounts    = pendingAccounts;
     this.accounts           = accounts;
@@ -114,6 +119,7 @@ public class AccountController {
     this.messagesManager    = messagesManager;
     this.testDevices        = testDevices;
     this.turnTokenGenerator = turnTokenGenerator;
+    this.recaptchaClient    = recaptchaClient;
   }
 
   @Timed
@@ -123,7 +129,8 @@ public class AccountController {
                                 @PathParam("number")            String number,
                                 @HeaderParam("X-Forwarded-For") String forwardedFor,
                                 @HeaderParam("Accept-Language") Optional<String> locale,
-                                @QueryParam("client")           Optional<String> client)
+                                @QueryParam("client")           Optional<String> client,
+                                @QueryParam("captcha")          Optional<String> captcha)
       throws IOException, RateLimitExceededException
   {
     if (!Util.isValidNumber(number)) {
@@ -138,31 +145,8 @@ public class AccountController {
       return Response.status(400).build();
     }
 
-    for (String requester : requesters) {
-      List<AbusiveHostRule> abuseRules = abusiveHostRules.getAbusiveHostRulesFor(requester);
-
-      for (AbusiveHostRule abuseRule : abuseRules) {
-        if (abuseRule.isBlocked()) {
-          logger.info("Blocked host: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
-          blockedHostMeter.mark();
-          return Response.ok().build();
-        }
-
-        if (!abuseRule.getRegions().isEmpty()) {
-          if (abuseRule.getRegions().stream().noneMatch(number::startsWith)) {
-            logger.info("Restricted host: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
-            filteredHostMeter.mark();
-            return Response.ok().build();
-          }
-        }
-      }
-
-      try {
-        rateLimiters.getSmsVoiceIpLimiter().validate(requester);
-      } catch (RateLimitExceededException e) {
-        logger.info("Rate limited exceeded: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
-        return Response.ok().build();
-      }
+    if (requiresCaptcha(number, transport, forwardedFor, requesters, captcha)) {
+      return Response.status(402).build();
     }
 
     switch (transport) {
@@ -396,6 +380,51 @@ public class AccountController {
     account.setUnrestrictedUnidentifiedAccess(attributes.isUnrestrictedUnidentifiedAccess());
 
     accounts.update(account);
+  }
+
+  private boolean requiresCaptcha(String number, String transport, String forwardedFor,
+                                  List<String> requesters, Optional<String> captchaToken)
+  {
+    if (captchaToken.isPresent()) {
+      boolean validToken = recaptchaClient.verify(captchaToken.get());
+
+      if (validToken) {
+        captchaSuccessMeter.mark();
+        return false;
+      } else {
+        captchaFailureMeter.mark();
+        return true;
+      }
+    }
+
+    for (String requester : requesters) {
+      List<AbusiveHostRule> abuseRules = abusiveHostRules.getAbusiveHostRulesFor(requester);
+
+      for (AbusiveHostRule abuseRule : abuseRules) {
+        if (abuseRule.isBlocked()) {
+          logger.info("Blocked host: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
+          blockedHostMeter.mark();
+          return true;
+        }
+
+        if (!abuseRule.getRegions().isEmpty()) {
+          if (abuseRule.getRegions().stream().noneMatch(number::startsWith)) {
+            logger.info("Restricted host: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
+            filteredHostMeter.mark();
+            return true;
+          }
+        }
+      }
+
+      try {
+        rateLimiters.getSmsVoiceIpLimiter().validate(requester);
+      } catch (RateLimitExceededException e) {
+        logger.info("Rate limited exceeded: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private void createAccount(String number, String password, String userAgent, AccountAttributes accountAttributes) {

@@ -146,8 +146,16 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private VoiceVerificationConfiguration voiceVerification;
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private RecaptchaConfiguration recaptcha;
+
   private Map<String, String> transparentDataIndex = new HashMap<>();
 
+  public RecaptchaConfiguration getRecaptchaConfiguration() {
+    return recaptcha;
+  }
 
   public VoiceVerificationConfiguration getVoiceVerificationConfiguration() {
     return voiceVerification;
