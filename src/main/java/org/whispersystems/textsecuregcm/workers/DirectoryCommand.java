@@ -69,8 +69,8 @@ public class DirectoryCommand extends EnvironmentCommand<WhisperServerConfigurat
       dbi.registerContainerFactory(new OptionalContainerFactory());
 
       Accounts            accounts        = dbi.onDemand(Accounts.class);
-      ReplicatedJedisPool cacheClient     = new RedisClientFactory(configuration.getCacheConfiguration().getUrl(), configuration.getCacheConfiguration().getReplicaUrls()).getRedisClientPool();
-      ReplicatedJedisPool redisClient     = new RedisClientFactory(configuration.getDirectoryConfiguration().getRedisConfiguration().getUrl(), configuration.getDirectoryConfiguration().getRedisConfiguration().getReplicaUrls()).getRedisClientPool();
+      ReplicatedJedisPool cacheClient     = new RedisClientFactory("main_cache_directory_command", configuration.getCacheConfiguration().getUrl(), configuration.getCacheConfiguration().getReplicaUrls(), configuration.getCacheConfiguration().getCircuitBreakerConfiguration()).getRedisClientPool();
+      ReplicatedJedisPool redisClient     = new RedisClientFactory("directory_cache_directory_command", configuration.getDirectoryConfiguration().getRedisConfiguration().getUrl(), configuration.getDirectoryConfiguration().getRedisConfiguration().getReplicaUrls(), configuration.getDirectoryConfiguration().getRedisConfiguration().getCircuitBreakerConfiguration()).getRedisClientPool();
       DirectoryManager    directory       = new DirectoryManager(redisClient);
       AccountsManager     accountsManager = new AccountsManager(accounts, directory, cacheClient);
 

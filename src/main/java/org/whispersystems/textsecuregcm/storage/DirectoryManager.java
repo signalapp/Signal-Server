@@ -156,7 +156,7 @@ public class DirectoryManager {
     Jedis    jedis    = handle.jedis;
 
     pipeline.sync();
-    redisPool.returnWriteResource(jedis);
+    jedis.close();
   }
 
   public static class BatchOperationHandle {

@@ -14,6 +14,7 @@
     <properties>
         <dropwizard.version>1.3.9</dropwizard.version>
         <jackson.api.version>2.9.8</jackson.api.version>
+        <resilience4j.version>0.13.2</resilience4j.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -64,6 +65,13 @@
             <version>0.9.30</version>
         </dependency>
 
+
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-circuitbreaker</artifactId>
+            <version>${resilience4j.version}</version>
+        </dependency>
+        
 
         <dependency>
             <groupId>com.amazonaws</groupId>

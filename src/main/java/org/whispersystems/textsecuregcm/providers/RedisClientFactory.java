@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2013 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.dispatch.io.RedisPubSubConnectionFactory;
 import org.whispersystems.dispatch.redis.PubSubConnection;
+import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -42,7 +43,9 @@ public class RedisClientFactory implements RedisPubSubConnectionFactory {
   private final int       port;
   private final ReplicatedJedisPool jedisPool;
 
-  public RedisClientFactory(String url, List<String> replicaUrls) throws URISyntaxException {
+  public RedisClientFactory(String name, String url, List<String> replicaUrls, CircuitBreakerConfiguration circuitBreakerConfiguration)
+      throws URISyntaxException
+  {
     JedisPoolConfig poolConfig = new JedisPoolConfig();
     poolConfig.setTestOnBorrow(true);
 
@@ -63,7 +66,7 @@ public class RedisClientFactory implements RedisPubSubConnectionFactory {
                                      null, null));
     }
 
-    this.jedisPool = new ReplicatedJedisPool(masterPool, replicaPools);
+    this.jedisPool = new ReplicatedJedisPool(name, masterPool, replicaPools, circuitBreakerConfiguration);
   }
 
   public ReplicatedJedisPool getRedisClientPool() {
