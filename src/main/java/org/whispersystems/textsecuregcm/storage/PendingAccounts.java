@@ -16,40 +16,45 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.sqlobject.Bind;
-import org.skife.jdbi.v2.sqlobject.SqlQuery;
-import org.skife.jdbi.v2.sqlobject.SqlUpdate;
-import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
+import org.jdbi.v3.core.Jdbi;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
+import org.whispersystems.textsecuregcm.storage.mappers.StoredVerificationCodeRowMapper;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.util.Optional;
 
-public interface PendingAccounts {
+public class PendingAccounts {
 
-  @SqlUpdate("WITH upsert AS (UPDATE pending_accounts SET verification_code = :verification_code, timestamp = :timestamp WHERE number = :number RETURNING *) " +
-             "INSERT INTO pending_accounts (number, verification_code, timestamp) SELECT :number, :verification_code, :timestamp WHERE NOT EXISTS (SELECT * FROM upsert)")
-  void insert(@Bind("number") String number, @Bind("verification_code") String verificationCode, @Bind("timestamp") long timestamp);
+  private final Jdbi database;
 
-  @Mapper(StoredVerificationCodeMapper.class)
-  @SqlQuery("SELECT verification_code, timestamp FROM pending_accounts WHERE number = :number")
-  StoredVerificationCode getCodeForNumber(@Bind("number") String number);
-
-  @SqlUpdate("DELETE FROM pending_accounts WHERE number = :number")
-  void remove(@Bind("number") String number);
-
-  @SqlUpdate("VACUUM pending_accounts")
-  public void vacuum();
-
-  public static class StoredVerificationCodeMapper implements ResultSetMapper<StoredVerificationCode> {
-    @Override
-    public StoredVerificationCode map(int i, ResultSet resultSet, StatementContext statementContext)
-        throws SQLException
-    {
-      return new StoredVerificationCode(resultSet.getString("verification_code"),
-                                        resultSet.getLong("timestamp"));
-    }
+  public PendingAccounts(Jdbi database) {
+    this.database = database;
+    this.database.registerRowMapper(new StoredVerificationCodeRowMapper());
   }
+
+  public void insert(String number, String verificationCode, long timestamp) {
+    database.useHandle(handle -> handle.createUpdate("WITH upsert AS (UPDATE pending_accounts SET verification_code = :verification_code, timestamp = :timestamp WHERE number = :number RETURNING *) " +
+                                                         "INSERT INTO pending_accounts (number, verification_code, timestamp) SELECT :number, :verification_code, :timestamp WHERE NOT EXISTS (SELECT * FROM upsert)")
+                                       .bind("verification_code", verificationCode)
+                                       .bind("timestamp", timestamp)
+                                       .bind("number", number)
+                                       .execute());
+  }
+
+  public Optional<StoredVerificationCode> getCodeForNumber(String number) {
+    return database.withHandle(handle -> handle.createQuery("SELECT verification_code, timestamp FROM pending_accounts WHERE number = :number")
+                                               .bind("number", number)
+                                               .mapTo(StoredVerificationCode.class)
+                                               .findFirst());
+  }
+
+  public void remove(String number) {
+    database.useHandle(handle -> handle.createUpdate("DELETE FROM pending_accounts WHERE number = :number")
+                                       .bind("number", number)
+                                       .execute());
+  }
+
+  public void vacuum() {
+    database.useHandle(handle -> handle.execute("VACUUM pending_accounts"));
+  }
+
 }

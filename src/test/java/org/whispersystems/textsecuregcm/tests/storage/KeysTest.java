@@ -3,9 +3,9 @@ package org.whispersystems.textsecuregcm.tests.storage;
 import com.opentable.db.postgres.embedded.LiquibasePreparer;
 import com.opentable.db.postgres.junit.EmbeddedPostgresRules;
 import com.opentable.db.postgres.junit.PreparedDbRule;
+import org.jdbi.v3.core.Jdbi;
 import org.junit.Rule;
 import org.junit.Test;
-import org.skife.jdbi.v2.DBI;
 import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.storage.KeyRecord;
 import org.whispersystems.textsecuregcm.storage.Keys;
@@ -27,8 +27,8 @@ public class KeysTest {
   @Test
   public void testPopulateKeys() throws SQLException {
     DataSource dataSource = db.getTestDatabase();
-    DBI        dbi        = new DBI(dataSource);
-    Keys       keys       = dbi.onDemand(Keys.class);
+    Jdbi       jdbi       = Jdbi.create(dataSource);
+    Keys       keys       = new Keys(jdbi);
 
     List<PreKey> deviceOnePreKeys = new LinkedList<>();
     List<PreKey> deviceTwoPreKeys = new LinkedList<>();
@@ -63,10 +63,10 @@ public class KeysTest {
   }
 
   @Test
-  public void testKeyCount() throws SQLException {
+  public void testKeyCount() {
     DataSource dataSource = db.getTestDatabase();
-    DBI        dbi        = new DBI(dataSource);
-    Keys       keys       = dbi.onDemand(Keys.class);
+    Jdbi       jdbi       = Jdbi.create(dataSource);
+    Keys       keys       = new Keys(jdbi);
 
     List<PreKey> deviceOnePreKeys = new LinkedList<>();
 
@@ -83,8 +83,8 @@ public class KeysTest {
   @Test
   public void testGetForDevice() {
     DataSource dataSource = db.getTestDatabase();
-    DBI        dbi        = new DBI(dataSource);
-    Keys       keys       = dbi.onDemand(Keys.class);
+    Jdbi       jdbi       = Jdbi.create(dataSource);
+    Keys       keys       = new Keys(jdbi);
 
     List<PreKey> deviceOnePreKeys = new LinkedList<>();
     List<PreKey> deviceTwoPreKeys = new LinkedList<>();
@@ -144,8 +144,8 @@ public class KeysTest {
   @Test
   public void testGetForAllDevices() {
     DataSource dataSource = db.getTestDatabase();
-    DBI        dbi        = new DBI(dataSource);
-    Keys       keys       = dbi.onDemand(Keys.class);
+    Jdbi       jdbi       = Jdbi.create(dataSource);
+    Keys       keys       = new Keys(jdbi);
 
     List<PreKey> deviceOnePreKeys = new LinkedList<>();
     List<PreKey> deviceTwoPreKeys = new LinkedList<>();
@@ -220,8 +220,8 @@ public class KeysTest {
   @Test
   public void testGetForAllDevicesParallel() throws InterruptedException {
     DataSource dataSource = db.getTestDatabase();
-    DBI        dbi        = new DBI(dataSource);
-    Keys       keys       = dbi.onDemand(Keys.class);
+    Jdbi       jdbi       = Jdbi.create(dataSource);
+    Keys       keys       = new Keys(jdbi);
 
     List<PreKey> deviceOnePreKeys = new LinkedList<>();
     List<PreKey> deviceTwoPreKeys = new LinkedList<>();
@@ -239,7 +239,7 @@ public class KeysTest {
 
     List<Thread> threads = new LinkedList<>();
 
-    for (int i=0;i<50;i++) {
+    for (int i=0;i<20;i++) {
       Thread thread = new Thread(() -> {
         List<KeyRecord> results = keys.get("+14152222222");
         assertThat(results.size()).isEqualTo(2);
@@ -252,19 +252,29 @@ public class KeysTest {
       thread.join();
     }
 
-    assertThat(keys.getCount("+14152222222", 1)).isEqualTo(50);
-    assertThat(keys.getCount("+14152222222",2)).isEqualTo(50);
+    assertThat(keys.getCount("+14152222222", 1)).isEqualTo(80);
+    assertThat(keys.getCount("+14152222222",2)).isEqualTo(80);
   }
 
 
   @Test
   public void testEmptyKeyGet() {
-    DBI  dbi  = new DBI(db.getTestDatabase());
-    Keys keys = dbi.onDemand(Keys.class);
+    DataSource dataSource = db.getTestDatabase();
+    Jdbi       jdbi       = Jdbi.create(dataSource);
+    Keys       keys       = new Keys(jdbi);
 
     List<KeyRecord> records = keys.get("+14152222222");
 
     assertThat(records.isEmpty()).isTrue();
+  }
+
+  @Test
+  public void testVacuum() {
+    DataSource dataSource = db.getTestDatabase();
+    Jdbi       jdbi       = Jdbi.create(dataSource);
+    Keys       keys       = new Keys(jdbi);
+
+    keys.vacuum();
   }
 
 

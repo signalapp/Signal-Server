@@ -54,7 +54,7 @@ public class AccountsManagerTest {
     when(cacheClient.getReadResource()).thenReturn(jedis);
     when(cacheClient.getWriteResource()).thenReturn(jedis);
     when(jedis.get(eq("Account5+14152222222"))).thenReturn(null);
-    when(accounts.get(eq("+14152222222"))).thenReturn(account);
+    when(accounts.get(eq("+14152222222"))).thenReturn(Optional.of(account));
 
     AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheClient);
     Optional<Account> retrieved       = accountsManager.get("+14152222222");
@@ -82,7 +82,7 @@ public class AccountsManagerTest {
     when(cacheClient.getReadResource()).thenReturn(jedis);
     when(cacheClient.getWriteResource()).thenReturn(jedis);
     when(jedis.get(eq("Account5+14152222222"))).thenThrow(new JedisException("Connection lost!"));
-    when(accounts.get(eq("+14152222222"))).thenReturn(account);
+    when(accounts.get(eq("+14152222222"))).thenReturn(Optional.of(account));
 
     AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheClient);
     Optional<Account> retrieved       = accountsManager.get("+14152222222");

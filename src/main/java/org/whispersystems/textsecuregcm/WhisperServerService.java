@@ -22,7 +22,7 @@ import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
-import org.skife.jdbi.v2.DBI;
+import org.jdbi.v3.core.Jdbi;
 import org.whispersystems.dispatch.DispatchManager;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
@@ -38,8 +38,8 @@ import org.whispersystems.textsecuregcm.controllers.KeysController;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.controllers.ProfileController;
 import org.whispersystems.textsecuregcm.controllers.ProvisioningController;
-import org.whispersystems.textsecuregcm.controllers.VoiceVerificationController;
 import org.whispersystems.textsecuregcm.controllers.TransparentDataController;
+import org.whispersystems.textsecuregcm.controllers.VoiceVerificationController;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.liquibase.NameableMigrationsBundle;
 import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
@@ -73,8 +73,6 @@ import org.whispersystems.textsecuregcm.websocket.ProvisioningConnectListener;
 import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
-import org.whispersystems.textsecuregcm.workers.DirectoryCommand;
-import org.whispersystems.textsecuregcm.workers.TrimMessagesCommand;
 import org.whispersystems.textsecuregcm.workers.VacuumCommand;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
@@ -95,7 +93,7 @@ import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
 import io.dropwizard.db.DataSourceFactory;
 import io.dropwizard.db.PooledDataSourceFactory;
-import io.dropwizard.jdbi.DBIFactory;
+import io.dropwizard.jdbi3.JdbiFactory;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 
@@ -108,7 +106,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
   @Override
   public void initialize(Bootstrap<WhisperServerConfiguration> bootstrap) {
     bootstrap.addCommand(new VacuumCommand());
-    bootstrap.addCommand(new TrimMessagesCommand());
     bootstrap.addCommand(new DeleteUserCommand());
     bootstrap.addCommand(new CertificateCommand());
     bootstrap.addBundle(new NameableMigrationsBundle<WhisperServerConfiguration>("accountdb", "accountsdb.xml") {
@@ -147,17 +144,17 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.getObjectMapper().setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);
     environment.getObjectMapper().setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
 
-    DBIFactory dbiFactory = new DBIFactory();
-    DBI        database   = dbiFactory.build(environment, config.getDataSourceFactory(), "accountdb");
-    DBI        messagedb  = dbiFactory.build(environment, config.getMessageStoreConfiguration(), "messagedb");
-    DBI        abusedb    = dbiFactory.build(environment, config.getAbuseDatabaseConfiguration(), "abusedb");
+    JdbiFactory jdbiFactory     = new JdbiFactory();
+    Jdbi        accountDatabase = jdbiFactory.build(environment, config.getDataSourceFactory(), "accountdb");
+    Jdbi        messageDatabase = jdbiFactory.build(environment, config.getMessageStoreConfiguration(), "messagedb");
+    Jdbi        abuseDatabase   = jdbiFactory.build(environment, config.getAbuseDatabaseConfiguration(), "abusedb");
 
-    Accounts         accounts         = database.onDemand(Accounts.class       );
-    PendingAccounts  pendingAccounts  = database.onDemand(PendingAccounts.class);
-    PendingDevices   pendingDevices   = database.onDemand(PendingDevices.class );
-    Keys             keys             = database.onDemand(Keys.class           );
-    Messages         messages         = messagedb.onDemand(Messages.class);
-    AbusiveHostRules abusiveHostRules = abusedb.onDemand(AbusiveHostRules.class);
+    Accounts         accounts         = new Accounts(accountDatabase);
+    PendingAccounts  pendingAccounts  = new PendingAccounts(accountDatabase);
+    PendingDevices   pendingDevices   = new PendingDevices(accountDatabase);
+    Keys             keys             = new Keys(accountDatabase);
+    Messages         messages         = new Messages(messageDatabase);
+    AbusiveHostRules abusiveHostRules = new AbusiveHostRules(abuseDatabase);
 
     RedisClientFactory cacheClientFactory         = new RedisClientFactory("main_cache", config.getCacheConfiguration().getUrl(), config.getCacheConfiguration().getReplicaUrls(), config.getCacheConfiguration().getCircuitBreakerConfiguration());
     RedisClientFactory directoryClientFactory     = new RedisClientFactory("directory_cache", config.getDirectoryConfiguration().getRedisConfiguration().getUrl(), config.getDirectoryConfiguration().getRedisConfiguration().getReplicaUrls(), config.getDirectoryConfiguration().getRedisConfiguration().getCircuitBreakerConfiguration());

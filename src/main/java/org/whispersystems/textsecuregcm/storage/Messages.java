@@ -1,137 +1,106 @@
 package org.whispersystems.textsecuregcm.storage;
 
-import org.skife.jdbi.v2.SQLStatement;
-import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.sqlobject.Bind;
-import org.skife.jdbi.v2.sqlobject.Binder;
-import org.skife.jdbi.v2.sqlobject.BinderFactory;
-import org.skife.jdbi.v2.sqlobject.BindingAnnotation;
-import org.skife.jdbi.v2.sqlobject.SqlQuery;
-import org.skife.jdbi.v2.sqlobject.SqlUpdate;
-import org.skife.jdbi.v2.sqlobject.customizers.Mapper;
-import org.skife.jdbi.v2.tweak.ResultSetMapper;
+import org.jdbi.v3.core.Jdbi;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
+import org.whispersystems.textsecuregcm.storage.mappers.OutgoingMessageEntityRowMapper;
 
-import java.lang.annotation.Annotation;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
-public abstract class Messages {
+public class Messages {
 
   static final int RESULT_SET_CHUNK_SIZE = 100;
 
-  private static final String ID                 = "id";
-  private static final String GUID               = "guid";
-  private static final String TYPE               = "type";
-  private static final String RELAY              = "relay";
-  private static final String TIMESTAMP          = "timestamp";
-  private static final String SERVER_TIMESTAMP   = "server_timestamp";
-  private static final String SOURCE             = "source";
-  private static final String SOURCE_DEVICE      = "source_device";
-  private static final String DESTINATION        = "destination";
-  private static final String DESTINATION_DEVICE = "destination_device";
-  private static final String MESSAGE            = "message";
-  private static final String CONTENT            = "content";
+  public static final String ID                 = "id";
+  public static final String GUID               = "guid";
+  public static final String TYPE               = "type";
+  public static final String RELAY              = "relay";
+  public static final String TIMESTAMP          = "timestamp";
+  public static final String SERVER_TIMESTAMP   = "server_timestamp";
+  public static final String SOURCE             = "source";
+  public static final String SOURCE_DEVICE      = "source_device";
+  public static final String DESTINATION        = "destination";
+  public static final String DESTINATION_DEVICE = "destination_device";
+  public static final String MESSAGE            = "message";
+  public static final String CONTENT            = "content";
 
-  @SqlUpdate("INSERT INTO messages (" + GUID + ", " + TYPE + ", " + RELAY + ", " + TIMESTAMP + ", " + SERVER_TIMESTAMP + ", " + SOURCE + ", " + SOURCE_DEVICE + ", " + DESTINATION + ", " + DESTINATION_DEVICE + ", " + MESSAGE + ", " + CONTENT + ") " +
-             "VALUES (:guid, :type, :relay, :timestamp, :server_timestamp, :source, :source_device, :destination, :destination_device, :message, :content)")
-  abstract void store(@Bind("guid") UUID guid,
-                      @MessageBinder Envelope message,
-                      @Bind("destination") String destination,
-                      @Bind("destination_device") long destinationDevice);
+  private final Jdbi database;
 
-  @Mapper(MessageMapper.class)
-  @SqlQuery("SELECT * FROM messages WHERE " + DESTINATION + " = :destination AND " + DESTINATION_DEVICE + " = :destination_device ORDER BY " + TIMESTAMP + " ASC LIMIT " + RESULT_SET_CHUNK_SIZE)
-  abstract List<OutgoingMessageEntity> load(@Bind("destination")        String destination,
-                                            @Bind("destination_device") long destinationDevice);
-
-  @Mapper(MessageMapper.class)
-  @SqlQuery("DELETE FROM messages WHERE " + ID + " IN (SELECT " + ID + " FROM messages WHERE " + DESTINATION + " = :destination AND " + DESTINATION_DEVICE + " = :destination_device AND " + SOURCE + " = :source AND " + TIMESTAMP + " = :timestamp ORDER BY " + ID + " LIMIT 1) RETURNING *")
-  abstract OutgoingMessageEntity remove(@Bind("destination")        String destination,
-                                        @Bind("destination_device") long destinationDevice,
-                                        @Bind("source")             String source,
-                                        @Bind("timestamp")          long timestamp);
-
-  @Mapper(MessageMapper.class)
-  @SqlQuery("DELETE FROM messages WHERE "+  ID + " IN (SELECT " + ID + " FROM MESSAGES WHERE " + GUID + " = :guid AND " + DESTINATION + " = :destination ORDER BY " + ID + " LIMIT 1) RETURNING *")
-  abstract OutgoingMessageEntity remove(@Bind("destination") String destination, @Bind("guid") UUID guid);
-
-  @Mapper(MessageMapper.class)
-  @SqlUpdate("DELETE FROM messages WHERE " + ID + " = :id AND " + DESTINATION + " = :destination")
-  abstract void remove(@Bind("destination") String destination, @Bind("id") long id);
-
-  @SqlUpdate("DELETE FROM messages WHERE " + DESTINATION + " = :destination")
-  abstract void clear(@Bind("destination") String destination);
-
-  @SqlUpdate("DELETE FROM messages WHERE " + DESTINATION + " = :destination AND " + DESTINATION_DEVICE + " = :destination_device")
-  abstract void clear(@Bind("destination") String destination, @Bind("destination_device") long destinationDevice);
-
-  @SqlUpdate("DELETE FROM messages WHERE " + TIMESTAMP + " < :timestamp")
-  public abstract void removeOld(@Bind("timestamp") long timestamp);
-
-  @SqlUpdate("VACUUM messages")
-  public abstract void vacuum();
-
-  public static class MessageMapper implements ResultSetMapper<OutgoingMessageEntity> {
-    @Override
-    public OutgoingMessageEntity map(int i, ResultSet resultSet, StatementContext statementContext)
-        throws SQLException
-    {
-
-      int    type          = resultSet.getInt(TYPE);
-      byte[] legacyMessage = resultSet.getBytes(MESSAGE);
-      String guid          = resultSet.getString(GUID);
-
-      if (type == Envelope.Type.RECEIPT_VALUE && legacyMessage == null) {
-        /// XXX - REMOVE AFTER 10/01/15
-        legacyMessage = new byte[0];
-      }
-
-      return new OutgoingMessageEntity(resultSet.getLong(ID),
-                                       false,
-                                       guid == null ? null : UUID.fromString(guid),
-                                       type,
-                                       resultSet.getString(RELAY),
-                                       resultSet.getLong(TIMESTAMP),
-                                       resultSet.getString(SOURCE),
-                                       resultSet.getInt(SOURCE_DEVICE),
-                                       legacyMessage,
-                                       resultSet.getBytes(CONTENT),
-                                       resultSet.getLong(SERVER_TIMESTAMP));
-    }
+  public Messages(Jdbi database) {
+    this.database = database;
+    this.database.registerRowMapper(new OutgoingMessageEntityRowMapper());
   }
 
-  @BindingAnnotation(MessageBinder.MessageBinderFactory.class)
-  @Retention(RetentionPolicy.RUNTIME)
-  @Target({ElementType.PARAMETER})
-  public @interface MessageBinder {
-    public static class MessageBinderFactory implements BinderFactory {
-      @Override
-      public Binder build(Annotation annotation) {
-        return new Binder<MessageBinder, Envelope>() {
-          @Override
-          public void bind(SQLStatement<?> sql,
-                           MessageBinder accountBinder,
-                           Envelope message)
-          {
-            sql.bind(TYPE, message.getType().getNumber());
-            sql.bind(RELAY, message.getRelay());
-            sql.bind(TIMESTAMP, message.getTimestamp());
-            sql.bind(SERVER_TIMESTAMP, message.getServerTimestamp());
-            sql.bind(SOURCE, message.hasSource() ? message.getSource() : null);
-            sql.bind(SOURCE_DEVICE, message.hasSourceDevice() ? message.getSourceDevice() : null);
-            sql.bind(MESSAGE, message.hasLegacyMessage() ? message.getLegacyMessage().toByteArray() : null);
-            sql.bind(CONTENT, message.hasContent() ? message.getContent().toByteArray() : null);
-          }
-        };
-      }
-    }
+  public void store(UUID guid, Envelope message, String destination, long destinationDevice) {
+    database.useHandle(handle -> {
+      handle.createUpdate("INSERT INTO messages (" + GUID + ", " + TYPE + ", " + RELAY + ", " + TIMESTAMP + ", " + SERVER_TIMESTAMP + ", " + SOURCE + ", " + SOURCE_DEVICE + ", " + DESTINATION + ", " + DESTINATION_DEVICE + ", " + MESSAGE + ", " + CONTENT + ") " +
+                              "VALUES (:guid, :type, :relay, :timestamp, :server_timestamp, :source, :source_device, :destination, :destination_device, :message, :content)")
+            .bind("guid", guid)
+            .bind("destination", destination)
+            .bind("destination_device", destinationDevice)
+            .bind("type", message.getType().getNumber())
+            .bind("relay", message.getRelay())
+            .bind("timestamp", message.getTimestamp())
+            .bind("server_timestamp", message.getServerTimestamp())
+            .bind("source", message.hasSource() ? message.getSource() : null)
+            .bind("source_device", message.hasSourceDevice() ? message.getSourceDevice() : null)
+            .bind("message", message.hasLegacyMessage() ? message.getLegacyMessage().toByteArray() : null)
+            .bind("content", message.hasContent() ? message.getContent().toByteArray() : null)
+            .execute();
+    });
   }
+
+  public List<OutgoingMessageEntity> load(String destination, long destinationDevice) {
+    return database.withHandle(handle -> handle.createQuery("SELECT * FROM messages WHERE " + DESTINATION + " = :destination AND " + DESTINATION_DEVICE + " = :destination_device ORDER BY " + TIMESTAMP + " ASC LIMIT " + RESULT_SET_CHUNK_SIZE)
+                                               .bind("destination", destination)
+                                               .bind("destination_device", destinationDevice)
+                                               .mapTo(OutgoingMessageEntity.class)
+                                               .list());
+  }
+
+  public Optional<OutgoingMessageEntity> remove(String destination, long destinationDevice, String source, long timestamp) {
+    return database.withHandle(handle -> handle.createQuery("DELETE FROM messages WHERE " + ID + " IN (SELECT " + ID + " FROM messages WHERE " + DESTINATION + " = :destination AND " + DESTINATION_DEVICE + " = :destination_device AND " + SOURCE + " = :source AND " + TIMESTAMP + " = :timestamp ORDER BY " + ID + " LIMIT 1) RETURNING *")
+                                               .bind("destination", destination)
+                                               .bind("destination_device", destinationDevice)
+                                               .bind("source", source)
+                                               .bind("timestamp", timestamp)
+                                               .mapTo(OutgoingMessageEntity.class)
+                                               .findFirst());
+  }
+
+  public Optional<OutgoingMessageEntity> remove(String destination, UUID guid) {
+    return database.withHandle(handle -> handle.createQuery("DELETE FROM messages WHERE "+  ID + " IN (SELECT " + ID + " FROM MESSAGES WHERE " + GUID + " = :guid AND " + DESTINATION + " = :destination ORDER BY " + ID + " LIMIT 1) RETURNING *")
+                                               .bind("destination", destination)
+                                               .bind("guid", guid)
+                                               .mapTo(OutgoingMessageEntity.class)
+                                               .findFirst());
+  }
+
+  public void remove(String destination, long id) {
+    database.useHandle(handle -> handle.createUpdate("DELETE FROM messages WHERE " + ID + " = :id AND " + DESTINATION + " = :destination")
+                                       .bind("destination", destination)
+                                       .bind("id", id)
+                                       .execute());
+  }
+
+  public void clear(String destination) {
+    database.useHandle(handle -> handle.createUpdate("DELETE FROM messages WHERE " + DESTINATION + " = :destination")
+                                       .bind("destination", destination)
+                                       .execute());
+  }
+
+  public void clear(String destination, long destinationDevice) {
+    database.useHandle(handle -> handle.createUpdate("DELETE FROM messages WHERE " + DESTINATION + " = :destination AND " + DESTINATION_DEVICE + " = :destination_device")
+                                       .bind("destination", destination)
+                                       .bind("destination_device", destinationDevice)
+                                       .execute());
+  }
+
+  public void vacuum() {
+    database.useHandle(handle -> handle.execute("VACUUM messages"));
+  }
+
+
 }

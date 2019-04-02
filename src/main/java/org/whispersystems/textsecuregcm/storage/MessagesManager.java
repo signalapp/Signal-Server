@@ -64,7 +64,7 @@ public class MessagesManager {
     Optional<OutgoingMessageEntity> removed = this.messagesCache.remove(destination, destinationDevice, source, timestamp);
 
     if (!removed.isPresent()) {
-      removed = Optional.ofNullable(this.messages.remove(destination, destinationDevice, source, timestamp));
+      removed = this.messages.remove(destination, destinationDevice, source, timestamp);
       cacheMissByNameMeter.mark();
     } else {
       cacheHitByNameMeter.mark();
@@ -77,7 +77,7 @@ public class MessagesManager {
     Optional<OutgoingMessageEntity> removed = this.messagesCache.remove(destination, deviceId, guid);
 
     if (!removed.isPresent()) {
-      removed = Optional.ofNullable(this.messages.remove(destination, guid));
+      removed = this.messages.remove(destination, guid);
       cacheMissByGuidMeter.mark();
     } else {
       cacheHitByGuidMeter.mark();

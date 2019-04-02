@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2013 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -60,11 +60,8 @@ public class PendingAccountsManager {
     Optional<StoredVerificationCode> code = memcacheGet(number);
 
     if (!code.isPresent()) {
-      code = Optional.ofNullable(pendingAccounts.getCodeForNumber(number));
-
-      if (code.isPresent()) {
-        memcacheSet(number, code.get());
-      }
+      code = pendingAccounts.getCodeForNumber(number);
+      code.ifPresent(storedVerificationCode -> memcacheSet(number, storedVerificationCode));
     }
 
     return code;

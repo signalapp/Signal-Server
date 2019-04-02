@@ -31,8 +31,6 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.io.IOException;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Optional;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -61,18 +59,6 @@ public class AccountsManager {
     this.directory   = directory;
     this.cacheClient = cacheClient;
     this.mapper      = SystemMapper.getMapper();
-  }
-
-  public long getCount() {
-    return accounts.getCount();
-  }
-
-  public List<Account> getAll(int offset, int length) {
-    return accounts.getAll(offset, length);
-  }
-
-  public Iterator<Account> getAll() {
-    return accounts.getAll();
   }
 
   public boolean create(Account account) {
@@ -154,7 +140,7 @@ public class AccountsManager {
   }
 
   private Optional<Account> databaseGet(String number) {
-    return Optional.ofNullable(accounts.get(number));
+    return accounts.get(number);
   }
 
   private boolean databaseCreate(Account account) {

@@ -1,7 +1,7 @@
 package org.whispersystems.textsecuregcm.workers;
 
 import net.sourceforge.argparse4j.inf.Namespace;
-import org.skife.jdbi.v2.DBI;
+import org.jdbi.v3.core.Jdbi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
@@ -12,10 +12,6 @@ import org.whispersystems.textsecuregcm.storage.PendingAccounts;
 
 import io.dropwizard.cli.ConfiguredCommand;
 import io.dropwizard.db.DataSourceFactory;
-import io.dropwizard.jdbi.ImmutableListContainerFactory;
-import io.dropwizard.jdbi.ImmutableSetContainerFactory;
-import io.dropwizard.jdbi.OptionalContainerFactory;
-import io.dropwizard.jdbi.args.OptionalArgumentFactory;
 import io.dropwizard.setup.Bootstrap;
 
 
@@ -35,23 +31,15 @@ public class VacuumCommand extends ConfiguredCommand<WhisperServerConfiguration>
   {
     DataSourceFactory dbConfig        = config.getDataSourceFactory();
     DataSourceFactory messageDbConfig = config.getMessageStoreConfiguration();
-    DBI               dbi             = new DBI(dbConfig.getUrl(), dbConfig.getUser(), dbConfig.getPassword()                     );
-    DBI               messageDbi      = new DBI(messageDbConfig.getUrl(), messageDbConfig.getUser(), messageDbConfig.getPassword());
 
-    dbi.registerArgumentFactory(new OptionalArgumentFactory(dbConfig.getDriverClass()));
-    dbi.registerContainerFactory(new ImmutableListContainerFactory());
-    dbi.registerContainerFactory(new ImmutableSetContainerFactory());
-    dbi.registerContainerFactory(new OptionalContainerFactory());
+    Jdbi accountDatabase = Jdbi.create(dbConfig.getUrl(), dbConfig.getUser(), dbConfig.getPassword());
+    Jdbi messageDatabase = Jdbi.create(messageDbConfig.getUrl(), messageDbConfig.getUser(), messageDbConfig.getPassword());
 
-    messageDbi.registerArgumentFactory(new OptionalArgumentFactory(dbConfig.getDriverClass()));
-    messageDbi.registerContainerFactory(new ImmutableListContainerFactory());
-    messageDbi.registerContainerFactory(new ImmutableSetContainerFactory());
-    messageDbi.registerContainerFactory(new OptionalContainerFactory());
 
-    Accounts        accounts        = dbi.onDemand(Accounts.class       );
-    Keys            keys            = dbi.onDemand(Keys.class           );
-    PendingAccounts pendingAccounts = dbi.onDemand(PendingAccounts.class);
-    Messages        messages        = messageDbi.onDemand(Messages.class);
+    Accounts        accounts        = new Accounts(accountDatabase);
+    Keys            keys            = new Keys(accountDatabase);
+    PendingAccounts pendingAccounts = new PendingAccounts(accountDatabase);
+    Messages        messages        = new Messages(messageDatabase);
 
     logger.info("Vacuuming accounts...");
     accounts.vacuum();

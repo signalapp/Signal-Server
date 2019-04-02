@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2014 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -59,11 +59,8 @@ public class PendingDevicesManager {
     Optional<StoredVerificationCode> code = memcacheGet(number);
 
     if (!code.isPresent()) {
-      code = Optional.ofNullable(pendingDevices.getCodeForNumber(number));
-
-      if (code.isPresent()) {
-        memcacheSet(number, code.get());
-      }
+      code = pendingDevices.getCodeForNumber(number);
+      code.ifPresent(storedVerificationCode -> memcacheSet(number, storedVerificationCode));
     }
 
     return code;
