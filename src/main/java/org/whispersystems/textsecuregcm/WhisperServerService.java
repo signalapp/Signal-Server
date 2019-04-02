@@ -107,7 +107,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
   @Override
   public void initialize(Bootstrap<WhisperServerConfiguration> bootstrap) {
-    bootstrap.addCommand(new DirectoryCommand());
     bootstrap.addCommand(new VacuumCommand());
     bootstrap.addCommand(new TrimMessagesCommand());
     bootstrap.addCommand(new DeleteUserCommand());
