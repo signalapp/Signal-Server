@@ -16,15 +16,21 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.whispersystems.textsecuregcm.storage.mappers.AccountRowMapper;
+import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 import java.util.List;
 import java.util.Optional;
+
+import static com.codahale.metrics.MetricRegistry.name;
 
 public class Accounts {
 
@@ -33,6 +39,14 @@ public class Accounts {
   public static final String DATA   = "data";
 
   private static final ObjectMapper mapper = SystemMapper.getMapper();
+
+  private final MetricRegistry metricRegistry        = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  private final Timer          createTimer           = metricRegistry.timer(name(Accounts.class, "create"));
+  private final Timer          updateTimer           = metricRegistry.timer(name(Accounts.class, "update"));
+  private final Timer          getTimer              = metricRegistry.timer(name(Accounts.class, "get"));
+  private final Timer          getAllFromTimer       = metricRegistry.timer(name(Accounts.class, "getAllFrom"));
+  private final Timer          getAllFromOffsetTimer = metricRegistry.timer(name(Accounts.class, "getAllFromOffset"));
+  private final Timer          vacuumTimer           = metricRegistry.timer(name(Accounts.class, "vacuum"));
 
   private final Jdbi database;
 
@@ -43,7 +57,7 @@ public class Accounts {
 
   public boolean create(Account account) {
     return database.inTransaction(TransactionIsolationLevel.SERIALIZABLE, handle -> {
-      try {
+      try (Timer.Context timer = createTimer.time()) {
         int rows = handle.createUpdate("DELETE FROM accounts WHERE " + NUMBER + " = :number")
                          .bind("number", account.getNumber())
                          .execute();
@@ -63,7 +77,7 @@ public class Accounts {
 
   public void update(Account account) {
     database.useHandle(handle -> {
-      try {
+      try (Timer.Context timer = updateTimer.time()) {
         handle.createUpdate("UPDATE accounts SET " + DATA + " = CAST(:data AS json) WHERE " + NUMBER + " = :number")
               .bind("number", account.getNumber())
               .bind("data", mapper.writeValueAsString(account))
@@ -75,30 +89,46 @@ public class Accounts {
   }
 
   public Optional<Account> get(String number) {
-    return database.withHandle(handle -> handle.createQuery("SELECT * FROM accounts WHERE " + NUMBER + " = :number")
-                                               .bind("number", number)
-                                               .mapTo(Account.class)
-                                               .findFirst());
+    return database.withHandle(handle -> {
+      try (Timer.Context timer = getTimer.time()) {
+        return handle.createQuery("SELECT * FROM accounts WHERE " + NUMBER + " = :number")
+                     .bind("number", number)
+                     .mapTo(Account.class)
+                     .findFirst();
+      }
+    });
   }
 
 
   public List<Account> getAllFrom(String from, int length) {
-    return database.withHandle(handle -> handle.createQuery("SELECT * FROM accounts WHERE " + NUMBER + " > :from ORDER BY " + NUMBER + " LIMIT :limit")
-                                               .bind("from", from)
-                                               .bind("limit", length)
-                                               .mapTo(Account.class)
-                                               .list());
+    return database.withHandle(handle -> {
+      try (Timer.Context timer = getAllFromOffsetTimer.time()) {
+        return handle.createQuery("SELECT * FROM accounts WHERE " + NUMBER + " > :from ORDER BY " + NUMBER + " LIMIT :limit")
+                     .bind("from", from)
+                     .bind("limit", length)
+                     .mapTo(Account.class)
+                     .list();
+      }
+    });
   }
 
   public List<Account> getAllFrom(int length) {
-    return database.withHandle(handle -> handle.createQuery("SELECT * FROM accounts ORDER BY " + NUMBER + " LIMIT :limit")
-                                               .bind("limit", length)
-                                               .mapTo(Account.class)
-                                               .list());
+    return database.withHandle(handle -> {
+      try (Timer.Context timer = getAllFromTimer.time()) {
+        return handle.createQuery("SELECT * FROM accounts ORDER BY " + NUMBER + " LIMIT :limit")
+                     .bind("limit", length)
+                     .mapTo(Account.class)
+                     .list();
+      }
+    });
   }
 
   public void vacuum() {
-    database.useHandle(handle -> handle.execute("VACUUM accounts"));
+    database.useHandle(handle -> {
+      try (Timer.Context timer = vacuumTimer.time()) {
+        handle.execute("VACUUM accounts");
+      }
+    });
   }
 
 }

@@ -17,6 +17,7 @@
 package org.whispersystems.textsecuregcm;
 
 import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.jdbi3.strategies.DefaultNameStrategy;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -144,7 +145,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.getObjectMapper().setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);
     environment.getObjectMapper().setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
 
-    JdbiFactory jdbiFactory     = new JdbiFactory();
+    JdbiFactory jdbiFactory     = new JdbiFactory(DefaultNameStrategy.CHECK_EMPTY);
     Jdbi        accountDatabase = jdbiFactory.build(environment, config.getDataSourceFactory(), "accountdb");
     Jdbi        messageDatabase = jdbiFactory.build(environment, config.getMessageStoreConfiguration(), "messagedb");
     Jdbi        abuseDatabase   = jdbiFactory.build(environment, config.getAbuseDatabaseConfiguration(), "abusedb");

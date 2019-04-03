@@ -205,8 +205,8 @@ public class MessagesTest {
 
 
   private void verifyExpected(OutgoingMessageEntity retrieved, Envelope inserted, UUID guid) {
-    assertThat(retrieved.getSource()).isEqualTo(inserted.getSource());
     assertThat(retrieved.getTimestamp()).isEqualTo(inserted.getTimestamp());
+    assertThat(retrieved.getSource()).isEqualTo(inserted.getSource());
     assertThat(retrieved.getRelay()).isEqualTo(inserted.getRelay());
     assertThat(retrieved.getType()).isEqualTo(inserted.getType().getNumber());
     assertThat(retrieved.getContent()).isEqualTo(inserted.getContent().toByteArray());
