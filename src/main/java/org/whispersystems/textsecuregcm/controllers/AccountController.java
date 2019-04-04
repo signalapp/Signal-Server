@@ -80,13 +80,16 @@ import io.dropwizard.auth.Auth;
 @Path("/v1/accounts")
 public class AccountController {
 
-  private final Logger         logger              = LoggerFactory.getLogger(AccountController.class);
-  private final MetricRegistry metricRegistry      = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private final Meter          newUserMeter        = metricRegistry.meter(name(AccountController.class, "brand_new_user" ));
-  private final Meter          blockedHostMeter    = metricRegistry.meter(name(AccountController.class, "blocked_host"   ));
-  private final Meter          filteredHostMeter   = metricRegistry.meter(name(AccountController.class, "filtered_host"  ));
-  private final Meter          captchaSuccessMeter = metricRegistry.meter(name(AccountController.class, "captcha_success"));
-  private final Meter          captchaFailureMeter = metricRegistry.meter(name(AccountController.class, "captcha_failure"));
+  private final Logger         logger                 = LoggerFactory.getLogger(AccountController.class);
+  private final MetricRegistry metricRegistry         = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  private final Meter          newUserMeter           = metricRegistry.meter(name(AccountController.class, "brand_new_user"     ));
+  private final Meter          blockedHostMeter       = metricRegistry.meter(name(AccountController.class, "blocked_host"       ));
+  private final Meter          filteredHostMeter      = metricRegistry.meter(name(AccountController.class, "filtered_host"      ));
+  private final Meter          rateLimitedHostMeter   = metricRegistry.meter(name(AccountController.class, "rate_limited_host"  ));
+  private final Meter          rateLimitedPrefixMeter = metricRegistry.meter(name(AccountController.class, "rate_limited_prefix"));
+  private final Meter          captchaSuccessMeter    = metricRegistry.meter(name(AccountController.class, "captcha_success"    ));
+  private final Meter          captchaFailureMeter    = metricRegistry.meter(name(AccountController.class, "captcha_failure"    ));
+
 
   private final PendingAccountsManager                pendingAccounts;
   private final AccountsManager                       accounts;
@@ -420,8 +423,17 @@ public class AccountController {
         rateLimiters.getSmsVoiceIpLimiter().validate(requester);
       } catch (RateLimitExceededException e) {
         logger.info("Rate limited exceeded: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
+        rateLimitedPrefixMeter.mark();
         return true;
       }
+    }
+
+    try {
+      rateLimiters.getSmsVoicePrefixLimiter().validate(Util.getNumberPrefix(number));
+    } catch (RateLimitExceededException e) {
+      logger.info("Prefix rate limit exceeded: " + transport + ", " + number + ", (" + String.join(", ", requesters) + ")");
+      rateLimitedPrefixMeter.mark();
+      return true;
     }
 
     return false;

@@ -63,6 +63,7 @@ public class AccountControllerTest {
   private        RateLimiter            rateLimiter            = mock(RateLimiter.class           );
   private        RateLimiter            pinLimiter             = mock(RateLimiter.class           );
   private        RateLimiter            smsVoiceIpLimiter      = mock(RateLimiter.class           );
+  private        RateLimiter            smsVoicePrefixLimiter  = mock(RateLimiter.class);
   private        SmsSender              smsSender              = mock(SmsSender.class             );
   private        DirectoryQueue         directoryQueue         = mock(DirectoryQueue.class);
   private        MessagesManager        storedMessages         = mock(MessagesManager.class       );
@@ -98,6 +99,7 @@ public class AccountControllerTest {
     when(rateLimiters.getVerifyLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getPinLimiter()).thenReturn(pinLimiter);
     when(rateLimiters.getSmsVoiceIpLimiter()).thenReturn(smsVoiceIpLimiter);
+    when(rateLimiters.getSmsVoicePrefixLimiter()).thenReturn(smsVoicePrefixLimiter);
 
     when(timeProvider.getCurrentTimeMillis()).thenReturn(System.currentTimeMillis());
 
