@@ -3,7 +3,6 @@ package org.whispersystems.textsecuregcm.storage;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import org.jdbi.v3.core.Jdbi;
 import org.whispersystems.textsecuregcm.storage.mappers.AbusiveHostRuleRowMapper;
 import org.whispersystems.textsecuregcm.util.Constants;
 
@@ -21,22 +20,22 @@ public class AbusiveHostRules {
   private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private final Timer          getTimer       = metricRegistry.timer(name(AbusiveHostRules.class, "get"));
 
-  private final Jdbi database;
+  private final FaultTolerantDatabase database;
 
-  public AbusiveHostRules(Jdbi database) {
+  public AbusiveHostRules(FaultTolerantDatabase database) {
     this.database = database;
-    this.database.registerRowMapper(new AbusiveHostRuleRowMapper());
+    this.database.getDatabase().registerRowMapper(new AbusiveHostRuleRowMapper());
   }
 
   public List<AbusiveHostRule> getAbusiveHostRulesFor(String host) {
-    return database.withHandle(handle -> {
+    return database.with(jdbi -> jdbi.withHandle(handle -> {
       try (Timer.Context timer = getTimer.time()) {
         return handle.createQuery("SELECT * FROM abusive_host_rules WHERE :host::inet <<= " + HOST)
                      .bind("host", host)
                      .mapTo(AbusiveHostRule.class)
                      .list();
       }
-    });
+    }));
   }
 
 }

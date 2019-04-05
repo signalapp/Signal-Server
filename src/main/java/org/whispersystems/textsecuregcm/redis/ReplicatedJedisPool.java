@@ -1,11 +1,11 @@
 package org.whispersystems.textsecuregcm.redis;
 
-import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
+import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.Constants;
 
 import java.time.Duration;
@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
-import static com.codahale.metrics.MetricRegistry.name;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import redis.clients.jedis.Jedis;
@@ -23,7 +22,6 @@ import redis.clients.jedis.exceptions.JedisException;
 
 public class ReplicatedJedisPool {
 
-  private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private final Logger         logger         = LoggerFactory.getLogger(ReplicatedJedisPool.class);
   private final AtomicInteger  replicaIndex   = new AtomicInteger(0);
 
@@ -37,6 +35,7 @@ public class ReplicatedJedisPool {
   {
     if (replicas.size() < 1) throw new IllegalArgumentException("There must be at least one replica");
 
+    MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
 
     CircuitBreakerConfig config = CircuitBreakerConfig.custom()
                                                       .failureRateThreshold(circuitBreakerConfiguration.getFailureRateThreshold())
@@ -46,7 +45,8 @@ public class ReplicatedJedisPool {
                                                       .build();
 
     CircuitBreaker masterBreaker = CircuitBreaker.of(String.format("%s-master", name), config);
-    registerMetrics(masterBreaker);
+
+    CircuitBreakerUtil.registerMetrics(metricRegistry, masterBreaker, ReplicatedJedisPool.class);
 
     this.master   = CircuitBreaker.decorateSupplier(masterBreaker, master::getResource);
     this.replicas = new ArrayList<>(replicas.size());
@@ -55,7 +55,7 @@ public class ReplicatedJedisPool {
       JedisPool      replica      = replicas.get(i);
       CircuitBreaker slaveBreaker = CircuitBreaker.of(String.format("%s-slave-%d", name, i), config);
 
-      registerMetrics(slaveBreaker);
+      CircuitBreakerUtil.registerMetrics(metricRegistry, slaveBreaker, ReplicatedJedisPool.class);
       this.replicas.add(CircuitBreaker.decorateSupplier(slaveBreaker, replica::getResource));
     }
   }
@@ -78,18 +78,6 @@ public class ReplicatedJedisPool {
     }
 
     throw new JedisException("All read replica pools failed!");
-  }
-
-  private void registerMetrics(CircuitBreaker circuitBreaker) {
-    Meter successMeter     = metricRegistry.meter(name(ReplicatedJedisPool.class, circuitBreaker.getName(), "success"    ));
-    Meter failureMeter     = metricRegistry.meter(name(ReplicatedJedisPool.class, circuitBreaker.getName(), "failure"    ));
-    Meter unpermittedMeter = metricRegistry.meter(name(ReplicatedJedisPool.class, circuitBreaker.getName(), "unpermitted"));
-
-    metricRegistry.gauge(name(ReplicatedJedisPool.class, circuitBreaker.getName(), "state"), () -> ()-> circuitBreaker.getState().getOrder());
-
-    circuitBreaker.getEventPublisher().onSuccess(event -> successMeter.mark());
-    circuitBreaker.getEventPublisher().onError(event -> failureMeter.mark());
-    circuitBreaker.getEventPublisher().onCallNotPermitted(event -> unpermittedMeter.mark());
   }
 
 }

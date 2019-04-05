@@ -8,8 +8,10 @@ import org.jdbi.v3.core.Jdbi;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
+import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.Messages;
 
 import java.sql.PreparedStatement;
@@ -34,7 +36,7 @@ public class MessagesTest {
 
   @Before
   public void setupAccountsDao() {
-    this.messages = new Messages(Jdbi.create(db.getTestDatabase()));
+    this.messages = new Messages(new FaultTolerantDatabase("messages-test", Jdbi.create(db.getTestDatabase()), new CircuitBreakerConfiguration()));
   }
 
   @Test

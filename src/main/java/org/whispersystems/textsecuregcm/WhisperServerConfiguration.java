@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2013 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -29,8 +29,8 @@ import java.util.Map;
 
 import io.dropwizard.Configuration;
 import io.dropwizard.client.JerseyClientConfiguration;
-import io.dropwizard.db.DataSourceFactory;
 
+/** @noinspection MismatchedQueryAndUpdateOfCollection, WeakerAccess */
 public class WhisperServerConfiguration extends Configuration {
 
   @NotNull
@@ -81,12 +81,12 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private DataSourceFactory messageStore;
+  private DatabaseConfiguration messageStore;
 
   @Valid
   @NotNull
   @JsonProperty
-  private DataSourceFactory abuseDatabase;
+  private DatabaseConfiguration abuseDatabase;
 
   @Valid
   @NotNull
@@ -101,10 +101,10 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private DataSourceFactory database = new DataSourceFactory();
+  private DatabaseConfiguration database = new DatabaseConfiguration();
 
   @JsonProperty
-  private DataSourceFactory read_database;
+  private DatabaseConfiguration read_database;
 
   @Valid
   @NotNull
@@ -201,19 +201,19 @@ public class WhisperServerConfiguration extends Configuration {
     return pushScheduler;
   }
 
-  public DataSourceFactory getMessageStoreConfiguration() {
+  public DatabaseConfiguration getMessageStoreConfiguration() {
     return messageStore;
   }
 
-  public DataSourceFactory getAbuseDatabaseConfiguration() {
+  public DatabaseConfiguration getAbuseDatabaseConfiguration() {
     return abuseDatabase;
   }
 
-  public DataSourceFactory getDataSourceFactory() {
+  public DatabaseConfiguration getAccountsDatabaseConfiguration() {
     return database;
   }
 
-  public DataSourceFactory getReadDataSourceFactory() {
+  public DatabaseConfiguration getAccountsReadDatabaseConfiguration() {
     return read_database;
   }
 

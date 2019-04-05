@@ -8,6 +8,8 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
+import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
+import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.PendingDevices;
 
 import java.sql.PreparedStatement;
@@ -26,7 +28,7 @@ public class PendingDevicesTest {
 
   @Before
   public void setupAccountsDao() {
-    this.pendingDevices = new PendingDevices(Jdbi.create(db.getTestDatabase()));
+    this.pendingDevices = new PendingDevices(new FaultTolerantDatabase("peding_devices-test", Jdbi.create(db.getTestDatabase()), new CircuitBreakerConfiguration()));
   }
 
   @Test

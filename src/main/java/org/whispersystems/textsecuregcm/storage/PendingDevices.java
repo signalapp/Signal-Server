@@ -19,7 +19,6 @@ package org.whispersystems.textsecuregcm.storage;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import org.jdbi.v3.core.Jdbi;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.storage.mappers.StoredVerificationCodeRowMapper;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -35,15 +34,15 @@ public class PendingDevices {
   private final Timer          getCodeForNumberTimer = metricRegistry.timer(name(PendingDevices.class, "getcodeForNumber"));
   private final Timer          removeTimer           = metricRegistry.timer(name(PendingDevices.class, "remove"          ));
 
-  private final Jdbi database;
+  private final FaultTolerantDatabase database;
 
-  public PendingDevices(Jdbi database) {
+  public PendingDevices(FaultTolerantDatabase database) {
     this.database = database;
-    this.database.registerRowMapper(new StoredVerificationCodeRowMapper());
+    this.database.getDatabase().registerRowMapper(new StoredVerificationCodeRowMapper());
   }
 
   public void insert(String number, String verificationCode, long timestamp) {
-    database.useHandle(handle -> {
+    database.use(jdbi ->jdbi.useHandle(handle -> {
       try (Timer.Context timer = insertTimer.time()) {
         handle.createUpdate("WITH upsert AS (UPDATE pending_devices SET verification_code = :verification_code, timestamp = :timestamp WHERE number = :number RETURNING *) " +
                                 "INSERT INTO pending_devices (number, verification_code, timestamp) SELECT :number, :verification_code, :timestamp WHERE NOT EXISTS (SELECT * FROM upsert)")
@@ -52,28 +51,28 @@ public class PendingDevices {
               .bind("timestamp", timestamp)
               .execute();
       }
-    });
+    }));
   }
 
   public Optional<StoredVerificationCode> getCodeForNumber(String number) {
-    return database.withHandle(handle -> {
+    return database.with(jdbi -> jdbi.withHandle(handle -> {
       try (Timer.Context timer = getCodeForNumberTimer.time()) {
         return handle.createQuery("SELECT verification_code, timestamp FROM pending_devices WHERE number = :number")
                      .bind("number", number)
                      .mapTo(StoredVerificationCode.class)
                      .findFirst();
       }
-    });
+    }));
   }
 
   public void remove(String number) {
-    database.useHandle(handle -> {
+    database.use(jdbi -> jdbi.useHandle(handle -> {
       try (Timer.Context timer = removeTimer.time()) {
         handle.createUpdate("DELETE FROM pending_devices WHERE number = :number")
               .bind("number", number)
               .execute();
       }
-    });
+    }));
   }
 
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2013 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,6 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.whispersystems.textsecuregcm.storage.mappers.AccountRowMapper;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -48,16 +47,16 @@ public class Accounts {
   private final Timer          getAllFromOffsetTimer = metricRegistry.timer(name(Accounts.class, "getAllFromOffset"));
   private final Timer          vacuumTimer           = metricRegistry.timer(name(Accounts.class, "vacuum"));
 
-  private final Jdbi database;
+  private final FaultTolerantDatabase database;
 
-  public Accounts(Jdbi database) {
+  public Accounts(FaultTolerantDatabase database) {
     this.database = database;
-    this.database.registerRowMapper(new AccountRowMapper());
+    this.database.getDatabase().registerRowMapper(new AccountRowMapper());
   }
 
   public boolean create(Account account) {
-    return database.inTransaction(TransactionIsolationLevel.SERIALIZABLE, handle -> {
-      try (Timer.Context timer = createTimer.time()) {
+    return database.with(jdbi -> jdbi.inTransaction(TransactionIsolationLevel.SERIALIZABLE, handle -> {
+      try (Timer.Context ignored = createTimer.time()) {
         int rows = handle.createUpdate("DELETE FROM accounts WHERE " + NUMBER + " = :number")
                          .bind("number", account.getNumber())
                          .execute();
@@ -72,12 +71,12 @@ public class Accounts {
       } catch (JsonProcessingException e) {
         throw new IllegalArgumentException(e);
       }
-    });
+    }));
   }
 
   public void update(Account account) {
-    database.useHandle(handle -> {
-      try (Timer.Context timer = updateTimer.time()) {
+    database.use(jdbi -> jdbi.useHandle(handle -> {
+      try (Timer.Context ignored = updateTimer.time()) {
         handle.createUpdate("UPDATE accounts SET " + DATA + " = CAST(:data AS json) WHERE " + NUMBER + " = :number")
               .bind("number", account.getNumber())
               .bind("data", mapper.writeValueAsString(account))
@@ -85,50 +84,50 @@ public class Accounts {
       } catch (JsonProcessingException e) {
         throw new IllegalArgumentException(e);
       }
-    });
+    }));
   }
 
   public Optional<Account> get(String number) {
-    return database.withHandle(handle -> {
-      try (Timer.Context timer = getTimer.time()) {
+    return database.with(jdbi -> jdbi.withHandle(handle -> {
+      try (Timer.Context ignored = getTimer.time()) {
         return handle.createQuery("SELECT * FROM accounts WHERE " + NUMBER + " = :number")
                      .bind("number", number)
                      .mapTo(Account.class)
                      .findFirst();
       }
-    });
+    }));
   }
 
 
   public List<Account> getAllFrom(String from, int length) {
-    return database.withHandle(handle -> {
-      try (Timer.Context timer = getAllFromOffsetTimer.time()) {
+    return database.with(jdbi -> jdbi.withHandle(handle -> {
+      try (Timer.Context ignored = getAllFromOffsetTimer.time()) {
         return handle.createQuery("SELECT * FROM accounts WHERE " + NUMBER + " > :from ORDER BY " + NUMBER + " LIMIT :limit")
                      .bind("from", from)
                      .bind("limit", length)
                      .mapTo(Account.class)
                      .list();
       }
-    });
+    }));
   }
 
   public List<Account> getAllFrom(int length) {
-    return database.withHandle(handle -> {
-      try (Timer.Context timer = getAllFromTimer.time()) {
+    return database.with(jdbi -> jdbi.withHandle(handle -> {
+      try (Timer.Context ignored = getAllFromTimer.time()) {
         return handle.createQuery("SELECT * FROM accounts ORDER BY " + NUMBER + " LIMIT :limit")
                      .bind("limit", length)
                      .mapTo(Account.class)
                      .list();
       }
-    });
+    }));
   }
 
   public void vacuum() {
-    database.useHandle(handle -> {
-      try (Timer.Context timer = vacuumTimer.time()) {
+    database.use(jdbi -> jdbi.useHandle(handle -> {
+      try (Timer.Context ignored = vacuumTimer.time()) {
         handle.execute("VACUUM accounts");
       }
-    });
+    }));
   }
 
 }

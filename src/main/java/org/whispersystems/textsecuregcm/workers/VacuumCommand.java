@@ -5,13 +5,14 @@ import org.jdbi.v3.core.Jdbi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
+import org.whispersystems.textsecuregcm.configuration.DatabaseConfiguration;
 import org.whispersystems.textsecuregcm.storage.Accounts;
+import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.Keys;
 import org.whispersystems.textsecuregcm.storage.Messages;
 import org.whispersystems.textsecuregcm.storage.PendingAccounts;
 
 import io.dropwizard.cli.ConfiguredCommand;
-import io.dropwizard.db.DataSourceFactory;
 import io.dropwizard.setup.Bootstrap;
 
 
@@ -29,12 +30,14 @@ public class VacuumCommand extends ConfiguredCommand<WhisperServerConfiguration>
                      WhisperServerConfiguration config)
       throws Exception
   {
-    DataSourceFactory dbConfig        = config.getDataSourceFactory();
-    DataSourceFactory messageDbConfig = config.getMessageStoreConfiguration();
+    DatabaseConfiguration accountDbConfig = config.getAccountsDatabaseConfiguration();
+    DatabaseConfiguration messageDbConfig = config.getMessageStoreConfiguration();
 
-    Jdbi accountDatabase = Jdbi.create(dbConfig.getUrl(), dbConfig.getUser(), dbConfig.getPassword());
-    Jdbi messageDatabase = Jdbi.create(messageDbConfig.getUrl(), messageDbConfig.getUser(), messageDbConfig.getPassword());
+    Jdbi accountJdbi = Jdbi.create(accountDbConfig.getUrl(), accountDbConfig.getUser(), accountDbConfig.getPassword());
+    Jdbi messageJdbi = Jdbi.create(messageDbConfig.getUrl(), messageDbConfig.getUser(), messageDbConfig.getPassword());
 
+    FaultTolerantDatabase accountDatabase = new FaultTolerantDatabase("account_database_vacuum", accountJdbi, accountDbConfig.getCircuitBreakerConfiguration());
+    FaultTolerantDatabase messageDatabase = new FaultTolerantDatabase("message_database_vacuum", messageJdbi, messageDbConfig.getCircuitBreakerConfiguration());
 
     Accounts        accounts        = new Accounts(accountDatabase);
     Keys            keys            = new Keys(accountDatabase);

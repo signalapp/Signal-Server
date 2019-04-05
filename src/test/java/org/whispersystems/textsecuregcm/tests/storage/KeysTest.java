@@ -3,33 +3,54 @@ package org.whispersystems.textsecuregcm.tests.storage;
 import com.opentable.db.postgres.embedded.LiquibasePreparer;
 import com.opentable.db.postgres.junit.EmbeddedPostgresRules;
 import com.opentable.db.postgres.junit.PreparedDbRule;
+import org.jdbi.v3.core.HandleCallback;
+import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.core.transaction.SerializableTransactionRunner;
+import org.jdbi.v3.core.transaction.TransactionException;
+import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.postgresql.util.PSQLException;
+import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.entities.PreKey;
+import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.KeyRecord;
 import org.whispersystems.textsecuregcm.storage.Keys;
 
-import javax.sql.DataSource;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.LinkedList;
 import java.util.List;
 
+import io.github.resilience4j.circuitbreaker.CircuitBreakerOpenException;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class KeysTest {
 
   @Rule
   public PreparedDbRule db = EmbeddedPostgresRules.preparedDatabase(LiquibasePreparer.forClasspathLocation("accountsdb.xml"));
 
+  private Keys keys;
+
+  @Before
+  public void setup() {
+    FaultTolerantDatabase faultTolerantDatabase = new FaultTolerantDatabase("keysTest",
+                                                                            Jdbi.create(db.getTestDatabase()),
+                                                                            new CircuitBreakerConfiguration());
+
+    this.keys = new Keys(faultTolerantDatabase);
+  }
+
+
   @Test
   public void testPopulateKeys() throws SQLException {
-    DataSource dataSource = db.getTestDatabase();
-    Jdbi       jdbi       = Jdbi.create(dataSource);
-    Keys       keys       = new Keys(jdbi);
-
     List<PreKey> deviceOnePreKeys = new LinkedList<>();
     List<PreKey> deviceTwoPreKeys = new LinkedList<>();
 
@@ -55,7 +76,7 @@ public class KeysTest {
     keys.store("+14151111111", 1, anotherDeviceOnePreKeys);
     keys.store("+14151111111", 2, anotherDeviceTwoPreKeys);
 
-    PreparedStatement statement = dataSource.getConnection().prepareStatement("SELECT * FROM keys WHERE number = ? AND device_id = ? ORDER BY key_id");
+    PreparedStatement statement = db.getTestDatabase().getConnection().prepareStatement("SELECT * FROM keys WHERE number = ? AND device_id = ? ORDER BY key_id");
     verifyStoredState(statement, "+14152222222", 1);
     verifyStoredState(statement, "+14152222222", 2);
     verifyStoredState(statement, "+14151111111", 1);
@@ -64,10 +85,6 @@ public class KeysTest {
 
   @Test
   public void testKeyCount() {
-    DataSource dataSource = db.getTestDatabase();
-    Jdbi       jdbi       = Jdbi.create(dataSource);
-    Keys       keys       = new Keys(jdbi);
-
     List<PreKey> deviceOnePreKeys = new LinkedList<>();
 
     for (int i=1;i<=100;i++) {
@@ -82,10 +99,6 @@ public class KeysTest {
 
   @Test
   public void testGetForDevice() {
-    DataSource dataSource = db.getTestDatabase();
-    Jdbi       jdbi       = Jdbi.create(dataSource);
-    Keys       keys       = new Keys(jdbi);
-
     List<PreKey> deviceOnePreKeys = new LinkedList<>();
     List<PreKey> deviceTwoPreKeys = new LinkedList<>();
 
@@ -143,10 +156,6 @@ public class KeysTest {
 
   @Test
   public void testGetForAllDevices() {
-    DataSource dataSource = db.getTestDatabase();
-    Jdbi       jdbi       = Jdbi.create(dataSource);
-    Keys       keys       = new Keys(jdbi);
-
     List<PreKey> deviceOnePreKeys = new LinkedList<>();
     List<PreKey> deviceTwoPreKeys = new LinkedList<>();
 
@@ -219,10 +228,6 @@ public class KeysTest {
 
   @Test
   public void testGetForAllDevicesParallel() throws InterruptedException {
-    DataSource dataSource = db.getTestDatabase();
-    Jdbi       jdbi       = Jdbi.create(dataSource);
-    Keys       keys       = new Keys(jdbi);
-
     List<PreKey> deviceOnePreKeys = new LinkedList<>();
     List<PreKey> deviceTwoPreKeys = new LinkedList<>();
 
@@ -259,10 +264,6 @@ public class KeysTest {
 
   @Test
   public void testEmptyKeyGet() {
-    DataSource dataSource = db.getTestDatabase();
-    Jdbi       jdbi       = Jdbi.create(dataSource);
-    Keys       keys       = new Keys(jdbi);
-
     List<KeyRecord> records = keys.get("+14152222222");
 
     assertThat(records.isEmpty()).isTrue();
@@ -270,11 +271,59 @@ public class KeysTest {
 
   @Test
   public void testVacuum() {
-    DataSource dataSource = db.getTestDatabase();
-    Jdbi       jdbi       = Jdbi.create(dataSource);
-    Keys       keys       = new Keys(jdbi);
-
     keys.vacuum();
+  }
+
+  @Test
+  public void testBreaker() throws InterruptedException {
+    Jdbi jdbi = mock(Jdbi.class);
+    doThrow(new TransactionException("Database error!")).when(jdbi).useTransaction(any(TransactionIsolationLevel.class), any(HandleConsumer.class));
+    when(jdbi.getConfig(any())).thenReturn(mock(SerializableTransactionRunner.Configuration.class));
+
+    CircuitBreakerConfiguration configuration = new CircuitBreakerConfiguration();
+    configuration.setWaitDurationInOpenStateInSeconds(1);
+    configuration.setRingBufferSizeInHalfOpenState(1);
+    configuration.setRingBufferSizeInClosedState(2);
+    configuration.setFailureRateThreshold(50);
+
+    Keys keys = new Keys(new FaultTolerantDatabase("testBreaker", jdbi, configuration));
+
+    List<PreKey> deviceOnePreKeys = new LinkedList<>();
+
+    for (int i=1;i<=100;i++) {
+      deviceOnePreKeys.add(new PreKey(i, "+14152222222Device1PublicKey" + i));
+    }
+
+    try {
+      keys.store("+14152222222", 1, deviceOnePreKeys);
+      throw new AssertionError();
+    } catch (TransactionException e) {
+      // good
+    }
+
+    try {
+      keys.store("+14152222222", 1, deviceOnePreKeys);
+      throw new AssertionError();
+    } catch (TransactionException e) {
+      // good
+    }
+
+    try {
+      keys.store("+14152222222", 1, deviceOnePreKeys);
+      throw new AssertionError();
+    } catch (CircuitBreakerOpenException e) {
+      // good
+    }
+
+    Thread.sleep(1100);
+
+    try {
+      keys.store("+14152222222", 1, deviceOnePreKeys);
+      throw new AssertionError();
+    } catch (TransactionException e) {
+      // good
+    }
+
   }
 
 

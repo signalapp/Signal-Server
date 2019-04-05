@@ -112,7 +112,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addBundle(new NameableMigrationsBundle<WhisperServerConfiguration>("accountdb", "accountsdb.xml") {
       @Override
       public DataSourceFactory getDataSourceFactory(WhisperServerConfiguration configuration) {
-        return configuration.getDataSourceFactory();
+        return configuration.getAccountsDatabaseConfiguration();
       }
     });
 
@@ -145,10 +145,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.getObjectMapper().setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);
     environment.getObjectMapper().setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
 
-    JdbiFactory jdbiFactory     = new JdbiFactory(DefaultNameStrategy.CHECK_EMPTY);
-    Jdbi        accountDatabase = jdbiFactory.build(environment, config.getDataSourceFactory(), "accountdb");
-    Jdbi        messageDatabase = jdbiFactory.build(environment, config.getMessageStoreConfiguration(), "messagedb");
-    Jdbi        abuseDatabase   = jdbiFactory.build(environment, config.getAbuseDatabaseConfiguration(), "abusedb");
+    JdbiFactory jdbiFactory = new JdbiFactory(DefaultNameStrategy.CHECK_EMPTY);
+    Jdbi        accountJdbi = jdbiFactory.build(environment, config.getAccountsDatabaseConfiguration(), "accountdb");
+    Jdbi        messageJdbi = jdbiFactory.build(environment, config.getMessageStoreConfiguration(), "messagedb"    );
+    Jdbi        abuseJdbi   = jdbiFactory.build(environment, config.getAbuseDatabaseConfiguration   (), "abusedb"  );
+
+    FaultTolerantDatabase accountDatabase = new FaultTolerantDatabase("accounts_database", accountJdbi, config.getAccountsDatabaseConfiguration().getCircuitBreakerConfiguration());
+    FaultTolerantDatabase messageDatabase = new FaultTolerantDatabase("message_database", messageJdbi, config.getMessageStoreConfiguration().getCircuitBreakerConfiguration());
+    FaultTolerantDatabase abuseDatabase   = new FaultTolerantDatabase("abuse_database", abuseJdbi, config.getAbuseDatabaseConfiguration().getCircuitBreakerConfiguration());
 
     Accounts         accounts         = new Accounts(accountDatabase);
     PendingAccounts  pendingAccounts  = new PendingAccounts(accountDatabase);

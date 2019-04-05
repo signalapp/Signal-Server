@@ -3,14 +3,19 @@ package org.whispersystems.textsecuregcm.tests.storage;
 import com.opentable.db.postgres.embedded.LiquibasePreparer;
 import com.opentable.db.postgres.junit.EmbeddedPostgresRules;
 import com.opentable.db.postgres.junit.PreparedDbRule;
+import org.jdbi.v3.core.HandleCallback;
+import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.core.transaction.TransactionException;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.mappers.AccountRowMapper;
 
 import java.io.IOException;
@@ -26,7 +31,11 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 
+import io.github.resilience4j.circuitbreaker.CircuitBreakerOpenException;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 
 public class AccountsTest {
 
@@ -37,7 +46,11 @@ public class AccountsTest {
 
   @Before
   public void setupAccountsDao() {
-    this.accounts = new Accounts(Jdbi.create(db.getTestDatabase()));
+    FaultTolerantDatabase faultTolerantDatabase = new FaultTolerantDatabase("accountsTest",
+                                                                            Jdbi.create(db.getTestDatabase()),
+                                                                            new CircuitBreakerConfiguration());
+
+    this.accounts = new Accounts(faultTolerantDatabase);
   }
 
   @Test
@@ -178,11 +191,57 @@ public class AccountsTest {
     assertThat(retrieved.isPresent()).isFalse();
   }
 
+  @Test
+  public void testBreaker() throws InterruptedException {
+    Jdbi jdbi = mock(Jdbi.class);
+    doThrow(new TransactionException("Database error!")).when(jdbi).useHandle(any(HandleConsumer.class));
+
+    CircuitBreakerConfiguration configuration = new CircuitBreakerConfiguration();
+    configuration.setWaitDurationInOpenStateInSeconds(1);
+    configuration.setRingBufferSizeInHalfOpenState(1);
+    configuration.setRingBufferSizeInClosedState(2);
+    configuration.setFailureRateThreshold(50);
+
+    Accounts accounts = new Accounts(new FaultTolerantDatabase("testAccountBreaker", jdbi, configuration));
+    Account  account  = generateAccount("+14151112222");
+
+    try {
+      accounts.update(account);
+      throw new AssertionError();
+    } catch (TransactionException e) {
+      // good
+    }
+
+    try {
+      accounts.update(account);
+      throw new AssertionError();
+    } catch (TransactionException e) {
+      // good
+    }
+
+    try {
+      accounts.update(account);
+      throw new AssertionError();
+    } catch (CircuitBreakerOpenException e) {
+      // good
+    }
+
+    Thread.sleep(1100);
+
+    try {
+      accounts.update(account);
+      throw new AssertionError();
+    } catch (TransactionException e) {
+      // good
+    }
+
+  }
+
 
   private Device generateDevice(long id) {
     Random       random       = new Random(System.currentTimeMillis());
     SignedPreKey signedPreKey = new SignedPreKey(random.nextInt(), "testPublicKey-" + random.nextInt(), "testSignature-" + random.nextInt());
-    return new Device(1, "testName-" + random.nextInt(), "testAuthToken-" + random.nextInt(), "testSalt-" + random.nextInt(), null, "testGcmId-" + random.nextInt(), "testApnId-" + random.nextInt(), "testVoipApnId-" + random.nextInt(), random.nextBoolean(), random.nextInt(), signedPreKey, random.nextInt(), random.nextInt(), "testUserAgent-" + random.nextInt(), random.nextBoolean());
+    return new Device(id, "testName-" + random.nextInt(), "testAuthToken-" + random.nextInt(), "testSalt-" + random.nextInt(), null, "testGcmId-" + random.nextInt(), "testApnId-" + random.nextInt(), "testVoipApnId-" + random.nextInt(), random.nextBoolean(), random.nextInt(), signedPreKey, random.nextInt(), random.nextInt(), "testUserAgent-" + random.nextInt(), random.nextBoolean());
   }
 
   private Account generateAccount(String number) {

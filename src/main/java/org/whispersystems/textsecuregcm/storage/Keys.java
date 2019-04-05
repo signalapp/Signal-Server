@@ -19,7 +19,6 @@ package org.whispersystems.textsecuregcm.storage;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.PreparedBatch;
 import org.jdbi.v3.core.transaction.SerializableTransactionRunner;
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
@@ -27,7 +26,6 @@ import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.storage.mappers.KeyRecordRowMapper;
 import org.whispersystems.textsecuregcm.util.Constants;
 
-import java.security.Key;
 import java.util.List;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -41,18 +39,18 @@ public class Keys {
   private final Timer          getCountTimer   = metricRegistry.timer(name(Keys.class, "getCount" ));
   private final Timer          vacuumTimer     = metricRegistry.timer(name(Keys.class, "vacuum"   ));
 
-  private final Jdbi database;
+  private final FaultTolerantDatabase database;
 
-  public Keys(Jdbi database) {
+  public Keys(FaultTolerantDatabase database) {
     this.database = database;
-    this.database.registerRowMapper(new KeyRecordRowMapper());
-    this.database.setTransactionHandler(new SerializableTransactionRunner());
-    this.database.getConfig(SerializableTransactionRunner.Configuration.class).setMaxRetries(10);
+    this.database.getDatabase().registerRowMapper(new KeyRecordRowMapper());
+    this.database.getDatabase().setTransactionHandler(new SerializableTransactionRunner());
+    this.database.getDatabase().getConfig(SerializableTransactionRunner.Configuration.class).setMaxRetries(10);
   }
 
   public void store(String number, long deviceId, List<PreKey> keys) {
-    database.useTransaction(TransactionIsolationLevel.SERIALIZABLE, handle -> {
-      try (Timer.Context timer = storeTimer.time()) {
+    database.use(jdbi -> jdbi.useTransaction(TransactionIsolationLevel.SERIALIZABLE, handle -> {
+      try (Timer.Context ignored = storeTimer.time()) {
         PreparedBatch preparedBatch = handle.prepareBatch("INSERT INTO keys (number, device_id, key_id, public_key) VALUES (:number, :device_id, :key_id, :public_key)");
 
         for (PreKey key : keys) {
@@ -70,51 +68,50 @@ public class Keys {
 
         preparedBatch.execute();
       }
-    });
+    }));
   }
 
   public List<KeyRecord> get(String number, long deviceId) {
-    return database.inTransaction(TransactionIsolationLevel.SERIALIZABLE, handle -> {
-      try (Timer.Context timer = getDevicetTimer.time()) {
+    return database.with(jdbi -> jdbi.inTransaction(TransactionIsolationLevel.SERIALIZABLE, handle -> {
+      try (Timer.Context ignored = getDevicetTimer.time()) {
         return handle.createQuery("DELETE FROM keys WHERE id IN (SELECT id FROM keys WHERE number = :number AND device_id = :device_id ORDER BY key_id ASC LIMIT 1) RETURNING *")
                      .bind("number", number)
                      .bind("device_id", deviceId)
                      .mapTo(KeyRecord.class)
                      .list();
       }
-    });
+    }));
   }
 
   public List<KeyRecord> get(String number) {
-    return database.inTransaction(TransactionIsolationLevel.SERIALIZABLE, handle -> {
-      try (Timer.Context timer = getTimer.time()) {
+    return database.with(jdbi -> jdbi.inTransaction(TransactionIsolationLevel.SERIALIZABLE, handle -> {
+      try (Timer.Context ignored = getTimer.time()) {
         return handle.createQuery("DELETE FROM keys WHERE id IN (SELECT DISTINCT ON (number, device_id) id FROM keys WHERE number = :number ORDER BY number, device_id, key_id ASC) RETURNING *")
                      .bind("number", number)
                      .mapTo(KeyRecord.class)
                      .list();
       }
-    });
-
+    }));
   }
 
   public int getCount(String number, long deviceId) {
-    return database.withHandle(handle -> {
-      try (Timer.Context timer = getCountTimer.time()) {
+    return database.with(jdbi -> jdbi.withHandle(handle -> {
+      try (Timer.Context ignored = getCountTimer.time()) {
         return handle.createQuery("SELECT COUNT(*) FROM keys WHERE number = :number AND device_id = :device_id")
                      .bind("number", number)
                      .bind("device_id", deviceId)
                      .mapTo(Integer.class)
                      .findOnly();
       }
-    });
+    }));
   }
 
   public void vacuum() {
-    database.useHandle(handle -> {
-      try (Timer.Context timer = vacuumTimer.time()) {
+    database.use(jdbi -> jdbi.useHandle(handle -> {
+      try (Timer.Context ignored = vacuumTimer.time()) {
         handle.execute("VACUUM keys");
       }
-    });
+    }));
   }
 
 }

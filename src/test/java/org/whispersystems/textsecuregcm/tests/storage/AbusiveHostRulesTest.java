@@ -7,8 +7,10 @@ import org.jdbi.v3.core.Jdbi;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.storage.AbusiveHostRule;
 import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
+import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -26,7 +28,7 @@ public class AbusiveHostRulesTest {
 
   @Before
   public void setup() {
-    this.abusiveHostRules = new AbusiveHostRules(Jdbi.create(db.getTestDatabase()));
+    this.abusiveHostRules = new AbusiveHostRules(new FaultTolerantDatabase("abusive_hosts-test", Jdbi.create(db.getTestDatabase()), new CircuitBreakerConfiguration()));
   }
 
   @Test

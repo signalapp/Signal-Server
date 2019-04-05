@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2013 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,6 @@ package org.whispersystems.textsecuregcm.storage;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import org.jdbi.v3.core.Jdbi;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.storage.mappers.StoredVerificationCodeRowMapper;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -36,16 +35,16 @@ public class PendingAccounts {
   private final Timer          removeTimer           = metricRegistry.timer(name(PendingAccounts.class, "remove"          ));
   private final Timer          vacuumTimer           = metricRegistry.timer(name(PendingAccounts.class, "vacuum"          ));
 
-  private final Jdbi database;
+  private final FaultTolerantDatabase database;
 
-  public PendingAccounts(Jdbi database) {
+  public PendingAccounts(FaultTolerantDatabase database) {
     this.database = database;
-    this.database.registerRowMapper(new StoredVerificationCodeRowMapper());
+    this.database.getDatabase().registerRowMapper(new StoredVerificationCodeRowMapper());
   }
 
   public void insert(String number, String verificationCode, long timestamp) {
-    database.useHandle(handle -> {
-      try (Timer.Context timer = insertTimer.time()) {
+    database.use(jdbi -> jdbi.useHandle(handle -> {
+      try (Timer.Context ignored = insertTimer.time()) {
         handle.createUpdate("WITH upsert AS (UPDATE pending_accounts SET verification_code = :verification_code, timestamp = :timestamp WHERE number = :number RETURNING *) " +
                                 "INSERT INTO pending_accounts (number, verification_code, timestamp) SELECT :number, :verification_code, :timestamp WHERE NOT EXISTS (SELECT * FROM upsert)")
               .bind("verification_code", verificationCode)
@@ -53,36 +52,36 @@ public class PendingAccounts {
               .bind("number", number)
               .execute();
       }
-    });
+    }));
   }
 
   public Optional<StoredVerificationCode> getCodeForNumber(String number) {
-    return database.withHandle(handle -> {
-      try (Timer.Context timer = getCodeForNumberTimer.time()) {
+    return database.with(jdbi ->jdbi.withHandle(handle -> {
+      try (Timer.Context ignored = getCodeForNumberTimer.time()) {
         return handle.createQuery("SELECT verification_code, timestamp FROM pending_accounts WHERE number = :number")
                      .bind("number", number)
                      .mapTo(StoredVerificationCode.class)
                      .findFirst();
       }
-    });
+    }));
   }
 
   public void remove(String number) {
-    database.useHandle(handle -> {
-      try (Timer.Context timer = removeTimer.time()) {
+    database.use(jdbi-> jdbi.useHandle(handle -> {
+      try (Timer.Context ignored = removeTimer.time()) {
         handle.createUpdate("DELETE FROM pending_accounts WHERE number = :number")
               .bind("number", number)
               .execute();
       }
-    });
+    }));
   }
 
   public void vacuum() {
-    database.useHandle(handle -> {
-      try (Timer.Context timer = vacuumTimer.time()) {
+    database.use(jdbi -> jdbi.useHandle(handle -> {
+      try (Timer.Context ignored = vacuumTimer.time()) {
         handle.execute("VACUUM pending_accounts");
       }
-    });
+    }));
   }
 
 }

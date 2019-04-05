@@ -16,6 +16,7 @@ import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager;
+import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.util.Base64;
 
 import java.security.SecureRandom;
@@ -61,8 +62,9 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
 
       environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-      JdbiFactory jdbiFactory     = new JdbiFactory();
-      Jdbi        accountDatabase = jdbiFactory.build(environment, configuration.getDataSourceFactory(), "accountdb");
+      JdbiFactory           jdbiFactory     = new JdbiFactory();
+      Jdbi                  accountJdbi     = jdbiFactory.build(environment, configuration.getAccountsDatabaseConfiguration(), "accountdb");
+      FaultTolerantDatabase accountDatabase = new FaultTolerantDatabase("account_database_delete_user", accountJdbi, configuration.getAbuseDatabaseConfiguration().getCircuitBreakerConfiguration());
 
       Accounts            accounts        = new Accounts(accountDatabase);
       ReplicatedJedisPool cacheClient     = new RedisClientFactory("main_cache_delete_command", configuration.getCacheConfiguration().getUrl(), configuration.getCacheConfiguration().getReplicaUrls(), configuration.getCacheConfiguration().getCircuitBreakerConfiguration()).getRedisClientPool();
