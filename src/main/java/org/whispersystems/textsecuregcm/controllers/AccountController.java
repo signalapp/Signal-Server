@@ -71,7 +71,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import io.dropwizard.auth.Auth;
@@ -141,14 +140,19 @@ public class AccountController {
       throw new WebApplicationException(Response.status(400).build());
     }
 
-    List<String> requesters = Arrays.stream(forwardedFor.split(",")).map(String::trim).collect(Collectors.toList());
+    String requester = Arrays.stream(forwardedFor.split(","))
+                             .map(String::trim)
+                             .reduce((a, b) -> b)
+                             .orElseThrow();
 
-    if (requesters.size() > 10) {
-      logger.info("Request with more than 10 hops: " + transport + ", " + number + ", " + forwardedFor);
-      return Response.status(400).build();
-    }
+    CaptchaRequirement requirement = requiresCaptcha(number, transport, forwardedFor, requester, captcha);
 
-    if (requiresCaptcha(number, transport, forwardedFor, requesters, captcha)) {
+    if (requirement.isCaptchaRequired()) {
+      if (requirement.isAutoBlock() && shouldAutoBlock(requester)) {
+        logger.info("Auto-block: " + requester);
+        abusiveHostRules.setBlockedHost(requester, "Auto-Block");
+      }
+
       return Response.status(402).build();
     }
 
@@ -385,54 +389,63 @@ public class AccountController {
     accounts.update(account);
   }
 
-  private boolean requiresCaptcha(String number, String transport, String forwardedFor,
-                                  List<String> requesters, Optional<String> captchaToken)
+  private CaptchaRequirement requiresCaptcha(String number, String transport, String forwardedFor,
+                                             String requester, Optional<String> captchaToken)
   {
+
     if (captchaToken.isPresent()) {
       boolean validToken = recaptchaClient.verify(captchaToken.get());
 
       if (validToken) {
         captchaSuccessMeter.mark();
-        return false;
+        return new CaptchaRequirement(false, false);
       } else {
         captchaFailureMeter.mark();
-        return true;
+        return new CaptchaRequirement(true, false);
       }
     }
 
-    for (String requester : requesters) {
-      List<AbusiveHostRule> abuseRules = abusiveHostRules.getAbusiveHostRulesFor(requester);
+    List<AbusiveHostRule> abuseRules = abusiveHostRules.getAbusiveHostRulesFor(requester);
 
-      for (AbusiveHostRule abuseRule : abuseRules) {
-        if (abuseRule.isBlocked()) {
-          logger.info("Blocked host: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
-          blockedHostMeter.mark();
-          return true;
-        }
-
-        if (!abuseRule.getRegions().isEmpty()) {
-          if (abuseRule.getRegions().stream().noneMatch(number::startsWith)) {
-            logger.info("Restricted host: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
-            filteredHostMeter.mark();
-            return true;
-          }
-        }
+    for (AbusiveHostRule abuseRule : abuseRules) {
+      if (abuseRule.isBlocked()) {
+        logger.info("Blocked host: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
+        blockedHostMeter.mark();
+        return new CaptchaRequirement(true, false);
       }
 
-      try {
-        rateLimiters.getSmsVoiceIpLimiter().validate(requester);
-      } catch (RateLimitExceededException e) {
-        logger.info("Rate limited exceeded: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
-        rateLimitedPrefixMeter.mark();
-        return true;
+      if (!abuseRule.getRegions().isEmpty()) {
+        if (abuseRule.getRegions().stream().noneMatch(number::startsWith)) {
+          logger.info("Restricted host: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
+          filteredHostMeter.mark();
+          return new CaptchaRequirement(true, false);
+        }
       }
+    }
+
+    try {
+      rateLimiters.getSmsVoiceIpLimiter().validate(requester);
+    } catch (RateLimitExceededException e) {
+      logger.info("Rate limited exceeded: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
+      rateLimitedHostMeter.mark();
+      return new CaptchaRequirement(true, true);
     }
 
     try {
       rateLimiters.getSmsVoicePrefixLimiter().validate(Util.getNumberPrefix(number));
     } catch (RateLimitExceededException e) {
-      logger.info("Prefix rate limit exceeded: " + transport + ", " + number + ", (" + String.join(", ", requesters) + ")");
+      logger.info("Prefix rate limit exceeded: " + transport + ", " + number + ", (" + forwardedFor + ")");
       rateLimitedPrefixMeter.mark();
+      return new CaptchaRequirement(true, true);
+    }
+
+    return new CaptchaRequirement(false, false);
+  }
+
+  private boolean shouldAutoBlock(String requester) {
+    try {
+      rateLimiters.getAutoBlockLimiter().validate(requester);
+    } catch (RateLimitExceededException e) {
       return true;
     }
 
@@ -481,5 +494,23 @@ public class AccountController {
     SecureRandom random = new SecureRandom();
     int randomInt       = 100000 + random.nextInt(900000);
     return new VerificationCode(randomInt);
+  }
+
+  private static class CaptchaRequirement {
+    private final boolean captchaRequired;
+    private final boolean autoBlock;
+
+    private CaptchaRequirement(boolean captchaRequired, boolean autoBlock) {
+      this.captchaRequired = captchaRequired;
+      this.autoBlock       = autoBlock;
+    }
+
+    boolean isCaptchaRequired() {
+      return captchaRequired;
+    }
+
+    boolean isAutoBlock() {
+      return autoBlock;
+    }
   }
 }

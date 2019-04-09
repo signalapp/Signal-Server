@@ -13,6 +13,7 @@ import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
 import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
 
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
@@ -82,6 +83,36 @@ public class AbusiveHostRulesTest {
     assertThat(rules.size()).isEqualTo(1);
     assertThat(rules.get(0).isBlocked()).isFalse();
     assertThat(rules.get(0).getRegions()).isEqualTo(Arrays.asList("+1", "+49"));
+  }
+
+  @Test
+  public void testInsertBlocked() throws Exception {
+    abusiveHostRules.setBlockedHost("172.17.0.1", "Testing one two");
+
+    PreparedStatement statement = db.getTestDatabase().getConnection().prepareStatement("SELECT * from abusive_host_rules WHERE host = ?::inet");
+    statement.setString(1, "172.17.0.1");
+
+    ResultSet resultSet = statement.executeQuery();
+
+    assertThat(resultSet.next()).isTrue();
+
+    assertThat(resultSet.getInt("blocked")).isEqualTo(1);
+    assertThat(resultSet.getString("regions")).isNullOrEmpty();
+    assertThat(resultSet.getString("notes")).isEqualTo("Testing one two");
+
+    abusiveHostRules.setBlockedHost("172.17.0.1", "Different notes");
+
+
+    statement = db.getTestDatabase().getConnection().prepareStatement("SELECT * from abusive_host_rules WHERE host = ?::inet");
+    statement.setString(1, "172.17.0.1");
+
+    resultSet = statement.executeQuery();
+
+    assertThat(resultSet.next()).isTrue();
+
+    assertThat(resultSet.getInt("blocked")).isEqualTo(1);
+    assertThat(resultSet.getString("regions")).isNullOrEmpty();
+    assertThat(resultSet.getString("notes")).isEqualTo("Testing one two");
   }
 
 }

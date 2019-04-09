@@ -44,14 +44,18 @@ import static org.mockito.Mockito.*;
 
 public class AccountControllerTest {
 
-  private static final String SENDER          = "+14152222222";
-  private static final String SENDER_OLD      = "+14151111111";
-  private static final String SENDER_PIN      = "+14153333333";
-  private static final String SENDER_OVER_PIN = "+14154444444";
+  private static final String SENDER             = "+14152222222";
+  private static final String SENDER_OLD         = "+14151111111";
+  private static final String SENDER_PIN         = "+14153333333";
+  private static final String SENDER_OVER_PIN    = "+14154444444";
+  private static final String SENDER_OVER_PREFIX = "+14156666666";
 
-  private static final String ABUSIVE_HOST    = "192.168.1.1";
-  private static final String RESTRICTED_HOST = "192.168.1.2";
-  private static final String NICE_HOST       = "127.0.0.1";
+  private static final String ABUSIVE_HOST             = "192.168.1.1";
+  private static final String RESTRICTED_HOST          = "192.168.1.2";
+  private static final String NICE_HOST                = "127.0.0.1";
+  private static final String RATE_LIMITED_IP_HOST     = "10.0.0.1";
+  private static final String RATE_LIMITED_PREFIX_HOST = "10.0.0.2";
+  private static final String RATE_LIMITED_HOST2       = "10.0.0.3";
 
   private static final String VALID_CAPTCHA_TOKEN   = "valid_token";
   private static final String INVALID_CAPTCHA_TOKEN = "invalid_token";
@@ -64,6 +68,7 @@ public class AccountControllerTest {
   private        RateLimiter            pinLimiter             = mock(RateLimiter.class           );
   private        RateLimiter            smsVoiceIpLimiter      = mock(RateLimiter.class           );
   private        RateLimiter            smsVoicePrefixLimiter  = mock(RateLimiter.class);
+  private        RateLimiter            autoBlockLimiter       = mock(RateLimiter.class);
   private        SmsSender              smsSender              = mock(SmsSender.class             );
   private        DirectoryQueue         directoryQueue         = mock(DirectoryQueue.class);
   private        MessagesManager        storedMessages         = mock(MessagesManager.class       );
@@ -100,6 +105,7 @@ public class AccountControllerTest {
     when(rateLimiters.getPinLimiter()).thenReturn(pinLimiter);
     when(rateLimiters.getSmsVoiceIpLimiter()).thenReturn(smsVoiceIpLimiter);
     when(rateLimiters.getSmsVoicePrefixLimiter()).thenReturn(smsVoicePrefixLimiter);
+    when(rateLimiters.getAutoBlockLimiter()).thenReturn(autoBlockLimiter);
 
     when(timeProvider.getCurrentTimeMillis()).thenReturn(System.currentTimeMillis());
 
@@ -124,6 +130,13 @@ public class AccountControllerTest {
     when(recaptchaClient.verify(eq(VALID_CAPTCHA_TOKEN))).thenReturn(true);
 
     doThrow(new RateLimitExceededException(SENDER_OVER_PIN)).when(pinLimiter).validate(eq(SENDER_OVER_PIN));
+
+    doThrow(new RateLimitExceededException(RATE_LIMITED_PREFIX_HOST)).when(autoBlockLimiter).validate(eq(RATE_LIMITED_PREFIX_HOST));
+    doThrow(new RateLimitExceededException(RATE_LIMITED_IP_HOST)).when(autoBlockLimiter).validate(eq(RATE_LIMITED_IP_HOST));
+
+    doThrow(new RateLimitExceededException(SENDER_OVER_PREFIX)).when(smsVoicePrefixLimiter).validate(SENDER_OVER_PREFIX.substring(0, 4+2));
+    doThrow(new RateLimitExceededException(RATE_LIMITED_IP_HOST)).when(smsVoiceIpLimiter).validate(RATE_LIMITED_IP_HOST);
+    doThrow(new RateLimitExceededException(RATE_LIMITED_HOST2)).when(smsVoiceIpLimiter).validate(RATE_LIMITED_HOST2);
   }
 
   @Test
@@ -221,6 +234,63 @@ public class AccountControllerTest {
   }
 
   @Test
+  public void testSendRateLimitedHostAutoBlock() {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .request()
+                 .header("X-Forwarded-For", RATE_LIMITED_IP_HOST)
+                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(402);
+
+    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(RATE_LIMITED_IP_HOST));
+    verify(abusiveHostRules).setBlockedHost(eq(RATE_LIMITED_IP_HOST), eq("Auto-Block"));
+    verifyNoMoreInteractions(abusiveHostRules);
+
+    verifyNoMoreInteractions(recaptchaClient);
+    verifyNoMoreInteractions(smsSender);
+  }
+
+  @Test
+  public void testSendRateLimitedPrefixAutoBlock() {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER_OVER_PREFIX))
+                 .request()
+                 .header("X-Forwarded-For", RATE_LIMITED_PREFIX_HOST)
+                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(402);
+
+    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(RATE_LIMITED_PREFIX_HOST));
+    verify(abusiveHostRules).setBlockedHost(eq(RATE_LIMITED_PREFIX_HOST), eq("Auto-Block"));
+    verifyNoMoreInteractions(abusiveHostRules);
+
+    verifyNoMoreInteractions(recaptchaClient);
+    verifyNoMoreInteractions(smsSender);
+  }
+
+  @Test
+  public void testSendRateLimitedHostNoAutoBlock() {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .request()
+                 .header("X-Forwarded-For", RATE_LIMITED_HOST2)
+                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(402);
+
+    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(RATE_LIMITED_HOST2));
+    verifyNoMoreInteractions(abusiveHostRules);
+
+    verifyNoMoreInteractions(recaptchaClient);
+    verifyNoMoreInteractions(smsSender);
+  }
+
+
+  @Test
   public void testSendMultipleHost() {
     Response response =
         resources.getJerseyTest()
@@ -232,7 +302,6 @@ public class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(402);
 
     verify(abusiveHostRules, times(1)).getAbusiveHostRulesFor(eq(ABUSIVE_HOST));
-    verify(abusiveHostRules, times(1)).getAbusiveHostRulesFor(eq(NICE_HOST));
 
     verifyNoMoreInteractions(abusiveHostRules);
     verifyNoMoreInteractions(smsSender);

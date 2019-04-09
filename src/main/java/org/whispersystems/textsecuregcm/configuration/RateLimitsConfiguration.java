@@ -36,6 +36,9 @@ public class RateLimitsConfiguration {
   private RateLimitConfiguration smsVoicePrefix = new RateLimitConfiguration(1000, 1000);
 
   @JsonProperty
+  private RateLimitConfiguration autoBlock = new RateLimitConfiguration(500, 500);
+
+  @JsonProperty
   private RateLimitConfiguration verifyNumber = new RateLimitConfiguration(2, 2);
 
   @JsonProperty
@@ -64,6 +67,10 @@ public class RateLimitsConfiguration {
 
   @JsonProperty
   private RateLimitConfiguration profile = new RateLimitConfiguration(4320, 3);
+
+  public RateLimitConfiguration getAutoBlock() {
+    return autoBlock;
+  }
 
   public RateLimitConfiguration getAllocateDevice() {
     return allocateDevice;
