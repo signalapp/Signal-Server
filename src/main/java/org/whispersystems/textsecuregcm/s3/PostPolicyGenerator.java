@@ -35,6 +35,7 @@ public class PostPolicyGenerator {
                                         "    {\"key\": \"%s\"},\n" +
                                         "    {\"acl\": \"private\"},\n" +
                                         "    [\"starts-with\", \"$Content-Type\", \"\"],\n" +
+                                        "    [\"content-length-range\", 1, 104857600],\n" +
                                         "\n" +
                                         "    {\"x-amz-credential\": \"%s\"},\n" +
                                         "    {\"x-amz-algorithm\": \"AWS4-HMAC-SHA256\"},\n" +

@@ -20,7 +20,7 @@ import com.amazonaws.HttpMethod;
 import com.codahale.metrics.annotation.Timed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.entities.AttachmentDescriptor;
+import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV1;
 import org.whispersystems.textsecuregcm.entities.AttachmentUri;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.s3.UrlSigner;
@@ -41,26 +41,25 @@ import io.dropwizard.auth.Auth;
 
 
 @Path("/v1/attachments")
-public class AttachmentController {
+public class AttachmentControllerV1 extends AttachmentControllerBase {
 
   @SuppressWarnings("unused")
-  private final Logger logger = LoggerFactory.getLogger(AttachmentController.class);
+  private final Logger logger = LoggerFactory.getLogger(AttachmentControllerV1.class);
 
   private static final String[] UNACCELERATED_REGIONS = {"+20", "+971", "+968", "+974"};
 
   private final RateLimiters rateLimiters;
   private final UrlSigner    urlSigner;
 
-  public AttachmentController(RateLimiters rateLimiters, UrlSigner urlSigner)
-  {
+  public AttachmentControllerV1(RateLimiters rateLimiters, String accessKey, String accessSecret, String bucket) {
     this.rateLimiters = rateLimiters;
-    this.urlSigner    = urlSigner;
+    this.urlSigner    = new UrlSigner(accessKey, accessSecret, bucket);
   }
 
   @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  public AttachmentDescriptor allocateAttachment(@Auth Account account)
+  public AttachmentDescriptorV1 allocateAttachment(@Auth Account account)
       throws RateLimitExceededException
   {
     if (account.isRateLimited()) {
@@ -70,7 +69,7 @@ public class AttachmentController {
     long attachmentId = generateAttachmentId();
     URL  url          = urlSigner.getPreSignedUrl(attachmentId, HttpMethod.PUT, Stream.of(UNACCELERATED_REGIONS).anyMatch(region -> account.getNumber().startsWith(region)));
 
-    return new AttachmentDescriptor(attachmentId, url.toExternalForm());
+    return new AttachmentDescriptorV1(attachmentId, url.toExternalForm());
 
   }
 
@@ -85,11 +84,4 @@ public class AttachmentController {
     return new AttachmentUri(urlSigner.getPreSignedUrl(attachmentId, HttpMethod.GET, Stream.of(UNACCELERATED_REGIONS).anyMatch(region -> account.getNumber().startsWith(region))));
   }
 
-  private long generateAttachmentId() {
-    byte[] attachmentBytes = new byte[8];
-    new SecureRandom().nextBytes(attachmentBytes);
-
-    attachmentBytes[0] = (byte)(attachmentBytes[0] & 0x7F);
-    return Conversions.byteArrayToLong(attachmentBytes);
-  }
 }

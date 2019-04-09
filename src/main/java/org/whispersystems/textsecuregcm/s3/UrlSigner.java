@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2013 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -23,7 +23,6 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
-import org.whispersystems.textsecuregcm.configuration.AttachmentsConfiguration;
 
 import java.net.URL;
 import java.util.Date;
@@ -35,9 +34,9 @@ public class UrlSigner {
   private final AWSCredentials credentials;
   private final String bucket;
 
-  public UrlSigner(AttachmentsConfiguration config) {
-    this.credentials = new BasicAWSCredentials(config.getAccessKey(), config.getAccessSecret());
-    this.bucket      = config.getBucket();
+  public UrlSigner(String accessKey, String accessSecret, String bucket) {
+    this.credentials = new BasicAWSCredentials(accessKey, accessSecret);
+    this.bucket      = bucket;
   }
 
   public URL getPreSignedUrl(long attachmentId, HttpMethod method, boolean unaccelerated) {

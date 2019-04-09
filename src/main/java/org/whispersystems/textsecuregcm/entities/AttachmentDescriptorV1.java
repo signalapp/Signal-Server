@@ -18,7 +18,7 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class AttachmentDescriptor {
+public class AttachmentDescriptorV1 {
 
   @JsonProperty
   private long id;
@@ -29,13 +29,13 @@ public class AttachmentDescriptor {
   @JsonProperty
   private String location;
 
-  public AttachmentDescriptor(long id, String location) {
+  public AttachmentDescriptorV1(long id, String location) {
     this.id       = id;
     this.idString = String.valueOf(id);
     this.location = location;
   }
 
-  public AttachmentDescriptor() {}
+  public AttachmentDescriptorV1() {}
 
   public long getId() {
     return id;

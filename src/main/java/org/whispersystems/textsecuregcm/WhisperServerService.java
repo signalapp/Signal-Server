@@ -30,7 +30,8 @@ import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
 import org.whispersystems.textsecuregcm.auth.DirectoryCredentialsGenerator;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
-import org.whispersystems.textsecuregcm.controllers.AttachmentController;
+import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV1;
+import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV2;
 import org.whispersystems.textsecuregcm.controllers.CertificateController;
 import org.whispersystems.textsecuregcm.controllers.DeviceController;
 import org.whispersystems.textsecuregcm.controllers.DirectoryController;
@@ -62,7 +63,6 @@ import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.push.WebsocketSender;
 import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
-import org.whispersystems.textsecuregcm.s3.UrlSigner;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
@@ -190,7 +190,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ApnFallbackManager       apnFallbackManager  = new ApnFallbackManager(pushSchedulerClient, apnSender, accountsManager);
     TwilioSmsSender          twilioSmsSender     = new TwilioSmsSender(config.getTwilioConfiguration());
     SmsSender                smsSender           = new SmsSender(twilioSmsSender);
-    UrlSigner                urlSigner           = new UrlSigner(config.getAttachmentsConfiguration());
     PushSender               pushSender          = new PushSender(apnFallbackManager, gcmSender, apnSender, websocketSender, config.getPushConfiguration().getQueueSize());
     ReceiptSender            receiptSender       = new ReceiptSender(accountsManager, pushSender);
     TurnTokenGenerator       turnTokenGenerator  = new TurnTokenGenerator(config.getTurnConfiguration());
@@ -216,10 +215,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(messagesCache);
     environment.lifecycle().manage(accountDatabaseCrawler);
 
-    AttachmentController attachmentController = new AttachmentController(rateLimiters, urlSigner);
-    KeysController       keysController       = new KeysController(rateLimiters, keys, accountsManager, directoryQueue);
-    MessageController    messageController    = new MessageController(rateLimiters, pushSender, receiptSender, accountsManager, messagesManager, apnFallbackManager);
-    ProfileController    profileController    = new ProfileController(rateLimiters , accountsManager, config.getProfilesConfiguration());
+    AttachmentControllerV1 attachmentControllerV1 = new AttachmentControllerV1(rateLimiters, config.getAttachmentsConfiguration().getAccessKey(), config.getAttachmentsConfiguration().getAccessSecret(), config.getAttachmentsConfiguration().getBucket()                                                  );
+    AttachmentControllerV2 attachmentControllerV2 = new AttachmentControllerV2(rateLimiters, config.getAttachmentsConfiguration().getAccessKey(), config.getAttachmentsConfiguration().getAccessSecret(), config.getAttachmentsConfiguration().getRegion(), config.getAttachmentsConfiguration().getBucket());
+    KeysController         keysController         = new KeysController(rateLimiters, keys, accountsManager, directoryQueue);
+    MessageController      messageController      = new MessageController(rateLimiters, pushSender, receiptSender, accountsManager, messagesManager, apnFallbackManager);
+    ProfileController      profileController      = new ProfileController(rateLimiters, accountsManager, config.getProfilesConfiguration());
 
     environment.jersey().register(new AuthDynamicFeature(new BasicCredentialAuthFilter.Builder<Account>()
                                                              .setAuthenticator(deviceAuthenticator)
@@ -233,7 +233,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().getCertificate(), config.getDeliveryCertificate().getPrivateKey(), config.getDeliveryCertificate().getExpiresDays())));
     environment.jersey().register(new VoiceVerificationController(config.getVoiceVerificationConfiguration().getUrl(), config.getVoiceVerificationConfiguration().getLocales()));
     environment.jersey().register(new TransparentDataController(accountsManager, config.getTransparentDataIndex()));
-    environment.jersey().register(attachmentController);
+    environment.jersey().register(attachmentControllerV1);
+    environment.jersey().register(attachmentControllerV2);
     environment.jersey().register(keysController);
     environment.jersey().register(messageController);
     environment.jersey().register(profileController);
@@ -245,6 +246,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.jersey().register(new KeepAliveController(pubSubManager));
     webSocketEnvironment.jersey().register(messageController);
     webSocketEnvironment.jersey().register(profileController);
+    webSocketEnvironment.jersey().register(attachmentControllerV1);
+    webSocketEnvironment.jersey().register(attachmentControllerV2);
 
     WebSocketEnvironment provisioningEnvironment = new WebSocketEnvironment(environment, webSocketEnvironment.getRequestLog(), 60000);
     provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(pubSubManager));
