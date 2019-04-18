@@ -108,7 +108,7 @@ public class DirectoryController {
   }
 
   @PUT
-  @Path("/feedback-v2/{status}")
+  @Path("/feedback-v3/{status}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response setFeedback(@Auth                Account                  account,
@@ -116,7 +116,6 @@ public class DirectoryController {
                               @Valid               DirectoryFeedbackRequest request)
   {
     Map<String, Meter> platformFeedbackMeters = unknownFeedbackMeters;
-    String             platformName           = "unknown";
 
     Optional<Device> masterDevice = account.getMasterDevice();
     if (masterDevice.isPresent()) {
@@ -130,14 +129,6 @@ public class DirectoryController {
     Optional<Meter> meter = Optional.ofNullable(platformFeedbackMeters.get(status));
     if (meter.isPresent()) {
       meter.get().mark();
-
-//      if (!"ok".equals(status) &&
-//          request != null &&
-//          request.getReason().isPresent() &&
-//          request.getReason().get().length() != 0)
-//      {
-//        logger.info("directory feedback platform=" + platformName + " status=" + status + ": " + request.getReason().get());
-//      }
 
       return Response.ok().build();
     } else {
