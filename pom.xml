@@ -14,7 +14,7 @@
     <properties>
         <dropwizard.version>1.3.9</dropwizard.version>
         <jackson.api.version>2.9.8</jackson.api.version>
-        <resilience4j.version>0.13.2</resilience4j.version>
+        <resilience4j.version>0.14.1</resilience4j.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -65,13 +65,17 @@
             <version>0.9.30</version>
         </dependency>
 
-
         <dependency>
             <groupId>io.github.resilience4j</groupId>
             <artifactId>resilience4j-circuitbreaker</artifactId>
             <version>${resilience4j.version}</version>
         </dependency>
-        
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-retry</artifactId>
+            <version>${resilience4j.version}</version>
+        </dependency>
+
 
         <dependency>
             <groupId>com.amazonaws</groupId>
@@ -95,11 +99,6 @@
             <version>2.9.0</version>
             <type>jar</type>
             <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.twilio.sdk</groupId>
-            <artifactId>twilio-java-sdk</artifactId>
-            <version>4.4.4</version>
         </dependency>
 
         <dependency>
@@ -149,6 +148,17 @@
             <version>8.10.2</version>
         </dependency>
 
+        <dependency>
+            <groupId>javax.xml.bind</groupId>
+            <artifactId>jaxb-api</artifactId>
+            <version>2.3.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.jaxb</groupId>
+            <artifactId>jaxb-runtime</artifactId>
+            <version>2.3.1</version>
+        </dependency>
+
 
         <dependency>
             <groupId>org.glassfish.jersey.test-framework.providers</groupId>
@@ -180,16 +190,25 @@
             <version>0.13.1</version>
             <scope>test</scope>
         </dependency>
-
         <dependency>
-            <groupId>javax.xml.bind</groupId>
-            <artifactId>jaxb-api</artifactId>
-            <version>2.3.1</version>
-        </dependency>
-        <dependency>
-            <groupId>org.glassfish.jaxb</groupId>
-            <artifactId>jaxb-runtime</artifactId>
-            <version>2.3.1</version>
+            <groupId>com.github.tomakehurst</groupId>
+            <artifactId>wiremock-jre8</artifactId>
+            <version>2.23.2</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>guava</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.eclipse.jetty</groupId>
+                    <artifactId>jetty-server</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.eclipse.jetty</groupId>
+                    <artifactId>jetty-servlet</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
     </dependencies>

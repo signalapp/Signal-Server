@@ -17,8 +17,10 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import org.hibernate.validator.constraints.NotEmpty;
 
+import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import java.util.List;
 
@@ -43,23 +45,74 @@ public class TwilioConfiguration {
   @JsonProperty
   private String messagingServicesId;
 
+  @NotNull
+  @Valid
+  private CircuitBreakerConfiguration circuitBreaker = new CircuitBreakerConfiguration();
+
+  @NotNull
+  @Valid
+  private RetryConfiguration retry = new RetryConfiguration();
+
   public String getAccountId() {
     return accountId;
+  }
+
+  @VisibleForTesting
+  public void setAccountId(String accountId) {
+    this.accountId = accountId;
   }
 
   public String getAccountToken() {
     return accountToken;
   }
 
+  @VisibleForTesting
+  public void setAccountToken(String accountToken) {
+    this.accountToken = accountToken;
+  }
+
   public List<String> getNumbers() {
     return numbers;
+  }
+
+  @VisibleForTesting
+  public void setNumbers(List<String> numbers) {
+    this.numbers = numbers;
   }
 
   public String getLocalDomain() {
     return localDomain;
   }
 
+  @VisibleForTesting
+  public void setLocalDomain(String localDomain) {
+    this.localDomain = localDomain;
+  }
+
   public String getMessagingServicesId() {
     return messagingServicesId;
+  }
+
+  @VisibleForTesting
+  public void setMessagingServicesId(String messagingServicesId) {
+    this.messagingServicesId = messagingServicesId;
+  }
+
+  public CircuitBreakerConfiguration getCircuitBreaker() {
+    return circuitBreaker;
+  }
+
+  @VisibleForTesting
+  public void setCircuitBreaker(CircuitBreakerConfiguration circuitBreaker) {
+    this.circuitBreaker = circuitBreaker;
+  }
+
+  public RetryConfiguration getRetry() {
+    return retry;
+  }
+
+  @VisibleForTesting
+  public void setRetry(RetryConfiguration retry) {
+    this.retry = retry;
   }
 }

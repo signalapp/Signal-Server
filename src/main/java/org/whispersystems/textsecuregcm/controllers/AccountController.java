@@ -133,7 +133,7 @@ public class AccountController {
                                 @HeaderParam("Accept-Language") Optional<String> locale,
                                 @QueryParam("client")           Optional<String> client,
                                 @QueryParam("captcha")          Optional<String> captcha)
-      throws IOException, RateLimitExceededException
+      throws RateLimitExceededException
   {
     if (!Util.isValidNumber(number)) {
       logger.info("Invalid number: " + number);

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2013 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,33 +19,45 @@ package org.whispersystems.textsecuregcm.sms;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
-import com.twilio.sdk.TwilioRestClient;
-import com.twilio.sdk.TwilioRestException;
-import com.twilio.sdk.resource.factory.CallFactory;
-import com.twilio.sdk.resource.factory.MessageFactory;
-import org.apache.http.NameValuePair;
-import org.apache.http.message.BasicNameValuePair;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
+import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
+import org.whispersystems.textsecuregcm.http.FormDataBodyPublisher;
+import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.ExecutorUtils;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class TwilioSmsSender {
 
+  private static final Logger         logger         = LoggerFactory.getLogger(TwilioSmsSender.class);
+
   private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private final Meter          smsMeter       = metricRegistry.meter(name(getClass(), "sms", "delivered"));
   private final Meter          voxMeter       = metricRegistry.meter(name(getClass(), "vox", "delivered"));
+  private final Meter          priceMeter     = metricRegistry.meter(name(getClass(), "price"));
 
   private final String            accountId;
   private final String            accountToken;
@@ -54,73 +66,183 @@ public class TwilioSmsSender {
   private final String            localDomain;
   private final Random            random;
 
-  public TwilioSmsSender(TwilioConfiguration config) {
-    this.accountId           = config.getAccountId   ();
-    this.accountToken        = config.getAccountToken();
-    this.numbers             = new ArrayList<>(config.getNumbers());
-    this.localDomain         = config.getLocalDomain();
-    this.messagingServicesId = config.getMessagingServicesId();
+  private final FaultTolerantHttpClient httpClient;
+  private final URI                     smsUri;
+  private final URI                     voxUri;
+
+  @VisibleForTesting
+  public TwilioSmsSender(String baseUri, TwilioConfiguration twilioConfiguration) {
+    Executor executor = ExecutorUtils.newFixedThreadBoundedQueueExecutor(10, 100);
+
+    this.accountId           = twilioConfiguration.getAccountId();
+    this.accountToken        = twilioConfiguration.getAccountToken();
+    this.numbers             = new ArrayList<>(twilioConfiguration.getNumbers());
+    this.localDomain         = twilioConfiguration.getLocalDomain();
+    this.messagingServicesId = twilioConfiguration.getMessagingServicesId();
     this.random              = new Random(System.currentTimeMillis());
+    this.smsUri              = URI.create(baseUri + "/2010-04-01/Accounts/" + accountId + "/Messages.json");
+    this.voxUri              = URI.create(baseUri + "/2010-04-01/Accounts/" + accountId + "/Calls.json"   );
+    this.httpClient          = FaultTolerantHttpClient.newBuilder()
+                                                      .withCircuitBreaker(twilioConfiguration.getCircuitBreaker())
+                                                      .withRetry(twilioConfiguration.getRetry())
+                                                      .withVersion(HttpClient.Version.HTTP_2)
+                                                      .withConnectTimeout(Duration.ofSeconds(10))
+                                                      .withRedirect(HttpClient.Redirect.NEVER)
+                                                      .withExecutor(executor)
+                                                      .withName("twilio")
+                                                      .build();
   }
 
-  public void deliverSmsVerification(String destination, Optional<String> clientType, String verificationCode)
-      throws IOException, TwilioRestException
-  {
-    TwilioRestClient    client         = new TwilioRestClient(accountId, accountToken);
-    MessageFactory      messageFactory = client.getAccount().getMessageFactory();
-    List<NameValuePair> messageParams  = new LinkedList<>();
-    messageParams.add(new BasicNameValuePair("To", destination));
+  public TwilioSmsSender(TwilioConfiguration twilioConfiguration) {
+      this("https://api.twilio.com", twilioConfiguration);
+  }
+
+  public CompletableFuture<Boolean> deliverSmsVerification(String destination, Optional<String> clientType, String verificationCode) {
+    Map<String, String> requestParameters = new HashMap<>();
+    requestParameters.put("To", destination);
 
     if (Util.isEmpty(messagingServicesId)) {
-      messageParams.add(new BasicNameValuePair("From", getRandom(random, numbers)));
+      requestParameters.put("From", getRandom(random, numbers));
     } else {
-      messageParams.add(new BasicNameValuePair("MessagingServiceSid", messagingServicesId));
+      requestParameters.put("MessagingServiceSid", messagingServicesId);
     }
-    
+
     if ("ios".equals(clientType.orElse(null))) {
-      messageParams.add(new BasicNameValuePair("Body", String.format(SmsSender.SMS_IOS_VERIFICATION_TEXT, verificationCode, verificationCode)));
+      requestParameters.put("Body", String.format(SmsSender.SMS_IOS_VERIFICATION_TEXT, verificationCode, verificationCode));
     } else if ("android-ng".equals(clientType.orElse(null))) {
-      messageParams.add(new BasicNameValuePair("Body", String.format(SmsSender.SMS_ANDROID_NG_VERIFICATION_TEXT, verificationCode)));
+      requestParameters.put("Body", String.format(SmsSender.SMS_ANDROID_NG_VERIFICATION_TEXT, verificationCode));
     } else {
-      messageParams.add(new BasicNameValuePair("Body", String.format(SmsSender.SMS_VERIFICATION_TEXT, verificationCode)));
+      requestParameters.put("Body", String.format(SmsSender.SMS_VERIFICATION_TEXT, verificationCode));
     }
-	
-    try {
-      messageFactory.create(messageParams);
-    } catch (RuntimeException damnYouTwilio) {
-      throw new IOException(damnYouTwilio);
-    }
+
+    HttpRequest request = HttpRequest.newBuilder()
+                                     .uri(smsUri)
+                                     .POST(FormDataBodyPublisher.of(requestParameters))
+                                     .header("Content-Type", "application/x-www-form-urlencoded")
+                                     .header("Authorization", "Basic " + Base64.encodeBytes((accountId + ":" + accountToken).getBytes()))
+                                     .build();
 
     smsMeter.mark();
+
+    return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                     .thenApply(this::parseResponse)
+                     .handle(this::processResponse);
   }
 
-  public void deliverVoxVerification(String destination, String verificationCode, Optional<String> locale)
-      throws IOException, TwilioRestException
-  {
+  public CompletableFuture<Boolean> deliverVoxVerification(String destination, String verificationCode, Optional<String> locale) {
     String url = "https://" + localDomain + "/v1/voice/description/" + verificationCode;
 
     if (locale.isPresent()) {
       url += "?l=" + locale.get();
     }
 
-    TwilioRestClient    client      = new TwilioRestClient(accountId, accountToken);
-    CallFactory         callFactory = client.getAccount().getCallFactory();
-    Map<String, String> callParams  = new HashMap<>();
-    callParams.put("To", destination);
-    callParams.put("From", getRandom(random, numbers));
-    callParams.put("Url", url);
+    Map<String, String> requestParameters = new HashMap<>();
+    requestParameters.put("Url", url);
+    requestParameters.put("To", destination);
+    requestParameters.put("From", getRandom(random, numbers));
 
-    try {
-      callFactory.create(callParams);
-    } catch (RuntimeException damnYouTwilio) {
-      throw new IOException(damnYouTwilio);
-    }
+    HttpRequest request = HttpRequest.newBuilder()
+                                     .uri(voxUri)
+                                     .POST(FormDataBodyPublisher.of(requestParameters))
+                                     .header("Content-Type", "application/x-www-form-urlencoded")
+                                     .header("Authorization", "Basic " + Base64.encodeBytes((accountId + ":" + accountToken).getBytes()))
+                                     .build();
 
     voxMeter.mark();
+
+    return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                     .thenApply(this::parseResponse)
+                     .handle(this::processResponse);
   }
 
   private String getRandom(Random random, ArrayList<String> elements) {
     return elements.get(random.nextInt(elements.size()));
   }
 
+  private boolean processResponse(TwilioResponse response, Throwable throwable) {
+    if (response != null && response.isSuccess()) {
+      priceMeter.mark((long)(response.successResponse.price * 1000));
+      return true;
+    } else if (response != null && response.isFailure()) {
+      logger.info("Twilio request failed: " + response.failureResponse.status + ", " + response.failureResponse.message);
+      return false;
+    } else if (throwable != null) {
+      logger.info("Twilio request failed", throwable);
+      return false;
+    } else {
+      logger.warn("No response or throwable!");
+      return false;
+    }
+      }
+
+  private TwilioResponse parseResponse(HttpResponse<String> response) {
+    ObjectMapper mapper = SystemMapper.getMapper();
+
+    if (response.statusCode() >= 200 && response.statusCode() < 300) {
+      if ("application/json".equals(response.headers().firstValue("Content-Type").orElse(null))) {
+        return new TwilioResponse(TwilioResponse.TwilioSuccessResponse.fromBody(mapper, response.body()));
+      } else {
+        return new TwilioResponse(new TwilioResponse.TwilioSuccessResponse());
+      }
+    }
+
+    if ("application/json".equals(response.headers().firstValue("Content-Type").orElse(null))) {
+      return new TwilioResponse(TwilioResponse.TwilioFailureResponse.fromBody(mapper, response.body()));
+    } else {
+      return new TwilioResponse(new TwilioResponse.TwilioFailureResponse());
+    }
+  }
+
+  public static class TwilioResponse {
+
+    private TwilioSuccessResponse successResponse;
+    private TwilioFailureResponse failureResponse;
+
+    TwilioResponse(TwilioSuccessResponse successResponse) {
+      this.successResponse = successResponse;
+    }
+
+    TwilioResponse(TwilioFailureResponse failureResponse) {
+      this.failureResponse = failureResponse;
+    }
+
+    boolean isSuccess() {
+      return successResponse != null;
+    }
+
+    boolean isFailure() {
+      return failureResponse != null;
+    }
+
+    private static class TwilioSuccessResponse {
+      @JsonProperty
+      private double price;
+
+      static TwilioSuccessResponse fromBody(ObjectMapper mapper, String body) {
+        try {
+          return mapper.readValue(body, TwilioSuccessResponse.class);
+        } catch (IOException e) {
+          logger.warn("Error parsing twilio success response: " + e);
+          return new TwilioSuccessResponse();
+        }
+      }
+    }
+
+    private static class TwilioFailureResponse {
+      @JsonProperty
+      private int status;
+
+      @JsonProperty
+      private String message;
+
+      static TwilioFailureResponse fromBody(ObjectMapper mapper, String body) {
+        try {
+          return mapper.readValue(body, TwilioFailureResponse.class);
+        } catch (IOException e) {
+          logger.warn("Error parsing twilio success response: " + e);
+          return new TwilioFailureResponse();
+        }
+      }
+    }
+  }
 }

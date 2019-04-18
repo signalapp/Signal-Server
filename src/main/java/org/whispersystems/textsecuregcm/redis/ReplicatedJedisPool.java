@@ -35,16 +35,9 @@ public class ReplicatedJedisPool {
   {
     if (replicas.size() < 1) throw new IllegalArgumentException("There must be at least one replica");
 
-    MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-
-    CircuitBreakerConfig config = CircuitBreakerConfig.custom()
-                                                      .failureRateThreshold(circuitBreakerConfiguration.getFailureRateThreshold())
-                                                      .ringBufferSizeInHalfOpenState(circuitBreakerConfiguration.getRingBufferSizeInHalfOpenState())
-                                                      .waitDurationInOpenState(Duration.ofSeconds(circuitBreakerConfiguration.getWaitDurationInOpenStateInSeconds()))
-                                                      .ringBufferSizeInClosedState(circuitBreakerConfiguration.getRingBufferSizeInClosedState())
-                                                      .build();
-
-    CircuitBreaker masterBreaker = CircuitBreaker.of(String.format("%s-master", name), config);
+    MetricRegistry       metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+    CircuitBreakerConfig config         = circuitBreakerConfiguration.toCircuitBreakerConfig();
+    CircuitBreaker       masterBreaker  = CircuitBreaker.of(String.format("%s-master", name), config);
 
     CircuitBreakerUtil.registerMetrics(metricRegistry, masterBreaker, ReplicatedJedisPool.class);
 

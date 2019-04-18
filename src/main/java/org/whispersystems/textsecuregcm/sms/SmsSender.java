@@ -17,11 +17,9 @@
 package org.whispersystems.textsecuregcm.sms;
 
 
-import com.twilio.sdk.TwilioRestException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.Optional;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -31,8 +29,6 @@ public class SmsSender {
   static final String SMS_ANDROID_NG_VERIFICATION_TEXT = "<#> Your Signal verification code: %s\n\ndoDiFGKPO1r";
   static final String SMS_VERIFICATION_TEXT            = "Your Signal verification code: %s";
 
-  private final Logger logger = LoggerFactory.getLogger(SmsSender.class);
-
   private final TwilioSmsSender twilioSender;
 
   public SmsSender(TwilioSmsSender twilioSender)
@@ -40,28 +36,16 @@ public class SmsSender {
     this.twilioSender = twilioSender;
   }
 
-  public void deliverSmsVerification(String destination, Optional<String> clientType, String verificationCode)
-      throws IOException
-  {
+  public void deliverSmsVerification(String destination, Optional<String> clientType, String verificationCode) {
     // Fix up mexico numbers to 'mobile' format just for SMS delivery.
     if (destination.startsWith("+52") && !destination.startsWith("+521")) {
       destination = "+521" + destination.substring(3);
     }
 
-    try {
-      twilioSender.deliverSmsVerification(destination, clientType, verificationCode);
-    } catch (TwilioRestException e) {
-      logger.info("Twilio SMS Failed: " + e.getErrorMessage());
-    }
+    twilioSender.deliverSmsVerification(destination, clientType, verificationCode);
   }
 
-  public void deliverVoxVerification(String destination, String verificationCode, Optional<String> locale)
-      throws IOException
-  {
-    try {
-      twilioSender.deliverVoxVerification(destination, verificationCode, locale);
-    } catch (TwilioRestException e) {
-      logger.info("Twilio Vox Failed: " + e.getErrorMessage());
-    }
+  public void deliverVoxVerification(String destination, String verificationCode, Optional<String> locale) {
+    twilioSender.deliverVoxVerification(destination, verificationCode, locale);
   }
 }

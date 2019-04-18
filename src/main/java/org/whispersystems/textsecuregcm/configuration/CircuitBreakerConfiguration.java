@@ -7,6 +7,10 @@ import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.time.Duration;
+
+import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
+
 public class CircuitBreakerConfiguration {
 
   @JsonProperty
@@ -65,5 +69,14 @@ public class CircuitBreakerConfiguration {
   @VisibleForTesting
   public void setWaitDurationInOpenStateInSeconds(int seconds) {
     this.waitDurationInOpenStateInSeconds = seconds;
+  }
+
+  public CircuitBreakerConfig toCircuitBreakerConfig() {
+    return CircuitBreakerConfig.custom()
+                        .failureRateThreshold(getFailureRateThreshold())
+                        .ringBufferSizeInHalfOpenState(getRingBufferSizeInHalfOpenState())
+                        .waitDurationInOpenState(Duration.ofSeconds(getWaitDurationInOpenStateInSeconds()))
+                        .ringBufferSizeInClosedState(getRingBufferSizeInClosedState())
+                        .build();
   }
 }
