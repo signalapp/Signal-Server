@@ -16,12 +16,14 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
 import java.net.InetAddress;
-import java.net.URL;
+import java.net.URI;
 import java.net.UnknownHostException;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.concurrent.TimeUnit;
@@ -34,18 +36,16 @@ public class JsonMetricsReporter extends ScheduledReporter {
   private final Logger logger  = LoggerFactory.getLogger(JsonMetricsReporter.class);
   private final JsonFactory factory = new JsonFactory();
 
-  private final String token;
-  private final String hostname;
-  private final String host;
+  private final URI        uri;
+  private final HttpClient httpClient;
 
   public JsonMetricsReporter(MetricRegistry registry, String token, String hostname,
                              MetricFilter filter, TimeUnit rateUnit, TimeUnit durationUnit)
       throws UnknownHostException
   {
     super(registry, "json-reporter", filter, rateUnit, durationUnit);
-    this.token    = token;
-    this.hostname = hostname;
-    this.host     = InetAddress.getLocalHost().getHostName();
+    this.httpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).build();
+    this.uri        = URI.create(String.format("https://%s/report/metrics?t=%s&h=%s", hostname, token, InetAddress.getLocalHost().getHostName()));
   }
 
   @Override
@@ -57,14 +57,9 @@ public class JsonMetricsReporter extends ScheduledReporter {
   {
     try {
       logger.debug("Reporting metrics...");
-      URL url = new URL("https", hostname, 443, String.format("/report/metrics?t=%s&h=%s", token, host));
-      HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
-      connection.setDoOutput(true);
-      connection.addRequestProperty("Content-Type", "application/json");
-
-      OutputStream  outputStream = connection.getOutputStream();
-      JsonGenerator json         = factory.createGenerator(outputStream, JsonEncoding.UTF8);
+      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+      JsonGenerator         json         = factory.createGenerator(outputStream, JsonEncoding.UTF8);
 
       json.writeStartObject();
 
@@ -93,7 +88,15 @@ public class JsonMetricsReporter extends ScheduledReporter {
 
       outputStream.close();
 
-      logger.debug("Metrics server response: " + connection.getResponseCode());
+      HttpRequest request = HttpRequest.newBuilder()
+                                       .uri(uri)
+                                       .POST(HttpRequest.BodyPublishers.ofByteArray(outputStream.toByteArray()))
+                                       .header("Content-Type", "application/json")
+                                       .build();
+
+      HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+
+      logger.debug("Metrics server response: " + response.statusCode());
     } catch (IOException e) {
       logger.warn("Error sending metrics", e);
     } catch (Exception e) {
