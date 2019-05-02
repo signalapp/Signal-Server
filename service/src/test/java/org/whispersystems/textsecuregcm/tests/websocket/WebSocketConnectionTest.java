@@ -1,6 +1,5 @@
 package org.whispersystems.textsecuregcm.tests.websocket;
 
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.ByteString;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
 import org.junit.Test;
@@ -39,6 +38,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 import io.dropwizard.auth.basic.BasicCredentials;
 import static org.junit.Assert.*;
@@ -134,14 +134,14 @@ public class WebSocketConnectionTest {
     when(storedMessages.getMessagesForDevice(account.getNumber(), device.getId()))
         .thenReturn(outgoingMessagesList);
 
-    final List<SettableFuture<WebSocketResponseMessage>> futures = new LinkedList<>();
-    final WebSocketClient                                client  = mock(WebSocketClient.class);
+    final List<CompletableFuture<WebSocketResponseMessage>> futures = new LinkedList<>();
+    final WebSocketClient                                   client  = mock(WebSocketClient.class);
 
     when(client.sendRequest(eq("PUT"), eq("/api/v1/message"), ArgumentMatchers.nullable(List.class), ArgumentMatchers.<Optional<byte[]>>any()))
-        .thenAnswer(new Answer<SettableFuture<WebSocketResponseMessage>>() {
+        .thenAnswer(new Answer<CompletableFuture<WebSocketResponseMessage>>() {
           @Override
-          public SettableFuture<WebSocketResponseMessage> answer(InvocationOnMock invocationOnMock) throws Throwable {
-            SettableFuture<WebSocketResponseMessage> future = SettableFuture.create();
+          public CompletableFuture<WebSocketResponseMessage> answer(InvocationOnMock invocationOnMock) throws Throwable {
+            CompletableFuture<WebSocketResponseMessage> future = new CompletableFuture<>();
             futures.add(future);
             return future;
           }
@@ -158,10 +158,10 @@ public class WebSocketConnectionTest {
 
     WebSocketResponseMessage response = mock(WebSocketResponseMessage.class);
     when(response.getStatus()).thenReturn(200);
-    futures.get(1).set(response);
+    futures.get(1).complete(response);
 
-    futures.get(0).setException(new IOException());
-    futures.get(2).setException(new IOException());
+    futures.get(0).completeExceptionally(new IOException());
+    futures.get(2).completeExceptionally(new IOException());
 
     verify(storedMessages, times(1)).delete(eq(account.getNumber()), eq(2L), eq(2L), eq(false));
     verify(receiptSender, times(1)).sendReceipt(eq(account), eq("sender1"), eq(2222L));
@@ -217,14 +217,14 @@ public class WebSocketConnectionTest {
     when(storedMessages.getMessagesForDevice(account.getNumber(), device.getId()))
         .thenReturn(pendingMessagesList);
 
-    final List<SettableFuture<WebSocketResponseMessage>> futures = new LinkedList<>();
-    final WebSocketClient                                client  = mock(WebSocketClient.class);
+    final List<CompletableFuture<WebSocketResponseMessage>> futures = new LinkedList<>();
+    final WebSocketClient                                   client  = mock(WebSocketClient.class);
 
     when(client.sendRequest(eq("PUT"), eq("/api/v1/message"), ArgumentMatchers.nullable(List.class), ArgumentMatchers.<Optional<byte[]>>any()))
-        .thenAnswer(new Answer<SettableFuture<WebSocketResponseMessage>>() {
+        .thenAnswer(new Answer<CompletableFuture<WebSocketResponseMessage>>() {
           @Override
-          public SettableFuture<WebSocketResponseMessage> answer(InvocationOnMock invocationOnMock) throws Throwable {
-            SettableFuture<WebSocketResponseMessage> future = SettableFuture.create();
+          public CompletableFuture<WebSocketResponseMessage> answer(InvocationOnMock invocationOnMock) throws Throwable {
+            CompletableFuture<WebSocketResponseMessage> future = new CompletableFuture<>();
             futures.add(future);
             return future;
           }
@@ -251,8 +251,8 @@ public class WebSocketConnectionTest {
 
     WebSocketResponseMessage response = mock(WebSocketResponseMessage.class);
     when(response.getStatus()).thenReturn(200);
-    futures.get(1).set(response);
-    futures.get(0).setException(new IOException());
+    futures.get(1).complete(response);
+    futures.get(0).completeExceptionally(new IOException());
 
     verify(receiptSender, times(1)).sendReceipt(eq(account), eq("sender2"), eq(secondMessage.getTimestamp()));
     verify(websocketSender, times(1)).queueMessage(eq(account), eq(device), any(Envelope.class));
@@ -322,14 +322,14 @@ public class WebSocketConnectionTest {
     when(storedMessages.getMessagesForDevice(account.getNumber(), device.getId()))
         .thenReturn(pendingMessagesList);
 
-    final List<SettableFuture<WebSocketResponseMessage>> futures = new LinkedList<>();
-    final WebSocketClient                                client  = mock(WebSocketClient.class);
+    final List<CompletableFuture<WebSocketResponseMessage>> futures = new LinkedList<>();
+    final WebSocketClient                                   client  = mock(WebSocketClient.class);
 
     when(client.sendRequest(eq("PUT"), eq("/api/v1/message"), ArgumentMatchers.nullable(List.class), ArgumentMatchers.<Optional<byte[]>>any()))
-        .thenAnswer(new Answer<SettableFuture<WebSocketResponseMessage>>() {
+        .thenAnswer(new Answer<CompletableFuture<WebSocketResponseMessage>>() {
           @Override
-          public SettableFuture<WebSocketResponseMessage> answer(InvocationOnMock invocationOnMock) throws Throwable {
-            SettableFuture<WebSocketResponseMessage> future = SettableFuture.create();
+          public CompletableFuture<WebSocketResponseMessage> answer(InvocationOnMock invocationOnMock) throws Throwable {
+            CompletableFuture<WebSocketResponseMessage> future = new CompletableFuture<>();
             futures.add(future);
             return future;
           }
@@ -347,8 +347,8 @@ public class WebSocketConnectionTest {
 
     WebSocketResponseMessage response = mock(WebSocketResponseMessage.class);
     when(response.getStatus()).thenReturn(200);
-    futures.get(1).set(response);
-    futures.get(0).setException(new IOException());
+    futures.get(1).complete(response);
+    futures.get(0).completeExceptionally(new IOException());
 
     verify(receiptSender, times(1)).sendReceipt(eq(account), eq("sender2"), eq(secondMessage.getTimestamp()));
     verifyNoMoreInteractions(websocketSender);

@@ -3,9 +3,6 @@ package org.whispersystems.textsecuregcm.websocket;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.slf4j.Logger;
@@ -28,8 +25,6 @@ import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.ws.rs.WebApplicationException;
 import java.util.Collections;
 import java.util.Iterator;
@@ -123,35 +118,26 @@ public class WebSocketConnection implements DispatchChannel {
         body   = Optional.ofNullable(new EncryptedOutgoingMessage(message, device.getSignalingKey()).toByteArray());
       }
 
-      ListenableFuture<WebSocketResponseMessage> response = client.sendRequest("PUT", "/api/v1/message", Collections.singletonList(header), body);
+      client.sendRequest("PUT", "/api/v1/message", Collections.singletonList(header), body)
+            .thenAccept(response -> {
+              boolean isReceipt = message.getType() == Envelope.Type.RECEIPT;
 
-      Futures.addCallback(response, new FutureCallback<WebSocketResponseMessage>() {
-        @Override
-        public void onSuccess(@Nullable WebSocketResponseMessage response) {
-          boolean isReceipt = message.getType() == Envelope.Type.RECEIPT;
+              if (isSuccessResponse(response) && !isReceipt) {
+                messageTime.update(System.currentTimeMillis() - message.getTimestamp());
+              }
 
-          if (isSuccessResponse(response) && !isReceipt) {
-            messageTime.update(System.currentTimeMillis() - message.getTimestamp());
-          }
-
-          if (isSuccessResponse(response)) {
-            if (storedMessageInfo.isPresent()) messagesManager.delete(account.getNumber(), device.getId(), storedMessageInfo.get().id, storedMessageInfo.get().cached);
-            if (!isReceipt)                    sendDeliveryReceiptFor(message);
-            if (requery)                       processStoredMessages();
-          } else if (!isSuccessResponse(response) && !storedMessageInfo.isPresent()) {
-            requeueMessage(message);
-          }
-        }
-
-        @Override
-        public void onFailure(@Nonnull Throwable throwable) {
-          if (!storedMessageInfo.isPresent()) requeueMessage(message);
-        }
-
-        private boolean isSuccessResponse(WebSocketResponseMessage response) {
-          return response != null && response.getStatus() >= 200 && response.getStatus() < 300;
-        }
-      });
+              if (isSuccessResponse(response)) {
+                if (storedMessageInfo.isPresent()) messagesManager.delete(account.getNumber(), device.getId(), storedMessageInfo.get().id, storedMessageInfo.get().cached);
+                if (!isReceipt)                    sendDeliveryReceiptFor(message);
+                if (requery)                       processStoredMessages();
+              } else if (!isSuccessResponse(response) && !storedMessageInfo.isPresent()) {
+                requeueMessage(message);
+              }
+            })
+            .exceptionally(throwable ->  {
+              if (!storedMessageInfo.isPresent()) requeueMessage(message);
+              return null;
+            });
     } catch (CryptoEncodingException e) {
       logger.warn("Bad signaling key", e);
     }
@@ -177,6 +163,10 @@ public class WebSocketConnection implements DispatchChannel {
     } catch (WebApplicationException e) {
       logger.warn("Bad federated response for receipt: " + e.getResponse().getStatus());
     }
+  }
+
+  private boolean isSuccessResponse(WebSocketResponseMessage response) {
+    return response != null && response.getStatus() >= 200 && response.getStatus() < 300;
   }
 
   private void processStoredMessages() {

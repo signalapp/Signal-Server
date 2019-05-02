@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2014 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -16,8 +16,6 @@
  */
 package org.whispersystems.websocket;
 
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketException;
@@ -34,20 +32,21 @@ import java.security.SecureRandom;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class WebSocketClient {
 
   private static final Logger logger = LoggerFactory.getLogger(WebSocketClient.class);
 
-  private final Session                                             session;
-  private final RemoteEndpoint                                      remoteEndpoint;
-  private final WebSocketMessageFactory                             messageFactory;
-  private final Map<Long, SettableFuture<WebSocketResponseMessage>> pendingRequestMapper;
+  private final Session                                                session;
+  private final RemoteEndpoint                                         remoteEndpoint;
+  private final WebSocketMessageFactory                                messageFactory;
+  private final Map<Long, CompletableFuture<WebSocketResponseMessage>> pendingRequestMapper;
 
   public WebSocketClient(Session session, RemoteEndpoint remoteEndpoint,
                          WebSocketMessageFactory messageFactory,
-                         Map<Long, SettableFuture<WebSocketResponseMessage>> pendingRequestMapper)
+                         Map<Long, CompletableFuture<WebSocketResponseMessage>> pendingRequestMapper)
   {
     this.session              = session;
     this.remoteEndpoint       = remoteEndpoint;
@@ -55,12 +54,12 @@ public class WebSocketClient {
     this.pendingRequestMapper = pendingRequestMapper;
   }
 
-  public ListenableFuture<WebSocketResponseMessage> sendRequest(String verb, String path,
-                                                                List<String> headers,
-                                                                Optional<byte[]> body)
+  public CompletableFuture<WebSocketResponseMessage> sendRequest(String verb, String path,
+                                                                 List<String> headers,
+                                                                 Optional<byte[]> body)
   {
-    final long                                     requestId = generateRequestId();
-    final SettableFuture<WebSocketResponseMessage> future    = SettableFuture.create();
+    final long                                        requestId = generateRequestId();
+    final CompletableFuture<WebSocketResponseMessage> future    = new CompletableFuture<>();
 
     pendingRequestMapper.put(requestId, future);
 
@@ -72,7 +71,7 @@ public class WebSocketClient {
         public void writeFailed(Throwable x) {
           logger.debug("Write failed", x);
           pendingRequestMapper.remove(requestId);
-          future.setException(x);
+          future.completeExceptionally(x);
         }
 
         @Override
@@ -81,7 +80,7 @@ public class WebSocketClient {
     } catch (WebSocketException e) {
       logger.debug("Write", e);
       pendingRequestMapper.remove(requestId);
-      future.setException(e);
+      future.completeExceptionally(e);
     }
 
     return future;

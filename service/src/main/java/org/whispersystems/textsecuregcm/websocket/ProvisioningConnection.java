@@ -1,8 +1,5 @@
 package org.whispersystems.textsecuregcm.websocket;
 
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,7 +7,6 @@ import org.whispersystems.dispatch.DispatchChannel;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.ProvisioningUuid;
 import org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
 import org.whispersystems.websocket.WebSocketClient;
-import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 
 import java.util.Optional;
 
@@ -32,19 +28,12 @@ public class ProvisioningConnection implements DispatchChannel {
       if (outgoingMessage.getType() == PubSubMessage.Type.DELIVER) {
         Optional<byte[]> body = Optional.of(outgoingMessage.getContent().toByteArray());
 
-        ListenableFuture<WebSocketResponseMessage> response = client.sendRequest("PUT", "/v1/message", null, body);
-
-        Futures.addCallback(response, new FutureCallback<WebSocketResponseMessage>() {
-          @Override
-          public void onSuccess(WebSocketResponseMessage webSocketResponseMessage) {
-            client.close(1001, "All you get.");
-          }
-
-          @Override
-          public void onFailure(Throwable throwable) {
-            client.close(1001, "That's all!");
-          }
-        });
+        client.sendRequest("PUT", "/v1/message", null, body)
+              .thenAccept(response -> client.close(1001, "All you get."))
+              .exceptionally(throwable -> {
+                client.close(1001, "That's all!");
+                return null;
+              });
       }
     } catch (InvalidProtocolBufferException e) {
       logger.warn("Protobuf Error: ", e);

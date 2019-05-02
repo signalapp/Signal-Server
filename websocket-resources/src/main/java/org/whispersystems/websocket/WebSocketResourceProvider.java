@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2014 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -17,7 +17,6 @@
 package org.whispersystems.websocket;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.SettableFuture;
 import org.eclipse.jetty.server.RequestLog;
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
@@ -48,6 +47,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 
@@ -56,7 +56,7 @@ public class WebSocketResourceProvider implements WebSocketListener {
 
   private static final Logger logger = LoggerFactory.getLogger(WebSocketResourceProvider.class);
 
-  private final Map<Long, SettableFuture<WebSocketResponseMessage>> requestMap = new ConcurrentHashMap<>();
+  private final Map<Long, CompletableFuture<WebSocketResponseMessage>> requestMap = new ConcurrentHashMap<>();
 
   private final Object                             authenticated;
   private final WebSocketMessageFactory            messageFactory;
@@ -131,10 +131,10 @@ public class WebSocketResourceProvider implements WebSocketListener {
       context.notifyClosed(statusCode, reason);
 
       for (long requestId : requestMap.keySet()) {
-        SettableFuture outstandingRequest = requestMap.remove(requestId);
+        CompletableFuture outstandingRequest = requestMap.remove(requestId);
 
         if (outstandingRequest != null) {
-          outstandingRequest.setException(new IOException("Connection closed!"));
+          outstandingRequest.completeExceptionally(new IOException("Connection closed!"));
         }
       }
     }
@@ -160,10 +160,10 @@ public class WebSocketResourceProvider implements WebSocketListener {
   }
 
   private void handleResponse(WebSocketResponseMessage responseMessage) {
-    SettableFuture<WebSocketResponseMessage> future = requestMap.remove(responseMessage.getRequestId());
+    CompletableFuture<WebSocketResponseMessage> future = requestMap.remove(responseMessage.getRequestId());
 
     if (future != null) {
-      future.set(responseMessage);
+      future.complete(responseMessage);
     }
   }
 
@@ -197,7 +197,7 @@ public class WebSocketResourceProvider implements WebSocketListener {
                                                                 error.getStatus(),
                                                                 "Error response",
                                                                 headers,
-                                                                Optional.<byte[]>empty());
+                                                                Optional.empty());
 
       remoteEndpoint.sendBytesByFuture(ByteBuffer.wrap(response.toByteArray()));
     }
