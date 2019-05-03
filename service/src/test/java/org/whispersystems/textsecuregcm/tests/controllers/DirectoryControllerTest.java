@@ -74,7 +74,7 @@ public class DirectoryControllerTest {
   public void testFeedbackOk() {
     Response response =
         resources.getJerseyTest()
-                 .target("/v1/directory/feedback-v2/ok")
+                 .target("/v1/directory/feedback-v3/ok")
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                  .put(Entity.entity(new DirectoryFeedbackRequest(Optional.of("test reason")), MediaType.APPLICATION_JSON_TYPE));
@@ -85,7 +85,7 @@ public class DirectoryControllerTest {
   public void testNotFoundFeedback() {
     Response response =
         resources.getJerseyTest()
-                 .target("/v1/directory/feedback-v2/test-not-found")
+                 .target("/v1/directory/feedback-v3/test-not-found")
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                  .put(Entity.entity(new DirectoryFeedbackRequest(Optional.of("test reason")), MediaType.APPLICATION_JSON_TYPE));
@@ -96,7 +96,7 @@ public class DirectoryControllerTest {
   public void testFeedbackEmptyRequest() {
     Response response =
         resources.getJerseyTest()
-                 .target("/v1/directory/feedback-v2/mismatch")
+                 .target("/v1/directory/feedback-v3/mismatch")
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                  .put(Entity.json(""));
@@ -107,7 +107,7 @@ public class DirectoryControllerTest {
   public void testFeedbackNoReason() {
     Response response =
         resources.getJerseyTest()
-                 .target("/v1/directory/feedback-v2/mismatch")
+                 .target("/v1/directory/feedback-v3/mismatch")
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                  .put(Entity.entity(new DirectoryFeedbackRequest(Optional.empty()), MediaType.APPLICATION_JSON_TYPE));
@@ -118,7 +118,7 @@ public class DirectoryControllerTest {
   public void testFeedbackEmptyReason() {
     Response response =
         resources.getJerseyTest()
-                 .target("/v1/directory/feedback-v2/mismatch")
+                 .target("/v1/directory/feedback-v3/mismatch")
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                  .put(Entity.entity(new DirectoryFeedbackRequest(Optional.of("")), MediaType.APPLICATION_JSON_TYPE));
@@ -129,7 +129,7 @@ public class DirectoryControllerTest {
   public void testFeedbackTooLargeReason() {
     Response response =
         resources.getJerseyTest()
-                 .target("/v1/directory/feedback-v2/mismatch")
+                 .target("/v1/directory/feedback-v3/mismatch")
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                  .put(Entity.entity(new DirectoryFeedbackRequest(Optional.of(new String(new char[102400]))), MediaType.APPLICATION_JSON_TYPE));
