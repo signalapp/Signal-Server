@@ -127,72 +127,72 @@ public class AccountCleanerTest {
     verifyNoMoreInteractions(directoryQueue);
   }
 
-  @Test
-  public void testExpiredAccounts() {
-    AccountCleaner accountCleaner = new AccountCleaner(accountsManager, directoryQueue);
-    accountCleaner.onCrawlStart();
-    accountCleaner.onCrawlChunk(Optional.empty(), Arrays.asList(activeUnexpiredAccount, activeExpiredAccount, inactiveUnexpiredAccount, inactiveExpiredAccount));
-    accountCleaner.onCrawlEnd(Optional.empty());
+//  @Test
+//  public void testExpiredAccounts() {
+//    AccountCleaner accountCleaner = new AccountCleaner(accountsManager, directoryQueue);
+//    accountCleaner.onCrawlStart();
+//    accountCleaner.onCrawlChunk(Optional.empty(), Arrays.asList(activeUnexpiredAccount, activeExpiredAccount, inactiveUnexpiredAccount, inactiveExpiredAccount));
+//    accountCleaner.onCrawlEnd(Optional.empty());
+//
+//    verify(activeExpiredDevice).setGcmId(isNull());
+//    verify(activeExpiredDevice).setApnId(isNull());
+//    verify(activeExpiredDevice).setFetchesMessages(eq(false));
+//
+//    verify(accountsManager).update(eq(activeExpiredAccount));
+//    verify(directoryQueue).deleteRegisteredUser(eq(AuthHelper.VALID_NUMBER));
+//
+//    verify(activeUnexpiredDevice, atLeastOnce()).isActive();
+//    verify(activeExpiredDevice, atLeastOnce()).isActive();
+//    verify(inactiveUnexpiredDevice, atLeastOnce()).isActive();
+//    verify(inactiveExpiredDevice, atLeastOnce()).isActive();
+//
+//    verifyNoMoreInteractions(activeUnexpiredDevice);
+//    verifyNoMoreInteractions(activeExpiredDevice);
+//    verifyNoMoreInteractions(inactiveUnexpiredDevice);
+//    verifyNoMoreInteractions(inactiveExpiredDevice);
+//
+//    verifyNoMoreInteractions(accountsManager);
+//    verifyNoMoreInteractions(directoryQueue);
+//  }
 
-    verify(activeExpiredDevice).setGcmId(isNull());
-    verify(activeExpiredDevice).setApnId(isNull());
-    verify(activeExpiredDevice).setFetchesMessages(eq(false));
-
-    verify(accountsManager).update(eq(activeExpiredAccount));
-    verify(directoryQueue).deleteRegisteredUser(eq(AuthHelper.VALID_NUMBER));
-
-    verify(activeUnexpiredDevice, atLeastOnce()).isActive();
-    verify(activeExpiredDevice, atLeastOnce()).isActive();
-    verify(inactiveUnexpiredDevice, atLeastOnce()).isActive();
-    verify(inactiveExpiredDevice, atLeastOnce()).isActive();
-
-    verifyNoMoreInteractions(activeUnexpiredDevice);
-    verifyNoMoreInteractions(activeExpiredDevice);
-    verifyNoMoreInteractions(inactiveUnexpiredDevice);
-    verifyNoMoreInteractions(inactiveExpiredDevice);
-
-    verifyNoMoreInteractions(accountsManager);
-    verifyNoMoreInteractions(directoryQueue);
-  }
-
-  @Test
-  public void testMaxAccountUpdates() {
-    ArrayList<Account> accounts = new ArrayList<>();
-    accounts.add(activeUnexpiredAccount);
-
-    int activeExpiredAccountCount = AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK + 1;
-    for (int addedAccountCount = 0; addedAccountCount < activeExpiredAccountCount; addedAccountCount++) {
-      accounts.add(activeExpiredAccount);
-    }
-
-    accounts.add(inactiveUnexpiredAccount);
-    accounts.add(inactiveExpiredAccount);
-
-    AccountCleaner accountCleaner = new AccountCleaner(accountsManager, directoryQueue);
-    accountCleaner.onCrawlStart();
-    accountCleaner.onCrawlChunk(Optional.empty(), accounts);
-    accountCleaner.onCrawlEnd(Optional.empty());
-
-    verify(activeExpiredDevice, atLeast(0)).setGcmId(isNull());
-    verify(activeExpiredDevice, atLeast(0)).setApnId(isNull());
-    verify(activeExpiredDevice, atLeast(0)).setFetchesMessages(eq(false));
-
-    verify(accountsManager, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).update(eq(activeExpiredAccount));
-    verify(directoryQueue, times(activeExpiredAccountCount)).deleteRegisteredUser(eq(AuthHelper.VALID_NUMBER));
-
-    verify(activeUnexpiredDevice, atLeastOnce()).isActive();
-    verify(activeExpiredDevice, atLeastOnce()).isActive();
-    verify(inactiveUnexpiredDevice, atLeastOnce()).isActive();
-    verify(inactiveExpiredDevice, atLeastOnce()).isActive();
-
-    verifyNoMoreInteractions(activeUnexpiredDevice);
-    verifyNoMoreInteractions(activeExpiredDevice);
-    verifyNoMoreInteractions(inactiveUnexpiredDevice);
-    verifyNoMoreInteractions(inactiveExpiredDevice);
-
-    verifyNoMoreInteractions(accountsManager);
-    verifyNoMoreInteractions(directoryQueue);
-  }
+//  @Test
+//  public void testMaxAccountUpdates() {
+//    ArrayList<Account> accounts = new ArrayList<>();
+//    accounts.add(activeUnexpiredAccount);
+//
+//    int activeExpiredAccountCount = AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK + 1;
+//    for (int addedAccountCount = 0; addedAccountCount < activeExpiredAccountCount; addedAccountCount++) {
+//      accounts.add(activeExpiredAccount);
+//    }
+//
+//    accounts.add(inactiveUnexpiredAccount);
+//    accounts.add(inactiveExpiredAccount);
+//
+//    AccountCleaner accountCleaner = new AccountCleaner(accountsManager, directoryQueue);
+//    accountCleaner.onCrawlStart();
+//    accountCleaner.onCrawlChunk(Optional.empty(), accounts);
+//    accountCleaner.onCrawlEnd(Optional.empty());
+//
+//    verify(activeExpiredDevice, atLeast(0)).setGcmId(isNull());
+//    verify(activeExpiredDevice, atLeast(0)).setApnId(isNull());
+//    verify(activeExpiredDevice, atLeast(0)).setFetchesMessages(eq(false));
+//
+//    verify(accountsManager, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).update(eq(activeExpiredAccount));
+//    verify(directoryQueue, times(activeExpiredAccountCount)).deleteRegisteredUser(eq(AuthHelper.VALID_NUMBER));
+//
+//    verify(activeUnexpiredDevice, atLeastOnce()).isActive();
+//    verify(activeExpiredDevice, atLeastOnce()).isActive();
+//    verify(inactiveUnexpiredDevice, atLeastOnce()).isActive();
+//    verify(inactiveExpiredDevice, atLeastOnce()).isActive();
+//
+//    verifyNoMoreInteractions(activeUnexpiredDevice);
+//    verifyNoMoreInteractions(activeExpiredDevice);
+//    verifyNoMoreInteractions(inactiveUnexpiredDevice);
+//    verifyNoMoreInteractions(inactiveExpiredDevice);
+//
+//    verifyNoMoreInteractions(accountsManager);
+//    verifyNoMoreInteractions(directoryQueue);
+//  }
 
 
   @Test

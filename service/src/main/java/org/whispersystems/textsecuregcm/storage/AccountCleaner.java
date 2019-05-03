@@ -59,16 +59,16 @@ public class AccountCleaner implements AccountDatabaseCrawlerListener {
       {
         expiredAccountsMeter.mark();
 
-        Device masterDevice = account.getMasterDevice().get();
-        masterDevice.setFetchesMessages(false);
-        masterDevice.setApnId(null);
-        masterDevice.setGcmId(null);
-
-        if (accountUpdateCount < MAX_ACCOUNT_UPDATES_PER_CHUNK) {
-          accountUpdateCount++;
-          accountsManager.update(account);
-        }
-        directoryQueue.deleteRegisteredUser(account.getNumber());
+//        Device masterDevice = account.getMasterDevice().get();
+//        masterDevice.setFetchesMessages(false);
+//        masterDevice.setApnId(null);
+//        masterDevice.setGcmId(null);
+//
+//        if (accountUpdateCount < MAX_ACCOUNT_UPDATES_PER_CHUNK) {
+//          accountUpdateCount++;
+//          accountsManager.update(account);
+//        }
+//        directoryQueue.deleteRegisteredUser(account.getNumber());
       }
     }
   }
