@@ -33,6 +33,9 @@ public class AccountCleaner implements AccountDatabaseCrawlerListener {
   private static final MetricRegistry metricRegistry       = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private static final Meter          expiredAccountsMeter = metricRegistry.meter(name(AccountCleaner.class, "expiredAccounts"));
 
+  @VisibleForTesting
+  public static final int MAX_ACCOUNT_UPDATES_PER_CHUNK = 40;
+
   private final AccountsManager accountsManager;
   private final DirectoryQueue  directoryQueue;
 
@@ -47,7 +50,8 @@ public class AccountCleaner implements AccountDatabaseCrawlerListener {
 
   @Override
   public void onCrawlChunk(Optional<String> fromNumber, List<Account> chunkAccounts) {
-    long nowMs = System.currentTimeMillis();
+    long nowMs             = System.currentTimeMillis();
+    int accountUpdateCount = 0;
     for (Account account : chunkAccounts) {
       if (account.getMasterDevice().isPresent() &&
           account.getMasterDevice().get().isActive() &&
@@ -60,7 +64,10 @@ public class AccountCleaner implements AccountDatabaseCrawlerListener {
         masterDevice.setApnId(null);
         masterDevice.setGcmId(null);
 
-        // accountsManager.update(account);
+        if (accountUpdateCount < MAX_ACCOUNT_UPDATES_PER_CHUNK) {
+          accountUpdateCount++;
+          accountsManager.update(account);
+        }
         directoryQueue.deleteRegisteredUser(account.getNumber());
       }
     }

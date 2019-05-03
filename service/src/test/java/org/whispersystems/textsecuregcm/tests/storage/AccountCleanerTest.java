@@ -25,6 +25,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Optional;
@@ -34,8 +35,10 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -135,7 +138,7 @@ public class AccountCleanerTest {
     verify(activeExpiredDevice).setApnId(isNull());
     verify(activeExpiredDevice).setFetchesMessages(eq(false));
 
-    //verify(accountsManager).update(eq(activeExpiredAccount));
+    verify(accountsManager).update(eq(activeExpiredAccount));
     verify(directoryQueue).deleteRegisteredUser(eq(AuthHelper.VALID_NUMBER));
 
     verify(activeUnexpiredDevice, atLeastOnce()).isActive();
@@ -151,6 +154,46 @@ public class AccountCleanerTest {
     verifyNoMoreInteractions(accountsManager);
     verifyNoMoreInteractions(directoryQueue);
   }
+
+  @Test
+  public void testMaxAccountUpdates() {
+    ArrayList<Account> accounts = new ArrayList<>();
+    accounts.add(activeUnexpiredAccount);
+
+    int activeExpiredAccountCount = AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK + 1;
+    for (int addedAccountCount = 0; addedAccountCount < activeExpiredAccountCount; addedAccountCount++) {
+      accounts.add(activeExpiredAccount);
+    }
+
+    accounts.add(inactiveUnexpiredAccount);
+    accounts.add(inactiveExpiredAccount);
+
+    AccountCleaner accountCleaner = new AccountCleaner(accountsManager, directoryQueue);
+    accountCleaner.onCrawlStart();
+    accountCleaner.onCrawlChunk(Optional.empty(), accounts);
+    accountCleaner.onCrawlEnd(Optional.empty());
+
+    verify(activeExpiredDevice, atLeast(0)).setGcmId(isNull());
+    verify(activeExpiredDevice, atLeast(0)).setApnId(isNull());
+    verify(activeExpiredDevice, atLeast(0)).setFetchesMessages(eq(false));
+
+    verify(accountsManager, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).update(eq(activeExpiredAccount));
+    verify(directoryQueue, times(activeExpiredAccountCount)).deleteRegisteredUser(eq(AuthHelper.VALID_NUMBER));
+
+    verify(activeUnexpiredDevice, atLeastOnce()).isActive();
+    verify(activeExpiredDevice, atLeastOnce()).isActive();
+    verify(inactiveUnexpiredDevice, atLeastOnce()).isActive();
+    verify(inactiveExpiredDevice, atLeastOnce()).isActive();
+
+    verifyNoMoreInteractions(activeUnexpiredDevice);
+    verifyNoMoreInteractions(activeExpiredDevice);
+    verifyNoMoreInteractions(inactiveUnexpiredDevice);
+    verifyNoMoreInteractions(inactiveExpiredDevice);
+
+    verifyNoMoreInteractions(accountsManager);
+    verifyNoMoreInteractions(directoryQueue);
+  }
+
 
   @Test
   public void testIsAccountExpired() {
