@@ -18,7 +18,7 @@
         <dropwizard.version>1.3.9</dropwizard.version>
         <jackson.api.version>2.9.8</jackson.api.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <TextSecureServer.version>2.57</TextSecureServer.version>
+        <TextSecureServer.version>2.58</TextSecureServer.version>
     </properties>
 
     <groupId>org.whispersystems.textsecure</groupId>
