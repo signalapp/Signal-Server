@@ -111,19 +111,19 @@ public class GCMSender implements Managed {
     GcmMessage message = (GcmMessage)result.getContext();
     logger.warn("Got GCM unregistered notice! " + message.getGcmId());
 
-    Optional<Account> account = getAccountForEvent(message);
-
-    if (account.isPresent()) {
-      Device device = account.get().getDevice(message.getDeviceId()).get();
-      device.setGcmId(null);
-      device.setFetchesMessages(false);
-
-      accountsManager.update(account.get());
-
-      if (!account.get().isActive()) {
-        directoryQueue.deleteRegisteredUser(account.get().getNumber());
-      }
-    }
+//    Optional<Account> account = getAccountForEvent(message);
+//
+//    if (account.isPresent()) {
+//      Device device = account.get().getDevice(message.getDeviceId()).get();
+//      device.setGcmId(null);
+//      device.setFetchesMessages(false);
+//
+//      accountsManager.update(account.get());
+//
+//      if (!account.get().isActive()) {
+//        directoryQueue.deleteRegisteredUser(account.get().getNumber());
+//      }
+//    }
 
     unregistered.mark();
   }
