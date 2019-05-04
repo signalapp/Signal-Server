@@ -191,17 +191,13 @@ public class Device {
     this.signalingKey = signalingKey;
   }
 
-  public boolean isActive() {
+  public boolean isEnabled() {
     boolean hasChannel = fetchesMessages || !Util.isEmpty(getApnId()) || !Util.isEmpty(getGcmId());
 
     return (id == MASTER_ID && hasChannel && signedPreKey != null) ||
-           (id != MASTER_ID && hasChannel && signedPreKey != null && !isIdleInactive());
+           (id != MASTER_ID && hasChannel && signedPreKey != null && lastSeen > (System.currentTimeMillis() - TimeUnit.DAYS.toMillis(30)));
   }
-
-  public boolean isIdleInactive() {
-    return id != MASTER_ID && lastSeen < (System.currentTimeMillis() - TimeUnit.DAYS.toMillis(30));
-  }
-
+  
   public boolean getFetchesMessages() {
     return fetchesMessages;
   }

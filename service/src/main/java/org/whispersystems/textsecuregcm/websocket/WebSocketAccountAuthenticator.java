@@ -3,8 +3,6 @@ package org.whispersystems.textsecuregcm.websocket;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.websocket.auth.AuthenticationException;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
 
 import java.util.List;
@@ -23,25 +21,21 @@ public class WebSocketAccountAuthenticator implements WebSocketAuthenticator<Acc
   }
 
   @Override
-  public AuthenticationResult<Account> authenticate(UpgradeRequest request) throws AuthenticationException {
-    try {
-      Map<String, List<String>> parameters = request.getParameterMap();
-      List<String>              usernames  = parameters.get("login");
-      List<String>              passwords  = parameters.get("password");
+  public AuthenticationResult<Account> authenticate(UpgradeRequest request) {
+    Map<String, List<String>> parameters = request.getParameterMap();
+    List<String>              usernames  = parameters.get("login");
+    List<String>              passwords  = parameters.get("password");
 
-      if (usernames == null || usernames.size() == 0 ||
-          passwords == null || passwords.size() == 0)
-      {
-        return new AuthenticationResult<>(Optional.empty(), false);
-      }
-
-      BasicCredentials credentials = new BasicCredentials(usernames.get(0).replace(" ", "+"),
-                                                          passwords.get(0).replace(" ", "+"));
-      
-      return new AuthenticationResult<>(accountAuthenticator.authenticate(credentials), true);
-    } catch (io.dropwizard.auth.AuthenticationException e) {
-      throw new AuthenticationException(e);
+    if (usernames == null || usernames.size() == 0 ||
+        passwords == null || passwords.size() == 0)
+    {
+      return new AuthenticationResult<>(Optional.empty(), false);
     }
+
+    BasicCredentials credentials = new BasicCredentials(usernames.get(0).replace(" ", "+"),
+                                                        passwords.get(0).replace(" ", "+"));
+
+    return new AuthenticationResult<>(accountAuthenticator.authenticate(credentials), true);
   }
 
 }

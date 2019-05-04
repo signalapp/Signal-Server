@@ -25,7 +25,6 @@ import org.whispersystems.textsecuregcm.entities.AttachmentUri;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.s3.UrlSigner;
 import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.util.Conversions;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -34,7 +33,6 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import java.io.IOException;
 import java.net.URL;
-import java.security.SecureRandom;
 import java.util.stream.Stream;
 
 import io.dropwizard.auth.Auth;

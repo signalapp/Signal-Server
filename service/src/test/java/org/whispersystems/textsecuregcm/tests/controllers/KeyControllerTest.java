@@ -1,10 +1,12 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
+import com.google.common.collect.ImmutableSet;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
+import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.controllers.KeysController;
 import org.whispersystems.textsecuregcm.entities.PreKey;
@@ -31,7 +33,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import io.dropwizard.auth.AuthValueFactoryProvider;
+import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -67,7 +69,7 @@ public class KeyControllerTest {
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
                                                             .addProvider(AuthHelper.getAuthFilter())
-                                                            .addProvider(new AuthValueFactoryProvider.Binder<>(Account.class))
+                                                            .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new KeysController(rateLimiters, keys, accounts, directoryQueue))
                                                             .build();
@@ -90,10 +92,10 @@ public class KeyControllerTest {
     when(sampleDevice2.getRegistrationId()).thenReturn(SAMPLE_REGISTRATION_ID2);
     when(sampleDevice3.getRegistrationId()).thenReturn(SAMPLE_REGISTRATION_ID2);
     when(sampleDevice4.getRegistrationId()).thenReturn(SAMPLE_REGISTRATION_ID4);
-    when(sampleDevice.isActive()).thenReturn(true);
-    when(sampleDevice2.isActive()).thenReturn(true);
-    when(sampleDevice3.isActive()).thenReturn(false);
-    when(sampleDevice4.isActive()).thenReturn(true);
+    when(sampleDevice.isEnabled()).thenReturn(true);
+    when(sampleDevice2.isEnabled()).thenReturn(true);
+    when(sampleDevice3.isEnabled()).thenReturn(false);
+    when(sampleDevice4.isEnabled()).thenReturn(true);
     when(sampleDevice.getSignedPreKey()).thenReturn(SAMPLE_SIGNED_KEY);
     when(sampleDevice2.getSignedPreKey()).thenReturn(SAMPLE_SIGNED_KEY2);
     when(sampleDevice3.getSignedPreKey()).thenReturn(SAMPLE_SIGNED_KEY3);
@@ -109,7 +111,7 @@ public class KeyControllerTest {
     when(existsAccount.getDevice(4L)).thenReturn(Optional.of(sampleDevice4));
     when(existsAccount.getDevice(22L)).thenReturn(Optional.<Device>empty());
     when(existsAccount.getDevices()).thenReturn(allDevices);
-    when(existsAccount.isActive()).thenReturn(true);
+    when(existsAccount.isEnabled()).thenReturn(true);
     when(existsAccount.getIdentityKey()).thenReturn("existsidentitykey");
     when(existsAccount.getNumber()).thenReturn(EXISTS_NUMBER);
     when(existsAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of("1337".getBytes()));
@@ -178,6 +180,21 @@ public class KeyControllerTest {
 
     verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(test));
     verify(accounts).update(eq(AuthHelper.VALID_ACCOUNT));
+  }
+
+  @Test
+  public void disabledPutSignedPreKeyV2() throws Exception {
+    SignedPreKey   test     = new SignedPreKey(9999, "fooozzz", "baaarzzz");
+    Response response = resources.getJerseyTest()
+                                 .target("/v2/keys/signed")
+                                 .request()
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_NUMBER, AuthHelper.DISABLED_PASSWORD))
+                                 .put(Entity.entity(test, MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(204);
+
+    verify(AuthHelper.DISABLED_DEVICE).setSignedPreKey(eq(test));
+    verify(accounts).update(eq(AuthHelper.DISABLED_ACCOUNT));
   }
 
   @Test
@@ -365,6 +382,40 @@ public class KeyControllerTest {
     verify(AuthHelper.VALID_ACCOUNT).setIdentityKey(eq("barbar"));
     verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(signedPreKey));
     verify(accounts).update(AuthHelper.VALID_ACCOUNT);
+  }
+
+  @Test
+  public void disabledPutKeysTestV2() throws Exception {
+    final PreKey       preKey       = new PreKey(31337, "foobar");
+    final SignedPreKey signedPreKey = new SignedPreKey(31338, "foobaz", "myvalidsig");
+    final String       identityKey  = "barbar";
+
+    List<PreKey> preKeys = new LinkedList<PreKey>() {{
+      add(preKey);
+    }};
+
+    PreKeyState preKeyState = new PreKeyState(identityKey, signedPreKey, preKeys);
+
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v2/keys")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_NUMBER, AuthHelper.DISABLED_PASSWORD))
+                 .put(Entity.entity(preKeyState, MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(204);
+
+    ArgumentCaptor<List> listCaptor = ArgumentCaptor.forClass(List.class);
+    verify(keys).store(eq(AuthHelper.DISABLED_NUMBER), eq(1L), listCaptor.capture());
+
+    List<PreKey> capturedList = listCaptor.getValue();
+    assertThat(capturedList.size()).isEqualTo(1);
+    assertThat(capturedList.get(0).getKeyId()).isEqualTo(31337);
+    assertThat(capturedList.get(0).getPublicKey()).isEqualTo("foobar");
+
+    verify(AuthHelper.DISABLED_ACCOUNT).setIdentityKey(eq("barbar"));
+    verify(AuthHelper.DISABLED_DEVICE).setSignedPreKey(eq(signedPreKey));
+    verify(accounts).update(AuthHelper.DISABLED_ACCOUNT);
   }
 
 

@@ -93,7 +93,7 @@ public class AccountsManager {
   }
 
   private void updateDirectory(Account account) {
-    if (account.isActive()) {
+    if (account.isEnabled()) {
       byte[]        token         = Util.getContactToken(account.getNumber());
       ClientContact clientContact = new ClientContact(token, null, true, true);
       directory.add(clientContact);

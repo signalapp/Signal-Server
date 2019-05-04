@@ -149,7 +149,7 @@ public class MessageController {
         }
       }
 
-      return new SendMessageResponse(!isSyncMessage && source.isPresent() && source.get().getActiveDeviceCount() > 1);
+      return new SendMessageResponse(!isSyncMessage && source.isPresent() && source.get().getEnabledDeviceCount() > 1);
     } catch (NoSuchUserException e) {
       throw new WebApplicationException(Response.status(404).build());
     } catch (MismatchedDevicesException e) {
@@ -301,7 +301,7 @@ public class MessageController {
     }
 
     for (Device device : account.getDevices()) {
-      if (device.isActive() &&
+      if (device.isEnabled() &&
           !(isSyncMessage && device.getId() == account.getAuthenticatedDevice().get().getId()))
       {
         accountDeviceIds.add(device.getId());

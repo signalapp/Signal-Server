@@ -1,14 +1,18 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
+import com.google.common.collect.ImmutableSet;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
+import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
+import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -36,7 +40,7 @@ import java.util.HashMap;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import io.dropwizard.auth.AuthValueFactoryProvider;
+import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Matchers.anyString;
@@ -80,7 +84,7 @@ public class AccountControllerTest {
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
                                                             .addProvider(AuthHelper.getAuthFilter())
-                                                            .addProvider(new AuthValueFactoryProvider.Binder<>(Account.class))
+                                                            .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
                                                             .addProvider(new RateLimitExceededExceptionMapper())
                                                             .setMapper(SystemMapper.getMapper())
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
@@ -505,6 +509,51 @@ public class AccountControllerTest {
     verify(AuthHelper.VALID_ACCOUNT, never()).setPin(anyString());
   }
 
+  @Test
+  public void testSetPinDisabled() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/accounts/pin/")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_NUMBER, AuthHelper.DISABLED_PASSWORD))
+                 .put(Entity.json(new RegistrationLock("31337")));
+
+    assertThat(response.getStatus()).isEqualTo(401);
+
+    verify(AuthHelper.VALID_ACCOUNT, never()).setPin(anyString());
+  }
+
+
+  @Test
+  public void testSetGcmId() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/accounts/gcm/")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_NUMBER, AuthHelper.DISABLED_PASSWORD))
+                 .put(Entity.json(new GcmRegistrationId("c00lz0rz")));
+
+    assertThat(response.getStatus()).isEqualTo(204);
+
+    verify(AuthHelper.DISABLED_DEVICE, times(1)).setGcmId(eq("c00lz0rz"));
+    verify(accountsManager, times(1)).update(eq(AuthHelper.DISABLED_ACCOUNT));
+  }
+
+  @Test
+  public void testSetApnId() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/accounts/apn/")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_NUMBER, AuthHelper.DISABLED_PASSWORD))
+                 .put(Entity.json(new ApnRegistrationId("first", "second")));
+
+    assertThat(response.getStatus()).isEqualTo(204);
+
+    verify(AuthHelper.DISABLED_DEVICE, times(1)).setApnId(eq("first"));
+    verify(AuthHelper.DISABLED_DEVICE, times(1)).setVoipApnId(eq("second"));
+    verify(accountsManager, times(1)).update(eq(AuthHelper.DISABLED_ACCOUNT));
+  }
 
 
 }

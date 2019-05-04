@@ -20,7 +20,6 @@ import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
@@ -80,7 +79,7 @@ public class DirectoryReconciler implements AccountDatabaseCrawlerListener {
 
     try {
       for (Account account : accounts) {
-        if (account.isActive()) {
+        if (account.isEnabled()) {
           byte[]        token         = Util.getContactToken(account.getNumber());
           ClientContact clientContact = new ClientContact(token, null, true, true);
           directoryManager.add(batchOperation, clientContact);
@@ -93,9 +92,10 @@ public class DirectoryReconciler implements AccountDatabaseCrawlerListener {
     }
   }
 
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   private DirectoryReconciliationRequest createChunkRequest(Optional<String> fromNumber, List<Account> accounts) {
     List<String> numbers = accounts.stream()
-                                   .filter(Account::isActive)
+                                   .filter(Account::isEnabled)
                                    .map(Account::getNumber)
                                    .collect(Collectors.toList());
 

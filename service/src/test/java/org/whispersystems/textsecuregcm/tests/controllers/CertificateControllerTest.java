@@ -1,9 +1,11 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
+import com.google.common.collect.ImmutableSet;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
+import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.controllers.CertificateController;
 import org.whispersystems.textsecuregcm.crypto.Curve;
@@ -19,7 +21,7 @@ import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.util.Arrays;
 
-import io.dropwizard.auth.AuthValueFactoryProvider;
+import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
 import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertEquals;
@@ -46,7 +48,7 @@ public class CertificateControllerTest {
   @ClassRule
   public static final ResourceTestRule resources = ResourceTestRule.builder()
                                                                    .addProvider(AuthHelper.getAuthFilter())
-                                                                   .addProvider(new AuthValueFactoryProvider.Binder<>(Account.class))
+                                                                   .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
                                                                    .setMapper(SystemMapper.getMapper())
                                                                    .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                                    .addResource(new CertificateController(certificateGenerator))
@@ -109,5 +111,17 @@ public class CertificateControllerTest {
 
     assertEquals(response.getStatus(), 401);
   }
+
+  @Test
+  public void testDisabledAuthentication() throws Exception {
+    Response response = resources.getJerseyTest()
+                                 .target("/v1/certificate/delivery")
+                                 .request()
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_NUMBER, AuthHelper.DISABLED_PASSWORD))
+                                 .get();
+
+    assertEquals(response.getStatus(), 401);
+  }
+
 
 }

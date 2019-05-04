@@ -1,9 +1,11 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
+import com.google.common.collect.ImmutableSet;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.configuration.ProfilesConfiguration;
 import org.whispersystems.textsecuregcm.controllers.ProfileController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
@@ -18,7 +20,7 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 import javax.ws.rs.core.Response;
 import java.util.Optional;
 
-import io.dropwizard.auth.AuthValueFactoryProvider;
+import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.assertj.core.api.Java6Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -40,7 +42,7 @@ public class ProfileControllerTest {
   @ClassRule
   public static final ResourceTestRule resources = ResourceTestRule.builder()
                                                                    .addProvider(AuthHelper.getAuthFilter())
-                                                                   .addProvider(new AuthValueFactoryProvider.Binder<>(Account.class))
+                                                                   .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
                                                                    .setMapper(SystemMapper.getMapper())
                                                                    .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                                    .addResource(new ProfileController(rateLimiters,
@@ -58,7 +60,7 @@ public class ProfileControllerTest {
     when(profileAccount.getProfileName()).thenReturn("baz");
     when(profileAccount.getAvatar()).thenReturn("profiles/bang");
     when(profileAccount.getAvatarDigest()).thenReturn("buh");
-    when(profileAccount.isActive()).thenReturn(true);
+    when(profileAccount.isEnabled()).thenReturn(true);
 
     when(accountsManager.get(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(profileAccount));
   }
@@ -86,6 +88,17 @@ public class ProfileControllerTest {
     Response response = resources.getJerseyTest()
                                  .target("/v1/profile/" + AuthHelper.VALID_NUMBER_TWO)
                                  .request()
+                                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(401);
+  }
+
+  @Test
+  public void testProfileGetDisabled() throws Exception {
+    Response response = resources.getJerseyTest()
+                                 .target("/v1/profile/" + AuthHelper.VALID_NUMBER_TWO)
+                                 .request()
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_NUMBER, AuthHelper.DISABLED_PASSWORD))
                                  .get();
 
     assertThat(response.getStatus()).isEqualTo(401);

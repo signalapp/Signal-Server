@@ -25,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.AuthorizationHeader;
+import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.auth.InvalidAuthorizationHeaderException;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
@@ -63,7 +64,6 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Arrays;
@@ -260,9 +260,10 @@ public class AccountController {
   @PUT
   @Path("/gcm/")
   @Consumes(MediaType.APPLICATION_JSON)
-  public void setGcmRegistrationId(@Auth Account account, @Valid GcmRegistrationId registrationId) {
-    Device  device           = account.getAuthenticatedDevice().get();
-    boolean wasAccountActive = account.isActive();
+  public void setGcmRegistrationId(@Auth DisabledPermittedAccount disabledPermittedAccount, @Valid GcmRegistrationId registrationId) {
+    Account account           = disabledPermittedAccount.getAccount();
+    Device  device            = account.getAuthenticatedDevice().get();
+    boolean wasAccountEnabled = account.isEnabled();
 
     if (device.getGcmId() != null &&
         device.getGcmId().equals(registrationId.getGcmRegistrationId()))
@@ -277,7 +278,7 @@ public class AccountController {
 
     accounts.update(account);
 
-    if (!wasAccountActive && account.isActive()) {
+    if (!wasAccountEnabled && account.isEnabled()) {
       directoryQueue.addRegisteredUser(account.getNumber());
     }
   }
@@ -285,14 +286,15 @@ public class AccountController {
   @Timed
   @DELETE
   @Path("/gcm/")
-  public void deleteGcmRegistrationId(@Auth Account account) {
-    Device device = account.getAuthenticatedDevice().get();
+  public void deleteGcmRegistrationId(@Auth DisabledPermittedAccount disabledPermittedAccount) {
+    Account account = disabledPermittedAccount.getAccount();
+    Device  device  = account.getAuthenticatedDevice().get();
     device.setGcmId(null);
     device.setFetchesMessages(false);
 
     accounts.update(account);
 
-    if (!account.isActive()) {
+    if (!account.isEnabled()) {
       directoryQueue.deleteRegisteredUser(account.getNumber());
     }
   }
@@ -301,9 +303,10 @@ public class AccountController {
   @PUT
   @Path("/apn/")
   @Consumes(MediaType.APPLICATION_JSON)
-  public void setApnRegistrationId(@Auth Account account, @Valid ApnRegistrationId registrationId) {
-    Device  device           = account.getAuthenticatedDevice().get();
-    boolean wasAccountActive = account.isActive();
+  public void setApnRegistrationId(@Auth DisabledPermittedAccount disabledPermittedAccount, @Valid ApnRegistrationId registrationId) {
+    Account account           = disabledPermittedAccount.getAccount();
+    Device  device            = account.getAuthenticatedDevice().get();
+    boolean wasAccountEnabled = account.isEnabled();
 
     device.setApnId(registrationId.getApnRegistrationId());
     device.setVoipApnId(registrationId.getVoipRegistrationId());
@@ -311,7 +314,7 @@ public class AccountController {
     device.setFetchesMessages(false);
     accounts.update(account);
 
-    if (!wasAccountActive && account.isActive()) {
+    if (!wasAccountEnabled && account.isEnabled()) {
       directoryQueue.addRegisteredUser(account.getNumber());
     }
   }
@@ -319,14 +322,15 @@ public class AccountController {
   @Timed
   @DELETE
   @Path("/apn/")
-  public void deleteApnRegistrationId(@Auth Account account) {
-    Device device = account.getAuthenticatedDevice().get();
+  public void deleteApnRegistrationId(@Auth DisabledPermittedAccount disabledPermittedAccount) {
+    Account account = disabledPermittedAccount.getAccount();
+    Device  device  = account.getAuthenticatedDevice().get();
     device.setApnId(null);
     device.setFetchesMessages(false);
 
     accounts.update(account);
 
-    if (!account.isActive()) {
+    if (!account.isEnabled()) {
       directoryQueue.deleteRegisteredUser(account.getNumber());
     }
   }
@@ -351,7 +355,8 @@ public class AccountController {
   @Timed
   @PUT
   @Path("/name/")
-  public void setName(@Auth Account account, @Valid DeviceName deviceName) {
+  public void setName(@Auth DisabledPermittedAccount disabledPermittedAccount, @Valid DeviceName deviceName) {
+    Account account = disabledPermittedAccount.getAccount();
     account.getAuthenticatedDevice().get().setName(deviceName.getDeviceName());
     accounts.update(account);
   }
@@ -359,7 +364,8 @@ public class AccountController {
   @Timed
   @DELETE
   @Path("/signaling_key")
-  public void removeSignalingKey(@Auth Account account) {
+  public void removeSignalingKey(@Auth DisabledPermittedAccount disabledPermittedAccount) {
+    Account account = disabledPermittedAccount.getAccount();
     account.getAuthenticatedDevice().get().setSignalingKey(null);
     accounts.update(account);
   }
@@ -368,11 +374,12 @@ public class AccountController {
   @PUT
   @Path("/attributes/")
   @Consumes(MediaType.APPLICATION_JSON)
-  public void setAccountAttributes(@Auth Account account,
+  public void setAccountAttributes(@Auth DisabledPermittedAccount disabledPermittedAccount,
                                    @HeaderParam("X-Signal-Agent") String userAgent,
                                    @Valid AccountAttributes attributes)
   {
-    Device device = account.getAuthenticatedDevice().get();
+    Account account = disabledPermittedAccount.getAccount();
+    Device  device  = account.getAuthenticatedDevice().get();
 
     device.setFetchesMessages(attributes.getFetchesMessages());
     device.setName(attributes.getName());
@@ -476,7 +483,7 @@ public class AccountController {
       newUserMeter.mark();
     }
 
-    if (account.isActive()) {
+    if (account.isEnabled()) {
       directoryQueue.addRegisteredUser(number);
     } else {
       directoryQueue.deleteRegisteredUser(number);

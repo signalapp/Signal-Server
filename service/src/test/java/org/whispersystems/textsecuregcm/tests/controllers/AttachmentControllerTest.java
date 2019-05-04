@@ -1,8 +1,10 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
+import com.google.common.collect.ImmutableSet;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV1;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV2;
 import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV1;
@@ -14,9 +16,10 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
+import javax.ws.rs.core.Response;
 import java.net.MalformedURLException;
 
-import io.dropwizard.auth.AuthValueFactoryProvider;
+import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -34,7 +37,7 @@ public class AttachmentControllerTest {
   @ClassRule
   public static final ResourceTestRule resources = ResourceTestRule.builder()
                                                                    .addProvider(AuthHelper.getAuthFilter())
-                                                                   .addProvider(new AuthValueFactoryProvider.Binder<>(Account.class))
+                                                                   .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
                                                                    .setMapper(SystemMapper.getMapper())
                                                                    .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                                    .addResource(new AttachmentControllerV1(rateLimiters, "accessKey", "accessSecret", "attachment-bucket"))
@@ -66,6 +69,18 @@ public class AttachmentControllerTest {
     assertThat(descriptor.getPolicy()).isNotBlank();
     assertThat(descriptor.getSignature()).isNotBlank();
   }
+
+  @Test
+  public void testV2FormDisabled() {
+    Response response = resources.getJerseyTest()
+                                 .target("/v2/attachments/form/upload")
+                                 .request()
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_NUMBER, AuthHelper.DISABLED_PASSWORD))
+                                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(401);
+  }
+
 
   @Test
   public void testAcceleratedPut() {

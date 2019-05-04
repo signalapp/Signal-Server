@@ -115,13 +115,13 @@ public class Account implements Principal  {
   }
 
   public boolean isUnauthenticatedDeliverySupported() {
-    return devices.stream().filter(Device::isActive).allMatch(Device::isUnauthenticatedDeliverySupported);
+    return devices.stream().filter(Device::isEnabled).allMatch(Device::isUnauthenticatedDeliverySupported);
   }
 
-  public boolean isActive() {
+  public boolean isEnabled() {
     return
-        getMasterDevice().isPresent() &&
-        getMasterDevice().get().isActive() &&
+        getMasterDevice().isPresent()       &&
+        getMasterDevice().get().isEnabled() &&
         getLastSeen() > (System.currentTimeMillis() - TimeUnit.DAYS.toMillis(365));
   }
 
@@ -129,7 +129,7 @@ public class Account implements Principal  {
     long highestDevice = Device.MASTER_ID;
 
     for (Device device : devices) {
-      if (!device.isActive()) {
+      if (!device.isEnabled()) {
         return device.getId();
       } else if (device.getId() > highestDevice) {
         highestDevice = device.getId();
@@ -139,11 +139,11 @@ public class Account implements Principal  {
     return highestDevice + 1;
   }
 
-  public int getActiveDeviceCount() {
+  public int getEnabledDeviceCount() {
     int count = 0;
 
     for (Device device : devices) {
-      if (device.isActive()) count++;
+      if (device.isEnabled()) count++;
     }
 
     return count;

@@ -29,7 +29,7 @@ public class OptionalAccessTest {
   @Test
   public void testUnidentifiedMissingTargetDevice() {
     Account account = mock(Account.class);
-    when(account.isActive()).thenReturn(true);
+    when(account.isEnabled()).thenReturn(true);
     when(account.getDevice(eq(10))).thenReturn(Optional.empty());
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of("1234".getBytes()));
 
@@ -43,7 +43,7 @@ public class OptionalAccessTest {
   @Test
   public void testUnidentifiedBadTargetDevice() {
     Account account = mock(Account.class);
-    when(account.isActive()).thenReturn(true);
+    when(account.isEnabled()).thenReturn(true);
     when(account.getDevice(eq(10))).thenReturn(Optional.empty());
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of("1234".getBytes()));
 
@@ -58,7 +58,7 @@ public class OptionalAccessTest {
   @Test
   public void testUnidentifiedBadCode() {
     Account account = mock(Account.class);
-    when(account.isActive()).thenReturn(true);
+    when(account.isEnabled()).thenReturn(true);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of("1234".getBytes()));
 
     try {
@@ -72,7 +72,7 @@ public class OptionalAccessTest {
   @Test
   public void testIdentifiedMissingTarget() {
     Account account =  mock(Account.class);
-    when(account.isActive()).thenReturn(true);
+    when(account.isEnabled()).thenReturn(true);
 
     try {
       OptionalAccess.verify(Optional.of(account), Optional.empty(), Optional.empty());
@@ -86,7 +86,7 @@ public class OptionalAccessTest {
   public void testUnsolicitedBadTarget() {
     Account account = mock(Account.class);
     when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(false);
-    when(account.isActive()).thenReturn(true);
+    when(account.isEnabled()).thenReturn(true);
 
     try {
       OptionalAccess.verify(Optional.empty(), Optional.empty(), Optional.of(account));
@@ -101,7 +101,7 @@ public class OptionalAccessTest {
     Account account = mock(Account.class);
     Anonymous random = mock(Anonymous.class);
     when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(true);
-    when(account.isActive()).thenReturn(true);
+    when(account.isEnabled()).thenReturn(true);
     OptionalAccess.verify(Optional.empty(), Optional.of(random), Optional.of(account));
   }
 
@@ -109,7 +109,7 @@ public class OptionalAccessTest {
   public void testUnidentifiedGoodTarget() {
     Account account = mock(Account.class);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of("1234".getBytes()));
-    when(account.isActive()).thenReturn(true);
+    when(account.isEnabled()).thenReturn(true);
     OptionalAccess.verify(Optional.empty(), Optional.of(new Anonymous(Base64.encodeBytes("1234".getBytes()))), Optional.of(account));
   }
 
@@ -117,7 +117,7 @@ public class OptionalAccessTest {
   public void testUnidentifiedInactive() {
     Account account = mock(Account.class);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of("1234".getBytes()));
-    when(account.isActive()).thenReturn(false);
+    when(account.isEnabled()).thenReturn(false);
 
     try {
       OptionalAccess.verify(Optional.empty(), Optional.of(new Anonymous(Base64.encodeBytes("1234".getBytes()))), Optional.of(account));
@@ -131,7 +131,7 @@ public class OptionalAccessTest {
   public void testIdentifiedGoodTarget() {
     Account source = mock(Account.class);
     Account target = mock(Account.class);
-    when(target.isActive()).thenReturn(true);
+    when(target.isEnabled()).thenReturn(true);
     OptionalAccess.verify(Optional.of(source), Optional.empty(), Optional.of(target));;
   }
 }

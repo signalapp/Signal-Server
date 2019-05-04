@@ -112,7 +112,7 @@ public class DeviceController {
     account.removeDevice(deviceId);
     accounts.update(account);
 
-    if (!account.isActive()) {
+    if (!account.isEnabled()) {
       directoryQueue.deleteRegisteredUser(account.getNumber());
     }
 
@@ -134,7 +134,7 @@ public class DeviceController {
       maxDeviceLimit = maxDeviceConfiguration.get(account.getNumber());
     }
 
-    if (account.getActiveDeviceCount() >= maxDeviceLimit) {
+    if (account.getEnabledDeviceCount() >= maxDeviceLimit) {
       throw new DeviceLimitExceededException(account.getDevices().size(), MAX_DEVICES);
     }
 
@@ -186,7 +186,7 @@ public class DeviceController {
         maxDeviceLimit = maxDeviceConfiguration.get(account.get().getNumber());
       }
 
-      if (account.get().getActiveDeviceCount() >= maxDeviceLimit) {
+      if (account.get().getEnabledDeviceCount() >= maxDeviceLimit) {
         throw new DeviceLimitExceededException(account.get().getDevices().size(), MAX_DEVICES);
       }
 

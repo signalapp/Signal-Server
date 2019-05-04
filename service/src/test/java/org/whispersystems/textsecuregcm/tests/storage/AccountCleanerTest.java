@@ -67,43 +67,43 @@ public class AccountCleanerTest {
 
   @Before
   public void setup() {
-    when(activeUnexpiredDevice.isActive()).thenReturn(true);
+    when(activeUnexpiredDevice.isEnabled()).thenReturn(true);
     when(activeUnexpiredAccount.getLastSeen()).thenReturn(Long.MAX_VALUE);
     when(activeUnexpiredAccount.getMasterDevice()).thenReturn(Optional.of(activeUnexpiredDevice));
 
     when(activeExpiredAccount.getNumber()).thenReturn(AuthHelper.VALID_NUMBER);
-    when(activeExpiredDevice.isActive()).thenReturn(true);
+    when(activeExpiredDevice.isEnabled()).thenReturn(true);
     when(activeExpiredAccount.getLastSeen()).thenReturn(0L);
     when(activeExpiredAccount.getMasterDevice()).thenReturn(Optional.of(activeExpiredDevice));
 
-    when(inactiveUnexpiredDevice.isActive()).thenReturn(false);
+    when(inactiveUnexpiredDevice.isEnabled()).thenReturn(false);
     when(inactiveUnexpiredAccount.getLastSeen()).thenReturn(Long.MAX_VALUE);
     when(inactiveUnexpiredAccount.getMasterDevice()).thenReturn(Optional.of(inactiveUnexpiredDevice));
 
-    when(inactiveExpiredDevice.isActive()).thenReturn(false);
+    when(inactiveExpiredDevice.isEnabled()).thenReturn(false);
     when(inactiveExpiredAccount.getLastSeen()).thenReturn(0L);
     when(inactiveExpiredAccount.getMasterDevice()).thenReturn(Optional.of(inactiveExpiredDevice));
 
     this.nowMs = System.currentTimeMillis();
 
     when(oldMasterDevice.getLastSeen()).thenReturn(nowMs - TimeUnit.DAYS.toMillis(366));
-    when(oldMasterDevice.isActive()).thenReturn(true);
+    when(oldMasterDevice.isEnabled()).thenReturn(true);
     when(oldMasterDevice.getId()).thenReturn(Device.MASTER_ID);
 
     when(recentMasterDevice.getLastSeen()).thenReturn(nowMs - TimeUnit.DAYS.toMillis(1));
-    when(recentMasterDevice.isActive()).thenReturn(true);
+    when(recentMasterDevice.isEnabled()).thenReturn(true);
     when(recentMasterDevice.getId()).thenReturn(Device.MASTER_ID);
 
     when(agingSecondaryDevice.getLastSeen()).thenReturn(nowMs - TimeUnit.DAYS.toMillis(31));
-    when(agingSecondaryDevice.isActive()).thenReturn(false);
+    when(agingSecondaryDevice.isEnabled()).thenReturn(false);
     when(agingSecondaryDevice.getId()).thenReturn(2L);
 
     when(recentSecondaryDevice.getLastSeen()).thenReturn(nowMs - TimeUnit.DAYS.toMillis(1));
-    when(recentSecondaryDevice.isActive()).thenReturn(true);
+    when(recentSecondaryDevice.isEnabled()).thenReturn(true);
     when(recentSecondaryDevice.getId()).thenReturn(2L);
 
     when(oldSecondaryDevice.getLastSeen()).thenReturn(nowMs - TimeUnit.DAYS.toMillis(366));
-    when(oldSecondaryDevice.isActive()).thenReturn(false);
+    when(oldSecondaryDevice.isEnabled()).thenReturn(false);
     when(oldSecondaryDevice.getId()).thenReturn(2L);
   }
 
@@ -114,9 +114,9 @@ public class AccountCleanerTest {
     accountCleaner.onCrawlChunk(Optional.empty(), Arrays.asList(activeUnexpiredAccount, inactiveUnexpiredAccount, inactiveExpiredAccount));
     accountCleaner.onCrawlEnd(Optional.empty());
 
-    verify(activeUnexpiredDevice, atLeastOnce()).isActive();
-    verify(inactiveUnexpiredDevice, atLeastOnce()).isActive();
-    verify(inactiveExpiredDevice, atLeastOnce()).isActive();
+    verify(activeUnexpiredDevice, atLeastOnce()).isEnabled();
+    verify(inactiveUnexpiredDevice, atLeastOnce()).isEnabled();
+    verify(inactiveExpiredDevice, atLeastOnce()).isEnabled();
 
     verifyNoMoreInteractions(activeUnexpiredDevice);
     verifyNoMoreInteractions(activeExpiredDevice);

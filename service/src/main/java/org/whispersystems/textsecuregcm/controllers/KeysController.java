@@ -20,6 +20,7 @@ import com.codahale.metrics.annotation.Timed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
+import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.entities.PreKeyCount;
@@ -85,10 +86,11 @@ public class KeysController {
   @Timed
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
-  public void setKeys(@Auth Account account, @Valid PreKeyState preKeys)  {
-    Device  device           = account.getAuthenticatedDevice().get();
-    boolean wasAccountActive = account.isActive();
-    boolean updateAccount    = false;
+  public void setKeys(@Auth DisabledPermittedAccount disabledPermittedAccount, @Valid PreKeyState preKeys)  {
+    Account account           = disabledPermittedAccount.getAccount();
+    Device  device            = account.getAuthenticatedDevice().get();
+    boolean wasAccountEnabled = account.isEnabled();
+    boolean updateAccount     = false;
 
     if (!preKeys.getSignedPreKey().equals(device.getSignedPreKey())) {
       device.setSignedPreKey(preKeys.getSignedPreKey());
@@ -103,7 +105,7 @@ public class KeysController {
     if (updateAccount) {
       accounts.update(account);
 
-      if (!wasAccountActive && account.isActive()) {
+      if (!wasAccountEnabled && account.isEnabled()) {
         directoryQueue.addRegisteredUser(account.getNumber());
       }
     }
@@ -138,7 +140,7 @@ public class KeysController {
     List<PreKeyResponseItem> devices    = new LinkedList<>();
 
     for (Device device : target.get().getDevices()) {
-      if (device.isActive() && (deviceId.equals("*") || device.getId() == Long.parseLong(deviceId))) {
+      if (device.isEnabled() && (deviceId.equals("*") || device.getId() == Long.parseLong(deviceId))) {
         SignedPreKey signedPreKey = device.getSignedPreKey();
         PreKey preKey       = null;
 
@@ -162,14 +164,15 @@ public class KeysController {
   @PUT
   @Path("/signed")
   @Consumes(MediaType.APPLICATION_JSON)
-  public void setSignedKey(@Auth Account account, @Valid SignedPreKey signedPreKey) {
-    Device  device           = account.getAuthenticatedDevice().get();
-    boolean wasAccountActive = account.isActive();
+  public void setSignedKey(@Auth DisabledPermittedAccount disabledPermittedAccount, @Valid SignedPreKey signedPreKey) {
+    Account account           = disabledPermittedAccount.getAccount();
+    Device  device            = account.getAuthenticatedDevice().get();
+    boolean wasAccountEnabled = account.isEnabled();
 
     device.setSignedPreKey(signedPreKey);
     accounts.update(account);
 
-    if (!wasAccountActive && account.isActive()) {
+    if (!wasAccountEnabled && account.isEnabled()) {
       directoryQueue.addRegisteredUser(account.getNumber());
     }
   }

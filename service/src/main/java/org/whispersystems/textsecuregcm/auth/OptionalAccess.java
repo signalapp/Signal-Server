@@ -2,7 +2,6 @@ package org.whispersystems.textsecuregcm.auth;
 
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.util.Hex;
 
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
@@ -27,7 +26,7 @@ public class OptionalAccess {
 
         Optional<Device> targetDevice = targetAccount.get().getDevice(deviceId);
 
-        if (targetDevice.isPresent() && targetDevice.get().isActive()) {
+        if (targetDevice.isPresent() && targetDevice.get().isEnabled()) {
           return;
         }
 
@@ -46,23 +45,23 @@ public class OptionalAccess {
                             Optional<Anonymous> accessKey,
                             Optional<Account>   targetAccount)
   {
-    if (requestAccount.isPresent() && targetAccount.isPresent() && targetAccount.get().isActive()) {
+    if (requestAccount.isPresent() && targetAccount.isPresent() && targetAccount.get().isEnabled()) {
       return;
     }
 
     //noinspection ConstantConditions
-    if (requestAccount.isPresent() && (!targetAccount.isPresent() || (targetAccount.isPresent() && !targetAccount.get().isActive()))) {
+    if (requestAccount.isPresent() && (!targetAccount.isPresent() || (targetAccount.isPresent() && !targetAccount.get().isEnabled()))) {
       throw new WebApplicationException(Response.Status.NOT_FOUND);
     }
 
-    if (accessKey.isPresent() && targetAccount.isPresent() && targetAccount.get().isActive() && targetAccount.get().isUnrestrictedUnidentifiedAccess()) {
+    if (accessKey.isPresent() && targetAccount.isPresent() && targetAccount.get().isEnabled() && targetAccount.get().isUnrestrictedUnidentifiedAccess()) {
       return;
     }
 
     if (accessKey.isPresent()                                      &&
         targetAccount.isPresent()                                  &&
         targetAccount.get().getUnidentifiedAccessKey().isPresent() &&
-        targetAccount.get().isActive()                             &&
+        targetAccount.get().isEnabled()                            &&
         MessageDigest.isEqual(accessKey.get().getAccessKey(), targetAccount.get().getUnidentifiedAccessKey().get()))
     {
       return;

@@ -53,8 +53,8 @@ public class AccountCleaner implements AccountDatabaseCrawlerListener {
     long nowMs             = System.currentTimeMillis();
     int accountUpdateCount = 0;
     for (Account account : chunkAccounts) {
-      if (account.getMasterDevice().isPresent() &&
-          account.getMasterDevice().get().isActive() &&
+      if (account.getMasterDevice().isPresent()       &&
+          account.getMasterDevice().get().isEnabled() &&
           isAccountExpired(account, nowMs))
       {
         expiredAccountsMeter.mark();

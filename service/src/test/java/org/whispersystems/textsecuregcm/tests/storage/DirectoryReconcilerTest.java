@@ -57,9 +57,9 @@ public class DirectoryReconcilerTest {
   @Before
   public void setup() {
     when(activeAccount.getNumber()).thenReturn(VALID_NUMBER);
-    when(activeAccount.isActive()).thenReturn(true);
+    when(activeAccount.isEnabled()).thenReturn(true);
     when(inactiveAccount.getNumber()).thenReturn(INACTIVE_NUMBER);
-    when(inactiveAccount.isActive()).thenReturn(false);
+    when(inactiveAccount.isEnabled()).thenReturn(false);
     when(directoryManager.startBatchOperation()).thenReturn(batchOperationHandle);
   }
 
@@ -69,9 +69,9 @@ public class DirectoryReconcilerTest {
     directoryReconciler.onCrawlChunk(Optional.of(VALID_NUMBER), Arrays.asList(activeAccount, inactiveAccount));
 
     verify(activeAccount, times(2)).getNumber();
-    verify(activeAccount, times(2)).isActive();
+    verify(activeAccount, times(2)).isEnabled();
     verify(inactiveAccount, times(2)).getNumber();
-    verify(inactiveAccount, times(2)).isActive();
+    verify(inactiveAccount, times(2)).isEnabled();
 
     ArgumentCaptor<DirectoryReconciliationRequest> request = ArgumentCaptor.forClass(DirectoryReconciliationRequest.class);
     verify(reconciliationClient, times(1)).sendChunk(request.capture());
