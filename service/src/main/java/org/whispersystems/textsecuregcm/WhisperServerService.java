@@ -210,7 +210,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ActiveUserCounter                    activeUserCounter               = new ActiveUserCounter(config.getMetricsFactory(), cacheClient);
     DirectoryReconciler                  directoryReconciler             = new DirectoryReconciler(directoryReconciliationClient, directory);
     AccountCleaner                       accountCleaner                  = new AccountCleaner(accountsManager, directoryQueue);
-    List<AccountDatabaseCrawlerListener> accountDatabaseCrawlerListeners = Arrays.asList(activeUserCounter, directoryReconciler, accountCleaner);
+    PushFeedbackProcessor                pushFeedbackProcessor           = new PushFeedbackProcessor(accountsManager, directoryQueue);
+    List<AccountDatabaseCrawlerListener> accountDatabaseCrawlerListeners = List.of(pushFeedbackProcessor, activeUserCounter, directoryReconciler, accountCleaner);
 
     AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(cacheClient);
     AccountDatabaseCrawler      accountDatabaseCrawler      = new AccountDatabaseCrawler(accounts, accountDatabaseCrawlerCache, accountDatabaseCrawlerListeners, config.getAccountDatabaseCrawlerConfiguration().getChunkSize(), config.getAccountDatabaseCrawlerConfiguration().getChunkIntervalMs());

@@ -56,6 +56,9 @@ public class Device {
   private long pushTimestamp;
 
   @JsonProperty
+  private long uninstalledFeedback;
+
+  @JsonProperty
   private boolean fetchesMessages;
 
   @JsonProperty
@@ -83,7 +86,7 @@ public class Device {
                 String voipApnId, boolean fetchesMessages,
                 int registrationId, SignedPreKey signedPreKey,
                 long lastSeen, long created, String userAgent,
-                boolean unauthenticatedDelivery)
+                boolean unauthenticatedDelivery, long uninstalledFeedback)
   {
     this.id                      = id;
     this.name                    = name;
@@ -100,6 +103,7 @@ public class Device {
     this.created                 = created;
     this.userAgent               = userAgent;
     this.unauthenticatedDelivery = unauthenticatedDelivery;
+    this.uninstalledFeedback     = uninstalledFeedback;
   }
 
   public String getApnId() {
@@ -120,6 +124,14 @@ public class Device {
 
   public void setVoipApnId(String voipApnId) {
     this.voipApnId = voipApnId;
+  }
+
+  public void setUninstalledFeedbackTimestamp(long uninstalledFeedback) {
+    this.uninstalledFeedback = uninstalledFeedback;
+  }
+
+  public long getUninstalledFeedbackTimestamp() {
+    return uninstalledFeedback;
   }
 
   public void setLastSeen(long lastSeen) {

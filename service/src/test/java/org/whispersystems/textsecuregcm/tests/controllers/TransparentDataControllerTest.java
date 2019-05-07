@@ -1,9 +1,7 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableSet;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
-import org.hamcrest.MatcherAssert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -25,7 +23,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
 import static junit.framework.TestCase.*;
@@ -55,8 +52,8 @@ public class TransparentDataControllerTest {
 
   @Before
   public void setup() {
-    Account accountOne = new Account("+14151231111", Collections.singleton(new Device(1, "foo", "bar", "salt", "keykey", "gcm-id", "apn-id", "voipapn-id", true, 1234, new SignedPreKey(5, "public-signed", "signtture-signed"), 31337, 31336, "CoolClient", true)), new byte[16]);
-    Account accountTwo = new Account("+14151232222", Collections.singleton(new Device(1, "2foo", "2bar", "2salt", "2keykey", "2gcm-id", "2apn-id", "2voipapn-id", true, 1234, new SignedPreKey(5, "public-signed", "signtture-signed"), 31337, 31336, "CoolClient", true)), new byte[16]);
+    Account accountOne = new Account("+14151231111", Collections.singleton(new Device(1, "foo", "bar", "salt", "keykey", "gcm-id", "apn-id", "voipapn-id", true, 1234, new SignedPreKey(5, "public-signed", "signtture-signed"), 31337, 31336, "CoolClient", true, 0)), new byte[16]);
+    Account accountTwo = new Account("+14151232222", Collections.singleton(new Device(1, "2foo", "2bar", "2salt", "2keykey", "2gcm-id", "2apn-id", "2voipapn-id", true, 1234, new SignedPreKey(5, "public-signed", "signtture-signed"), 31337, 31336, "CoolClient", true, 0)), new byte[16]);
 
     accountOne.setProfileName("OneProfileName");
     accountOne.setIdentityKey("identity_key_value");

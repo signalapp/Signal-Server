@@ -17,6 +17,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.Util;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -111,19 +112,20 @@ public class GCMSender implements Managed {
     GcmMessage message = (GcmMessage)result.getContext();
     logger.warn("Got GCM unregistered notice! " + message.getGcmId());
 
-//    Optional<Account> account = getAccountForEvent(message);
-//
-//    if (account.isPresent()) {
-//      Device device = account.get().getDevice(message.getDeviceId()).get();
+    Optional<Account> account = getAccountForEvent(message);
+
+    if (account.isPresent()) {
+      Device device = account.get().getDevice(message.getDeviceId()).get();
+      device.setUninstalledFeedbackTimestamp(Util.todayInMillis());
 //      device.setGcmId(null);
 //      device.setFetchesMessages(false);
-//
-//      accountsManager.update(account.get());
-//
+
+      accountsManager.update(account.get());
+
 //      if (!account.get().isActive()) {
 //        directoryQueue.deleteRegisteredUser(account.get().getNumber());
 //      }
-//    }
+    }
 
     unregistered.mark();
   }

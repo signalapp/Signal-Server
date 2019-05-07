@@ -21,7 +21,7 @@ public class PublicAccountTest {
 
   @Test
   public void testPinSanitation() throws IOException {
-    Set<Device>   devices       = Collections.singleton(new Device(1, "foo", "bar", "12345", null, "gcm-1234", null, null, true, 1234, new SignedPreKey(1, "public-foo", "signature-foo"), 31337, 31336, "Android4Life", true));
+    Set<Device>   devices       = Collections.singleton(new Device(1, "foo", "bar", "12345", null, "gcm-1234", null, null, true, 1234, new SignedPreKey(1, "public-foo", "signature-foo"), 31337, 31336, "Android4Life", true, 0));
     Account       account       = new Account("+14151231234", devices, new byte[16]);
     account.setPin("123456");
 
