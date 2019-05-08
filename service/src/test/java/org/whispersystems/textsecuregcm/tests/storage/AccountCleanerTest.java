@@ -28,6 +28,8 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -35,195 +37,121 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.atLeast;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 public class AccountCleanerTest {
 
   private final AccountsManager accountsManager = mock(AccountsManager.class);
   private final DirectoryQueue  directoryQueue  = mock(DirectoryQueue.class);
 
-  private final Account activeUnexpiredAccount   = mock(Account.class);
-  private final Device  activeUnexpiredDevice    = mock(Device.class);
-  private final Account activeExpiredAccount     = mock(Account.class);
-  private final Device  activeExpiredDevice      = mock(Device.class);
-  private final Account inactiveUnexpiredAccount = mock(Account.class);
-  private final Device  inactiveUnexpiredDevice  = mock(Device.class);
-  private final Account inactiveExpiredAccount   = mock(Account.class);
-  private final Device  inactiveExpiredDevice    = mock(Device.class);
+  private final Account deletedDisabledAccount   = mock(Account.class);
+  private final Account undeletedDisabledAccount = mock(Account.class);
+  private final Account undeletedEnabledAccount  = mock(Account.class);
 
-  private final Device oldMasterDevice       = mock(Device.class);
-  private final Device recentMasterDevice    = mock(Device.class);
-  private final Device agingSecondaryDevice  = mock(Device.class);
-  private final Device recentSecondaryDevice = mock(Device.class);
-  private final Device oldSecondaryDevice    = mock(Device.class);
+  private final Device  deletedDisabledDevice    = mock(Device.class );
+  private final Device  undeletedDisabledDevice  = mock(Device.class );
+  private final Device  undeletedEnabledDevice   = mock(Device.class );
 
-  private long nowMs;
 
   @Before
   public void setup() {
-    when(activeUnexpiredDevice.isEnabled()).thenReturn(true);
-    when(activeUnexpiredAccount.getLastSeen()).thenReturn(Long.MAX_VALUE);
-    when(activeUnexpiredAccount.getMasterDevice()).thenReturn(Optional.of(activeUnexpiredDevice));
+    when(deletedDisabledDevice.isEnabled()).thenReturn(false);
+    when(deletedDisabledDevice.getGcmId()).thenReturn(null);
+    when(deletedDisabledDevice.getApnId()).thenReturn(null);
+    when(deletedDisabledDevice.getVoipApnId()).thenReturn(null);
+    when(deletedDisabledDevice.getFetchesMessages()).thenReturn(false);
+    when(deletedDisabledAccount.isEnabled()).thenReturn(false);
+    when(deletedDisabledAccount.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1000));
+    when(deletedDisabledAccount.getMasterDevice()).thenReturn(Optional.of(deletedDisabledDevice));
+    when(deletedDisabledAccount.getNumber()).thenReturn("+14151231234");
 
-    when(activeExpiredAccount.getNumber()).thenReturn(AuthHelper.VALID_NUMBER);
-    when(activeExpiredDevice.isEnabled()).thenReturn(true);
-    when(activeExpiredAccount.getLastSeen()).thenReturn(0L);
-    when(activeExpiredAccount.getMasterDevice()).thenReturn(Optional.of(activeExpiredDevice));
+    when(undeletedDisabledDevice.isEnabled()).thenReturn(false);
+    when(undeletedDisabledDevice.getGcmId()).thenReturn("foo");
+    when(undeletedDisabledAccount.isEnabled()).thenReturn(false);
+    when(undeletedDisabledAccount.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(366));
+    when(undeletedDisabledAccount.getMasterDevice()).thenReturn(Optional.of(undeletedDisabledDevice));
+    when(undeletedDisabledAccount.getNumber()).thenReturn("+14152222222");
 
-    when(inactiveUnexpiredDevice.isEnabled()).thenReturn(false);
-    when(inactiveUnexpiredAccount.getLastSeen()).thenReturn(Long.MAX_VALUE);
-    when(inactiveUnexpiredAccount.getMasterDevice()).thenReturn(Optional.of(inactiveUnexpiredDevice));
-
-    when(inactiveExpiredDevice.isEnabled()).thenReturn(false);
-    when(inactiveExpiredAccount.getLastSeen()).thenReturn(0L);
-    when(inactiveExpiredAccount.getMasterDevice()).thenReturn(Optional.of(inactiveExpiredDevice));
-
-    this.nowMs = System.currentTimeMillis();
-
-    when(oldMasterDevice.getLastSeen()).thenReturn(nowMs - TimeUnit.DAYS.toMillis(366));
-    when(oldMasterDevice.isEnabled()).thenReturn(true);
-    when(oldMasterDevice.getId()).thenReturn(Device.MASTER_ID);
-
-    when(recentMasterDevice.getLastSeen()).thenReturn(nowMs - TimeUnit.DAYS.toMillis(1));
-    when(recentMasterDevice.isEnabled()).thenReturn(true);
-    when(recentMasterDevice.getId()).thenReturn(Device.MASTER_ID);
-
-    when(agingSecondaryDevice.getLastSeen()).thenReturn(nowMs - TimeUnit.DAYS.toMillis(31));
-    when(agingSecondaryDevice.isEnabled()).thenReturn(false);
-    when(agingSecondaryDevice.getId()).thenReturn(2L);
-
-    when(recentSecondaryDevice.getLastSeen()).thenReturn(nowMs - TimeUnit.DAYS.toMillis(1));
-    when(recentSecondaryDevice.isEnabled()).thenReturn(true);
-    when(recentSecondaryDevice.getId()).thenReturn(2L);
-
-    when(oldSecondaryDevice.getLastSeen()).thenReturn(nowMs - TimeUnit.DAYS.toMillis(366));
-    when(oldSecondaryDevice.isEnabled()).thenReturn(false);
-    when(oldSecondaryDevice.getId()).thenReturn(2L);
+    when(undeletedEnabledDevice.isEnabled()).thenReturn(true);
+    when(undeletedEnabledDevice.getApnId()).thenReturn("bar");
+    when(undeletedEnabledAccount.isEnabled()).thenReturn(true);
+    when(undeletedEnabledAccount.getMasterDevice()).thenReturn(Optional.of(undeletedEnabledDevice));
+    when(undeletedEnabledAccount.getNumber()).thenReturn("+14153333333");
+    when(undeletedEnabledAccount.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(364));
   }
 
   @Test
-  public void testUnexpiredAccounts() {
+  public void testAccounts() {
     AccountCleaner accountCleaner = new AccountCleaner(accountsManager, directoryQueue);
     accountCleaner.onCrawlStart();
-    accountCleaner.onCrawlChunk(Optional.empty(), Arrays.asList(activeUnexpiredAccount, inactiveUnexpiredAccount, inactiveExpiredAccount));
+    accountCleaner.onCrawlChunk(Optional.empty(), Arrays.asList(deletedDisabledAccount, undeletedDisabledAccount, undeletedEnabledAccount));
     accountCleaner.onCrawlEnd(Optional.empty());
 
-    verify(activeUnexpiredDevice, atLeastOnce()).isEnabled();
-    verify(inactiveUnexpiredDevice, atLeastOnce()).isEnabled();
-    verify(inactiveExpiredDevice, atLeastOnce()).isEnabled();
+    verify(deletedDisabledDevice, never()).setGcmId(any());
+    verify(deletedDisabledDevice, never()).setApnId(any());
+    verify(deletedDisabledDevice, never()).setVoipApnId(any());
+    verify(deletedDisabledDevice, never()).setFetchesMessages(anyBoolean());
 
-    verifyNoMoreInteractions(activeUnexpiredDevice);
-    verifyNoMoreInteractions(activeExpiredDevice);
-    verifyNoMoreInteractions(inactiveUnexpiredDevice);
-    verifyNoMoreInteractions(inactiveExpiredDevice);
+    verify(accountsManager, never()).update(eq(deletedDisabledAccount));
+    verify(directoryQueue, never()).deleteRegisteredUser(eq("+14151231234"));
+
+
+    verify(undeletedDisabledDevice, times(1)).setGcmId(isNull());
+    verify(undeletedDisabledDevice, times(1)).setApnId(isNull());
+    verify(undeletedDisabledDevice, times(1)).setVoipApnId(isNull());
+    verify(undeletedDisabledDevice, times(1)).setFetchesMessages(eq(false));
+
+    verify(accountsManager, times(1)).update(eq(undeletedDisabledAccount));
+    verify(directoryQueue, times(1)).deleteRegisteredUser(eq("+14152222222"));
+
+    verify(undeletedEnabledDevice, never()).setGcmId(any());
+    verify(undeletedEnabledDevice, never()).setApnId(any());
+    verify(undeletedEnabledDevice, never()).setVoipApnId(any());
+    verify(undeletedEnabledDevice, never()).setFetchesMessages(anyBoolean());
+
+    verify(accountsManager, never()).update(eq(undeletedEnabledAccount));
+    verify(directoryQueue, never()).deleteRegisteredUser(eq("+14153333333"));
 
     verifyNoMoreInteractions(accountsManager);
     verifyNoMoreInteractions(directoryQueue);
   }
 
-//  @Test
-//  public void testExpiredAccounts() {
-//    AccountCleaner accountCleaner = new AccountCleaner(accountsManager, directoryQueue);
-//    accountCleaner.onCrawlStart();
-//    accountCleaner.onCrawlChunk(Optional.empty(), Arrays.asList(activeUnexpiredAccount, activeExpiredAccount, inactiveUnexpiredAccount, inactiveExpiredAccount));
-//    accountCleaner.onCrawlEnd(Optional.empty());
-//
-//    verify(activeExpiredDevice).setGcmId(isNull());
-//    verify(activeExpiredDevice).setApnId(isNull());
-//    verify(activeExpiredDevice).setFetchesMessages(eq(false));
-//
-//    verify(accountsManager).update(eq(activeExpiredAccount));
-//    verify(directoryQueue).deleteRegisteredUser(eq(AuthHelper.VALID_NUMBER));
-//
-//    verify(activeUnexpiredDevice, atLeastOnce()).isActive();
-//    verify(activeExpiredDevice, atLeastOnce()).isActive();
-//    verify(inactiveUnexpiredDevice, atLeastOnce()).isActive();
-//    verify(inactiveExpiredDevice, atLeastOnce()).isActive();
-//
-//    verifyNoMoreInteractions(activeUnexpiredDevice);
-//    verifyNoMoreInteractions(activeExpiredDevice);
-//    verifyNoMoreInteractions(inactiveUnexpiredDevice);
-//    verifyNoMoreInteractions(inactiveExpiredDevice);
-//
-//    verifyNoMoreInteractions(accountsManager);
-//    verifyNoMoreInteractions(directoryQueue);
-//  }
-
-//  @Test
-//  public void testMaxAccountUpdates() {
-//    ArrayList<Account> accounts = new ArrayList<>();
-//    accounts.add(activeUnexpiredAccount);
-//
-//    int activeExpiredAccountCount = AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK + 1;
-//    for (int addedAccountCount = 0; addedAccountCount < activeExpiredAccountCount; addedAccountCount++) {
-//      accounts.add(activeExpiredAccount);
-//    }
-//
-//    accounts.add(inactiveUnexpiredAccount);
-//    accounts.add(inactiveExpiredAccount);
-//
-//    AccountCleaner accountCleaner = new AccountCleaner(accountsManager, directoryQueue);
-//    accountCleaner.onCrawlStart();
-//    accountCleaner.onCrawlChunk(Optional.empty(), accounts);
-//    accountCleaner.onCrawlEnd(Optional.empty());
-//
-//    verify(activeExpiredDevice, atLeast(0)).setGcmId(isNull());
-//    verify(activeExpiredDevice, atLeast(0)).setApnId(isNull());
-//    verify(activeExpiredDevice, atLeast(0)).setFetchesMessages(eq(false));
-//
-//    verify(accountsManager, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).update(eq(activeExpiredAccount));
-//    verify(directoryQueue, times(activeExpiredAccountCount)).deleteRegisteredUser(eq(AuthHelper.VALID_NUMBER));
-//
-//    verify(activeUnexpiredDevice, atLeastOnce()).isActive();
-//    verify(activeExpiredDevice, atLeastOnce()).isActive();
-//    verify(inactiveUnexpiredDevice, atLeastOnce()).isActive();
-//    verify(inactiveExpiredDevice, atLeastOnce()).isActive();
-//
-//    verifyNoMoreInteractions(activeUnexpiredDevice);
-//    verifyNoMoreInteractions(activeExpiredDevice);
-//    verifyNoMoreInteractions(inactiveUnexpiredDevice);
-//    verifyNoMoreInteractions(inactiveExpiredDevice);
-//
-//    verifyNoMoreInteractions(accountsManager);
-//    verifyNoMoreInteractions(directoryQueue);
-//  }
-
-
   @Test
-  public void testIsAccountExpired() {
-    Account recentAccount = new Account("+14152222222", new HashSet<Device>() {{
-      add(recentMasterDevice);
-      add(recentSecondaryDevice);
-    }}, "1234".getBytes());
+  public void testMaxAccountUpdates() {
+    List<Account> accounts = new LinkedList<>();
+    accounts.add(undeletedEnabledAccount);
 
-    assertFalse(AccountCleaner.isAccountExpired(recentAccount, nowMs));
+    int activeExpiredAccountCount = AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK + 1;
+    for (int addedAccountCount = 0; addedAccountCount < activeExpiredAccountCount; addedAccountCount++) {
+      accounts.add(undeletedDisabledAccount);
+    }
 
-    Account oldSecondaryAccount = new Account("+14152222222", new HashSet<Device>() {{
-      add(recentMasterDevice);
-      add(agingSecondaryDevice);
-    }}, "1234".getBytes());
+    accounts.add(deletedDisabledAccount);
 
-    assertFalse(AccountCleaner.isAccountExpired(oldSecondaryAccount, nowMs));
+    AccountCleaner accountCleaner = new AccountCleaner(accountsManager, directoryQueue);
+    accountCleaner.onCrawlStart();
+    accountCleaner.onCrawlChunk(Optional.empty(), accounts);
+    accountCleaner.onCrawlEnd(Optional.empty());
 
-    Account agingPrimaryAccount = new Account("+14152222222", new HashSet<Device>() {{
-      add(oldMasterDevice);
-      add(agingSecondaryDevice);
-    }}, "1234".getBytes());
+    verify(undeletedDisabledDevice, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).setGcmId(isNull());
+    verify(undeletedDisabledDevice, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).setApnId(isNull());
+    verify(undeletedDisabledDevice, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).setVoipApnId(isNull());
+    verify(undeletedDisabledDevice, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).setFetchesMessages(eq(false));
 
-    assertFalse(AccountCleaner.isAccountExpired(agingPrimaryAccount, nowMs));
+    verify(accountsManager, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).update(eq(undeletedDisabledAccount));
+    verify(directoryQueue, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).deleteRegisteredUser(eq("+14152222222"));
 
-    Account oldPrimaryAccount = new Account("+14152222222", new HashSet<Device>() {{
-      add(oldMasterDevice);
-      add(oldSecondaryDevice);
-    }}, "1234".getBytes());
+    verify(deletedDisabledDevice, never()).setGcmId(any());
+    verify(deletedDisabledDevice, never()).setApnId(any());
+    verify(deletedDisabledDevice, never()).setFetchesMessages(anyBoolean());
 
-    assertTrue(AccountCleaner.isAccountExpired(oldPrimaryAccount, nowMs));
+    verify(undeletedEnabledDevice, never()).setGcmId(any());
+    verify(undeletedEnabledDevice, never()).setApnId(any());
+    verify(undeletedEnabledDevice, never()).setVoipApnId(any());
+    verify(undeletedEnabledDevice, never()).setFetchesMessages(anyBoolean());
+
+    verifyNoMoreInteractions(accountsManager);
+    verifyNoMoreInteractions(directoryQueue);
   }
 
 }

@@ -22,6 +22,7 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.annotations.VisibleForTesting;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.Util;
 
 import java.util.List;
 import java.util.Optional;
@@ -30,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 import static com.codahale.metrics.MetricRegistry.name;
 
 public class AccountCleaner implements AccountDatabaseCrawlerListener {
+
   private static final MetricRegistry metricRegistry       = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private static final Meter          expiredAccountsMeter = metricRegistry.meter(name(AccountCleaner.class, "expiredAccounts"));
 
@@ -50,25 +52,23 @@ public class AccountCleaner implements AccountDatabaseCrawlerListener {
 
   @Override
   public void onCrawlChunk(Optional<String> fromNumber, List<Account> chunkAccounts) {
-    long nowMs             = System.currentTimeMillis();
     int accountUpdateCount = 0;
     for (Account account : chunkAccounts) {
-      if (account.getMasterDevice().isPresent()       &&
-          account.getMasterDevice().get().isEnabled() &&
-          isAccountExpired(account, nowMs))
-      {
+      if (needsExplicitRemoval(account)) {
         expiredAccountsMeter.mark();
 
-//        Device masterDevice = account.getMasterDevice().get();
-//        masterDevice.setFetchesMessages(false);
-//        masterDevice.setApnId(null);
-//        masterDevice.setGcmId(null);
-//
-//        if (accountUpdateCount < MAX_ACCOUNT_UPDATES_PER_CHUNK) {
-//          accountUpdateCount++;
-//          accountsManager.update(account);
-//        }
-//        directoryQueue.deleteRegisteredUser(account.getNumber());
+        if (accountUpdateCount < MAX_ACCOUNT_UPDATES_PER_CHUNK) {
+          Device masterDevice = account.getMasterDevice().get();
+          masterDevice.setFetchesMessages(false);
+          masterDevice.setApnId(null);
+          masterDevice.setVoipApnId(null);
+          masterDevice.setGcmId(null);
+
+          accountUpdateCount++;
+          accountsManager.update(account);
+
+          directoryQueue.deleteRegisteredUser(account.getNumber());
+        }
       }
     }
   }
@@ -77,9 +77,18 @@ public class AccountCleaner implements AccountDatabaseCrawlerListener {
   public void onCrawlEnd(Optional<String> fromNumber) {
   }
 
-  @VisibleForTesting
-  public static boolean isAccountExpired(Account account, long nowMs) {
-    return account.getLastSeen() < (nowMs - TimeUnit.DAYS.toMillis(365));
+  private boolean needsExplicitRemoval(Account account) {
+    return account.getMasterDevice().isPresent()           &&
+           hasPushToken(account.getMasterDevice().get())   &&
+           isExpired(account);
+  }
+
+  private boolean hasPushToken(Device device) {
+    return !Util.isEmpty(device.getGcmId()) || !Util.isEmpty(device.getApnId()) || !Util.isEmpty(device.getVoipApnId()) || device.getFetchesMessages();
+  }
+
+  private boolean isExpired(Account account) {
+    return account.getLastSeen() + TimeUnit.DAYS.toMillis(365) < System.currentTimeMillis();
   }
 
 }
