@@ -109,22 +109,16 @@ public class GCMSender implements Managed {
   }
 
   private void handleBadRegistration(Result result) {
-    GcmMessage message = (GcmMessage)result.getContext();
-    logger.warn("Got GCM unregistered notice! " + message.getGcmId());
-
+    GcmMessage        message = (GcmMessage) result.getContext();
     Optional<Account> account = getAccountForEvent(message);
 
     if (account.isPresent()) {
       Device device = account.get().getDevice(message.getDeviceId()).get();
-      device.setUninstalledFeedbackTimestamp(Util.todayInMillis());
-//      device.setGcmId(null);
-//      device.setFetchesMessages(false);
 
-      accountsManager.update(account.get());
-
-//      if (!account.get().isActive()) {
-//        directoryQueue.deleteRegisteredUser(account.get().getNumber());
-//      }
+      if (device.getUninstalledFeedbackTimestamp() == 0) {
+        device.setUninstalledFeedbackTimestamp(Util.todayInMillis());
+        accountsManager.update(account.get());
+      }
     }
 
     unregistered.mark();
@@ -164,12 +158,8 @@ public class GCMSender implements Managed {
 
       if (device.isPresent()) {
         if (message.getGcmId().equals(device.get().getGcmId())) {
-          logger.info("GCM Unregister GCM ID matches!");
 
-          if (device.get().getPushTimestamp() == 0 || System.currentTimeMillis() > (device.get().getPushTimestamp() + TimeUnit.SECONDS.toMillis(10)))
-          {
-            logger.info("GCM Unregister Timestamp matches!");
-
+          if (device.get().getPushTimestamp() == 0 || System.currentTimeMillis() > (device.get().getPushTimestamp() + TimeUnit.SECONDS.toMillis(10))) {
             return account;
           }
         }
