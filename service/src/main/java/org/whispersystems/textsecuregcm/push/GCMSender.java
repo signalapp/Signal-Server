@@ -40,7 +40,7 @@ public class GCMSender implements Managed {
   private final Meter          unregistered   = metricRegistry.meter(name(getClass(), "sent", "unregistered"));
   private final Meter          canonical      = metricRegistry.meter(name(getClass(), "sent", "canonical"));
 
-  private final Map<String, Meter> outboundMeters = new HashMap<String, Meter>() {{
+  private final Map<String, Meter> outboundMeters = new HashMap<>() {{
     put("receipt", metricRegistry.meter(name(getClass(), "outbound", "receipt")));
     put("notification", metricRegistry.meter(name(getClass(), "outbound", "notification")));
   }};

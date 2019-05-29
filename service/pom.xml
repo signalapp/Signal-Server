@@ -28,6 +28,17 @@
             <artifactId>websocket-resources</artifactId>
             <version>${TextSecureServer.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.whispersystems.textsecure</groupId>
+            <artifactId>gcm-sender-async</artifactId>
+            <version>${TextSecureServer.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>guava</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
 
 
         <dependency>
@@ -114,18 +125,6 @@
             <scope>runtime</scope>
         </dependency>
 
-
-        <dependency>
-            <groupId>org.whispersystems</groupId>
-            <artifactId>gcm-sender-async</artifactId>
-            <version>0.1.6</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.google.guava</groupId>
-                    <artifactId>guava</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
 
         <dependency>
             <groupId>com.googlecode.libphonenumber</groupId>

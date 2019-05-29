@@ -1,0 +1,8 @@
+{ "multicast_id": 216,
+  "success": 0,
+  "failure": 1,
+  "canonical_ids": 0,
+  "results": [
+    { "error": "NotRegistered"}
+  ]
+}

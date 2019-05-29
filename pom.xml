@@ -11,6 +11,7 @@
     <modules>
         <module>redis-dispatch</module>
         <module>websocket-resources</module>
+        <module>gcm-sender-async</module>
         <module>service</module>
     </modules>
 
