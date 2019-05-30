@@ -1,0 +1,6 @@
+<!-- Turning down the wiremock logging -->
+<logger name="com.github.tomakehurst.wiremock" level="WARN"/>
+<logger name="wiremock.org" level="ERROR"/>
+<logger name="WireMock" level="WARN"/>
+<!-- wiremock has per endpoint servlet logging -->
+<logger name="/" level="WARN"/>

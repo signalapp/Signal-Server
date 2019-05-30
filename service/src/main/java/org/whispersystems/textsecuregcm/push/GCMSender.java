@@ -12,6 +12,7 @@ import org.whispersystems.gcm.server.Sender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -49,6 +50,8 @@ public class GCMSender implements Managed {
   public GCMSender(AccountsManager accountsManager, String signalKey) {
     this.accountsManager = accountsManager;
     this.signalSender    = new Sender(signalKey, SystemMapper.getMapper(), 6);
+
+    CircuitBreakerUtil.registerMetrics(metricRegistry, signalSender.getRetry(), Sender.class);
   }
 
   @VisibleForTesting

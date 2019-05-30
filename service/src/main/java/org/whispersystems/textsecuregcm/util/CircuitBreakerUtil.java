@@ -5,7 +5,6 @@ import com.codahale.metrics.MetricRegistry;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
-import io.github.resilience4j.retry.AsyncRetry;
 import io.github.resilience4j.retry.Retry;
 
 public class CircuitBreakerUtil {

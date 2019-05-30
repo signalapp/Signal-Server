@@ -151,4 +151,8 @@ public class Sender {
     }
   }
 
+  public Retry getRetry() {
+    return retry;
+  }
+
 }
