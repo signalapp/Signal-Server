@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2015 Open Whisper Systems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -21,13 +21,11 @@ package org.whispersystems.gcm.server;
  */
 public class Result {
 
-  private final Object context;
   private final String canonicalRegistrationId;
   private final String messageId;
   private final String error;
 
-  Result(Object context, String canonicalRegistrationId, String messageId, String error) {
-    this.context                 = context;
+  Result(String canonicalRegistrationId, String messageId, String error) {
     this.canonicalRegistrationId = canonicalRegistrationId;
     this.messageId               = messageId;
     this.error                   = error;
@@ -91,10 +89,4 @@ public class Result {
     return "InvalidRegistration".equals(error);
   }
 
-  /**
-   * @return The context passed into Sender.send(), if any.
-   */
-  public Object getContext() {
-    return context;
-  }
 }

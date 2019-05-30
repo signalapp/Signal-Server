@@ -13,7 +13,6 @@
     <version>${TextSecureServer.version}</version>
 
     <properties>
-        <resilience4j.version>0.14.1</resilience4j.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 

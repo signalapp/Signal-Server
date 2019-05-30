@@ -15,26 +15,16 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpasyncclient</artifactId>
-            <version>4.0.2</version>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-retry</artifactId>
+            <version>${resilience4j.version}</version>
         </dependency>
-        <dependency>
-            <groupId>com.nurkiewicz.asyncretry</groupId>
-            <artifactId>asyncretry-jdk7</artifactId>
-            <version>0.0.5</version>
-        </dependency>
+
 
         <dependency>
             <groupId>com.squareup.okhttp</groupId>
             <artifactId>mockwebserver</artifactId>
             <version>2.1.0</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.github.tomakehurst</groupId>
-            <artifactId>wiremock</artifactId>
-            <version>1.52</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

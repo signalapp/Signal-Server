@@ -1,14 +1,11 @@
 package org.whispersystems.textsecuregcm.tests.push;
 
-import com.google.common.util.concurrent.SettableFuture;
 import org.junit.Test;
-import org.mockito.Matchers;
 import org.whispersystems.gcm.server.Message;
 import org.whispersystems.gcm.server.Result;
 import org.whispersystems.gcm.server.Sender;
 import org.whispersystems.textsecuregcm.push.GCMSender;
 import org.whispersystems.textsecuregcm.push.GcmMessage;
-import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -16,6 +13,7 @@ import org.whispersystems.textsecuregcm.tests.util.SynchronousExecutorService;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.*;
@@ -27,7 +25,6 @@ public class GCMSenderTest {
     AccountsManager            accountsManager = mock(AccountsManager.class);
     Sender                     sender          = mock(Sender.class         );
     Result                     successResult   = mock(Result.class         );
-    DirectoryQueue             directoryQueue  = mock(DirectoryQueue.class );
     SynchronousExecutorService executorService = new SynchronousExecutorService();
 
     when(successResult.isInvalidRegistrationId()).thenReturn(false);
@@ -36,17 +33,15 @@ public class GCMSenderTest {
     when(successResult.isSuccess()).thenReturn(true);
 
     GcmMessage message = new GcmMessage("foo", "+12223334444", 1, false);
-    GCMSender gcmSender = new GCMSender(accountsManager, sender, directoryQueue, executorService);
+    GCMSender gcmSender = new GCMSender(accountsManager, sender, executorService);
 
-    SettableFuture<Result> successFuture = SettableFuture.create();
-    successFuture.set(successResult);
+    CompletableFuture<Result> successFuture = CompletableFuture.completedFuture(successResult);
 
-    when(sender.send(any(Message.class), Matchers.anyObject())).thenReturn(successFuture);
-    when(successResult.getContext()).thenReturn(message);
+    when(sender.send(any(Message.class))).thenReturn(successFuture);
 
     gcmSender.sendMessage(message);
 
-    verify(sender, times(1)).send(any(Message.class), eq(message));
+    verify(sender, times(1)).send(any(Message.class));
   }
 
   @Test
@@ -57,7 +52,6 @@ public class GCMSenderTest {
     AccountsManager            accountsManager = mock(AccountsManager.class);
     Sender                     sender          = mock(Sender.class         );
     Result                     invalidResult   = mock(Result.class         );
-    DirectoryQueue             directoryQueue  = mock(DirectoryQueue.class );
     SynchronousExecutorService executorService = new SynchronousExecutorService();
 
     Account destinationAccount = mock(Account.class);
@@ -73,17 +67,15 @@ public class GCMSenderTest {
     when(invalidResult.isSuccess()).thenReturn(true);
 
     GcmMessage message = new GcmMessage(gcmId, destinationNumber, 1, false);
-    GCMSender gcmSender = new GCMSender(accountsManager, sender, directoryQueue, executorService);
+    GCMSender gcmSender = new GCMSender(accountsManager, sender, executorService);
 
-    SettableFuture<Result> invalidFuture = SettableFuture.create();
-    invalidFuture.set(invalidResult);
+    CompletableFuture<Result> invalidFuture = CompletableFuture.completedFuture(invalidResult);
 
-    when(sender.send(any(Message.class), Matchers.anyObject())).thenReturn(invalidFuture);
-    when(invalidResult.getContext()).thenReturn(message);
+    when(sender.send(any(Message.class))).thenReturn(invalidFuture);
 
     gcmSender.sendMessage(message);
 
-    verify(sender, times(1)).send(any(Message.class), eq(message));
+    verify(sender, times(1)).send(any(Message.class));
     verify(accountsManager, times(1)).get(eq(destinationNumber));
     verify(accountsManager, times(1)).update(eq(destinationAccount));
     verify(destinationDevice, times(1)).setUninstalledFeedbackTimestamp(eq(Util.todayInMillis()));
@@ -102,7 +94,6 @@ public class GCMSenderTest {
 
     Account        destinationAccount = mock(Account.class       );
     Device         destinationDevice  = mock(Device.class        );
-    DirectoryQueue directoryQueue     = mock(DirectoryQueue.class);
 
     when(destinationAccount.getDevice(1)).thenReturn(Optional.of(destinationDevice));
     when(accountsManager.get(destinationNumber)).thenReturn(Optional.of(destinationAccount));
@@ -115,17 +106,15 @@ public class GCMSenderTest {
     when(canonicalResult.getCanonicalRegistrationId()).thenReturn(canonicalId);
 
     GcmMessage message = new GcmMessage(gcmId, destinationNumber, 1, false);
-    GCMSender gcmSender = new GCMSender(accountsManager, sender, directoryQueue, executorService);
+    GCMSender gcmSender = new GCMSender(accountsManager, sender, executorService);
 
-    SettableFuture<Result> invalidFuture = SettableFuture.create();
-    invalidFuture.set(canonicalResult);
+    CompletableFuture<Result> invalidFuture = CompletableFuture.completedFuture(canonicalResult);
 
-    when(sender.send(any(Message.class), Matchers.anyObject())).thenReturn(invalidFuture);
-    when(canonicalResult.getContext()).thenReturn(message);
+    when(sender.send(any(Message.class))).thenReturn(invalidFuture);
 
     gcmSender.sendMessage(message);
 
-    verify(sender, times(1)).send(any(Message.class), eq(message));
+    verify(sender, times(1)).send(any(Message.class));
     verify(accountsManager, times(1)).get(eq(destinationNumber));
     verify(accountsManager, times(1)).update(eq(destinationAccount));
     verify(destinationDevice, times(1)).setGcmId(eq(canonicalId));

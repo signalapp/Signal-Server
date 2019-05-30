@@ -1,6 +1,9 @@
 package org.whispersystems.gcm.server;
 
-import com.google.common.util.concurrent.ListenableFuture;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squareup.okhttp.mockwebserver.MockResponse;
 import com.squareup.okhttp.mockwebserver.RecordedRequest;
 import com.squareup.okhttp.mockwebserver.rule.MockWebServerRule;
@@ -8,6 +11,7 @@ import org.junit.Rule;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -22,25 +26,31 @@ public class SenderTest {
   @Rule
   public MockWebServerRule server = new MockWebServerRule();
 
+  private static final ObjectMapper mapper = new ObjectMapper();
+
+  static {
+    mapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);
+    mapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+    mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+  }
+
   @Test
   public void testSuccess() throws InterruptedException, ExecutionException, TimeoutException, IOException {
     MockResponse successResponse = new MockResponse().setResponseCode(200)
                                                      .setBody(fixture("fixtures/response-success.json"));
     server.enqueue(successResponse);
 
-    String                   context = "my context";
-    Sender                   sender  = new Sender("foobarbaz", 10, server.getUrl("/gcm/send").toExternalForm());
-    ListenableFuture<Result> future  = sender.send(Message.newBuilder().withDestination("1").build(), context);
+    Sender                    sender = new Sender("foobarbaz", mapper, 10, server.getUrl("/gcm/send").toExternalForm());
+    CompletableFuture<Result> future = sender.send(Message.newBuilder().withDestination("1").build());
 
     Result result = future.get(10, TimeUnit.SECONDS);
 
-    assertEquals(result.isSuccess(), true);
-    assertEquals(result.isThrottled(), false);
-    assertEquals(result.isUnregistered(), false);
+    assertTrue(result.isSuccess());
+    assertFalse(result.isThrottled());
+    assertFalse(result.isUnregistered());
     assertEquals(result.getMessageId(), "1:08");
     assertNull(result.getError());
     assertNull(result.getCanonicalRegistrationId());
-    assertEquals(context, result.getContext());
 
     RecordedRequest request = server.takeRequest();
     assertEquals(request.getPath(), "/gcm/send");
@@ -51,12 +61,12 @@ public class SenderTest {
   }
 
   @Test
-  public void testBadApiKey() throws ExecutionException, InterruptedException, TimeoutException {
+  public void testBadApiKey() throws InterruptedException, TimeoutException {
     MockResponse unauthorizedResponse = new MockResponse().setResponseCode(401);
     server.enqueue(unauthorizedResponse);
 
-    Sender                   sender = new Sender("foobar", 10, server.getUrl("/gcm/send").toExternalForm());
-    ListenableFuture<Result> future = sender.send(Message.newBuilder().withDestination("1").build());
+    Sender                    sender = new Sender("foobar", mapper, 10, server.getUrl("/gcm/send").toExternalForm());
+    CompletableFuture<Result> future = sender.send(Message.newBuilder().withDestination("1").build());
 
     try {
       future.get(10, TimeUnit.SECONDS);
@@ -73,8 +83,8 @@ public class SenderTest {
     MockResponse malformed = new MockResponse().setResponseCode(400);
     server.enqueue(malformed);
 
-    Sender                   sender = new Sender("foobarbaz", 10, server.getUrl("/gcm/send").toExternalForm());
-    ListenableFuture<Result> future = sender.send(Message.newBuilder().withDestination("1").build());
+    Sender                    sender = new Sender("foobarbaz", mapper, 10, server.getUrl("/gcm/send").toExternalForm());
+    CompletableFuture<Result> future = sender.send(Message.newBuilder().withDestination("1").build());
 
     try {
       future.get(10, TimeUnit.SECONDS);
@@ -93,8 +103,8 @@ public class SenderTest {
     server.enqueue(error);
     server.enqueue(error);
 
-    Sender sender = new Sender("foobarbaz", 2, server.getUrl("/gcm/send").toExternalForm());
-    ListenableFuture<Result> future = sender.send(Message.newBuilder().withDestination("1").build());
+    Sender                    sender = new Sender("foobarbaz", mapper, 3, server.getUrl("/gcm/send").toExternalForm());
+    CompletableFuture<Result> future = sender.send(Message.newBuilder().withDestination("1").build());
 
     try {
       future.get(10, TimeUnit.SECONDS);
@@ -118,15 +128,15 @@ public class SenderTest {
     server.enqueue(error);
     server.enqueue(success);
 
-    Sender sender = new Sender("foobarbaz", 3, server.getUrl("/gcm/send").toExternalForm());
-    ListenableFuture<Result> future = sender.send(Message.newBuilder().withDestination("1").build());
+    Sender                    sender = new Sender("foobarbaz", mapper, 4, server.getUrl("/gcm/send").toExternalForm());
+    CompletableFuture<Result> future = sender.send(Message.newBuilder().withDestination("1").build());
 
     Result result = future.get(10, TimeUnit.SECONDS);
 
     assertEquals(server.getRequestCount(), 4);
-    assertEquals(result.isSuccess(), true);
-    assertEquals(result.isThrottled(), false);
-    assertEquals(result.isUnregistered(), false);
+    assertTrue(result.isSuccess());
+    assertFalse(result.isThrottled());
+    assertFalse(result.isUnregistered());
     assertEquals(result.getMessageId(), "1:08");
     assertNull(result.getError());
     assertNull(result.getCanonicalRegistrationId());
@@ -141,11 +151,11 @@ public class SenderTest {
     server.enqueue(response);
     server.enqueue(response);
 
-    Sender sender = new Sender("foobarbaz", 2, server.getUrl("/gcm/send").toExternalForm());
+    Sender sender = new Sender("foobarbaz", mapper ,2, server.getUrl("/gcm/send").toExternalForm());
 
     server.get().shutdown();
 
-    ListenableFuture<Result> future = sender.send(Message.newBuilder().withDestination("1").build());
+    CompletableFuture<Result> future = sender.send(Message.newBuilder().withDestination("1").build());
 
     try {
       future.get(10, TimeUnit.SECONDS);
@@ -161,8 +171,8 @@ public class SenderTest {
 
     server.enqueue(response);
 
-    Sender                   sender = new Sender("foobarbaz", 2, server.getUrl("/gcm/send").toExternalForm());
-    ListenableFuture<Result> future = sender.send(Message.newBuilder()
+    Sender                    sender = new Sender("foobarbaz", mapper,2, server.getUrl("/gcm/send").toExternalForm());
+    CompletableFuture<Result> future = sender.send(Message.newBuilder()
                                                          .withDestination("2")
                                                          .withDataPart("message", "new message!")
                                                          .build());
