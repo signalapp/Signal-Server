@@ -5,22 +5,22 @@ import com.google.common.annotations.VisibleForTesting;
 import org.hibernate.validator.constraints.Length;
 import org.hibernate.validator.constraints.NotEmpty;
 
-public class RegistrationLock {
+public class DeprecatedPin {
 
   @JsonProperty
-  @Length(min=64,max=64)
   @NotEmpty
-  private String registrationLock;
+  @Length(min=4,max=20)
+  private String pin;
 
-  public RegistrationLock() {}
+  public DeprecatedPin() {}
 
   @VisibleForTesting
-  public RegistrationLock(String registrationLock) {
-    this.registrationLock = registrationLock;
+  public DeprecatedPin(String pin) {
+    this.pin = pin;
   }
 
-  public String getRegistrationLock() {
-    return registrationLock;
+  public String getPin() {
+    return pin;
   }
 
 }

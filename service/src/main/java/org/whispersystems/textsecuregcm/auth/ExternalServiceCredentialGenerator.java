@@ -1,6 +1,5 @@
 package org.whispersystems.textsecuregcm.auth;
 
-import com.google.common.base.Optional;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
@@ -14,27 +13,29 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.TimeUnit;
 
-public class DirectoryCredentialsGenerator {
+public class ExternalServiceCredentialGenerator {
 
-  private final Logger logger = LoggerFactory.getLogger(DirectoryCredentialsGenerator.class);
+  private final Logger logger = LoggerFactory.getLogger(ExternalServiceCredentialGenerator.class);
 
   private final byte[] key;
   private final byte[] userIdKey;
+  private final boolean usernameDerivation;
 
-  public DirectoryCredentialsGenerator(byte[] key, byte[] userIdKey) {
-    this.key       = key;
-    this.userIdKey = userIdKey;
+  public ExternalServiceCredentialGenerator(byte[] key, byte[] userIdKey, boolean usernameDerivation) {
+    this.key                = key;
+    this.userIdKey          = userIdKey;
+    this.usernameDerivation = usernameDerivation;
   }
 
-  public DirectoryCredentials generateFor(String number) {
+  public ExternalServiceCredentials generateFor(String number) {
     Mac    mac                = getMacInstance();
-    String username           = getUserId(number, mac);
+    String username           = getUserId(number, mac, usernameDerivation);
     long   currentTimeSeconds = System.currentTimeMillis() / 1000;
     String prefix             = username + ":"  + currentTimeSeconds;
     String output             = Hex.encodeHexString(Util.truncate(getHmac(key, prefix.getBytes(), mac), 10));
     String token              = prefix + ":" + output;
 
-    return new DirectoryCredentials(username, token);
+    return new ExternalServiceCredentials(username, token);
   }
 
 
@@ -46,7 +47,7 @@ public class DirectoryCredentialsGenerator {
       return false;
     }
 
-    if (!getUserId(number, mac).equals(parts[0])) {
+    if (!getUserId(number, mac, usernameDerivation).equals(parts[0])) {
       return false;
     }
 
@@ -57,8 +58,9 @@ public class DirectoryCredentialsGenerator {
     return isValidSignature(parts[0] + ":" + parts[1], parts[2], mac);
   }
 
-  private String getUserId(String number, Mac mac) {
-      return Hex.encodeHexString(Util.truncate(getHmac(userIdKey, number.getBytes(), mac), 10));
+  private String getUserId(String number, Mac mac, boolean usernameDerivation) {
+    if (usernameDerivation) return Hex.encodeHexString(Util.truncate(getHmac(userIdKey, number.getBytes(), mac), 10));
+    else                    return number;
   }
 
   private boolean isValidTime(String timeString, long currentTimeMillis) {

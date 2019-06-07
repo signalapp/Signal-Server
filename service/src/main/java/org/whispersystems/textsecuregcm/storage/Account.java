@@ -53,6 +53,12 @@ public class Account implements Principal  {
   @JsonProperty
   private String pin;
 
+  @JsonProperty
+  private String registrationLock;
+
+  @JsonProperty
+  private String registrationLockSalt;
+
   @JsonProperty("uak")
   private byte[] unidentifiedAccessKey;
 
@@ -209,6 +215,22 @@ public class Account implements Principal  {
     this.pin = pin;
   }
 
+  public void setRegistrationLock(String registrationLock) {
+    this.registrationLock = registrationLock;
+  }
+
+  public Optional<String> getRegistrationLock() {
+    return Optional.ofNullable(registrationLock);
+  }
+
+  public void setRegistrationLockSalt(String registrationLockSalt) {
+    this.registrationLockSalt = registrationLockSalt;
+  }
+
+  public Optional<String> getRegistrationLockSalt() {
+    return Optional.ofNullable(registrationLockSalt);
+  }
+
   public Optional<byte[]> getUnidentifiedAccessKey() {
     return Optional.ofNullable(unidentifiedAccessKey);
   }
@@ -238,4 +260,5 @@ public class Account implements Principal  {
   public boolean implies(Subject subject) {
     return false;
   }
+
 }

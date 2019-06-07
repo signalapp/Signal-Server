@@ -23,7 +23,7 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.annotation.Timed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.DirectoryCredentialsGenerator;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.entities.ClientContactTokens;
 import org.whispersystems.textsecuregcm.entities.ClientContacts;
@@ -86,17 +86,17 @@ public class DirectoryController {
     }
   }};
 
-  private final RateLimiters                  rateLimiters;
-  private final DirectoryManager              directory;
-  private final DirectoryCredentialsGenerator userTokenGenerator;
+  private final RateLimiters                       rateLimiters;
+  private final DirectoryManager                   directory;
+  private final ExternalServiceCredentialGenerator directoryServiceTokenGenerator;
 
   public DirectoryController(RateLimiters rateLimiters,
                              DirectoryManager directory,
-                             DirectoryCredentialsGenerator userTokenGenerator)
+                             ExternalServiceCredentialGenerator userTokenGenerator)
   {
-    this.directory          = directory;
-    this.rateLimiters       = rateLimiters;
-    this.userTokenGenerator = userTokenGenerator;
+    this.directory                      = directory;
+    this.rateLimiters                   = rateLimiters;
+    this.directoryServiceTokenGenerator = userTokenGenerator;
   }
 
   @Timed
@@ -104,7 +104,7 @@ public class DirectoryController {
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)
   public Response getAuthToken(@Auth Account account) {
-    return Response.ok().entity(userTokenGenerator.generateFor(account.getNumber())).build();
+    return Response.ok().entity(directoryServiceTokenGenerator.generateFor(account.getNumber())).build();
   }
 
   @PUT

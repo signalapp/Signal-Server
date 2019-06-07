@@ -26,6 +26,8 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.AuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.InvalidAuthorizationHeaderException;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
@@ -34,6 +36,7 @@ import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.DeviceName;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
+import org.whispersystems.textsecuregcm.entities.DeprecatedPin;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -95,18 +98,19 @@ public class AccountController {
   private final Meter          captchaFailureMeter    = metricRegistry.meter(name(AccountController.class, "captcha_failure"    ));
 
 
-  private final PendingAccountsManager pendingAccounts;
-  private final AccountsManager        accounts;
-  private final AbusiveHostRules       abusiveHostRules;
-  private final RateLimiters           rateLimiters;
-  private final SmsSender              smsSender;
-  private final DirectoryQueue         directoryQueue;
-  private final MessagesManager        messagesManager;
-  private final TurnTokenGenerator     turnTokenGenerator;
-  private final Map<String, Integer>   testDevices;
-  private final RecaptchaClient        recaptchaClient;
-  private final GCMSender              gcmSender;
-  private final APNSender              apnSender;
+  private final PendingAccountsManager             pendingAccounts;
+  private final AccountsManager                    accounts;
+  private final AbusiveHostRules                   abusiveHostRules;
+  private final RateLimiters                       rateLimiters;
+  private final SmsSender                          smsSender;
+  private final DirectoryQueue                     directoryQueue;
+  private final MessagesManager                    messagesManager;
+  private final TurnTokenGenerator                 turnTokenGenerator;
+  private final Map<String, Integer>               testDevices;
+  private final RecaptchaClient                    recaptchaClient;
+  private final GCMSender                          gcmSender;
+  private final APNSender                          apnSender;
+  private final ExternalServiceCredentialGenerator storageServiceCredentialGenerator;
 
   public AccountController(PendingAccountsManager pendingAccounts,
                            AccountsManager accounts,
@@ -119,20 +123,22 @@ public class AccountController {
                            Map<String, Integer> testDevices,
                            RecaptchaClient recaptchaClient,
                            GCMSender gcmSender,
-                           APNSender apnSender)
+                           APNSender apnSender,
+                           ExternalServiceCredentialGenerator storageServiceCredentialGenerator)
   {
-    this.pendingAccounts    = pendingAccounts;
-    this.accounts           = accounts;
-    this.abusiveHostRules   = abusiveHostRules;
-    this.rateLimiters       = rateLimiters;
-    this.smsSender          = smsSenderFactory;
-    this.directoryQueue     = directoryQueue;
-    this.messagesManager    = messagesManager;
-    this.testDevices        = testDevices;
-    this.turnTokenGenerator = turnTokenGenerator;
-    this.recaptchaClient    = recaptchaClient;
-    this.gcmSender          = gcmSender;
-    this.apnSender          = apnSender;
+    this.pendingAccounts                   = pendingAccounts;
+    this.accounts                          = accounts;
+    this.abusiveHostRules                  = abusiveHostRules;
+    this.rateLimiters                      = rateLimiters;
+    this.smsSender                         = smsSenderFactory;
+    this.directoryQueue                    = directoryQueue;
+    this.messagesManager                   = messagesManager;
+    this.testDevices                       = testDevices;
+    this.turnTokenGenerator                = turnTokenGenerator;
+    this.recaptchaClient                   = recaptchaClient;
+    this.gcmSender                         = gcmSender;
+    this.apnSender                         = apnSender;
+    this.storageServiceCredentialGenerator = storageServiceCredentialGenerator;
   }
 
   @Timed
@@ -260,25 +266,42 @@ public class AccountController {
 
       Optional<Account> existingAccount = accounts.get(number);
 
-      if (existingAccount.isPresent()                &&
-          existingAccount.get().getPin().isPresent() &&
+      if (existingAccount.isPresent()                                                                             &&
+          (existingAccount.get().getPin().isPresent() || existingAccount.get().getRegistrationLock().isPresent()) &&
           System.currentTimeMillis() - existingAccount.get().getLastSeen() < TimeUnit.DAYS.toMillis(7))
       {
         rateLimiters.getVerifyLimiter().clear(number);
 
-        long timeRemaining = TimeUnit.DAYS.toMillis(7) - (System.currentTimeMillis() - existingAccount.get().getLastSeen());
+        long                                 timeRemaining = TimeUnit.DAYS.toMillis(7) - (System.currentTimeMillis() - existingAccount.get().getLastSeen());
+        Optional<ExternalServiceCredentials> credentials   = existingAccount.get().getRegistrationLock().isPresent() &&
+                                                             existingAccount.get().getRegistrationLockSalt().isPresent() ?
+                                                               Optional.of(storageServiceCredentialGenerator.generateFor(number)) :
+                                                               Optional.empty();
 
-        if (accountAttributes.getPin() == null) {
+        if (Util.isEmpty(accountAttributes.getPin()) &&
+            Util.isEmpty(accountAttributes.getRegistrationLock()))
+        {
           throw new WebApplicationException(Response.status(423)
-                                                    .entity(new RegistrationLockFailure(timeRemaining))
+                                                    .entity(new RegistrationLockFailure(timeRemaining, credentials.orElse(null)))
                                                     .build());
         }
 
         rateLimiters.getPinLimiter().validate(number);
 
-        if (!MessageDigest.isEqual(existingAccount.get().getPin().get().getBytes(), accountAttributes.getPin().getBytes())) {
+        boolean pinMatches;
+
+        if (existingAccount.get().getRegistrationLock().isPresent() && existingAccount.get().getRegistrationLockSalt().isPresent()) {
+          pinMatches = new AuthenticationCredentials(existingAccount.get().getRegistrationLock().get(),
+                                                     existingAccount.get().getRegistrationLockSalt().get()).verify(accountAttributes.getRegistrationLock());
+        } else if (existingAccount.get().getPin().isPresent()) {
+          pinMatches = MessageDigest.isEqual(existingAccount.get().getPin().get().getBytes(), accountAttributes.getPin().getBytes());
+        } else {
+          throw new AssertionError("Invalid registration lock state");
+        }
+
+        if (!pinMatches) {
           throw new WebApplicationException(Response.status(423)
-                                                    .entity(new RegistrationLockFailure(timeRemaining))
+                                                    .entity(new RegistrationLockFailure(timeRemaining, credentials.orElse(null)))
                                                     .build());
         }
 
@@ -385,9 +408,34 @@ public class AccountController {
   @Timed
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
+  @Path("/registration_lock")
+  public void setRegistrationLock(@Auth Account account, @Valid RegistrationLock accountLock) {
+    AuthenticationCredentials credentials = new AuthenticationCredentials(accountLock.getRegistrationLock());
+    account.setRegistrationLock(credentials.getHashedAuthenticationToken());
+    account.setRegistrationLockSalt(credentials.getSalt());
+    account.setPin(null);
+
+    accounts.update(account);
+  }
+
+  @Timed
+  @DELETE
+  @Path("/registration_lock")
+  public void removeRegistrationLock(@Auth Account account) {
+    account.setRegistrationLock(null);
+    account.setRegistrationLockSalt(null);
+    accounts.update(account);
+  }
+
+  @Timed
+  @PUT
+  @Produces(MediaType.APPLICATION_JSON)
   @Path("/pin/")
-  public void setPin(@Auth Account account, @Valid RegistrationLock accountLock) {
+  public void setPin(@Auth Account account, @Valid DeprecatedPin accountLock) {
     account.setPin(accountLock.getPin());
+    account.setRegistrationLock(null);
+    account.setRegistrationLockSalt(null);
+
     accounts.update(account);
   }
 
@@ -436,7 +484,18 @@ public class AccountController {
     device.setSignalingKey(attributes.getSignalingKey());
     device.setUserAgent(userAgent);
 
-    account.setPin(attributes.getPin());
+    if (!Util.isEmpty(attributes.getPin())) {
+      account.setPin(attributes.getPin());
+    } else if (!Util.isEmpty(attributes.getRegistrationLock())) {
+      AuthenticationCredentials credentials = new AuthenticationCredentials(attributes.getRegistrationLock());
+      account.setRegistrationLock(credentials.getHashedAuthenticationToken());
+      account.setRegistrationLockSalt(credentials.getSalt());
+    } else {
+      account.setPin(null);
+      account.setRegistrationLock(null);
+      account.setRegistrationLockSalt(null);
+    }
+
     account.setUnidentifiedAccessKey(attributes.getUnidentifiedAccessKey());
     account.setUnrestrictedUnidentifiedAccess(attributes.isUnrestrictedUnidentifiedAccess());
 

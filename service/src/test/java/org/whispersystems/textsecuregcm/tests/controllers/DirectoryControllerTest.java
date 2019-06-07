@@ -7,8 +7,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
-import org.whispersystems.textsecuregcm.auth.DirectoryCredentials;
-import org.whispersystems.textsecuregcm.auth.DirectoryCredentialsGenerator;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.controllers.DirectoryController;
 import org.whispersystems.textsecuregcm.entities.ClientContactTokens;
@@ -42,9 +42,9 @@ public class DirectoryControllerTest {
   private final RateLimiters                  rateLimiters                  = mock(RateLimiters.class);
   private final RateLimiter                   rateLimiter                   = mock(RateLimiter.class);
   private final DirectoryManager              directoryManager              = mock(DirectoryManager.class);
-  private final DirectoryCredentialsGenerator directoryCredentialsGenerator = mock(DirectoryCredentialsGenerator.class);
+  private final ExternalServiceCredentialGenerator directoryCredentialsGenerator = mock(ExternalServiceCredentialGenerator.class);
 
-  private final DirectoryCredentials validCredentials = new DirectoryCredentials("username", "password");
+  private final ExternalServiceCredentials validCredentials = new ExternalServiceCredentials("username", "password");
 
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
@@ -140,12 +140,12 @@ public class DirectoryControllerTest {
 
   @Test
   public void testGetAuthToken() {
-    DirectoryCredentials token =
+    ExternalServiceCredentials token =
             resources.getJerseyTest()
                      .target("/v1/directory/auth")
                      .request()
                      .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-                     .get(DirectoryCredentials.class);
+                     .get(ExternalServiceCredentials.class);
     assertThat(token.getUsername()).isEqualTo(validCredentials.getUsername());
     assertThat(token.getPassword()).isEqualTo(validCredentials.getPassword());
   }
