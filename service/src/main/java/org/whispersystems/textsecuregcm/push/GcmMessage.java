@@ -1,17 +1,27 @@
 package org.whispersystems.textsecuregcm.push;
 
+
+import java.util.Optional;
+
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class GcmMessage {
 
-  private final String  gcmId;
-  private final String  number;
-  private final int     deviceId;
-  private final boolean receipt;
+  public enum Type {
+    RECEIPT, NOTIFICATION, CHALLENGE
+  }
 
-  public GcmMessage(String gcmId, String number, int deviceId, boolean receipt) {
-    this.gcmId        = gcmId;
-    this.number       = number;
-    this.deviceId     = deviceId;
-    this.receipt      = receipt;
+  private final String           gcmId;
+  private final String           number;
+  private final int              deviceId;
+  private final Type             type;
+  private final Optional<String> data;
+
+  public GcmMessage(String gcmId, String number, int deviceId, Type type, Optional<String> data) {
+    this.gcmId    = gcmId;
+    this.number   = number;
+    this.deviceId = deviceId;
+    this.type     = type;
+    this.data     = data;
   }
 
   public String getGcmId() {
@@ -22,11 +32,16 @@ public class GcmMessage {
     return number;
   }
 
-  public boolean isReceipt() {
-    return receipt;
+  public Type getType() {
+    return type;
   }
 
   public int getDeviceId() {
     return deviceId;
   }
+
+  public Optional<String> getData() {
+    return data;
+  }
+
 }

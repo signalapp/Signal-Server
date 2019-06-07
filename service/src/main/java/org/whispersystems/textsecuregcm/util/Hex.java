@@ -31,14 +31,18 @@ public class Hex {
   };
 
   public static String toString(byte[] bytes) {
-    return toString(bytes, 0, bytes.length);
+    return toString(bytes, 0, bytes.length, false);
   }
 
-  public static String toString(byte[] bytes, int offset, int length) {
+  public static String toStringCondensed(byte[] bytes) {
+    return toString(bytes, 0, bytes.length, true);
+  }
+
+  public static String toString(byte[] bytes, int offset, int length, boolean condensed) {
     StringBuffer buf = new StringBuffer();
     for (int i = 0; i < length; i++) {
       appendHexChar(buf, bytes[offset + i]);
-      buf.append(' ');
+      if (!condensed) buf.append(' ');
     }
     return buf.toString();
   }

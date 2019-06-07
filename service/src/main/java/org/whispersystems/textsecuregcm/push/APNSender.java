@@ -94,6 +94,8 @@ public class APNSender implements Managed {
     Futures.addCallback(future, new FutureCallback<ApnResult>() {
       @Override
       public void onSuccess(@Nullable ApnResult result) {
+        if (message.getChallengeData().isPresent()) return;
+
         if (result == null) {
           logger.warn("*** RECEIVED NULL APN RESULT ***");
         } else if (result.getStatus() == ApnResult.Status.NO_SUCH_USER) {

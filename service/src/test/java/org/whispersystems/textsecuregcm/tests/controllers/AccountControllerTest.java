@@ -1,10 +1,12 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
 import com.google.common.collect.ImmutableSet;
+import net.sourceforge.argparse4j.inf.Argument;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
@@ -19,6 +21,10 @@ import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.providers.TimeProvider;
+import org.whispersystems.textsecuregcm.push.APNSender;
+import org.whispersystems.textsecuregcm.push.ApnMessage;
+import org.whispersystems.textsecuregcm.push.GCMSender;
+import org.whispersystems.textsecuregcm.push.GcmMessage;
 import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
@@ -53,6 +59,7 @@ public class AccountControllerTest {
   private static final String SENDER_PIN         = "+14153333333";
   private static final String SENDER_OVER_PIN    = "+14154444444";
   private static final String SENDER_OVER_PREFIX = "+14156666666";
+  private static final String SENDER_PREAUTH     = "+14157777777";
 
   private static final String ABUSIVE_HOST             = "192.168.1.1";
   private static final String RESTRICTED_HOST          = "192.168.1.2";
@@ -80,6 +87,8 @@ public class AccountControllerTest {
   private        TurnTokenGenerator     turnTokenGenerator     = mock(TurnTokenGenerator.class);
   private        Account                senderPinAccount       = mock(Account.class);
   private        RecaptchaClient        recaptchaClient        = mock(RecaptchaClient.class);
+  private        GCMSender              gcmSender              = mock(GCMSender.class);
+  private        APNSender              apnSender              = mock(APNSender.class);
 
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
@@ -97,7 +106,9 @@ public class AccountControllerTest {
                                                                                                storedMessages,
                                                                                                turnTokenGenerator,
                                                                                                new HashMap<>(),
-                                                                                               recaptchaClient))
+                                                                                               recaptchaClient,
+                                                                                               gcmSender,
+                                                                                               apnSender))
                                                             .build();
 
 
@@ -116,15 +127,17 @@ public class AccountControllerTest {
     when(senderPinAccount.getPin()).thenReturn(Optional.of("31337"));
     when(senderPinAccount.getLastSeen()).thenReturn(System.currentTimeMillis());
 
-    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis())));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_OLD)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(31))));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_PIN)).thenReturn(Optional.of(new StoredVerificationCode("333333", System.currentTimeMillis())));
-    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PIN)).thenReturn(Optional.of(new StoredVerificationCode("444444", System.currentTimeMillis())));
+    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_OLD)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(31), null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_PIN)).thenReturn(Optional.of(new StoredVerificationCode("333333", System.currentTimeMillis(), null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PIN)).thenReturn(Optional.of(new StoredVerificationCode("444444", System.currentTimeMillis(), null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_PREAUTH)).thenReturn(Optional.of(new StoredVerificationCode("555555", System.currentTimeMillis(), "validchallenge")));
 
     when(accountsManager.get(eq(SENDER_PIN))).thenReturn(Optional.of(senderPinAccount));
     when(accountsManager.get(eq(SENDER_OVER_PIN))).thenReturn(Optional.of(senderPinAccount));
     when(accountsManager.get(eq(SENDER))).thenReturn(Optional.empty());
     when(accountsManager.get(eq(SENDER_OLD))).thenReturn(Optional.empty());
+    when(accountsManager.get(eq(SENDER_PREAUTH))).thenReturn(Optional.empty());
 
     when(abusiveHostRules.getAbusiveHostRulesFor(eq(ABUSIVE_HOST))).thenReturn(Collections.singletonList(new AbusiveHostRule(ABUSIVE_HOST, true, Collections.emptyList())));
     when(abusiveHostRules.getAbusiveHostRulesFor(eq(RESTRICTED_HOST))).thenReturn(Collections.singletonList(new AbusiveHostRule(RESTRICTED_HOST, false, Collections.singletonList("+123"))));
@@ -144,6 +157,45 @@ public class AccountControllerTest {
   }
 
   @Test
+  public void testGetFcmPreauth() throws Exception {
+    Response response = resources.getJerseyTest()
+                                 .target("/v1/accounts/fcm/preauth/mytoken/+14152222222")
+                                 .request()
+                                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    ArgumentCaptor<GcmMessage> captor = ArgumentCaptor.forClass(GcmMessage.class);
+
+    verify(gcmSender, times(1)).sendMessage(captor.capture());
+    assertThat(captor.getValue().getGcmId()).isEqualTo("mytoken");
+    assertThat(captor.getValue().getData().isPresent()).isTrue();
+    assertThat(captor.getValue().getData().get().length()).isEqualTo(32);
+
+    verifyNoMoreInteractions(apnSender);
+  }
+
+  @Test
+  public void testGetApnPreauth() throws Exception {
+    Response response = resources.getJerseyTest()
+                                 .target("/v1/accounts/apn/preauth/mytoken/+14152222222")
+                                 .request()
+                                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    ArgumentCaptor<ApnMessage> captor = ArgumentCaptor.forClass(ApnMessage.class);
+
+    verify(apnSender, times(1)).sendMessage(captor.capture());
+    assertThat(captor.getValue().getApnId()).isEqualTo("mytoken");
+    assertThat(captor.getValue().getChallengeData().isPresent()).isTrue();
+    assertThat(captor.getValue().getChallengeData().get().length()).isEqualTo(32);
+    assertThat(captor.getValue().getMessage()).contains("\"challenge\" : \"" + captor.getValue().getChallengeData().get() + "\"");
+
+    verifyNoMoreInteractions(gcmSender);
+  }
+
+  @Test
   public void testSendCode() throws Exception {
     Response response =
         resources.getJerseyTest()
@@ -157,7 +209,55 @@ public class AccountControllerTest {
     verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.empty()), anyString());
     verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
   }
-  
+
+  @Test
+  public void testSendCodeWithValidPreauth() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER_PREAUTH))
+                 .queryParam("challenge", "validchallenge")
+                 .request()
+                 .header("X-Forwarded-For", NICE_HOST)
+                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    verify(smsSender).deliverSmsVerification(eq(SENDER_PREAUTH), eq(Optional.empty()), anyString());
+    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
+  }
+
+  @Test
+  public void testSendCodeWithInvalidPreauth() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER_PREAUTH))
+                 .queryParam("challenge", "invalidchallenge")
+                 .request()
+                 .header("X-Forwarded-For", NICE_HOST)
+                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(402);
+
+    verifyNoMoreInteractions(smsSender);
+    verifyNoMoreInteractions(abusiveHostRules);
+  }
+
+  @Test
+  public void testSendCodeWithNoPreauth() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER_PREAUTH))
+                 .request()
+                 .header("X-Forwarded-For", NICE_HOST)
+                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    verify(smsSender).deliverSmsVerification(eq(SENDER_PREAUTH), eq(Optional.empty()), anyString());
+    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
+  }
+
+
   @Test
   public void testSendiOSCode() throws Exception {
     Response response =

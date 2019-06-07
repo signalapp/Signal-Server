@@ -37,6 +37,10 @@ import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.push.APNSender;
+import org.whispersystems.textsecuregcm.push.ApnMessage;
+import org.whispersystems.textsecuregcm.push.GCMSender;
+import org.whispersystems.textsecuregcm.push.GcmMessage;
 import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
@@ -48,6 +52,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
 
@@ -90,16 +95,18 @@ public class AccountController {
   private final Meter          captchaFailureMeter    = metricRegistry.meter(name(AccountController.class, "captcha_failure"    ));
 
 
-  private final PendingAccountsManager                pendingAccounts;
-  private final AccountsManager                       accounts;
-  private final AbusiveHostRules                      abusiveHostRules;
-  private final RateLimiters                          rateLimiters;
-  private final SmsSender                             smsSender;
-  private final DirectoryQueue                        directoryQueue;
-  private final MessagesManager                       messagesManager;
-  private final TurnTokenGenerator                    turnTokenGenerator;
-  private final Map<String, Integer>                  testDevices;
-  private final RecaptchaClient                       recaptchaClient;
+  private final PendingAccountsManager pendingAccounts;
+  private final AccountsManager        accounts;
+  private final AbusiveHostRules       abusiveHostRules;
+  private final RateLimiters           rateLimiters;
+  private final SmsSender              smsSender;
+  private final DirectoryQueue         directoryQueue;
+  private final MessagesManager        messagesManager;
+  private final TurnTokenGenerator     turnTokenGenerator;
+  private final Map<String, Integer>   testDevices;
+  private final RecaptchaClient        recaptchaClient;
+  private final GCMSender              gcmSender;
+  private final APNSender              apnSender;
 
   public AccountController(PendingAccountsManager pendingAccounts,
                            AccountsManager accounts,
@@ -110,7 +117,9 @@ public class AccountController {
                            MessagesManager messagesManager,
                            TurnTokenGenerator turnTokenGenerator,
                            Map<String, Integer> testDevices,
-                           RecaptchaClient recaptchaClient)
+                           RecaptchaClient recaptchaClient,
+                           GCMSender gcmSender,
+                           APNSender apnSender)
   {
     this.pendingAccounts    = pendingAccounts;
     this.accounts           = accounts;
@@ -122,6 +131,41 @@ public class AccountController {
     this.testDevices        = testDevices;
     this.turnTokenGenerator = turnTokenGenerator;
     this.recaptchaClient    = recaptchaClient;
+    this.gcmSender          = gcmSender;
+    this.apnSender          = apnSender;
+  }
+
+  @Timed
+  @GET
+  @Path("/{type}/preauth/{token}/{number}")
+  public Response getPreAuth(@PathParam("type")   String pushType,
+                             @PathParam("token")  String pushToken,
+                             @PathParam("number") String number)
+  {
+    if (!"apn".equals(pushType) && !"fcm".equals(pushType)) {
+      return Response.status(400).build();
+    }
+
+    if (!Util.isValidNumber(number)) {
+      return Response.status(400).build();
+    }
+
+    String                 pushChallenge          = generatePushChallenge();
+    StoredVerificationCode storedVerificationCode = new StoredVerificationCode(null,
+                                                                               System.currentTimeMillis(),
+                                                                               pushChallenge);
+
+    pendingAccounts.store(number, storedVerificationCode);
+
+    if ("fcm".equals(pushType)) {
+      gcmSender.sendMessage(new GcmMessage(pushToken, number, 0, GcmMessage.Type.CHALLENGE, Optional.of(storedVerificationCode.getPushCode())));
+    } else if ("apn".equals(pushType)) {
+      apnSender.sendMessage(new ApnMessage(pushToken, number, 0, true, Optional.of(storedVerificationCode.getPushCode())));
+    } else {
+      throw new AssertionError();
+    }
+
+    return Response.ok().build();
   }
 
   @Timed
@@ -132,7 +176,8 @@ public class AccountController {
                                 @HeaderParam("X-Forwarded-For") String forwardedFor,
                                 @HeaderParam("Accept-Language") Optional<String> locale,
                                 @QueryParam("client")           Optional<String> client,
-                                @QueryParam("captcha")          Optional<String> captcha)
+                                @QueryParam("captcha")          Optional<String> captcha,
+                                @QueryParam("challenge")        Optional<String> pushChallenge)
       throws RateLimitExceededException
   {
     if (!Util.isValidNumber(number)) {
@@ -145,7 +190,8 @@ public class AccountController {
                              .reduce((a, b) -> b)
                              .orElseThrow();
 
-    CaptchaRequirement requirement = requiresCaptcha(number, transport, forwardedFor, requester, captcha);
+    Optional<StoredVerificationCode> storedChallenge = pendingAccounts.getCodeForNumber(number);
+    CaptchaRequirement               requirement     = requiresCaptcha(number, transport, forwardedFor, requester, captcha, storedChallenge, pushChallenge);
 
     if (requirement.isCaptchaRequired()) {
       if (requirement.isAutoBlock() && shouldAutoBlock(requester)) {
@@ -170,7 +216,8 @@ public class AccountController {
 
     VerificationCode       verificationCode       = generateVerificationCode(number);
     StoredVerificationCode storedVerificationCode = new StoredVerificationCode(verificationCode.getVerificationCode(),
-                                                                               System.currentTimeMillis());
+                                                                               System.currentTimeMillis(),
+                                                                               storedChallenge.map(StoredVerificationCode::getPushCode).orElse(null));
 
     pendingAccounts.store(number, storedVerificationCode);
 
@@ -397,7 +444,10 @@ public class AccountController {
   }
 
   private CaptchaRequirement requiresCaptcha(String number, String transport, String forwardedFor,
-                                             String requester, Optional<String> captchaToken)
+                                             String requester,
+                                             Optional<String>                 captchaToken,
+                                             Optional<StoredVerificationCode> storedVerificationCode,
+                                             Optional<String>                 pushChallenge)
   {
 
     if (captchaToken.isPresent()) {
@@ -408,6 +458,14 @@ public class AccountController {
         return new CaptchaRequirement(false, false);
       } else {
         captchaFailureMeter.mark();
+        return new CaptchaRequirement(true, false);
+      }
+    }
+
+    if (pushChallenge.isPresent()) {
+      Optional<String> storedPushChallenge = storedVerificationCode.map(StoredVerificationCode::getPushCode);
+
+      if (!pushChallenge.get().equals(storedPushChallenge.orElse(null))) {
         return new CaptchaRequirement(true, false);
       }
     }
@@ -493,7 +551,8 @@ public class AccountController {
     pendingAccounts.remove(number);
   }
 
-  @VisibleForTesting protected VerificationCode generateVerificationCode(String number) {
+  @VisibleForTesting protected
+  VerificationCode generateVerificationCode(String number) {
     if (testDevices.containsKey(number)) {
       return new VerificationCode(testDevices.get(number));
     }
@@ -501,6 +560,14 @@ public class AccountController {
     SecureRandom random = new SecureRandom();
     int randomInt       = 100000 + random.nextInt(900000);
     return new VerificationCode(randomInt);
+  }
+
+  private String generatePushChallenge() {
+    SecureRandom random    = new SecureRandom();
+    byte[]       challenge = new byte[16];
+    random.nextBytes(challenge);
+
+    return Hex.toStringCondensed(challenge);
   }
 
   private static class CaptchaRequirement {

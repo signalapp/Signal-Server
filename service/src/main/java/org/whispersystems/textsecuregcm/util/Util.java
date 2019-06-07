@@ -170,6 +170,10 @@ public class Util {
     return Arrays.hashCode(objects);
   }
 
+  public static boolean isEquals(Object first, Object second) {
+    return (first == null && second == null) || (first == second) || (first != null && first.equals(second));
+  }
+
   public static long todayInMillis() {
     return TimeUnit.DAYS.toMillis(TimeUnit.MILLISECONDS.toDays(System.currentTimeMillis()));
   }

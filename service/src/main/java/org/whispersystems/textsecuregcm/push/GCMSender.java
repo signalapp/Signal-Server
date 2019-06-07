@@ -66,14 +66,22 @@ public class GCMSender implements Managed {
                                      .withDestination(message.getGcmId())
                                      .withPriority("high");
 
-    String  key     = message.isReceipt() ? "receipt" : "notification";
-    Message request = builder.withDataPart(key, "").build();
+    String key;
+
+    switch (message.getType()) {
+      case RECEIPT:      key = "receipt";      break;
+      case NOTIFICATION: key = "notification"; break;
+      case CHALLENGE:    key = "challenge";    break;
+      default:           throw new AssertionError();
+    }
+
+    Message request = builder.withDataPart(key, message.getData().orElse("")).build();
 
     CompletableFuture<Result> future = signalSender.send(request);
     markOutboundMeter(key);
 
     future.handle((result, throwable) -> {
-      if (result != null) {
+      if (result != null && message.getType() != GcmMessage.Type.CHALLENGE) {
         if (result.isUnregistered() || result.isInvalidRegistrationId()) {
           executor.submit(() -> handleBadRegistration(message));
         } else if (result.hasCanonicalRegistrationId()) {

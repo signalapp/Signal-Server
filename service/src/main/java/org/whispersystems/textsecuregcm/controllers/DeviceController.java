@@ -144,7 +144,8 @@ public class DeviceController {
 
     VerificationCode       verificationCode       = generateVerificationCode();
     StoredVerificationCode storedVerificationCode = new StoredVerificationCode(verificationCode.getVerificationCode(),
-                                                                               System.currentTimeMillis());
+                                                                               System.currentTimeMillis(),
+                                                                               null);
 
     pendingDevices.store(account.getNumber(), storedVerificationCode);
 

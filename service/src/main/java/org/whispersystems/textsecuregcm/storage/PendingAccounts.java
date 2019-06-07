@@ -19,17 +19,10 @@ package org.whispersystems.textsecuregcm.storage;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import org.jdbi.v3.core.mapper.RowMapper;
-import org.jdbi.v3.core.statement.PreparedBatch;
-import org.jdbi.v3.core.statement.StatementContext;
-import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.storage.mappers.StoredVerificationCodeRowMapper;
 import org.whispersystems.textsecuregcm.util.Constants;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.List;
 import java.util.Optional;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -49,17 +42,17 @@ public class PendingAccounts {
     this.database.getDatabase().registerRowMapper(new StoredVerificationCodeRowMapper());
   }
 
-  public void insert(String number, String verificationCode, long timestamp) {
-    database.use(jdbi -> jdbi.useTransaction(TransactionIsolationLevel.SERIALIZABLE, handle -> {
+  public void insert(String number, String verificationCode, long timestamp, String pushCode) {
+    database.use(jdbi -> jdbi.useHandle(handle -> {
       try (Timer.Context ignored = insertTimer.time()) {
-        handle.createUpdate("DELETE FROM pending_accounts WHERE number = :number")
-              .bind("number", number)
-              .execute();
-
-        handle.createUpdate("INSERT INTO pending_accounts (number, verification_code, timestamp) VALUES (:number, :verification_code, :timestamp)")
+        handle.createUpdate("INSERT INTO pending_accounts (number, verification_code, timestamp, push_code) " +
+                                "VALUES (:number, :verification_code, :timestamp, :push_code) " +
+                                "ON CONFLICT(number) DO UPDATE " +
+                                "SET verification_code = EXCLUDED.verification_code, timestamp = EXCLUDED.timestamp, push_code = EXCLUDED.push_code")
               .bind("verification_code", verificationCode)
               .bind("timestamp", timestamp)
               .bind("number", number)
+              .bind("push_code", pushCode)
               .execute();
       }
     }));
@@ -68,7 +61,7 @@ public class PendingAccounts {
   public Optional<StoredVerificationCode> getCodeForNumber(String number) {
     return database.with(jdbi ->jdbi.withHandle(handle -> {
       try (Timer.Context ignored = getCodeForNumberTimer.time()) {
-        return handle.createQuery("SELECT verification_code, timestamp FROM pending_accounts WHERE number = :number")
+        return handle.createQuery("SELECT verification_code, timestamp, push_code FROM pending_accounts WHERE number = :number")
                      .bind("number", number)
                      .mapTo(StoredVerificationCode.class)
                      .findFirst();

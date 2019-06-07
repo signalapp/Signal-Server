@@ -157,7 +157,7 @@ public class ApnFallbackManager implements Managed, Runnable {
             continue;
           }
 
-          apnSender.sendMessage(new ApnMessage(apnId, separated.get().first(), separated.get().second(), true));
+          apnSender.sendMessage(new ApnMessage(apnId, separated.get().first(), separated.get().second(), true, Optional.empty()));
           retry.mark();
         }
 

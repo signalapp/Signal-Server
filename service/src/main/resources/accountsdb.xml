@@ -186,4 +186,15 @@
             </column>
         </addColumn>
     </changeSet>
+
+    <changeSet id="6" author="moxie">
+        <addColumn tableName="pending_accounts">
+            <column name="push_code" type="text">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+        
+        <dropNotNullConstraint tableName="pending_accounts" columnName="verification_code"/>
+    </changeSet>
+
 </databaseChangeLog>
