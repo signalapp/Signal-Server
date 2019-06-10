@@ -27,6 +27,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse.BodyHandlers;
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -48,12 +49,14 @@ public class Sender {
 
   private static final String PRODUCTION_URL = "https://fcm.googleapis.com/fcm/send";
 
-  private final HttpClient               client;
   private final String                   authorizationHeader;
   private final URI                      uri;
   private final Retry                    retry;
   private final ObjectMapper             mapper;
   private final ScheduledExecutorService executorService;
+
+  private final HttpClient[] clients = new HttpClient[10];
+  private final SecureRandom random  = new SecureRandom();
 
   /**
    * Construct a Sender instance.
@@ -86,10 +89,12 @@ public class Sender {
                                                                        .retryOnException(this::isRetryableException)
                                                                        .build());
 
-    this.client = HttpClient.newBuilder()
-                            .version(HttpClient.Version.HTTP_2)
-                            .connectTimeout(Duration.ofSeconds(10))
-                            .build();
+    for (int i=0;i<clients.length;i++) {
+      this.clients[i] = HttpClient.newBuilder()
+                                  .version(HttpClient.Version.HTTP_2)
+                                  .connectTimeout(Duration.ofSeconds(10))
+                                  .build();
+    }
   }
 
   private boolean isRetryableException(Throwable throwable) {
@@ -119,7 +124,7 @@ public class Sender {
                                        .build();
 
       return retry.executeCompletionStage(executorService,
-                                          () -> client.sendAsync(request, BodyHandlers.ofByteArray())
+                                          () -> getClient().sendAsync(request, BodyHandlers.ofByteArray())
                                                       .thenApply(response -> {
                                                         switch (response.statusCode()) {
                                                           case 400: throw new CompletionException(new InvalidRequestException());
@@ -153,6 +158,10 @@ public class Sender {
 
   public Retry getRetry() {
     return retry;
+  }
+
+  private HttpClient getClient() {
+    return clients[random.nextInt(clients.length)];
   }
 
 }
