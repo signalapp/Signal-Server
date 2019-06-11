@@ -66,7 +66,6 @@ public class Accounts {
               .bind("data", mapper.writeValueAsString(account))
               .execute();
 
-
         return rows == 0;
       } catch (JsonProcessingException e) {
         throw new IllegalArgumentException(e);
@@ -97,7 +96,6 @@ public class Accounts {
       }
     }));
   }
-
 
   public List<Account> getAllFrom(String from, int length) {
     return database.with(jdbi -> jdbi.withHandle(handle -> {

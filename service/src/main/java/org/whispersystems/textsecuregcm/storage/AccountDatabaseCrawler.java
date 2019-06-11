@@ -42,7 +42,7 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
   private static final long   WORKER_TTL_MS              = 120_000L;
   private static final long   ACCELERATED_CHUNK_INTERVAL = 10L;
 
-  private final Accounts                             accounts;
+  private final AccountsManager                      accounts;
   private final int                                  chunkSize;
   private final long                                 chunkIntervalMs;
   private final String                               workerId;
@@ -52,7 +52,7 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
   private AtomicBoolean running = new AtomicBoolean(false);
   private boolean finished;
 
-  public AccountDatabaseCrawler(Accounts accounts,
+  public AccountDatabaseCrawler(AccountsManager accounts,
                                 AccountDatabaseCrawlerCache cache,
                                 List<AccountDatabaseCrawlerListener> listeners,
                                 int chunkSize,

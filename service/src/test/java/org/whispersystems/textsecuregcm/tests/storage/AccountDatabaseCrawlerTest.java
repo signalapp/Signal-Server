@@ -26,6 +26,7 @@ import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartExc
 
 import org.junit.Before;
 import org.junit.Test;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -50,7 +51,7 @@ public class AccountDatabaseCrawlerTest {
   private final Account account1 = mock(Account.class);
   private final Account account2 = mock(Account.class);
 
-  private final Accounts                       accounts = mock(Accounts.class);
+  private final AccountsManager                accounts = mock(AccountsManager.class);
   private final AccountDatabaseCrawlerListener listener = mock(AccountDatabaseCrawlerListener.class);
   private final AccountDatabaseCrawlerCache    cache    = mock(AccountDatabaseCrawlerCache.class);
 

@@ -68,9 +68,9 @@ public class RateLimiters {
                                             config.getAutoBlock().getBucketSize(),
                                             config.getAutoBlock().getLeakRatePerMinute());
 
-    this.verifyLimiter = new RateLimiter(cacheClient, "verify",
-                                         config.getVerifyNumber().getBucketSize(),
-                                         config.getVerifyNumber().getLeakRatePerMinute());
+    this.verifyLimiter = new LockingRateLimiter(cacheClient, "verify",
+                                                config.getVerifyNumber().getBucketSize(),
+                                                config.getVerifyNumber().getLeakRatePerMinute());
 
     this.pinLimiter = new LockingRateLimiter(cacheClient, "pin",
                                              config.getVerifyPin().getBucketSize(),

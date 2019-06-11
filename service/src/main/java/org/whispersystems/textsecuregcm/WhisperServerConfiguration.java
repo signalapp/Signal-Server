@@ -101,7 +101,12 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private DatabaseConfiguration database = new DatabaseConfiguration();
+  private DatabaseConfiguration keysDatabase;
+
+  @Valid
+  @NotNull
+  @JsonProperty
+  private DatabaseConfiguration accountsDatabase;
 
   @JsonProperty
   private DatabaseConfiguration read_database;
@@ -209,12 +214,12 @@ public class WhisperServerConfiguration extends Configuration {
     return abuseDatabase;
   }
 
-  public DatabaseConfiguration getAccountsDatabaseConfiguration() {
-    return database;
+  public DatabaseConfiguration getKeysDatabase() {
+    return keysDatabase;
   }
 
-  public DatabaseConfiguration getAccountsReadDatabaseConfiguration() {
-    return read_database;
+  public DatabaseConfiguration getAccountsDatabaseConfiguration() {
+    return accountsDatabase;
   }
 
   public RateLimitsConfiguration getLimitsConfiguration() {

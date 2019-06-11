@@ -20,7 +20,6 @@ public class AccountRowMapper implements RowMapper<Account> {
     try {
       Account account = mapper.readValue(resultSet.getString(Accounts.DATA), Account.class);
       account.setNumber(resultSet.getString(Accounts.NUMBER));
-
       return account;
     } catch (IOException e) {
       throw new SQLException(e);

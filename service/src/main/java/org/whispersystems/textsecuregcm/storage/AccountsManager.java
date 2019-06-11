@@ -31,6 +31,7 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -90,6 +91,14 @@ public class AccountsManager {
 
       return account;
     }
+  }
+
+  public List<Account> getAllFrom(int length) {
+    return accounts.getAllFrom(length);
+  }
+
+  public List<Account> getAllFrom(String number, int length) {
+    return accounts.getAllFrom(number, length);
   }
 
   private void updateDirectory(Account account) {

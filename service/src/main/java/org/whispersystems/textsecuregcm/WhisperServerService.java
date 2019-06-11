@@ -114,12 +114,20 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new VacuumCommand());
     bootstrap.addCommand(new DeleteUserCommand());
     bootstrap.addCommand(new CertificateCommand());
+    bootstrap.addBundle(new NameableMigrationsBundle<WhisperServerConfiguration>("keysdb", "keysdb.xml") {
+      @Override
+      public DataSourceFactory getDataSourceFactory(WhisperServerConfiguration configuration) {
+        return configuration.getKeysDatabase();
+      }
+    });
+
     bootstrap.addBundle(new NameableMigrationsBundle<WhisperServerConfiguration>("accountdb", "accountsdb.xml") {
       @Override
       public DataSourceFactory getDataSourceFactory(WhisperServerConfiguration configuration) {
         return configuration.getAccountsDatabaseConfiguration();
       }
     });
+
 
     bootstrap.addBundle(new NameableMigrationsBundle<WhisperServerConfiguration>("messagedb", "messagedb.xml") {
       @Override
@@ -152,9 +160,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     JdbiFactory jdbiFactory = new JdbiFactory(DefaultNameStrategy.CHECK_EMPTY);
     Jdbi        accountJdbi = jdbiFactory.build(environment, config.getAccountsDatabaseConfiguration(), "accountdb");
-    Jdbi        messageJdbi = jdbiFactory.build(environment, config.getMessageStoreConfiguration(), "messagedb"    );
-    Jdbi        abuseJdbi   = jdbiFactory.build(environment, config.getAbuseDatabaseConfiguration   (), "abusedb"  );
+    Jdbi        keysJdbi    = jdbiFactory.build(environment, config.getKeysDatabase(), "keysdb");
+    Jdbi        messageJdbi = jdbiFactory.build(environment, config.getMessageStoreConfiguration(), "messagedb" );
+    Jdbi        abuseJdbi   = jdbiFactory.build(environment, config.getAbuseDatabaseConfiguration(), "abusedb"  );
 
+    FaultTolerantDatabase keysDatabase    = new FaultTolerantDatabase("keys_database", keysJdbi, config.getKeysDatabase().getCircuitBreakerConfiguration());
     FaultTolerantDatabase accountDatabase = new FaultTolerantDatabase("accounts_database", accountJdbi, config.getAccountsDatabaseConfiguration().getCircuitBreakerConfiguration());
     FaultTolerantDatabase messageDatabase = new FaultTolerantDatabase("message_database", messageJdbi, config.getMessageStoreConfiguration().getCircuitBreakerConfiguration());
     FaultTolerantDatabase abuseDatabase   = new FaultTolerantDatabase("abuse_database", abuseJdbi, config.getAbuseDatabaseConfiguration().getCircuitBreakerConfiguration());
@@ -162,7 +172,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     Accounts         accounts         = new Accounts(accountDatabase);
     PendingAccounts  pendingAccounts  = new PendingAccounts(accountDatabase);
     PendingDevices   pendingDevices   = new PendingDevices(accountDatabase);
-    Keys             keys             = new Keys(accountDatabase);
+    Keys             keys             = new Keys(keysDatabase);
     Messages         messages         = new Messages(messageDatabase);
     AbusiveHostRules abusiveHostRules = new AbusiveHostRules(abuseDatabase);
 
@@ -213,7 +223,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     List<AccountDatabaseCrawlerListener> accountDatabaseCrawlerListeners = List.of(pushFeedbackProcessor, activeUserCounter, directoryReconciler, accountCleaner);
 
     AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(cacheClient);
-    AccountDatabaseCrawler      accountDatabaseCrawler      = new AccountDatabaseCrawler(accounts, accountDatabaseCrawlerCache, accountDatabaseCrawlerListeners, config.getAccountDatabaseCrawlerConfiguration().getChunkSize(), config.getAccountDatabaseCrawlerConfiguration().getChunkIntervalMs());
+    AccountDatabaseCrawler      accountDatabaseCrawler      = new AccountDatabaseCrawler(accountsManager, accountDatabaseCrawlerCache, accountDatabaseCrawlerListeners, config.getAccountDatabaseCrawlerConfiguration().getChunkSize(), config.getAccountDatabaseCrawlerConfiguration().getChunkIntervalMs());
 
     messagesCache.setPubSubManager(pubSubManager, pushSender);
 

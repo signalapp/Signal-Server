@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-2.0.xsd"
+        logicalFilePath="migrations.xml">
+
+    <changeSet id="1" author="moxie">
+        <createTable tableName="accounts">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="number" type="varchar(255)">
+                <constraints unique="true" nullable="false"/>
+            </column>
+
+            <column name="auth_token" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="salt" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="signaling_key" type="varchar(255)"/>
+
+            <column name="gcm_id" type="text"/>
+
+            <column name="apn_id" type="text"/>
+
+            <column name="supports_sms" type="smallint" defaultValue="0"/>
+        </createTable>
+
+        <createTable tableName="pending_accounts">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="number" type="varchar(255)">
+                <constraints unique="true" nullable="false"/>
+            </column>
+
+            <column name="verification_code" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="keys">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="number" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="key_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="public_key" type="text">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="identity_key" type="text">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="last_resort" type="smallint" defaultValue="0"/>
+        </createTable>
+
+        <createIndex tableName="keys" indexName="keys_number_index">
+            <column name="number"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="2" author="matt">
+
+        <addColumn tableName="accounts">
+            <column name="data" type="json" />
+        </addColumn>
+
+        <sql>CREATE type device_t AS (id integer, "authToken" varchar(255), salt varchar(255), "signalingKey" varchar(255), "gcmId" text, "apnId" text);</sql>
+        <sql>CREATE type account_t AS (number varchar(255), "supportsSms" smallint, devices device_t array);</sql>
+        <sql>UPDATE accounts SET data = row_to_json(row(number, supports_sms, array[row(1, auth_token, salt, signaling_key, gcm_id, apn_id)::device_t])::account_t)</sql>
+
+        <addNotNullConstraint tableName="accounts" columnName="data"/>
+
+        <dropColumn tableName="accounts" columnName="auth_token"/>
+        <dropColumn tableName="accounts" columnName="salt"/>
+        <dropColumn tableName="accounts" columnName="signaling_key"/>
+        <dropColumn tableName="accounts" columnName="gcm_id"/>
+        <dropColumn tableName="accounts" columnName="apn_id"/>
+        <dropColumn tableName="accounts" columnName="supports_sms"/>
+
+        <sql>DROP type account_t;</sql>
+        <sql>DROP type device_t;</sql>
+
+        <addColumn tableName="keys">
+            <column name="device_id" type="bigint" defaultValue="1">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+
+        <createTable tableName="pending_devices">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="number" type="text">
+                <constraints unique="true" nullable="false"/>
+            </column>
+
+            <column name="verification_code" type="text">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="messages">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="account_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="device_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="encrypted_message" type="text">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="messages" indexName="messages_account_and_device">
+            <column name="account_id"/>
+            <column name="device_id"/>
+        </createIndex>
+
+    </changeSet>
+
+    <changeSet id="3" author="moxie">
+        <sql>CREATE OR REPLACE FUNCTION "custom_json_object_set_key"(
+            "json"          json,
+            "key_to_set"    TEXT,
+            "value_to_set"  anyelement
+            )
+            RETURNS json
+            LANGUAGE sql
+            IMMUTABLE
+            STRICT
+            AS $function$
+            SELECT COALESCE(
+            (SELECT ('{' || string_agg(to_json("key") || ':' || "value", ',') || '}')
+            FROM (SELECT *
+            FROM json_each("json")
+            WHERE "key" &lt;&gt; "key_to_set"
+            UNION ALL
+            SELECT "key_to_set", to_json("value_to_set")) AS "fields"),
+            '{}'
+            )::json
+            $function$;</sql>
+        <sql>UPDATE accounts SET data = custom_json_object_set_key(data, 'identityKey', k.identity_key) FROM keys k WHERE (data->>'identityKey')::text is null AND k.number = data->>'number' AND k.last_resort = 1;</sql>
+        <sql>UPDATE accounts SET data = custom_json_object_set_key(data, 'identityKey', k.identity_key) FROM keys k WHERE (data->>'identityKey')::text is null AND k.number = data->>'number';</sql>
+    </changeSet>
+
+    <changeSet id="4" author="moxie">
+        <dropColumn tableName="keys" columnName="identity_key"/>
+    </changeSet>
+
+    <changeSet id="5" author="moxie">
+        <addColumn tableName="pending_accounts">
+            <column name="timestamp" type="bigint" defaultValueComputed="extract(epoch from now()) * 1000">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <addColumn tableName="pending_devices">
+            <column name="timestamp" type="bigint" defaultValueComputed="extract(epoch from now()) * 1000">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

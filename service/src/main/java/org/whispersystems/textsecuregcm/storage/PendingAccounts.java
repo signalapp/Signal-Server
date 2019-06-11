@@ -19,10 +19,17 @@ package org.whispersystems.textsecuregcm.storage;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.statement.PreparedBatch;
+import org.jdbi.v3.core.statement.StatementContext;
+import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.storage.mappers.StoredVerificationCodeRowMapper;
 import org.whispersystems.textsecuregcm.util.Constants;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.List;
 import java.util.Optional;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -43,10 +50,13 @@ public class PendingAccounts {
   }
 
   public void insert(String number, String verificationCode, long timestamp) {
-    database.use(jdbi -> jdbi.useHandle(handle -> {
+    database.use(jdbi -> jdbi.useTransaction(TransactionIsolationLevel.SERIALIZABLE, handle -> {
       try (Timer.Context ignored = insertTimer.time()) {
-        handle.createUpdate("WITH upsert AS (UPDATE pending_accounts SET verification_code = :verification_code, timestamp = :timestamp WHERE number = :number RETURNING *) " +
-                                "INSERT INTO pending_accounts (number, verification_code, timestamp) SELECT :number, :verification_code, :timestamp WHERE NOT EXISTS (SELECT * FROM upsert)")
+        handle.createUpdate("DELETE FROM pending_accounts WHERE number = :number")
+              .bind("number", number)
+              .execute();
+
+        handle.createUpdate("INSERT INTO pending_accounts (number, verification_code, timestamp) VALUES (:number, :verification_code, :timestamp)")
               .bind("verification_code", verificationCode)
               .bind("timestamp", timestamp)
               .bind("number", number)
@@ -83,5 +93,7 @@ public class PendingAccounts {
       }
     }));
   }
+
+
 
 }
