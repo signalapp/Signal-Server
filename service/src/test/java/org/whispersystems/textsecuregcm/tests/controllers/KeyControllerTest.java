@@ -191,10 +191,7 @@ public class KeyControllerTest {
                                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_NUMBER, AuthHelper.DISABLED_PASSWORD))
                                  .put(Entity.entity(test, MediaType.APPLICATION_JSON_TYPE));
 
-    assertThat(response.getStatus()).isEqualTo(204);
-
-    verify(AuthHelper.DISABLED_DEVICE).setSignedPreKey(eq(test));
-    verify(accounts).update(eq(AuthHelper.DISABLED_ACCOUNT));
+    assertThat(response.getStatus()).isEqualTo(401);
   }
 
   @Test

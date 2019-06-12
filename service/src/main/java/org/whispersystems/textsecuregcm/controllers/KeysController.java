@@ -164,8 +164,7 @@ public class KeysController {
   @PUT
   @Path("/signed")
   @Consumes(MediaType.APPLICATION_JSON)
-  public void setSignedKey(@Auth DisabledPermittedAccount disabledPermittedAccount, @Valid SignedPreKey signedPreKey) {
-    Account account           = disabledPermittedAccount.getAccount();
+  public void setSignedKey(@Auth Account account, @Valid SignedPreKey signedPreKey) {
     Device  device            = account.getAuthenticatedDevice().get();
     boolean wasAccountEnabled = account.isEnabled();
 
