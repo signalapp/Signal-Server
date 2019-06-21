@@ -18,9 +18,11 @@ package org.whispersystems.textsecuregcm.storage;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public interface AccountDatabaseCrawlerListener {
   void onCrawlStart();
-  void onCrawlChunk(Optional<String> fromNumber, List<Account> chunkAccounts) throws AccountDatabaseCrawlerRestartException;
-  void onCrawlEnd(Optional<String> fromNumber);
+  void onCrawlChunk(Optional<UUID> fromUuid, List<Account> chunkAccounts) throws AccountDatabaseCrawlerRestartException;
+  void onCrawlEnd(Optional<UUID> fromUuid);
 }

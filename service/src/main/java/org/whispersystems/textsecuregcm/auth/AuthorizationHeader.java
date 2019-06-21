@@ -24,20 +24,20 @@ import java.io.IOException;
 
 public class AuthorizationHeader {
 
-  private final String number;
-  private final long   accountId;
-  private final String password;
+  private final AmbiguousIdentifier identifier;
+  private final long                deviceId;
+  private final String              password;
 
-  private AuthorizationHeader(String number, long accountId, String password) {
-    this.number    = number;
-    this.accountId = accountId;
-    this.password  = password;
+  private AuthorizationHeader(AmbiguousIdentifier identifier, long deviceId, String password) {
+    this.identifier = identifier;
+    this.deviceId   = deviceId;
+    this.password   = password;
   }
 
   public static AuthorizationHeader fromUserAndPassword(String user, String password) throws InvalidAuthorizationHeaderException {
     try {
       String[] numberAndId = user.split("\\.");
-      return new AuthorizationHeader(numberAndId[0],
+      return new AuthorizationHeader(new AmbiguousIdentifier(numberAndId[0]),
                                      numberAndId.length > 1 ? Long.parseLong(numberAndId[1]) : 1,
                                      password);
     } catch (NumberFormatException nfe) {
@@ -79,12 +79,12 @@ public class AuthorizationHeader {
     }
   }
 
-  public String getNumber() {
-    return number;
+  public AmbiguousIdentifier getIdentifier() {
+    return identifier;
   }
 
   public long getDeviceId() {
-    return accountId;
+    return deviceId;
   }
 
   public String getPassword() {

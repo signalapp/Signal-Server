@@ -17,23 +17,23 @@
 
 package org.whispersystems.textsecuregcm.tests.storage;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationRequest;
 import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationResponse;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
-import org.whispersystems.textsecuregcm.storage.DirectoryManager.BatchOperationHandle;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager;
+import org.whispersystems.textsecuregcm.storage.DirectoryManager.BatchOperationHandle;
 import org.whispersystems.textsecuregcm.storage.DirectoryReconciler;
 import org.whispersystems.textsecuregcm.storage.DirectoryReconciliationClient;
 import org.whispersystems.textsecuregcm.util.Util;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.mockito.ArgumentCaptor;
-
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -41,8 +41,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 public class DirectoryReconcilerTest {
-  private static final String VALID_NUMBER    = "valid";
-  private static final String INACTIVE_NUMBER = "inactive";
+  private static final UUID   VALID_UUID       = UUID.randomUUID();
+  private static final String VALID_NUMBERRR   = "+14152222222";
+  private static final UUID   INACTIVE_UUID    = UUID.randomUUID();
+  private static final String INACTIVE_NUMBERRR = "+14151111111";
 
   private final Account                       activeAccount        = mock(Account.class);
   private final Account                       inactiveAccount      = mock(Account.class);
@@ -56,9 +58,11 @@ public class DirectoryReconcilerTest {
 
   @Before
   public void setup() {
-    when(activeAccount.getNumber()).thenReturn(VALID_NUMBER);
+    when(activeAccount.getUuid()).thenReturn(VALID_UUID);
     when(activeAccount.isEnabled()).thenReturn(true);
-    when(inactiveAccount.getNumber()).thenReturn(INACTIVE_NUMBER);
+    when(activeAccount.getNumber()).thenReturn(VALID_NUMBERRR);
+    when(inactiveAccount.getUuid()).thenReturn(INACTIVE_UUID);
+    when(inactiveAccount.getNumber()).thenReturn(INACTIVE_NUMBERRR);
     when(inactiveAccount.isEnabled()).thenReturn(false);
     when(directoryManager.startBatchOperation()).thenReturn(batchOperationHandle);
   }
@@ -66,27 +70,28 @@ public class DirectoryReconcilerTest {
   @Test
   public void testCrawlChunkValid() throws AccountDatabaseCrawlerRestartException {
     when(reconciliationClient.sendChunk(any())).thenReturn(successResponse);
-    directoryReconciler.onCrawlChunk(Optional.of(VALID_NUMBER), Arrays.asList(activeAccount, inactiveAccount));
+    directoryReconciler.onCrawlChunk(Optional.of(VALID_UUID), Arrays.asList(activeAccount, inactiveAccount));
 
     verify(activeAccount, times(2)).getNumber();
     verify(activeAccount, times(2)).isEnabled();
-    verify(inactiveAccount, times(2)).getNumber();
+    verify(inactiveAccount, times(1)).getUuid();
+    verify(inactiveAccount, times(1)).getNumber();
     verify(inactiveAccount, times(2)).isEnabled();
 
     ArgumentCaptor<DirectoryReconciliationRequest> request = ArgumentCaptor.forClass(DirectoryReconciliationRequest.class);
     verify(reconciliationClient, times(1)).sendChunk(request.capture());
 
-    assertThat(request.getValue().getFromNumber()).isEqualTo(VALID_NUMBER);
-    assertThat(request.getValue().getToNumber()).isEqualTo(INACTIVE_NUMBER);
-    assertThat(request.getValue().getNumbers()).isEqualTo(Arrays.asList(VALID_NUMBER));
+    assertThat(request.getValue().getFromUuid()).isEqualTo(VALID_UUID);
+    assertThat(request.getValue().getToUuid()).isEqualTo(INACTIVE_UUID);
+    assertThat(request.getValue().getNumbers()).isEqualTo(Arrays.asList(VALID_NUMBERRR));
 
     ArgumentCaptor<ClientContact> addedContact = ArgumentCaptor.forClass(ClientContact.class);
     verify(directoryManager, times(1)).startBatchOperation();
     verify(directoryManager, times(1)).add(eq(batchOperationHandle), addedContact.capture());
-    verify(directoryManager, times(1)).remove(eq(batchOperationHandle), eq(INACTIVE_NUMBER));
+    verify(directoryManager, times(1)).remove(eq(batchOperationHandle), eq(INACTIVE_NUMBERRR));
     verify(directoryManager, times(1)).stopBatchOperation(eq(batchOperationHandle));
 
-    assertThat(addedContact.getValue().getToken()).isEqualTo(Util.getContactToken(VALID_NUMBER));
+    assertThat(addedContact.getValue().getToken()).isEqualTo(Util.getContactToken(VALID_NUMBERRR));
 
     verifyNoMoreInteractions(activeAccount);
     verifyNoMoreInteractions(inactiveAccount);

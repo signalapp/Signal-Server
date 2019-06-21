@@ -9,6 +9,7 @@ import org.whispersystems.textsecuregcm.storage.DirectoryManager;
 
 import java.util.HashSet;
 import java.util.Optional;
+import java.util.UUID;
 
 import static junit.framework.TestCase.assertSame;
 import static junit.framework.TestCase.assertTrue;
@@ -21,14 +22,17 @@ import redis.clients.jedis.exceptions.JedisException;
 public class AccountsManagerTest {
 
   @Test
-  public void testGetAccountInCache() {
+  public void testGetAccountByNumberInCache() {
     ReplicatedJedisPool cacheClient      = mock(ReplicatedJedisPool.class);
     Jedis               jedis            = mock(Jedis.class              );
     Accounts            accounts         = mock(Accounts.class           );
     DirectoryManager    directoryManager = mock(DirectoryManager.class   );
 
+    UUID uuid = UUID.randomUUID();
+
     when(cacheClient.getReadResource()).thenReturn(jedis);
-    when(jedis.get(eq("Account5+14152222222"))).thenReturn("{\"number\": \"+14152222222\", \"name\": \"test\"}");
+    when(jedis.get(eq("AccountMap::+14152222222"))).thenReturn(uuid.toString());
+    when(jedis.get(eq("Account::" + uuid.toString()))).thenReturn("{\"number\": \"+14152222222\", \"name\": \"test\"}");
 
     AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheClient);
     Optional<Account> account         = accountsManager.get("+14152222222");
@@ -37,23 +41,52 @@ public class AccountsManagerTest {
     assertEquals(account.get().getNumber(), "+14152222222");
     assertEquals(account.get().getProfileName(), "test");
 
-    verify(jedis, times(1)).get(eq("Account5+14152222222"));
+    verify(jedis, times(1)).get(eq("AccountMap::+14152222222"));
+    verify(jedis, times(1)).get(eq("Account::" + uuid.toString()));
+    verify(jedis, times(2)).close();
+    verifyNoMoreInteractions(jedis);
+    verifyNoMoreInteractions(accounts);
+  }
+
+  @Test
+  public void testGetAccountByUuidInCache() {
+    ReplicatedJedisPool cacheClient      = mock(ReplicatedJedisPool.class);
+    Jedis               jedis            = mock(Jedis.class              );
+    Accounts            accounts         = mock(Accounts.class           );
+    DirectoryManager    directoryManager = mock(DirectoryManager.class   );
+
+    UUID uuid = UUID.randomUUID();
+
+    when(cacheClient.getReadResource()).thenReturn(jedis);
+    when(jedis.get(eq("Account::" + uuid.toString()))).thenReturn("{\"number\": \"+14152222222\", \"name\": \"test\"}");
+
+    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheClient);
+    Optional<Account> account         = accountsManager.get(uuid);
+
+    assertTrue(account.isPresent());
+    assertEquals(account.get().getNumber(), "+14152222222");
+    assertEquals(account.get().getUuid(), uuid);
+    assertEquals(account.get().getProfileName(), "test");
+
+    verify(jedis, times(1)).get(eq("Account::" + uuid.toString()));
     verify(jedis, times(1)).close();
     verifyNoMoreInteractions(jedis);
     verifyNoMoreInteractions(accounts);
   }
 
+
   @Test
-  public void testGetAccountNotInCache() {
+  public void testGetAccountByNumberNotInCache() {
     ReplicatedJedisPool cacheClient      = mock(ReplicatedJedisPool.class);
     Jedis               jedis            = mock(Jedis.class              );
     Accounts            accounts         = mock(Accounts.class           );
     DirectoryManager    directoryManager = mock(DirectoryManager.class   );
-    Account             account          = new Account("+14152222222", new HashSet<>(), new byte[16]);
+    UUID                uuid             = UUID.randomUUID();
+    Account             account          = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
 
     when(cacheClient.getReadResource()).thenReturn(jedis);
     when(cacheClient.getWriteResource()).thenReturn(jedis);
-    when(jedis.get(eq("Account5+14152222222"))).thenReturn(null);
+    when(jedis.get(eq("AccountMap::+14152222222"))).thenReturn(null);
     when(accounts.get(eq("+14152222222"))).thenReturn(Optional.of(account));
 
     AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheClient);
@@ -62,8 +95,9 @@ public class AccountsManagerTest {
     assertTrue(retrieved.isPresent());
     assertSame(retrieved.get(), account);
 
-    verify(jedis, times(1)).get(eq("Account5+14152222222"));
-    verify(jedis, times(1)).set(eq("Account5+14152222222"), anyString());
+    verify(jedis, times(1)).get(eq("AccountMap::+14152222222"));
+    verify(jedis, times(1)).set(eq("AccountMap::+14152222222"), eq(uuid.toString()));
+    verify(jedis, times(1)).set(eq("Account::" + uuid.toString()), anyString());
     verify(jedis, times(2)).close();
     verifyNoMoreInteractions(jedis);
 
@@ -72,16 +106,47 @@ public class AccountsManagerTest {
   }
 
   @Test
-  public void testGetAccountBrokenCache() {
+  public void testGetAccountByUuidNotInCache() {
     ReplicatedJedisPool cacheClient      = mock(ReplicatedJedisPool.class);
     Jedis               jedis            = mock(Jedis.class              );
     Accounts            accounts         = mock(Accounts.class           );
     DirectoryManager    directoryManager = mock(DirectoryManager.class   );
-    Account             account          = new Account("+14152222222", new HashSet<>(), new byte[16]);
+    UUID                uuid             = UUID.randomUUID();
+    Account             account          = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
 
     when(cacheClient.getReadResource()).thenReturn(jedis);
     when(cacheClient.getWriteResource()).thenReturn(jedis);
-    when(jedis.get(eq("Account5+14152222222"))).thenThrow(new JedisException("Connection lost!"));
+    when(jedis.get(eq("Account::" + uuid))).thenReturn(null);
+    when(accounts.get(eq(uuid))).thenReturn(Optional.of(account));
+
+    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheClient);
+    Optional<Account> retrieved       = accountsManager.get(uuid);
+
+    assertTrue(retrieved.isPresent());
+    assertSame(retrieved.get(), account);
+
+    verify(jedis, times(1)).get(eq("Account::" + uuid));
+    verify(jedis, times(1)).set(eq("AccountMap::+14152222222"), eq(uuid.toString()));
+    verify(jedis, times(1)).set(eq("Account::" + uuid.toString()), anyString());
+    verify(jedis, times(2)).close();
+    verifyNoMoreInteractions(jedis);
+
+    verify(accounts, times(1)).get(eq(uuid));
+    verifyNoMoreInteractions(accounts);
+  }
+
+  @Test
+  public void testGetAccountByNumberBrokenCache() {
+    ReplicatedJedisPool cacheClient      = mock(ReplicatedJedisPool.class);
+    Jedis               jedis            = mock(Jedis.class              );
+    Accounts            accounts         = mock(Accounts.class           );
+    DirectoryManager    directoryManager = mock(DirectoryManager.class   );
+    UUID                uuid             = UUID.randomUUID();
+    Account             account          = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
+
+    when(cacheClient.getReadResource()).thenReturn(jedis);
+    when(cacheClient.getWriteResource()).thenReturn(jedis);
+    when(jedis.get(eq("AccountMap::+14152222222"))).thenThrow(new JedisException("Connection lost!"));
     when(accounts.get(eq("+14152222222"))).thenReturn(Optional.of(account));
 
     AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheClient);
@@ -90,8 +155,9 @@ public class AccountsManagerTest {
     assertTrue(retrieved.isPresent());
     assertSame(retrieved.get(), account);
 
-    verify(jedis, times(1)).get(eq("Account5+14152222222"));
-    verify(jedis, times(1)).set(eq("Account5+14152222222"), anyString());
+    verify(jedis, times(1)).get(eq("AccountMap::+14152222222"));
+    verify(jedis, times(1)).set(eq("AccountMap::+14152222222"), eq(uuid.toString()));
+    verify(jedis, times(1)).set(eq("Account::" + uuid.toString()), anyString());
     verify(jedis, times(2)).close();
     verifyNoMoreInteractions(jedis);
 
@@ -99,6 +165,35 @@ public class AccountsManagerTest {
     verifyNoMoreInteractions(accounts);
   }
 
+  @Test
+  public void testGetAccountByUuidBrokenCache() {
+    ReplicatedJedisPool cacheClient      = mock(ReplicatedJedisPool.class);
+    Jedis               jedis            = mock(Jedis.class              );
+    Accounts            accounts         = mock(Accounts.class           );
+    DirectoryManager    directoryManager = mock(DirectoryManager.class   );
+    UUID                uuid             = UUID.randomUUID();
+    Account             account          = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
+
+    when(cacheClient.getReadResource()).thenReturn(jedis);
+    when(cacheClient.getWriteResource()).thenReturn(jedis);
+    when(jedis.get(eq("Account::" + uuid))).thenThrow(new JedisException("Connection lost!"));
+    when(accounts.get(eq(uuid))).thenReturn(Optional.of(account));
+
+    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheClient);
+    Optional<Account> retrieved       = accountsManager.get(uuid);
+
+    assertTrue(retrieved.isPresent());
+    assertSame(retrieved.get(), account);
+
+    verify(jedis, times(1)).get(eq("Account::" + uuid));
+    verify(jedis, times(1)).set(eq("AccountMap::+14152222222"), eq(uuid.toString()));
+    verify(jedis, times(1)).set(eq("Account::" + uuid.toString()), anyString());
+    verify(jedis, times(2)).close();
+    verifyNoMoreInteractions(jedis);
+
+    verify(accounts, times(1)).get(eq(uuid));
+    verifyNoMoreInteractions(accounts);
+  }
 
 
 }

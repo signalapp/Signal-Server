@@ -33,6 +33,7 @@ import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
+import org.whispersystems.textsecuregcm.entities.AccountCreationResult;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.DeviceName;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
@@ -78,6 +79,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -245,16 +247,20 @@ public class AccountController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/code/{verification_code}")
-  public void verifyAccount(@PathParam("verification_code") String verificationCode,
-                            @HeaderParam("Authorization")   String authorizationHeader,
-                            @HeaderParam("X-Signal-Agent")  String userAgent,
-                            @Valid                          AccountAttributes accountAttributes)
+  public AccountCreationResult verifyAccount(@PathParam("verification_code") String verificationCode,
+                                             @HeaderParam("Authorization")   String authorizationHeader,
+                                             @HeaderParam("X-Signal-Agent")  String userAgent,
+                                             @Valid                          AccountAttributes accountAttributes)
       throws RateLimitExceededException
   {
     try {
       AuthorizationHeader header = AuthorizationHeader.fromFullHeader(authorizationHeader);
-      String number              = header.getNumber();
+      String number              = header.getIdentifier().getNumber();
       String password            = header.getPassword();
+
+      if (number == null) {
+        throw new WebApplicationException(400);
+      }
 
       rateLimiters.getVerifyLimiter().validate(number);
 
@@ -308,9 +314,11 @@ public class AccountController {
         rateLimiters.getPinLimiter().clear(number);
       }
 
-      createAccount(number, password, userAgent, accountAttributes);
+      Account account = createAccount(number, password, userAgent, accountAttributes);
 
       metricRegistry.meter(name(AccountController.class, "verify", Util.getCountryCode(number))).mark();
+
+      return new AccountCreationResult(account.getUuid());
     } catch (InvalidAuthorizationHeaderException e) {
       logger.info("Bad Authorization Header", e);
       throw new WebApplicationException(Response.status(401).build());
@@ -502,6 +510,13 @@ public class AccountController {
     accounts.update(account);
   }
 
+  @GET
+  @Path("/whoami")
+  @Produces(MediaType.APPLICATION_JSON)
+  public AccountCreationResult whoAmI(@Auth Account account) {
+    return new AccountCreationResult(account.getUuid());
+  }
+
   private CaptchaRequirement requiresCaptcha(String number, String transport, String forwardedFor,
                                              String requester,
                                              Optional<String>                 captchaToken,
@@ -576,7 +591,7 @@ public class AccountController {
     return false;
   }
 
-  private void createAccount(String number, String password, String userAgent, AccountAttributes accountAttributes) {
+  private Account createAccount(String number, String password, String userAgent, AccountAttributes accountAttributes) {
     Device device = new Device();
     device.setId(Device.MASTER_ID);
     device.setAuthenticationCredentials(new AuthenticationCredentials(password));
@@ -591,6 +606,7 @@ public class AccountController {
 
     Account account = new Account();
     account.setNumber(number);
+    account.setUuid(UUID.randomUUID());
     account.addDevice(device);
     account.setPin(accountAttributes.getPin());
     account.setUnidentifiedAccessKey(accountAttributes.getUnidentifiedAccessKey());
@@ -608,6 +624,8 @@ public class AccountController {
 
     messagesManager.clear(number);
     pendingAccounts.remove(number);
+
+    return account;
   }
 
   @VisibleForTesting protected

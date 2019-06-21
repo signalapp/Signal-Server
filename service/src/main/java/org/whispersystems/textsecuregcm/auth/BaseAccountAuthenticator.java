@@ -12,6 +12,7 @@ import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import io.dropwizard.auth.basic.BasicCredentials;
@@ -38,7 +39,7 @@ public class BaseAccountAuthenticator {
   public Optional<Account> authenticate(BasicCredentials basicCredentials, boolean enabledRequired) {
     try {
       AuthorizationHeader authorizationHeader = AuthorizationHeader.fromUserAndPassword(basicCredentials.getUsername(), basicCredentials.getPassword());
-      Optional<Account>   account             = accountsManager.get(authorizationHeader.getNumber());
+      Optional<Account>   account             = accountsManager.get(authorizationHeader.getIdentifier());
 
       if (!account.isPresent()) {
         noSuchAccountMeter.mark();
@@ -73,7 +74,7 @@ public class BaseAccountAuthenticator {
 
       authenticationFailedMeter.mark();
       return Optional.empty();
-    } catch (InvalidAuthorizationHeaderException iahe) {
+    } catch (IllegalArgumentException | InvalidAuthorizationHeaderException iae) {
       invalidAuthHeaderMeter.mark();
       return Optional.empty();
     }

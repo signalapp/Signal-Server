@@ -164,8 +164,10 @@ public class DeviceController {
   {
     try {
       AuthorizationHeader header = AuthorizationHeader.fromFullHeader(authorizationHeader);
-      String number              = header.getNumber();
+      String number              = header.getIdentifier().getNumber();
       String password            = header.getPassword();
+
+      if (number == null) throw new WebApplicationException(400);
 
       rateLimiters.getVerifyDeviceLimiter().validate(number);
 

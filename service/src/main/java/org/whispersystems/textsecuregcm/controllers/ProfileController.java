@@ -10,6 +10,7 @@ import com.codahale.metrics.annotation.Timed;
 import org.apache.commons.codec.binary.Base64;
 import org.hibernate.validator.constraints.Length;
 import org.hibernate.validator.valuehandling.UnwrapValidatedValue;
+import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
@@ -79,10 +80,10 @@ public class ProfileController {
   @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  @Path("/{number}")
+  @Path("/{identifier}")
   public Profile getProfile(@Auth                                     Optional<Account>   requestAccount,
                             @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
-                            @PathParam("number")                      String number,
+                            @PathParam("identifier")                  AmbiguousIdentifier identifier,
                             @QueryParam("ca")                         boolean useCaCertificate)
       throws RateLimitExceededException
   {
@@ -94,7 +95,7 @@ public class ProfileController {
       rateLimiters.getProfileLimiter().validate(requestAccount.get().getNumber());
     }
 
-    Optional<Account> accountProfile = accountsManager.get(number);
+    Optional<Account> accountProfile = accountsManager.get(identifier);
     OptionalAccess.verify(requestAccount, accessKey, accountProfile);
 
     //noinspection ConstantConditions,OptionalGetWithoutIsPresent

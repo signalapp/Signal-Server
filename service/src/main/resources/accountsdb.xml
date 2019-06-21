@@ -197,4 +197,14 @@
         <dropNotNullConstraint tableName="pending_accounts" columnName="verification_code"/>
     </changeSet>
 
+    <changeSet id="7" author="moxie">
+        <addColumn tableName="accounts">
+            <column name="uuid" type="uuid"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="8" author="moxie" runInTransaction="false">
+        <sql>CREATE UNIQUE INDEX CONCURRENTLY uuid_index ON accounts (uuid);</sql>
+    </changeSet>
+
 </databaseChangeLog>

@@ -36,6 +36,21 @@ public final class MessageProtos {
     com.google.protobuf.ByteString
         getSourceBytes();
 
+    // optional string sourceUuid = 11;
+    /**
+     * <code>optional string sourceUuid = 11;</code>
+     */
+    boolean hasSourceUuid();
+    /**
+     * <code>optional string sourceUuid = 11;</code>
+     */
+    java.lang.String getSourceUuid();
+    /**
+     * <code>optional string sourceUuid = 11;</code>
+     */
+    com.google.protobuf.ByteString
+        getSourceUuidBytes();
+
     // optional uint32 sourceDevice = 7;
     /**
      * <code>optional uint32 sourceDevice = 7;</code>
@@ -200,38 +215,43 @@ public final class MessageProtos {
               break;
             }
             case 26: {
-              bitField0_ |= 0x00000008;
+              bitField0_ |= 0x00000010;
               relay_ = input.readBytes();
               break;
             }
             case 40: {
-              bitField0_ |= 0x00000010;
+              bitField0_ |= 0x00000020;
               timestamp_ = input.readUInt64();
               break;
             }
             case 50: {
-              bitField0_ |= 0x00000020;
+              bitField0_ |= 0x00000040;
               legacyMessage_ = input.readBytes();
               break;
             }
             case 56: {
-              bitField0_ |= 0x00000004;
+              bitField0_ |= 0x00000008;
               sourceDevice_ = input.readUInt32();
               break;
             }
             case 66: {
-              bitField0_ |= 0x00000040;
+              bitField0_ |= 0x00000080;
               content_ = input.readBytes();
               break;
             }
             case 74: {
-              bitField0_ |= 0x00000080;
+              bitField0_ |= 0x00000100;
               serverGuid_ = input.readBytes();
               break;
             }
             case 80: {
-              bitField0_ |= 0x00000100;
+              bitField0_ |= 0x00000200;
               serverTimestamp_ = input.readUInt64();
+              break;
+            }
+            case 90: {
+              bitField0_ |= 0x00000004;
+              sourceUuid_ = input.readBytes();
               break;
             }
           }
@@ -451,6 +471,49 @@ public final class MessageProtos {
       }
     }
 
+    // optional string sourceUuid = 11;
+    public static final int SOURCEUUID_FIELD_NUMBER = 11;
+    private java.lang.Object sourceUuid_;
+    /**
+     * <code>optional string sourceUuid = 11;</code>
+     */
+    public boolean hasSourceUuid() {
+      return ((bitField0_ & 0x00000004) == 0x00000004);
+    }
+    /**
+     * <code>optional string sourceUuid = 11;</code>
+     */
+    public java.lang.String getSourceUuid() {
+      java.lang.Object ref = sourceUuid_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          sourceUuid_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <code>optional string sourceUuid = 11;</code>
+     */
+    public com.google.protobuf.ByteString
+        getSourceUuidBytes() {
+      java.lang.Object ref = sourceUuid_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        sourceUuid_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     // optional uint32 sourceDevice = 7;
     public static final int SOURCEDEVICE_FIELD_NUMBER = 7;
     private int sourceDevice_;
@@ -458,7 +521,7 @@ public final class MessageProtos {
      * <code>optional uint32 sourceDevice = 7;</code>
      */
     public boolean hasSourceDevice() {
-      return ((bitField0_ & 0x00000004) == 0x00000004);
+      return ((bitField0_ & 0x00000008) == 0x00000008);
     }
     /**
      * <code>optional uint32 sourceDevice = 7;</code>
@@ -474,7 +537,7 @@ public final class MessageProtos {
      * <code>optional string relay = 3;</code>
      */
     public boolean hasRelay() {
-      return ((bitField0_ & 0x00000008) == 0x00000008);
+      return ((bitField0_ & 0x00000010) == 0x00000010);
     }
     /**
      * <code>optional string relay = 3;</code>
@@ -517,7 +580,7 @@ public final class MessageProtos {
      * <code>optional uint64 timestamp = 5;</code>
      */
     public boolean hasTimestamp() {
-      return ((bitField0_ & 0x00000010) == 0x00000010);
+      return ((bitField0_ & 0x00000020) == 0x00000020);
     }
     /**
      * <code>optional uint64 timestamp = 5;</code>
@@ -537,7 +600,7 @@ public final class MessageProtos {
      * </pre>
      */
     public boolean hasLegacyMessage() {
-      return ((bitField0_ & 0x00000020) == 0x00000020);
+      return ((bitField0_ & 0x00000040) == 0x00000040);
     }
     /**
      * <code>optional bytes legacyMessage = 6;</code>
@@ -561,7 +624,7 @@ public final class MessageProtos {
      * </pre>
      */
     public boolean hasContent() {
-      return ((bitField0_ & 0x00000040) == 0x00000040);
+      return ((bitField0_ & 0x00000080) == 0x00000080);
     }
     /**
      * <code>optional bytes content = 8;</code>
@@ -581,7 +644,7 @@ public final class MessageProtos {
      * <code>optional string serverGuid = 9;</code>
      */
     public boolean hasServerGuid() {
-      return ((bitField0_ & 0x00000080) == 0x00000080);
+      return ((bitField0_ & 0x00000100) == 0x00000100);
     }
     /**
      * <code>optional string serverGuid = 9;</code>
@@ -624,7 +687,7 @@ public final class MessageProtos {
      * <code>optional uint64 server_timestamp = 10;</code>
      */
     public boolean hasServerTimestamp() {
-      return ((bitField0_ & 0x00000100) == 0x00000100);
+      return ((bitField0_ & 0x00000200) == 0x00000200);
     }
     /**
      * <code>optional uint64 server_timestamp = 10;</code>
@@ -636,6 +699,7 @@ public final class MessageProtos {
     private void initFields() {
       type_ = org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope.Type.UNKNOWN;
       source_ = "";
+      sourceUuid_ = "";
       sourceDevice_ = 0;
       relay_ = "";
       timestamp_ = 0L;
@@ -662,26 +726,29 @@ public final class MessageProtos {
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
         output.writeBytes(2, getSourceBytes());
       }
-      if (((bitField0_ & 0x00000008) == 0x00000008)) {
+      if (((bitField0_ & 0x00000010) == 0x00000010)) {
         output.writeBytes(3, getRelayBytes());
       }
-      if (((bitField0_ & 0x00000010) == 0x00000010)) {
+      if (((bitField0_ & 0x00000020) == 0x00000020)) {
         output.writeUInt64(5, timestamp_);
       }
-      if (((bitField0_ & 0x00000020) == 0x00000020)) {
+      if (((bitField0_ & 0x00000040) == 0x00000040)) {
         output.writeBytes(6, legacyMessage_);
       }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+      if (((bitField0_ & 0x00000008) == 0x00000008)) {
         output.writeUInt32(7, sourceDevice_);
       }
-      if (((bitField0_ & 0x00000040) == 0x00000040)) {
+      if (((bitField0_ & 0x00000080) == 0x00000080)) {
         output.writeBytes(8, content_);
       }
-      if (((bitField0_ & 0x00000080) == 0x00000080)) {
+      if (((bitField0_ & 0x00000100) == 0x00000100)) {
         output.writeBytes(9, getServerGuidBytes());
       }
-      if (((bitField0_ & 0x00000100) == 0x00000100)) {
+      if (((bitField0_ & 0x00000200) == 0x00000200)) {
         output.writeUInt64(10, serverTimestamp_);
+      }
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        output.writeBytes(11, getSourceUuidBytes());
       }
       getUnknownFields().writeTo(output);
     }
@@ -700,33 +767,37 @@ public final class MessageProtos {
         size += com.google.protobuf.CodedOutputStream
           .computeBytesSize(2, getSourceBytes());
       }
-      if (((bitField0_ & 0x00000008) == 0x00000008)) {
+      if (((bitField0_ & 0x00000010) == 0x00000010)) {
         size += com.google.protobuf.CodedOutputStream
           .computeBytesSize(3, getRelayBytes());
       }
-      if (((bitField0_ & 0x00000010) == 0x00000010)) {
+      if (((bitField0_ & 0x00000020) == 0x00000020)) {
         size += com.google.protobuf.CodedOutputStream
           .computeUInt64Size(5, timestamp_);
       }
-      if (((bitField0_ & 0x00000020) == 0x00000020)) {
+      if (((bitField0_ & 0x00000040) == 0x00000040)) {
         size += com.google.protobuf.CodedOutputStream
           .computeBytesSize(6, legacyMessage_);
       }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+      if (((bitField0_ & 0x00000008) == 0x00000008)) {
         size += com.google.protobuf.CodedOutputStream
           .computeUInt32Size(7, sourceDevice_);
       }
-      if (((bitField0_ & 0x00000040) == 0x00000040)) {
+      if (((bitField0_ & 0x00000080) == 0x00000080)) {
         size += com.google.protobuf.CodedOutputStream
           .computeBytesSize(8, content_);
       }
-      if (((bitField0_ & 0x00000080) == 0x00000080)) {
+      if (((bitField0_ & 0x00000100) == 0x00000100)) {
         size += com.google.protobuf.CodedOutputStream
           .computeBytesSize(9, getServerGuidBytes());
       }
-      if (((bitField0_ & 0x00000100) == 0x00000100)) {
+      if (((bitField0_ & 0x00000200) == 0x00000200)) {
         size += com.google.protobuf.CodedOutputStream
           .computeUInt64Size(10, serverTimestamp_);
+      }
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeBytesSize(11, getSourceUuidBytes());
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -848,20 +919,22 @@ public final class MessageProtos {
         bitField0_ = (bitField0_ & ~0x00000001);
         source_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
-        sourceDevice_ = 0;
+        sourceUuid_ = "";
         bitField0_ = (bitField0_ & ~0x00000004);
-        relay_ = "";
+        sourceDevice_ = 0;
         bitField0_ = (bitField0_ & ~0x00000008);
-        timestamp_ = 0L;
+        relay_ = "";
         bitField0_ = (bitField0_ & ~0x00000010);
-        legacyMessage_ = com.google.protobuf.ByteString.EMPTY;
+        timestamp_ = 0L;
         bitField0_ = (bitField0_ & ~0x00000020);
-        content_ = com.google.protobuf.ByteString.EMPTY;
+        legacyMessage_ = com.google.protobuf.ByteString.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000040);
-        serverGuid_ = "";
+        content_ = com.google.protobuf.ByteString.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000080);
-        serverTimestamp_ = 0L;
+        serverGuid_ = "";
         bitField0_ = (bitField0_ & ~0x00000100);
+        serverTimestamp_ = 0L;
+        bitField0_ = (bitField0_ & ~0x00000200);
         return this;
       }
 
@@ -901,29 +974,33 @@ public final class MessageProtos {
         if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
           to_bitField0_ |= 0x00000004;
         }
-        result.sourceDevice_ = sourceDevice_;
+        result.sourceUuid_ = sourceUuid_;
         if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
           to_bitField0_ |= 0x00000008;
         }
-        result.relay_ = relay_;
+        result.sourceDevice_ = sourceDevice_;
         if (((from_bitField0_ & 0x00000010) == 0x00000010)) {
           to_bitField0_ |= 0x00000010;
         }
-        result.timestamp_ = timestamp_;
+        result.relay_ = relay_;
         if (((from_bitField0_ & 0x00000020) == 0x00000020)) {
           to_bitField0_ |= 0x00000020;
         }
-        result.legacyMessage_ = legacyMessage_;
+        result.timestamp_ = timestamp_;
         if (((from_bitField0_ & 0x00000040) == 0x00000040)) {
           to_bitField0_ |= 0x00000040;
         }
-        result.content_ = content_;
+        result.legacyMessage_ = legacyMessage_;
         if (((from_bitField0_ & 0x00000080) == 0x00000080)) {
           to_bitField0_ |= 0x00000080;
         }
-        result.serverGuid_ = serverGuid_;
+        result.content_ = content_;
         if (((from_bitField0_ & 0x00000100) == 0x00000100)) {
           to_bitField0_ |= 0x00000100;
+        }
+        result.serverGuid_ = serverGuid_;
+        if (((from_bitField0_ & 0x00000200) == 0x00000200)) {
+          to_bitField0_ |= 0x00000200;
         }
         result.serverTimestamp_ = serverTimestamp_;
         result.bitField0_ = to_bitField0_;
@@ -950,11 +1027,16 @@ public final class MessageProtos {
           source_ = other.source_;
           onChanged();
         }
+        if (other.hasSourceUuid()) {
+          bitField0_ |= 0x00000004;
+          sourceUuid_ = other.sourceUuid_;
+          onChanged();
+        }
         if (other.hasSourceDevice()) {
           setSourceDevice(other.getSourceDevice());
         }
         if (other.hasRelay()) {
-          bitField0_ |= 0x00000008;
+          bitField0_ |= 0x00000010;
           relay_ = other.relay_;
           onChanged();
         }
@@ -968,7 +1050,7 @@ public final class MessageProtos {
           setContent(other.getContent());
         }
         if (other.hasServerGuid()) {
-          bitField0_ |= 0x00000080;
+          bitField0_ |= 0x00000100;
           serverGuid_ = other.serverGuid_;
           onChanged();
         }
@@ -1112,13 +1194,87 @@ public final class MessageProtos {
         return this;
       }
 
+      // optional string sourceUuid = 11;
+      private java.lang.Object sourceUuid_ = "";
+      /**
+       * <code>optional string sourceUuid = 11;</code>
+       */
+      public boolean hasSourceUuid() {
+        return ((bitField0_ & 0x00000004) == 0x00000004);
+      }
+      /**
+       * <code>optional string sourceUuid = 11;</code>
+       */
+      public java.lang.String getSourceUuid() {
+        java.lang.Object ref = sourceUuid_;
+        if (!(ref instanceof java.lang.String)) {
+          java.lang.String s = ((com.google.protobuf.ByteString) ref)
+              .toStringUtf8();
+          sourceUuid_ = s;
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <code>optional string sourceUuid = 11;</code>
+       */
+      public com.google.protobuf.ByteString
+          getSourceUuidBytes() {
+        java.lang.Object ref = sourceUuid_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          sourceUuid_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <code>optional string sourceUuid = 11;</code>
+       */
+      public Builder setSourceUuid(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        sourceUuid_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string sourceUuid = 11;</code>
+       */
+      public Builder clearSourceUuid() {
+        bitField0_ = (bitField0_ & ~0x00000004);
+        sourceUuid_ = getDefaultInstance().getSourceUuid();
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string sourceUuid = 11;</code>
+       */
+      public Builder setSourceUuidBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        sourceUuid_ = value;
+        onChanged();
+        return this;
+      }
+
       // optional uint32 sourceDevice = 7;
       private int sourceDevice_ ;
       /**
        * <code>optional uint32 sourceDevice = 7;</code>
        */
       public boolean hasSourceDevice() {
-        return ((bitField0_ & 0x00000004) == 0x00000004);
+        return ((bitField0_ & 0x00000008) == 0x00000008);
       }
       /**
        * <code>optional uint32 sourceDevice = 7;</code>
@@ -1130,7 +1286,7 @@ public final class MessageProtos {
        * <code>optional uint32 sourceDevice = 7;</code>
        */
       public Builder setSourceDevice(int value) {
-        bitField0_ |= 0x00000004;
+        bitField0_ |= 0x00000008;
         sourceDevice_ = value;
         onChanged();
         return this;
@@ -1139,7 +1295,7 @@ public final class MessageProtos {
        * <code>optional uint32 sourceDevice = 7;</code>
        */
       public Builder clearSourceDevice() {
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000008);
         sourceDevice_ = 0;
         onChanged();
         return this;
@@ -1151,7 +1307,7 @@ public final class MessageProtos {
        * <code>optional string relay = 3;</code>
        */
       public boolean hasRelay() {
-        return ((bitField0_ & 0x00000008) == 0x00000008);
+        return ((bitField0_ & 0x00000010) == 0x00000010);
       }
       /**
        * <code>optional string relay = 3;</code>
@@ -1191,7 +1347,7 @@ public final class MessageProtos {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000008;
+  bitField0_ |= 0x00000010;
         relay_ = value;
         onChanged();
         return this;
@@ -1200,7 +1356,7 @@ public final class MessageProtos {
        * <code>optional string relay = 3;</code>
        */
       public Builder clearRelay() {
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000010);
         relay_ = getDefaultInstance().getRelay();
         onChanged();
         return this;
@@ -1213,7 +1369,7 @@ public final class MessageProtos {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000008;
+  bitField0_ |= 0x00000010;
         relay_ = value;
         onChanged();
         return this;
@@ -1225,7 +1381,7 @@ public final class MessageProtos {
        * <code>optional uint64 timestamp = 5;</code>
        */
       public boolean hasTimestamp() {
-        return ((bitField0_ & 0x00000010) == 0x00000010);
+        return ((bitField0_ & 0x00000020) == 0x00000020);
       }
       /**
        * <code>optional uint64 timestamp = 5;</code>
@@ -1237,7 +1393,7 @@ public final class MessageProtos {
        * <code>optional uint64 timestamp = 5;</code>
        */
       public Builder setTimestamp(long value) {
-        bitField0_ |= 0x00000010;
+        bitField0_ |= 0x00000020;
         timestamp_ = value;
         onChanged();
         return this;
@@ -1246,7 +1402,7 @@ public final class MessageProtos {
        * <code>optional uint64 timestamp = 5;</code>
        */
       public Builder clearTimestamp() {
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000020);
         timestamp_ = 0L;
         onChanged();
         return this;
@@ -1262,7 +1418,7 @@ public final class MessageProtos {
        * </pre>
        */
       public boolean hasLegacyMessage() {
-        return ((bitField0_ & 0x00000020) == 0x00000020);
+        return ((bitField0_ & 0x00000040) == 0x00000040);
       }
       /**
        * <code>optional bytes legacyMessage = 6;</code>
@@ -1285,7 +1441,7 @@ public final class MessageProtos {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000020;
+  bitField0_ |= 0x00000040;
         legacyMessage_ = value;
         onChanged();
         return this;
@@ -1298,7 +1454,7 @@ public final class MessageProtos {
        * </pre>
        */
       public Builder clearLegacyMessage() {
-        bitField0_ = (bitField0_ & ~0x00000020);
+        bitField0_ = (bitField0_ & ~0x00000040);
         legacyMessage_ = getDefaultInstance().getLegacyMessage();
         onChanged();
         return this;
@@ -1314,7 +1470,7 @@ public final class MessageProtos {
        * </pre>
        */
       public boolean hasContent() {
-        return ((bitField0_ & 0x00000040) == 0x00000040);
+        return ((bitField0_ & 0x00000080) == 0x00000080);
       }
       /**
        * <code>optional bytes content = 8;</code>
@@ -1337,7 +1493,7 @@ public final class MessageProtos {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000040;
+  bitField0_ |= 0x00000080;
         content_ = value;
         onChanged();
         return this;
@@ -1350,7 +1506,7 @@ public final class MessageProtos {
        * </pre>
        */
       public Builder clearContent() {
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000080);
         content_ = getDefaultInstance().getContent();
         onChanged();
         return this;
@@ -1362,7 +1518,7 @@ public final class MessageProtos {
        * <code>optional string serverGuid = 9;</code>
        */
       public boolean hasServerGuid() {
-        return ((bitField0_ & 0x00000080) == 0x00000080);
+        return ((bitField0_ & 0x00000100) == 0x00000100);
       }
       /**
        * <code>optional string serverGuid = 9;</code>
@@ -1402,7 +1558,7 @@ public final class MessageProtos {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000080;
+  bitField0_ |= 0x00000100;
         serverGuid_ = value;
         onChanged();
         return this;
@@ -1411,7 +1567,7 @@ public final class MessageProtos {
        * <code>optional string serverGuid = 9;</code>
        */
       public Builder clearServerGuid() {
-        bitField0_ = (bitField0_ & ~0x00000080);
+        bitField0_ = (bitField0_ & ~0x00000100);
         serverGuid_ = getDefaultInstance().getServerGuid();
         onChanged();
         return this;
@@ -1424,7 +1580,7 @@ public final class MessageProtos {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000080;
+  bitField0_ |= 0x00000100;
         serverGuid_ = value;
         onChanged();
         return this;
@@ -1436,7 +1592,7 @@ public final class MessageProtos {
        * <code>optional uint64 server_timestamp = 10;</code>
        */
       public boolean hasServerTimestamp() {
-        return ((bitField0_ & 0x00000100) == 0x00000100);
+        return ((bitField0_ & 0x00000200) == 0x00000200);
       }
       /**
        * <code>optional uint64 server_timestamp = 10;</code>
@@ -1448,7 +1604,7 @@ public final class MessageProtos {
        * <code>optional uint64 server_timestamp = 10;</code>
        */
       public Builder setServerTimestamp(long value) {
-        bitField0_ |= 0x00000100;
+        bitField0_ |= 0x00000200;
         serverTimestamp_ = value;
         onChanged();
         return this;
@@ -1457,7 +1613,7 @@ public final class MessageProtos {
        * <code>optional uint64 server_timestamp = 10;</code>
        */
       public Builder clearServerTimestamp() {
-        bitField0_ = (bitField0_ & ~0x00000100);
+        bitField0_ = (bitField0_ & ~0x00000200);
         serverTimestamp_ = 0L;
         onChanged();
         return this;
@@ -3049,6 +3205,21 @@ public final class MessageProtos {
       com.google.protobuf.ByteString
           getSenderBytes();
 
+      // optional string senderUuid = 6;
+      /**
+       * <code>optional string senderUuid = 6;</code>
+       */
+      boolean hasSenderUuid();
+      /**
+       * <code>optional string senderUuid = 6;</code>
+       */
+      java.lang.String getSenderUuid();
+      /**
+       * <code>optional string senderUuid = 6;</code>
+       */
+      com.google.protobuf.ByteString
+          getSenderUuidBytes();
+
       // optional uint32 senderDevice = 2;
       /**
        * <code>optional uint32 senderDevice = 2;</code>
@@ -3150,23 +3321,23 @@ public final class MessageProtos {
                 break;
               }
               case 16: {
-                bitField0_ |= 0x00000002;
+                bitField0_ |= 0x00000004;
                 senderDevice_ = input.readUInt32();
                 break;
               }
               case 25: {
-                bitField0_ |= 0x00000004;
+                bitField0_ |= 0x00000008;
                 expires_ = input.readFixed64();
                 break;
               }
               case 34: {
-                bitField0_ |= 0x00000008;
+                bitField0_ |= 0x00000010;
                 identityKey_ = input.readBytes();
                 break;
               }
               case 42: {
                 org.whispersystems.textsecuregcm.entities.MessageProtos.ServerCertificate.Builder subBuilder = null;
-                if (((bitField0_ & 0x00000010) == 0x00000010)) {
+                if (((bitField0_ & 0x00000020) == 0x00000020)) {
                   subBuilder = signer_.toBuilder();
                 }
                 signer_ = input.readMessage(org.whispersystems.textsecuregcm.entities.MessageProtos.ServerCertificate.PARSER, extensionRegistry);
@@ -3174,7 +3345,12 @@ public final class MessageProtos {
                   subBuilder.mergeFrom(signer_);
                   signer_ = subBuilder.buildPartial();
                 }
-                bitField0_ |= 0x00000010;
+                bitField0_ |= 0x00000020;
+                break;
+              }
+              case 50: {
+                bitField0_ |= 0x00000002;
+                senderUuid_ = input.readBytes();
                 break;
               }
             }
@@ -3260,6 +3436,49 @@ public final class MessageProtos {
         }
       }
 
+      // optional string senderUuid = 6;
+      public static final int SENDERUUID_FIELD_NUMBER = 6;
+      private java.lang.Object senderUuid_;
+      /**
+       * <code>optional string senderUuid = 6;</code>
+       */
+      public boolean hasSenderUuid() {
+        return ((bitField0_ & 0x00000002) == 0x00000002);
+      }
+      /**
+       * <code>optional string senderUuid = 6;</code>
+       */
+      public java.lang.String getSenderUuid() {
+        java.lang.Object ref = senderUuid_;
+        if (ref instanceof java.lang.String) {
+          return (java.lang.String) ref;
+        } else {
+          com.google.protobuf.ByteString bs = 
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            senderUuid_ = s;
+          }
+          return s;
+        }
+      }
+      /**
+       * <code>optional string senderUuid = 6;</code>
+       */
+      public com.google.protobuf.ByteString
+          getSenderUuidBytes() {
+        java.lang.Object ref = senderUuid_;
+        if (ref instanceof java.lang.String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          senderUuid_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+
       // optional uint32 senderDevice = 2;
       public static final int SENDERDEVICE_FIELD_NUMBER = 2;
       private int senderDevice_;
@@ -3267,7 +3486,7 @@ public final class MessageProtos {
        * <code>optional uint32 senderDevice = 2;</code>
        */
       public boolean hasSenderDevice() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
+        return ((bitField0_ & 0x00000004) == 0x00000004);
       }
       /**
        * <code>optional uint32 senderDevice = 2;</code>
@@ -3283,7 +3502,7 @@ public final class MessageProtos {
        * <code>optional fixed64 expires = 3;</code>
        */
       public boolean hasExpires() {
-        return ((bitField0_ & 0x00000004) == 0x00000004);
+        return ((bitField0_ & 0x00000008) == 0x00000008);
       }
       /**
        * <code>optional fixed64 expires = 3;</code>
@@ -3299,7 +3518,7 @@ public final class MessageProtos {
        * <code>optional bytes identityKey = 4;</code>
        */
       public boolean hasIdentityKey() {
-        return ((bitField0_ & 0x00000008) == 0x00000008);
+        return ((bitField0_ & 0x00000010) == 0x00000010);
       }
       /**
        * <code>optional bytes identityKey = 4;</code>
@@ -3315,7 +3534,7 @@ public final class MessageProtos {
        * <code>optional .textsecure.ServerCertificate signer = 5;</code>
        */
       public boolean hasSigner() {
-        return ((bitField0_ & 0x00000010) == 0x00000010);
+        return ((bitField0_ & 0x00000020) == 0x00000020);
       }
       /**
        * <code>optional .textsecure.ServerCertificate signer = 5;</code>
@@ -3332,6 +3551,7 @@ public final class MessageProtos {
 
       private void initFields() {
         sender_ = "";
+        senderUuid_ = "";
         senderDevice_ = 0;
         expires_ = 0L;
         identityKey_ = com.google.protobuf.ByteString.EMPTY;
@@ -3352,17 +3572,20 @@ public final class MessageProtos {
         if (((bitField0_ & 0x00000001) == 0x00000001)) {
           output.writeBytes(1, getSenderBytes());
         }
-        if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        if (((bitField0_ & 0x00000004) == 0x00000004)) {
           output.writeUInt32(2, senderDevice_);
         }
-        if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        if (((bitField0_ & 0x00000008) == 0x00000008)) {
           output.writeFixed64(3, expires_);
         }
-        if (((bitField0_ & 0x00000008) == 0x00000008)) {
+        if (((bitField0_ & 0x00000010) == 0x00000010)) {
           output.writeBytes(4, identityKey_);
         }
-        if (((bitField0_ & 0x00000010) == 0x00000010)) {
+        if (((bitField0_ & 0x00000020) == 0x00000020)) {
           output.writeMessage(5, signer_);
+        }
+        if (((bitField0_ & 0x00000002) == 0x00000002)) {
+          output.writeBytes(6, getSenderUuidBytes());
         }
         getUnknownFields().writeTo(output);
       }
@@ -3377,21 +3600,25 @@ public final class MessageProtos {
           size += com.google.protobuf.CodedOutputStream
             .computeBytesSize(1, getSenderBytes());
         }
-        if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        if (((bitField0_ & 0x00000004) == 0x00000004)) {
           size += com.google.protobuf.CodedOutputStream
             .computeUInt32Size(2, senderDevice_);
         }
-        if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        if (((bitField0_ & 0x00000008) == 0x00000008)) {
           size += com.google.protobuf.CodedOutputStream
             .computeFixed64Size(3, expires_);
         }
-        if (((bitField0_ & 0x00000008) == 0x00000008)) {
+        if (((bitField0_ & 0x00000010) == 0x00000010)) {
           size += com.google.protobuf.CodedOutputStream
             .computeBytesSize(4, identityKey_);
         }
-        if (((bitField0_ & 0x00000010) == 0x00000010)) {
+        if (((bitField0_ & 0x00000020) == 0x00000020)) {
           size += com.google.protobuf.CodedOutputStream
             .computeMessageSize(5, signer_);
+        }
+        if (((bitField0_ & 0x00000002) == 0x00000002)) {
+          size += com.google.protobuf.CodedOutputStream
+            .computeBytesSize(6, getSenderUuidBytes());
         }
         size += getUnknownFields().getSerializedSize();
         memoizedSerializedSize = size;
@@ -3512,18 +3739,20 @@ public final class MessageProtos {
           super.clear();
           sender_ = "";
           bitField0_ = (bitField0_ & ~0x00000001);
-          senderDevice_ = 0;
+          senderUuid_ = "";
           bitField0_ = (bitField0_ & ~0x00000002);
-          expires_ = 0L;
+          senderDevice_ = 0;
           bitField0_ = (bitField0_ & ~0x00000004);
-          identityKey_ = com.google.protobuf.ByteString.EMPTY;
+          expires_ = 0L;
           bitField0_ = (bitField0_ & ~0x00000008);
+          identityKey_ = com.google.protobuf.ByteString.EMPTY;
+          bitField0_ = (bitField0_ & ~0x00000010);
           if (signerBuilder_ == null) {
             signer_ = org.whispersystems.textsecuregcm.entities.MessageProtos.ServerCertificate.getDefaultInstance();
           } else {
             signerBuilder_.clear();
           }
-          bitField0_ = (bitField0_ & ~0x00000010);
+          bitField0_ = (bitField0_ & ~0x00000020);
           return this;
         }
 
@@ -3559,17 +3788,21 @@ public final class MessageProtos {
           if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
             to_bitField0_ |= 0x00000002;
           }
-          result.senderDevice_ = senderDevice_;
+          result.senderUuid_ = senderUuid_;
           if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
             to_bitField0_ |= 0x00000004;
           }
-          result.expires_ = expires_;
+          result.senderDevice_ = senderDevice_;
           if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
             to_bitField0_ |= 0x00000008;
           }
-          result.identityKey_ = identityKey_;
+          result.expires_ = expires_;
           if (((from_bitField0_ & 0x00000010) == 0x00000010)) {
             to_bitField0_ |= 0x00000010;
+          }
+          result.identityKey_ = identityKey_;
+          if (((from_bitField0_ & 0x00000020) == 0x00000020)) {
+            to_bitField0_ |= 0x00000020;
           }
           if (signerBuilder_ == null) {
             result.signer_ = signer_;
@@ -3595,6 +3828,11 @@ public final class MessageProtos {
           if (other.hasSender()) {
             bitField0_ |= 0x00000001;
             sender_ = other.sender_;
+            onChanged();
+          }
+          if (other.hasSenderUuid()) {
+            bitField0_ |= 0x00000002;
+            senderUuid_ = other.senderUuid_;
             onChanged();
           }
           if (other.hasSenderDevice()) {
@@ -3710,13 +3948,87 @@ public final class MessageProtos {
           return this;
         }
 
+        // optional string senderUuid = 6;
+        private java.lang.Object senderUuid_ = "";
+        /**
+         * <code>optional string senderUuid = 6;</code>
+         */
+        public boolean hasSenderUuid() {
+          return ((bitField0_ & 0x00000002) == 0x00000002);
+        }
+        /**
+         * <code>optional string senderUuid = 6;</code>
+         */
+        public java.lang.String getSenderUuid() {
+          java.lang.Object ref = senderUuid_;
+          if (!(ref instanceof java.lang.String)) {
+            java.lang.String s = ((com.google.protobuf.ByteString) ref)
+                .toStringUtf8();
+            senderUuid_ = s;
+            return s;
+          } else {
+            return (java.lang.String) ref;
+          }
+        }
+        /**
+         * <code>optional string senderUuid = 6;</code>
+         */
+        public com.google.protobuf.ByteString
+            getSenderUuidBytes() {
+          java.lang.Object ref = senderUuid_;
+          if (ref instanceof String) {
+            com.google.protobuf.ByteString b = 
+                com.google.protobuf.ByteString.copyFromUtf8(
+                    (java.lang.String) ref);
+            senderUuid_ = b;
+            return b;
+          } else {
+            return (com.google.protobuf.ByteString) ref;
+          }
+        }
+        /**
+         * <code>optional string senderUuid = 6;</code>
+         */
+        public Builder setSenderUuid(
+            java.lang.String value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+          senderUuid_ = value;
+          onChanged();
+          return this;
+        }
+        /**
+         * <code>optional string senderUuid = 6;</code>
+         */
+        public Builder clearSenderUuid() {
+          bitField0_ = (bitField0_ & ~0x00000002);
+          senderUuid_ = getDefaultInstance().getSenderUuid();
+          onChanged();
+          return this;
+        }
+        /**
+         * <code>optional string senderUuid = 6;</code>
+         */
+        public Builder setSenderUuidBytes(
+            com.google.protobuf.ByteString value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+          senderUuid_ = value;
+          onChanged();
+          return this;
+        }
+
         // optional uint32 senderDevice = 2;
         private int senderDevice_ ;
         /**
          * <code>optional uint32 senderDevice = 2;</code>
          */
         public boolean hasSenderDevice() {
-          return ((bitField0_ & 0x00000002) == 0x00000002);
+          return ((bitField0_ & 0x00000004) == 0x00000004);
         }
         /**
          * <code>optional uint32 senderDevice = 2;</code>
@@ -3728,7 +4040,7 @@ public final class MessageProtos {
          * <code>optional uint32 senderDevice = 2;</code>
          */
         public Builder setSenderDevice(int value) {
-          bitField0_ |= 0x00000002;
+          bitField0_ |= 0x00000004;
           senderDevice_ = value;
           onChanged();
           return this;
@@ -3737,7 +4049,7 @@ public final class MessageProtos {
          * <code>optional uint32 senderDevice = 2;</code>
          */
         public Builder clearSenderDevice() {
-          bitField0_ = (bitField0_ & ~0x00000002);
+          bitField0_ = (bitField0_ & ~0x00000004);
           senderDevice_ = 0;
           onChanged();
           return this;
@@ -3749,7 +4061,7 @@ public final class MessageProtos {
          * <code>optional fixed64 expires = 3;</code>
          */
         public boolean hasExpires() {
-          return ((bitField0_ & 0x00000004) == 0x00000004);
+          return ((bitField0_ & 0x00000008) == 0x00000008);
         }
         /**
          * <code>optional fixed64 expires = 3;</code>
@@ -3761,7 +4073,7 @@ public final class MessageProtos {
          * <code>optional fixed64 expires = 3;</code>
          */
         public Builder setExpires(long value) {
-          bitField0_ |= 0x00000004;
+          bitField0_ |= 0x00000008;
           expires_ = value;
           onChanged();
           return this;
@@ -3770,7 +4082,7 @@ public final class MessageProtos {
          * <code>optional fixed64 expires = 3;</code>
          */
         public Builder clearExpires() {
-          bitField0_ = (bitField0_ & ~0x00000004);
+          bitField0_ = (bitField0_ & ~0x00000008);
           expires_ = 0L;
           onChanged();
           return this;
@@ -3782,7 +4094,7 @@ public final class MessageProtos {
          * <code>optional bytes identityKey = 4;</code>
          */
         public boolean hasIdentityKey() {
-          return ((bitField0_ & 0x00000008) == 0x00000008);
+          return ((bitField0_ & 0x00000010) == 0x00000010);
         }
         /**
          * <code>optional bytes identityKey = 4;</code>
@@ -3797,7 +4109,7 @@ public final class MessageProtos {
           if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000008;
+  bitField0_ |= 0x00000010;
           identityKey_ = value;
           onChanged();
           return this;
@@ -3806,7 +4118,7 @@ public final class MessageProtos {
          * <code>optional bytes identityKey = 4;</code>
          */
         public Builder clearIdentityKey() {
-          bitField0_ = (bitField0_ & ~0x00000008);
+          bitField0_ = (bitField0_ & ~0x00000010);
           identityKey_ = getDefaultInstance().getIdentityKey();
           onChanged();
           return this;
@@ -3820,7 +4132,7 @@ public final class MessageProtos {
          * <code>optional .textsecure.ServerCertificate signer = 5;</code>
          */
         public boolean hasSigner() {
-          return ((bitField0_ & 0x00000010) == 0x00000010);
+          return ((bitField0_ & 0x00000020) == 0x00000020);
         }
         /**
          * <code>optional .textsecure.ServerCertificate signer = 5;</code>
@@ -3845,7 +4157,7 @@ public final class MessageProtos {
           } else {
             signerBuilder_.setMessage(value);
           }
-          bitField0_ |= 0x00000010;
+          bitField0_ |= 0x00000020;
           return this;
         }
         /**
@@ -3859,7 +4171,7 @@ public final class MessageProtos {
           } else {
             signerBuilder_.setMessage(builderForValue.build());
           }
-          bitField0_ |= 0x00000010;
+          bitField0_ |= 0x00000020;
           return this;
         }
         /**
@@ -3867,7 +4179,7 @@ public final class MessageProtos {
          */
         public Builder mergeSigner(org.whispersystems.textsecuregcm.entities.MessageProtos.ServerCertificate value) {
           if (signerBuilder_ == null) {
-            if (((bitField0_ & 0x00000010) == 0x00000010) &&
+            if (((bitField0_ & 0x00000020) == 0x00000020) &&
                 signer_ != org.whispersystems.textsecuregcm.entities.MessageProtos.ServerCertificate.getDefaultInstance()) {
               signer_ =
                 org.whispersystems.textsecuregcm.entities.MessageProtos.ServerCertificate.newBuilder(signer_).mergeFrom(value).buildPartial();
@@ -3878,7 +4190,7 @@ public final class MessageProtos {
           } else {
             signerBuilder_.mergeFrom(value);
           }
-          bitField0_ |= 0x00000010;
+          bitField0_ |= 0x00000020;
           return this;
         }
         /**
@@ -3891,14 +4203,14 @@ public final class MessageProtos {
           } else {
             signerBuilder_.clear();
           }
-          bitField0_ = (bitField0_ & ~0x00000010);
+          bitField0_ = (bitField0_ & ~0x00000020);
           return this;
         }
         /**
          * <code>optional .textsecure.ServerCertificate signer = 5;</code>
          */
         public org.whispersystems.textsecuregcm.entities.MessageProtos.ServerCertificate.Builder getSignerBuilder() {
-          bitField0_ |= 0x00000010;
+          bitField0_ |= 0x00000020;
           onChanged();
           return getSignerFieldBuilder().getBuilder();
         }
@@ -4339,21 +4651,22 @@ public final class MessageProtos {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\020TextSecure.proto\022\ntextsecure\"\301\002\n\010Envel" +
+      "\n\020TextSecure.proto\022\ntextsecure\"\325\002\n\010Envel" +
       "ope\022\'\n\004type\030\001 \001(\0162\031.textsecure.Envelope." +
-      "Type\022\016\n\006source\030\002 \001(\t\022\024\n\014sourceDevice\030\007 \001" +
-      "(\r\022\r\n\005relay\030\003 \001(\t\022\021\n\ttimestamp\030\005 \001(\004\022\025\n\r" +
-      "legacyMessage\030\006 \001(\014\022\017\n\007content\030\010 \001(\014\022\022\n\n" +
-      "serverGuid\030\t \001(\t\022\030\n\020server_timestamp\030\n \001" +
-      "(\004\"n\n\004Type\022\013\n\007UNKNOWN\020\000\022\016\n\nCIPHERTEXT\020\001\022" +
-      "\020\n\014KEY_EXCHANGE\020\002\022\021\n\rPREKEY_BUNDLE\020\003\022\013\n\007" +
-      "RECEIPT\020\005\022\027\n\023UNIDENTIFIED_SENDER\020\006\" \n\020Pr" +
-      "ovisioningUuid\022\014\n\004uuid\030\001 \001(\t\"c\n\021ServerCe",
-      "rtificate\022\023\n\013certificate\030\001 \001(\014\022\021\n\tsignat" +
-      "ure\030\002 \001(\014\032&\n\013Certificate\022\n\n\002id\030\001 \001(\r\022\013\n\003" +
-      "key\030\002 \001(\014\"\306\001\n\021SenderCertificate\022\023\n\013certi" +
-      "ficate\030\001 \001(\014\022\021\n\tsignature\030\002 \001(\014\032\210\001\n\013Cert" +
-      "ificate\022\016\n\006sender\030\001 \001(\t\022\024\n\014senderDevice\030" +
+      "Type\022\016\n\006source\030\002 \001(\t\022\022\n\nsourceUuid\030\013 \001(\t" +
+      "\022\024\n\014sourceDevice\030\007 \001(\r\022\r\n\005relay\030\003 \001(\t\022\021\n" +
+      "\ttimestamp\030\005 \001(\004\022\025\n\rlegacyMessage\030\006 \001(\014\022" +
+      "\017\n\007content\030\010 \001(\014\022\022\n\nserverGuid\030\t \001(\t\022\030\n\020" +
+      "server_timestamp\030\n \001(\004\"n\n\004Type\022\013\n\007UNKNOW" +
+      "N\020\000\022\016\n\nCIPHERTEXT\020\001\022\020\n\014KEY_EXCHANGE\020\002\022\021\n" +
+      "\rPREKEY_BUNDLE\020\003\022\013\n\007RECEIPT\020\005\022\027\n\023UNIDENT" +
+      "IFIED_SENDER\020\006\" \n\020ProvisioningUuid\022\014\n\004uu",
+      "id\030\001 \001(\t\"c\n\021ServerCertificate\022\023\n\013certifi" +
+      "cate\030\001 \001(\014\022\021\n\tsignature\030\002 \001(\014\032&\n\013Certifi" +
+      "cate\022\n\n\002id\030\001 \001(\r\022\013\n\003key\030\002 \001(\014\"\332\001\n\021Sender" +
+      "Certificate\022\023\n\013certificate\030\001 \001(\014\022\021\n\tsign" +
+      "ature\030\002 \001(\014\032\234\001\n\013Certificate\022\016\n\006sender\030\001 " +
+      "\001(\t\022\022\n\nsenderUuid\030\006 \001(\t\022\024\n\014senderDevice\030" +
       "\002 \001(\r\022\017\n\007expires\030\003 \001(\006\022\023\n\013identityKey\030\004 " +
       "\001(\014\022-\n\006signer\030\005 \001(\0132\035.textsecure.ServerC" +
       "ertificateB:\n)org.whispersystems.textsec" +
@@ -4369,7 +4682,7 @@ public final class MessageProtos {
           internal_static_textsecure_Envelope_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_textsecure_Envelope_descriptor,
-              new java.lang.String[] { "Type", "Source", "SourceDevice", "Relay", "Timestamp", "LegacyMessage", "Content", "ServerGuid", "ServerTimestamp", });
+              new java.lang.String[] { "Type", "Source", "SourceUuid", "SourceDevice", "Relay", "Timestamp", "LegacyMessage", "Content", "ServerGuid", "ServerTimestamp", });
           internal_static_textsecure_ProvisioningUuid_descriptor =
             getDescriptor().getMessageTypes().get(1);
           internal_static_textsecure_ProvisioningUuid_fieldAccessorTable = new
@@ -4399,7 +4712,7 @@ public final class MessageProtos {
           internal_static_textsecure_SenderCertificate_Certificate_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_textsecure_SenderCertificate_Certificate_descriptor,
-              new java.lang.String[] { "Sender", "SenderDevice", "Expires", "IdentityKey", "Signer", });
+              new java.lang.String[] { "Sender", "SenderUuid", "SenderDevice", "Expires", "IdentityKey", "Signer", });
           return null;
         }
       };

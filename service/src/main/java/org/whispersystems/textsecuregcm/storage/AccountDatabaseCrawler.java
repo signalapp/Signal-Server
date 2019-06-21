@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.codahale.metrics.MetricRegistry.name;
 import io.dropwizard.lifecycle.Managed;
 
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class AccountDatabaseCrawler implements Managed, Runnable {
 
   private static final Logger         logger         = LoggerFactory.getLogger(AccountDatabaseCrawler.class);
@@ -91,6 +92,7 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
         sleepWhileRunning(accelerated ? ACCELERATED_CHUNK_INTERVAL : chunkIntervalMs);
       } catch (Throwable t) {
         logger.warn("error in database crawl: ", t);
+        Util.sleep(10000);
       }
     }
 
@@ -120,26 +122,26 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
   }
 
   private void processChunk() {
-    Optional<String> fromNumber = cache.getLastNumber();
+    Optional<UUID> fromUuid = cache.getLastUuid();
 
-    if (!fromNumber.isPresent()) {
-      listeners.forEach(listener -> { listener.onCrawlStart(); });
+    if (!fromUuid.isPresent()) {
+      listeners.forEach(AccountDatabaseCrawlerListener::onCrawlStart);
     }
 
-    List<Account> chunkAccounts = readChunk(fromNumber, chunkSize);
+    List<Account> chunkAccounts = readChunk(fromUuid, chunkSize);
 
     if (chunkAccounts.isEmpty()) {
-      listeners.forEach(listener -> { listener.onCrawlEnd(fromNumber); });
-      cache.setLastNumber(Optional.empty());
+      listeners.forEach(listener -> listener.onCrawlEnd(fromUuid));
+      cache.setLastUuid(Optional.empty());
       cache.clearAccelerate();
     } else {
       try {
         for (AccountDatabaseCrawlerListener listener : listeners) {
-          listener.onCrawlChunk(fromNumber, chunkAccounts);
+          listener.onCrawlChunk(fromUuid, chunkAccounts);
         }
-        cache.setLastNumber(Optional.of(chunkAccounts.get(chunkAccounts.size() - 1).getNumber()));
+        cache.setLastUuid(Optional.of(chunkAccounts.get(chunkAccounts.size() - 1).getUuid()));
       } catch (AccountDatabaseCrawlerRestartException e) {
-        cache.setLastNumber(Optional.empty());
+        cache.setLastUuid(Optional.empty());
         cache.clearAccelerate();
       }
 
@@ -147,12 +149,12 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
 
   }
 
-  private List<Account> readChunk(Optional<String> fromNumber, int chunkSize) {
+  private List<Account> readChunk(Optional<UUID> fromUuid, int chunkSize) {
     try (Timer.Context timer = readChunkTimer.time()) {
       List<Account> chunkAccounts;
 
-      if (fromNumber.isPresent()) {
-        chunkAccounts = accounts.getAllFrom(fromNumber.get(), chunkSize);
+      if (fromUuid.isPresent()) {
+        chunkAccounts = accounts.getAllFrom(fromUuid.get(), chunkSize);
       } else {
         chunkAccounts = accounts.getAllFrom(chunkSize);
       }

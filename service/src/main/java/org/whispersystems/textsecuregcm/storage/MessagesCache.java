@@ -203,6 +203,7 @@ public class MessagesCache implements Managed {
                                      envelope.getRelay(),
                                      envelope.getTimestamp(),
                                      envelope.getSource(),
+                                     envelope.hasSourceUuid() ? UUID.fromString(envelope.getSourceUuid()) : null,
                                      envelope.getSourceDevice(),
                                      envelope.hasLegacyMessage() ? envelope.getLegacyMessage().toByteArray() : null,
                                      envelope.hasContent() ? envelope.getContent().toByteArray() : null,

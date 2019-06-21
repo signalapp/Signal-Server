@@ -105,10 +105,13 @@ public class WebSocketConnectionTest {
   public void testOpen() throws Exception {
     MessagesManager storedMessages = mock(MessagesManager.class);
 
+    UUID senderOneUuid = UUID.randomUUID();
+    UUID senderTwoUuid = UUID.randomUUID();
+
     List<OutgoingMessageEntity> outgoingMessages = new LinkedList<OutgoingMessageEntity> () {{
-      add(createMessage(1L, false, "sender1", 1111, false, "first"));
-      add(createMessage(2L, false, "sender1", 2222, false, "second"));
-      add(createMessage(3L, false, "sender2", 3333, false, "third"));
+      add(createMessage(1L, false, "sender1", senderOneUuid, 1111, false, "first"));
+      add(createMessage(2L, false, "sender1", senderOneUuid, 2222, false, "second"));
+      add(createMessage(3L, false, "sender2", senderTwoUuid, 3333, false, "third"));
     }};
 
     OutgoingMessageEntityList outgoingMessagesList = new OutgoingMessageEntityList(outgoingMessages, false);
@@ -121,7 +124,7 @@ public class WebSocketConnectionTest {
 
     final Device sender1device = mock(Device.class);
 
-    Set<Device> sender1devices = new HashSet<Device>() {{
+    Set<Device> sender1devices = new HashSet<>() {{
       add(sender1device);
     }};
 
@@ -275,6 +278,7 @@ public class WebSocketConnectionTest {
     final Envelope firstMessage = Envelope.newBuilder()
                                     .setLegacyMessage(ByteString.copyFrom("first".getBytes()))
                                     .setSource("sender1")
+                                    .setSourceUuid(UUID.randomUUID().toString())
                                     .setTimestamp(System.currentTimeMillis())
                                     .setSourceDevice(1)
                                     .setType(Envelope.Type.CIPHERTEXT)
@@ -283,6 +287,7 @@ public class WebSocketConnectionTest {
     final Envelope secondMessage = Envelope.newBuilder()
                                      .setLegacyMessage(ByteString.copyFrom("second".getBytes()))
                                      .setSource("sender2")
+                                     .setSourceUuid(UUID.randomUUID().toString())
                                      .setTimestamp(System.currentTimeMillis())
                                      .setSourceDevice(2)
                                      .setType(Envelope.Type.CIPHERTEXT)
@@ -290,11 +295,11 @@ public class WebSocketConnectionTest {
 
     List<OutgoingMessageEntity> pendingMessages     = new LinkedList<OutgoingMessageEntity>() {{
       add(new OutgoingMessageEntity(1, true, UUID.randomUUID(), firstMessage.getType().getNumber(), firstMessage.getRelay(),
-                                    firstMessage.getTimestamp(), firstMessage.getSource(),
+                                    firstMessage.getTimestamp(), firstMessage.getSource(), UUID.fromString(firstMessage.getSourceUuid()),
                                     firstMessage.getSourceDevice(), firstMessage.getLegacyMessage().toByteArray(),
                                     firstMessage.getContent().toByteArray(), 0));
       add(new OutgoingMessageEntity(2, false, UUID.randomUUID(), secondMessage.getType().getNumber(), secondMessage.getRelay(),
-                                    secondMessage.getTimestamp(), secondMessage.getSource(),
+                                    secondMessage.getTimestamp(), secondMessage.getSource(), UUID.fromString(secondMessage.getSourceUuid()),
                                     secondMessage.getSourceDevice(), secondMessage.getLegacyMessage().toByteArray(),
                                     secondMessage.getContent().toByteArray(), 0));
     }};
@@ -359,9 +364,9 @@ public class WebSocketConnectionTest {
   }
 
 
-  private OutgoingMessageEntity createMessage(long id, boolean cached, String sender, long timestamp, boolean receipt, String content) {
+  private OutgoingMessageEntity createMessage(long id, boolean cached, String sender, UUID senderUuid, long timestamp, boolean receipt, String content) {
     return new OutgoingMessageEntity(id, cached, UUID.randomUUID(), receipt ? Envelope.Type.RECEIPT_VALUE : Envelope.Type.CIPHERTEXT_VALUE,
-                                     null, timestamp, sender, 1, content.getBytes(), null, 0);
+                                     null, timestamp, sender, senderUuid, 1, content.getBytes(), null, 0);
   }
 
 }

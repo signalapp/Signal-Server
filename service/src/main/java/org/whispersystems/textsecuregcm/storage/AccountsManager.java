@@ -24,6 +24,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -33,6 +34,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import redis.clients.jedis.Jedis;
@@ -40,13 +42,15 @@ import redis.clients.jedis.exceptions.JedisException;
 
 public class AccountsManager {
 
-  private static final MetricRegistry metricRegistry      = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private static final Timer          createTimer         = metricRegistry.timer(name(AccountsManager.class, "create"        ));
-  private static final Timer          updateTimer         = metricRegistry.timer(name(AccountsManager.class, "update"        ));
-  private static final Timer          getTimer            = metricRegistry.timer(name(AccountsManager.class, "get"           ));
+  private static final MetricRegistry metricRegistry   = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  private static final Timer          createTimer      = metricRegistry.timer(name(AccountsManager.class, "create"     ));
+  private static final Timer          updateTimer      = metricRegistry.timer(name(AccountsManager.class, "update"     ));
+  private static final Timer          getByNumberTimer = metricRegistry.timer(name(AccountsManager.class, "getByNumber"));
+  private static final Timer          getByUuidTimer   = metricRegistry.timer(name(AccountsManager.class, "getByUuid"  ));
 
-  private static final Timer          redisSetTimer       = metricRegistry.timer(name(AccountsManager.class, "redisSet"      ));
-  private static final Timer          redisGetTimer       = metricRegistry.timer(name(AccountsManager.class, "redisGet"      ));
+  private static final Timer redisSetTimer       = metricRegistry.timer(name(AccountsManager.class, "redisSet"      ));
+  private static final Timer redisNumberGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisNumberGet"));
+  private static final Timer redisUuidGetTimer   = metricRegistry.timer(name(AccountsManager.class, "redisUuidGet"  ));
 
   private final Logger logger = LoggerFactory.getLogger(AccountsManager.class);
 
@@ -65,7 +69,7 @@ public class AccountsManager {
   public boolean create(Account account) {
     try (Timer.Context context = createTimer.time()) {
       boolean freshUser = databaseCreate(account);
-      redisSet(account.getNumber(), account, false);
+      redisSet(account);
       updateDirectory(account);
 
       return freshUser;
@@ -74,31 +78,51 @@ public class AccountsManager {
 
   public void update(Account account) {
     try (Timer.Context context = updateTimer.time()) {
-      redisSet(account.getNumber(), account, false);
+      redisSet(account);
       databaseUpdate(account);
       updateDirectory(account);
     }
   }
 
+  public Optional<Account> get(AmbiguousIdentifier identifier) {
+    if      (identifier.hasNumber()) return get(identifier.getNumber());
+    else if (identifier.hasUuid())   return get(identifier.getUuid());
+    else                             throw new AssertionError();
+  }
+
   public Optional<Account> get(String number) {
-    try (Timer.Context context = getTimer.time()) {
+    try (Timer.Context context = getByNumberTimer.time()) {
       Optional<Account> account = redisGet(number);
 
       if (!account.isPresent()) {
         account = databaseGet(number);
-        account.ifPresent(value -> redisSet(number, value, true));
+        account.ifPresent(value -> redisSet(value));
       }
 
       return account;
     }
   }
 
+  public Optional<Account> get(UUID uuid) {
+    try (Timer.Context context = getByUuidTimer.time()) {
+      Optional<Account> account = redisGet(uuid);
+
+      if (!account.isPresent()) {
+        account = databaseGet(uuid);
+        account.ifPresent(value -> redisSet(value));
+      }
+
+      return account;
+    }
+  }
+
+
   public List<Account> getAllFrom(int length) {
     return accounts.getAllFrom(length);
   }
 
-  public List<Account> getAllFrom(String number, int length) {
-    return accounts.getAllFrom(number, length);
+  public List<Account> getAllFrom(UUID uuid, int length) {
+    return accounts.getAllFrom(uuid, length);
   }
 
   private void updateDirectory(Account account) {
@@ -111,15 +135,20 @@ public class AccountsManager {
     }
   }
 
-  private String getKey(String number) {
-    return Account.class.getSimpleName() + Account.MEMCACHE_VERION + number;
+  private String getAccountMapKey(String number) {
+    return "AccountMap::" + number;
   }
 
-  private void redisSet(String number, Account account, boolean optional) {
+  private String getAccountEntityKey(UUID uuid) {
+    return "Account::" + uuid.toString();
+  }
+
+  private void redisSet(Account account) {
     try (Jedis         jedis = cacheClient.getWriteResource();
          Timer.Context timer = redisSetTimer.time())
     {
-      jedis.set(getKey(number), mapper.writeValueAsString(account));
+      jedis.set(getAccountMapKey(account.getNumber()), account.getUuid().toString());
+      jedis.set(getAccountEntityKey(account.getUuid()), mapper.writeValueAsString(account));
     } catch (JsonProcessingException e) {
       throw new IllegalStateException(e);
     }
@@ -127,20 +156,14 @@ public class AccountsManager {
 
   private Optional<Account> redisGet(String number) {
     try (Jedis         jedis = cacheClient.getReadResource();
-         Timer.Context timer = redisGetTimer.time())
+         Timer.Context timer = redisNumberGetTimer.time())
     {
-      String json = jedis.get(getKey(number));
+      String uuid = jedis.get(getAccountMapKey(number));
 
-      if (json != null) {
-        Account account = mapper.readValue(json, Account.class);
-        account.setNumber(number);
-
-        return Optional.of(account);
-      }
-
-      return Optional.empty();
-    } catch (IOException e) {
-      logger.warn("AccountsManager", "Deserialization error", e);
+      if (uuid != null) return redisGet(UUID.fromString(uuid));
+      else              return Optional.empty();
+    } catch (IllegalArgumentException e) {
+      logger.warn("Deserialization error", e);
       return Optional.empty();
     } catch (JedisException e) {
       logger.warn("Redis failure", e);
@@ -148,8 +171,36 @@ public class AccountsManager {
     }
   }
 
+  private Optional<Account> redisGet(UUID uuid) {
+    try (Jedis         jedis = cacheClient.getReadResource();
+         Timer.Context timer = redisUuidGetTimer.time())
+    {
+      String json = jedis.get(getAccountEntityKey(uuid));
+
+      if (json != null) {
+        Account account = mapper.readValue(json, Account.class);
+        account.setUuid(uuid);
+
+        return Optional.of(account);
+      }
+
+      return Optional.empty();
+    } catch (IOException e) {
+      logger.warn("Deserialization error", e);
+      return Optional.empty();
+    } catch (JedisException e) {
+      logger.warn("Redis failure", e);
+      return Optional.empty();
+    }
+
+  }
+
   private Optional<Account> databaseGet(String number) {
     return accounts.get(number);
+  }
+
+  private Optional<Account> databaseGet(UUID uuid) {
+    return accounts.get(uuid);
   }
 
   private boolean databaseCreate(Account account) {

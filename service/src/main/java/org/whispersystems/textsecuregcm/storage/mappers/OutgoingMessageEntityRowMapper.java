@@ -16,6 +16,7 @@ public class OutgoingMessageEntityRowMapper implements RowMapper<OutgoingMessage
     int    type          = resultSet.getInt(Messages.TYPE);
     byte[] legacyMessage = resultSet.getBytes(Messages.MESSAGE);
     String guid          = resultSet.getString(Messages.GUID);
+    String sourceUuid    = resultSet.getString(Messages.SOURCE_UUID);
 
     if (type == Envelope.Type.RECEIPT_VALUE && legacyMessage == null) {
       /// XXX - REMOVE AFTER 10/01/15
@@ -29,6 +30,7 @@ public class OutgoingMessageEntityRowMapper implements RowMapper<OutgoingMessage
                                      resultSet.getString(Messages.RELAY),
                                      resultSet.getLong(Messages.TIMESTAMP),
                                      resultSet.getString(Messages.SOURCE),
+                                     sourceUuid == null ? null : UUID.fromString(sourceUuid),
                                      resultSet.getInt(Messages.SOURCE_DEVICE),
                                      legacyMessage,
                                      resultSet.getBytes(Messages.CONTENT),

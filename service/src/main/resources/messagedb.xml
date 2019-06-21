@@ -121,4 +121,10 @@
         <sql>CREATE INDEX CONCURRENTLY guid_index ON messages (guid);</sql>
     </changeSet>
 
+    <changeSet id="13" author="moxie">
+        <addColumn tableName="messages">
+            <column name="source_uuid" type="uuid"/>
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>

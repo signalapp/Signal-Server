@@ -75,6 +75,7 @@ public class CertificateControllerTest {
 
     assertEquals(certificate.getSender(), AuthHelper.VALID_NUMBER);
     assertEquals(certificate.getSenderDevice(), 1L);
+    assertEquals(certificate.getSenderUuid(), AuthHelper.VALID_UUID.toString());
     assertTrue(Arrays.equals(certificate.getIdentityKey().toByteArray(), Base64.decode(AuthHelper.VALID_IDENTITY)));
   }
 

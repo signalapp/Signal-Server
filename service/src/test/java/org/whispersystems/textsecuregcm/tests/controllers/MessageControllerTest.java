@@ -7,6 +7,8 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatcher;
+import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
@@ -55,7 +57,10 @@ import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixtur
 public class MessageControllerTest {
 
   private static final String SINGLE_DEVICE_RECIPIENT = "+14151111111";
+  private static final UUID   SINGLE_DEVICE_UUID      = UUID.randomUUID();
+
   private static final String MULTI_DEVICE_RECIPIENT  = "+14152222222";
+  private static final UUID   MULTI_DEVICE_UUID       = UUID.randomUUID();
 
   private  final PushSender             pushSender             = mock(PushSender.class            );
   private  final ReceiptSender          receiptSender          = mock(ReceiptSender.class);
@@ -89,11 +94,13 @@ public class MessageControllerTest {
       add(new Device(3, null, "foo", "bar", "baz", "isgcm", null, null, false, 444, null, System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31), System.currentTimeMillis(), "Test", true, 0));
     }};
 
-    Account singleDeviceAccount = new Account(SINGLE_DEVICE_RECIPIENT, singleDeviceList, "1234".getBytes());
-    Account multiDeviceAccount  = new Account(MULTI_DEVICE_RECIPIENT, multiDeviceList, "1234".getBytes());
+    Account singleDeviceAccount = new Account(SINGLE_DEVICE_RECIPIENT, SINGLE_DEVICE_UUID, singleDeviceList, "1234".getBytes());
+    Account multiDeviceAccount  = new Account(MULTI_DEVICE_RECIPIENT, MULTI_DEVICE_UUID, multiDeviceList, "1234".getBytes());
 
     when(accountsManager.get(eq(SINGLE_DEVICE_RECIPIENT))).thenReturn(Optional.of(singleDeviceAccount));
+    when(accountsManager.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(SINGLE_DEVICE_RECIPIENT)))).thenReturn(Optional.of(singleDeviceAccount));
     when(accountsManager.get(eq(MULTI_DEVICE_RECIPIENT))).thenReturn(Optional.of(multiDeviceAccount));
+    when(accountsManager.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(MULTI_DEVICE_RECIPIENT)))).thenReturn(Optional.of(multiDeviceAccount));
 
     when(rateLimiters.getMessagesLimiter()).thenReturn(rateLimiter);
   }
@@ -240,11 +247,12 @@ public class MessageControllerTest {
     final long timestampOne = 313377;
     final long timestampTwo = 313388;
 
-    final UUID uuidOne = UUID.randomUUID();
+    final UUID messageGuidOne = UUID.randomUUID();
+    final UUID sourceUuid     = UUID.randomUUID();
 
-    List<OutgoingMessageEntity> messages = new LinkedList<OutgoingMessageEntity>() {{
-      add(new OutgoingMessageEntity(1L, false, uuidOne, Envelope.Type.CIPHERTEXT_VALUE, null, timestampOne, "+14152222222", 2, "hi there".getBytes(), null, 0));
-      add(new OutgoingMessageEntity(2L, false, null, Envelope.Type.RECEIPT_VALUE, null, timestampTwo, "+14152222222", 2, null, null, 0));
+    List<OutgoingMessageEntity> messages = new LinkedList<>() {{
+      add(new OutgoingMessageEntity(1L, false, messageGuidOne, Envelope.Type.CIPHERTEXT_VALUE, null, timestampOne, "+14152222222", sourceUuid, 2, "hi there".getBytes(), null, 0));
+      add(new OutgoingMessageEntity(2L, false, null, Envelope.Type.RECEIPT_VALUE, null, timestampTwo, "+14152222222", sourceUuid, 2, null, null, 0));
     }};
 
     OutgoingMessageEntityList messagesList = new OutgoingMessageEntityList(messages, false);
@@ -254,7 +262,7 @@ public class MessageControllerTest {
     OutgoingMessageEntityList response =
         resources.getJerseyTest().target("/v1/messages/")
                  .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID.toString(), AuthHelper.VALID_PASSWORD))
                  .accept(MediaType.APPLICATION_JSON_TYPE)
                  .get(OutgoingMessageEntityList.class);
 
@@ -267,8 +275,11 @@ public class MessageControllerTest {
     assertEquals(response.getMessages().get(0).getTimestamp(), timestampOne);
     assertEquals(response.getMessages().get(1).getTimestamp(), timestampTwo);
 
-    assertEquals(response.getMessages().get(0).getGuid(), uuidOne);
-    assertEquals(response.getMessages().get(1).getGuid(), null);
+    assertEquals(response.getMessages().get(0).getGuid(), messageGuidOne);
+    assertNull(response.getMessages().get(1).getGuid());
+
+    assertEquals(response.getMessages().get(0).getSourceUuid(), sourceUuid);
+    assertEquals(response.getMessages().get(1).getSourceUuid(), sourceUuid);
   }
 
   @Test
@@ -277,8 +288,8 @@ public class MessageControllerTest {
     final long timestampTwo = 313388;
 
     List<OutgoingMessageEntity> messages = new LinkedList<OutgoingMessageEntity>() {{
-      add(new OutgoingMessageEntity(1L, false, UUID.randomUUID(), Envelope.Type.CIPHERTEXT_VALUE, null, timestampOne, "+14152222222", 2, "hi there".getBytes(), null, 0));
-      add(new OutgoingMessageEntity(2L, false, UUID.randomUUID(), Envelope.Type.RECEIPT_VALUE, null, timestampTwo, "+14152222222", 2, null, null, 0));
+      add(new OutgoingMessageEntity(1L, false, UUID.randomUUID(), Envelope.Type.CIPHERTEXT_VALUE, null, timestampOne, "+14152222222", UUID.randomUUID(), 2, "hi there".getBytes(), null, 0));
+      add(new OutgoingMessageEntity(2L, false, UUID.randomUUID(), Envelope.Type.RECEIPT_VALUE, null, timestampTwo, "+14152222222", UUID.randomUUID(), 2, null, null, 0));
     }};
 
     OutgoingMessageEntityList messagesList = new OutgoingMessageEntityList(messages, false);
@@ -288,7 +299,7 @@ public class MessageControllerTest {
     Response response =
         resources.getJerseyTest().target("/v1/messages/")
                  .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.INVALID_PASSWORD))
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID.toString(), AuthHelper.INVALID_PASSWORD))
                  .accept(MediaType.APPLICATION_JSON_TYPE)
                  .get();
 
@@ -299,17 +310,19 @@ public class MessageControllerTest {
   public synchronized void testDeleteMessages() throws Exception {
     long timestamp = System.currentTimeMillis();
 
+    UUID sourceUuid = UUID.randomUUID();
+
     when(messagesManager.delete(AuthHelper.VALID_NUMBER, 1, "+14152222222", 31337))
         .thenReturn(Optional.of(new OutgoingMessageEntity(31337L, true, null,
                                                           Envelope.Type.CIPHERTEXT_VALUE,
                                                           null, timestamp,
-                                                          "+14152222222", 1, "hi".getBytes(), null, 0)));
+                                                          "+14152222222", sourceUuid, 1, "hi".getBytes(), null, 0)));
 
     when(messagesManager.delete(AuthHelper.VALID_NUMBER, 1, "+14152222222", 31338))
         .thenReturn(Optional.of(new OutgoingMessageEntity(31337L, true, null,
                                                           Envelope.Type.RECEIPT_VALUE,
                                                           null, System.currentTimeMillis(),
-                                                          "+14152222222", 1, null, null, 0)));
+                                                          "+14152222222", sourceUuid, 1, null, null, 0)));
 
 
     when(messagesManager.delete(AuthHelper.VALID_NUMBER, 1, "+14152222222", 31339))
@@ -327,7 +340,7 @@ public class MessageControllerTest {
     response = resources.getJerseyTest()
                         .target(String.format("/v1/messages/%s/%d", "+14152222222", 31338))
                         .request()
-                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID.toString(), AuthHelper.VALID_PASSWORD))
                         .delete();
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));

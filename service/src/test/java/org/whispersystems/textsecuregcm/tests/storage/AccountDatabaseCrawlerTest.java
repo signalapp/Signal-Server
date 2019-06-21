@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2018 Open WhisperSystems
  *
  * This program is free software: you can redistribute it and/or modify
@@ -17,21 +17,19 @@
 
 package org.whispersystems.textsecuregcm.tests.storage;
 
+import org.junit.Before;
+import org.junit.Test;
 import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawler;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerCache;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerListener;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
-
-import org.junit.Before;
-import org.junit.Test;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -42,8 +40,8 @@ import static org.mockito.Mockito.*;
 
 public class AccountDatabaseCrawlerTest {
 
-  private static final String ACCOUNT1 = "+1";
-  private static final String ACCOUNT2 = "+2";
+  private static final UUID ACCOUNT1 = UUID.randomUUID();
+  private static final UUID ACCOUNT2 = UUID.randomUUID();
 
   private static final int  CHUNK_SIZE        = 1000;
   private static final long CHUNK_INTERVAL_MS = 30_000L;
@@ -59,8 +57,8 @@ public class AccountDatabaseCrawlerTest {
 
   @Before
   public void setup() {
-    when(account1.getNumber()).thenReturn(ACCOUNT1);
-    when(account2.getNumber()).thenReturn(ACCOUNT2);
+    when(account1.getUuid()).thenReturn(ACCOUNT1);
+    when(account2.getUuid()).thenReturn(ACCOUNT2);
 
     when(accounts.getAllFrom(anyInt())).thenReturn(Arrays.asList(account1, account2));
     when(accounts.getAllFrom(eq(ACCOUNT1), anyInt())).thenReturn(Arrays.asList(account2));
@@ -72,20 +70,20 @@ public class AccountDatabaseCrawlerTest {
 
   @Test
   public void testCrawlStart() throws AccountDatabaseCrawlerRestartException {
-    when(cache.getLastNumber()).thenReturn(Optional.empty());
+    when(cache.getLastUuid()).thenReturn(Optional.empty());
 
     boolean accelerated = crawler.doPeriodicWork();
     assertThat(accelerated).isFalse();
 
     verify(cache, times(1)).claimActiveWork(any(String.class), anyLong());
-    verify(cache, times(1)).getLastNumber();
+    verify(cache, times(1)).getLastUuid();
     verify(listener, times(1)).onCrawlStart();
     verify(accounts, times(1)).getAllFrom(eq(CHUNK_SIZE));
-    verify(accounts, times(0)).getAllFrom(any(String.class), eq(CHUNK_SIZE));
-    verify(account1, times(0)).getNumber();
-    verify(account2, times(1)).getNumber();
+    verify(accounts, times(0)).getAllFrom(any(UUID.class), eq(CHUNK_SIZE));
+    verify(account1, times(0)).getUuid();
+    verify(account2, times(1)).getUuid();
     verify(listener, times(1)).onCrawlChunk(eq(Optional.empty()), eq(Arrays.asList(account1, account2)));
-    verify(cache, times(1)).setLastNumber(eq(Optional.of(ACCOUNT2)));
+    verify(cache, times(1)).setLastUuid(eq(Optional.of(ACCOUNT2)));
     verify(cache, times(1)).isAccelerated();
     verify(cache, times(1)).releaseActiveWork(any(String.class));
 
@@ -98,18 +96,18 @@ public class AccountDatabaseCrawlerTest {
 
   @Test
   public void testCrawlChunk() throws AccountDatabaseCrawlerRestartException {
-    when(cache.getLastNumber()).thenReturn(Optional.of(ACCOUNT1));
+    when(cache.getLastUuid()).thenReturn(Optional.of(ACCOUNT1));
 
     boolean accelerated = crawler.doPeriodicWork();
     assertThat(accelerated).isFalse();
 
     verify(cache, times(1)).claimActiveWork(any(String.class), anyLong());
-    verify(cache, times(1)).getLastNumber();
+    verify(cache, times(1)).getLastUuid();
     verify(accounts, times(0)).getAllFrom(eq(CHUNK_SIZE));
     verify(accounts, times(1)).getAllFrom(eq(ACCOUNT1), eq(CHUNK_SIZE));
-    verify(account2, times(1)).getNumber();
+    verify(account2, times(1)).getUuid();
     verify(listener, times(1)).onCrawlChunk(eq(Optional.of(ACCOUNT1)), eq(Arrays.asList(account2)));
-    verify(cache, times(1)).setLastNumber(eq(Optional.of(ACCOUNT2)));
+    verify(cache, times(1)).setLastUuid(eq(Optional.of(ACCOUNT2)));
     verify(cache, times(1)).isAccelerated();
     verify(cache, times(1)).releaseActiveWork(any(String.class));
 
@@ -124,18 +122,18 @@ public class AccountDatabaseCrawlerTest {
   @Test
   public void testCrawlChunkAccelerated() throws AccountDatabaseCrawlerRestartException {
     when(cache.isAccelerated()).thenReturn(true);
-    when(cache.getLastNumber()).thenReturn(Optional.of(ACCOUNT1));
+    when(cache.getLastUuid()).thenReturn(Optional.of(ACCOUNT1));
 
     boolean accelerated = crawler.doPeriodicWork();
     assertThat(accelerated).isTrue();
 
     verify(cache, times(1)).claimActiveWork(any(String.class), anyLong());
-    verify(cache, times(1)).getLastNumber();
+    verify(cache, times(1)).getLastUuid();
     verify(accounts, times(0)).getAllFrom(eq(CHUNK_SIZE));
     verify(accounts, times(1)).getAllFrom(eq(ACCOUNT1), eq(CHUNK_SIZE));
-    verify(account2, times(1)).getNumber();
+    verify(account2, times(1)).getUuid();
     verify(listener, times(1)).onCrawlChunk(eq(Optional.of(ACCOUNT1)), eq(Arrays.asList(account2)));
-    verify(cache, times(1)).setLastNumber(eq(Optional.of(ACCOUNT2)));
+    verify(cache, times(1)).setLastUuid(eq(Optional.of(ACCOUNT2)));
     verify(cache, times(1)).isAccelerated();
     verify(cache, times(1)).releaseActiveWork(any(String.class));
 
@@ -149,19 +147,19 @@ public class AccountDatabaseCrawlerTest {
 
   @Test
   public void testCrawlChunkRestart() throws AccountDatabaseCrawlerRestartException {
-    when(cache.getLastNumber()).thenReturn(Optional.of(ACCOUNT1));
+    when(cache.getLastUuid()).thenReturn(Optional.of(ACCOUNT1));
     doThrow(AccountDatabaseCrawlerRestartException.class).when(listener).onCrawlChunk(eq(Optional.of(ACCOUNT1)), eq(Arrays.asList(account2)));
 
     boolean accelerated = crawler.doPeriodicWork();
     assertThat(accelerated).isFalse();
 
     verify(cache, times(1)).claimActiveWork(any(String.class), anyLong());
-    verify(cache, times(1)).getLastNumber();
+    verify(cache, times(1)).getLastUuid();
     verify(accounts, times(0)).getAllFrom(eq(CHUNK_SIZE));
     verify(accounts, times(1)).getAllFrom(eq(ACCOUNT1), eq(CHUNK_SIZE));
     verify(account2, times(0)).getNumber();
     verify(listener, times(1)).onCrawlChunk(eq(Optional.of(ACCOUNT1)), eq(Arrays.asList(account2)));
-    verify(cache, times(1)).setLastNumber(eq(Optional.empty()));
+    verify(cache, times(1)).setLastUuid(eq(Optional.empty()));
     verify(cache, times(1)).clearAccelerate();
     verify(cache, times(1)).isAccelerated();
     verify(cache, times(1)).releaseActiveWork(any(String.class));
@@ -176,19 +174,19 @@ public class AccountDatabaseCrawlerTest {
 
   @Test
   public void testCrawlEnd() {
-    when(cache.getLastNumber()).thenReturn(Optional.of(ACCOUNT2));
+    when(cache.getLastUuid()).thenReturn(Optional.of(ACCOUNT2));
 
     boolean accelerated = crawler.doPeriodicWork();
     assertThat(accelerated).isFalse();
 
     verify(cache, times(1)).claimActiveWork(any(String.class), anyLong());
-    verify(cache, times(1)).getLastNumber();
+    verify(cache, times(1)).getLastUuid();
     verify(accounts, times(0)).getAllFrom(eq(CHUNK_SIZE));
     verify(accounts, times(1)).getAllFrom(eq(ACCOUNT2), eq(CHUNK_SIZE));
     verify(account1, times(0)).getNumber();
     verify(account2, times(0)).getNumber();
     verify(listener, times(1)).onCrawlEnd(eq(Optional.of(ACCOUNT2)));
-    verify(cache, times(1)).setLastNumber(eq(Optional.empty()));
+    verify(cache, times(1)).setLastUuid(eq(Optional.empty()));
     verify(cache, times(1)).clearAccelerate();
     verify(cache, times(1)).isAccelerated();
     verify(cache, times(1)).releaseActiveWork(any(String.class));

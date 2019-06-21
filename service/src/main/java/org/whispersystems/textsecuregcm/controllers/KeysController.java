@@ -19,6 +19,7 @@ package org.whispersystems.textsecuregcm.controllers;
 import com.codahale.metrics.annotation.Timed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
@@ -115,11 +116,11 @@ public class KeysController {
 
   @Timed
   @GET
-  @Path("/{number}/{device_id}")
+  @Path("/{identifier}/{device_id}")
   @Produces(MediaType.APPLICATION_JSON)
   public Optional<PreKeyResponse> getDeviceKeys(@Auth                                     Optional<Account> account,
                                                 @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
-                                                @PathParam("number")                      String number,
+                                                @PathParam("identifier")                  AmbiguousIdentifier targetName,
                                                 @PathParam("device_id")                   String deviceId)
       throws RateLimitExceededException
   {
@@ -127,13 +128,13 @@ public class KeysController {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
-    Optional<Account> target = accounts.get(number);
+    Optional<Account> target = accounts.get(targetName);
     OptionalAccess.verify(account, accessKey, target, deviceId);
 
     assert(target.isPresent());
 
     if (account.isPresent()) {
-      rateLimiters.getPreKeysLimiter().validate(account.get().getNumber() +  "__" + number + "." + deviceId);
+      rateLimiters.getPreKeysLimiter().validate(account.get().getNumber() +  "__" + target.get().getNumber() + "." + deviceId);
     }
 
     List<KeyRecord>          targetKeys = getLocalKeys(target.get(), deviceId);

@@ -25,6 +25,7 @@ public class Messages {
   public static final String TIMESTAMP          = "timestamp";
   public static final String SERVER_TIMESTAMP   = "server_timestamp";
   public static final String SOURCE             = "source";
+  public static final String SOURCE_UUID        = "source_uuid";
   public static final String SOURCE_DEVICE      = "source_device";
   public static final String DESTINATION        = "destination";
   public static final String DESTINATION_DEVICE = "destination_device";
@@ -51,8 +52,8 @@ public class Messages {
   public void store(UUID guid, Envelope message, String destination, long destinationDevice) {
     database.use(jdbi ->jdbi.useHandle(handle -> {
       try (Timer.Context ignored = storeTimer.time()) {
-        handle.createUpdate("INSERT INTO messages (" + GUID + ", " + TYPE + ", " + RELAY + ", " + TIMESTAMP + ", " + SERVER_TIMESTAMP + ", " + SOURCE + ", " + SOURCE_DEVICE + ", " + DESTINATION + ", " + DESTINATION_DEVICE + ", " + MESSAGE + ", " + CONTENT + ") " +
-                                "VALUES (:guid, :type, :relay, :timestamp, :server_timestamp, :source, :source_device, :destination, :destination_device, :message, :content)")
+        handle.createUpdate("INSERT INTO messages (" + GUID + ", " + TYPE + ", " + RELAY + ", " + TIMESTAMP + ", " + SERVER_TIMESTAMP + ", " + SOURCE + ", " + SOURCE_UUID + ", " + SOURCE_DEVICE + ", " + DESTINATION + ", " + DESTINATION_DEVICE + ", " + MESSAGE + ", " + CONTENT + ") " +
+                                "VALUES (:guid, :type, :relay, :timestamp, :server_timestamp, :source, :source_uuid, :source_device, :destination, :destination_device, :message, :content)")
               .bind("guid", guid)
               .bind("destination", destination)
               .bind("destination_device", destinationDevice)
@@ -61,6 +62,7 @@ public class Messages {
               .bind("timestamp", message.getTimestamp())
               .bind("server_timestamp", message.getServerTimestamp())
               .bind("source", message.hasSource() ? message.getSource() : null)
+              .bind("source_uuid", message.hasSourceUuid() ? UUID.fromString(message.getSourceUuid()) : null)
               .bind("source_device", message.hasSourceDevice() ? message.getSourceDevice() : null)
               .bind("message", message.hasLegacyMessage() ? message.getLegacyMessage().toByteArray() : null)
               .bind("content", message.hasContent() ? message.getContent().toByteArray() : null)

@@ -31,6 +31,7 @@ public class CertificateGenerator {
   public byte[] createFor(Account account, Device device) throws IOException, InvalidKeyException {
     byte[] certificate = SenderCertificate.Certificate.newBuilder()
                                                       .setSender(account.getNumber())
+                                                      .setSenderUuid(account.getUuid().toString())
                                                       .setSenderDevice(Math.toIntExact(device.getId()))
                                                       .setExpires(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(expiresDays))
                                                       .setIdentityKey(ByteString.copyFrom(Base64.decode(account.getIdentityKey())))

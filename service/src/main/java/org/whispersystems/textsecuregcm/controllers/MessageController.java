@@ -23,6 +23,7 @@ import com.codahale.metrics.annotation.Timed;
 import com.google.protobuf.ByteString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
@@ -109,7 +110,7 @@ public class MessageController {
   @Produces(MediaType.APPLICATION_JSON)
   public SendMessageResponse sendMessage(@Auth                                     Optional<Account>   source,
                                          @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
-                                         @PathParam("destination")                 String              destinationName,
+                                         @PathParam("destination")                 AmbiguousIdentifier destinationName,
                                          @Valid                                    IncomingMessageList messages)
       throws RateLimitExceededException
   {
@@ -117,18 +118,18 @@ public class MessageController {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
-    if (source.isPresent() && !source.get().getNumber().equals(destinationName)) {
+    if (source.isPresent() && !source.get().isFor(destinationName)) {
       rateLimiters.getMessagesLimiter().validate(source.get().getNumber() + "__" + destinationName);
     }
 
-    if (source.isPresent() && !source.get().getNumber().equals(destinationName)) {
+    if (source.isPresent() && !source.get().isFor(destinationName)) {
       identifiedMeter.mark();
-    } else {
+    } else if (!source.isPresent()) {
       unidentifiedMeter.mark();
     }
 
     try {
-      boolean isSyncMessage = source.isPresent() && source.get().getNumber().equals(destinationName);
+      boolean isSyncMessage = source.isPresent() && source.get().isFor(destinationName);
 
       Optional<Account> destination;
 
@@ -246,6 +247,7 @@ public class MessageController {
 
       if (source.isPresent()) {
         messageBuilder.setSource(source.get().getNumber())
+                      .setSourceUuid(source.get().getUuid().toString())
                       .setSourceDevice((int)source.get().getAuthenticatedDevice().get().getId());
       }
 

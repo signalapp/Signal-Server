@@ -21,11 +21,14 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 
+import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
+
 import javax.security.auth.Subject;
 import java.security.Principal;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 public class Account implements Principal  {
@@ -33,6 +36,9 @@ public class Account implements Principal  {
   static final int MEMCACHE_VERION = 5;
 
   @JsonIgnore
+  private UUID uuid;
+
+  @JsonProperty
   private String number;
 
   @JsonProperty
@@ -71,8 +77,9 @@ public class Account implements Principal  {
   public Account() {}
 
   @VisibleForTesting
-  public Account(String number, Set<Device> devices, byte[] unidentifiedAccessKey) {
+  public Account(String number, UUID uuid, Set<Device> devices, byte[] unidentifiedAccessKey) {
     this.number                = number;
+    this.uuid                  = uuid;
     this.devices               = devices;
     this.unidentifiedAccessKey = unidentifiedAccessKey;
   }
@@ -83,6 +90,14 @@ public class Account implements Principal  {
 
   public void setAuthenticatedDevice(Device device) {
     this.authenticatedDevice = device;
+  }
+
+  public UUID getUuid() {
+    return uuid;
+  }
+
+  public void setUuid(UUID uuid) {
+    this.uuid = uuid;
   }
 
   public void setNumber(String number) {
@@ -245,6 +260,12 @@ public class Account implements Principal  {
 
   public void setUnrestrictedUnidentifiedAccess(boolean unrestrictedUnidentifiedAccess) {
     this.unrestrictedUnidentifiedAccess = unrestrictedUnidentifiedAccess;
+  }
+
+  public boolean isFor(AmbiguousIdentifier identifier) {
+    if      (identifier.hasUuid())   return identifier.getUuid().equals(uuid);
+    else if (identifier.hasNumber()) return identifier.getNumber().equals(number);
+    else                             throw new AssertionError();
   }
 
   // Principal implementation
