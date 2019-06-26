@@ -21,7 +21,7 @@ public class SmsSender {
   public void deliverSmsVerification(String destination, Optional<String> clientType, String verificationCode) {
     // Fix up mexico numbers to 'mobile' format just for SMS delivery.
     if (destination.startsWith("+52") && !destination.startsWith("+521")) {
-      destination = "+521" + destination.substring(3);
+      destination = "+521" + destination.substring("+52".length());
     }
 
     twilioSender.deliverSmsVerification(destination, clientType, verificationCode);
