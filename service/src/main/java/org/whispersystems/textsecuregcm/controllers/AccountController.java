@@ -357,7 +357,7 @@ public class AccountController {
     accounts.update(account);
 
     if (!wasAccountEnabled && account.isEnabled()) {
-      directoryQueue.addRegisteredUser(account.getNumber());
+      directoryQueue.addRegisteredUser(account.getUuid(), account.getNumber());
     }
   }
 
@@ -373,7 +373,7 @@ public class AccountController {
     accounts.update(account);
 
     if (!account.isEnabled()) {
-      directoryQueue.deleteRegisteredUser(account.getNumber());
+      directoryQueue.deleteRegisteredUser(account.getUuid(), account.getNumber());
     }
   }
 
@@ -393,7 +393,7 @@ public class AccountController {
     accounts.update(account);
 
     if (!wasAccountEnabled && account.isEnabled()) {
-      directoryQueue.addRegisteredUser(account.getNumber());
+      directoryQueue.addRegisteredUser(account.getUuid(), account.getNumber());
     }
   }
 
@@ -409,7 +409,7 @@ public class AccountController {
     accounts.update(account);
 
     if (!account.isEnabled()) {
-      directoryQueue.deleteRegisteredUser(account.getNumber());
+      directoryQueue.deleteRegisteredUser(account.getUuid(), account.getNumber());
     }
   }
 
@@ -617,9 +617,9 @@ public class AccountController {
     }
 
     if (account.isEnabled()) {
-      directoryQueue.addRegisteredUser(number);
+      directoryQueue.addRegisteredUser(account.getUuid(), number);
     } else {
-      directoryQueue.deleteRegisteredUser(number);
+      directoryQueue.deleteRegisteredUser(account.getUuid(), number);
     }
 
     messagesManager.clear(number);

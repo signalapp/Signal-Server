@@ -59,7 +59,7 @@ public class PushFeedbackProcessor implements AccountDatabaseCrawlerListener {
         accountsManager.update(account);
 
         if (!account.isEnabled()) {
-          directoryQueue.deleteRegisteredUser(account.getNumber());
+          directoryQueue.deleteRegisteredUser(account.getUuid(), account.getNumber());
         }
       }
     }

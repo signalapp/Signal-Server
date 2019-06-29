@@ -88,7 +88,7 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
             device.get().setAuthenticationCredentials(new AuthenticationCredentials(Base64.encodeBytes(random)));
 
             accountsManager.update(account.get());
-            directoryQueue.deleteRegisteredUser(account.get().getNumber());
+            directoryQueue.deleteRegisteredUser(account.get().getUuid(), account.get().getNumber());
 
             logger.warn("Removed " + account.get().getNumber());
           } else {

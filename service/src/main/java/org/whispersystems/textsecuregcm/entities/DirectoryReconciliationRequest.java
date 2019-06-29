@@ -30,14 +30,18 @@ public class DirectoryReconciliationRequest {
   private UUID toUuid;
 
   @JsonProperty
+  private List<UUID> uuids;
+
+  @JsonProperty
   private List<String> numbers;
 
   public DirectoryReconciliationRequest() {
   }
 
-  public DirectoryReconciliationRequest(UUID fromUuid, UUID toUuid, List<String> numbers) {
+  public DirectoryReconciliationRequest(UUID fromUuid, UUID toUuid, List<UUID> uuids, List<String> numbers) {
     this.fromUuid = fromUuid;
     this.toUuid   = toUuid;
+    this.uuids    = uuids;
     this.numbers  = numbers;
   }
 
@@ -47,6 +51,10 @@ public class DirectoryReconciliationRequest {
 
   public UUID getToUuid() {
     return toUuid;
+  }
+
+  public List<UUID> getUuids() {
+    return uuids;
   }
 
   public List<String> getNumbers() {

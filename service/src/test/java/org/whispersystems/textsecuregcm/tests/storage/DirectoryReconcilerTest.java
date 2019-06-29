@@ -72,11 +72,12 @@ public class DirectoryReconcilerTest {
     when(reconciliationClient.sendChunk(any())).thenReturn(successResponse);
     directoryReconciler.onCrawlChunk(Optional.of(VALID_UUID), Arrays.asList(activeAccount, inactiveAccount));
 
-    verify(activeAccount, times(2)).getNumber();
-    verify(activeAccount, times(2)).isEnabled();
-    verify(inactiveAccount, times(1)).getUuid();
-    verify(inactiveAccount, times(1)).getNumber();
-    verify(inactiveAccount, times(2)).isEnabled();
+    verify(activeAccount, atLeastOnce()).getUuid();
+    verify(activeAccount, atLeastOnce()).getNumber();
+    verify(activeAccount, atLeastOnce()).isEnabled();
+    verify(inactiveAccount, atLeastOnce()).getUuid();
+    verify(inactiveAccount, atLeastOnce()).getNumber();
+    verify(inactiveAccount, atLeastOnce()).isEnabled();
 
     ArgumentCaptor<DirectoryReconciliationRequest> request = ArgumentCaptor.forClass(DirectoryReconciliationRequest.class);
     verify(reconciliationClient, times(1)).sendChunk(request.capture());

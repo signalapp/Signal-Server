@@ -35,6 +35,7 @@ import org.whispersystems.textsecuregcm.util.Constants;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
@@ -52,28 +53,29 @@ public class DirectoryQueue {
   public DirectoryQueue(SqsConfiguration sqsConfig) {
     final AWSCredentials               credentials         = new BasicAWSCredentials(sqsConfig.getAccessKey(), sqsConfig.getAccessSecret());
     final AWSStaticCredentialsProvider credentialsProvider = new AWSStaticCredentialsProvider(credentials);
-    
+
     this.queueUrl = sqsConfig.getQueueUrl();
     this.sqs      = AmazonSQSClientBuilder.standard().withRegion(sqsConfig.getRegion()).withCredentials(credentialsProvider).build();
   }
 
-  public void addRegisteredUser(String user) {
-    sendMessage("add", user);
+  public void addRegisteredUser(UUID uuid, String number) {
+    sendMessage("add", uuid, number);
   }
 
-  public void deleteRegisteredUser(String user) {
-    sendMessage("delete", user);
+  public void deleteRegisteredUser(UUID uuid, String number) {
+    sendMessage("delete", uuid, number);
   }
 
-  private void sendMessage(String action, String user) {
+  private void sendMessage(String action, UUID uuid, String number) {
     final Map<String, MessageAttributeValue> messageAttributes = new HashMap<>();
-    messageAttributes.put("id", new MessageAttributeValue().withDataType("String").withStringValue(user));
+    messageAttributes.put("id", new MessageAttributeValue().withDataType("String").withStringValue(number));
+    messageAttributes.put("uuid", new MessageAttributeValue().withDataType("String").withStringValue(uuid.toString()));
     messageAttributes.put("action", new MessageAttributeValue().withDataType("String").withStringValue(action));
     SendMessageRequest sendMessageRequest = new SendMessageRequest()
             .withQueueUrl(queueUrl)
             .withMessageBody("-")
-            .withMessageDeduplicationId(user + action)
-            .withMessageGroupId(user)
+            .withMessageDeduplicationId(UUID.randomUUID().toString())
+            .withMessageGroupId(number)
             .withMessageAttributes(messageAttributes);
     try {
       sqs.sendMessage(sendMessageRequest);

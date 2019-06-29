@@ -107,7 +107,7 @@ public class KeysController {
       accounts.update(account);
 
       if (!wasAccountEnabled && account.isEnabled()) {
-        directoryQueue.addRegisteredUser(account.getNumber());
+        directoryQueue.addRegisteredUser(account.getUuid(), account.getNumber());
       }
     }
 
@@ -173,7 +173,7 @@ public class KeysController {
     accounts.update(account);
 
     if (!wasAccountEnabled && account.isEnabled()) {
-      directoryQueue.addRegisteredUser(account.getNumber());
+      directoryQueue.addRegisteredUser(account.getUuid(), account.getNumber());
     }
   }
 

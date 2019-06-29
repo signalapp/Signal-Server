@@ -30,6 +30,8 @@ import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import javax.ws.rs.ProcessingException;
+
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -57,7 +59,7 @@ public class DirectoryReconciler implements AccountDatabaseCrawlerListener {
   public void onCrawlStart() { }
 
   public void onCrawlEnd(Optional<UUID> fromUuid) {
-    DirectoryReconciliationRequest  request  = new DirectoryReconciliationRequest(fromUuid.orElse(null), null, Collections.emptyList());
+    DirectoryReconciliationRequest  request  = new DirectoryReconciliationRequest(fromUuid.orElse(null), null, Collections.emptyList(), Collections.emptyList());
     DirectoryReconciliationResponse response = sendChunk(request);
   }
 
@@ -93,10 +95,14 @@ public class DirectoryReconciler implements AccountDatabaseCrawlerListener {
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   private DirectoryReconciliationRequest createChunkRequest(Optional<UUID> fromUuid, List<Account> accounts) {
-    List<String> numbers = accounts.stream()
-                                   .filter(Account::isEnabled)
-                                   .map(Account::getNumber)
-                                   .collect(Collectors.toList());
+    List<UUID>   uuids   = new ArrayList<>(accounts.size());
+    List<String> numbers = new ArrayList<>(accounts.size());
+    for (Account account : accounts) {
+      if (account.isEnabled()) {
+        uuids.add(account.getUuid());
+        numbers.add(account.getNumber());
+      }
+    }
 
     Optional<UUID> toUuid = Optional.empty();
 
@@ -104,7 +110,7 @@ public class DirectoryReconciler implements AccountDatabaseCrawlerListener {
       toUuid = Optional.of(accounts.get(accounts.size() - 1).getUuid());
     }
 
-    return new DirectoryReconciliationRequest(fromUuid.orElse(null), toUuid.orElse(null), numbers);
+    return new DirectoryReconciliationRequest(fromUuid.orElse(null), toUuid.orElse(null), uuids, numbers);
   }
 
   private DirectoryReconciliationResponse sendChunk(DirectoryReconciliationRequest request) {

@@ -475,7 +475,7 @@ public class AccountControllerTest {
     assertThat(result.getUuid()).isNotNull();
 
     verify(accountsManager, times(1)).create(isA(Account.class));
-    verify(directoryQueue, times(1)).deleteRegisteredUser(eq(SENDER));
+    verify(directoryQueue, times(1)).deleteRegisteredUser(notNull(), eq(SENDER));
   }
 
   @Test

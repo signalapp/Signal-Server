@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertFalse;
@@ -64,6 +65,7 @@ public class AccountCleanerTest {
     when(deletedDisabledAccount.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1000));
     when(deletedDisabledAccount.getMasterDevice()).thenReturn(Optional.of(deletedDisabledDevice));
     when(deletedDisabledAccount.getNumber()).thenReturn("+14151231234");
+    when(deletedDisabledAccount.getUuid()).thenReturn(UUID.randomUUID());
 
     when(undeletedDisabledDevice.isEnabled()).thenReturn(false);
     when(undeletedDisabledDevice.getGcmId()).thenReturn("foo");
@@ -71,6 +73,7 @@ public class AccountCleanerTest {
     when(undeletedDisabledAccount.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(366));
     when(undeletedDisabledAccount.getMasterDevice()).thenReturn(Optional.of(undeletedDisabledDevice));
     when(undeletedDisabledAccount.getNumber()).thenReturn("+14152222222");
+    when(undeletedDisabledAccount.getUuid()).thenReturn(UUID.randomUUID());
 
     when(undeletedEnabledDevice.isEnabled()).thenReturn(true);
     when(undeletedEnabledDevice.getApnId()).thenReturn("bar");
@@ -78,6 +81,7 @@ public class AccountCleanerTest {
     when(undeletedEnabledAccount.getMasterDevice()).thenReturn(Optional.of(undeletedEnabledDevice));
     when(undeletedEnabledAccount.getNumber()).thenReturn("+14153333333");
     when(undeletedEnabledAccount.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(364));
+    when(undeletedEnabledAccount.getUuid()).thenReturn(UUID.randomUUID());
   }
 
   @Test
@@ -93,7 +97,7 @@ public class AccountCleanerTest {
     verify(deletedDisabledDevice, never()).setFetchesMessages(anyBoolean());
 
     verify(accountsManager, never()).update(eq(deletedDisabledAccount));
-    verify(directoryQueue, never()).deleteRegisteredUser(eq("+14151231234"));
+    verify(directoryQueue, never()).deleteRegisteredUser(notNull(), eq("+14151231234"));
 
 
     verify(undeletedDisabledDevice, times(1)).setGcmId(isNull());
@@ -102,7 +106,7 @@ public class AccountCleanerTest {
     verify(undeletedDisabledDevice, times(1)).setFetchesMessages(eq(false));
 
     verify(accountsManager, times(1)).update(eq(undeletedDisabledAccount));
-    verify(directoryQueue, times(1)).deleteRegisteredUser(eq("+14152222222"));
+    verify(directoryQueue, times(1)).deleteRegisteredUser(notNull(), eq("+14152222222"));
 
     verify(undeletedEnabledDevice, never()).setGcmId(any());
     verify(undeletedEnabledDevice, never()).setApnId(any());
@@ -110,7 +114,7 @@ public class AccountCleanerTest {
     verify(undeletedEnabledDevice, never()).setFetchesMessages(anyBoolean());
 
     verify(accountsManager, never()).update(eq(undeletedEnabledAccount));
-    verify(directoryQueue, never()).deleteRegisteredUser(eq("+14153333333"));
+    verify(directoryQueue, never()).deleteRegisteredUser(notNull(), eq("+14153333333"));
 
     verifyNoMoreInteractions(accountsManager);
     verifyNoMoreInteractions(directoryQueue);
@@ -139,7 +143,7 @@ public class AccountCleanerTest {
     verify(undeletedDisabledDevice, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).setFetchesMessages(eq(false));
 
     verify(accountsManager, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).update(eq(undeletedDisabledAccount));
-    verify(directoryQueue, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).deleteRegisteredUser(eq("+14152222222"));
+    verify(directoryQueue, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).deleteRegisteredUser(notNull(), eq("+14152222222"));
 
     verify(deletedDisabledDevice, never()).setGcmId(any());
     verify(deletedDisabledDevice, never()).setApnId(any());
