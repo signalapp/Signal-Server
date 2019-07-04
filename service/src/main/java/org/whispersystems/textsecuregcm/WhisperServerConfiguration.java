@@ -51,7 +51,7 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
-  private ProfilesConfiguration profiles;
+  private CdnConfiguration cdn;
 
   @NotNull
   @Valid
@@ -247,8 +247,8 @@ public class WhisperServerConfiguration extends Configuration {
     return apn;
   }
 
-  public ProfilesConfiguration getProfilesConfiguration() {
-    return profiles;
+  public CdnConfiguration getCdnConfiguration() {
+    return cdn;
   }
 
   public UnidentifiedDeliveryConfiguration getDeliveryCertificate() {

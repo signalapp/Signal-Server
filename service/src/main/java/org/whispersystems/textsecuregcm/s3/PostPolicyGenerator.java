@@ -22,7 +22,7 @@ public class PostPolicyGenerator {
     this.awsAccessId = awsAccessId;
   }
 
-  public Pair<String, String> createFor(ZonedDateTime now, String object) {
+  public Pair<String, String> createFor(ZonedDateTime now, String object, int maxSizeInBytes) {
     try {
       String expiration     = now.plusMinutes(30).format(DateTimeFormatter.ISO_INSTANT);
       String credentialDate = now.format(CREDENTIAL_DATE);
@@ -35,7 +35,7 @@ public class PostPolicyGenerator {
                                         "    {\"key\": \"%s\"},\n" +
                                         "    {\"acl\": \"private\"},\n" +
                                         "    [\"starts-with\", \"$Content-Type\", \"\"],\n" +
-                                        "    [\"content-length-range\", 1, 104857600],\n" +
+                                        "    [\"content-length-range\", 1, " + maxSizeInBytes + "],\n" +
                                         "\n" +
                                         "    {\"x-amz-credential\": \"%s\"},\n" +
                                         "    {\"x-amz-algorithm\": \"AWS4-HMAC-SHA256\"},\n" +

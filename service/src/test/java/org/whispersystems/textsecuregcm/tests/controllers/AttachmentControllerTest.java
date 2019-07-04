@@ -14,9 +14,11 @@ import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 import javax.ws.rs.core.Response;
+import java.io.IOException;
 import java.net.MalformedURLException;
 
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
@@ -45,7 +47,7 @@ public class AttachmentControllerTest {
                                                                    .build();
 
   @Test
-  public void testV2Form() {
+  public void testV2Form() throws IOException {
     AttachmentDescriptorV2 descriptor = resources.getJerseyTest()
                                                  .target("/v2/attachments/form/upload")
                                                  .request()
@@ -68,6 +70,8 @@ public class AttachmentControllerTest {
     assertThat(descriptor.getDate()).isNotBlank();
     assertThat(descriptor.getPolicy()).isNotBlank();
     assertThat(descriptor.getSignature()).isNotBlank();
+
+    assertThat(new String(Base64.decode(descriptor.getPolicy()))).contains("[\"content-length-range\", 1, 104857600]");
   }
 
   @Test

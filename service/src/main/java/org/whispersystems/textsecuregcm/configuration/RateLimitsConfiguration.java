@@ -68,6 +68,9 @@ public class RateLimitsConfiguration {
   @JsonProperty
   private RateLimitConfiguration profile = new RateLimitConfiguration(4320, 3);
 
+  @JsonProperty
+  private RateLimitConfiguration stickerPack = new RateLimitConfiguration(50, 20 / (24.0 * 60.0));
+
   public RateLimitConfiguration getAutoBlock() {
     return autoBlock;
   }
@@ -130,6 +133,10 @@ public class RateLimitsConfiguration {
 
   public RateLimitConfiguration getProfile() {
     return profile;
+  }
+
+  public RateLimitConfiguration getStickerPack() {
+    return stickerPack;
   }
 
   public static class RateLimitConfiguration {

@@ -13,7 +13,7 @@ import org.hibernate.validator.valuehandling.UnwrapValidatedValue;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
-import org.whispersystems.textsecuregcm.configuration.ProfilesConfiguration;
+import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.entities.Profile;
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -55,7 +55,7 @@ public class ProfileController {
 
   public ProfileController(RateLimiters rateLimiters,
                            AccountsManager accountsManager,
-                           ProfilesConfiguration profilesConfiguration)
+                           CdnConfiguration profilesConfiguration)
   {
     AWSCredentials         credentials         = new BasicAWSCredentials(profilesConfiguration.getAccessKey(), profilesConfiguration.getAccessSecret());
     AWSCredentialsProvider credentialsProvider = new AWSStaticCredentialsProvider(credentials);
@@ -123,7 +123,7 @@ public class ProfileController {
     String               previousAvatar = account.getAvatar();
     ZonedDateTime        now            = ZonedDateTime.now(ZoneOffset.UTC);
     String               objectName     = generateAvatarObjectName();
-    Pair<String, String> policy         = policyGenerator.createFor(now, objectName);
+    Pair<String, String> policy         = policyGenerator.createFor(now, objectName, 10 * 1024 * 1024);
     String               signature      = policySigner.getSignature(now, policy.second());
 
     if (previousAvatar != null && previousAvatar.startsWith("profiles/")) {

@@ -41,7 +41,7 @@ public class AttachmentControllerV2 extends AttachmentControllerBase {
     ZonedDateTime        now          = ZonedDateTime.now(ZoneOffset.UTC);
     long                 attachmentId = generateAttachmentId();
     String               objectName   = String.valueOf(attachmentId);
-    Pair<String, String> policy       = policyGenerator.createFor(now, String.valueOf(objectName));
+    Pair<String, String> policy       = policyGenerator.createFor(now, String.valueOf(objectName), 100 * 1024 * 1024);
     String               signature    = policySigner.getSignature(now, policy.second());
 
     return new AttachmentDescriptorV2(attachmentId, objectName, policy.first(),

@@ -6,7 +6,7 @@ import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
-import org.whispersystems.textsecuregcm.configuration.ProfilesConfiguration;
+import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.controllers.ProfileController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.Profile;
@@ -30,7 +30,7 @@ public class ProfileControllerTest {
   private static AccountsManager       accountsManager = mock(AccountsManager.class      );
   private static RateLimiters          rateLimiters    = mock(RateLimiters.class         );
   private static RateLimiter           rateLimiter     = mock(RateLimiter.class          );
-  private static ProfilesConfiguration configuration   = mock(ProfilesConfiguration.class);
+  private static CdnConfiguration configuration   = mock(CdnConfiguration.class);
 
   static {
     when(configuration.getAccessKey()).thenReturn("accessKey");
@@ -80,7 +80,7 @@ public class ProfileControllerTest {
 
     verify(accountsManager, times(1)).get(AuthHelper.VALID_NUMBER_TWO);
     verify(rateLimiters, times(1)).getProfileLimiter();
-    verify(rateLimiter, times(1)).validate(AuthHelper.VALID_NUMBER);
+    verify(rateLimiter, times(1)).validate(eq(AuthHelper.VALID_NUMBER));
   }
 
   @Test
