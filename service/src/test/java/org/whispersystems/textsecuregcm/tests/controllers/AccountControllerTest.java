@@ -130,8 +130,8 @@ public class AccountControllerTest {
     when(abusiveHostRules.getAbusiveHostRulesFor(eq(RESTRICTED_HOST))).thenReturn(Collections.singletonList(new AbusiveHostRule(RESTRICTED_HOST, false, Collections.singletonList("+123"))));
     when(abusiveHostRules.getAbusiveHostRulesFor(eq(NICE_HOST))).thenReturn(Collections.emptyList());
 
-    when(recaptchaClient.verify(eq(INVALID_CAPTCHA_TOKEN))).thenReturn(false);
-    when(recaptchaClient.verify(eq(VALID_CAPTCHA_TOKEN))).thenReturn(true);
+    when(recaptchaClient.verify(eq(INVALID_CAPTCHA_TOKEN), anyString())).thenReturn(false);
+    when(recaptchaClient.verify(eq(VALID_CAPTCHA_TOKEN), anyString())).thenReturn(true);
 
     doThrow(new RateLimitExceededException(SENDER_OVER_PIN)).when(pinLimiter).validate(eq(SENDER_OVER_PIN));
 
@@ -216,7 +216,7 @@ public class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(200);
 
     verifyNoMoreInteractions(abusiveHostRules);
-    verify(recaptchaClient).verify(eq(VALID_CAPTCHA_TOKEN));
+    verify(recaptchaClient).verify(eq(VALID_CAPTCHA_TOKEN), eq(ABUSIVE_HOST));
     verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.empty()), anyString());
   }
 
@@ -233,7 +233,7 @@ public class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(402);
 
     verifyNoMoreInteractions(abusiveHostRules);
-    verify(recaptchaClient).verify(eq(INVALID_CAPTCHA_TOKEN));
+    verify(recaptchaClient).verify(eq(INVALID_CAPTCHA_TOKEN), eq(ABUSIVE_HOST));
     verifyNoMoreInteractions(smsSender);
   }
 

@@ -21,10 +21,11 @@ public class RecaptchaClient {
     this.recaptchaSecret = recaptchaSecret;
   }
 
-  public boolean verify(String captchaToken) {
+  public boolean verify(String captchaToken, String ip) {
     MultivaluedMap<String, String> formData = new MultivaluedHashMap<>();
     formData.add("secret", recaptchaSecret);
     formData.add("response", captchaToken);
+    formData.add("remoteip", ip);
 
     VerifyResponse response = client.target("https://www.google.com/recaptcha/api/siteverify")
                                     .request()

@@ -401,7 +401,7 @@ public class AccountController {
   {
 
     if (captchaToken.isPresent()) {
-      boolean validToken = recaptchaClient.verify(captchaToken.get());
+      boolean validToken = recaptchaClient.verify(captchaToken.get(), requester);
 
       if (validToken) {
         captchaSuccessMeter.mark();
