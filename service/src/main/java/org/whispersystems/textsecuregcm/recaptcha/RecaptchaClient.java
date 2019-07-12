@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider;
 import org.glassfish.jersey.client.ClientConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -12,6 +14,8 @@ import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.MultivaluedMap;
 
 public class RecaptchaClient {
+
+  private final Logger logger = LoggerFactory.getLogger(RecaptchaClient.class);
 
   private final Client client;
   private final String recaptchaSecret;
@@ -30,6 +34,10 @@ public class RecaptchaClient {
     VerifyResponse response = client.target("https://www.google.com/recaptcha/api/siteverify")
                                     .request()
                                     .post(Entity.form(formData), VerifyResponse.class);
+
+    if (response.success) {
+      logger.info("Got successful captcha time: " + response.challenge_ts + ", current time: " + System.currentTimeMillis());
+    }
 
     return response.success;
   }
