@@ -25,6 +25,7 @@ import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
 import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 public class CertificateControllerTest {
 
@@ -59,6 +60,31 @@ public class CertificateControllerTest {
   public void testValidCertificate() throws Exception {
     DeliveryCertificate certificateObject = resources.getJerseyTest()
                                                      .target("/v1/certificate/delivery")
+                                                     .request()
+                                                     .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                                     .get(DeliveryCertificate.class);
+
+
+    SenderCertificate             certificateHolder = SenderCertificate.parseFrom(certificateObject.getCertificate());
+    SenderCertificate.Certificate certificate       = SenderCertificate.Certificate.parseFrom(certificateHolder.getCertificate());
+
+    ServerCertificate             serverCertificateHolder = certificate.getSigner();
+    ServerCertificate.Certificate serverCertificate       = ServerCertificate.Certificate.parseFrom(serverCertificateHolder.getCertificate());
+
+    assertTrue(Curve.verifySignature(Curve.decodePoint(serverCertificate.getKey().toByteArray(), 0), certificateHolder.getCertificate().toByteArray(), certificateHolder.getSignature().toByteArray()));
+    assertTrue(Curve.verifySignature(Curve.decodePoint(Base64.decode(caPublicKey), 0), serverCertificateHolder.getCertificate().toByteArray(), serverCertificateHolder.getSignature().toByteArray()));
+
+    assertEquals(certificate.getSender(), AuthHelper.VALID_NUMBER);
+    assertEquals(certificate.getSenderDevice(), 1L);
+    assertFalse(certificate.hasSenderUuid());
+    assertTrue(Arrays.equals(certificate.getIdentityKey().toByteArray(), Base64.decode(AuthHelper.VALID_IDENTITY)));
+  }
+
+  @Test
+  public void testValidCertificateWithUuid() throws Exception {
+    DeliveryCertificate certificateObject = resources.getJerseyTest()
+                                                     .target("/v1/certificate/delivery")
+                                                     .queryParam("includeUuid", "true")
                                                      .request()
                                                      .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                                                      .get(DeliveryCertificate.class);

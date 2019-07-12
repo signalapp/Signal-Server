@@ -28,18 +28,20 @@ public class CertificateGenerator {
     this.serverCertificate = ServerCertificate.parseFrom(serverCertificate);
   }
 
-  public byte[] createFor(Account account, Device device) throws IOException, InvalidKeyException {
-    byte[] certificate = SenderCertificate.Certificate.newBuilder()
-                                                      .setSender(account.getNumber())
-                                                      .setSenderUuid(account.getUuid().toString())
-                                                      .setSenderDevice(Math.toIntExact(device.getId()))
-                                                      .setExpires(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(expiresDays))
-                                                      .setIdentityKey(ByteString.copyFrom(Base64.decode(account.getIdentityKey())))
-                                                      .setSigner(serverCertificate)
-                                                      .build()
-                                                      .toByteArray();
+  public byte[] createFor(Account account, Device device, boolean includeUuid) throws IOException, InvalidKeyException {
+    SenderCertificate.Certificate.Builder builder = SenderCertificate.Certificate.newBuilder()
+                                                                                 .setSender(account.getNumber())
+                                                                                 .setSenderDevice(Math.toIntExact(device.getId()))
+                                                                                 .setExpires(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(expiresDays))
+                                                                                 .setIdentityKey(ByteString.copyFrom(Base64.decode(account.getIdentityKey())))
+                                                                                 .setSigner(serverCertificate);
 
-    byte[] signature = Curve.calculateSignature(privateKey, certificate);
+    if (includeUuid) {
+      builder.setSenderUuid(account.getUuid().toString());
+    }
+
+    byte[] certificate = builder.build().toByteArray();
+    byte[] signature   = Curve.calculateSignature(privateKey, certificate);
 
     return SenderCertificate.newBuilder()
                             .setCertificate(ByteString.copyFrom(certificate))
