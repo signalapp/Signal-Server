@@ -12,13 +12,13 @@ import javax.ws.rs.core.MediaType;
 
 import io.dropwizard.auth.Auth;
 
-@Path("/v1/storage")
-public class SecureStorageController {
+@Path("/v1/backup")
+public class SecureBackupController {
 
-  private final ExternalServiceCredentialGenerator storageServiceCredentialGenerator;
+  private final ExternalServiceCredentialGenerator backupServiceCredentialGenerator;
 
-  public SecureStorageController(ExternalServiceCredentialGenerator storageServiceCredentialGenerator) {
-    this.storageServiceCredentialGenerator = storageServiceCredentialGenerator;
+  public SecureBackupController(ExternalServiceCredentialGenerator backupServiceCredentialGenerator) {
+    this.backupServiceCredentialGenerator = backupServiceCredentialGenerator;
   }
 
   @Timed
@@ -26,6 +26,6 @@ public class SecureStorageController {
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)
   public ExternalServiceCredentials getAuth(@Auth Account account) {
-    return storageServiceCredentialGenerator.generateFor(account.getUuid().toString());
+    return backupServiceCredentialGenerator.generateFor(account.getNumber());
   }
 }

@@ -161,6 +161,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private SecureStorageServiceConfiguration storageService;
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private SecureBackupServiceConfiguration backupService;
+
   private Map<String, String> transparentDataIndex = new HashMap<>();
 
   public RecaptchaConfiguration getRecaptchaConfiguration() {
@@ -281,4 +286,7 @@ public class WhisperServerConfiguration extends Configuration {
     return transparentDataIndex;
   }
 
+  public SecureBackupServiceConfiguration getSecureBackupServiceConfiguration() {
+    return backupService;
+  }
 }
