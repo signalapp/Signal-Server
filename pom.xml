@@ -16,7 +16,7 @@
     </modules>
 
     <properties>
-        <dropwizard.version>1.3.12</dropwizard.version>
+        <dropwizard.version>1.3.13</dropwizard.version>
         <jackson.api.version>2.9.9</jackson.api.version>
         <resilience4j.version>0.14.1</resilience4j.version>
 
