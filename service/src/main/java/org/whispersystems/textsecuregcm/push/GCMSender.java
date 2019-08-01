@@ -41,6 +41,7 @@ public class GCMSender implements Managed {
   private final Map<String, Meter> outboundMeters = new HashMap<>() {{
     put("receipt", metricRegistry.meter(name(getClass(), "outbound", "receipt")));
     put("notification", metricRegistry.meter(name(getClass(), "outbound", "notification")));
+    put("challenge", metricRegistry.meter(name(getClass(), "outbound", "challenge")));
   }};
 
   private final AccountsManager   accountsManager;
