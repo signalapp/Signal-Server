@@ -3,6 +3,8 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 
+import java.util.UUID;
+
 public class Profile {
 
   @JsonProperty
@@ -23,11 +25,17 @@ public class Profile {
   @JsonProperty
   private UserCapabilities capabilities;
 
+  @JsonProperty
+  private String username;
+
+  @JsonProperty
+  private UUID uuid;
+
   public Profile() {}
 
   public Profile(String name, String avatar, String identityKey,
                  String unidentifiedAccess, boolean unrestrictedUnidentifiedAccess,
-                 UserCapabilities capabilities)
+                 UserCapabilities capabilities, String username, UUID uuid)
   {
     this.name                           = name;
     this.avatar                         = avatar;
@@ -35,6 +43,8 @@ public class Profile {
     this.unidentifiedAccess             = unidentifiedAccess;
     this.unrestrictedUnidentifiedAccess = unrestrictedUnidentifiedAccess;
     this.capabilities                   = capabilities;
+    this.username                       = username;
+    this.uuid                           = uuid;
   }
 
   @VisibleForTesting
@@ -67,4 +77,13 @@ public class Profile {
     return capabilities;
   }
 
+  @VisibleForTesting
+  public String getUsername() {
+    return username;
+  }
+
+  @VisibleForTesting
+  public UUID getUuid() {
+    return uuid;
+  }
 }

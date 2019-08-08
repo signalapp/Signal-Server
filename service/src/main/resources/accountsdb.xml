@@ -207,4 +207,20 @@
         <sql>CREATE UNIQUE INDEX CONCURRENTLY uuid_index ON accounts (uuid);</sql>
     </changeSet>
 
+    <changeSet id="9" author="moxie">
+        <createTable tableName="usernames">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" unique="true"/>
+            </column>
+
+            <column name="username" type="text">
+                <constraints nullable="false" unique="true"/>
+            </column>
+        </createTable>
+    </changeSet>
+
 </databaseChangeLog>

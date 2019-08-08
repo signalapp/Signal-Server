@@ -35,9 +35,9 @@ import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.AccountCreationResult;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
+import org.whispersystems.textsecuregcm.entities.DeprecatedPin;
 import org.whispersystems.textsecuregcm.entities.DeviceName;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
-import org.whispersystems.textsecuregcm.entities.DeprecatedPin;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -55,6 +55,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
+import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -102,6 +103,7 @@ public class AccountController {
 
   private final PendingAccountsManager             pendingAccounts;
   private final AccountsManager                    accounts;
+  private final UsernamesManager                   usernames;
   private final AbusiveHostRules                   abusiveHostRules;
   private final RateLimiters                       rateLimiters;
   private final SmsSender                          smsSender;
@@ -116,6 +118,7 @@ public class AccountController {
 
   public AccountController(PendingAccountsManager pendingAccounts,
                            AccountsManager accounts,
+                           UsernamesManager usernames,
                            AbusiveHostRules abusiveHostRules,
                            RateLimiters rateLimiters,
                            SmsSender smsSenderFactory,
@@ -130,6 +133,7 @@ public class AccountController {
   {
     this.pendingAccounts                   = pendingAccounts;
     this.accounts                          = accounts;
+    this.usernames                         = usernames;
     this.abusiveHostRules                  = abusiveHostRules;
     this.rateLimiters                      = rateLimiters;
     this.smsSender                         = smsSenderFactory;
@@ -515,6 +519,36 @@ public class AccountController {
   @Produces(MediaType.APPLICATION_JSON)
   public AccountCreationResult whoAmI(@Auth Account account) {
     return new AccountCreationResult(account.getUuid());
+  }
+
+  @DELETE
+  @Path("/username")
+  @Produces(MediaType.APPLICATION_JSON)
+  public void deleteUsername(@Auth Account account) {
+    usernames.delete(account.getUuid());
+  }
+
+  @PUT
+  @Path("/username/{username}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response setUsername(@Auth Account account, @PathParam("username") String username) throws RateLimitExceededException {
+    rateLimiters.getUsernameSetLimiter().validate(account.getUuid().toString());
+
+    if (username == null || username.isEmpty()) {
+      return Response.status(Response.Status.BAD_REQUEST).build();
+    }
+
+    username = username.toLowerCase();
+
+    if (!username.matches("^[a-z0-9_]+$")) {
+      return Response.status(Response.Status.BAD_REQUEST).build();
+    }
+
+    if (!usernames.put(account.getUuid(), username)) {
+      return Response.status(Response.Status.CONFLICT).build();
+    }
+
+    return Response.ok().build();
   }
 
   private CaptchaRequirement requiresCaptcha(String number, String transport, String forwardedFor,

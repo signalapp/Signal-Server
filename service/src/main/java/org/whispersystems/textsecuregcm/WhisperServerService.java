@@ -160,6 +160,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     Accounts         accounts         = new Accounts(accountDatabase);
     PendingAccounts  pendingAccounts  = new PendingAccounts(accountDatabase);
     PendingDevices   pendingDevices   = new PendingDevices(accountDatabase);
+    Usernames        usernames        = new Usernames(accountDatabase);
     Keys             keys             = new Keys(keysDatabase);
     Messages         messages         = new Messages(messageDatabase);
     AbusiveHostRules abusiveHostRules = new AbusiveHostRules(abuseDatabase);
@@ -179,6 +180,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     PendingAccountsManager     pendingAccountsManager     = new PendingAccountsManager(pendingAccounts, cacheClient);
     PendingDevicesManager      pendingDevicesManager      = new PendingDevicesManager (pendingDevices, cacheClient );
     AccountsManager            accountsManager            = new AccountsManager(accounts, directory, cacheClient);
+    UsernamesManager           usernamesManager           = new UsernamesManager(usernames, cacheClient);
     MessagesCache              messagesCache              = new MessagesCache(messagesClient, messages, accountsManager, config.getMessageCacheConfiguration().getPersistDelayMinutes());
     MessagesManager            messagesManager            = new MessagesManager(messages, messagesCache);
     DeadLetterHandler          deadLetterHandler          = new DeadLetterHandler(messagesManager);
@@ -232,7 +234,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     AttachmentControllerV2 attachmentControllerV2 = new AttachmentControllerV2(rateLimiters, config.getAttachmentsConfiguration().getAccessKey(), config.getAttachmentsConfiguration().getAccessSecret(), config.getAttachmentsConfiguration().getRegion(), config.getAttachmentsConfiguration().getBucket());
     KeysController         keysController         = new KeysController(rateLimiters, keys, accountsManager, directoryQueue);
     MessageController      messageController      = new MessageController(rateLimiters, pushSender, receiptSender, accountsManager, messagesManager, apnFallbackManager);
-    ProfileController      profileController      = new ProfileController(rateLimiters, accountsManager, config.getCdnConfiguration());
+    ProfileController      profileController      = new ProfileController(rateLimiters, accountsManager, usernamesManager, config.getCdnConfiguration());
     StickerController      stickerController      = new StickerController(rateLimiters, config.getCdnConfiguration().getAccessKey(), config.getCdnConfiguration().getAccessSecret(), config.getCdnConfiguration().getRegion(), config.getCdnConfiguration().getBucket());
 
     AuthFilter<BasicCredentials, Account>                  accountAuthFilter                  = new BasicCredentialAuthFilter.Builder<Account>().setAuthenticator(accountAuthenticator).buildAuthFilter                                  ();
@@ -242,7 +244,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                                                                                       DisabledPermittedAccount.class, disabledPermittedAccountAuthFilter)));
     environment.jersey().register(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)));
 
-    environment.jersey().register(new AccountController(pendingAccountsManager, accountsManager, abusiveHostRules, rateLimiters, smsSender, directoryQueue, messagesManager, turnTokenGenerator, config.getTestDevices(), recaptchaClient, gcmSender, apnSender, backupCredentialsGenerator));
+    environment.jersey().register(new AccountController(pendingAccountsManager, accountsManager, usernamesManager, abusiveHostRules, rateLimiters, smsSender, directoryQueue, messagesManager, turnTokenGenerator, config.getTestDevices(), recaptchaClient, gcmSender, apnSender, backupCredentialsGenerator));
     environment.jersey().register(new DeviceController(pendingDevicesManager, accountsManager, messagesManager, directoryQueue, rateLimiters, config.getMaxDevices()));
     environment.jersey().register(new DirectoryController(rateLimiters, directory, directoryCredentialsGenerator));
     environment.jersey().register(new ProvisioningController(rateLimiters, pushSender));

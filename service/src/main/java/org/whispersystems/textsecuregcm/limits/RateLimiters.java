@@ -43,6 +43,8 @@ public class RateLimiters {
 
   private final RateLimiter profileLimiter;
   private final RateLimiter stickerPackLimiter;
+  private final RateLimiter usernameLookupLimiter;
+  private final RateLimiter usernameSetLimiter;
 
   public RateLimiters(RateLimitsConfiguration config, ReplicatedJedisPool cacheClient) {
     this.smsDestinationLimiter = new RateLimiter(cacheClient, "smsDestination",
@@ -112,6 +114,14 @@ public class RateLimiters {
     this.stickerPackLimiter = new RateLimiter(cacheClient, "stickerPack",
                                               config.getStickerPack().getBucketSize(),
                                               config.getStickerPack().getLeakRatePerMinute());
+
+    this.usernameLookupLimiter = new RateLimiter(cacheClient, "usernameLookup",
+                                                 config.getUsernameLookup().getBucketSize(),
+                                                 config.getUsernameLookup().getLeakRatePerMinute());
+
+    this.usernameSetLimiter = new RateLimiter(cacheClient, "usernameSet",
+                                              config.getUsernameSet().getBucketSize(),
+                                              config.getUsernameSet().getLeakRatePerMinute());
   }
 
   public RateLimiter getAllocateDeviceLimiter() {
@@ -180,6 +190,14 @@ public class RateLimiters {
 
   public RateLimiter getStickerPackLimiter() {
     return stickerPackLimiter;
+  }
+
+  public RateLimiter getUsernameLookupLimiter() {
+    return usernameLookupLimiter;
+  }
+
+  public RateLimiter getUsernameSetLimiter() {
+    return usernameSetLimiter;
   }
 
 }

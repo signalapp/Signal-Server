@@ -23,6 +23,7 @@ import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.util.Pair;
 
 import javax.ws.rs.GET;
@@ -39,6 +40,7 @@ import java.security.SecureRandom;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 import io.dropwizard.auth.Auth;
 
@@ -48,6 +50,7 @@ public class ProfileController {
 
   private final RateLimiters     rateLimiters;
   private final AccountsManager  accountsManager;
+  private final UsernamesManager usernamesManager;
 
   private final PolicySigner        policySigner;
   private final PostPolicyGenerator policyGenerator;
@@ -57,6 +60,7 @@ public class ProfileController {
 
   public ProfileController(RateLimiters rateLimiters,
                            AccountsManager accountsManager,
+                           UsernamesManager usernamesManager,
                            CdnConfiguration profilesConfiguration)
   {
     AWSCredentials         credentials         = new BasicAWSCredentials(profilesConfiguration.getAccessKey(), profilesConfiguration.getAccessSecret());
@@ -64,6 +68,7 @@ public class ProfileController {
 
     this.rateLimiters       = rateLimiters;
     this.accountsManager    = accountsManager;
+    this.usernamesManager   = usernamesManager;
     this.bucket             = profilesConfiguration.getBucket();
     this.s3client           = AmazonS3Client.builder()
                                             .withCredentials(credentialsProvider)
@@ -99,13 +104,52 @@ public class ProfileController {
     Optional<Account> accountProfile = accountsManager.get(identifier);
     OptionalAccess.verify(requestAccount, accessKey, accountProfile);
 
-    //noinspection ConstantConditions,OptionalGetWithoutIsPresent
+    Optional<String> username = Optional.empty();
+
+    if (!identifier.hasNumber()) {
+      //noinspection OptionalGetWithoutIsPresent
+      username = usernamesManager.get(accountProfile.get().getUuid());
+    }
+
     return new Profile(accountProfile.get().getProfileName(),
                        accountProfile.get().getAvatar(),
                        accountProfile.get().getIdentityKey(),
                        UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
                        accountProfile.get().isUnrestrictedUnidentifiedAccess(),
-                       new UserCapabilities(accountProfile.get().isUuidAddressingSupported()));
+                       new UserCapabilities(accountProfile.get().isUuidAddressingSupported()),
+                       username.orElse(null),
+                       null);
+  }
+
+  @Timed
+  @GET
+  @Produces(MediaType.APPLICATION_JSON)
+  @Path("/username/{username}")
+  public Profile getProfileByUsername(@Auth Account account, @PathParam("username") String username) throws RateLimitExceededException {
+    rateLimiters.getUsernameLookupLimiter().validate(account.getUuid().toString());
+
+    username = username.toLowerCase();
+
+    Optional<UUID> uuid = usernamesManager.get(username);
+
+    if (!uuid.isPresent()) {
+      throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
+    }
+
+    Optional<Account> accountProfile = accountsManager.get(uuid.get());
+
+    if (!accountProfile.isPresent()) {
+      throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
+    }
+
+    return new Profile(accountProfile.get().getProfileName(),
+                       accountProfile.get().getAvatar(),
+                       accountProfile.get().getIdentityKey(),
+                       UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
+                       accountProfile.get().isUnrestrictedUnidentifiedAccess(),
+                       new UserCapabilities(accountProfile.get().isUuidAddressingSupported()),
+                       username,
+                       accountProfile.get().getUuid());
   }
 
   @Timed

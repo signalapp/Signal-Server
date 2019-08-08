@@ -37,6 +37,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
+import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -86,6 +87,7 @@ public class AccountControllerTest {
   private        RateLimiter            smsVoiceIpLimiter      = mock(RateLimiter.class           );
   private        RateLimiter            smsVoicePrefixLimiter  = mock(RateLimiter.class);
   private        RateLimiter            autoBlockLimiter       = mock(RateLimiter.class);
+  private        RateLimiter            usernameSetLimiter     = mock(RateLimiter.class);
   private        SmsSender              smsSender              = mock(SmsSender.class             );
   private        DirectoryQueue         directoryQueue         = mock(DirectoryQueue.class);
   private        MessagesManager        storedMessages         = mock(MessagesManager.class       );
@@ -96,6 +98,7 @@ public class AccountControllerTest {
   private        RecaptchaClient        recaptchaClient        = mock(RecaptchaClient.class);
   private        GCMSender              gcmSender              = mock(GCMSender.class);
   private        APNSender              apnSender              = mock(APNSender.class);
+  private UsernamesManager              usernamesManager       = mock(UsernamesManager.class);
 
   private byte[] registration_lock_key = new byte[32];
   private ExternalServiceCredentialGenerator storageCredentialGenerator = new ExternalServiceCredentialGenerator(new byte[32], new byte[32], false);
@@ -109,6 +112,7 @@ public class AccountControllerTest {
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new AccountController(pendingAccountsManager,
                                                                                                accountsManager,
+                                                                                               usernamesManager,
                                                                                                abusiveHostRules,
                                                                                                rateLimiters,
                                                                                                smsSender,
@@ -135,6 +139,7 @@ public class AccountControllerTest {
     when(rateLimiters.getSmsVoiceIpLimiter()).thenReturn(smsVoiceIpLimiter);
     when(rateLimiters.getSmsVoicePrefixLimiter()).thenReturn(smsVoicePrefixLimiter);
     when(rateLimiters.getAutoBlockLimiter()).thenReturn(autoBlockLimiter);
+    when(rateLimiters.getUsernameSetLimiter()).thenReturn(usernameSetLimiter);
 
     when(timeProvider.getCurrentTimeMillis()).thenReturn(System.currentTimeMillis());
 
@@ -159,6 +164,9 @@ public class AccountControllerTest {
     when(accountsManager.get(eq(SENDER))).thenReturn(Optional.empty());
     when(accountsManager.get(eq(SENDER_OLD))).thenReturn(Optional.empty());
     when(accountsManager.get(eq(SENDER_PREAUTH))).thenReturn(Optional.empty());
+
+    when(usernamesManager.put(eq(AuthHelper.VALID_UUID), eq("n00bkiller"))).thenReturn(true);
+    when(usernamesManager.put(eq(AuthHelper.VALID_UUID), eq("takenusername"))).thenReturn(false);
 
     when(abusiveHostRules.getAbusiveHostRulesFor(eq(ABUSIVE_HOST))).thenReturn(Collections.singletonList(new AbusiveHostRule(ABUSIVE_HOST, true, Collections.emptyList())));
     when(abusiveHostRules.getAbusiveHostRulesFor(eq(RESTRICTED_HOST))).thenReturn(Collections.singletonList(new AbusiveHostRule(RESTRICTED_HOST, false, Collections.singletonList("+123"))));
@@ -818,6 +826,79 @@ public class AccountControllerTest {
                  .get(AccountCreationResult.class);
 
     assertThat(response.getUuid()).isEqualTo(AuthHelper.VALID_UUID);
+  }
+
+  @Test
+  public void testSetUsername() {
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/accounts/username/n00bkiller")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.text(""));
+
+    assertThat(response.getStatus()).isEqualTo(200);
+  }
+
+  @Test
+  public void testSetTakenUsername() {
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/accounts/username/takenusername")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.text(""));
+
+    assertThat(response.getStatus()).isEqualTo(409);
+  }
+
+  @Test
+  public void testSetInvalidUsername() {
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/accounts/username/pаypal")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.text(""));
+
+    assertThat(response.getStatus()).isEqualTo(400);
+  }
+
+  @Test
+  public void testSetUsernameBadAuth() {
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/accounts/username/n00bkiller")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.INVALID_PASSWORD))
+                 .put(Entity.text(""));
+
+    assertThat(response.getStatus()).isEqualTo(401);
+  }
+
+  @Test
+  public void testDeleteUsername() {
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/accounts/username/")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .delete();
+
+    assertThat(response.getStatus()).isEqualTo(204);
+    verify(usernamesManager, times(1)).delete(eq(AuthHelper.VALID_UUID));
+  }
+
+  @Test
+  public void testDeleteUsernameBadAuth() {
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/accounts/username/")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.INVALID_PASSWORD))
+                 .delete();
+
+    assertThat(response.getStatus()).isEqualTo(401);
   }
 
 }
