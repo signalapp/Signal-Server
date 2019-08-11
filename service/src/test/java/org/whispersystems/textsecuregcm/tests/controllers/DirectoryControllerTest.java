@@ -30,8 +30,7 @@ import java.util.Optional;
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyListOf;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -58,7 +57,7 @@ public class DirectoryControllerTest {
   @Before
   public void setup() throws Exception {
     when(rateLimiters.getContactsLimiter()).thenReturn(rateLimiter);
-    when(directoryManager.get(anyListOf(byte[].class))).thenAnswer(new Answer<List<byte[]>>() {
+    when(directoryManager.get(anyList())).thenAnswer(new Answer<List<byte[]>>() {
       @Override
       public List<byte[]> answer(InvocationOnMock invocationOnMock) throws Throwable {
         List<byte[]> query = (List<byte[]>) invocationOnMock.getArguments()[0];

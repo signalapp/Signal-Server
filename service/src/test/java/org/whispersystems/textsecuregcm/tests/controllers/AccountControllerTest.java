@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Matchers.anyString;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 public class AccountControllerTest {

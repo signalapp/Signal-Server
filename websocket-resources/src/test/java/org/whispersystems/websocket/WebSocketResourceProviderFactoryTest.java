@@ -15,7 +15,7 @@ import java.util.Optional;
 
 import io.dropwizard.jersey.setup.JerseyEnvironment;
 import static org.junit.Assert.*;
-import static org.mockito.Matchers.eq;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 public class WebSocketResourceProviderFactoryTest {

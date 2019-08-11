@@ -42,7 +42,6 @@ import java.util.concurrent.CompletableFuture;
 
 import io.dropwizard.auth.basic.BasicCredentials;
 import static org.junit.Assert.*;
-import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.*;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 

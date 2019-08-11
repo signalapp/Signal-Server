@@ -2,6 +2,7 @@ package org.whispersystems.textsecuregcm.tests.push;
 
 import com.google.common.util.concurrent.SettableFuture;
 import org.junit.Test;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Matchers;
 import org.whispersystems.gcm.server.Message;
 import org.whispersystems.gcm.server.Result;
@@ -16,7 +17,7 @@ import org.whispersystems.textsecuregcm.tests.util.SynchronousExecutorService;
 
 import java.util.Optional;
 
-import static org.mockito.Matchers.any;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 public class GCMSenderTest {
@@ -40,7 +41,7 @@ public class GCMSenderTest {
     SettableFuture<Result> successFuture = SettableFuture.create();
     successFuture.set(successResult);
 
-    when(sender.send(any(Message.class), Matchers.anyObject())).thenReturn(successFuture);
+    when(sender.send(any(Message.class), ArgumentMatchers.any())).thenReturn(successFuture);
     when(successResult.getContext()).thenReturn(message);
 
     gcmSender.sendMessage(message);
@@ -77,7 +78,7 @@ public class GCMSenderTest {
     SettableFuture<Result> invalidFuture = SettableFuture.create();
     invalidFuture.set(invalidResult);
 
-    when(sender.send(any(Message.class), Matchers.anyObject())).thenReturn(invalidFuture);
+    when(sender.send(any(Message.class), ArgumentMatchers.any())).thenReturn(invalidFuture);
     when(invalidResult.getContext()).thenReturn(message);
 
     gcmSender.sendMessage(message);
@@ -119,7 +120,7 @@ public class GCMSenderTest {
     SettableFuture<Result> invalidFuture = SettableFuture.create();
     invalidFuture.set(canonicalResult);
 
-    when(sender.send(any(Message.class), Matchers.anyObject())).thenReturn(invalidFuture);
+    when(sender.send(any(Message.class), ArgumentMatchers.any())).thenReturn(invalidFuture);
     when(canonicalResult.getContext()).thenReturn(message);
 
     gcmSender.sendMessage(message);
