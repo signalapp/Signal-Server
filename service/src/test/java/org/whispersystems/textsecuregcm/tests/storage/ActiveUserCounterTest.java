@@ -31,7 +31,6 @@ import org.junit.Test;
 import redis.clients.jedis.Jedis;
 
 import java.util.Arrays;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.Optional;
 
@@ -47,13 +46,9 @@ import static org.mockito.Mockito.when;
 
 public class ActiveUserCounterTest {
 
-  private final UUID UUID_IOS      = UUID.randomUUID();
-  private final UUID UUID_ANDROID  = UUID.randomUUID();
-  private final UUID UUID_NODEVICE = UUID.randomUUID();
-
-  private final String ACCOUNT_NUMBER_IOS      = "+15551234567";
-  private final String ACCOUNT_NUMBER_ANDROID  = "+5511987654321";
-  private final String ACCOUNT_NUMBER_NODEVICE = "+5215551234567";
+  private final String NUMBER_IOS      = "+15551234567";
+  private final String NUMBER_ANDROID  = "+5511987654321";
+  private final String NUMBER_NODEVICE = "+5215551234567";
 
   private final String TALLY_KEY       = "active_user_tally";
 
@@ -84,17 +79,14 @@ public class ActiveUserCounterTest {
     when(iosDevice.getGcmId()).thenReturn(null);
     when(iosDevice.getLastSeen()).thenReturn(halfDayAgo);
 
-    when(iosAccount.getUuid()).thenReturn(UUID_IOS);
+    when(iosAccount.getNumber()).thenReturn(NUMBER_IOS);
     when(iosAccount.getMasterDevice()).thenReturn(Optional.of(iosDevice));
-    when(iosAccount.getNumber()).thenReturn(ACCOUNT_NUMBER_IOS);
 
-    when(androidAccount.getUuid()).thenReturn(UUID_ANDROID);
+    when(androidAccount.getNumber()).thenReturn(NUMBER_ANDROID);
     when(androidAccount.getMasterDevice()).thenReturn(Optional.of(androidDevice));
-    when(androidAccount.getNumber()).thenReturn(ACCOUNT_NUMBER_ANDROID);
 
-    when(noDeviceAccount.getUuid()).thenReturn(UUID_NODEVICE);
+    when(noDeviceAccount.getNumber()).thenReturn(NUMBER_NODEVICE);
     when(noDeviceAccount.getMasterDevice()).thenReturn(Optional.ofNullable(null));
-    when(noDeviceAccount.getNumber()).thenReturn(ACCOUNT_NUMBER_NODEVICE);
 
     when(jedis.get(any(String.class))).thenReturn("{\"fromNumber\":\"+\",\"platforms\":{},\"countries\":{}}");
     when(jedisPool.getWriteResource()).thenReturn(jedis);
@@ -145,7 +137,7 @@ public class ActiveUserCounterTest {
 
   @Test
   public void testCrawlChunkValidAccount() throws AccountDatabaseCrawlerRestartException {
-    activeUserCounter.onCrawlChunk(Optional.of(UUID_IOS), Arrays.asList(iosAccount));
+    activeUserCounter.onCrawlChunk(Optional.of(NUMBER_IOS), Arrays.asList(iosAccount));
 
     verify(iosAccount, times(1)).getMasterDevice();
     verify(iosAccount, times(1)).getNumber();
@@ -156,7 +148,7 @@ public class ActiveUserCounterTest {
 
     verify(jedisPool, times(1)).getWriteResource();
     verify(jedis, times(1)).get(any(String.class));
-    verify(jedis, times(1)).set(any(String.class), eq("{\"fromUuid\":\""+UUID_IOS.toString()+"\",\"platforms\":{\"ios\":[1,1,1,1,1]},\"countries\":{\"1\":[1,1,1,1,1]}}"));
+    verify(jedis, times(1)).set(any(String.class), eq("{\"fromNumber\":\""+NUMBER_IOS+"\",\"platforms\":{\"ios\":[1,1,1,1,1]},\"countries\":{\"1\":[1,1,1,1,1]}}"));
     verify(jedis, times(1)).close();
 
     verify(metricsFactory, times(0)).getReporters();
@@ -174,13 +166,13 @@ public class ActiveUserCounterTest {
 
   @Test
   public void testCrawlChunkNoDeviceAccount() throws AccountDatabaseCrawlerRestartException {
-    activeUserCounter.onCrawlChunk(Optional.of(UUID_NODEVICE), Arrays.asList(noDeviceAccount));
+    activeUserCounter.onCrawlChunk(Optional.of(NUMBER_NODEVICE), Arrays.asList(noDeviceAccount));
 
     verify(noDeviceAccount, times(1)).getMasterDevice();
 
     verify(jedisPool, times(1)).getWriteResource();
     verify(jedis, times(1)).get(eq(TALLY_KEY));
-    verify(jedis, times(1)).set(any(String.class), eq("{\"fromUuid\":\""+UUID_NODEVICE+"\",\"platforms\":{},\"countries\":{}}"));
+    verify(jedis, times(1)).set(any(String.class), eq("{\"fromNumber\":\""+NUMBER_NODEVICE+"\",\"platforms\":{},\"countries\":{}}"));
     verify(jedis, times(1)).close();
 
     verify(metricsFactory, times(0)).getReporters();
@@ -198,7 +190,7 @@ public class ActiveUserCounterTest {
 
   @Test
   public void testCrawlChunkMixedAccount() throws AccountDatabaseCrawlerRestartException {
-    activeUserCounter.onCrawlChunk(Optional.of(UUID_IOS), Arrays.asList(iosAccount, androidAccount, noDeviceAccount));
+    activeUserCounter.onCrawlChunk(Optional.of(NUMBER_IOS), Arrays.asList(iosAccount, androidAccount, noDeviceAccount));
 
     verify(iosAccount, times(1)).getMasterDevice();
     verify(iosAccount, times(1)).getNumber();
@@ -216,7 +208,7 @@ public class ActiveUserCounterTest {
 
     verify(jedisPool, times(1)).getWriteResource();
     verify(jedis, times(1)).get(eq(TALLY_KEY));
-    verify(jedis, times(1)).set(any(String.class), eq("{\"fromUuid\":\""+UUID_IOS+"\",\"platforms\":{\"android\":[0,0,0,1,1],\"ios\":[1,1,1,1,1]},\"countries\":{\"55\":[0,0,0,1,1],\"1\":[1,1,1,1,1]}}"));
+    verify(jedis, times(1)).set(any(String.class), eq("{\"fromNumber\":\""+NUMBER_IOS+"\",\"platforms\":{\"android\":[0,0,0,1,1],\"ios\":[1,1,1,1,1]},\"countries\":{\"55\":[0,0,0,1,1],\"1\":[1,1,1,1,1]}}"));
     verify(jedis, times(1)).close();
 
     verify(metricsFactory, times(0)).getReporters();

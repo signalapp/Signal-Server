@@ -9,7 +9,6 @@ import org.whispersystems.textsecuregcm.util.Util;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -32,7 +31,7 @@ public class PushFeedbackProcessor implements AccountDatabaseCrawlerListener {
   public void onCrawlStart() {}
 
   @Override
-  public void onCrawlChunk(Optional<UUID> fromUuid, List<Account> chunkAccounts) {
+  public void onCrawlChunk(Optional<String> fromNumber, List<Account> chunkAccounts) {
     for (Account account : chunkAccounts) {
       boolean update = false;
 
@@ -66,5 +65,5 @@ public class PushFeedbackProcessor implements AccountDatabaseCrawlerListener {
   }
 
   @Override
-  public void onCrawlEnd(Optional<UUID> toUuid) {}
+  public void onCrawlEnd(Optional<String> fromNumber) {}
 }

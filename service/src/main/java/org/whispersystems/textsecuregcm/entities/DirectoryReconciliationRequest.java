@@ -19,18 +19,14 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
-import java.util.UUID;
 
 public class DirectoryReconciliationRequest {
 
   @JsonProperty
-  private UUID fromUuid;
+  private String fromNumber;
 
   @JsonProperty
-  private UUID toUuid;
-
-  @JsonProperty
-  private List<UUID> uuids;
+  private String toNumber;
 
   @JsonProperty
   private List<String> numbers;
@@ -38,23 +34,18 @@ public class DirectoryReconciliationRequest {
   public DirectoryReconciliationRequest() {
   }
 
-  public DirectoryReconciliationRequest(UUID fromUuid, UUID toUuid, List<UUID> uuids, List<String> numbers) {
-    this.fromUuid = fromUuid;
-    this.toUuid   = toUuid;
-    this.uuids    = uuids;
-    this.numbers  = numbers;
+  public DirectoryReconciliationRequest(String fromNumber, String toNumber, List<String> numbers) {
+    this.fromNumber = fromNumber;
+    this.toNumber   = toNumber;
+    this.numbers    = numbers;
   }
 
-  public UUID getFromUuid() {
-    return fromUuid;
+  public String getFromNumber() {
+    return fromNumber;
   }
 
-  public UUID getToUuid() {
-    return toUuid;
-  }
-
-  public List<UUID> getUuids() {
-    return uuids;
+  public String getToNumber() {
+    return toNumber;
   }
 
   public List<String> getNumbers() {

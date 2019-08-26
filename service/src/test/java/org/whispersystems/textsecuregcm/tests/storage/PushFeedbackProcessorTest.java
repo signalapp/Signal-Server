@@ -13,7 +13,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static org.mockito.Mockito.*;
@@ -63,7 +62,7 @@ public class PushFeedbackProcessorTest {
   @Test
   public void testEmpty() {
     PushFeedbackProcessor processor = new PushFeedbackProcessor(accountsManager, directoryQueue);
-    processor.onCrawlChunk(Optional.of(UUID.randomUUID()), Collections.emptyList());
+    processor.onCrawlChunk(Optional.of("+14152222222"), Collections.emptyList());
 
     verifyZeroInteractions(accountsManager);
     verifyZeroInteractions(directoryQueue);
@@ -72,7 +71,7 @@ public class PushFeedbackProcessorTest {
   @Test
   public void testUpdate() {
     PushFeedbackProcessor processor = new PushFeedbackProcessor(accountsManager, directoryQueue);
-    processor.onCrawlChunk(Optional.of(UUID.randomUUID()), List.of(uninstalledAccount, mixedAccount, stillActiveAccount, freshAccount, cleanAccount));
+    processor.onCrawlChunk(Optional.of("+14153333333"), List.of(uninstalledAccount, mixedAccount, stillActiveAccount, freshAccount, cleanAccount));
 
     verify(uninstalledDevice).setApnId(isNull());
     verify(uninstalledDevice).setGcmId(isNull());

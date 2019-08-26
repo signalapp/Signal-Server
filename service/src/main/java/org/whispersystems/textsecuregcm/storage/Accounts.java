@@ -110,10 +110,10 @@ public class Accounts {
     }));
   }
 
-  public List<Account> getAllFrom(UUID from, int length) {
+  public List<Account> getAllFrom(String from, int length) {
     return database.with(jdbi -> jdbi.withHandle(handle -> {
       try (Timer.Context ignored = getAllFromOffsetTimer.time()) {
-        return handle.createQuery("SELECT * FROM accounts WHERE " + UID + " > :from ORDER BY " + UID + " LIMIT :limit")
+        return handle.createQuery("SELECT * FROM accounts WHERE " + NUMBER + " > :from ORDER BY " + NUMBER + " LIMIT :limit")
                      .bind("from", from)
                      .bind("limit", length)
                      .mapTo(Account.class)
@@ -125,7 +125,7 @@ public class Accounts {
   public List<Account> getAllFrom(int length) {
     return database.with(jdbi -> jdbi.withHandle(handle -> {
       try (Timer.Context ignored = getAllFromTimer.time()) {
-        return handle.createQuery("SELECT * FROM accounts ORDER BY " + UID + " LIMIT :limit")
+        return handle.createQuery("SELECT * FROM accounts ORDER BY " + NUMBER + " LIMIT :limit")
                      .bind("limit", length)
                      .mapTo(Account.class)
                      .list();

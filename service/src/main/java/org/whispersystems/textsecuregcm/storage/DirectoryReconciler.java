@@ -30,12 +30,9 @@ import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import javax.ws.rs.ProcessingException;
-
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -58,16 +55,16 @@ public class DirectoryReconciler implements AccountDatabaseCrawlerListener {
 
   public void onCrawlStart() { }
 
-  public void onCrawlEnd(Optional<UUID> fromUuid) {
-    DirectoryReconciliationRequest  request  = new DirectoryReconciliationRequest(fromUuid.orElse(null), null, Collections.emptyList(), Collections.emptyList());
+  public void onCrawlEnd(Optional<String> fromNumber) {
+    DirectoryReconciliationRequest  request  = new DirectoryReconciliationRequest(fromNumber.orElse(null), null, Collections.emptyList());
     DirectoryReconciliationResponse response = sendChunk(request);
   }
 
-  public void onCrawlChunk(Optional<UUID> fromUuid, List<Account> chunkAccounts) throws AccountDatabaseCrawlerRestartException {
+  public void onCrawlChunk(Optional<String> fromNumber, List<Account> chunkAccounts) throws AccountDatabaseCrawlerRestartException {
 
     updateDirectoryCache(chunkAccounts);
 
-    DirectoryReconciliationRequest  request  = createChunkRequest(fromUuid, chunkAccounts);
+    DirectoryReconciliationRequest  request  = createChunkRequest(fromNumber, chunkAccounts);
     DirectoryReconciliationResponse response = sendChunk(request);
     if (response.getStatus() == DirectoryReconciliationResponse.Status.MISSING) {
       throw new AccountDatabaseCrawlerRestartException("directory reconciler missing");
@@ -94,23 +91,19 @@ public class DirectoryReconciler implements AccountDatabaseCrawlerListener {
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  private DirectoryReconciliationRequest createChunkRequest(Optional<UUID> fromUuid, List<Account> accounts) {
-    List<UUID>   uuids   = new ArrayList<>(accounts.size());
-    List<String> numbers = new ArrayList<>(accounts.size());
-    for (Account account : accounts) {
-      if (account.isEnabled()) {
-        uuids.add(account.getUuid());
-        numbers.add(account.getNumber());
-      }
-    }
+  private DirectoryReconciliationRequest createChunkRequest(Optional<String> fromNumber, List<Account> accounts) {
+    List<String> numbers = accounts.stream()
+                                   .filter(Account::isEnabled)
+                                   .map(Account::getNumber)
+                                   .collect(Collectors.toList());
 
-    Optional<UUID> toUuid = Optional.empty();
+    Optional<String> toNumber   = Optional.empty();
 
     if (!accounts.isEmpty()) {
-      toUuid = Optional.of(accounts.get(accounts.size() - 1).getUuid());
+      toNumber   = Optional.of(accounts.get(accounts.size() - 1).getNumber());
     }
 
-    return new DirectoryReconciliationRequest(fromUuid.orElse(null), toUuid.orElse(null), uuids, numbers);
+    return new DirectoryReconciliationRequest(fromNumber.orElse(null), toNumber.orElse(null), numbers);
   }
 
   private DirectoryReconciliationResponse sendChunk(DirectoryReconciliationRequest request) {

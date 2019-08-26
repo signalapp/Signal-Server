@@ -30,7 +30,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import io.dropwizard.metrics.MetricsFactory;
@@ -43,6 +42,8 @@ public class ActiveUserCounter implements AccountDatabaseCrawlerListener {
 
   private static final String PLATFORM_IOS     = "ios";
   private static final String PLATFORM_ANDROID = "android";
+
+  private static final String FIRST_FROM_NUMBER = "+";
 
   private static final String INTERVALS[] = {"daily", "weekly", "monthly", "quarterly", "yearly"};
 
@@ -63,7 +64,7 @@ public class ActiveUserCounter implements AccountDatabaseCrawlerListener {
   }
 
   @Override
-  public void onCrawlChunk(Optional<UUID> fromNumber, List<Account> chunkAccounts) {
+  public void onCrawlChunk(Optional<String> fromNumber, List<Account> chunkAccounts) {
     long nowDays  = TimeUnit.MILLISECONDS.toDays(System.currentTimeMillis());
     long agoMs[]  = {TimeUnit.DAYS.toMillis(nowDays - 1),
                      TimeUnit.DAYS.toMillis(nowDays - 7),
@@ -106,11 +107,12 @@ public class ActiveUserCounter implements AccountDatabaseCrawlerListener {
       }
     }
 
-    incrementTallies(fromNumber.orElse(UUID.randomUUID()), platformIncrements, countryIncrements);
+    incrementTallies(fromNumber.orElse(FIRST_FROM_NUMBER), platformIncrements, countryIncrements);
+
   }
 
   @Override
-  public void onCrawlEnd(Optional<UUID> fromNumber) {
+  public void onCrawlEnd(Optional<String> fromNumber) {
     MetricRegistry      metrics           = new MetricRegistry();
     long                intervalTallies[] = new long[INTERVALS.length];
     ActiveUserTally     activeUserTally   = getFinalTallies();
@@ -154,18 +156,17 @@ public class ActiveUserCounter implements AccountDatabaseCrawlerListener {
     return tally;
   }
 
-  private void incrementTallies(UUID fromUuid, Map<String, long[]> platformIncrements, Map<String, long[]> countryIncrements) {
+  private void incrementTallies(String fromNumber, Map<String, long[]> platformIncrements, Map<String, long[]> countryIncrements) {
     try (Jedis jedis = jedisPool.getWriteResource()) {
       String tallyValue = jedis.get(TALLY_KEY);
       ActiveUserTally activeUserTally;
 
       if (tallyValue == null) {
-        activeUserTally = new ActiveUserTally(fromUuid, platformIncrements, countryIncrements);
+        activeUserTally = new ActiveUserTally(fromNumber, platformIncrements, countryIncrements);
       } else {
         activeUserTally = mapper.readValue(tallyValue, ActiveUserTally.class);
-
-        if (!fromUuid.equals(activeUserTally.getFromUuid())) {
-          activeUserTally.setFromUuid(fromUuid);
+        if (activeUserTally.getFromNumber() != fromNumber) {
+          activeUserTally.setFromNumber(fromNumber);
           Map<String, long[]> platformTallies = activeUserTally.getPlatforms();
           addTallyMaps(platformTallies, platformIncrements);
           Map<String, long[]> countryTallies = activeUserTally.getCountries();

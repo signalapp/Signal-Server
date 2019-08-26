@@ -122,26 +122,26 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
   }
 
   private void processChunk() {
-    Optional<UUID> fromUuid = cache.getLastUuid();
+    Optional<String> fromNumber = cache.getLastNumber();
 
-    if (!fromUuid.isPresent()) {
-      listeners.forEach(AccountDatabaseCrawlerListener::onCrawlStart);
+    if (!fromNumber.isPresent()) {
+      listeners.forEach(listener -> { listener.onCrawlStart(); });
     }
 
-    List<Account> chunkAccounts = readChunk(fromUuid, chunkSize);
+    List<Account> chunkAccounts = readChunk(fromNumber, chunkSize);
 
     if (chunkAccounts.isEmpty()) {
-      listeners.forEach(listener -> listener.onCrawlEnd(fromUuid));
-      cache.setLastUuid(Optional.empty());
+      listeners.forEach(listener -> { listener.onCrawlEnd(fromNumber); });
+      cache.setLastNumber(Optional.empty());
       cache.clearAccelerate();
     } else {
       try {
         for (AccountDatabaseCrawlerListener listener : listeners) {
-          listener.onCrawlChunk(fromUuid, chunkAccounts);
+          listener.onCrawlChunk(fromNumber, chunkAccounts);
         }
-        cache.setLastUuid(Optional.of(chunkAccounts.get(chunkAccounts.size() - 1).getUuid()));
+        cache.setLastNumber(Optional.of(chunkAccounts.get(chunkAccounts.size() - 1).getNumber()));
       } catch (AccountDatabaseCrawlerRestartException e) {
-        cache.setLastUuid(Optional.empty());
+        cache.setLastNumber(Optional.empty());
         cache.clearAccelerate();
       }
 
@@ -149,12 +149,12 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
 
   }
 
-  private List<Account> readChunk(Optional<UUID> fromUuid, int chunkSize) {
+  private List<Account> readChunk(Optional<String> fromNumber, int chunkSize) {
     try (Timer.Context timer = readChunkTimer.time()) {
       List<Account> chunkAccounts;
 
-      if (fromUuid.isPresent()) {
-        chunkAccounts = accounts.getAllFrom(fromUuid.get(), chunkSize);
+      if (fromNumber.isPresent()) {
+        chunkAccounts = accounts.getAllFrom(fromNumber.get(), chunkSize);
       } else {
         chunkAccounts = accounts.getAllFrom(chunkSize);
       }
