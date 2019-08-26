@@ -19,10 +19,11 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.UUID;
 
 public class ActiveUserTally {
   @JsonProperty
-  private String fromNumber;
+  private UUID fromUuid;
 
   @JsonProperty
   private Map<String, long[]> platforms;
@@ -32,14 +33,14 @@ public class ActiveUserTally {
 
   public ActiveUserTally() {}
 
-  public ActiveUserTally(String fromNumber, Map<String, long[]> platforms, Map<String, long[]> countries) {
-    this.fromNumber = fromNumber;
+  public ActiveUserTally(UUID fromUuid, Map<String, long[]> platforms, Map<String, long[]> countries) {
+    this.fromUuid   = fromUuid;
     this.platforms  = platforms;
     this.countries  = countries;
   }
 
-  public String getFromNumber() {
-    return this.fromNumber;
+  public UUID getFromUuid() {
+    return this.fromUuid;
   }
 
   public Map<String, long[]> getPlatforms() {
@@ -50,8 +51,8 @@ public class ActiveUserTally {
     return this.countries;
   }
 
-  public void setFromNumber(String fromNumber) {
-    this.fromNumber = fromNumber;
+  public void setFromUuid(UUID fromUuid) {
+    this.fromUuid = fromUuid;
   }
 
 }

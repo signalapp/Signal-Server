@@ -121,8 +121,8 @@ public class AccountsManager {
     return accounts.getAllFrom(length);
   }
 
-  public List<Account> getAllFrom(String number, int length) {
-    return accounts.getAllFrom(number, length);
+  public List<Account> getAllFrom(UUID uuid, int length) {
+    return accounts.getAllFrom(uuid, length);
   }
 
   private void updateDirectory(Account account) {

@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import redis.clients.jedis.Jedis;
 
@@ -30,7 +31,7 @@ import redis.clients.jedis.Jedis;
 public class AccountDatabaseCrawlerCache {
 
   private static final String ACTIVE_WORKER_KEY = "account_database_crawler_cache_active_worker";
-  private static final String LAST_NUMBER_KEY   = "account_database_crawler_cache_last_number";
+  private static final String LAST_UUID_KEY     = "account_database_crawler_cache_last_uuid";
   private static final String ACCELERATE_KEY    = "account_database_crawler_cache_accelerate";
 
   private static final long LAST_NUMBER_TTL_MS  = 86400_000L;
@@ -67,18 +68,21 @@ public class AccountDatabaseCrawlerCache {
     luaScript.execute(keys, args);
   }
 
-  public Optional<String> getLastNumber() {
+  public Optional<UUID> getLastUuid() {
     try (Jedis jedis = jedisPool.getWriteResource()) {
-      return Optional.ofNullable(jedis.get(LAST_NUMBER_KEY));
+      String lastUuidString = jedis.get(LAST_UUID_KEY);
+
+      if (lastUuidString == null) return Optional.empty();
+      else                        return Optional.of(UUID.fromString(lastUuidString));
     }
   }
 
-  public void setLastNumber(Optional<String> lastNumber) {
+  public void setLastUuid(Optional<UUID> lastUuid) {
     try (Jedis jedis = jedisPool.getWriteResource()) {
-      if (lastNumber.isPresent()) {
-        jedis.psetex(LAST_NUMBER_KEY, LAST_NUMBER_TTL_MS, lastNumber.get());
+      if (lastUuid.isPresent()) {
+        jedis.psetex(LAST_UUID_KEY, LAST_NUMBER_TTL_MS, lastUuid.get().toString());
       } else {
-        jedis.del(LAST_NUMBER_KEY);
+        jedis.del(LAST_UUID_KEY);
       }
     }
   }

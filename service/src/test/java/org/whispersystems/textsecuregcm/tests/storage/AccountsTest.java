@@ -173,6 +173,8 @@ public class AccountsTest {
       accounts.create(account);
     }
 
+    users.sort((account, t1) -> UUIDComparator.staticCompare(account.getUuid(), t1.getUuid()));
+
     List<Account> retrieved = accounts.getAllFrom(10);
     assertThat(retrieved.size()).isEqualTo(10);
 
@@ -181,7 +183,7 @@ public class AccountsTest {
     }
 
     for (int j=0;j<9;j++) {
-      retrieved = accounts.getAllFrom(retrieved.get(9).getNumber(), 10);
+      retrieved = accounts.getAllFrom(retrieved.get(9).getUuid(), 10);
       assertThat(retrieved.size()).isEqualTo(10);
 
       for (int i=0;i<retrieved.size();i++) {

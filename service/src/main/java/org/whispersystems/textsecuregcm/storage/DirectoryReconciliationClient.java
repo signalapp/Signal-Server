@@ -51,7 +51,7 @@ public class DirectoryReconciliationClient {
 
   public DirectoryReconciliationResponse sendChunk(DirectoryReconciliationRequest request) {
     return client.target(replicationUrl)
-                 .path("/v1/directory/reconcile")
+                 .path("/v2/directory/reconcile")
                  .request(MediaType.APPLICATION_JSON_TYPE)
                  .put(Entity.json(request), DirectoryReconciliationResponse.class);
   }
