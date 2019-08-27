@@ -140,7 +140,7 @@ public class AccountsManager {
   }
 
   private String getAccountEntityKey(UUID uuid) {
-    return "Account2::" + uuid.toString();
+    return "Account3::" + uuid.toString();
   }
 
   private void redisSet(Account account) {
