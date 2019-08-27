@@ -67,7 +67,7 @@ public class AccountsManager {
   }
 
   public boolean create(Account account) {
-    try (Timer.Context context = createTimer.time()) {
+    try (Timer.Context ignored = createTimer.time()) {
       boolean freshUser = databaseCreate(account);
       redisSet(account);
       updateDirectory(account);
@@ -77,7 +77,7 @@ public class AccountsManager {
   }
 
   public void update(Account account) {
-    try (Timer.Context context = updateTimer.time()) {
+    try (Timer.Context ignored = updateTimer.time()) {
       redisSet(account);
       databaseUpdate(account);
       updateDirectory(account);
@@ -91,7 +91,7 @@ public class AccountsManager {
   }
 
   public Optional<Account> get(String number) {
-    try (Timer.Context context = getByNumberTimer.time()) {
+    try (Timer.Context ignored = getByNumberTimer.time()) {
       Optional<Account> account = redisGet(number);
 
       if (!account.isPresent()) {
@@ -104,7 +104,7 @@ public class AccountsManager {
   }
 
   public Optional<Account> get(UUID uuid) {
-    try (Timer.Context context = getByUuidTimer.time()) {
+    try (Timer.Context ignored = getByUuidTimer.time()) {
       Optional<Account> account = redisGet(uuid);
 
       if (!account.isPresent()) {
@@ -140,12 +140,12 @@ public class AccountsManager {
   }
 
   private String getAccountEntityKey(UUID uuid) {
-    return "Account::" + uuid.toString();
+    return "Account2::" + uuid.toString();
   }
 
   private void redisSet(Account account) {
-    try (Jedis         jedis = cacheClient.getWriteResource();
-         Timer.Context timer = redisSetTimer.time())
+    try (Jedis         jedis   = cacheClient.getWriteResource();
+         Timer.Context ignored = redisSetTimer.time())
     {
       jedis.set(getAccountMapKey(account.getNumber()), account.getUuid().toString());
       jedis.set(getAccountEntityKey(account.getUuid()), mapper.writeValueAsString(account));
@@ -155,12 +155,12 @@ public class AccountsManager {
   }
 
   private Optional<Account> redisGet(String number) {
-    try (Jedis         jedis = cacheClient.getReadResource();
-         Timer.Context timer = redisNumberGetTimer.time())
+    try (Jedis         jedis   = cacheClient.getReadResource();
+         Timer.Context ignored = redisNumberGetTimer.time())
     {
       String uuid = jedis.get(getAccountMapKey(number));
 
-      if (uuid != null) return redisGet(UUID.fromString(uuid));
+      if (uuid != null) return redisGet(jedis, UUID.fromString(uuid));
       else              return Optional.empty();
     } catch (IllegalArgumentException e) {
       logger.warn("Deserialization error", e);
@@ -172,9 +172,13 @@ public class AccountsManager {
   }
 
   private Optional<Account> redisGet(UUID uuid) {
-    try (Jedis         jedis = cacheClient.getReadResource();
-         Timer.Context timer = redisUuidGetTimer.time())
-    {
+    try (Jedis jedis = cacheClient.getReadResource()) {
+      return redisGet(jedis, uuid);
+    }
+  }
+
+  private Optional<Account> redisGet(Jedis jedis, UUID uuid) {
+    try (Timer.Context ignored = redisUuidGetTimer.time()) {
       String json = jedis.get(getAccountEntityKey(uuid));
 
       if (json != null) {
@@ -192,7 +196,6 @@ public class AccountsManager {
       logger.warn("Redis failure", e);
       return Optional.empty();
     }
-
   }
 
   private Optional<Account> databaseGet(String number) {

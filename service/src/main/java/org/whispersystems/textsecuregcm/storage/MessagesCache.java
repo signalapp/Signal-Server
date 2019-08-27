@@ -82,12 +82,10 @@ public class MessagesCache implements Managed {
   }
 
   public void remove(String destination, long destinationDevice, long id) {
-    Timer.Context timer = removeByIdTimer.time();
-
-    try {
-      removeOperation.remove(destination, destinationDevice, id);
-    } finally {
-      timer.stop();
+    try (Jedis         jedis   = jedisPool.getWriteResource();
+         Timer.Context ignored = removeByIdTimer.time())
+    {
+      removeOperation.remove(jedis, destination, destinationDevice, id);
     }
   }
 
@@ -298,13 +296,13 @@ public class MessagesCache implements Managed {
       this.removeQueue    = LuaScript.fromResource(jedisPool, "lua/remove_queue.lua"         );
     }
 
-    public void remove(String destination, long destinationDevice, long id) {
+    public void remove(Jedis jedis, String destination, long destinationDevice, long id) {
       Key key = new Key(destination, destinationDevice);
 
       List<byte[]> keys = Arrays.asList(key.getUserMessageQueue(), key.getUserMessageQueueMetadata(), Key.getUserMessageQueueIndex());
       List<byte[]> args = Collections.singletonList(String.valueOf(id).getBytes());
 
-      this.removeById.execute(keys, args);
+      this.removeById.execute(jedis, keys, args);
     }
 
     public byte[] remove(String destination, long destinationDevice, String sender, long timestamp) {
@@ -464,7 +462,7 @@ public class MessagesCache implements Managed {
           Set<Tuple> messages = jedis.zrangeWithScores(key.getUserMessageQueue(), 0, CHUNK_SIZE);
 
           for (Tuple message : messages) {
-            persistMessage(key, (long)message.getScore(), message.getBinaryElement());
+            persistMessage(jedis, key, (long)message.getScore(), message.getBinaryElement());
             messagesPersistedCount++;
           }
 
@@ -479,7 +477,7 @@ public class MessagesCache implements Managed {
       }
     }
 
-    private void persistMessage(Key key, long score, byte[] message) {
+    private void persistMessage(Jedis jedis, Key key, long score, byte[] message) {
       try {
         Envelope envelope = Envelope.parseFrom(message);
         UUID     guid     = envelope.hasServerGuid() ? UUID.fromString(envelope.getServerGuid()) : null;
@@ -491,7 +489,7 @@ public class MessagesCache implements Managed {
         logger.error("Error parsing envelope", e);
       }
 
-      removeOperation.remove(key.getAddress(), key.getDeviceId(), score);
+      removeOperation.remove(jedis, key.getAddress(), key.getDeviceId(), score);
     }
 
     private List<byte[]> getQueuesToPersist(GetOperation getOperation) {

@@ -39,19 +39,27 @@ public class LuaScript {
 
   public Object execute(List<byte[]> keys, List<byte[]> args) {
     try (Jedis jedis = jedisPool.getWriteResource()) {
-      try {
-        return jedis.evalsha(sha, keys, args);
-      } catch (JedisDataException e) {
-        storeScript(jedisPool, script);
-        return jedis.evalsha(sha, keys, args);
-      }
+      return execute(jedis, keys, args);
+    }
+  }
+
+  public Object execute(Jedis jedis, List<byte[]> keys, List<byte[]> args) {
+    try {
+      return jedis.evalsha(sha, keys, args);
+    } catch (JedisDataException e) {
+      storeScript(jedis, script);
+      return jedis.evalsha(sha, keys, args);
     }
   }
 
   private String storeScript(ReplicatedJedisPool jedisPool, String script) {
     try (Jedis jedis = jedisPool.getWriteResource()) {
-      return jedis.scriptLoad(script);
+      return storeScript(jedis, script);
     }
+  }
+
+  private String storeScript(Jedis jedis, String script) {
+    return jedis.scriptLoad(script);
   }
 
 }

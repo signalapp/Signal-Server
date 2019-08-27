@@ -48,6 +48,7 @@ public class RedisClientFactory implements RedisPubSubConnectionFactory {
   {
     JedisPoolConfig poolConfig = new JedisPoolConfig();
     poolConfig.setTestOnBorrow(true);
+    poolConfig.setMaxWaitMillis(10000);
 
     URI redisURI = new URI(url);
 
