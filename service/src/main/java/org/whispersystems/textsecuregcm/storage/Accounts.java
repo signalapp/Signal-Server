@@ -67,8 +67,9 @@ public class Accounts {
                           .mapTo(UUID.class)
                           .findOnly();
 
+        boolean isNew = uuid.equals(account.getUuid());
         account.setUuid(uuid);
-        return uuid.equals(account.getUuid());
+        return isNew;
       } catch (JsonProcessingException e) {
         throw new IllegalArgumentException(e);
       }
