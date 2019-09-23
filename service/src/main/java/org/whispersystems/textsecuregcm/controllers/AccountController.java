@@ -487,7 +487,7 @@ public class AccountController {
     device.setFetchesMessages(attributes.getFetchesMessages());
     device.setName(attributes.getName());
     device.setLastSeen(Util.todayInMillis());
-    device.setUnauthenticatedDeliverySupported(attributes.getUnidentifiedAccessKey() != null);
+    device.setCapabilities(attributes.getCapabilities());
     device.setRegistrationId(attributes.getRegistrationId());
     device.setSignalingKey(attributes.getSignalingKey());
     device.setUserAgent(userAgent);
@@ -599,7 +599,7 @@ public class AccountController {
     device.setFetchesMessages(accountAttributes.getFetchesMessages());
     device.setRegistrationId(accountAttributes.getRegistrationId());
     device.setName(accountAttributes.getName());
-    device.setUnauthenticatedDeliverySupported(accountAttributes.getUnidentifiedAccessKey() != null);
+    device.setCapabilities(accountAttributes.getCapabilities());
     device.setCreated(System.currentTimeMillis());
     device.setLastSeen(Util.todayInMillis());
     device.setUserAgent(userAgent);

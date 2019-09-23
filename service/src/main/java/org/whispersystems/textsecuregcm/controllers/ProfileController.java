@@ -17,6 +17,7 @@ import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.entities.Profile;
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
+import org.whispersystems.textsecuregcm.entities.UserCapabilities;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
@@ -102,8 +103,9 @@ public class ProfileController {
     return new Profile(accountProfile.get().getProfileName(),
                        accountProfile.get().getAvatar(),
                        accountProfile.get().getIdentityKey(),
-                       accountProfile.get().isUnauthenticatedDeliverySupported() ? UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()) : null,
-                       accountProfile.get().isUnrestrictedUnidentifiedAccess());
+                       UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
+                       accountProfile.get().isUnrestrictedUnidentifiedAccess(),
+                       new UserCapabilities(accountProfile.get().isUuidAddressingSupported()));
   }
 
   @Timed

@@ -3,10 +3,6 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 
-import org.hibernate.validator.constraints.Length;
-
-import javax.validation.constraints.Max;
-
 public class Profile {
 
   @JsonProperty
@@ -24,14 +20,21 @@ public class Profile {
   @JsonProperty
   private boolean unrestrictedUnidentifiedAccess;
 
+  @JsonProperty
+  private UserCapabilities capabilities;
+
   public Profile() {}
 
-  public Profile(String name, String avatar, String identityKey, String unidentifiedAccess, boolean unrestrictedUnidentifiedAccess) {
+  public Profile(String name, String avatar, String identityKey,
+                 String unidentifiedAccess, boolean unrestrictedUnidentifiedAccess,
+                 UserCapabilities capabilities)
+  {
     this.name                           = name;
     this.avatar                         = avatar;
     this.identityKey                    = identityKey;
     this.unidentifiedAccess             = unidentifiedAccess;
     this.unrestrictedUnidentifiedAccess = unrestrictedUnidentifiedAccess;
+    this.capabilities                   = capabilities;
   }
 
   @VisibleForTesting
@@ -57,6 +60,11 @@ public class Profile {
   @VisibleForTesting
   public boolean isUnrestrictedUnidentifiedAccess() {
     return unrestrictedUnidentifiedAccess;
+  }
+
+  @VisibleForTesting
+  public UserCapabilities getCapabilities() {
+    return capabilities;
   }
 
 }

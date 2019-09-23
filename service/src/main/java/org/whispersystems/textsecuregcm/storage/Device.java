@@ -19,6 +19,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
+import org.whispersystems.textsecuregcm.entities.UserCapabilities;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -77,7 +78,7 @@ public class Device {
   private String userAgent;
 
   @JsonProperty
-  private boolean unauthenticatedDelivery;
+  private DeviceCapabilities capabilities;
 
   public Device() {}
 
@@ -86,7 +87,7 @@ public class Device {
                 String voipApnId, boolean fetchesMessages,
                 int registrationId, SignedPreKey signedPreKey,
                 long lastSeen, long created, String userAgent,
-                boolean unauthenticatedDelivery, long uninstalledFeedback)
+                long uninstalledFeedback, DeviceCapabilities capabilities)
   {
     this.id                      = id;
     this.name                    = name;
@@ -102,8 +103,8 @@ public class Device {
     this.lastSeen                = lastSeen;
     this.created                 = created;
     this.userAgent               = userAgent;
-    this.unauthenticatedDelivery = unauthenticatedDelivery;
     this.uninstalledFeedback     = uninstalledFeedback;
+    this.capabilities            = capabilities;
   }
 
   public String getApnId() {
@@ -178,14 +179,6 @@ public class Device {
     this.name = name;
   }
 
-  public boolean isUnauthenticatedDeliverySupported() {
-    return unauthenticatedDelivery;
-  }
-
-  public void setUnauthenticatedDeliverySupported(boolean unauthenticatedDelivery) {
-    this.unauthenticatedDelivery = unauthenticatedDelivery;
-  }
-
   public void setAuthenticationCredentials(AuthenticationCredentials credentials) {
     this.authToken = credentials.getHashedAuthenticationToken();
     this.salt      = credentials.getSalt();
@@ -193,6 +186,14 @@ public class Device {
 
   public AuthenticationCredentials getAuthenticationCredentials() {
     return new AuthenticationCredentials(authToken, salt);
+  }
+
+  public DeviceCapabilities getCapabilities() {
+    return capabilities;
+  }
+
+  public void setCapabilities(DeviceCapabilities capabilities) {
+    this.capabilities = capabilities;
   }
 
   public String getSignalingKey() {
@@ -262,4 +263,20 @@ public class Device {
   public int hashCode() {
     return (int)this.id;
   }
+
+  public static class DeviceCapabilities {
+    @JsonProperty
+    private boolean uuid;
+
+    public DeviceCapabilities() {}
+
+    public DeviceCapabilities(boolean uuid) {
+      this.uuid = uuid;
+    }
+
+    public boolean isUuid() {
+      return uuid;
+    }
+  }
+
 }

@@ -23,6 +23,10 @@ public class AccountTest {
   private final Device recentSecondaryDevice = mock(Device.class);
   private final Device oldSecondaryDevice    = mock(Device.class);
 
+  private final Device uuidCapableDevice          = mock(Device.class);
+  private final Device uuidIncapableDevice        = mock(Device.class);
+  private final Device uuidIncapableExpiredDevice = mock(Device.class);
+
   @Before
   public void setup() {
     when(oldMasterDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(366));
@@ -44,6 +48,18 @@ public class AccountTest {
     when(oldSecondaryDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(366));
     when(oldSecondaryDevice.isEnabled()).thenReturn(false);
     when(oldSecondaryDevice.getId()).thenReturn(2L);
+
+    when(uuidCapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(true));
+    when(uuidCapableDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1));
+    when(uuidCapableDevice.isEnabled()).thenReturn(true);
+
+    when(uuidIncapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(false));
+    when(uuidIncapableDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1));
+    when(uuidIncapableDevice.isEnabled()).thenReturn(true);
+
+    when(uuidIncapableExpiredDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(false));
+    when(uuidIncapableExpiredDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31));
+    when(uuidIncapableExpiredDevice.isEnabled()).thenReturn(false);
   }
 
   @Test
@@ -78,6 +94,27 @@ public class AccountTest {
     }}, "1234".getBytes());
 
     assertFalse(oldPrimaryAccount.isEnabled());
+  }
+
+  @Test
+  public void testCapabilities() {
+    Account uuidCapable = new Account("+14152222222", UUID.randomUUID(), new HashSet<Device>() {{
+      add(uuidCapableDevice);
+    }}, "1234".getBytes());
+
+    Account uuidIncapable = new Account("+14152222222", UUID.randomUUID(), new HashSet<Device>() {{
+      add(uuidCapableDevice);
+      add(uuidIncapableDevice);
+    }}, "1234".getBytes());
+
+    Account uuidCapableWithExpiredIncapable = new Account("+14152222222", UUID.randomUUID(), new HashSet<Device>() {{
+      add(uuidCapableDevice);
+      add(uuidIncapableExpiredDevice);
+    }}, "1234".getBytes());
+
+    assertTrue(uuidCapable.isUuidAddressingSupported());
+    assertFalse(uuidIncapable.isUuidAddressingSupported());
+    assertTrue(uuidCapableWithExpiredIncapable.isUuidAddressingSupported());
   }
 
 }

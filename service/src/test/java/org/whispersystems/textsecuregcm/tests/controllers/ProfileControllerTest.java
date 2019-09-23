@@ -63,9 +63,22 @@ public class ProfileControllerTest {
     when(profileAccount.getAvatar()).thenReturn("profiles/bang");
     when(profileAccount.getAvatarDigest()).thenReturn("buh");
     when(profileAccount.isEnabled()).thenReturn(true);
+    when(profileAccount.isUuidAddressingSupported()).thenReturn(false);
+
+    Account capabilitiesAccount = mock(Account.class);
+
+    when(capabilitiesAccount.getIdentityKey()).thenReturn("barz");
+    when(capabilitiesAccount.getProfileName()).thenReturn("bazz");
+    when(capabilitiesAccount.getAvatar()).thenReturn("profiles/bangz");
+    when(capabilitiesAccount.getAvatarDigest()).thenReturn("buz");
+    when(capabilitiesAccount.isEnabled()).thenReturn(true);
+    when(capabilitiesAccount.isUuidAddressingSupported()).thenReturn(true);
 
     when(accountsManager.get(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(profileAccount));
     when(accountsManager.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(AuthHelper.VALID_NUMBER_TWO)))).thenReturn(Optional.of(profileAccount));
+
+    when(accountsManager.get(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(capabilitiesAccount));
+    when(accountsManager.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(AuthHelper.VALID_NUMBER)))).thenReturn(Optional.of(capabilitiesAccount));
   }
 
 
@@ -80,6 +93,7 @@ public class ProfileControllerTest {
     assertThat(profile.getIdentityKey()).isEqualTo("bar");
     assertThat(profile.getName()).isEqualTo("baz");
     assertThat(profile.getAvatar()).isEqualTo("profiles/bang");
+    assertThat(profile.getCapabilities().isUuid()).isFalse();
 
     verify(accountsManager, times(1)).get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(AuthHelper.VALID_NUMBER_TWO)));
     verify(rateLimiters, times(1)).getProfileLimiter();
@@ -105,6 +119,17 @@ public class ProfileControllerTest {
                                  .get();
 
     assertThat(response.getStatus()).isEqualTo(401);
+  }
+
+  @Test
+  public void testProfileCapabilities() throws Exception {
+    Profile profile= resources.getJerseyTest()
+                              .target("/v1/profile/" + AuthHelper.VALID_NUMBER)
+                              .request()
+                              .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                              .get(Profile.class);
+
+    assertThat(profile.getCapabilities().isUuid()).isTrue();
   }
 
 }

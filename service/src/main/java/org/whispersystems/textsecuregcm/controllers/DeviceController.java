@@ -33,6 +33,7 @@ import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PendingDevicesManager;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -221,7 +222,15 @@ public class DeviceController {
   @Path("/unauthenticated_delivery")
   public void setUnauthenticatedDelivery(@Auth Account account) {
     assert(account.getAuthenticatedDevice().isPresent());
-    account.getAuthenticatedDevice().get().setUnauthenticatedDeliverySupported(true);
+    // Deprecated
+  }
+
+  @Timed
+  @PUT
+  @Path("/capabilities")
+  public void setCapabiltities(@Auth Account account, @Valid DeviceCapabilities capabilities) {
+    assert(account.getAuthenticatedDevice().isPresent());
+    account.getAuthenticatedDevice().get().setCapabilities(capabilities);
     accounts.update(account);
   }
 

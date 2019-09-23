@@ -19,6 +19,8 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import org.hibernate.validator.constraints.Length;
+import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 
 public class AccountAttributes {
 
@@ -46,6 +48,9 @@ public class AccountAttributes {
 
   @JsonProperty
   private boolean unrestrictedUnidentifiedAccess;
+
+  @JsonProperty
+  private DeviceCapabilities capabilities;
 
   public AccountAttributes() {}
 
@@ -94,5 +99,9 @@ public class AccountAttributes {
 
   public boolean isUnrestrictedUnidentifiedAccess() {
     return unrestrictedUnidentifiedAccess;
+  }
+
+  public DeviceCapabilities getCapabilities() {
+    return capabilities;
   }
 }

@@ -20,7 +20,6 @@ package org.whispersystems.textsecuregcm.storage;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
-
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 
 import javax.security.auth.Subject;
@@ -32,8 +31,6 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 public class Account implements Principal  {
-
-  static final int MEMCACHE_VERION = 5;
 
   @JsonIgnore
   private UUID uuid;
@@ -114,7 +111,7 @@ public class Account implements Principal  {
   }
 
   public void removeDevice(long deviceId) {
-    this.devices.remove(new Device(deviceId, null, null, null, null, null, null, null, false, 0, null, 0, 0, "NA", false, 0));
+    this.devices.remove(new Device(deviceId, null, null, null, null, null, null, null, false, 0, null, 0, 0, "NA", 0, null));
   }
 
   public Set<Device> getDevices() {
@@ -135,8 +132,8 @@ public class Account implements Principal  {
     return Optional.empty();
   }
 
-  public boolean isUnauthenticatedDeliverySupported() {
-    return devices.stream().filter(Device::isEnabled).allMatch(Device::isUnauthenticatedDeliverySupported);
+  public boolean isUuidAddressingSupported() {
+    return devices.stream().filter(Device::isEnabled).allMatch(device -> device.getCapabilities().isUuid());
   }
 
   public boolean isEnabled() {
