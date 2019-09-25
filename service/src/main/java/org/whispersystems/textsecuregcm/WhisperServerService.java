@@ -157,13 +157,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     FaultTolerantDatabase messageDatabase = new FaultTolerantDatabase("message_database", messageJdbi, config.getMessageStoreConfiguration().getCircuitBreakerConfiguration());
     FaultTolerantDatabase abuseDatabase   = new FaultTolerantDatabase("abuse_database", abuseJdbi, config.getAbuseDatabaseConfiguration().getCircuitBreakerConfiguration());
 
-    Accounts         accounts         = new Accounts(accountDatabase);
-    PendingAccounts  pendingAccounts  = new PendingAccounts(accountDatabase);
-    PendingDevices   pendingDevices   = new PendingDevices(accountDatabase);
-    Usernames        usernames        = new Usernames(accountDatabase);
-    Keys             keys             = new Keys(keysDatabase);
-    Messages         messages         = new Messages(messageDatabase);
-    AbusiveHostRules abusiveHostRules = new AbusiveHostRules(abuseDatabase);
+    Accounts          accounts          = new Accounts(accountDatabase);
+    PendingAccounts   pendingAccounts   = new PendingAccounts(accountDatabase);
+    PendingDevices    pendingDevices    = new PendingDevices (accountDatabase);
+    Usernames         usernames         = new Usernames(accountDatabase);
+    ReservedUsernames reservedUsernames = new ReservedUsernames(accountDatabase);
+    Keys              keys              = new Keys(keysDatabase);
+    Messages          messages          = new Messages(messageDatabase);
+    AbusiveHostRules  abusiveHostRules  = new AbusiveHostRules(abuseDatabase);
 
     RedisClientFactory cacheClientFactory         = new RedisClientFactory("main_cache", config.getCacheConfiguration().getUrl(), config.getCacheConfiguration().getReplicaUrls(), config.getCacheConfiguration().getCircuitBreakerConfiguration());
     RedisClientFactory directoryClientFactory     = new RedisClientFactory("directory_cache", config.getDirectoryConfiguration().getRedisConfiguration().getUrl(), config.getDirectoryConfiguration().getRedisConfiguration().getReplicaUrls(), config.getDirectoryConfiguration().getRedisConfiguration().getCircuitBreakerConfiguration());
@@ -180,7 +181,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     PendingAccountsManager     pendingAccountsManager     = new PendingAccountsManager(pendingAccounts, cacheClient);
     PendingDevicesManager      pendingDevicesManager      = new PendingDevicesManager (pendingDevices, cacheClient );
     AccountsManager            accountsManager            = new AccountsManager(accounts, directory, cacheClient);
-    UsernamesManager           usernamesManager           = new UsernamesManager(usernames, cacheClient);
+    UsernamesManager           usernamesManager           = new UsernamesManager(usernames, reservedUsernames, cacheClient);
     MessagesCache              messagesCache              = new MessagesCache(messagesClient, messages, accountsManager, config.getMessageCacheConfiguration().getPersistDelayMinutes());
     MessagesManager            messagesManager            = new MessagesManager(messages, messagesCache);
     DeadLetterHandler          deadLetterHandler          = new DeadLetterHandler(messagesManager);

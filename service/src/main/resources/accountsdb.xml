@@ -223,4 +223,20 @@
         </createTable>
     </changeSet>
 
+    <changeSet id="10" author="moxie">
+        <createTable tableName="reserved_usernames">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+
+            <column name="username" type="text">
+                <constraints nullable="false" unique="true"/>
+            </column>
+
+            <column name="uuid" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
 </databaseChangeLog>

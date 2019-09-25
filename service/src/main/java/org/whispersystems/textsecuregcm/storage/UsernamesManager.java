@@ -30,15 +30,21 @@ public class UsernamesManager {
   private final Logger logger = LoggerFactory.getLogger(AccountsManager.class);
 
   private final Usernames           usernames;
+  private final ReservedUsernames   reservedUsernames;
   private final ReplicatedJedisPool cacheClient;
 
-  public UsernamesManager(Usernames usernames, ReplicatedJedisPool cacheClient) {
-    this.usernames   = usernames;
-    this.cacheClient = cacheClient;
+  public UsernamesManager(Usernames usernames, ReservedUsernames reservedUsernames, ReplicatedJedisPool cacheClient) {
+    this.usernames         = usernames;
+    this.reservedUsernames = reservedUsernames;
+    this.cacheClient       = cacheClient;
   }
 
   public boolean put(UUID uuid, String username) {
     try (Timer.Context ignored = createTimer.time()) {
+      if (reservedUsernames.isReserved(username, uuid)) {
+        return false;
+      }
+
       if (databasePut(uuid, username)) {
         redisSet(uuid, username);
 
