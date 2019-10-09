@@ -144,6 +144,17 @@ public class Util {
     return data;
   }
 
+  public static int toIntExact(long value) {
+    if ((int)value != value) {
+      throw new ArithmeticException("integer overflow");
+    }
+    return (int)value;
+  }
+
+  public static int currentDaysSinceEpoch() {
+    return Util.toIntExact(System.currentTimeMillis() / 1000 / 60 / 60 / 24);
+  }
+
   public static void sleep(long i) {
     try {
       Thread.sleep(i);

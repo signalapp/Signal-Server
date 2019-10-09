@@ -41,4 +41,8 @@ public class ProfileAvatarUploadAttributes {
     this.signature  = signature;
   }
 
+  public String getKey() {
+    return key;
+  }
+
 }

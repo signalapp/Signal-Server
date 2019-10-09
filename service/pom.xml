@@ -38,6 +38,11 @@
                 </exclusion>
             </exclusions>
         </dependency>
+        <dependency>
+            <groupId>org.signal</groupId>
+            <artifactId>zkgroup-java</artifactId>
+            <version>0.1</version>
+        </dependency>
 
 
         <dependency>

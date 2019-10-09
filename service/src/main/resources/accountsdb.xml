@@ -239,4 +239,38 @@
         </createTable>
     </changeSet>
 
+    <changeSet id="11" author="moxie">
+        <createTable tableName="profiles">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+
+            <column name="uuid" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="version" type="text">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="name" type="text">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="avatar" type="text">
+                <constraints nullable="true"/>
+            </column>
+
+            <column name="commitment" type="bytea">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="profiles" columnNames="uuid, version" constraintName="uuid_and_version"/>
+        
+        <createIndex tableName="profiles" indexName="profiles_uuid">
+            <column name="uuid"/>
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>
