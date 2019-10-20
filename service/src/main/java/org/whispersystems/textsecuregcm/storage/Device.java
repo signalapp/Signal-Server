@@ -23,6 +23,8 @@ import org.whispersystems.textsecuregcm.entities.UserCapabilities;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.util.Util;
 
+import javax.annotation.Nullable;
+import javax.validation.constraints.Null;
 import java.util.concurrent.TimeUnit;
 
 public class Device {
@@ -188,7 +190,7 @@ public class Device {
     return new AuthenticationCredentials(authToken, salt);
   }
 
-  public DeviceCapabilities getCapabilities() {
+  public @Nullable DeviceCapabilities getCapabilities() {
     return capabilities;
   }
 
