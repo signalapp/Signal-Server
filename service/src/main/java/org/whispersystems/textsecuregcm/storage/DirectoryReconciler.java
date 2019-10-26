@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-public class DirectoryReconciler implements AccountDatabaseCrawlerListener {
+public class DirectoryReconciler extends AccountDatabaseCrawlerListener {
 
   private static final Logger logger = LoggerFactory.getLogger(DirectoryReconciler.class);
 
@@ -56,14 +56,17 @@ public class DirectoryReconciler implements AccountDatabaseCrawlerListener {
     this.reconciliationClient = reconciliationClient;
   }
 
+  @Override
   public void onCrawlStart() { }
 
+  @Override
   public void onCrawlEnd(Optional<UUID> fromUuid) {
     DirectoryReconciliationRequest  request  = new DirectoryReconciliationRequest(fromUuid.orElse(null), null, Collections.emptyList());
     DirectoryReconciliationResponse response = sendChunk(request);
   }
 
-  public void onCrawlChunk(Optional<UUID> fromUuid, List<Account> chunkAccounts) throws AccountDatabaseCrawlerRestartException {
+  @Override
+  protected void onCrawlChunk(Optional<UUID> fromUuid, List<Account> chunkAccounts) throws AccountDatabaseCrawlerRestartException {
 
     updateDirectoryCache(chunkAccounts);
 

@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-public class AccountCleaner implements AccountDatabaseCrawlerListener {
+public class AccountCleaner extends AccountDatabaseCrawlerListener {
 
   private static final MetricRegistry metricRegistry       = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private static final Meter          expiredAccountsMeter = metricRegistry.meter(name(AccountCleaner.class, "expiredAccounts"));
@@ -52,7 +52,11 @@ public class AccountCleaner implements AccountDatabaseCrawlerListener {
   }
 
   @Override
-  public void onCrawlChunk(Optional<UUID> fromUuid, List<Account> chunkAccounts) {
+  public void onCrawlEnd(Optional<UUID> fromUuid) {
+  }
+
+  @Override
+  protected void onCrawlChunk(Optional<UUID> fromUuid, List<Account> chunkAccounts) {
     int accountUpdateCount = 0;
     for (Account account : chunkAccounts) {
       if (needsExplicitRemoval(account)) {
@@ -72,10 +76,6 @@ public class AccountCleaner implements AccountDatabaseCrawlerListener {
         }
       }
     }
-  }
-
-  @Override
-  public void onCrawlEnd(Optional<UUID> fromUuid) {
   }
 
   private boolean needsExplicitRemoval(Account account) {

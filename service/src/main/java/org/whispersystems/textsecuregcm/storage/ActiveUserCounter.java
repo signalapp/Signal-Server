@@ -37,7 +37,7 @@ import io.dropwizard.metrics.MetricsFactory;
 import io.dropwizard.metrics.ReporterFactory;
 import redis.clients.jedis.Jedis;
 
-public class ActiveUserCounter implements AccountDatabaseCrawlerListener {
+public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
 
   private static final String TALLY_KEY         = "active_user_tally";
 
@@ -56,6 +56,7 @@ public class ActiveUserCounter implements AccountDatabaseCrawlerListener {
     this.mapper          = SystemMapper.getMapper();
   }
 
+  @Override
   public void onCrawlStart() {
     try (Jedis jedis = jedisPool.getWriteResource()) {
       jedis.del(TALLY_KEY);
@@ -63,7 +64,43 @@ public class ActiveUserCounter implements AccountDatabaseCrawlerListener {
   }
 
   @Override
-  public void onCrawlChunk(Optional<UUID> fromNumber, List<Account> chunkAccounts) {
+  public void onCrawlEnd(Optional<UUID> fromNumber) {
+    MetricRegistry      metrics           = new MetricRegistry();
+    long                intervalTallies[] = new long[INTERVALS.length];
+    ActiveUserTally     activeUserTally   = getFinalTallies();
+    Map<String, long[]> platforms         = activeUserTally.getPlatforms();
+
+    platforms.forEach((platform, platformTallies) -> {
+      for (int i = 0; i < INTERVALS.length; i++) {
+        final long tally = platformTallies[i];
+        metrics.register(metricKey(platform, INTERVALS[i]),
+                         (Gauge<Long>) () -> tally);
+        intervalTallies[i] += tally;
+      }
+    });
+
+    Map<String, long[]> countries = activeUserTally.getCountries();
+    countries.forEach((country, countryTallies) -> {
+      for (int i = 0; i < INTERVALS.length; i++) {
+        final long tally = countryTallies[i];
+        metrics.register(metricKey(country, INTERVALS[i]),
+                         (Gauge<Long>) () -> tally);
+      }
+    });
+
+    for (int i = 0; i < INTERVALS.length; i++) {
+      final long intervalTotal = intervalTallies[i];
+      metrics.register(metricKey(INTERVALS[i]),
+                       (Gauge<Long>) () -> intervalTotal);
+    }
+
+    for (ReporterFactory reporterFactory : metricsFactory.getReporters()) {
+      reporterFactory.build(metrics).report();
+    }
+  }
+
+  @Override
+  protected void onCrawlChunk(Optional<UUID> fromNumber, List<Account> chunkAccounts) {
     long nowDays  = TimeUnit.MILLISECONDS.toDays(System.currentTimeMillis());
     long agoMs[]  = {TimeUnit.DAYS.toMillis(nowDays - 1),
                      TimeUnit.DAYS.toMillis(nowDays - 7),
@@ -107,42 +144,6 @@ public class ActiveUserCounter implements AccountDatabaseCrawlerListener {
     }
 
     incrementTallies(fromNumber.orElse(UUID.randomUUID()), platformIncrements, countryIncrements);
-  }
-
-  @Override
-  public void onCrawlEnd(Optional<UUID> fromNumber) {
-    MetricRegistry      metrics           = new MetricRegistry();
-    long                intervalTallies[] = new long[INTERVALS.length];
-    ActiveUserTally     activeUserTally   = getFinalTallies();
-    Map<String, long[]> platforms         = activeUserTally.getPlatforms();
-
-    platforms.forEach((platform, platformTallies) -> {
-      for (int i = 0; i < INTERVALS.length; i++) {
-        final long tally = platformTallies[i];
-        metrics.register(metricKey(platform, INTERVALS[i]),
-                         (Gauge<Long>) () -> tally);
-        intervalTallies[i] += tally;
-      }
-    });
-
-    Map<String, long[]> countries = activeUserTally.getCountries();
-    countries.forEach((country, countryTallies) -> {
-      for (int i = 0; i < INTERVALS.length; i++) {
-        final long tally = countryTallies[i];
-        metrics.register(metricKey(country, INTERVALS[i]),
-                         (Gauge<Long>) () -> tally);
-      }
-    });
-
-    for (int i = 0; i < INTERVALS.length; i++) {
-      final long intervalTotal = intervalTallies[i];
-      metrics.register(metricKey(INTERVALS[i]),
-                       (Gauge<Long>) () -> intervalTotal);
-    }
-
-    for (ReporterFactory reporterFactory : metricsFactory.getReporters()) {
-      reporterFactory.build(metrics).report();
-    }
   }
 
   private long[] getTallyFromMap(Map<String, long[]> map, String key) {

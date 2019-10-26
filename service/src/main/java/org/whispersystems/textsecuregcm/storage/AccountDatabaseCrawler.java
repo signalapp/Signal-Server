@@ -137,7 +137,7 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
     } else {
       try {
         for (AccountDatabaseCrawlerListener listener : listeners) {
-          listener.onCrawlChunk(fromUuid, chunkAccounts);
+          listener.timeAndProcessCrawlChunk(fromUuid, chunkAccounts);
         }
         cache.setLastUuid(Optional.of(chunkAccounts.get(chunkAccounts.size() - 1).getUuid()));
       } catch (AccountDatabaseCrawlerRestartException e) {

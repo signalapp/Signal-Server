@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-public class PushFeedbackProcessor implements AccountDatabaseCrawlerListener {
+public class PushFeedbackProcessor extends AccountDatabaseCrawlerListener {
 
   private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private final Meter          expired        = metricRegistry.meter(name(getClass(), "unregistered", "expired"));
@@ -32,7 +32,10 @@ public class PushFeedbackProcessor implements AccountDatabaseCrawlerListener {
   public void onCrawlStart() {}
 
   @Override
-  public void onCrawlChunk(Optional<UUID> fromUuid, List<Account> chunkAccounts) {
+  public void onCrawlEnd(Optional<UUID> toUuid) {}
+
+  @Override
+  protected void onCrawlChunk(Optional<UUID> fromUuid, List<Account> chunkAccounts) {
     for (Account account : chunkAccounts) {
       boolean update = false;
 
@@ -64,7 +67,4 @@ public class PushFeedbackProcessor implements AccountDatabaseCrawlerListener {
       }
     }
   }
-
-  @Override
-  public void onCrawlEnd(Optional<UUID> toUuid) {}
 }
