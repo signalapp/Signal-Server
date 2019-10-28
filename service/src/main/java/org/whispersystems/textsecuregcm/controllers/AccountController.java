@@ -540,7 +540,7 @@ public class AccountController {
 
     username = username.toLowerCase();
 
-    if (!username.matches("^[a-z0-9_]+$")) {
+    if (!username.matches("^[a-z_][a-z0-9_]+$")) {
       return Response.status(Response.Status.BAD_REQUEST).build();
     }
 

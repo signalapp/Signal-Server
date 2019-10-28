@@ -865,6 +865,18 @@ public class AccountControllerTest {
   }
 
   @Test
+  public void testSetInvalidPrefixUsername() {
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/accounts/username/0n00bkiller")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.text(""));
+
+    assertThat(response.getStatus()).isEqualTo(400);
+  }
+
+  @Test
   public void testSetUsernameBadAuth() {
     Response response =
         resources.getJerseyTest()
