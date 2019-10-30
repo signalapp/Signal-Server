@@ -4,6 +4,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.PushFeedbackProcessor;
@@ -61,18 +62,18 @@ public class PushFeedbackProcessorTest {
 
 
   @Test
-  public void testEmpty() {
+  public void testEmpty() throws AccountDatabaseCrawlerRestartException {
     PushFeedbackProcessor processor = new PushFeedbackProcessor(accountsManager, directoryQueue);
-    processor.onCrawlChunk(Optional.of(UUID.randomUUID()), Collections.emptyList());
+    processor.timeAndProcessCrawlChunk(Optional.of(UUID.randomUUID()), Collections.emptyList());
 
     verifyZeroInteractions(accountsManager);
     verifyZeroInteractions(directoryQueue);
   }
 
   @Test
-  public void testUpdate() {
+  public void testUpdate() throws AccountDatabaseCrawlerRestartException {
     PushFeedbackProcessor processor = new PushFeedbackProcessor(accountsManager, directoryQueue);
-    processor.onCrawlChunk(Optional.of(UUID.randomUUID()), List.of(uninstalledAccount, mixedAccount, stillActiveAccount, freshAccount, cleanAccount));
+    processor.timeAndProcessCrawlChunk(Optional.of(UUID.randomUUID()), List.of(uninstalledAccount, mixedAccount, stillActiveAccount, freshAccount, cleanAccount));
 
     verify(uninstalledDevice).setApnId(isNull());
     verify(uninstalledDevice).setGcmId(isNull());

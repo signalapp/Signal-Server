@@ -70,7 +70,7 @@ public class DirectoryReconcilerTest {
   @Test
   public void testCrawlChunkValid() throws AccountDatabaseCrawlerRestartException {
     when(reconciliationClient.sendChunk(any())).thenReturn(successResponse);
-    directoryReconciler.onCrawlChunk(Optional.of(VALID_UUID), Arrays.asList(activeAccount, inactiveAccount));
+    directoryReconciler.timeAndProcessCrawlChunk(Optional.of(VALID_UUID), Arrays.asList(activeAccount, inactiveAccount));
 
     verify(activeAccount, atLeastOnce()).getUuid();
     verify(activeAccount, atLeastOnce()).getNumber();

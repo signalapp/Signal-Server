@@ -21,6 +21,7 @@ import org.junit.Test;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountCleaner;
+import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
@@ -85,10 +86,10 @@ public class AccountCleanerTest {
   }
 
   @Test
-  public void testAccounts() {
+  public void testAccounts() throws AccountDatabaseCrawlerRestartException {
     AccountCleaner accountCleaner = new AccountCleaner(accountsManager, directoryQueue);
     accountCleaner.onCrawlStart();
-    accountCleaner.onCrawlChunk(Optional.empty(), Arrays.asList(deletedDisabledAccount, undeletedDisabledAccount, undeletedEnabledAccount));
+    accountCleaner.timeAndProcessCrawlChunk(Optional.empty(), Arrays.asList(deletedDisabledAccount, undeletedDisabledAccount, undeletedEnabledAccount));
     accountCleaner.onCrawlEnd(Optional.empty());
 
     verify(deletedDisabledDevice, never()).setGcmId(any());
@@ -121,7 +122,7 @@ public class AccountCleanerTest {
   }
 
   @Test
-  public void testMaxAccountUpdates() {
+  public void testMaxAccountUpdates() throws AccountDatabaseCrawlerRestartException {
     List<Account> accounts = new LinkedList<>();
     accounts.add(undeletedEnabledAccount);
 
@@ -134,7 +135,7 @@ public class AccountCleanerTest {
 
     AccountCleaner accountCleaner = new AccountCleaner(accountsManager, directoryQueue);
     accountCleaner.onCrawlStart();
-    accountCleaner.onCrawlChunk(Optional.empty(), accounts);
+    accountCleaner.timeAndProcessCrawlChunk(Optional.empty(), accounts);
     accountCleaner.onCrawlEnd(Optional.empty());
 
     verify(undeletedDisabledDevice, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).setGcmId(isNull());
