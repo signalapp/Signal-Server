@@ -171,12 +171,12 @@
             <dependency>
                 <groupId>com.fasterxml.jackson.core</groupId>
                 <artifactId>jackson-databind</artifactId>
-                <version>${jackson.api.version}</version>
+                <version>2.9.10.1</version>
             </dependency>
             <dependency>
                 <groupId>com.fasterxml.jackson.dataformat</groupId>
                 <artifactId>jackson-dataformat-cbor</artifactId>
-                <version>${jackson.api.version}</version>
+                <version>2.9.10</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
