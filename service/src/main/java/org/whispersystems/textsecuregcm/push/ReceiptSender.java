@@ -32,6 +32,7 @@ public class ReceiptSender {
     Set<Device>      destinationDevices = destinationAccount.getDevices();
     Envelope.Builder message            = Envelope.newBuilder()
                                                   .setSource(source.getNumber())
+                                                  .setSourceUuid(source.getUuid().toString())
                                                   .setSourceDevice((int) source.getAuthenticatedDevice().get().getId())
                                                   .setTimestamp(messageId)
                                                   .setType(Envelope.Type.RECEIPT);
