@@ -581,7 +581,7 @@ public class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(423);
 
     RegistrationLockFailure failure = response.readEntity(RegistrationLockFailure.class);
-    assertThat(failure.getStorageCredentials()).isNull();
+    assertThat(failure.getBackupCredentials()).isNull();
 
     verifyNoMoreInteractions(pinLimiter);
   }
@@ -599,10 +599,10 @@ public class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(423);
 
     RegistrationLockFailure failure = response.readEntity(RegistrationLockFailure.class);
-    assertThat(failure.getStorageCredentials()).isNotNull();
-    assertThat(failure.getStorageCredentials().getUsername()).isEqualTo(SENDER_REG_LOCK);
-    assertThat(failure.getStorageCredentials().getPassword()).isNotEmpty();
-    assertThat(failure.getStorageCredentials().getPassword().startsWith(SENDER_REG_LOCK)).isTrue();
+    assertThat(failure.getBackupCredentials()).isNotNull();
+    assertThat(failure.getBackupCredentials().getUsername()).isEqualTo(SENDER_REG_LOCK);
+    assertThat(failure.getBackupCredentials().getPassword()).isNotEmpty();
+    assertThat(failure.getBackupCredentials().getPassword().startsWith(SENDER_REG_LOCK)).isTrue();
     assertThat(failure.getTimeRemaining()).isGreaterThan(0);
 
     verifyNoMoreInteractions(pinLimiter);

@@ -10,13 +10,13 @@ public class RegistrationLockFailure {
   private long timeRemaining;
 
   @JsonProperty
-  private ExternalServiceCredentials storageCredentials;
+  private ExternalServiceCredentials backupCredentials;
 
   public RegistrationLockFailure() {}
 
-  public RegistrationLockFailure(long timeRemaining, ExternalServiceCredentials storageCredentials) {
-    this.timeRemaining      = timeRemaining;
-    this.storageCredentials = storageCredentials;
+  public RegistrationLockFailure(long timeRemaining, ExternalServiceCredentials backupCredentials) {
+    this.timeRemaining     = timeRemaining;
+    this.backupCredentials = backupCredentials;
   }
 
   @JsonIgnore
@@ -25,7 +25,7 @@ public class RegistrationLockFailure {
   }
 
   @JsonIgnore
-  public ExternalServiceCredentials getStorageCredentials() {
-    return storageCredentials;
+  public ExternalServiceCredentials getBackupCredentials() {
+    return backupCredentials;
   }
 }

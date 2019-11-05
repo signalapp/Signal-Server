@@ -112,7 +112,7 @@ public class AccountController {
   private final RecaptchaClient                    recaptchaClient;
   private final GCMSender                          gcmSender;
   private final APNSender                          apnSender;
-  private final ExternalServiceCredentialGenerator storageServiceCredentialGenerator;
+  private final ExternalServiceCredentialGenerator backupServiceCredentialGenerator;
 
   public AccountController(PendingAccountsManager pendingAccounts,
                            AccountsManager accounts,
@@ -126,7 +126,7 @@ public class AccountController {
                            RecaptchaClient recaptchaClient,
                            GCMSender gcmSender,
                            APNSender apnSender,
-                           ExternalServiceCredentialGenerator storageServiceCredentialGenerator)
+                           ExternalServiceCredentialGenerator backupServiceCredentialGenerator)
   {
     this.pendingAccounts                   = pendingAccounts;
     this.accounts                          = accounts;
@@ -140,7 +140,7 @@ public class AccountController {
     this.recaptchaClient                   = recaptchaClient;
     this.gcmSender                         = gcmSender;
     this.apnSender                         = apnSender;
-    this.storageServiceCredentialGenerator = storageServiceCredentialGenerator;
+    this.backupServiceCredentialGenerator  = backupServiceCredentialGenerator;
   }
 
   @Timed
@@ -281,7 +281,7 @@ public class AccountController {
         long                                 timeRemaining = TimeUnit.DAYS.toMillis(7) - (System.currentTimeMillis() - existingAccount.get().getLastSeen());
         Optional<ExternalServiceCredentials> credentials   = existingAccount.get().getRegistrationLock().isPresent() &&
                                                              existingAccount.get().getRegistrationLockSalt().isPresent() ?
-                                                               Optional.of(storageServiceCredentialGenerator.generateFor(number)) :
+                                                               Optional.of(backupServiceCredentialGenerator.generateFor(number)) :
                                                                Optional.empty();
 
         if (Util.isEmpty(accountAttributes.getPin()) &&

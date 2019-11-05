@@ -1,9 +1,9 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
+import org.whispersystems.textsecuregcm.storage.Account;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -25,7 +25,7 @@ public class SecureBackupController {
   @GET
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)
-  public ExternalServiceCredentials getAuth(@Auth DisabledPermittedAccount account) {
-    return backupServiceCredentialGenerator.generateFor(account.getAccount().getNumber());
+  public ExternalServiceCredentials getAuth(@Auth Account account) {
+    return backupServiceCredentialGenerator.generateFor(account.getNumber());
   }
 }
