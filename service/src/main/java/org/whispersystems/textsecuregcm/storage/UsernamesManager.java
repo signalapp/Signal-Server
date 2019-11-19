@@ -112,6 +112,8 @@ public class UsernamesManager {
     try (Jedis         jedis   = cacheClient.getWriteResource();
          Timer.Context ignored = redisSetTimer.time())
     {
+      Optional.ofNullable(jedis.get(getUuidMapKey(uuid))).ifPresent(oldUsername -> jedis.del(getUsernameMapKey(oldUsername)));
+
       jedis.set(getUuidMapKey(uuid), username);
       jedis.set(getUsernameMapKey(username), uuid.toString());
     }
