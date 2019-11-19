@@ -92,6 +92,7 @@ public class UsernamesManagerTest {
     verify(jedis, times(1)).get(eq("UsernameByUsername::n00bkiller"));
     verify(jedis, times(1)).set(eq("UsernameByUsername::n00bkiller"), eq(uuid.toString()));
     verify(jedis, times(1)).set(eq("UsernameByUuid::" + uuid.toString()), eq("n00bkiller"));
+    verify(jedis, times(1)).get(eq("UsernameByUuid::" + uuid.toString()));
     verify(jedis, times(2)).close();
     verifyNoMoreInteractions(jedis);
 
@@ -119,7 +120,7 @@ public class UsernamesManagerTest {
     assertTrue(retrieved.isPresent());
     assertEquals(retrieved.get(), "n00bkiller");
 
-    verify(jedis, times(1)).get(eq("UsernameByUuid::" + uuid));
+    verify(jedis, times(2)).get(eq("UsernameByUuid::" + uuid));
     verify(jedis, times(1)).set(eq("UsernameByUuid::" + uuid), eq("n00bkiller"));
     verify(jedis, times(1)).set(eq("UsernameByUsername::n00bkiller"), eq(uuid.toString()));
     verify(jedis, times(2)).close();
@@ -152,6 +153,7 @@ public class UsernamesManagerTest {
     verify(jedis, times(1)).get(eq("UsernameByUsername::n00bkiller"));
     verify(jedis, times(1)).set(eq("UsernameByUsername::n00bkiller"), eq(uuid.toString()));
     verify(jedis, times(1)).set(eq("UsernameByUuid::" + uuid.toString()), eq("n00bkiller"));
+    verify(jedis, times(1)).get(eq("UsernameByUuid::" + uuid.toString()));
     verify(jedis, times(2)).close();
     verifyNoMoreInteractions(jedis);
 
@@ -179,9 +181,7 @@ public class UsernamesManagerTest {
     assertTrue(retrieved.isPresent());
     assertEquals(retrieved.get(), "n00bkiller");
 
-    verify(jedis, times(1)).get(eq("UsernameByUuid::" + uuid));
-    verify(jedis, times(1)).set(eq("UsernameByUsername::n00bkiller"), eq(uuid.toString()));
-    verify(jedis, times(1)).set(eq("UsernameByUuid::" + uuid.toString()), eq("n00bkiller"));
+    verify(jedis, times(2)).get(eq("UsernameByUuid::" + uuid));
     verify(jedis, times(2)).close();
     verifyNoMoreInteractions(jedis);
 

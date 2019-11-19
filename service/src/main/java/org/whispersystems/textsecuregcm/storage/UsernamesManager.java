@@ -46,7 +46,7 @@ public class UsernamesManager {
       }
 
       if (databasePut(uuid, username)) {
-        redisSet(uuid, username);
+        redisSet(uuid, username, true);
 
         return true;
       }
@@ -64,7 +64,7 @@ public class UsernamesManager {
       }
 
       Optional<UUID> retrieved = databaseGet(username);
-      retrieved.ifPresent(retrievedUuid -> redisSet(retrievedUuid, username));
+      retrieved.ifPresent(retrievedUuid -> redisSet(retrievedUuid, username, false));
 
       return retrieved;
     }
@@ -79,7 +79,7 @@ public class UsernamesManager {
       }
 
       Optional<String> retrieved = databaseGet(uuid);
-      retrieved.ifPresent(retrievedUsername -> redisSet(uuid, retrievedUsername));
+      retrieved.ifPresent(retrievedUsername -> redisSet(uuid, retrievedUsername, false));
 
       return retrieved;
     }
@@ -108,7 +108,7 @@ public class UsernamesManager {
     return usernames.get(uuid);
   }
 
-  private void redisSet(UUID uuid, String username) {
+  private void redisSet(UUID uuid, String username, boolean required) {
     try (Jedis         jedis   = cacheClient.getWriteResource();
          Timer.Context ignored = redisSetTimer.time())
     {
@@ -116,6 +116,9 @@ public class UsernamesManager {
 
       jedis.set(getUuidMapKey(uuid), username);
       jedis.set(getUsernameMapKey(username), uuid.toString());
+    } catch (JedisException e) {
+      if (required) throw e;
+      else          logger.warn("Ignoring jedis failure", e);
     }
   }
 
