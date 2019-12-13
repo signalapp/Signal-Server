@@ -171,6 +171,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private ZkConfig zkConfig;
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private RemoteConfigConfiguration remoteConfig;
+
   private Map<String, String> transparentDataIndex = new HashMap<>();
 
   public RecaptchaConfiguration getRecaptchaConfiguration() {
@@ -299,4 +304,7 @@ public class WhisperServerConfiguration extends Configuration {
     return zkConfig;
   }
 
+  public RemoteConfigConfiguration getRemoteConfigConfiguration() {
+    return remoteConfig;
+  }
 }

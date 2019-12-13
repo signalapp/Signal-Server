@@ -273,4 +273,24 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="12" author="moxie">
+        <createTable tableName="remote_config">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+
+            <column name="name" type="text">
+                <constraints nullable="false" unique="true"/>
+            </column>
+
+            <column name="percentage" type="int">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="uuids" type="text []">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
 </databaseChangeLog>

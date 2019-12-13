@@ -179,6 +179,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     Keys              keys              = new Keys(keysDatabase);
     Messages          messages          = new Messages(messageDatabase);
     AbusiveHostRules  abusiveHostRules  = new AbusiveHostRules(abuseDatabase);
+    RemoteConfigs     remoteConfigs     = new RemoteConfigs(accountDatabase);
 
     RedisClientFactory cacheClientFactory         = new RedisClientFactory("main_cache", config.getCacheConfiguration().getUrl(), config.getCacheConfiguration().getReplicaUrls(), config.getCacheConfiguration().getCircuitBreakerConfiguration());
     RedisClientFactory directoryClientFactory     = new RedisClientFactory("directory_cache", config.getDirectoryConfiguration().getRedisConfiguration().getUrl(), config.getDirectoryConfiguration().getRedisConfiguration().getReplicaUrls(), config.getDirectoryConfiguration().getRedisConfiguration().getCircuitBreakerConfiguration());
@@ -199,6 +200,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ProfilesManager            profilesManager            = new ProfilesManager(profiles, cacheClient);
     MessagesCache              messagesCache              = new MessagesCache(messagesClient, messages, accountsManager, config.getMessageCacheConfiguration().getPersistDelayMinutes());
     MessagesManager            messagesManager            = new MessagesManager(messages, messagesCache);
+    RemoteConfigsManager       remoteConfigsManager       = new RemoteConfigsManager(remoteConfigs);
     DeadLetterHandler          deadLetterHandler          = new DeadLetterHandler(messagesManager);
     DispatchManager            dispatchManager            = new DispatchManager(cacheClientFactory, Optional.of(deadLetterHandler));
     PubSubManager              pubSubManager              = new PubSubManager(cacheClient, dispatchManager);
@@ -245,6 +247,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(pushSender);
     environment.lifecycle().manage(messagesCache);
     environment.lifecycle().manage(accountDatabaseCrawler);
+    environment.lifecycle().manage(remoteConfigsManager);
 
     AWSCredentials         credentials         = new BasicAWSCredentials(config.getCdnConfiguration().getAccessKey(), config.getCdnConfiguration().getAccessSecret());
     AWSCredentialsProvider credentialsProvider = new AWSStaticCredentialsProvider(credentials);
@@ -263,6 +266,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     MessageController      messageController      = new MessageController(rateLimiters, pushSender, receiptSender, accountsManager, messagesManager, apnFallbackManager);
     ProfileController      profileController      = new ProfileController(rateLimiters, accountsManager, profilesManager, usernamesManager, cdnS3Client, cdnPolicyGenerator, cdnPolicySigner, config.getCdnConfiguration().getBucket(), zkProfileOperations, isZkEnabled);
     StickerController      stickerController      = new StickerController(rateLimiters, config.getCdnConfiguration().getAccessKey(), config.getCdnConfiguration().getAccessSecret(), config.getCdnConfiguration().getRegion(), config.getCdnConfiguration().getBucket());
+    RemoteConfigController remoteConfigController = new RemoteConfigController(remoteConfigsManager, config.getRemoteConfigConfiguration().getAuthorizedTokens());
 
     AuthFilter<BasicCredentials, Account>                  accountAuthFilter                  = new BasicCredentialAuthFilter.Builder<Account>().setAuthenticator(accountAuthenticator).buildAuthFilter                                  ();
     AuthFilter<BasicCredentials, DisabledPermittedAccount> disabledPermittedAccountAuthFilter = new BasicCredentialAuthFilter.Builder<DisabledPermittedAccount>().setAuthenticator(disabledPermittedAccountAuthenticator).buildAuthFilter();
@@ -285,6 +289,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(messageController);
     environment.jersey().register(profileController);
     environment.jersey().register(stickerController);
+    environment.jersey().register(remoteConfigController);
 
     ///
     WebSocketEnvironment webSocketEnvironment = new WebSocketEnvironment(environment, config.getWebSocketConfiguration(), 90000);
@@ -295,6 +300,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.jersey().register(profileController);
     webSocketEnvironment.jersey().register(attachmentControllerV1);
     webSocketEnvironment.jersey().register(attachmentControllerV2);
+    webSocketEnvironment.jersey().register(remoteConfigController);
 
     WebSocketEnvironment provisioningEnvironment = new WebSocketEnvironment(environment, webSocketEnvironment.getRequestLog(), 60000);
     provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(pubSubManager));
