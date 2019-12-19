@@ -58,7 +58,7 @@ public class StickerControllerTest {
     assertThat(attributes.getManifest().getKey()).isEqualTo("stickers/" + attributes.getPackId() + "/manifest.proto");
     assertThat(attributes.getManifest().getAcl()).isEqualTo("private");
     assertThat(attributes.getManifest().getPolicy()).isNotEmpty();
-    assertThat(new String(Base64.decode(attributes.getManifest().getPolicy()))).contains("[\"content-length-range\", 1, 1024]");
+    assertThat(new String(Base64.decode(attributes.getManifest().getPolicy()))).contains("[\"content-length-range\", 1, 10240]");
     assertThat(attributes.getManifest().getSignature()).isNotEmpty();
     assertThat(attributes.getManifest().getAlgorithm()).isEqualTo("AWS4-HMAC-SHA256");
     assertThat(attributes.getManifest().getCredential()).isNotEmpty();

@@ -50,7 +50,7 @@ public class StickerController {
     String                    packId            = generatePackId();
     String                    packLocation      = "stickers/" + packId;
     String                    manifestKey       = packLocation + "/manifest.proto";
-    Pair<String, String>      manifestPolicy    = policyGenerator.createFor(now, manifestKey, 1024);
+    Pair<String, String>      manifestPolicy    = policyGenerator.createFor(now, manifestKey, 10240);
     String                    manifestSignature = policySigner.getSignature(now, manifestPolicy.second());
     StickerPackFormUploadItem manifest          = new StickerPackFormUploadItem(-1, manifestKey, manifestPolicy.first(), "private", "AWS4-HMAC-SHA256",
                                                                                 now.format(PostPolicyGenerator.AWS_DATE_TIME), manifestPolicy.second(), manifestSignature);
