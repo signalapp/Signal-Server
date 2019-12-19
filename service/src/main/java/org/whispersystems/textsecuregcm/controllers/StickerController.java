@@ -41,7 +41,7 @@ public class StickerController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/pack/form/{count}")
   public StickerPackFormUploadAttributes getStickersForm(@Auth Account account,
-                                                         @PathParam("count") @Min(1) @Max(50) int stickerCount)
+                                                         @PathParam("count") @Min(1) @Max(201) int stickerCount)
       throws RateLimitExceededException
   {
     rateLimiters.getStickerPackLimiter().validate(account.getNumber());

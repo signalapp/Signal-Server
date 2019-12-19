@@ -84,7 +84,7 @@ public class StickerControllerTest {
   @Test
   public void testCreateTooLargePack() throws Exception {
     Response response = resources.getJerseyTest()
-                        .target("/v1/sticker/pack/form/51")
+                        .target("/v1/sticker/pack/form/202")
                         .request()
                         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                         .get();
