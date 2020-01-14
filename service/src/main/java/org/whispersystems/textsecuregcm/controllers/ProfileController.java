@@ -24,6 +24,7 @@ import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
+import org.whispersystems.textsecuregcm.util.ExactlySize;
 import org.whispersystems.textsecuregcm.util.Pair;
 
 import javax.ws.rs.GET;
@@ -156,7 +157,7 @@ public class ProfileController {
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/name/{name}")
-  public void setProfile(@Auth Account account, @PathParam("name") @UnwrapValidatedValue(true) @Length(min = 72,max= 72) Optional<String> name) {
+  public void setProfile(@Auth Account account, @PathParam("name") @UnwrapValidatedValue(true) @ExactlySize({72, 108}) Optional<String> name) {
     account.setProfileName(name.orElse(null));
     accountsManager.update(account);
   }

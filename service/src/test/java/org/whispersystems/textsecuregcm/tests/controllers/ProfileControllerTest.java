@@ -5,7 +5,9 @@ import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
+import org.mockito.Mockito;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
@@ -20,6 +22,7 @@ import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
+import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.Response;
 import java.util.Optional;
 
@@ -89,6 +92,8 @@ public class ProfileControllerTest {
 
     when(accountsManager.get(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(capabilitiesAccount));
     when(accountsManager.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(AuthHelper.VALID_NUMBER)))).thenReturn(Optional.of(capabilitiesAccount));
+
+    Mockito.clearInvocations(accountsManager);
   }
 
   @Test
@@ -207,6 +212,44 @@ public class ProfileControllerTest {
                               .get(Profile.class);
 
     assertThat(profile.getCapabilities().isUuid()).isTrue();
+  }
+
+  @Test
+  public void testSetProfileName() {
+    Response response = resources.getJerseyTest()
+                                 .target("/v1/profile/name/123456789012345678901234567890123456789012345678901234567890123456789012")
+                                 .request()
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                 .put(Entity.text(""));
+
+    assertThat(response.getStatus()).isEqualTo(204);
+
+    verify(accountsManager, times(1)).update(any(Account.class));
+  }
+
+  @Test
+  public void testSetProfileNameExtended() {
+    Response response = resources.getJerseyTest()
+                                 .target("/v1/profile/name/123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678")
+                                 .request()
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                 .put(Entity.text(""));
+
+    assertThat(response.getStatus()).isEqualTo(204);
+
+    verify(accountsManager, times(1)).update(any(Account.class));
+  }
+
+  @Test
+  public void testSetProfileNameWrongSize() {
+    Response response = resources.getJerseyTest()
+                                 .target("/v1/profile/name/1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890")
+                                 .request()
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                 .put(Entity.text(""));
+
+    assertThat(response.getStatus()).isEqualTo(400);
+    verifyNoMoreInteractions(accountsManager);
   }
 
 }
