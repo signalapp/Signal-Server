@@ -157,7 +157,7 @@
         <dependency>
             <groupId>com.opentable.components</groupId>
             <artifactId>otj-pg-embedded</artifactId>
-            <version>0.13.1</version>
+            <version>0.13.3</version>
             <scope>test</scope>
         </dependency>
 
