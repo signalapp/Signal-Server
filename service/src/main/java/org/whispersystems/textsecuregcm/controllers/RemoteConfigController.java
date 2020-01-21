@@ -21,9 +21,12 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import io.dropwizard.auth.Auth;
@@ -46,12 +49,12 @@ public class RemoteConfigController {
   public UserRemoteConfigList getAll(@Auth Account account) {
     try {
       MessageDigest digest = MessageDigest.getInstance("SHA1");
-      byte[]        number = account.getNumber().getBytes();
 
       return new UserRemoteConfigList(remoteConfigsManager.getAll().stream().map(config -> new UserRemoteConfig(config.getName(),
-                                                                                                                isInBucket(digest, number,
+                                                                                                                isInBucket(digest, account.getUuid(),
                                                                                                                            config.getName().getBytes(),
-                                                                                                                           config.getPercentage())))
+                                                                                                                           config.getPercentage(),
+                                                                                                                           config.getUuids())))
                                                           .collect(Collectors.toList()));
     } catch (NoSuchAlgorithmException e) {
       throw new AssertionError(e);
@@ -82,8 +85,14 @@ public class RemoteConfigController {
   }
 
   @VisibleForTesting
-  public static boolean isInBucket(MessageDigest digest, byte[] user, byte[] configName, int configPercentage) {
-    digest.update(user);
+  public static boolean isInBucket(MessageDigest digest, UUID uid, byte[] configName, int configPercentage, Set<UUID> uuidsInBucket) {
+    if (uuidsInBucket.contains(uid)) return true;
+
+    ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
+    bb.putLong(uid.getMostSignificantBits());
+    bb.putLong(uid.getLeastSignificantBits());
+
+    digest.update(bb.array());
 
     byte[] hash   = digest.digest(configName);
     int    bucket = (int)(Math.abs(Conversions.byteArrayToLong(hash)) % 100);
@@ -93,7 +102,7 @@ public class RemoteConfigController {
 
   @SuppressWarnings("BooleanMethodIsAlwaysInverted")
   private boolean isAuthorized(String configToken) {
-    return configAuthTokens.stream().anyMatch(authorized -> MessageDigest.isEqual(authorized.getBytes(), configToken.getBytes()));
+    return configToken != null && configAuthTokens.stream().anyMatch(authorized -> MessageDigest.isEqual(authorized.getBytes(), configToken.getBytes()));
   }
 
 }

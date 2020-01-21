@@ -11,6 +11,7 @@ import org.whispersystems.textsecuregcm.storage.mappers.RemoteConfigRowMapper;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,8 +23,7 @@ public class RemoteConfigs {
   public static final String ID         = "id";
   public static final String NAME       = "name";
   public static final String PERCENTAGE = "percentage";
-
-  private static final ObjectMapper mapper = SystemMapper.getMapper();
+  public static final String UUIDS      = "uuids";
 
   private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private final Timer          setTimer       = metricRegistry.timer(name(Accounts.class, "set"   ));
@@ -35,14 +35,16 @@ public class RemoteConfigs {
   public RemoteConfigs(FaultTolerantDatabase database) {
     this.database = database;
     this.database.getDatabase().registerRowMapper(new RemoteConfigRowMapper());
+    this.database.getDatabase().registerArrayType(UUID.class, "uuid");
   }
 
   public void set(RemoteConfig remoteConfig) {
     database.use(jdbi -> jdbi.useHandle(handle -> {
       try (Timer.Context ignored = setTimer.time()) {
-        handle.createUpdate("INSERT INTO remote_config (" + NAME + ", " + PERCENTAGE + ") VALUES (:name, :percentage) ON CONFLICT(" + NAME + ") DO UPDATE SET " + PERCENTAGE + " = EXCLUDED." + PERCENTAGE)
+        handle.createUpdate("INSERT INTO remote_config (" + NAME + ", " + PERCENTAGE + ", " + UUIDS + ") VALUES (:name, :percentage, :uuids) ON CONFLICT(" + NAME + ") DO UPDATE SET " + PERCENTAGE + " = EXCLUDED." + PERCENTAGE + ", " + UUIDS + " = EXCLUDED." + UUIDS)
               .bind("name", remoteConfig.getName())
               .bind("percentage", remoteConfig.getPercentage())
+              .bind("uuids", remoteConfig.getUuids().toArray(new UUID[0]))
               .execute();
       }
     }));

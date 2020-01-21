@@ -12,9 +12,12 @@ import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.RemoteConfig;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigs;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
+import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
+import java.util.HashSet;
 import java.util.List;
 
+import io.dropwizard.auth.Auth;
 import static org.assertj.core.api.Java6Assertions.assertThat;
 
 public class RemoteConfigsManagerTest {
@@ -33,9 +36,11 @@ public class RemoteConfigsManagerTest {
 
   @Test
   public void testUpdate() throws InterruptedException {
-    remoteConfigs.set(new RemoteConfig("android.stickers", 50));
-    remoteConfigs.set(new RemoteConfig("ios.stickers", 50));
-    remoteConfigs.set(new RemoteConfig("ios.stickers", 75));
+    remoteConfigs.set(new RemoteConfig("android.stickers", 50, new HashSet<>() {{
+      add(AuthHelper.VALID_UUID);
+    }}));
+    remoteConfigs.set(new RemoteConfig("ios.stickers", 50, new HashSet<>()));
+    remoteConfigs.set(new RemoteConfig("ios.stickers", 75, new HashSet<>()));
 
     Thread.sleep(501);
 
@@ -44,8 +49,12 @@ public class RemoteConfigsManagerTest {
     assertThat(results.size()).isEqualTo(2);
     assertThat(results.get(0).getName()).isEqualTo("android.stickers");
     assertThat(results.get(0).getPercentage()).isEqualTo(50);
+    assertThat(results.get(0).getUuids().size()).isEqualTo(1);
+    assertThat(results.get(0).getUuids().contains(AuthHelper.VALID_UUID)).isTrue();
+
     assertThat(results.get(1).getName()).isEqualTo("ios.stickers");
     assertThat(results.get(1).getPercentage()).isEqualTo(75);
+    assertThat(results.get(1).getUuids()).isEmpty();
 
   }
 
