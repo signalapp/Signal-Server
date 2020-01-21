@@ -65,9 +65,8 @@ public class CertificateControllerTest {
                                                                    .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
                                                                    .setMapper(SystemMapper.getMapper())
                                                                    .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-                                                                   .addResource(new CertificateController(certificateGenerator, serverZkAuthOperations))
+                                                                   .addResource(new CertificateController(certificateGenerator, serverZkAuthOperations, true))
                                                                    .build();
-
 
   @Test
   public void testValidCertificate() throws Exception {
@@ -228,8 +227,4 @@ public class CertificateControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(401);
   }
-
-
-
-
 }

@@ -34,10 +34,12 @@ public class CertificateController {
 
   private final CertificateGenerator   certificateGenerator;
   private final ServerZkAuthOperations serverZkAuthOperations;
+  private final boolean                isZkEnabled;
 
-  public CertificateController(CertificateGenerator certificateGenerator, ServerZkAuthOperations serverZkAuthOperations) {
+  public CertificateController(CertificateGenerator certificateGenerator, ServerZkAuthOperations serverZkAuthOperations, boolean isZkEnabled) {
     this.certificateGenerator   = certificateGenerator;
     this.serverZkAuthOperations = serverZkAuthOperations;
+    this.isZkEnabled            = isZkEnabled;
   }
 
   @Timed
@@ -65,6 +67,7 @@ public class CertificateController {
                                                        @PathParam("startRedemptionTime") int startRedemptionTime,
                                                        @PathParam("endRedemptionTime") int endRedemptionTime)
   {
+    if (!isZkEnabled)                                         throw new WebApplicationException(Response.Status.NOT_FOUND);
     if (startRedemptionTime > endRedemptionTime)              throw new WebApplicationException(Response.Status.BAD_REQUEST);
     if (endRedemptionTime > Util.currentDaysSinceEpoch() + 7) throw new WebApplicationException(Response.Status.BAD_REQUEST);
     if (startRedemptionTime < Util.currentDaysSinceEpoch())   throw new WebApplicationException(Response.Status.BAD_REQUEST);

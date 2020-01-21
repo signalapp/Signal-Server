@@ -68,6 +68,7 @@ public class ProfileController {
   private final PolicySigner              policySigner;
   private final PostPolicyGenerator       policyGenerator;
   private final ServerZkProfileOperations zkProfileOperations;
+  private final boolean                   isZkEnabled;
 
   private final AmazonS3            s3client;
   private final String              bucket;
@@ -80,7 +81,8 @@ public class ProfileController {
                            PostPolicyGenerator policyGenerator,
                            PolicySigner policySigner,
                            String bucket,
-                           ServerZkProfileOperations zkProfileOperations)
+                           ServerZkProfileOperations zkProfileOperations,
+                           boolean isZkEnabled)
   {
     this.rateLimiters        = rateLimiters;
     this.accountsManager     = accountsManager;
@@ -91,6 +93,7 @@ public class ProfileController {
     this.s3client            = s3client;
     this.policyGenerator     = policyGenerator;
     this.policySigner        = policySigner;
+    this.isZkEnabled         = isZkEnabled;
   }
 
   @Timed
@@ -98,6 +101,8 @@ public class ProfileController {
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
   public Response setProfile(@Auth Account account, @Valid CreateProfileRequest request) {
+    if (!isZkEnabled) throw new WebApplicationException(Response.Status.NOT_FOUND);
+
     Optional<VersionedProfile>              currentProfile = profilesManager.get(account.getUuid(), request.getVersion());
     String                                  avatar         = request.isAvatar() ? generateAvatarObjectName() : null;
     Optional<ProfileAvatarUploadAttributes> response       = Optional.empty();
@@ -138,6 +143,7 @@ public class ProfileController {
                                       @PathParam("version")                     String version)
       throws RateLimitExceededException
   {
+    if (!isZkEnabled) throw new WebApplicationException(Response.Status.NOT_FOUND);
     return getVersionedProfile(requestAccount, accessKey, uuid, version, Optional.empty());
   }
 
@@ -152,6 +158,7 @@ public class ProfileController {
                                       @PathParam("credentialRequest")           String credentialRequest)
       throws RateLimitExceededException
   {
+    if (!isZkEnabled) throw new WebApplicationException(Response.Status.NOT_FOUND);
     return getVersionedProfile(requestAccount, accessKey, uuid, version, Optional.of(credentialRequest));
   }
 
@@ -163,6 +170,8 @@ public class ProfileController {
                                                 Optional<String> credentialRequest)
       throws RateLimitExceededException
   {
+    if (!isZkEnabled) throw new WebApplicationException(Response.Status.NOT_FOUND);
+
     try {
       if (!requestAccount.isPresent() && !accessKey.isPresent()) {
         throw new WebApplicationException(Response.Status.UNAUTHORIZED);

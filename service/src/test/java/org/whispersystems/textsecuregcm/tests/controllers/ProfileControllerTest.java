@@ -73,7 +73,8 @@ public class ProfileControllerTest {
                                                                                                       postPolicyGenerator,
                                                                                                       policySigner,
                                                                                                       "profilesBucket",
-                                                                                                      zkProfileOperations))
+                                                                                                      zkProfileOperations,
+                                                                                                      true))
                                                                    .build();
 
   @Before

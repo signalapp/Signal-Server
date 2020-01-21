@@ -21,11 +21,19 @@ public class ZkConfig {
   @NotNull
   private byte[] serverPublic;
 
+  @JsonProperty
+  @NotNull
+  private Boolean enabled;
+
   public byte[] getServerSecret() {
     return serverSecret;
   }
 
   public byte[] getServerPublic() {
     return serverPublic;
+  }
+
+  public boolean isEnabled() {
+    return enabled;
   }
 }
