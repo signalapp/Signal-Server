@@ -285,7 +285,7 @@ public class AccountController {
         long                                 timeRemaining = TimeUnit.DAYS.toMillis(7) - (System.currentTimeMillis() - existingAccount.get().getLastSeen());
         Optional<ExternalServiceCredentials> credentials   = existingAccount.get().getRegistrationLock().isPresent() &&
                                                              existingAccount.get().getRegistrationLockSalt().isPresent() ?
-                                                               Optional.of(backupServiceCredentialGenerator.generateFor(number)) :
+                                                               Optional.of(backupServiceCredentialGenerator.generateFor(existingAccount.get().getUuid().toString())) :
                                                                Optional.empty();
 
         if (Util.isEmpty(accountAttributes.getPin()) &&

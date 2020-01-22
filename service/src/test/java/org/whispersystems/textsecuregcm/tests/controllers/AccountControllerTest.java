@@ -50,6 +50,7 @@ import java.security.SecureRandom;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
@@ -67,6 +68,8 @@ public class AccountControllerTest {
   private static final String SENDER_OVER_PREFIX = "+14156666666";
   private static final String SENDER_PREAUTH     = "+14157777777";
   private static final String SENDER_REG_LOCK    = "+14158888888";
+
+  private static final UUID   SENDER_REG_LOCK_UUID = UUID.randomUUID();
 
   private static final String ABUSIVE_HOST             = "192.168.1.1";
   private static final String RESTRICTED_HOST          = "192.168.1.2";
@@ -150,6 +153,7 @@ public class AccountControllerTest {
     when(senderRegLockAccount.getRegistrationLock()).thenReturn(Optional.of(registrationLockCredentials.getHashedAuthenticationToken()));
     when(senderRegLockAccount.getRegistrationLockSalt()).thenReturn(Optional.of(registrationLockCredentials.getSalt()));
     when(senderRegLockAccount.getLastSeen()).thenReturn(System.currentTimeMillis());
+    when(senderRegLockAccount.getUuid()).thenReturn(SENDER_REG_LOCK_UUID);
 
     when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), null)));
     when(pendingAccountsManager.getCodeForNumber(SENDER_OLD)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(31), null)));
@@ -608,9 +612,9 @@ public class AccountControllerTest {
 
     RegistrationLockFailure failure = response.readEntity(RegistrationLockFailure.class);
     assertThat(failure.getBackupCredentials()).isNotNull();
-    assertThat(failure.getBackupCredentials().getUsername()).isEqualTo(SENDER_REG_LOCK);
+    assertThat(failure.getBackupCredentials().getUsername()).isEqualTo(SENDER_REG_LOCK_UUID.toString());
     assertThat(failure.getBackupCredentials().getPassword()).isNotEmpty();
-    assertThat(failure.getBackupCredentials().getPassword().startsWith(SENDER_REG_LOCK)).isTrue();
+    assertThat(failure.getBackupCredentials().getPassword().startsWith(SENDER_REG_LOCK_UUID.toString())).isTrue();
     assertThat(failure.getTimeRemaining()).isGreaterThan(0);
 
     verifyNoMoreInteractions(pinLimiter);

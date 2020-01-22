@@ -26,6 +26,6 @@ public class SecureBackupController {
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)
   public ExternalServiceCredentials getAuth(@Auth Account account) {
-    return backupServiceCredentialGenerator.generateFor(account.getNumber());
+    return backupServiceCredentialGenerator.generateFor(account.getUuid().toString());
   }
 }
