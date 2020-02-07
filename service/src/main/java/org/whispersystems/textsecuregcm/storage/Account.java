@@ -138,6 +138,12 @@ public class Account implements Principal  {
                   .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isUuid());
   }
 
+  public boolean isGroupsV2Supported() {
+    return devices.stream()
+                  .filter(Device::isEnabled)
+                  .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isGv2());
+  }
+
   public boolean isEnabled() {
     return
         getMasterDevice().isPresent()       &&

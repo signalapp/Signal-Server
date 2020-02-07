@@ -5,7 +5,6 @@ import com.codahale.metrics.annotation.Timed;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.binary.Hex;
-import org.hibernate.validator.constraints.Length;
 import org.hibernate.validator.valuehandling.UnwrapValidatedValue;
 import org.signal.zkgroup.InvalidInputException;
 import org.signal.zkgroup.VerificationFailedException;
@@ -30,8 +29,8 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
-import org.whispersystems.textsecuregcm.util.ExactlySize;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
+import org.whispersystems.textsecuregcm.util.ExactlySize;
 import org.whispersystems.textsecuregcm.util.Pair;
 
 import javax.validation.Valid;
@@ -199,7 +198,7 @@ public class ProfileController {
                                      accountProfile.get().getIdentityKey(),
                                      UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
                                      accountProfile.get().isUnrestrictedUnidentifiedAccess(),
-                                     new UserCapabilities(accountProfile.get().isUuidAddressingSupported()),
+                                     new UserCapabilities(accountProfile.get().isUuidAddressingSupported(), accountProfile.get().isGroupsV2Supported()),
                                      username.orElse(null),
                                      null, credential.orElse(null)));
     } catch (InvalidInputException e) {
@@ -235,7 +234,7 @@ public class ProfileController {
                        accountProfile.get().getIdentityKey(),
                        UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
                        accountProfile.get().isUnrestrictedUnidentifiedAccess(),
-                       new UserCapabilities(accountProfile.get().isUuidAddressingSupported()),
+                       new UserCapabilities(accountProfile.get().isUuidAddressingSupported(), accountProfile.get().isGroupsV2Supported()),
                        username,
                        accountProfile.get().getUuid(), null);
   }
@@ -306,7 +305,7 @@ public class ProfileController {
                        accountProfile.get().getIdentityKey(),
                        UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
                        accountProfile.get().isUnrestrictedUnidentifiedAccess(),
-                       new UserCapabilities(accountProfile.get().isUuidAddressingSupported()),
+                       new UserCapabilities(accountProfile.get().isUuidAddressingSupported(), accountProfile.get().isGroupsV2Supported()),
                        username.orElse(null),
                        null, null);
   }
