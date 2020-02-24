@@ -293,4 +293,15 @@
         </createTable>
     </changeSet>
 
+    <changeSet id="13" author="moxie">
+        <addColumn tableName="keys">
+            <column name="deleted" type="boolean"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="14" author="moxie" runInTransaction="false">
+        <sql>CREATE INDEX CONCURRENTLY deleted_key_index ON keys (deleted);</sql>
+    </changeSet>
+
+
 </databaseChangeLog>

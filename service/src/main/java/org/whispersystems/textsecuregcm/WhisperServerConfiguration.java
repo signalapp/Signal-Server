@@ -101,15 +101,7 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private DatabaseConfiguration keysDatabase;
-
-  @Valid
-  @NotNull
-  @JsonProperty
   private DatabaseConfiguration accountsDatabase;
-
-  @JsonProperty
-  private DatabaseConfiguration read_database;
 
   @Valid
   @NotNull
@@ -236,10 +228,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public DatabaseConfiguration getAbuseDatabaseConfiguration() {
     return abuseDatabase;
-  }
-
-  public DatabaseConfiguration getKeysDatabase() {
-    return keysDatabase;
   }
 
   public DatabaseConfiguration getAccountsDatabaseConfiguration() {
