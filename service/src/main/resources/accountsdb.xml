@@ -303,5 +303,12 @@
         <sql>CREATE INDEX CONCURRENTLY deleted_key_index ON keys (deleted);</sql>
     </changeSet>
 
+    <changeSet id="15" author="moxie" runInTransaction="false">
+        <sql>DROP INDEX CONCURRENTLY deleted_key_index;</sql>
+    </changeSet>
+
+    <changeSet id="16" author="moxie">
+        <dropColumn tableName="keys" columnName="deleted"/>
+    </changeSet>
 
 </databaseChangeLog>
