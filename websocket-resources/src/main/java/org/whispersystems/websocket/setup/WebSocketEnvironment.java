@@ -17,33 +17,30 @@
 package org.whispersystems.websocket.setup;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.eclipse.jetty.server.RequestLog;
-import org.glassfish.jersey.servlet.ServletContainer;
+import org.glassfish.jersey.server.ResourceConfig;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
+import org.whispersystems.websocket.logging.WebsocketRequestLog;
 import org.whispersystems.websocket.messages.WebSocketMessageFactory;
 import org.whispersystems.websocket.messages.protobuf.ProtobufWebSocketMessageFactory;
 
-import javax.servlet.http.HttpServlet;
 import javax.validation.Validator;
+import java.security.Principal;
 
 import io.dropwizard.jersey.DropwizardResourceConfig;
-import io.dropwizard.jersey.setup.JerseyContainerHolder;
-import io.dropwizard.jersey.setup.JerseyEnvironment;
 import io.dropwizard.setup.Environment;
 
-public class WebSocketEnvironment {
+public class WebSocketEnvironment<T extends Principal> {
 
-  private final JerseyContainerHolder jerseyServletContainer;
-  private final JerseyEnvironment     jerseyEnvironment;
+  private final ResourceConfig        jerseyConfig;
   private final ObjectMapper          objectMapper;
   private final Validator             validator;
-  private final RequestLog            requestLog;
+  private final WebsocketRequestLog   requestLog;
   private final long                  idleTimeoutMillis;
 
-  private WebSocketAuthenticator   authenticator;
-  private WebSocketMessageFactory  messageFactory;
-  private WebSocketConnectListener connectListener;
+  private WebSocketAuthenticator<T> authenticator;
+  private WebSocketMessageFactory   messageFactory;
+  private WebSocketConnectListener  connectListener;
 
   public WebSocketEnvironment(Environment environment, WebSocketConfiguration configuration) {
     this(environment, configuration, 60000);
@@ -53,27 +50,24 @@ public class WebSocketEnvironment {
     this(environment, configuration.getRequestLog().build("websocket"), idleTimeoutMillis);
   }
 
-  public WebSocketEnvironment(Environment environment, RequestLog requestLog, long idleTimeoutMillis) {
-    DropwizardResourceConfig jerseyConfig = new DropwizardResourceConfig(environment.metrics());
-
-    this.objectMapper           = environment.getObjectMapper();
-    this.validator              = environment.getValidator();
-    this.requestLog             = requestLog;
-    this.jerseyServletContainer = new JerseyContainerHolder(new ServletContainer(jerseyConfig)  );
-    this.jerseyEnvironment      = new JerseyEnvironment(jerseyServletContainer, jerseyConfig);
-    this.messageFactory         = new ProtobufWebSocketMessageFactory();
-    this.idleTimeoutMillis      = idleTimeoutMillis;
+  public WebSocketEnvironment(Environment environment, WebsocketRequestLog requestLog, long idleTimeoutMillis) {
+    this.jerseyConfig             = new DropwizardResourceConfig(environment.metrics());
+    this.objectMapper             = environment.getObjectMapper();
+    this.validator                = environment.getValidator();
+    this.requestLog               = requestLog;
+    this.messageFactory           = new ProtobufWebSocketMessageFactory();
+    this.idleTimeoutMillis        = idleTimeoutMillis;
   }
 
-  public JerseyEnvironment jersey() {
-    return jerseyEnvironment;
+  public ResourceConfig jersey() {
+    return jerseyConfig;
   }
 
-  public WebSocketAuthenticator getAuthenticator() {
+  public WebSocketAuthenticator<T> getAuthenticator() {
     return authenticator;
   }
 
-  public void setAuthenticator(WebSocketAuthenticator authenticator) {
+  public void setAuthenticator(WebSocketAuthenticator<T> authenticator) {
     this.authenticator = authenticator;
   }
 
@@ -85,16 +79,12 @@ public class WebSocketEnvironment {
     return objectMapper;
   }
 
-  public RequestLog getRequestLog() {
+  public WebsocketRequestLog getRequestLog() {
     return requestLog;
   }
 
   public Validator getValidator() {
     return validator;
-  }
-
-  public HttpServlet getJerseyServletContainer() {
-    return (HttpServlet)jerseyServletContainer.getContainer();
   }
 
   public WebSocketMessageFactory getMessageFactory() {

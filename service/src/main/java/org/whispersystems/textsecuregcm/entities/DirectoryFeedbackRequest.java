@@ -20,11 +20,12 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.validation.constraints.Size;
+import javax.validation.valueextraction.Unwrapping;
 import java.util.Optional;
 
 public class DirectoryFeedbackRequest {
 
-  @Size(max = 1024)
+  @Size(max = 1024, payload = {Unwrapping.Unwrap.class})
   @JsonProperty
   private Optional<String> reason;
 
