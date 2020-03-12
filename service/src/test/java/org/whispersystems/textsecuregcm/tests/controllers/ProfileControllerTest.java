@@ -278,7 +278,7 @@ public class ProfileControllerTest {
 
   @Test
   public void testSetProfileWantAvatarUpload() throws InvalidInputException {
-    ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment();
+    ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
 
     ProfileAvatarUploadAttributes uploadAttributes = resources.getJerseyTest()
                                                               .target("/v1/profile/")
@@ -301,7 +301,7 @@ public class ProfileControllerTest {
 
   @Test
   public void testSetProfileWantAvatarUploadWithBadProfileSize() throws InvalidInputException {
-    ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment();
+    ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
 
     Response response = resources.getJerseyTest()
                                  .target("/v1/profile/")
@@ -314,7 +314,7 @@ public class ProfileControllerTest {
 
   @Test
   public void testSetProfileWithoutAvatarUpload() throws InvalidInputException {
-    ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment();
+    ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
 
     Response response = resources.getJerseyTest()
                                  .target("/v1/profile/")
@@ -340,7 +340,7 @@ public class ProfileControllerTest {
 
   @Test
   public void testSetProvfileWithAvatarUploadAndPreviousAvatar() throws InvalidInputException {
-    ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment();
+    ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID_TWO);
 
     ProfileAvatarUploadAttributes uploadAttributes= resources.getJerseyTest()
                                                              .target("/v1/profile/")
