@@ -54,6 +54,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import io.dropwizard.auth.Auth;
@@ -67,6 +68,8 @@ public class DirectoryController {
       "attestation-error",
       "unexpected-error",
   };
+
+  private static final String[] FRONTED_REGIONS = {"+20", "+971", "+968", "+974"};
 
   private final Logger         logger            = LoggerFactory.getLogger(DirectoryController.class);
   private final MetricRegistry metricRegistry    = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
@@ -175,7 +178,10 @@ public class DirectoryController {
                              .reduce((a, b) -> b)
                              .orElseThrow();
 
-    rateLimiters.getContactsIpLimiter().validate(requester);
+    if (Stream.of(FRONTED_REGIONS).noneMatch(region -> account.getNumber().startsWith(region))) {
+      rateLimiters.getContactsIpLimiter().validate(requester);
+    }
+
     rateLimiters.getContactsLimiter().validate(account.getNumber(), contacts.getContacts().size());
     contactsHistogram.update(contacts.getContacts().size());
 
