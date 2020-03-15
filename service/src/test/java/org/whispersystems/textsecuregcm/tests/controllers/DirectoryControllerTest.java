@@ -34,14 +34,14 @@ import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyListOf;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 public class DirectoryControllerTest {
 
-  private final RateLimiters                  rateLimiters                  = mock(RateLimiters.class);
-  private final RateLimiter                   rateLimiter                   = mock(RateLimiter.class);
-  private final DirectoryManager              directoryManager              = mock(DirectoryManager.class);
+  private final RateLimiters                       rateLimiters                  = mock(RateLimiters.class                      );
+  private final RateLimiter                        rateLimiter                   = mock(RateLimiter.class                       );
+  private final RateLimiter                        ipLimiter                     = mock(RateLimiter.class                       );
+  private final DirectoryManager                   directoryManager              = mock(DirectoryManager.class                  );
   private final ExternalServiceCredentialGenerator directoryCredentialsGenerator = mock(ExternalServiceCredentialGenerator.class);
 
   private final ExternalServiceCredentials validCredentials = new ExternalServiceCredentials("username", "password");
@@ -60,6 +60,7 @@ public class DirectoryControllerTest {
   @Before
   public void setup() throws Exception {
     when(rateLimiters.getContactsLimiter()).thenReturn(rateLimiter);
+    when(rateLimiters.getContactsIpLimiter()).thenReturn(ipLimiter);
     when(directoryManager.get(anyListOf(byte[].class))).thenAnswer(new Answer<List<byte[]>>() {
       @Override
       public List<byte[]> answer(InvocationOnMock invocationOnMock) throws Throwable {
@@ -180,10 +181,13 @@ public class DirectoryControllerTest {
                  .header("Authorization",
                          AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER,
                                                   AuthHelper.VALID_PASSWORD))
+                 .header("X-Forwarded-For", "192.168.1.1, 1.1.1.1")
                  .put(Entity.entity(new ClientContactTokens(tokens), MediaType.APPLICATION_JSON_TYPE));
 
 
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.readEntity(ClientContactTokens.class).getContacts()).isEqualTo(expectedResponse);
+
+    verify(ipLimiter).validate("1.1.1.1");
   }
 }

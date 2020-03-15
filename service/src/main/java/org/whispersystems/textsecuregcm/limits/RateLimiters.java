@@ -33,6 +33,7 @@ public class RateLimiters {
 
   private final RateLimiter attachmentLimiter;
   private final RateLimiter contactsLimiter;
+  private final RateLimiter contactsIpLimiter;
   private final RateLimiter preKeysLimiter;
   private final RateLimiter messagesLimiter;
 
@@ -86,6 +87,10 @@ public class RateLimiters {
     this.contactsLimiter = new RateLimiter(cacheClient, "contactsQuery",
                                            config.getContactQueries().getBucketSize(),
                                            config.getContactQueries().getLeakRatePerMinute());
+
+    this.contactsIpLimiter = new RateLimiter(cacheClient, "contactsIpQuery",
+                                             config.getContactIpQueries().getBucketSize(),
+                                             config.getContactIpQueries().getLeakRatePerMinute());
 
     this.preKeysLimiter = new RateLimiter(cacheClient, "prekeys",
                                           config.getPreKeys().getBucketSize(),
@@ -142,6 +147,10 @@ public class RateLimiters {
 
   public RateLimiter getContactsLimiter() {
     return contactsLimiter;
+  }
+
+  public RateLimiter getContactsIpLimiter() {
+    return contactsIpLimiter;
   }
 
   public RateLimiter getAttachmentLimiter() {
