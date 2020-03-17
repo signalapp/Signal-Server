@@ -61,6 +61,11 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
+  private RedisConfiguration pubsub;
+
+  @NotNull
+  @Valid
+  @JsonProperty
   private DirectoryConfiguration directory;
 
   @NotNull
@@ -200,6 +205,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public RedisConfiguration getCacheConfiguration() {
     return cache;
+  }
+
+  public RedisConfiguration getPubsubCacheConfiguration() {
+    return pubsub;
   }
 
   public DirectoryConfiguration getDirectoryConfiguration() {
