@@ -46,7 +46,12 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
-  private AttachmentsConfiguration attachments;
+  private AwsAttachmentsConfiguration awsAttachments;
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private GcpAttachmentsConfiguration gcpAttachments;
 
   @NotNull
   @Valid
@@ -199,8 +204,12 @@ public class WhisperServerConfiguration extends Configuration {
     return httpClient;
   }
 
-  public AttachmentsConfiguration getAttachmentsConfiguration() {
-    return attachments;
+  public AwsAttachmentsConfiguration getAwsAttachmentsConfiguration() {
+    return awsAttachments;
+  }
+
+  public GcpAttachmentsConfiguration getGcpAttachmentsConfiguration() {
+    return gcpAttachments;
   }
 
   public RedisConfiguration getCacheConfiguration() {

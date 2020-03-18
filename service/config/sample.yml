@@ -56,10 +56,18 @@ messageStore: # Postgresql database configuration for message store
   password:
   url:
 
-attachments: # AWS S3 configuration
+awsAttachments: # AWS S3 configuration
   accessKey:
   accessSecret:
   bucket:
+  region:
+
+gcpAttachments: # GCP Storage configuration
+  domain:
+  email:
+  maxSizeInBytes:
+  pathPrefix:
+  rsaSigningKey:
 
 profiles: # AWS S3 configuration
   accessKey:
