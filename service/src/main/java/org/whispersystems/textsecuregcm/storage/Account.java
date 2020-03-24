@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
+import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 
 import javax.security.auth.Subject;
 import java.security.Principal;
@@ -144,6 +145,10 @@ public class Account implements Principal  {
                   .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isGv2());
   }
 
+  public boolean isStorageSupported() {
+    return devices.stream().anyMatch(device -> device.getCapabilities() != null && device.getCapabilities().isStorage());
+  }
+
   public boolean isEnabled() {
     return
         getMasterDevice().isPresent()       &&
@@ -227,30 +232,19 @@ public class Account implements Principal  {
     this.avatarDigest = avatarDigest;
   }
 
-  public Optional<String> getPin() {
-    return Optional.ofNullable(pin);
-  }
-
   public void setPin(String pin) {
     this.pin = pin;
   }
 
-  public void setRegistrationLock(String registrationLock) {
-    this.registrationLock = registrationLock;
-  }
-
-  public Optional<String> getRegistrationLock() {
-    return Optional.ofNullable(registrationLock);
-  }
-
-  public void setRegistrationLockSalt(String registrationLockSalt) {
+  public void setRegistrationLock(String registrationLock, String registrationLockSalt) {
+    this.registrationLock     = registrationLock;
     this.registrationLockSalt = registrationLockSalt;
   }
 
-  public Optional<String> getRegistrationLockSalt() {
-    return Optional.ofNullable(registrationLockSalt);
+  public StoredRegistrationLock getRegistrationLock() {
+    return new StoredRegistrationLock(Optional.ofNullable(registrationLock), Optional.ofNullable(registrationLockSalt), Optional.ofNullable(pin), getLastSeen());
   }
-
+  
   public Optional<byte[]> getUnidentifiedAccessKey() {
     return Optional.ofNullable(unidentifiedAccessKey);
   }

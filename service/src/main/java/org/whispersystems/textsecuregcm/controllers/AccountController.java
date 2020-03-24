@@ -29,6 +29,7 @@ import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.InvalidAuthorizationHeaderException;
+import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
@@ -74,14 +75,12 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import io.dropwizard.auth.Auth;
@@ -270,48 +269,26 @@ public class AccountController {
 
       Optional<StoredVerificationCode> storedVerificationCode = pendingAccounts.getCodeForNumber(number);
 
-      if (!storedVerificationCode.isPresent() || !storedVerificationCode.get().isValid(verificationCode)) {
+      if (storedVerificationCode.isEmpty() || !storedVerificationCode.get().isValid(verificationCode)) {
         throw new WebApplicationException(Response.status(403).build());
       }
 
-      Optional<Account> existingAccount = accounts.get(number);
+      Optional<Account>                    existingAccount           = accounts.get(number);
+      Optional<StoredRegistrationLock>     existingRegistrationLock  = existingAccount.map(Account::getRegistrationLock);
+      Optional<ExternalServiceCredentials> existingBackupCredentials = existingAccount.map(Account::getUuid)
+                                                                                      .map(uuid -> backupServiceCredentialGenerator.generateFor(uuid.toString()));
 
-      if (existingAccount.isPresent()                                                                             &&
-          (existingAccount.get().getPin().isPresent() || existingAccount.get().getRegistrationLock().isPresent()) &&
-          System.currentTimeMillis() - existingAccount.get().getLastSeen() < TimeUnit.DAYS.toMillis(7))
-      {
+      if (existingRegistrationLock.isPresent() && existingRegistrationLock.get().requiresClientRegistrationLock()) {
         rateLimiters.getVerifyLimiter().clear(number);
 
-        long                                 timeRemaining = TimeUnit.DAYS.toMillis(7) - (System.currentTimeMillis() - existingAccount.get().getLastSeen());
-        Optional<ExternalServiceCredentials> credentials   = existingAccount.get().getRegistrationLock().isPresent() &&
-                                                             existingAccount.get().getRegistrationLockSalt().isPresent() ?
-                                                               Optional.of(backupServiceCredentialGenerator.generateFor(existingAccount.get().getUuid().toString())) :
-                                                               Optional.empty();
-
-        if (Util.isEmpty(accountAttributes.getPin()) &&
-            Util.isEmpty(accountAttributes.getRegistrationLock()))
-        {
-          throw new WebApplicationException(Response.status(423)
-                                                    .entity(new RegistrationLockFailure(timeRemaining, credentials.orElse(null)))
-                                                    .build());
+        if (!Util.isEmpty(accountAttributes.getRegistrationLock()) || !Util.isEmpty(accountAttributes.getPin())) {
+          rateLimiters.getPinLimiter().validate(number);
         }
 
-        rateLimiters.getPinLimiter().validate(number);
-
-        boolean pinMatches;
-
-        if (existingAccount.get().getRegistrationLock().isPresent() && existingAccount.get().getRegistrationLockSalt().isPresent()) {
-          pinMatches = new AuthenticationCredentials(existingAccount.get().getRegistrationLock().get(),
-                                                     existingAccount.get().getRegistrationLockSalt().get()).verify(accountAttributes.getRegistrationLock());
-        } else if (existingAccount.get().getPin().isPresent()) {
-          pinMatches = MessageDigest.isEqual(existingAccount.get().getPin().get().getBytes(), accountAttributes.getPin().getBytes());
-        } else {
-          throw new AssertionError("Invalid registration lock state");
-        }
-
-        if (!pinMatches) {
+        if (!existingRegistrationLock.get().verify(accountAttributes.getRegistrationLock(), accountAttributes.getPin())) {
           throw new WebApplicationException(Response.status(423)
-                                                    .entity(new RegistrationLockFailure(timeRemaining, credentials.orElse(null)))
+                                                    .entity(new RegistrationLockFailure(existingRegistrationLock.get().getTimeRemaining(),
+                                                                                        existingRegistrationLock.get().needsFailureCredentials() ? existingBackupCredentials.orElseThrow() : null))
                                                     .build());
         }
 
@@ -322,7 +299,7 @@ public class AccountController {
 
       metricRegistry.meter(name(AccountController.class, "verify", Util.getCountryCode(number))).mark();
 
-      return new AccountCreationResult(account.getUuid());
+      return new AccountCreationResult(account.getUuid(), existingAccount.map(Account::isStorageSupported).orElse(false) ? existingBackupCredentials.orElse(null) : null);
     } catch (InvalidAuthorizationHeaderException e) {
       logger.info("Bad Authorization Header", e);
       throw new WebApplicationException(Response.status(401).build());
@@ -423,8 +400,7 @@ public class AccountController {
   @Path("/registration_lock")
   public void setRegistrationLock(@Auth Account account, @Valid RegistrationLock accountLock) {
     AuthenticationCredentials credentials = new AuthenticationCredentials(accountLock.getRegistrationLock());
-    account.setRegistrationLock(credentials.getHashedAuthenticationToken());
-    account.setRegistrationLockSalt(credentials.getSalt());
+    account.setRegistrationLock(credentials.getHashedAuthenticationToken(), credentials.getSalt());
     account.setPin(null);
 
     accounts.update(account);
@@ -434,8 +410,7 @@ public class AccountController {
   @DELETE
   @Path("/registration_lock")
   public void removeRegistrationLock(@Auth Account account) {
-    account.setRegistrationLock(null);
-    account.setRegistrationLockSalt(null);
+    account.setRegistrationLock(null, null);
     accounts.update(account);
   }
 
@@ -445,8 +420,7 @@ public class AccountController {
   @Path("/pin/")
   public void setPin(@Auth Account account, @Valid DeprecatedPin accountLock) {
     account.setPin(accountLock.getPin());
-    account.setRegistrationLock(null);
-    account.setRegistrationLockSalt(null);
+    account.setRegistrationLock(null, null);
 
     accounts.update(account);
   }
@@ -500,12 +474,10 @@ public class AccountController {
       account.setPin(attributes.getPin());
     } else if (!Util.isEmpty(attributes.getRegistrationLock())) {
       AuthenticationCredentials credentials = new AuthenticationCredentials(attributes.getRegistrationLock());
-      account.setRegistrationLock(credentials.getHashedAuthenticationToken());
-      account.setRegistrationLockSalt(credentials.getSalt());
+      account.setRegistrationLock(credentials.getHashedAuthenticationToken(), credentials.getSalt());
     } else {
       account.setPin(null);
-      account.setRegistrationLock(null);
-      account.setRegistrationLockSalt(null);
+      account.setRegistrationLock(null, null);
     }
 
     account.setUnidentifiedAccessKey(attributes.getUnidentifiedAccessKey());
@@ -518,7 +490,7 @@ public class AccountController {
   @Path("/whoami")
   @Produces(MediaType.APPLICATION_JSON)
   public AccountCreationResult whoAmI(@Auth Account account) {
-    return new AccountCreationResult(account.getUuid());
+    return new AccountCreationResult(account.getUuid(), backupServiceCredentialGenerator.generateFor(account.getUuid().toString()));
   }
 
   @DELETE

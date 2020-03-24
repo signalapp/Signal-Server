@@ -49,15 +49,15 @@ public class AccountTest {
     when(oldSecondaryDevice.isEnabled()).thenReturn(false);
     when(oldSecondaryDevice.getId()).thenReturn(2L);
 
-    when(uuidCapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(true, true));
+    when(uuidCapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(true, true, true));
     when(uuidCapableDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1));
     when(uuidCapableDevice.isEnabled()).thenReturn(true);
 
-    when(uuidIncapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(false, false));
+    when(uuidIncapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(false, false, false));
     when(uuidIncapableDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1));
     when(uuidIncapableDevice.isEnabled()).thenReturn(true);
 
-    when(uuidIncapableExpiredDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(false, false));
+    when(uuidIncapableExpiredDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(false, false, false));
     when(uuidIncapableExpiredDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31));
     when(uuidIncapableExpiredDevice.isEnabled()).thenReturn(false);
   }
