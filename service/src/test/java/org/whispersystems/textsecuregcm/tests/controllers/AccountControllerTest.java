@@ -40,6 +40,8 @@ import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import org.whispersystems.textsecuregcm.storage.PaymentAddress;
+import org.whispersystems.textsecuregcm.storage.PaymentAddressList;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
@@ -53,6 +55,7 @@ import java.io.IOException;
 import java.security.SecureRandom;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -577,7 +580,7 @@ public class AccountControllerTest {
                  .target(String.format("/v1/accounts/code/%s", "666666"))
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(SENDER_REG_LOCK, "bar"))
-                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 3333, null, null, Hex.toStringCondensed(registration_lock_key)),
+                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 3333, null, null, Hex.toStringCondensed(registration_lock_key), null),
                                     MediaType.APPLICATION_JSON_TYPE), AccountCreationResult.class);
 
     assertThat(result.getUuid()).isNotNull();
@@ -593,7 +596,7 @@ public class AccountControllerTest {
                  .target(String.format("/v1/accounts/code/%s", "666666"))
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(SENDER_REG_LOCK, "bar"))
-                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 3333, null, null, Hex.toStringCondensed(registration_lock_key)),
+                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 3333, null, null, Hex.toStringCondensed(registration_lock_key), null),
                                     MediaType.APPLICATION_JSON_TYPE), AccountCreationResult.class);
 
     assertThat(result.getUuid()).isNotNull();
@@ -627,7 +630,7 @@ public class AccountControllerTest {
                    .target(String.format("/v1/accounts/code/%s", "666666"))
                    .request()
                    .header("Authorization", AuthHelper.getAuthHeader(SENDER_REG_LOCK, "bar"))
-                   .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 3333, null, null, null),
+                   .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 3333, null, null, null, null),
                                       MediaType.APPLICATION_JSON_TYPE), AccountCreationResult.class);
 
       assertThat(result.getUuid()).isNotNull();
@@ -781,6 +784,78 @@ public class AccountControllerTest {
     assertThat(pinSaltCapture.getValue()).isNotEmpty();
 
     assertThat(pinCapture.getValue().length()).isEqualTo(40);
+  }
+
+  @Test
+  public void testSetPayments() {
+    PaymentAddress paymentAddress = new PaymentAddress("some address", "V15Pf5JsFcQF6AtlM3vo3OhGEgFwTh8G3iDDvShpr8QzoJmFQ+a2xb3PoXRmGF60DLq1RR2o8Fgw+f953mKvNA==");
+
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/accounts/payments/")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID.toString(), AuthHelper.VALID_PASSWORD))
+                 .put(Entity.json(new PaymentAddressList(List.of(paymentAddress))));
+
+    assertThat(response.getStatus()).isEqualTo(204);
+
+    verify(AuthHelper.VALID_ACCOUNT, times(1)).setPayments(eq(List.of(paymentAddress)));
+  }
+
+  @Test
+  public void testSetPaymentsUnauthorized() {
+    PaymentAddress paymentAddress = new PaymentAddress("an address", "V15Pf5JsFcQF6AtlM3vo3OhGEgFwTh8G3iDDvShpr8QzoJmFQ+a2xb3PoXRmGF60DLq1RR2o8Fgw+f953mKvNA==");
+
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/accounts/payments/")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.INVALID_UUID.toString(), AuthHelper.INVALID_PASSWORD))
+                 .put(Entity.json(new PaymentAddressList(List.of(paymentAddress))));
+
+    assertThat(response.getStatus()).isEqualTo(401);
+  }
+
+  @Test
+  public void testSetPaymentsInvalidSignature() {
+    PaymentAddress paymentAddress = new PaymentAddress("some address", "123456789012345678901234567890123");
+
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/accounts/payments/")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID.toString(), AuthHelper.VALID_PASSWORD))
+                 .put(Entity.json(new PaymentAddressList(List.of(paymentAddress))));
+
+    assertThat(response.getStatus()).isEqualTo(422);
+  }
+
+  @Test
+  public void testSetPaymentsEmptyAddress() {
+    PaymentAddress paymentAddress = new PaymentAddress(null, "V15Pf5JsFcQF6AtlM3vo3OhGEgFwTh8G3iDDvShpr8QzoJmFQ+a2xb3PoXRmGF60DLq1RR2o8Fgw+f953mKvNA==");
+
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/accounts/payments/")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID.toString(), AuthHelper.VALID_PASSWORD))
+                 .put(Entity.json(new PaymentAddressList(List.of(paymentAddress))));
+
+    assertThat(response.getStatus()).isEqualTo(422);
+  }
+
+  @Test
+  public void testSetPaymentsEmptySignature() {
+    PaymentAddress paymentAddress = new PaymentAddress("some address", null);
+
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v1/accounts/payments/")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID.toString(), AuthHelper.VALID_PASSWORD))
+                 .put(Entity.json(new PaymentAddressList(List.of(paymentAddress))));
+
+    assertThat(response.getStatus()).isEqualTo(422);
   }
 
 

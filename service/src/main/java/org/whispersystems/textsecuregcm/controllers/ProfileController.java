@@ -200,7 +200,9 @@ public class ProfileController {
                                      accountProfile.get().isUnrestrictedUnidentifiedAccess(),
                                      new UserCapabilities(accountProfile.get().isUuidAddressingSupported(), accountProfile.get().isGroupsV2Supported()),
                                      username.orElse(null),
-                                     null, credential.orElse(null)));
+                                     null,
+                                     credential.orElse(null),
+                                     accountProfile.get().getPayments()));
     } catch (InvalidInputException e) {
       logger.info("Bad profile request", e);
       throw new WebApplicationException(Response.Status.BAD_REQUEST);
@@ -236,7 +238,9 @@ public class ProfileController {
                        accountProfile.get().isUnrestrictedUnidentifiedAccess(),
                        new UserCapabilities(accountProfile.get().isUuidAddressingSupported(), accountProfile.get().isGroupsV2Supported()),
                        username,
-                       accountProfile.get().getUuid(), null);
+                       accountProfile.get().getUuid(),
+                       null,
+                       accountProfile.get().getPayments());
   }
 
   private Optional<ProfileKeyCredentialResponse> getProfileCredential(Optional<String>           encodedProfileCredentialRequest,
@@ -307,7 +311,9 @@ public class ProfileController {
                        accountProfile.get().isUnrestrictedUnidentifiedAccess(),
                        new UserCapabilities(accountProfile.get().isUuidAddressingSupported(), accountProfile.get().isGroupsV2Supported()),
                        username.orElse(null),
-                       null, null);
+                       null,
+                       null,
+                       accountProfile.get().getPayments());
   }
 
 

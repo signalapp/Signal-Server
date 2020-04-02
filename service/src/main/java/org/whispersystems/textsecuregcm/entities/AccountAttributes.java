@@ -21,6 +21,9 @@ import com.google.common.annotations.VisibleForTesting;
 import org.hibernate.validator.constraints.Length;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
+import org.whispersystems.textsecuregcm.storage.PaymentAddress;
+
+import java.util.List;
 
 public class AccountAttributes {
 
@@ -50,23 +53,27 @@ public class AccountAttributes {
   private boolean unrestrictedUnidentifiedAccess;
 
   @JsonProperty
+  private List<PaymentAddress> payments;
+
+  @JsonProperty
   private DeviceCapabilities capabilities;
 
   public AccountAttributes() {}
 
   @VisibleForTesting
   public AccountAttributes(String signalingKey, boolean fetchesMessages, int registrationId, String pin) {
-    this(signalingKey, fetchesMessages, registrationId, null, pin, null);
+    this(signalingKey, fetchesMessages, registrationId, null, pin, null, null);
   }
 
   @VisibleForTesting
-  public AccountAttributes(String signalingKey, boolean fetchesMessages, int registrationId, String name, String pin, String registrationLock) {
+  public AccountAttributes(String signalingKey, boolean fetchesMessages, int registrationId, String name, String pin, String registrationLock, List<PaymentAddress> payments) {
     this.signalingKey     = signalingKey;
     this.fetchesMessages  = fetchesMessages;
     this.registrationId   = registrationId;
     this.name             = name;
     this.pin              = pin;
     this.registrationLock = registrationLock;
+    this.payments         = payments;
   }
 
   public String getSignalingKey() {
@@ -103,5 +110,9 @@ public class AccountAttributes {
 
   public DeviceCapabilities getCapabilities() {
     return capabilities;
+  }
+
+  public List<PaymentAddress> getPayments() {
+    return payments;
   }
 }
