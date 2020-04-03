@@ -124,7 +124,7 @@ public class KeysController {
                                                 @PathParam("device_id")                   String deviceId)
       throws RateLimitExceededException
   {
-    if (!account.isPresent() && !accessKey.isPresent()) {
+    if (account.isEmpty() && accessKey.isEmpty()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
@@ -182,11 +182,7 @@ public class KeysController {
   @Path("/signed")
   @Produces(MediaType.APPLICATION_JSON)
   public Optional<SignedPreKey> getSignedKey(@Auth Account account) {
-    Device       device       = account.getAuthenticatedDevice().get();
-    SignedPreKey signedPreKey = device.getSignedPreKey();
-
-    if (signedPreKey != null) return Optional.of(signedPreKey);
-    else                      return Optional.empty();
+    return account.getAuthenticatedDevice().map(Device::getSignedPreKey);
   }
 
   private List<KeyRecord> getLocalKeys(Account destination, String deviceIdSelector) {
