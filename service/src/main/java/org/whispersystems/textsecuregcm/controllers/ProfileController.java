@@ -93,7 +93,7 @@ public class ProfileController {
                             @QueryParam("ca")                         boolean useCaCertificate)
       throws RateLimitExceededException
   {
-    if (!requestAccount.isPresent() && !accessKey.isPresent()) {
+    if (requestAccount.isEmpty() && accessKey.isEmpty()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
@@ -132,13 +132,13 @@ public class ProfileController {
 
     Optional<UUID> uuid = usernamesManager.get(username);
 
-    if (!uuid.isPresent()) {
+    if (uuid.isEmpty()) {
       throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
     }
 
     Optional<Account> accountProfile = accountsManager.get(uuid.get());
 
-    if (!accountProfile.isPresent()) {
+    if (accountProfile.isEmpty()) {
       throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
     }
 
