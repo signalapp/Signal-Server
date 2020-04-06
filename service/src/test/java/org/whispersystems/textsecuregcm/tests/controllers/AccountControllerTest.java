@@ -1,11 +1,14 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
 import com.google.common.collect.ImmutableSet;
+import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
+import io.dropwizard.testing.junit.ResourceTestRule;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatcher;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
@@ -54,11 +57,18 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
-import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.isA;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.notNull;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 public class AccountControllerTest {
 
@@ -573,6 +583,36 @@ public class AccountControllerTest {
     assertThat(result.getUuid()).isNotNull();
 
     verify(pinLimiter).validate(eq(SENDER_REG_LOCK));
+  }
+
+  @Test
+  public void testVerifyRegistrationLockSetsRegistrationLockOnNewAccount() throws Exception {
+
+    AccountCreationResult result =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/code/%s", "666666"))
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(SENDER_REG_LOCK, "bar"))
+                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 3333, null, null, Hex.toStringCondensed(registration_lock_key)),
+                                    MediaType.APPLICATION_JSON_TYPE), AccountCreationResult.class);
+
+    assertThat(result.getUuid()).isNotNull();
+
+    verify(pinLimiter).validate(eq(SENDER_REG_LOCK));
+
+    verify(accountsManager).create(argThat(new ArgumentMatcher<>() {
+      @Override
+      public boolean matches(final Account account) {
+        final StoredRegistrationLock regLock = account.getRegistrationLock();
+        return regLock.requiresClientRegistrationLock() && regLock.verify(Hex.toStringCondensed(registration_lock_key), null);
+      }
+
+      @Override
+      public String toString() {
+        return "Account that has registration lock set";
+      }
+    }));
+
   }
 
   @Test

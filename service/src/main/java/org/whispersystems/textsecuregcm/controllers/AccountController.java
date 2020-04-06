@@ -21,6 +21,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
+import io.dropwizard.auth.Auth;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
@@ -83,7 +84,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static com.codahale.metrics.MetricRegistry.name;
-import io.dropwizard.auth.Auth;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/accounts")
@@ -470,22 +470,13 @@ public class AccountController {
     device.setSignalingKey(attributes.getSignalingKey());
     device.setUserAgent(userAgent);
 
-    if (!Util.isEmpty(attributes.getPin())) {
-      account.setPin(attributes.getPin());
-    } else if (!Util.isEmpty(attributes.getRegistrationLock())) {
-      AuthenticationCredentials credentials = new AuthenticationCredentials(attributes.getRegistrationLock());
-      account.setRegistrationLock(credentials.getHashedAuthenticationToken(), credentials.getSalt());
-    } else {
-      account.setPin(null);
-      account.setRegistrationLock(null, null);
-    }
+    setAccountRegistrationLockFromAttributes(account, attributes);
 
     account.setUnidentifiedAccessKey(attributes.getUnidentifiedAccessKey());
     account.setUnrestrictedUnidentifiedAccess(attributes.isUnrestrictedUnidentifiedAccess());
 
     accounts.update(account);
   }
-
   @GET
   @Path("/whoami")
   @Produces(MediaType.APPLICATION_JSON)
@@ -614,7 +605,7 @@ public class AccountController {
     account.setNumber(number);
     account.setUuid(UUID.randomUUID());
     account.addDevice(device);
-    account.setPin(accountAttributes.getPin());
+    setAccountRegistrationLockFromAttributes(account, accountAttributes);
     account.setUnidentifiedAccessKey(accountAttributes.getUnidentifiedAccessKey());
     account.setUnrestrictedUnidentifiedAccess(accountAttributes.isUnrestrictedUnidentifiedAccess());
 
@@ -632,6 +623,18 @@ public class AccountController {
     pendingAccounts.remove(number);
 
     return account;
+  }
+
+  private void setAccountRegistrationLockFromAttributes(Account account, @Valid AccountAttributes attributes) {
+    if (!Util.isEmpty(attributes.getPin())) {
+      account.setPin(attributes.getPin());
+    } else if (!Util.isEmpty(attributes.getRegistrationLock())) {
+      AuthenticationCredentials credentials = new AuthenticationCredentials(attributes.getRegistrationLock());
+      account.setRegistrationLock(credentials.getHashedAuthenticationToken(), credentials.getSalt());
+    } else {
+      account.setPin(null);
+      account.setRegistrationLock(null, null);
+    }
   }
 
   @VisibleForTesting protected
