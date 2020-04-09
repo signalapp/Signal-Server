@@ -41,7 +41,7 @@
         <dependency>
             <groupId>org.signal</groupId>
             <artifactId>zkgroup-java</artifactId>
-            <version>0.4.0</version>
+            <version>0.4.2</version>
         </dependency>
 
 
