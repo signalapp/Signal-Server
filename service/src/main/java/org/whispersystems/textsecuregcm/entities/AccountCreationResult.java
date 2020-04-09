@@ -12,20 +12,20 @@ public class AccountCreationResult {
   private UUID uuid;
 
   @JsonProperty
-  private ExternalServiceCredentials backupCredentials;
+  private boolean storageCapable;
 
   public AccountCreationResult() {}
 
-  public AccountCreationResult(UUID uuid, ExternalServiceCredentials backupCredentials) {
-    this.uuid              = uuid;
-    this.backupCredentials = backupCredentials;
+  public AccountCreationResult(UUID uuid, boolean storageCapable) {
+    this.uuid           = uuid;
+    this.storageCapable = storageCapable;
   }
 
   public UUID getUuid() {
     return uuid;
   }
 
-  public ExternalServiceCredentials getBackupCredentials() {
-    return backupCredentials;
+  public boolean isStorageCapable() {
+    return storageCapable;
   }
 }

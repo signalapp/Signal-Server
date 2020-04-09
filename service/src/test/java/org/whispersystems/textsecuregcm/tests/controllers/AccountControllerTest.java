@@ -502,7 +502,7 @@ public class AccountControllerTest {
                                MediaType.APPLICATION_JSON_TYPE), AccountCreationResult.class);
 
     assertThat(result.getUuid()).isNotNull();
-    assertThat(result.getBackupCredentials()).isNull();
+    assertThat(result.isStorageCapable()).isFalse();
 
     verify(accountsManager, times(1)).create(isA(Account.class));
     verify(directoryQueue, times(1)).deleteRegisteredUser(notNull(), eq(SENDER));
@@ -519,7 +519,7 @@ public class AccountControllerTest {
                                     MediaType.APPLICATION_JSON_TYPE), AccountCreationResult.class);
 
     assertThat(result.getUuid()).isNotNull();
-    assertThat(result.getBackupCredentials()).isNotNull();
+    assertThat(result.isStorageCapable()).isTrue();
 
     verify(accountsManager, times(1)).create(isA(Account.class));
     verify(directoryQueue, times(1)).deleteRegisteredUser(notNull(), eq(SENDER_HAS_STORAGE));

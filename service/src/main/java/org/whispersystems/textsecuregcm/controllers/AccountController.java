@@ -21,7 +21,6 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
-import io.dropwizard.auth.Auth;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
@@ -84,6 +83,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static com.codahale.metrics.MetricRegistry.name;
+import io.dropwizard.auth.Auth;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/accounts")
@@ -299,7 +299,7 @@ public class AccountController {
 
       metricRegistry.meter(name(AccountController.class, "verify", Util.getCountryCode(number))).mark();
 
-      return new AccountCreationResult(account.getUuid(), existingAccount.map(Account::isStorageSupported).orElse(false) ? existingBackupCredentials.orElse(null) : null);
+      return new AccountCreationResult(account.getUuid(), existingAccount.map(Account::isStorageSupported).orElse(false));
     } catch (InvalidAuthorizationHeaderException e) {
       logger.info("Bad Authorization Header", e);
       throw new WebApplicationException(Response.status(401).build());
@@ -481,7 +481,7 @@ public class AccountController {
   @Path("/whoami")
   @Produces(MediaType.APPLICATION_JSON)
   public AccountCreationResult whoAmI(@Auth Account account) {
-    return new AccountCreationResult(account.getUuid(), backupServiceCredentialGenerator.generateFor(account.getUuid().toString()));
+    return new AccountCreationResult(account.getUuid(), account.isStorageSupported());
   }
 
   @DELETE
