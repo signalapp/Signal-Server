@@ -16,7 +16,7 @@
     </modules>
 
     <properties>
-        <dropwizard.version>2.0.2</dropwizard.version>
+        <dropwizard.version>2.0.7</dropwizard.version>
         <resilience4j.version>0.14.1</resilience4j.version>
         <mockito.version>2.25.1</mockito.version>
 
@@ -111,6 +111,12 @@
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
             <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>3.15.0</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
