@@ -16,7 +16,7 @@
     </modules>
 
     <properties>
-        <dropwizard.version>2.0.7</dropwizard.version>
+        <dropwizard.version>2.0.8</dropwizard.version>
         <resilience4j.version>0.14.1</resilience4j.version>
         <mockito.version>2.25.1</mockito.version>
 

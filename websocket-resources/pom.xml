@@ -16,7 +16,7 @@
         <dependency>
             <groupId>org.eclipse.jetty.websocket</groupId>
             <artifactId>websocket-server</artifactId>
-            <version>9.4.26.v20200117</version>
+            <version>9.4.28.v20200408</version>
         </dependency>
         <dependency>
             <groupId>com.google.protobuf</groupId>
