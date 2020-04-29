@@ -107,14 +107,14 @@
 
 
         <dependency>
-            <groupId>com.turo</groupId>
+            <groupId>com.eatthepath</groupId>
             <artifactId>pushy</artifactId>
-            <version>0.13.7</version>
+            <version>0.13.11</version>
         </dependency>
         <dependency>
-            <groupId>com.turo</groupId>
+            <groupId>com.eatthepath</groupId>
             <artifactId>pushy-dropwizard-metrics-listener</artifactId>
-            <version>0.13.7</version>
+            <version>0.13.11</version>
             <exclusions>
                 <exclusion>
                     <groupId>io.dropwizard.metrics</groupId>
@@ -125,7 +125,7 @@
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-tcnative-boringssl-static</artifactId>
-            <version>2.0.20.Final</version>
+            <version>2.0.26.Final</version>
             <scope>runtime</scope>
         </dependency>
 

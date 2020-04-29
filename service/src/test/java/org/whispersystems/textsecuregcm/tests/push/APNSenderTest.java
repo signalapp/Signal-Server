@@ -1,12 +1,12 @@
 package org.whispersystems.textsecuregcm.tests.push;
 
+import com.eatthepath.pushy.apns.ApnsClient;
+import com.eatthepath.pushy.apns.ApnsPushNotification;
+import com.eatthepath.pushy.apns.DeliveryPriority;
+import com.eatthepath.pushy.apns.PushNotificationResponse;
+import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
+import com.eatthepath.pushy.apns.util.concurrent.PushNotificationFuture;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.turo.pushy.apns.ApnsClient;
-import com.turo.pushy.apns.ApnsPushNotification;
-import com.turo.pushy.apns.DeliveryPriority;
-import com.turo.pushy.apns.PushNotificationResponse;
-import com.turo.pushy.apns.util.SimpleApnsPushNotification;
-import com.turo.pushy.apns.util.concurrent.PushNotificationFuture;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
