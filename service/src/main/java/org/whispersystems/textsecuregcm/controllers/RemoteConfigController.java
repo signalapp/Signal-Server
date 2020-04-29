@@ -2,6 +2,7 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
+import io.dropwizard.auth.Auth;
 import org.whispersystems.textsecuregcm.entities.UserRemoteConfig;
 import org.whispersystems.textsecuregcm.entities.UserRemoteConfigList;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -29,8 +30,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import io.dropwizard.auth.Auth;
-
 @Path("/v1/config")
 public class RemoteConfigController {
 
@@ -50,12 +49,10 @@ public class RemoteConfigController {
     try {
       MessageDigest digest = MessageDigest.getInstance("SHA1");
 
-      return new UserRemoteConfigList(remoteConfigsManager.getAll().stream().map(config -> new UserRemoteConfig(config.getName(),
-                                                                                                                isInBucket(digest, account.getUuid(),
-                                                                                                                           config.getName().getBytes(),
-                                                                                                                           config.getPercentage(),
-                                                                                                                           config.getUuids())))
-                                                          .collect(Collectors.toList()));
+      return new UserRemoteConfigList(remoteConfigsManager.getAll().stream().map(config -> {
+        boolean inBucket = isInBucket(digest, account.getUuid(), config.getName().getBytes(), config.getPercentage(), config.getUuids());
+        return new UserRemoteConfig(config.getName(), inBucket, inBucket ? config.getValue() : config.getDefaultValue());
+      }).collect(Collectors.toList()));
     } catch (NoSuchAlgorithmException e) {
       throw new AssertionError(e);
     }
@@ -104,5 +101,4 @@ public class RemoteConfigController {
   private boolean isAuthorized(String configToken) {
     return configToken != null && configAuthTokens.stream().anyMatch(authorized -> MessageDigest.isEqual(authorized.getBytes(), configToken.getBytes()));
   }
-
 }

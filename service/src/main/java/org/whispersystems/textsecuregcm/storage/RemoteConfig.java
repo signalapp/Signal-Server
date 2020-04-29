@@ -7,8 +7,6 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
 import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -28,12 +26,20 @@ public class RemoteConfig {
   @NotNull
   private Set<UUID> uuids = new HashSet<>();
 
+  @JsonProperty
+  private String defaultValue;
+
+  @JsonProperty
+  private String value;
+
   public RemoteConfig() {}
 
-  public RemoteConfig(String name, int percentage, Set<UUID> uuids) {
-    this.name       = name;
-    this.percentage = percentage;
-    this.uuids      = uuids;
+  public RemoteConfig(String name, int percentage, Set<UUID> uuids, String defaultValue, String value) {
+    this.name         = name;
+    this.percentage   = percentage;
+    this.uuids        = uuids;
+    this.defaultValue = defaultValue;
+    this.value        = value;
   }
 
   public int getPercentage() {
@@ -46,5 +52,13 @@ public class RemoteConfig {
 
   public Set<UUID> getUuids() {
     return uuids;
+  }
+
+  public String getDefaultValue() {
+    return defaultValue;
+  }
+
+  public String getValue() {
+    return value;
   }
 }

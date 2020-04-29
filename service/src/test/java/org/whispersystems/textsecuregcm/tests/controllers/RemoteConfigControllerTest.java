@@ -1,6 +1,8 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
 import com.google.common.collect.ImmutableSet;
+import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
+import io.dropwizard.testing.junit.ResourceTestRule;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
 import org.junit.Rule;
@@ -20,26 +22,25 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
-import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
-import io.dropwizard.testing.junit.ResourceTestRule;
-import static org.assertj.core.api.Java6Assertions.assertThat;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 public class RemoteConfigControllerTest {
 
-  private RemoteConfigsManager remoteConfigsManager = mock(RemoteConfigsManager.class);
-  private List<String> remoteConfigsAuth = new LinkedList<>() {{
-    add("foo");
-    add("bar");
-  }};
+  private final RemoteConfigsManager remoteConfigsManager = mock(RemoteConfigsManager.class);
+  private final List<String>         remoteConfigsAuth    = List.of("foo", "bar");
 
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
@@ -52,24 +53,15 @@ public class RemoteConfigControllerTest {
 
 
   @Before
-  public void setup() throws Exception {
+  public void setup() {
     when(remoteConfigsManager.getAll()).thenReturn(new LinkedList<>() {{
-      add(new RemoteConfig("android.stickers", 25, new HashSet<>() {{
-        add(AuthHelper.DISABLED_UUID);
-        add(AuthHelper.INVALID_UUID);
-      }}));
-
-      add(new RemoteConfig("ios.stickers", 50, new HashSet<>() {{
-
-      }}));
-
-      add(new RemoteConfig("always.true", 100, new HashSet<>() {{
-
-      }}));
-
-      add(new RemoteConfig("only.special", 0, new HashSet<>() {{
-        add(AuthHelper.VALID_UUID);
-      }}));
+      add(new RemoteConfig("android.stickers", 25, Set.of(AuthHelper.DISABLED_UUID, AuthHelper.INVALID_UUID), null, null));
+      add(new RemoteConfig("ios.stickers", 50, Set.of(), null, null));
+      add(new RemoteConfig("always.true", 100, Set.of(), null, null));
+      add(new RemoteConfig("only.special", 0, Set.of(AuthHelper.VALID_UUID), null, null));
+      add(new RemoteConfig("value.always.true", 100, Set.of(), "foo", "bar"));
+      add(new RemoteConfig("value.only.special", 0, Set.of(AuthHelper.VALID_UUID), "abc", "xyz"));
+      add(new RemoteConfig("value.always.false", 0, Set.of(), "red", "green"));
     }});
   }
 
@@ -83,12 +75,24 @@ public class RemoteConfigControllerTest {
 
     verify(remoteConfigsManager, times(1)).getAll();
 
-    assertThat(configuration.getConfig().size()).isEqualTo(4);
+    assertThat(configuration.getConfig().size()).isEqualTo(7);
     assertThat(configuration.getConfig().get(0).getName()).isEqualTo("android.stickers");
     assertThat(configuration.getConfig().get(1).getName()).isEqualTo("ios.stickers");
     assertThat(configuration.getConfig().get(2).getName()).isEqualTo("always.true");
     assertThat(configuration.getConfig().get(2).isEnabled()).isEqualTo(true);
+    assertThat(configuration.getConfig().get(2).getValue()).isNull();
+    assertThat(configuration.getConfig().get(3).getName()).isEqualTo("only.special");
     assertThat(configuration.getConfig().get(3).isEnabled()).isEqualTo(true);
+    assertThat(configuration.getConfig().get(2).getValue()).isNull();
+    assertThat(configuration.getConfig().get(4).getName()).isEqualTo("value.always.true");
+    assertThat(configuration.getConfig().get(4).isEnabled()).isEqualTo(true);
+    assertThat(configuration.getConfig().get(4).getValue()).isEqualTo("bar");
+    assertThat(configuration.getConfig().get(5).getName()).isEqualTo("value.only.special");
+    assertThat(configuration.getConfig().get(5).isEnabled()).isEqualTo(true);
+    assertThat(configuration.getConfig().get(5).getValue()).isEqualTo("xyz");
+    assertThat(configuration.getConfig().get(6).getName()).isEqualTo("value.always.false");
+    assertThat(configuration.getConfig().get(6).isEnabled()).isEqualTo(false);
+    assertThat(configuration.getConfig().get(6).getValue()).isEqualTo("red");
   }
 
   @Test
@@ -101,12 +105,24 @@ public class RemoteConfigControllerTest {
 
     verify(remoteConfigsManager, times(1)).getAll();
 
-    assertThat(configuration.getConfig().size()).isEqualTo(4);
+    assertThat(configuration.getConfig().size()).isEqualTo(7);
     assertThat(configuration.getConfig().get(0).getName()).isEqualTo("android.stickers");
     assertThat(configuration.getConfig().get(1).getName()).isEqualTo("ios.stickers");
     assertThat(configuration.getConfig().get(2).getName()).isEqualTo("always.true");
     assertThat(configuration.getConfig().get(2).isEnabled()).isEqualTo(true);
+    assertThat(configuration.getConfig().get(2).getValue()).isNull();
+    assertThat(configuration.getConfig().get(3).getName()).isEqualTo("only.special");
     assertThat(configuration.getConfig().get(3).isEnabled()).isEqualTo(false);
+    assertThat(configuration.getConfig().get(2).getValue()).isNull();
+    assertThat(configuration.getConfig().get(4).getName()).isEqualTo("value.always.true");
+    assertThat(configuration.getConfig().get(4).isEnabled()).isEqualTo(true);
+    assertThat(configuration.getConfig().get(4).getValue()).isEqualTo("bar");
+    assertThat(configuration.getConfig().get(5).getName()).isEqualTo("value.only.special");
+    assertThat(configuration.getConfig().get(5).isEnabled()).isEqualTo(false);
+    assertThat(configuration.getConfig().get(5).getValue()).isEqualTo("abc");
+    assertThat(configuration.getConfig().get(6).getName()).isEqualTo("value.always.false");
+    assertThat(configuration.getConfig().get(6).isEnabled()).isEqualTo(false);
+    assertThat(configuration.getConfig().get(6).getValue()).isEqualTo("red");
   }
 
 
@@ -130,7 +146,7 @@ public class RemoteConfigControllerTest {
                                  .target("/v1/config")
                                  .request()
                                  .header("Config-Token", "foo")
-                                 .put(Entity.entity(new RemoteConfig("android.stickers", 88, new HashSet<>()), MediaType.APPLICATION_JSON_TYPE));
+                                 .put(Entity.entity(new RemoteConfig("android.stickers", 88, Set.of(), "FALSE", "TRUE"), MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(204);
 
@@ -144,12 +160,31 @@ public class RemoteConfigControllerTest {
   }
 
   @Test
+  public void testSetConfigValued() {
+    Response response = resources.getJerseyTest()
+                                 .target("/v1/config")
+                                 .request()
+                                 .header("Config-Token", "foo")
+                                 .put(Entity.entity(new RemoteConfig("value.sometimes", 50, Set.of(), "a", "b"), MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(204);
+
+    ArgumentCaptor<RemoteConfig> captor = ArgumentCaptor.forClass(RemoteConfig.class);
+
+    verify(remoteConfigsManager, times(1)).set(captor.capture());
+
+    assertThat(captor.getValue().getName()).isEqualTo("value.sometimes");
+    assertThat(captor.getValue().getPercentage()).isEqualTo(50);
+    assertThat(captor.getValue().getUuids()).isEmpty();
+  }
+
+  @Test
   public void testSetConfigUnauthorized() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/config")
                                  .request()
                                  .header("Config-Token", "baz")
-                                 .put(Entity.entity(new RemoteConfig("android.stickers", 88, new HashSet<>()), MediaType.APPLICATION_JSON_TYPE));
+                                 .put(Entity.entity(new RemoteConfig("android.stickers", 88, Set.of(), "FALSE", "TRUE"), MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(401);
 
@@ -161,7 +196,7 @@ public class RemoteConfigControllerTest {
     Response response = resources.getJerseyTest()
                                  .target("/v1/config")
                                  .request()
-                                 .put(Entity.entity(new RemoteConfig("android.stickers", 88, new HashSet<>()), MediaType.APPLICATION_JSON_TYPE));
+                                 .put(Entity.entity(new RemoteConfig("android.stickers", 88, Set.of(), "FALSE", "TRUE"), MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(401);
 
@@ -174,7 +209,7 @@ public class RemoteConfigControllerTest {
                                  .target("/v1/config")
                                  .request()
                                  .header("Config-Token", "foo")
-                                 .put(Entity.entity(new RemoteConfig("android-stickers", 88, new HashSet<>()), MediaType.APPLICATION_JSON_TYPE));
+                                 .put(Entity.entity(new RemoteConfig("android-stickers", 88, Set.of(), "FALSE", "TRUE"), MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(422);
 
@@ -187,7 +222,7 @@ public class RemoteConfigControllerTest {
                                  .target("/v1/config")
                                  .request()
                                  .header("Config-Token", "foo")
-                                 .put(Entity.entity(new RemoteConfig("", 88, new HashSet<>()), MediaType.APPLICATION_JSON_TYPE));
+                                 .put(Entity.entity(new RemoteConfig("", 88, Set.of(), "FALSE", "TRUE"), MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(422);
 
@@ -232,7 +267,6 @@ public class RemoteConfigControllerTest {
     for (int i=0;i<iterations;i++) {
       for (RemoteConfig config : remoteConfigList) {
         int count  = enabledMap.getOrDefault(config.getName(), 0);
-        int random = new SecureRandom().nextInt(iterations);
 
         if (RemoteConfigController.isInBucket(digest, UUID.randomUUID(), config.getName().getBytes(), config.getPercentage(), new HashSet<>())) {
           count++;

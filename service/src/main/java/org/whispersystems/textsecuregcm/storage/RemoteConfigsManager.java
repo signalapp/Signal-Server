@@ -1,6 +1,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.dropwizard.lifecycle.Managed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -10,8 +11,6 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import io.dropwizard.lifecycle.Managed;
-
 public class RemoteConfigsManager implements Managed {
 
   private final Logger logger = LoggerFactory.getLogger(RemoteConfigsManager.class);
@@ -19,7 +18,7 @@ public class RemoteConfigsManager implements Managed {
   private final RemoteConfigs remoteConfigs;
   private final long          sleepInterval;
 
-  private AtomicReference<List<RemoteConfig>> cachedConfigs = new AtomicReference<>(new LinkedList<>());
+  private final AtomicReference<List<RemoteConfig>> cachedConfigs = new AtomicReference<>(new LinkedList<>());
 
   public RemoteConfigsManager(RemoteConfigs remoteConfigs) {
     this(remoteConfigs, TimeUnit.SECONDS.toMillis(10));
