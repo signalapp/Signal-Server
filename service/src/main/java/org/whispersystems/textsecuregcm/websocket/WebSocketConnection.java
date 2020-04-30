@@ -158,7 +158,7 @@ public class WebSocketConnection implements DispatchChannel {
 
     try {
       receiptSender.sendReceipt(account, message.getSource(), message.getTimestamp());
-    } catch (NoSuchUserException | NotPushRegisteredException  e) {
+    } catch (NoSuchUserException e) {
       logger.info("No longer registered " + e.getMessage());
     } catch (WebApplicationException e) {
       logger.warn("Bad federated response for receipt: " + e.getResponse().getStatus());
