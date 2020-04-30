@@ -22,6 +22,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -263,12 +264,13 @@ public class RemoteConfigControllerTest {
     Map<String, Integer> enabledMap       = new HashMap<>();
     MessageDigest        digest           = MessageDigest.getInstance("SHA1");
     int                  iterations       = 100000;
+    SecureRandom         secureRandom     = new SecureRandom(new byte[]{42});  // the seed value doesn't matter so much as it's constant to make the test not flaky
 
     for (int i=0;i<iterations;i++) {
       for (RemoteConfig config : remoteConfigList) {
         int count  = enabledMap.getOrDefault(config.getName(), 0);
 
-        if (RemoteConfigController.isInBucket(digest, UUID.randomUUID(), config.getName().getBytes(), config.getPercentage(), new HashSet<>())) {
+        if (RemoteConfigController.isInBucket(digest, getRandomUUID(secureRandom), config.getName().getBytes(), config.getPercentage(), new HashSet<>())) {
           count++;
         }
 
@@ -285,5 +287,13 @@ public class RemoteConfigControllerTest {
 
   }
 
-
+  private static UUID getRandomUUID(SecureRandom secureRandom) {
+    long mostSignificantBits  = secureRandom.nextLong();
+    long leastSignificantBits = secureRandom.nextLong();
+    mostSignificantBits  &= 0xffffffffffff0fffL;
+    mostSignificantBits  |= 0x0000000000004000L;
+    leastSignificantBits &= 0x3fffffffffffffffL;
+    leastSignificantBits |= 0x8000000000000000L;
+    return new UUID(mostSignificantBits, leastSignificantBits);
+  }
 }
