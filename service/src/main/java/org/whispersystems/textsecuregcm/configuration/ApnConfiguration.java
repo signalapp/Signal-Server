@@ -24,11 +24,15 @@ public class ApnConfiguration {
 
   @NotEmpty
   @JsonProperty
-  private String pushCertificate;
+  private String teamId;
 
   @NotEmpty
   @JsonProperty
-  private String pushKey;
+  private String keyId;
+
+  @NotEmpty
+  @JsonProperty
+  private String signingKey;
 
   @NotEmpty
   @JsonProperty
@@ -37,12 +41,16 @@ public class ApnConfiguration {
   @JsonProperty
   private boolean sandbox = false;
 
-  public String getPushCertificate() {
-    return pushCertificate;
+  public String getTeamId() {
+    return teamId;
   }
 
-  public String getPushKey() {
-    return pushKey;
+  public String getKeyId() {
+    return keyId;
+  }
+
+  public String getSigningKey() {
+    return signingKey;
   }
 
   public String getBundleId() {

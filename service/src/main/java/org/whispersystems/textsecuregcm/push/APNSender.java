@@ -35,6 +35,8 @@ import org.whispersystems.textsecuregcm.util.Constants;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -61,13 +63,14 @@ public class APNSender implements Managed {
   private final RetryingApnsClient apnsClient;
 
   public APNSender(AccountsManager accountsManager, ApnConfiguration configuration)
-      throws IOException
+      throws IOException, NoSuchAlgorithmException, InvalidKeyException
   {
     this.accountsManager = accountsManager;
     this.bundleId        = configuration.getBundleId();
     this.sandbox         = configuration.isSandboxEnabled();
-    this.apnsClient      = new RetryingApnsClient(configuration.getPushCertificate(),
-                                                  configuration.getPushKey(),
+    this.apnsClient      = new RetryingApnsClient(configuration.getSigningKey(),
+                                                  configuration.getTeamId(),
+                                                  configuration.getKeyId(),
                                                   sandbox);
   }
 

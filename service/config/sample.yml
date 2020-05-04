@@ -82,9 +82,11 @@ database: # Postgresql database configuration
   url:
 
 apn: # Apple Push Notifications configuration
+  sandbox: true
   bundleId:
-  pushCertificate:
-  pushKey:
+  keyId:
+  teamId:
+  signingKey:
 
 gcm: # GCM Configuration
   senderId:
