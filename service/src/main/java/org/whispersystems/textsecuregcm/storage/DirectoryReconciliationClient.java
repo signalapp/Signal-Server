@@ -16,12 +16,15 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
+import com.codahale.metrics.SharedMetricRegistries;
 import org.bouncycastle.openssl.PEMReader;
 import org.glassfish.jersey.SslConfigurator;
 import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature;
 import org.whispersystems.textsecuregcm.configuration.DirectoryServerConfiguration;
 import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationRequest;
 import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationResponse;
+import org.whispersystems.textsecuregcm.util.CertificateExpirationGauge;
+import org.whispersystems.textsecuregcm.util.Constants;
 
 import javax.net.ssl.SSLContext;
 import javax.ws.rs.client.Client;
@@ -37,6 +40,8 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 public class DirectoryReconciliationClient {
 
   private final String replicationUrl;
@@ -47,6 +52,10 @@ public class DirectoryReconciliationClient {
   {
     this.replicationUrl = directoryServerConfiguration.getReplicationUrl();
     this.client         = initializeClient(directoryServerConfiguration);
+
+    SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME)
+                          .register(name(getClass(), "days_until_certificate_expiration"),
+                                    new CertificateExpirationGauge(getCertificate(directoryServerConfiguration.getReplicationCaCertificate())));
   }
 
   public DirectoryReconciliationResponse sendChunk(DirectoryReconciliationRequest request) {
@@ -74,8 +83,7 @@ public class DirectoryReconciliationClient {
       throws CertificateException
   {
     try {
-      PEMReader       reader      = new PEMReader(new InputStreamReader(new ByteArrayInputStream(caCertificatePem.getBytes())));
-      X509Certificate certificate = (X509Certificate) reader.readObject();
+      X509Certificate certificate = getCertificate(caCertificatePem);
 
       if (certificate == null) {
         throw new CertificateException("No certificate found in parsing!");
@@ -92,4 +100,11 @@ public class DirectoryReconciliationClient {
     }
   }
 
+  private static X509Certificate getCertificate(final String certificatePem) throws CertificateException {
+    try (PEMReader reader = new PEMReader(new InputStreamReader(new ByteArrayInputStream(certificatePem.getBytes())))) {
+      return (X509Certificate) reader.readObject();
+    } catch (IOException e) {
+      throw new CertificateException(e);
+    }
+  }
 }
