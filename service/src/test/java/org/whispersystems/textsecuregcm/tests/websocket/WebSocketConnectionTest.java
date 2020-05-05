@@ -1,6 +1,7 @@
 package org.whispersystems.textsecuregcm.tests.websocket;
 
 import com.google.protobuf.ByteString;
+import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
 import org.junit.Test;
 import org.mockito.ArgumentMatchers;
@@ -136,12 +137,15 @@ public class WebSocketConnectionTest {
     when(accountsManager.get("sender1")).thenReturn(Optional.of(sender1));
     when(accountsManager.get("sender2")).thenReturn(Optional.empty());
 
-    when(storedMessages.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId()))
+    String userAgent = "user-agent";
+
+    when(storedMessages.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), userAgent))
         .thenReturn(outgoingMessagesList);
 
     final List<CompletableFuture<WebSocketResponseMessage>> futures = new LinkedList<>();
     final WebSocketClient                                   client  = mock(WebSocketClient.class);
 
+    when(client.getUserAgent()).thenReturn(userAgent);
     when(client.sendRequest(eq("PUT"), eq("/api/v1/message"), ArgumentMatchers.nullable(List.class), ArgumentMatchers.<Optional<byte[]>>any()))
         .thenAnswer(new Answer<CompletableFuture<WebSocketResponseMessage>>() {
           @Override
@@ -220,12 +224,15 @@ public class WebSocketConnectionTest {
     when(accountsManager.get("sender1")).thenReturn(Optional.of(sender1));
     when(accountsManager.get("sender2")).thenReturn(Optional.<Account>empty());
 
-    when(storedMessages.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId()))
+    String userAgent = "user-agent";
+
+    when(storedMessages.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), userAgent))
         .thenReturn(pendingMessagesList);
 
     final List<CompletableFuture<WebSocketResponseMessage>> futures = new LinkedList<>();
     final WebSocketClient                                   client  = mock(WebSocketClient.class);
 
+    when(client.getUserAgent()).thenReturn(userAgent);
     when(client.sendRequest(eq("PUT"), eq("/api/v1/message"), ArgumentMatchers.nullable(List.class), ArgumentMatchers.<Optional<byte[]>>any()))
         .thenAnswer(new Answer<CompletableFuture<WebSocketResponseMessage>>() {
           @Override
@@ -328,12 +335,15 @@ public class WebSocketConnectionTest {
     when(accountsManager.get("sender1")).thenReturn(Optional.of(sender1));
     when(accountsManager.get("sender2")).thenReturn(Optional.<Account>empty());
 
-    when(storedMessages.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId()))
+    String userAgent = "user-agent";
+
+    when(storedMessages.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), userAgent))
         .thenReturn(pendingMessagesList);
 
     final List<CompletableFuture<WebSocketResponseMessage>> futures = new LinkedList<>();
     final WebSocketClient                                   client  = mock(WebSocketClient.class);
 
+    when(client.getUserAgent()).thenReturn(userAgent);
     when(client.sendRequest(eq("PUT"), eq("/api/v1/message"), ArgumentMatchers.nullable(List.class), ArgumentMatchers.<Optional<byte[]>>any()))
         .thenAnswer(new Answer<CompletableFuture<WebSocketResponseMessage>>() {
           @Override

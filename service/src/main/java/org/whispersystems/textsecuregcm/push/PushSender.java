@@ -20,6 +20,7 @@ import com.codahale.metrics.Gauge;
 import com.codahale.metrics.SharedMetricRegistries;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
 import org.whispersystems.textsecuregcm.push.WebsocketSender.DeliveryStatus;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -46,10 +47,12 @@ public class PushSender implements Managed {
   private final WebsocketSender            webSocketSender;
   private final BlockingThreadPoolExecutor executor;
   private final int                        queueSize;
+  private final PushLatencyManager         pushLatencyManager;
 
   public PushSender(ApnFallbackManager apnFallbackManager,
                     GCMSender gcmSender, APNSender apnSender,
-                    WebsocketSender websocketSender, int queueSize)
+                    WebsocketSender websocketSender, int queueSize,
+                    PushLatencyManager pushLatencyManager)
   {
     this.apnFallbackManager = apnFallbackManager;
     this.gcmSender          = gcmSender;
@@ -57,6 +60,7 @@ public class PushSender implements Managed {
     this.webSocketSender    = websocketSender;
     this.queueSize          = queueSize;
     this.executor           = new BlockingThreadPoolExecutor("pushSender", 50, queueSize);
+    this.pushLatencyManager = pushLatencyManager;
 
     SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME)
                           .register(name(PushSender.class, "send_queue_depth"),
@@ -109,6 +113,8 @@ public class PushSender implements Managed {
                                            (int)device.getId(), GcmMessage.Type.NOTIFICATION, Optional.empty());
 
     gcmSender.sendMessage(gcmMessage);
+
+    RedisOperation.unchecked(() -> pushLatencyManager.recordPushSent(account.getNumber(), device.getId()));
   }
 
   private void sendApnMessage(Account account, Device device, Envelope outgoingMessage, boolean online) {
@@ -134,6 +140,8 @@ public class PushSender implements Managed {
     }
 
     apnSender.sendMessage(apnMessage);
+
+    RedisOperation.unchecked(() -> pushLatencyManager.recordPushSent(account.getNumber(), device.getId()));
   }
 
   private void sendWebSocketMessage(Account account, Device device, Envelope outgoingMessage, boolean online)

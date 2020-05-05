@@ -172,7 +172,7 @@ public class WebSocketConnection implements DispatchChannel {
   }
 
   private void processStoredMessages() {
-    OutgoingMessageEntityList       messages = messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId());
+    OutgoingMessageEntityList       messages = messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), client.getUserAgent());
     Iterator<OutgoingMessageEntity> iterator = messages.getMessages().iterator();
 
     while (iterator.hasNext()) {

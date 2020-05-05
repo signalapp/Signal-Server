@@ -4,9 +4,13 @@ package org.whispersystems.textsecuregcm.storage;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
+import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
+import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.util.Constants;
 
 import java.util.List;
@@ -25,13 +29,17 @@ public class MessagesManager {
   private static final Meter          cacheHitByGuidMeter  = metricRegistry.meter(name(MessagesManager.class, "cacheHitByGuid" ));
   private static final Meter          cacheMissByGuidMeter = metricRegistry.meter(name(MessagesManager.class, "cacheMissByGuid"));
 
+  private static final Logger         logger               = LoggerFactory.getLogger(MessagesManager.class);
 
   private final Messages      messages;
   private final MessagesCache messagesCache;
 
-  public MessagesManager(Messages messages, MessagesCache messagesCache) {
-    this.messages      = messages;
-    this.messagesCache = messagesCache;
+  private final PushLatencyManager pushLatencyManager;
+
+  public MessagesManager(Messages messages, MessagesCache messagesCache, PushLatencyManager pushLatencyManager) {
+    this.messages           = messages;
+    this.messagesCache      = messagesCache;
+    this.pushLatencyManager = pushLatencyManager;
   }
 
   public void insert(String destination, UUID destinationUuid, long destinationDevice, Envelope message) {
@@ -39,7 +47,9 @@ public class MessagesManager {
     messagesCache.insert(guid, destination, destinationUuid, destinationDevice, message);
   }
 
-  public OutgoingMessageEntityList getMessagesForDevice(String destination, UUID destinationUuid, long destinationDevice) {
+  public OutgoingMessageEntityList getMessagesForDevice(String destination, UUID destinationUuid, long destinationDevice, final String userAgent) {
+    RedisOperation.unchecked(() -> pushLatencyManager.recordQueueRead(destination, destinationDevice, userAgent));
+
     List<OutgoingMessageEntity> messages = this.messages.load(destination, destinationDevice);
 
     if (messages.size() <= Messages.RESULT_SET_CHUNK_SIZE) {

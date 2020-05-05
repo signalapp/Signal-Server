@@ -181,7 +181,7 @@ public class MessageController {
   @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  public OutgoingMessageEntityList getPendingMessages(@Auth Account account) {
+  public OutgoingMessageEntityList getPendingMessages(@Auth Account account, @HeaderParam("User-Agent") String userAgent) {
     assert account.getAuthenticatedDevice().isPresent();
 
     if (!Util.isEmpty(account.getAuthenticatedDevice().get().getApnId())) {
@@ -190,7 +190,8 @@ public class MessageController {
 
     return messagesManager.getMessagesForDevice(account.getNumber(),
                                                 account.getUuid(),
-                                                account.getAuthenticatedDevice().get().getId());
+                                                account.getAuthenticatedDevice().get().getId(),
+                                                userAgent);
   }
 
   @Timed

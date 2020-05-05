@@ -16,6 +16,7 @@
  */
 package org.whispersystems.websocket;
 
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketException;
@@ -84,6 +85,10 @@ public class WebSocketClient {
     }
 
     return future;
+  }
+
+  public String getUserAgent() {
+    return session.getUpgradeRequest().getHeader("User-Agent");
   }
 
   public void close(int code, String message) {
