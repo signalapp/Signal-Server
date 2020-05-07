@@ -475,6 +475,7 @@ public class AccountController {
 
     account.setUnidentifiedAccessKey(attributes.getUnidentifiedAccessKey());
     account.setUnrestrictedUnidentifiedAccess(attributes.isUnrestrictedUnidentifiedAccess());
+    account.setPayments(attributes.getPayments());
 
     accounts.update(account);
   }
