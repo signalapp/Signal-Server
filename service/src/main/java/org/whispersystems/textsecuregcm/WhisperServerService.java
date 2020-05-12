@@ -40,6 +40,9 @@ import io.dropwizard.db.PooledDataSourceFactory;
 import io.dropwizard.jdbi3.JdbiFactory;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
+import io.micrometer.core.instrument.Clock;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.wavefront.WavefrontMeterRegistry;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
 import org.jdbi.v3.core.Jdbi;
@@ -194,6 +197,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       throws Exception
   {
     SharedMetricRegistries.add(Constants.METRICS_NAME, environment.metrics());
+    Metrics.addRegistry(new WavefrontMeterRegistry(config.getMicrometerConfiguration(), Clock.SYSTEM));
+
     environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     environment.getObjectMapper().setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);
     environment.getObjectMapper().setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);

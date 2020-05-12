@@ -74,6 +74,11 @@
             <version>${resilience4j.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-wavefront</artifactId>
+            <version>1.5.1</version>
+        </dependency>
 
         <dependency>
             <groupId>com.amazonaws</groupId>

@@ -61,6 +61,11 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
+  private MicrometerConfiguration micrometer;
+
+  @NotNull
+  @Valid
+  @JsonProperty
   private RedisConfiguration cache;
 
   @NotNull
@@ -270,6 +275,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public CdnConfiguration getCdnConfiguration() {
     return cdn;
+  }
+
+  public MicrometerConfiguration getMicrometerConfiguration() {
+    return micrometer;
   }
 
   public UnidentifiedDeliveryConfiguration getDeliveryCertificate() {

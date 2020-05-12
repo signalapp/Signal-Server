@@ -91,3 +91,7 @@ apn: # Apple Push Notifications configuration
 gcm: # GCM Configuration
   senderId:
   apiKey:
+
+micrometer: # Micrometer metrics config
+  uri: "https://metrics.example.com/"
+  apiToken:
