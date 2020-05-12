@@ -5,6 +5,7 @@ import org.junit.Test;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.UUID;
@@ -49,15 +50,15 @@ public class AccountTest {
     when(oldSecondaryDevice.isEnabled()).thenReturn(false);
     when(oldSecondaryDevice.getId()).thenReturn(2L);
 
-    when(uuidCapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(true, true, true));
+    when(uuidCapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(true, true, true, true));
     when(uuidCapableDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1));
     when(uuidCapableDevice.isEnabled()).thenReturn(true);
 
-    when(uuidIncapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(false, false, false));
+    when(uuidIncapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(false, false, false, false));
     when(uuidIncapableDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1));
     when(uuidIncapableDevice.isEnabled()).thenReturn(true);
 
-    when(uuidIncapableExpiredDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(false, false, false));
+    when(uuidIncapableExpiredDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(false, false, false, false));
     when(uuidIncapableExpiredDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31));
     when(uuidIncapableExpiredDevice.isEnabled()).thenReturn(false);
   }
@@ -115,6 +116,54 @@ public class AccountTest {
     assertTrue(uuidCapable.isUuidAddressingSupported());
     assertFalse(uuidIncapable.isUuidAddressingSupported());
     assertTrue(uuidCapableWithExpiredIncapable.isUuidAddressingSupported());
+  }
+
+  @Test
+  public void testIsTransferSupported() {
+    final Device                    transferCapableMasterDevice    = mock(Device.class);
+    final Device                    nonTransferCapableMasterDevice = mock(Device.class);
+    final Device                    transferCapableLinkedDevice    = mock(Device.class);
+
+    final Device.DeviceCapabilities transferCapabilities           = mock(Device.DeviceCapabilities.class);
+    final Device.DeviceCapabilities nonTransferCapabilities        = mock(Device.DeviceCapabilities.class);
+
+    when(transferCapableMasterDevice.getId()).thenReturn(1L);
+    when(transferCapableMasterDevice.isMaster()).thenReturn(true);
+    when(transferCapableMasterDevice.getCapabilities()).thenReturn(transferCapabilities);
+
+    when(nonTransferCapableMasterDevice.getId()).thenReturn(1L);
+    when(nonTransferCapableMasterDevice.isMaster()).thenReturn(true);
+    when(nonTransferCapableMasterDevice.getCapabilities()).thenReturn(nonTransferCapabilities);
+
+    when(transferCapableLinkedDevice.getId()).thenReturn(2L);
+    when(transferCapableLinkedDevice.isMaster()).thenReturn(false);
+    when(transferCapableLinkedDevice.getCapabilities()).thenReturn(transferCapabilities);
+
+    when(transferCapabilities.isTransfer()).thenReturn(true);
+    when(nonTransferCapabilities.isTransfer()).thenReturn(false);
+
+    {
+      final Account transferableMasterAccount =
+              new Account("+14152222222", UUID.randomUUID(), Collections.singleton(transferCapableMasterDevice), "1234".getBytes());
+
+      assertTrue(transferableMasterAccount.isTransferSupported());
+    }
+
+    {
+      final Account nonTransferableMasterAccount =
+              new Account("+14152222222", UUID.randomUUID(), Collections.singleton(nonTransferCapableMasterDevice), "1234".getBytes());
+
+      assertFalse(nonTransferableMasterAccount.isTransferSupported());
+    }
+
+    {
+      final Account transferableLinkedAccount = new Account("+14152222222", UUID.randomUUID(), new HashSet<>() {{
+        add(nonTransferCapableMasterDevice);
+        add(transferCapableLinkedDevice);
+      }}, "1234".getBytes());
+
+      assertFalse(transferableLinkedAccount.isTransferSupported());
+    }
   }
 
 }

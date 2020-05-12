@@ -150,6 +150,10 @@ public class Account implements Principal  {
     return devices.stream().anyMatch(device -> device.getCapabilities() != null && device.getCapabilities().isStorage());
   }
 
+  public boolean isTransferSupported() {
+    return getMasterDevice().map(Device::getCapabilities).map(Device.DeviceCapabilities::isTransfer).orElse(false);
+  }
+
   public boolean isEnabled() {
     return
         getMasterDevice().isPresent()       &&

@@ -39,6 +39,7 @@ import org.whispersystems.textsecuregcm.storage.AbusiveHostRule;
 import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PaymentAddress;
 import org.whispersystems.textsecuregcm.storage.PaymentAddressList;
@@ -53,14 +54,18 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.security.SecureRandom;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doThrow;
@@ -83,6 +88,7 @@ public class AccountControllerTest {
   private static final String SENDER_PREAUTH     = "+14157777777";
   private static final String SENDER_REG_LOCK    = "+14158888888";
   private static final String SENDER_HAS_STORAGE = "+14159999999";
+  private static final String SENDER_TRANSFER    = "+14151111112";
 
   private static final UUID   SENDER_REG_LOCK_UUID = UUID.randomUUID();
 
@@ -114,6 +120,7 @@ public class AccountControllerTest {
   private        Account                senderPinAccount       = mock(Account.class);
   private        Account                senderRegLockAccount   = mock(Account.class);
   private        Account                senderHasStorage       = mock(Account.class);
+  private        Account                senderTransfer         = mock(Account.class);
   private        RecaptchaClient        recaptchaClient        = mock(RecaptchaClient.class);
   private        GCMSender              gcmSender              = mock(GCMSender.class);
   private        APNSender              apnSender              = mock(APNSender.class);
@@ -180,6 +187,7 @@ public class AccountControllerTest {
     when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PIN)).thenReturn(Optional.of(new StoredVerificationCode("444444", System.currentTimeMillis(), null)));
     when(pendingAccountsManager.getCodeForNumber(SENDER_PREAUTH)).thenReturn(Optional.of(new StoredVerificationCode("555555", System.currentTimeMillis(), "validchallenge")));
     when(pendingAccountsManager.getCodeForNumber(SENDER_HAS_STORAGE)).thenReturn(Optional.of(new StoredVerificationCode("666666", System.currentTimeMillis(), null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_TRANSFER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), null)));
 
     when(accountsManager.get(eq(SENDER_PIN))).thenReturn(Optional.of(senderPinAccount));
     when(accountsManager.get(eq(SENDER_REG_LOCK))).thenReturn(Optional.of(senderRegLockAccount));
@@ -188,6 +196,7 @@ public class AccountControllerTest {
     when(accountsManager.get(eq(SENDER_OLD))).thenReturn(Optional.empty());
     when(accountsManager.get(eq(SENDER_PREAUTH))).thenReturn(Optional.empty());
     when(accountsManager.get(eq(SENDER_HAS_STORAGE))).thenReturn(Optional.of(senderHasStorage));
+    when(accountsManager.get(eq(SENDER_TRANSFER))).thenReturn(Optional.of(senderTransfer));
 
     when(usernamesManager.put(eq(AuthHelper.VALID_UUID), eq("n00bkiller"))).thenReturn(true);
     when(usernamesManager.put(eq(AuthHelper.VALID_UUID), eq("takenusername"))).thenReturn(false);
@@ -747,6 +756,52 @@ public class AccountControllerTest {
     }
   }
 
+  @Test
+  public void testVerifyTransferSupported() {
+    when(senderTransfer.isTransferSupported()).thenReturn(true);
+
+    final Response response =
+            resources.getJerseyTest()
+                    .target(String.format("/v1/accounts/code/%s", "1234"))
+                    .queryParam("transfer", true)
+                    .request()
+                    .header("Authorization", AuthHelper.getAuthHeader(SENDER_TRANSFER, "bar"))
+                    .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 2222, null),
+                            MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(409);
+  }
+
+  @Test
+  public void testVerifyTransferNotSupported() {
+    when(senderTransfer.isTransferSupported()).thenReturn(false);
+
+    final Response response =
+            resources.getJerseyTest()
+                    .target(String.format("/v1/accounts/code/%s", "1234"))
+                    .queryParam("transfer", true)
+                    .request()
+                    .header("Authorization", AuthHelper.getAuthHeader(SENDER_TRANSFER, "bar"))
+                    .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 2222, null),
+                            MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(200);
+  }
+
+  @Test
+  public void testVerifyTransferSupportedNotRequested() {
+    when(senderTransfer.isTransferSupported()).thenReturn(true);
+
+    final Response response =
+            resources.getJerseyTest()
+                    .target(String.format("/v1/accounts/code/%s", "1234"))
+                    .request()
+                    .header("Authorization", AuthHelper.getAuthHeader(SENDER_TRANSFER, "bar"))
+                    .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 2222, null),
+                            MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(200);
+  }
 
   @Test
   public void testSetPin() throws Exception {

@@ -254,6 +254,7 @@ public class AccountController {
   public AccountCreationResult verifyAccount(@PathParam("verification_code") String verificationCode,
                                              @HeaderParam("Authorization")   String authorizationHeader,
                                              @HeaderParam("X-Signal-Agent")  String userAgent,
+                                             @QueryParam("transfer")         Optional<Boolean> availableForTransfer,
                                              @Valid                          AccountAttributes accountAttributes)
       throws RateLimitExceededException
   {
@@ -294,6 +295,10 @@ public class AccountController {
         }
 
         rateLimiters.getPinLimiter().clear(number);
+      }
+
+      if (availableForTransfer.orElse(false) && existingAccount.map(Account::isTransferSupported).orElse(false)) {
+        throw new WebApplicationException(Response.status(409).build());
       }
 
       Account account = createAccount(number, password, userAgent, accountAttributes);
