@@ -23,6 +23,7 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
@@ -50,7 +51,8 @@ public class RemoteConfigController {
       MessageDigest digest = MessageDigest.getInstance("SHA1");
 
       return new UserRemoteConfigList(remoteConfigsManager.getAll().stream().map(config -> {
-        boolean inBucket = isInBucket(digest, account.getUuid(), config.getName().getBytes(), config.getPercentage(), config.getUuids());
+        final byte[] hashKey = config.getHashKey() != null ? config.getHashKey().getBytes(StandardCharsets.UTF_8) : config.getName().getBytes(StandardCharsets.UTF_8);
+        boolean inBucket = isInBucket(digest, account.getUuid(), hashKey, config.getPercentage(), config.getUuids());
         return new UserRemoteConfig(config.getName(), inBucket, inBucket ? config.getValue() : config.getDefaultValue());
       }).collect(Collectors.toList()));
     } catch (NoSuchAlgorithmException e) {
@@ -82,7 +84,7 @@ public class RemoteConfigController {
   }
 
   @VisibleForTesting
-  public static boolean isInBucket(MessageDigest digest, UUID uid, byte[] configName, int configPercentage, Set<UUID> uuidsInBucket) {
+  public static boolean isInBucket(MessageDigest digest, UUID uid, byte[] hashKey, int configPercentage, Set<UUID> uuidsInBucket) {
     if (uuidsInBucket.contains(uid)) return true;
 
     ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
@@ -91,7 +93,7 @@ public class RemoteConfigController {
 
     digest.update(bb.array());
 
-    byte[] hash   = digest.digest(configName);
+    byte[] hash   = digest.digest(hashKey);
     int    bucket = (int)(Math.abs(Conversions.byteArrayToLong(hash)) % 100);
 
     return bucket < configPercentage;

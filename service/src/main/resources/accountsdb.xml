@@ -318,4 +318,10 @@
         </addColumn>
     </changeSet>
 
+    <changeSet id="18" author="ehren">
+        <addColumn tableName="remote_config">
+            <column name="hash_key" type="text"/>
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>

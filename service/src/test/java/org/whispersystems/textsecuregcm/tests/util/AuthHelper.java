@@ -1,6 +1,10 @@
 package org.whispersystems.textsecuregcm.tests.util;
 
 import com.google.common.collect.ImmutableMap;
+import io.dropwizard.auth.AuthFilter;
+import io.dropwizard.auth.PolymorphicAuthDynamicFeature;
+import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
+import io.dropwizard.auth.basic.BasicCredentials;
 import org.mockito.ArgumentMatcher;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
@@ -12,19 +16,22 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Base64;
 
+import java.security.Principal;
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
 
-import io.dropwizard.auth.AuthFilter;
-import io.dropwizard.auth.PolymorphicAuthDynamicFeature;
-import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
-import io.dropwizard.auth.basic.BasicCredentials;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class AuthHelper {
+  // Static seed to ensure reproducible tests.
+  private static final Random random = new Random(0xf744df3b43a3339cL);
+
+  public static final TestAccount[] TEST_ACCOUNTS = generateTestAccounts();
+
   public static final String VALID_NUMBER   = "+14150000000";
   public static final UUID   VALID_UUID     = UUID.randomUUID();
   public static final String VALID_PASSWORD = "foo";
@@ -56,7 +63,7 @@ public class AuthHelper {
   private static AuthenticationCredentials VALID_CREDENTIALS_TWO = mock(AuthenticationCredentials.class);
   private static AuthenticationCredentials DISABLED_CREDENTIALS  = mock(AuthenticationCredentials.class);
 
-  public static PolymorphicAuthDynamicFeature getAuthFilter() {
+  public static PolymorphicAuthDynamicFeature<? extends Principal> getAuthFilter() {
     when(VALID_CREDENTIALS.verify("foo")).thenReturn(true);
     when(VALID_CREDENTIALS_TWO.verify("baz")).thenReturn(true);
     when(DISABLED_CREDENTIALS.verify(DISABLED_PASSWORD)).thenReturn(true);
@@ -118,6 +125,10 @@ public class AuthHelper {
     when(ACCOUNTS_MANAGER.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(DISABLED_NUMBER)))).thenReturn(Optional.of(DISABLED_ACCOUNT));
     when(ACCOUNTS_MANAGER.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasUuid() && identifier.getUuid().equals(DISABLED_UUID)))).thenReturn(Optional.of(DISABLED_ACCOUNT));
 
+    for (TestAccount testAccount : TEST_ACCOUNTS) {
+      testAccount.setup(ACCOUNTS_MANAGER);
+    }
+
     AuthFilter<BasicCredentials, Account>                  accountAuthFilter                  = new BasicCredentialAuthFilter.Builder<Account>().setAuthenticator(new AccountAuthenticator(ACCOUNTS_MANAGER)).buildAuthFilter                                  ();
     AuthFilter<BasicCredentials, DisabledPermittedAccount> disabledPermittedAccountAuthFilter = new BasicCredentialAuthFilter.Builder<DisabledPermittedAccount>().setAuthenticator(new DisabledPermittedAccountAuthenticator(ACCOUNTS_MANAGER)).buildAuthFilter();
 
@@ -131,5 +142,62 @@ public class AuthHelper {
 
   public static String getUnidentifiedAccessHeader(byte[] key) {
     return Base64.encodeBytes(key);
+  }
+
+  public static UUID getRandomUUID(Random random) {
+    long mostSignificantBits  = random.nextLong();
+    long leastSignificantBits = random.nextLong();
+    mostSignificantBits  &= 0xffffffffffff0fffL;
+    mostSignificantBits  |= 0x0000000000004000L;
+    leastSignificantBits &= 0x3fffffffffffffffL;
+    leastSignificantBits |= 0x8000000000000000L;
+    return new UUID(mostSignificantBits, leastSignificantBits);
+  }
+
+  public static final class TestAccount {
+    public final String                    number;
+    public final UUID                      uuid;
+    public final String                    password;
+    public final Account                   account                   = mock(Account.class);
+    public final Device                    device                    = mock(Device.class);
+    public final AuthenticationCredentials authenticationCredentials = mock(AuthenticationCredentials.class);
+
+    public TestAccount(String number, UUID uuid, String password) {
+      this.number = number;
+      this.uuid = uuid;
+      this.password = password;
+    }
+
+    public String getAuthHeader() {
+      return AuthHelper.getAuthHeader(number, password);
+    }
+
+    private void setup(final AccountsManager accountsManager) {
+      when(authenticationCredentials.verify(password)).thenReturn(true);
+      when(device.getAuthenticationCredentials()).thenReturn(authenticationCredentials);
+      when(device.isMaster()).thenReturn(true);
+      when(device.getId()).thenReturn(1L);
+      when(device.isEnabled()).thenReturn(true);
+      when(account.getDevice(1L)).thenReturn(Optional.of(device));
+      when(account.getNumber()).thenReturn(number);
+      when(account.getUuid()).thenReturn(uuid);
+      when(account.getAuthenticatedDevice()).thenReturn(Optional.of(device));
+      when(account.getRelay()).thenReturn(Optional.empty());
+      when(account.isEnabled()).thenReturn(true);
+      when(accountsManager.get(number)).thenReturn(Optional.of(account));
+      when(accountsManager.get(uuid)).thenReturn(Optional.of(account));
+      when(accountsManager.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(number)))).thenReturn(Optional.of(account));
+      when(accountsManager.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasUuid() && identifier.getUuid().equals(uuid)))).thenReturn(Optional.of(account));
+    }
+  }
+
+  private static TestAccount[] generateTestAccounts() {
+    final TestAccount[] testAccounts = new TestAccount[20];
+    final long numberBase = 1_409_000_0000L;
+    for (int i = 0; i < testAccounts.length; i++) {
+      long currentNumber = numberBase + i;
+      testAccounts[i] = new TestAccount("+" + currentNumber, getRandomUUID(random), "TestAccountPassword-" + currentNumber);
+    }
+    return testAccounts;
   }
 }

@@ -32,8 +32,8 @@ public class RemoteConfigsTest {
 
   @Test
   public void testStore() {
-    remoteConfigs.set(new RemoteConfig("android.stickers", 50, Set.of(AuthHelper.VALID_UUID, AuthHelper.VALID_UUID_TWO), "FALSE", "TRUE"));
-    remoteConfigs.set(new RemoteConfig("value.sometimes", 25, Set.of(AuthHelper.VALID_UUID_TWO), "default", "custom"));
+    remoteConfigs.set(new RemoteConfig("android.stickers", 50, Set.of(AuthHelper.VALID_UUID, AuthHelper.VALID_UUID_TWO), "FALSE", "TRUE", null));
+    remoteConfigs.set(new RemoteConfig("value.sometimes", 25, Set.of(AuthHelper.VALID_UUID_TWO), "default", "custom", null));
 
     List<RemoteConfig> configs = remoteConfigs.getAll();
 
@@ -60,11 +60,11 @@ public class RemoteConfigsTest {
 
   @Test
   public void testUpdate() {
-    remoteConfigs.set(new RemoteConfig("android.stickers", 50, Set.of(), "FALSE", "TRUE"));
-    remoteConfigs.set(new RemoteConfig("value.sometimes", 22, Set.of(), "def", "!"));
-    remoteConfigs.set(new RemoteConfig("ios.stickers", 50, Set.of(AuthHelper.DISABLED_UUID), "FALSE", "TRUE"));
-    remoteConfigs.set(new RemoteConfig("ios.stickers", 75, Set.of(), "FALSE", "TRUE"));
-    remoteConfigs.set(new RemoteConfig("value.sometimes", 77, Set.of(), "hey", "wut"));
+    remoteConfigs.set(new RemoteConfig("android.stickers", 50, Set.of(), "FALSE", "TRUE", null));
+    remoteConfigs.set(new RemoteConfig("value.sometimes", 22, Set.of(), "def", "!", null));
+    remoteConfigs.set(new RemoteConfig("ios.stickers", 50, Set.of(AuthHelper.DISABLED_UUID), "FALSE", "TRUE", null));
+    remoteConfigs.set(new RemoteConfig("ios.stickers", 75, Set.of(), "FALSE", "TRUE", null));
+    remoteConfigs.set(new RemoteConfig("value.sometimes", 77, Set.of(), "hey", "wut", null));
 
     List<RemoteConfig> configs = remoteConfigs.getAll();
 
@@ -91,10 +91,10 @@ public class RemoteConfigsTest {
 
   @Test
   public void testDelete() {
-    remoteConfigs.set(new RemoteConfig("android.stickers", 50, Set.of(AuthHelper.VALID_UUID), "FALSE", "TRUE"));
-    remoteConfigs.set(new RemoteConfig("ios.stickers", 50, Set.of(), "FALSE", "TRUE"));
-    remoteConfigs.set(new RemoteConfig("ios.stickers", 75, Set.of(), "FALSE", "TRUE"));
-    remoteConfigs.set(new RemoteConfig("value.always", 100, Set.of(), "never", "always"));
+    remoteConfigs.set(new RemoteConfig("android.stickers", 50, Set.of(AuthHelper.VALID_UUID), "FALSE", "TRUE", null));
+    remoteConfigs.set(new RemoteConfig("ios.stickers", 50, Set.of(), "FALSE", "TRUE", null));
+    remoteConfigs.set(new RemoteConfig("ios.stickers", 75, Set.of(), "FALSE", "TRUE", null));
+    remoteConfigs.set(new RemoteConfig("value.always", 100, Set.of(), "never", "always", null));
     remoteConfigs.delete("android.stickers");
 
     List<RemoteConfig> configs = remoteConfigs.getAll();

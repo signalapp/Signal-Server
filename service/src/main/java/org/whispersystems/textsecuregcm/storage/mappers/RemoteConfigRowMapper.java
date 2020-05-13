@@ -20,6 +20,7 @@ public class RemoteConfigRowMapper implements RowMapper<RemoteConfig> {
                             rs.getInt(RemoteConfigs.PERCENTAGE),
                             new HashSet<>(Arrays.asList((UUID[])rs.getArray(RemoteConfigs.UUIDS).getArray())),
                             rs.getString(RemoteConfigs.DEFAULT_VALUE),
-                            rs.getString(RemoteConfigs.VALUE));
+                            rs.getString(RemoteConfigs.VALUE),
+                            rs.getString(RemoteConfigs.HASH_KEY));
   }
 }

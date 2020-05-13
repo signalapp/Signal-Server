@@ -32,14 +32,18 @@ public class RemoteConfig {
   @JsonProperty
   private String value;
 
+  @JsonProperty
+  private String hashKey;
+
   public RemoteConfig() {}
 
-  public RemoteConfig(String name, int percentage, Set<UUID> uuids, String defaultValue, String value) {
+  public RemoteConfig(String name, int percentage, Set<UUID> uuids, String defaultValue, String value, String hashKey) {
     this.name         = name;
     this.percentage   = percentage;
     this.uuids        = uuids;
     this.defaultValue = defaultValue;
     this.value        = value;
+    this.hashKey      = hashKey;
   }
 
   public int getPercentage() {
@@ -60,5 +64,9 @@ public class RemoteConfig {
 
   public String getValue() {
     return value;
+  }
+
+  public String getHashKey() {
+    return hashKey;
   }
 }
