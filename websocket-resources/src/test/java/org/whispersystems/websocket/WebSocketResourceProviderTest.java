@@ -36,19 +36,21 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.MultivaluedHashMap;
+import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.ExceptionMapper;
 import javax.ws.rs.ext.Provider;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.security.Principal;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import io.dropwizard.auth.Auth;
-import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.jersey.DropwizardResourceConfig;
 import io.dropwizard.jersey.jackson.JacksonMessageBodyProvider;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -583,6 +585,21 @@ public class WebSocketResourceProviderTest {
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.getMessage()).isEqualTo("OK");
     assertThat(response.getBody().toStringUtf8()).isEqualTo("my response");
+  }
+
+  @Test
+  public void testGetHeaderList() {
+    assertThat(WebSocketResourceProvider.getHeaderList(new MultivaluedHashMap<>())).isEmpty();
+
+    {
+      final MultivaluedMap<String, String> headers = new MultivaluedHashMap<>();
+      headers.put("test", Arrays.asList("a", "b", "c"));
+
+      final List<String> headerStrings = WebSocketResourceProvider.getHeaderList(headers);
+
+      assertThat(headerStrings).hasSize(1);
+      assertThat(headerStrings).contains("test:a");
+    }
   }
 
   private SubProtocol.WebSocketResponseMessage getResponse(ArgumentCaptor<ByteBuffer> responseCaptor) throws InvalidProtocolBufferException {

@@ -36,6 +36,7 @@ import org.whispersystems.websocket.session.ContextPrincipal;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 import org.whispersystems.websocket.setup.WebSocketConnectListener;
 
+import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -197,7 +198,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
       byte[] responseBytes = messageFactory.createResponse(requestMessage.getRequestId(),
                                                            response.getStatus(),
                                                            response.getStatusInfo().getReasonPhrase(),
-                                                           new LinkedList<>(),
+                                                           getHeaderList(response.getStringHeaders()),
                                                            Optional.ofNullable(body))
                                            .toByteArray();
 
@@ -207,16 +208,10 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
 
   private void sendErrorResponse(WebSocketRequestMessage requestMessage, Response error) {
     if (requestMessage.hasRequestId()) {
-      List<String> headers = new LinkedList<>();
-
-      for (String key : error.getStringHeaders().keySet()) {
-        headers.add(key + ":" + error.getStringHeaders().getFirst(key));
-      }
-
       WebSocketMessage response = messageFactory.createResponse(requestMessage.getRequestId(),
                                                                 error.getStatus(),
                                                                 "Error response",
-                                                                headers,
+                                                                getHeaderList(error.getStringHeaders()),
                                                                 Optional.empty());
 
       remoteEndpoint.sendBytesByFuture(ByteBuffer.wrap(response.toByteArray()));
@@ -229,4 +224,16 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
     return context;
   }
 
+  @VisibleForTesting
+  static List<String> getHeaderList(final MultivaluedMap<String, String> headerMap) {
+    final List<String> headers = new LinkedList<>();
+
+    if (headerMap != null) {
+      for (String key : headerMap.keySet()) {
+        headers.add(key + ":" + headerMap.getFirst(key));
+      }
+    }
+
+    return headers;
+  }
 }
