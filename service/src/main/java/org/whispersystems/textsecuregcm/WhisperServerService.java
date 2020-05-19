@@ -82,6 +82,7 @@ import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper
 import org.whispersystems.textsecuregcm.metrics.CpuUsageGauge;
 import org.whispersystems.textsecuregcm.metrics.FileDescriptorGauge;
 import org.whispersystems.textsecuregcm.metrics.FreeMemoryGauge;
+import org.whispersystems.textsecuregcm.metrics.MetricsApplicationEventListener;
 import org.whispersystems.textsecuregcm.metrics.NetworkReceivedGauge;
 import org.whispersystems.textsecuregcm.metrics.NetworkSentGauge;
 import org.whispersystems.textsecuregcm.providers.RedisClientFactory;
@@ -315,6 +316,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     AuthFilter<BasicCredentials, Account>                  accountAuthFilter                  = new BasicCredentialAuthFilter.Builder<Account>().setAuthenticator(accountAuthenticator).buildAuthFilter                                  ();
     AuthFilter<BasicCredentials, DisabledPermittedAccount> disabledPermittedAccountAuthFilter = new BasicCredentialAuthFilter.Builder<DisabledPermittedAccount>().setAuthenticator(disabledPermittedAccountAuthenticator).buildAuthFilter();
+
+    environment.jersey().register(new MetricsApplicationEventListener());
 
     environment.jersey().register(new PolymorphicAuthDynamicFeature<>(ImmutableMap.of(Account.class, accountAuthFilter,
                                                                                       DisabledPermittedAccount.class, disabledPermittedAccountAuthFilter)));
