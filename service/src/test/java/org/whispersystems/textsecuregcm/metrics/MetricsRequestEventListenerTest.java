@@ -81,8 +81,8 @@ public class MetricsRequestEventListenerTest {
         assertEquals(4, tags.size());
         assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PATH_TAG, path)));
         assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(statusCode))));
-        assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PLATFORM_TAG, "android")));
-        assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.VERSION_TAG, "4.53.7")));
+        assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
+        assertTrue(tags.contains(Tag.of(UserAgentTagUtil.VERSION_TAG, "4.53.7")));
     }
 
     @Test
@@ -95,33 +95,5 @@ public class MetricsRequestEventListenerTest {
         when(uriInfo.getMatchedTemplates()).thenReturn(Arrays.asList(thirdComponent, secondComponent, firstComponent));
 
         assertEquals("/first/second/{param}/{moreDifferentParam}", MetricsRequestEventListener.getPathTemplate(uriInfo));
-    }
-
-    @Test
-    public void testGetUserAgentTags() {
-        assertEquals(MetricsRequestEventListener.UNRECOGNIZED_TAGS,
-                listener.getUserAgentTags("This is obviously not a reasonable User-Agent string."));
-
-        final List<Tag> tags = listener.getUserAgentTags("Signal-Android 4.53.7 (Android 8.1)");
-
-        assertEquals(2, tags.size());
-        assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PLATFORM_TAG, "android")));
-        assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.VERSION_TAG, "4.53.7")));
-    }
-
-    @Test
-    public void testGetUserAgentTagsFlooded() {
-        for (int i = 0; i < MetricsRequestEventListener.MAX_VERSIONS; i++) {
-            listener.getUserAgentTags(String.format("Signal-Android 1.0.%d (Android 8.1)", i));
-        }
-
-        assertEquals(MetricsRequestEventListener.OVERFLOW_TAGS,
-                listener.getUserAgentTags("Signal-Android 2.0.0 (Android 8.1)"));
-
-        final List<Tag> tags = listener.getUserAgentTags("Signal-Android 1.0.0 (Android 8.1)");
-
-        assertEquals(2, tags.size());
-        assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PLATFORM_TAG, "android")));
-        assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.VERSION_TAG, "1.0.0")));
     }
 }
