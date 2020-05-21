@@ -21,6 +21,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.TimestampHeaderUtil;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
@@ -28,6 +29,7 @@ import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 import javax.ws.rs.WebApplicationException;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -118,7 +120,7 @@ public class WebSocketConnection implements DispatchChannel {
         body   = Optional.ofNullable(new EncryptedOutgoingMessage(message, device.getSignalingKey()).toByteArray());
       }
 
-      client.sendRequest("PUT", "/api/v1/message", Collections.singletonList(header), body)
+      client.sendRequest("PUT", "/api/v1/message", List.of(header, TimestampHeaderUtil.getTimestampHeader()), body)
             .thenAccept(response -> {
               boolean isReceipt = message.getType() == Envelope.Type.RECEIPT;
 
@@ -201,7 +203,7 @@ public class WebSocketConnection implements DispatchChannel {
     }
 
     if (!messages.hasMore()) {
-      client.sendRequest("PUT", "/api/v1/queue/empty", null, Optional.empty());
+      client.sendRequest("PUT", "/api/v1/queue/empty", Collections.singletonList(TimestampHeaderUtil.getTimestampHeader()), Optional.empty());
     }
   }
 
