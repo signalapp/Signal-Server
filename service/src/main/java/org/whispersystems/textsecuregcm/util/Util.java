@@ -23,6 +23,9 @@ import java.net.URLEncoder;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.temporal.ChronoField;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -186,6 +189,15 @@ public class Util {
   }
 
   public static long todayInMillis() {
-    return TimeUnit.DAYS.toMillis(TimeUnit.MILLISECONDS.toDays(System.currentTimeMillis()));
+    return todayInMillis(Clock.systemUTC());
+  }
+
+  public static long todayInMillis(Clock clock) {
+    return TimeUnit.DAYS.toMillis(TimeUnit.MILLISECONDS.toDays(clock.instant().toEpochMilli()));
+  }
+
+  public static long todayInMillisGivenOffsetFromNow(Clock clock, Duration offset) {
+    final long currentTimeSeconds = offset.addTo(clock.instant()).getLong(ChronoField.INSTANT_SECONDS);
+    return TimeUnit.DAYS.toMillis(TimeUnit.SECONDS.toDays(currentTimeSeconds));
   }
 }
