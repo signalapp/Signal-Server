@@ -10,7 +10,11 @@ import org.glassfish.jersey.server.monitoring.RequestEventListener;
  */
 public class MetricsApplicationEventListener implements ApplicationEventListener {
 
-    private final MetricsRequestEventListener metricsRequestEventListener = new MetricsRequestEventListener();
+    private final MetricsRequestEventListener metricsRequestEventListener;
+
+    public MetricsApplicationEventListener(final TrafficSource trafficSource) {
+        this.metricsRequestEventListener = new MetricsRequestEventListener(trafficSource);
+    }
 
     @Override
     public void onEvent(final ApplicationEvent event) {

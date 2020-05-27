@@ -17,19 +17,22 @@ import java.util.List;
  */
 class MetricsRequestEventListener implements RequestEventListener {
 
-    static final         String         COUNTER_NAME       = MetricRegistry.name(MetricsRequestEventListener.class, "request");
+    static final  String        COUNTER_NAME       = MetricRegistry.name(MetricsRequestEventListener.class, "request");
 
-    static final         String         PATH_TAG           = "path";
-    static final         String         STATUS_CODE_TAG    = "status";
+    static final  String        PATH_TAG           = "path";
+    static final  String        STATUS_CODE_TAG    = "status";
+    static final  String        TRAFFIC_SOURCE_TAG = "trafficSource";
 
-    private final        MeterRegistry  meterRegistry;
+    private final TrafficSource trafficSource;
+    private final MeterRegistry meterRegistry;
 
-    public MetricsRequestEventListener() {
-        this(Metrics.globalRegistry);
+    public MetricsRequestEventListener(final TrafficSource trafficSource) {
+        this(trafficSource, Metrics.globalRegistry);
     }
 
     @VisibleForTesting
-    MetricsRequestEventListener(final MeterRegistry meterRegistry) {
+    MetricsRequestEventListener(final TrafficSource trafficSource, final MeterRegistry meterRegistry) {
+        this.trafficSource = trafficSource;
         this.meterRegistry = meterRegistry;
     }
 
@@ -37,9 +40,10 @@ class MetricsRequestEventListener implements RequestEventListener {
     public void onEvent(final RequestEvent event) {
         if (event.getType() == RequestEvent.Type.FINISHED) {
             if (!event.getUriInfo().getMatchedTemplates().isEmpty()) {
-                final List<Tag> tags = new ArrayList<>(4);
+                final List<Tag> tags = new ArrayList<>(5);
                 tags.add(Tag.of(PATH_TAG, getPathTemplate(event.getUriInfo())));
                 tags.add(Tag.of(STATUS_CODE_TAG, String.valueOf(event.getContainerResponse().getStatus())));
+                tags.add(Tag.of(TRAFFIC_SOURCE_TAG, trafficSource.name().toLowerCase()));
 
                 event.getContainerRequest().getRequestHeader("User-Agent")
                                            .stream()

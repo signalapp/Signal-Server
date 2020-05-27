@@ -3,7 +3,6 @@ package org.whispersystems.textsecuregcm.metrics;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
-import org.bouncycastle.ocsp.Req;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.ContainerResponse;
 import org.glassfish.jersey.server.ExtendedUriInfo;
@@ -13,15 +12,13 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -30,17 +27,19 @@ import static org.mockito.Mockito.when;
 
 public class MetricsRequestEventListenerTest {
 
-    private MeterRegistry               meterRegistry;
-    private Counter                     counter;
+    private              MeterRegistry               meterRegistry;
+    private              Counter                     counter;
 
-    private MetricsRequestEventListener listener;
+    private              MetricsRequestEventListener listener;
+
+    private static final TrafficSource               TRAFFIC_SOURCE = TrafficSource.HTTP;
 
     @Before
     public void setup() {
         meterRegistry = mock(MeterRegistry.class);
         counter       = mock(Counter.class);
 
-        listener      = new MetricsRequestEventListener(meterRegistry);
+        listener      = new MetricsRequestEventListener(TRAFFIC_SOURCE, meterRegistry);
     }
 
     @Test
@@ -78,9 +77,10 @@ public class MetricsRequestEventListenerTest {
             tags.add(tag);
         }
 
-        assertEquals(4, tags.size());
+        assertEquals(5, tags.size());
         assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PATH_TAG, path)));
         assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(statusCode))));
+        assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
         assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
         assertTrue(tags.contains(Tag.of(UserAgentTagUtil.VERSION_TAG, "4.53.7")));
     }
