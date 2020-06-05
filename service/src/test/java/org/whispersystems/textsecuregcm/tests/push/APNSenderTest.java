@@ -21,14 +21,13 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.SynchronousExecutorService;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import io.netty.util.concurrent.DefaultEventExecutor;
-import io.netty.util.concurrent.DefaultPromise;
-import io.netty.util.concurrent.EventExecutor;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
@@ -42,8 +41,6 @@ public class APNSenderTest {
   private final Account            destinationAccount = mock(Account.class);
   private final Device             destinationDevice  = mock(Device.class);
   private final ApnFallbackManager fallbackManager    = mock(ApnFallbackManager.class);
-
-  private final DefaultEventExecutor executor = new DefaultEventExecutor();
 
   @Before
   public void setup() {
@@ -60,7 +57,7 @@ public class APNSenderTest {
     when(response.isAccepted()).thenReturn(true);
 
     when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
-        .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(executor, invocationOnMock.getArgument(0), response));
+        .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
 
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
     ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true, Optional.empty());
@@ -74,7 +71,7 @@ public class APNSenderTest {
     verify(apnsClient, times(1)).sendNotification(notification.capture());
 
     assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
-    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(ApnMessage.MAX_EXPIRATION));
+    assertThat(notification.getValue().getExpiration()).isEqualTo(Instant.ofEpochMilli(ApnMessage.MAX_EXPIRATION));
     assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_NOTIFICATION_PAYLOAD);
     assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
     assertThat(notification.getValue().getTopic()).isEqualTo("foo.voip");
@@ -94,7 +91,7 @@ public class APNSenderTest {
     when(response.isAccepted()).thenReturn(true);
 
     when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
-        .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(executor, invocationOnMock.getArgument(0), response));
+        .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
 
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
     ApnMessage message = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, false, Optional.empty());
@@ -108,7 +105,7 @@ public class APNSenderTest {
     verify(apnsClient, times(1)).sendNotification(notification.capture());
 
     assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
-    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(ApnMessage.MAX_EXPIRATION));
+    assertThat(notification.getValue().getExpiration()).isEqualTo(Instant.ofEpochMilli(ApnMessage.MAX_EXPIRATION));
     assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_NOTIFICATION_PAYLOAD);
     assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
     assertThat(notification.getValue().getTopic()).isEqualTo("foo");
@@ -129,7 +126,7 @@ public class APNSenderTest {
     when(response.getRejectionReason()).thenReturn("Unregistered");
 
     when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
-        .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(executor, invocationOnMock.getArgument(0), response));
+        .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
 
 
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
@@ -149,7 +146,7 @@ public class APNSenderTest {
     verify(apnsClient, times(1)).sendNotification(notification.capture());
 
     assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
-    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(ApnMessage.MAX_EXPIRATION));
+    assertThat(notification.getValue().getExpiration()).isEqualTo(Instant.ofEpochMilli(ApnMessage.MAX_EXPIRATION));
     assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_NOTIFICATION_PAYLOAD);
     assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
 
@@ -233,7 +230,7 @@ public class APNSenderTest {
     when(response.getRejectionReason()).thenReturn("Unregistered");
 
     when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
-        .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(executor, invocationOnMock.getArgument(0), response));
+        .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
 
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
     ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true, Optional.empty());
@@ -252,7 +249,7 @@ public class APNSenderTest {
     verify(apnsClient, times(1)).sendNotification(notification.capture());
 
     assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
-    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(ApnMessage.MAX_EXPIRATION));
+    assertThat(notification.getValue().getExpiration()).isEqualTo(Instant.ofEpochMilli(ApnMessage.MAX_EXPIRATION));
     assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_NOTIFICATION_PAYLOAD);
     assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
 
@@ -328,7 +325,7 @@ public class APNSenderTest {
     when(response.getRejectionReason()).thenReturn("BadTopic");
 
     when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
-        .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(executor, invocationOnMock.getArgument(0), response));
+        .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
 
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
     ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true, Optional.empty());
@@ -342,7 +339,7 @@ public class APNSenderTest {
     verify(apnsClient, times(1)).sendNotification(notification.capture());
 
     assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
-    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(ApnMessage.MAX_EXPIRATION));
+    assertThat(notification.getValue().getExpiration()).isEqualTo(Instant.ofEpochMilli(ApnMessage.MAX_EXPIRATION));
     assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_NOTIFICATION_PAYLOAD);
     assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
 
@@ -361,7 +358,7 @@ public class APNSenderTest {
     when(response.isAccepted()).thenReturn(true);
 
     when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
-        .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(executor, invocationOnMock.getArgument(0), new Exception("lost connection")));
+        .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), new Exception("lost connection")));
 
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
     ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true, Optional.empty());
@@ -383,7 +380,7 @@ public class APNSenderTest {
     verify(apnsClient, times(1)).sendNotification(notification.capture());
 
     assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
-    assertThat(notification.getValue().getExpiration()).isEqualTo(new Date(ApnMessage.MAX_EXPIRATION));
+    assertThat(notification.getValue().getExpiration()).isEqualTo(Instant.ofEpochMilli(ApnMessage.MAX_EXPIRATION));
     assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_NOTIFICATION_PAYLOAD);
     assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
 
@@ -392,31 +389,16 @@ public class APNSenderTest {
     verifyNoMoreInteractions(fallbackManager);
   }
 
-  private static class MockPushNotificationFuture <P extends ApnsPushNotification, V> extends DefaultPromise<V> implements PushNotificationFuture<P, V> {
+  private static class MockPushNotificationFuture <P extends ApnsPushNotification, V> extends PushNotificationFuture<P, V> {
 
-    private final P pushNotification;
-
-    MockPushNotificationFuture(final EventExecutor eventExecutor, final P pushNotification) {
-      super(eventExecutor);
-      this.pushNotification = pushNotification;
+    MockPushNotificationFuture(final P pushNotification, final V response) {
+      super(pushNotification);
+      complete(response);
     }
 
-    MockPushNotificationFuture(final EventExecutor eventExecutor, final P pushNotification, final V response) {
-      super(eventExecutor);
-      this.pushNotification = pushNotification;
-      setSuccess(response);
-    }
-
-    MockPushNotificationFuture(final EventExecutor eventExecutor, final P pushNotification, final Exception exception) {
-      super(eventExecutor);
-      this.pushNotification = pushNotification;
-      setFailure(exception);
-    }
-
-
-    @Override
-    public P getPushNotification() {
-      return pushNotification;
+    MockPushNotificationFuture(final P pushNotification, final Exception exception) {
+      super(pushNotification);
+      completeExceptionally(exception);
     }
   }
 

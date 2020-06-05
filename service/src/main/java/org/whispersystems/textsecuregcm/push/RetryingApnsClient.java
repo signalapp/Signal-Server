@@ -13,7 +13,6 @@ import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.netty.util.concurrent.GenericFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -22,9 +21,9 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.util.Date;
+import java.time.Instant;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
+import java.util.function.BiConsumer;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
@@ -55,11 +54,11 @@ public class RetryingApnsClient {
     this.apnsClient = apnsClient;
   }
 
-  ListenableFuture<ApnResult> send(final String apnId, final String topic, final String payload, final Date expiration) {
+  ListenableFuture<ApnResult> send(final String apnId, final String topic, final String payload, final Instant expiration) {
     SettableFuture<ApnResult>  result       = SettableFuture.create();
     SimpleApnsPushNotification notification = new SimpleApnsPushNotification(apnId, topic, payload, expiration, DeliveryPriority.IMMEDIATE);
         
-    apnsClient.sendNotification(notification).addListener(new ResponseHandler(result));
+    apnsClient.sendNotification(notification).whenComplete(new ResponseHandler(result));
 
     return result;
   }
@@ -68,7 +67,7 @@ public class RetryingApnsClient {
     apnsClient.close();
   }
 
-  private static final class ResponseHandler implements GenericFutureListener<io.netty.util.concurrent.Future<PushNotificationResponse<SimpleApnsPushNotification>>> {
+  private static final class ResponseHandler implements BiConsumer<PushNotificationResponse<SimpleApnsPushNotification>, Throwable> {
 
     private final SettableFuture<ApnResult> future;
 
@@ -77,27 +76,20 @@ public class RetryingApnsClient {
     }
 
     @Override
-    public void operationComplete(io.netty.util.concurrent.Future<PushNotificationResponse<SimpleApnsPushNotification>> result) {
-      try {
-        PushNotificationResponse<SimpleApnsPushNotification> response = result.get();
-
+    public void accept(final PushNotificationResponse<SimpleApnsPushNotification> response, final Throwable cause) {
+      if (response != null) {
         if (response.isAccepted()) {
           future.set(new ApnResult(ApnResult.Status.SUCCESS, null));
         } else if ("Unregistered".equals(response.getRejectionReason()) ||
-                   "BadDeviceToken".equals(response.getRejectionReason()))
-        {
+                "BadDeviceToken".equals(response.getRejectionReason())) {
           future.set(new ApnResult(ApnResult.Status.NO_SUCH_USER, response.getRejectionReason()));
         } else {
           logger.warn("Got APN failure: " + response.getRejectionReason());
           future.set(new ApnResult(ApnResult.Status.GENERIC_FAILURE, response.getRejectionReason()));
         }
-
-      } catch (InterruptedException e) {
-        logger.warn("Interrupted exception", e);
-        future.setException(e);
-      } catch (ExecutionException e) {
-        logger.warn("Execution exception", e);
-        future.setException(e.getCause());
+      } else {
+        logger.warn("Execution exception", cause);
+        future.setException(cause);
       }
     }
   }

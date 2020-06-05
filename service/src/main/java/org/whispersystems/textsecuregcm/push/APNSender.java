@@ -37,7 +37,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.util.Date;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -92,7 +92,7 @@ public class APNSender implements Managed {
     
     ListenableFuture<ApnResult> future = apnsClient.send(message.getApnId(), topic,
                                                          message.getMessage(),
-                                                         new Date(message.getExpirationTime()));
+                                                         Instant.ofEpochMilli(message.getExpirationTime()));
 
     Futures.addCallback(future, new FutureCallback<ApnResult>() {
       @Override
