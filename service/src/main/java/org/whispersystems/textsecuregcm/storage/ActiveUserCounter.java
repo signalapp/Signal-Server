@@ -21,6 +21,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.whispersystems.textsecuregcm.entities.ActiveUserTally;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -46,13 +47,15 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
 
   private static final String INTERVALS[] = {"daily", "weekly", "monthly", "quarterly", "yearly"};
 
-  private final MetricsFactory      metricsFactory;
-  private final ReplicatedJedisPool jedisPool;
-  private final ObjectMapper        mapper;
+  private final MetricsFactory            metricsFactory;
+  private final ReplicatedJedisPool       jedisPool;
+  private final FaultTolerantRedisCluster cacheCluster;
+  private final ObjectMapper              mapper;
 
-  public ActiveUserCounter(MetricsFactory metricsFactory, ReplicatedJedisPool jedisPool) {
+  public ActiveUserCounter(MetricsFactory metricsFactory, ReplicatedJedisPool jedisPool, FaultTolerantRedisCluster cacheCluster) {
     this.metricsFactory  = metricsFactory;
     this.jedisPool       = jedisPool;
+    this.cacheCluster    = cacheCluster;
     this.mapper          = SystemMapper.getMapper();
   }
 
@@ -60,6 +63,7 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
   public void onCrawlStart() {
     try (Jedis jedis = jedisPool.getWriteResource()) {
       jedis.del(TALLY_KEY);
+      cacheCluster.useWriteCluster(connection -> connection.async().del(TALLY_KEY));
     }
   }
 
@@ -174,7 +178,10 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
         }
       }
 
-      jedis.set(TALLY_KEY, mapper.writeValueAsString(activeUserTally));
+      final String tallyJson = mapper.writeValueAsString(activeUserTally);
+
+      jedis.set(TALLY_KEY, tallyJson);
+      cacheCluster.useWriteCluster(connection -> connection.async().set(TALLY_KEY, tallyJson));
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException(e);
     } catch (IOException e) {

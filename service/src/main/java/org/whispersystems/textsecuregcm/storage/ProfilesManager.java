@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
@@ -20,14 +21,16 @@ public class ProfilesManager {
 
   private static final String CACHE_PREFIX = "profiles::";
 
-  private final Profiles            profiles;
-  private final ReplicatedJedisPool cacheClient;
-  private final ObjectMapper        mapper;
+  private final Profiles                  profiles;
+  private final ReplicatedJedisPool       cacheClient;
+  private final FaultTolerantRedisCluster cacheCluster;
+  private final ObjectMapper              mapper;
 
-  public ProfilesManager(Profiles profiles, ReplicatedJedisPool cacheClient) {
-    this.profiles    = profiles;
-    this.cacheClient = cacheClient;
-    this.mapper      = SystemMapper.getMapper();
+  public ProfilesManager(Profiles profiles, ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster) {
+    this.profiles     = profiles;
+    this.cacheClient  = cacheClient;
+    this.cacheCluster = cacheCluster;
+    this.mapper       = SystemMapper.getMapper();
   }
 
   public void set(UUID uuid, VersionedProfile versionedProfile) {
@@ -53,7 +56,11 @@ public class ProfilesManager {
 
   private void memcacheSet(UUID uuid, VersionedProfile profile) {
     try (Jedis jedis = cacheClient.getWriteResource()) {
-      jedis.hset(CACHE_PREFIX + uuid.toString(), profile.getVersion(), mapper.writeValueAsString(profile));
+      final String key         = CACHE_PREFIX + uuid.toString();
+      final String profileJson = mapper.writeValueAsString(profile);
+
+      jedis.hset(key, profile.getVersion(), profileJson);
+      cacheCluster.useWriteCluster(connection -> connection.async().hset(key, profile.getVersion(), profileJson));
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException(e);
     }
@@ -76,7 +83,10 @@ public class ProfilesManager {
 
   private void memcacheDelete(UUID uuid) {
     try (Jedis jedis = cacheClient.getWriteResource()) {
-      jedis.del(CACHE_PREFIX + uuid.toString());
+      final String key = CACHE_PREFIX + uuid.toString();
+
+      jedis.del(key);
+      cacheCluster.useWriteCluster(connection -> connection.async().del(key));
     }
   }
 }

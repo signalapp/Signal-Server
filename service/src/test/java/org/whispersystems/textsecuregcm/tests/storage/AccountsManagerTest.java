@@ -1,6 +1,7 @@
 package org.whispersystems.textsecuregcm.tests.storage;
 
 import org.junit.Test;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Accounts;
@@ -23,10 +24,11 @@ public class AccountsManagerTest {
 
   @Test
   public void testGetAccountByNumberInCache() {
-    ReplicatedJedisPool cacheClient      = mock(ReplicatedJedisPool.class);
-    Jedis               jedis            = mock(Jedis.class              );
-    Accounts            accounts         = mock(Accounts.class           );
-    DirectoryManager    directoryManager = mock(DirectoryManager.class   );
+    ReplicatedJedisPool       cacheClient      = mock(ReplicatedJedisPool.class      );
+    Jedis                     jedis            = mock(Jedis.class                    );
+    FaultTolerantRedisCluster cacheCluster     = mock(FaultTolerantRedisCluster.class);
+    Accounts                  accounts         = mock(Accounts.class                 );
+    DirectoryManager          directoryManager = mock(DirectoryManager.class         );
 
     UUID uuid = UUID.randomUUID();
 
@@ -34,7 +36,7 @@ public class AccountsManagerTest {
     when(jedis.get(eq("AccountMap::+14152222222"))).thenReturn(uuid.toString());
     when(jedis.get(eq("Account3::" + uuid.toString()))).thenReturn("{\"number\": \"+14152222222\", \"name\": \"test\"}");
 
-    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheClient);
+    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheClient, cacheCluster);
     Optional<Account> account         = accountsManager.get("+14152222222");
 
     assertTrue(account.isPresent());
@@ -50,17 +52,18 @@ public class AccountsManagerTest {
 
   @Test
   public void testGetAccountByUuidInCache() {
-    ReplicatedJedisPool cacheClient      = mock(ReplicatedJedisPool.class);
-    Jedis               jedis            = mock(Jedis.class              );
-    Accounts            accounts         = mock(Accounts.class           );
-    DirectoryManager    directoryManager = mock(DirectoryManager.class   );
+    ReplicatedJedisPool       cacheClient      = mock(ReplicatedJedisPool.class      );
+    Jedis                     jedis            = mock(Jedis.class                    );
+    FaultTolerantRedisCluster cacheCluster     = mock(FaultTolerantRedisCluster.class);
+    Accounts                  accounts         = mock(Accounts.class                 );
+    DirectoryManager          directoryManager = mock(DirectoryManager.class         );
 
     UUID uuid = UUID.randomUUID();
 
     when(cacheClient.getReadResource()).thenReturn(jedis);
     when(jedis.get(eq("Account3::" + uuid.toString()))).thenReturn("{\"number\": \"+14152222222\", \"name\": \"test\"}");
 
-    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheClient);
+    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheClient, cacheCluster);
     Optional<Account> account         = accountsManager.get(uuid);
 
     assertTrue(account.isPresent());
@@ -77,19 +80,20 @@ public class AccountsManagerTest {
 
   @Test
   public void testGetAccountByNumberNotInCache() {
-    ReplicatedJedisPool cacheClient      = mock(ReplicatedJedisPool.class);
-    Jedis               jedis            = mock(Jedis.class              );
-    Accounts            accounts         = mock(Accounts.class           );
-    DirectoryManager    directoryManager = mock(DirectoryManager.class   );
-    UUID                uuid             = UUID.randomUUID();
-    Account             account          = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
+    ReplicatedJedisPool       cacheClient      = mock(ReplicatedJedisPool.class      );
+    Jedis                     jedis            = mock(Jedis.class                    );
+    FaultTolerantRedisCluster cacheCluster     = mock(FaultTolerantRedisCluster.class);
+    Accounts                  accounts         = mock(Accounts.class                 );
+    DirectoryManager          directoryManager = mock(DirectoryManager.class         );
+    UUID                      uuid             = UUID.randomUUID();
+    Account                   account          = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
 
     when(cacheClient.getReadResource()).thenReturn(jedis);
     when(cacheClient.getWriteResource()).thenReturn(jedis);
     when(jedis.get(eq("AccountMap::+14152222222"))).thenReturn(null);
     when(accounts.get(eq("+14152222222"))).thenReturn(Optional.of(account));
 
-    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheClient);
+    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheClient, cacheCluster);
     Optional<Account> retrieved       = accountsManager.get("+14152222222");
 
     assertTrue(retrieved.isPresent());
@@ -107,19 +111,20 @@ public class AccountsManagerTest {
 
   @Test
   public void testGetAccountByUuidNotInCache() {
-    ReplicatedJedisPool cacheClient      = mock(ReplicatedJedisPool.class);
-    Jedis               jedis            = mock(Jedis.class              );
-    Accounts            accounts         = mock(Accounts.class           );
-    DirectoryManager    directoryManager = mock(DirectoryManager.class   );
-    UUID                uuid             = UUID.randomUUID();
-    Account             account          = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
+    ReplicatedJedisPool       cacheClient      = mock(ReplicatedJedisPool.class      );
+    Jedis                     jedis            = mock(Jedis.class                    );
+    FaultTolerantRedisCluster cacheCluster     = mock(FaultTolerantRedisCluster.class);
+    Accounts                  accounts         = mock(Accounts.class                 );
+    DirectoryManager          directoryManager = mock(DirectoryManager.class         );
+    UUID                      uuid             = UUID.randomUUID();
+    Account                   account          = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
 
     when(cacheClient.getReadResource()).thenReturn(jedis);
     when(cacheClient.getWriteResource()).thenReturn(jedis);
     when(jedis.get(eq("Account3::" + uuid))).thenReturn(null);
     when(accounts.get(eq(uuid))).thenReturn(Optional.of(account));
 
-    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheClient);
+    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheClient, cacheCluster);
     Optional<Account> retrieved       = accountsManager.get(uuid);
 
     assertTrue(retrieved.isPresent());
@@ -137,19 +142,20 @@ public class AccountsManagerTest {
 
   @Test
   public void testGetAccountByNumberBrokenCache() {
-    ReplicatedJedisPool cacheClient      = mock(ReplicatedJedisPool.class);
-    Jedis               jedis            = mock(Jedis.class              );
-    Accounts            accounts         = mock(Accounts.class           );
-    DirectoryManager    directoryManager = mock(DirectoryManager.class   );
-    UUID                uuid             = UUID.randomUUID();
-    Account             account          = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
+    ReplicatedJedisPool       cacheClient      = mock(ReplicatedJedisPool.class      );
+    Jedis                     jedis            = mock(Jedis.class                    );
+    FaultTolerantRedisCluster cacheCluster     = mock(FaultTolerantRedisCluster.class);
+    Accounts                  accounts         = mock(Accounts.class                 );
+    DirectoryManager          directoryManager = mock(DirectoryManager.class         );
+    UUID                      uuid             = UUID.randomUUID();
+    Account                   account          = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
 
     when(cacheClient.getReadResource()).thenReturn(jedis);
     when(cacheClient.getWriteResource()).thenReturn(jedis);
     when(jedis.get(eq("AccountMap::+14152222222"))).thenThrow(new JedisException("Connection lost!"));
     when(accounts.get(eq("+14152222222"))).thenReturn(Optional.of(account));
 
-    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheClient);
+    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheClient, cacheCluster);
     Optional<Account> retrieved       = accountsManager.get("+14152222222");
 
     assertTrue(retrieved.isPresent());
@@ -167,19 +173,20 @@ public class AccountsManagerTest {
 
   @Test
   public void testGetAccountByUuidBrokenCache() {
-    ReplicatedJedisPool cacheClient      = mock(ReplicatedJedisPool.class);
-    Jedis               jedis            = mock(Jedis.class              );
-    Accounts            accounts         = mock(Accounts.class           );
-    DirectoryManager    directoryManager = mock(DirectoryManager.class   );
-    UUID                uuid             = UUID.randomUUID();
-    Account             account          = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
+    ReplicatedJedisPool       cacheClient      = mock(ReplicatedJedisPool.class      );
+    Jedis                     jedis            = mock(Jedis.class                    );
+    FaultTolerantRedisCluster cacheCluster     = mock(FaultTolerantRedisCluster.class);
+    Accounts                  accounts         = mock(Accounts.class                 );
+    DirectoryManager          directoryManager = mock(DirectoryManager.class         );
+    UUID                      uuid             = UUID.randomUUID();
+    Account                   account          = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
 
     when(cacheClient.getReadResource()).thenReturn(jedis);
     when(cacheClient.getWriteResource()).thenReturn(jedis);
     when(jedis.get(eq("Account3::" + uuid))).thenThrow(new JedisException("Connection lost!"));
     when(accounts.get(eq(uuid))).thenReturn(Optional.of(account));
 
-    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheClient);
+    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheClient, cacheCluster);
     Optional<Account> retrieved       = accountsManager.get(uuid);
 
     assertTrue(retrieved.isPresent());

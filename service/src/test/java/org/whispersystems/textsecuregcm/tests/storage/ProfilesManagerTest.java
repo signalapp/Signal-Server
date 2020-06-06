@@ -1,6 +1,7 @@
 package org.whispersystems.textsecuregcm.tests.storage;
 
 import org.junit.Test;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
@@ -24,16 +25,17 @@ public class ProfilesManagerTest {
 
   @Test
   public void testGetProfileInCache() {
-    ReplicatedJedisPool cacheClient      = mock(ReplicatedJedisPool.class);
-    Jedis               jedis            = mock(Jedis.class              );
-    Profiles            profiles         = mock(Profiles.class           );
+    ReplicatedJedisPool cacheClient        = mock(ReplicatedJedisPool.class);
+    Jedis               jedis              = mock(Jedis.class              );
+    Profiles            profiles           = mock(Profiles.class           );
+    FaultTolerantRedisCluster cacheCluster = mock(FaultTolerantRedisCluster.class);
 
     UUID uuid = UUID.randomUUID();
 
     when(cacheClient.getReadResource()).thenReturn(jedis);
     when(jedis.hget(eq("profiles::" + uuid.toString()), eq("someversion"))).thenReturn("{\"version\": \"someversion\", \"name\": \"somename\", \"avatar\": \"someavatar\", \"commitment\":\"" + Base64.encodeBytes("somecommitment".getBytes()) + "\"}");
 
-    ProfilesManager            profilesManager = new ProfilesManager(profiles, cacheClient);
+    ProfilesManager            profilesManager = new ProfilesManager(profiles, cacheClient, cacheCluster);
     Optional<VersionedProfile> profile         = profilesManager.get(uuid, "someversion");
 
     assertTrue(profile.isPresent());
@@ -49,9 +51,10 @@ public class ProfilesManagerTest {
 
   @Test
   public void testGetProfileNotInCache() {
-    ReplicatedJedisPool cacheClient = mock(ReplicatedJedisPool.class);
-    Jedis               jedis       = mock(Jedis.class              );
-    Profiles            profiles    = mock(Profiles.class           );
+    ReplicatedJedisPool cacheClient        = mock(ReplicatedJedisPool.class);
+    Jedis               jedis              = mock(Jedis.class              );
+    Profiles            profiles           = mock(Profiles.class           );
+    FaultTolerantRedisCluster cacheCluster = mock(FaultTolerantRedisCluster.class);
 
     UUID             uuid    = UUID.randomUUID();
     VersionedProfile profile = new VersionedProfile("someversion", "somename", "someavatar", "somecommitment".getBytes());
@@ -61,7 +64,7 @@ public class ProfilesManagerTest {
     when(jedis.hget(eq("profiles::" + uuid.toString()), eq("someversion"))).thenReturn(null);
     when(profiles.get(eq(uuid), eq("someversion"))).thenReturn(Optional.of(profile));
 
-    ProfilesManager            profilesManager = new ProfilesManager(profiles, cacheClient);
+    ProfilesManager            profilesManager = new ProfilesManager(profiles, cacheClient, cacheCluster);
     Optional<VersionedProfile> retrieved       = profilesManager.get(uuid, "someversion");
 
     assertTrue(retrieved.isPresent());
@@ -78,9 +81,10 @@ public class ProfilesManagerTest {
 
   @Test
   public void testGetProfileBrokenCache() {
-    ReplicatedJedisPool cacheClient = mock(ReplicatedJedisPool.class);
-    Jedis               jedis       = mock(Jedis.class              );
-    Profiles            profiles    = mock(Profiles.class           );
+    ReplicatedJedisPool cacheClient        = mock(ReplicatedJedisPool.class);
+    Jedis               jedis              = mock(Jedis.class              );
+    Profiles            profiles           = mock(Profiles.class           );
+    FaultTolerantRedisCluster cacheCluster = mock(FaultTolerantRedisCluster.class);
 
     UUID             uuid    = UUID.randomUUID();
     VersionedProfile profile = new VersionedProfile("someversion", "somename", "someavatar", "somecommitment".getBytes());
@@ -90,7 +94,7 @@ public class ProfilesManagerTest {
     when(jedis.hget(eq("profiles::" + uuid.toString()), eq("someversion"))).thenThrow(new JedisException("Connection lost"));
     when(profiles.get(eq(uuid), eq("someversion"))).thenReturn(Optional.of(profile));
 
-    ProfilesManager            profilesManager = new ProfilesManager(profiles, cacheClient);
+    ProfilesManager            profilesManager = new ProfilesManager(profiles, cacheClient, cacheCluster);
     Optional<VersionedProfile> retrieved       = profilesManager.get(uuid, "someversion");
 
     assertTrue(retrieved.isPresent());

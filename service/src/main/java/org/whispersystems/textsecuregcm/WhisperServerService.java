@@ -40,6 +40,8 @@ import io.dropwizard.db.PooledDataSourceFactory;
 import io.dropwizard.jdbi3.JdbiFactory;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
+import io.lettuce.core.RedisURI;
+import io.lettuce.core.cluster.RedisClusterClient;
 import io.micrometer.core.instrument.Clock;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.wavefront.WavefrontMeterRegistry;
@@ -96,6 +98,7 @@ import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.push.WebsocketSender;
 import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
@@ -147,10 +150,12 @@ import org.whispersystems.websocket.setup.WebSocketEnvironment;
 import javax.servlet.DispatcherType;
 import javax.servlet.FilterRegistration;
 import javax.servlet.ServletRegistration;
+import java.net.URI;
 import java.security.Security;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
@@ -238,13 +243,17 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ReplicatedJedisPool messagesClient      = messagesClientFactory.getRedisClientPool();
     ReplicatedJedisPool pushSchedulerClient = pushSchedulerClientFactory.getRedisClientPool();
 
+    RedisClusterClient cacheClusterClient = RedisClusterClient.create(config.getCacheClusterConfiguration().getUrls().stream().map(RedisURI::create).collect(Collectors.toList()));
+
+    FaultTolerantRedisCluster cacheCluster = new FaultTolerantRedisCluster("main_cache_cluster", cacheClusterClient, config.getCacheClusterConfiguration().getCircuitBreakerConfiguration());
+
     DirectoryManager           directory                  = new DirectoryManager(directoryClient);
     DirectoryQueue             directoryQueue             = new DirectoryQueue(config.getDirectoryConfiguration().getSqsConfiguration());
-    PendingAccountsManager     pendingAccountsManager     = new PendingAccountsManager(pendingAccounts, cacheClient);
-    PendingDevicesManager      pendingDevicesManager      = new PendingDevicesManager (pendingDevices, cacheClient );
-    AccountsManager            accountsManager            = new AccountsManager(accounts, directory, cacheClient);
-    UsernamesManager           usernamesManager           = new UsernamesManager(usernames, reservedUsernames, cacheClient);
-    ProfilesManager            profilesManager            = new ProfilesManager(profiles, cacheClient);
+    PendingAccountsManager     pendingAccountsManager     = new PendingAccountsManager(pendingAccounts, cacheClient, cacheCluster);
+    PendingDevicesManager      pendingDevicesManager      = new PendingDevicesManager(pendingDevices, cacheClient, cacheCluster);
+    AccountsManager            accountsManager            = new AccountsManager(accounts, directory, cacheClient, cacheCluster);
+    UsernamesManager           usernamesManager           = new UsernamesManager(usernames, reservedUsernames, cacheClient, cacheCluster);
+    ProfilesManager            profilesManager            = new ProfilesManager(profiles, cacheClient, cacheCluster);
     MessagesCache              messagesCache              = new MessagesCache(messagesClient, messages, accountsManager, config.getMessageCacheConfiguration().getPersistDelayMinutes());
     MessagesManager            messagesManager            = new MessagesManager(messages, messagesCache);
     RemoteConfigsManager       remoteConfigsManager       = new RemoteConfigsManager(remoteConfigs);
@@ -254,7 +263,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     APNSender                  apnSender                  = new APNSender(accountsManager, config.getApnConfiguration());
     GCMSender                  gcmSender                  = new GCMSender(accountsManager, config.getGcmConfiguration().getApiKey());
     WebsocketSender            websocketSender            = new WebsocketSender(messagesManager, pubSubManager);
-    RateLimiters               rateLimiters               = new RateLimiters(config.getLimitsConfiguration(), cacheClient);
+    RateLimiters               rateLimiters               = new RateLimiters(config.getLimitsConfiguration(), cacheClient, cacheCluster);
 
     AccountAuthenticator                  accountAuthenticator                  = new AccountAuthenticator(accountsManager);
     DisabledPermittedAccountAuthenticator disabledPermittedAccountAuthenticator = new DisabledPermittedAccountAuthenticator(accountsManager);
@@ -277,13 +286,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     DirectoryReconciliationClient directoryReconciliationClient = new DirectoryReconciliationClient(config.getDirectoryConfiguration().getDirectoryServerConfiguration());
 
-    ActiveUserCounter                    activeUserCounter               = new ActiveUserCounter(config.getMetricsFactory(), cacheClient);
+    ActiveUserCounter                    activeUserCounter               = new ActiveUserCounter(config.getMetricsFactory(), cacheClient, cacheCluster);
     DirectoryReconciler                  directoryReconciler             = new DirectoryReconciler(directoryReconciliationClient, directory);
     AccountCleaner                       accountCleaner                  = new AccountCleaner(accountsManager, directoryQueue);
     PushFeedbackProcessor                pushFeedbackProcessor           = new PushFeedbackProcessor(accountsManager, directoryQueue);
     List<AccountDatabaseCrawlerListener> accountDatabaseCrawlerListeners = List.of(pushFeedbackProcessor, activeUserCounter, directoryReconciler, accountCleaner);
 
-    AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(cacheClient);
+    AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(cacheClient, cacheCluster);
     AccountDatabaseCrawler      accountDatabaseCrawler      = new AccountDatabaseCrawler(accountsManager, accountDatabaseCrawlerCache, accountDatabaseCrawlerListeners, config.getAccountDatabaseCrawlerConfiguration().getChunkSize(), config.getAccountDatabaseCrawlerConfiguration().getChunkIntervalMs());
 
     messagesCache.setPubSubManager(pubSubManager, pushSender);

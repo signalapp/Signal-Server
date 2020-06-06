@@ -3,7 +3,9 @@ package org.whispersystems.textsecuregcm.limits;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import io.lettuce.core.SetArgs;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.Constants;
 
@@ -14,8 +16,8 @@ public class LockingRateLimiter extends RateLimiter {
 
   private final Meter meter;
 
-  public LockingRateLimiter(ReplicatedJedisPool cacheClient, String name, int bucketSize, double leakRatePerMinute) {
-    super(cacheClient, name, bucketSize, leakRatePerMinute);
+  public LockingRateLimiter(ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster, String name, int bucketSize, double leakRatePerMinute) {
+    super(cacheClient, cacheCluster, name, bucketSize, leakRatePerMinute);
 
     MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
     this.meter = metricRegistry.meter(name(getClass(), name, "locked"));
@@ -42,13 +44,21 @@ public class LockingRateLimiter extends RateLimiter {
 
   private void releaseLock(String key) {
     try (Jedis jedis = cacheClient.getWriteResource()) {
-      jedis.del(getLockName(key));
+      final String lockName = getLockName(key);
+
+      jedis.del(lockName);
+      cacheCluster.useWriteCluster(connection -> connection.async().del(lockName));
     }
   }
 
   private boolean acquireLock(String key) {
     try (Jedis jedis = cacheClient.getWriteResource()) {
-      return jedis.set(getLockName(key), "L", "NX", "EX", 10) != null;
+      final String lockName = getLockName(key);
+
+      final boolean acquiredLock = jedis.set(lockName, "L", "NX", "EX", 10) != null;
+      cacheCluster.useWriteCluster(connection -> connection.async().set(lockName, "L", SetArgs.Builder.nx().ex(10)));
+
+      return acquiredLock;
     }
   }
 
