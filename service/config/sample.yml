@@ -28,6 +28,10 @@ cache: # Redis server configuration for cache cluster
   url:
   replicaUrls:
 
+cacheCluster: # Redis server configuration for cache cluster
+  urls:
+    - redis://redis.example.com:6379/
+
 directory:
   redis: # Redis server configuration for directory cluster
     url:
