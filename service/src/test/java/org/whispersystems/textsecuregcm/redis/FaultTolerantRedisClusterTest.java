@@ -9,6 +9,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 
+import java.time.Duration;
+
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -36,7 +38,7 @@ public class FaultTolerantRedisClusterTest {
         breakerConfiguration.setRingBufferSizeInClosedState(1);
         breakerConfiguration.setWaitDurationInOpenStateInSeconds(Integer.MAX_VALUE);
 
-        faultTolerantCluster = new FaultTolerantRedisCluster("test", clusterClient, breakerConfiguration);
+        faultTolerantCluster = new FaultTolerantRedisCluster("test", clusterClient, Duration.ofSeconds(2), breakerConfiguration);
     }
 
     @Test

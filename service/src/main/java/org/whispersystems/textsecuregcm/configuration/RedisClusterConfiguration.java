@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import java.time.Duration;
 import java.util.List;
 
 public class RedisClusterConfiguration {
@@ -15,11 +16,19 @@ public class RedisClusterConfiguration {
 
     @JsonProperty
     @NotNull
+    private Duration timeout = Duration.ofSeconds(2);
+
+    @JsonProperty
+    @NotNull
     @Valid
     private CircuitBreakerConfiguration circuitBreaker = new CircuitBreakerConfiguration();
 
     public List<String> getUrls() {
         return urls;
+    }
+
+    public Duration getTimeout() {
+        return timeout;
     }
 
     public CircuitBreakerConfiguration getCircuitBreakerConfiguration() {
