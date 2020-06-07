@@ -119,7 +119,8 @@ public class UsernamesManager {
       final String uuidMapKey = getUuidMapKey(uuid);
       final String usernameMapKey = getUsernameMapKey(username);
 
-      Optional.ofNullable(jedis.get(uuidMapKey)).ifPresent(oldUsername -> jedis.del(getUsernameMapKey(oldUsername)));
+      final Optional<String> maybeOldUsername = Optional.ofNullable(jedis.get(uuidMapKey));
+      maybeOldUsername.ifPresent(oldUsername -> jedis.del(getUsernameMapKey(oldUsername)));
 
       jedis.set(uuidMapKey, username);
       jedis.set(usernameMapKey, uuid.toString());
@@ -127,14 +128,9 @@ public class UsernamesManager {
       cacheCluster.useWriteCluster(connection -> {
         final RedisAdvancedClusterAsyncCommands<String, String> asyncCommands = connection.async();
 
-        asyncCommands.get(uuidMapKey).thenAccept(oldUsername -> {
-          if (oldUsername != null) {
-            asyncCommands.del(getUsernameMapKey(oldUsername));
-          }
-
-          asyncCommands.set(uuidMapKey, username);
-          asyncCommands.set(usernameMapKey, uuid.toString());
-        });
+        maybeOldUsername.ifPresent(asyncCommands::del);
+        asyncCommands.set(uuidMapKey, username);
+        asyncCommands.set(usernameMapKey, uuid.toString());
       });
     } catch (JedisException e) {
       if (required) throw e;
