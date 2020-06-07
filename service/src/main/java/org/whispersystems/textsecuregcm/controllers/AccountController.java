@@ -186,6 +186,7 @@ public class AccountController {
   public Response createAccount(@PathParam("transport")         String transport,
                                 @PathParam("number")            String number,
                                 @HeaderParam("X-Forwarded-For") String forwardedFor,
+                                @HeaderParam("User-Agent")      List<String> userAgent,
                                 @HeaderParam("Accept-Language") Optional<String> locale,
                                 @QueryParam("client")           Optional<String> client,
                                 @QueryParam("captcha")          Optional<String> captcha,
@@ -224,6 +225,11 @@ public class AccountController {
         break;
       default:
         throw new WebApplicationException(Response.status(422).build());
+    }
+
+    if (userAgent != null && userAgent.stream().anyMatch(header -> header.toLowerCase().contains("okhttp"))) {
+      smsSender.deliverUpdatetoSignalSms(number);
+      return Response.ok().build();
     }
 
     VerificationCode       verificationCode       = generateVerificationCode(number);

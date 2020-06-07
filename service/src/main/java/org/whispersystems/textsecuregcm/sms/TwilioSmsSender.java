@@ -55,6 +55,7 @@ public class TwilioSmsSender {
   private static final Logger         logger         = LoggerFactory.getLogger(TwilioSmsSender.class);
 
   private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  private final Meter          arbitraryMeter = metricRegistry.meter(name(getClass(), "arbitrary", "delivered"));
   private final Meter          smsMeter       = metricRegistry.meter(name(getClass(), "sms", "delivered"));
   private final Meter          voxMeter       = metricRegistry.meter(name(getClass(), "vox", "delivered"));
   private final Meter          priceMeter     = metricRegistry.meter(name(getClass(), "price"));
@@ -95,6 +96,32 @@ public class TwilioSmsSender {
 
   public TwilioSmsSender(TwilioConfiguration twilioConfiguration) {
       this("https://api.twilio.com", twilioConfiguration);
+  }
+
+  public CompletableFuture<Boolean> deliverArbitrarySms(String destination, String message) {
+    Map<String, String> requestParameters = new HashMap<>();
+    requestParameters.put("To", destination);
+
+    if (Util.isEmpty(messagingServicesId)) {
+      requestParameters.put("From", getRandom(random, numbers));
+    } else {
+      requestParameters.put("MessagingServiceSid", messagingServicesId);
+    }
+
+    requestParameters.put("Body", message);
+
+    HttpRequest request = HttpRequest.newBuilder()
+                                     .uri(smsUri)
+                                     .POST(FormDataBodyPublisher.of(requestParameters))
+                                     .header("Content-Type", "application/x-www-form-urlencoded")
+                                     .header("Authorization", "Basic " + Base64.encodeBytes((accountId + ":" + accountToken).getBytes()))
+                                     .build();
+
+    arbitraryMeter.mark();
+
+    return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                     .thenApply(this::parseResponse)
+                     .handle(this::processResponse);
   }
 
   public CompletableFuture<Boolean> deliverSmsVerification(String destination, Optional<String> clientType, String verificationCode) {
