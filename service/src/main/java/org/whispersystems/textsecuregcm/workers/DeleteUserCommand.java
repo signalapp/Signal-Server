@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
+import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.providers.RedisClientFactory;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
@@ -78,7 +79,7 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
       ReplicatedJedisPool redisClient     = new RedisClientFactory("directory_cache_delete_command", configuration.getDirectoryConfiguration().getRedisConfiguration().getUrl(), configuration.getDirectoryConfiguration().getRedisConfiguration().getReplicaUrls(), configuration.getDirectoryConfiguration().getRedisConfiguration().getCircuitBreakerConfiguration()).getRedisClientPool();
       DirectoryQueue      directoryQueue  = new DirectoryQueue  (configuration.getDirectoryConfiguration().getSqsConfiguration());
       DirectoryManager    directory       = new DirectoryManager(redisClient                                                    );
-      AccountsManager     accountsManager = new AccountsManager(accounts, directory, cacheClient, cacheCluster);
+      AccountsManager     accountsManager = new AccountsManager(accounts, directory, cacheClient, cacheCluster, new Experiment("RedisCluster", "AccountsManager"));
 
       for (String user: users) {
         Optional<Account> account = accountsManager.get(user);

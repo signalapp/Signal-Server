@@ -1,6 +1,7 @@
 package org.whispersystems.textsecuregcm.tests.storage;
 
 import org.junit.Test;
+import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.storage.ReservedUsernames;
@@ -33,7 +34,7 @@ public class UsernamesManagerTest {
     when(cacheClient.getReadResource()).thenReturn(jedis);
     when(jedis.get(eq("UsernameByUsername::n00bkiller"))).thenReturn(uuid.toString());
 
-    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheClient, cacheCluster);
+    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheClient, cacheCluster, mock(Experiment.class));
     Optional<UUID>   retrieved        = usernamesManager.get("n00bkiller");
 
     assertTrue(retrieved.isPresent());
@@ -58,7 +59,7 @@ public class UsernamesManagerTest {
     when(cacheClient.getReadResource()).thenReturn(jedis);
     when(jedis.get(eq("UsernameByUuid::" + uuid.toString()))).thenReturn("n00bkiller");
 
-    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheClient, cacheCluster);
+    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheClient, cacheCluster, mock(Experiment.class));
     Optional<String> retrieved        = usernamesManager.get(uuid);
 
     assertTrue(retrieved.isPresent());
@@ -87,7 +88,7 @@ public class UsernamesManagerTest {
     when(jedis.get(eq("UsernameByUsername::n00bkiller"))).thenReturn(null);
     when(usernames.get(eq("n00bkiller"))).thenReturn(Optional.of(uuid));
 
-    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheClient, cacheCluster);
+    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheClient, cacheCluster, mock(Experiment.class));
     Optional<UUID>   retrieved        = usernamesManager.get("n00bkiller");
 
     assertTrue(retrieved.isPresent());
@@ -119,7 +120,7 @@ public class UsernamesManagerTest {
     when(jedis.get(eq("UsernameByUuid::" + uuid.toString()))).thenReturn(null);
     when(usernames.get(eq(uuid))).thenReturn(Optional.of("n00bkiller"));
 
-    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheClient, cacheCluster);
+    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheClient, cacheCluster, mock(Experiment.class));
     Optional<String> retrieved        = usernamesManager.get(uuid);
 
     assertTrue(retrieved.isPresent());
@@ -150,7 +151,7 @@ public class UsernamesManagerTest {
     when(jedis.get(eq("UsernameByUsername::n00bkiller"))).thenThrow(new JedisException("Connection lost!"));
     when(usernames.get(eq("n00bkiller"))).thenReturn(Optional.of(uuid));
 
-    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheClient, cacheCluster);
+    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheClient, cacheCluster, mock(Experiment.class));
     Optional<UUID>   retrieved        = usernamesManager.get("n00bkiller");
 
     assertTrue(retrieved.isPresent());
@@ -182,7 +183,7 @@ public class UsernamesManagerTest {
     when(jedis.get(eq("UsernameByUuid::" + uuid))).thenThrow(new JedisException("Connection lost!"));
     when(usernames.get(eq(uuid))).thenReturn(Optional.of("n00bkiller"));
 
-    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheClient, cacheCluster);
+    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheClient, cacheCluster, mock(Experiment.class));
     Optional<String>   retrieved        = usernamesManager.get(uuid);
 
     assertTrue(retrieved.isPresent());

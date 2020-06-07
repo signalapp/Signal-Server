@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -25,12 +26,14 @@ public class ProfilesManager {
   private final ReplicatedJedisPool       cacheClient;
   private final FaultTolerantRedisCluster cacheCluster;
   private final ObjectMapper              mapper;
+  private final Experiment                redisClusterExperiment;
 
-  public ProfilesManager(Profiles profiles, ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster) {
-    this.profiles     = profiles;
-    this.cacheClient  = cacheClient;
-    this.cacheCluster = cacheCluster;
-    this.mapper       = SystemMapper.getMapper();
+  public ProfilesManager(Profiles profiles, ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster, Experiment redisClusterExperiment) {
+    this.profiles               = profiles;
+    this.cacheClient            = cacheClient;
+    this.cacheCluster           = cacheCluster;
+    this.mapper                 = SystemMapper.getMapper();
+    this.redisClusterExperiment = redisClusterExperiment;
   }
 
   public void set(UUID uuid, VersionedProfile versionedProfile) {
@@ -68,7 +71,10 @@ public class ProfilesManager {
 
   private Optional<VersionedProfile> memcacheGet(UUID uuid, String version) {
     try (Jedis jedis = cacheClient.getReadResource()) {
-      String json = jedis.hget(CACHE_PREFIX + uuid.toString(), version);
+      final String key = CACHE_PREFIX + uuid.toString();
+
+      String json = jedis.hget(key, version);
+      redisClusterExperiment.compareResult(json, cacheCluster.withReadCluster(connection -> connection.async().hget(key, version)));
 
       if (json == null) return Optional.empty();
       else              return Optional.of(mapper.readValue(json, VersionedProfile.class));

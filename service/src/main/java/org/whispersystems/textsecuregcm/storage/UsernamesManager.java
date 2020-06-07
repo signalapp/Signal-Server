@@ -6,6 +6,7 @@ import com.codahale.metrics.Timer;
 import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -35,12 +36,14 @@ public class UsernamesManager {
   private final ReservedUsernames         reservedUsernames;
   private final ReplicatedJedisPool       cacheClient;
   private final FaultTolerantRedisCluster cacheCluster;
+  private final Experiment                redisClusterExperiment;
 
-  public UsernamesManager(Usernames usernames, ReservedUsernames reservedUsernames, ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster) {
-    this.usernames         = usernames;
-    this.reservedUsernames = reservedUsernames;
-    this.cacheClient       = cacheClient;
-    this.cacheCluster      = cacheCluster;
+  public UsernamesManager(Usernames usernames, ReservedUsernames reservedUsernames, ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster, Experiment redisClusterExperiment) {
+    this.usernames              = usernames;
+    this.reservedUsernames      = reservedUsernames;
+    this.cacheClient            = cacheClient;
+    this.cacheCluster           = cacheCluster;
+    this.redisClusterExperiment = redisClusterExperiment;
   }
 
   public boolean put(UUID uuid, String username) {
@@ -142,7 +145,10 @@ public class UsernamesManager {
     try (Jedis         jedis   = cacheClient.getReadResource();
          Timer.Context ignored = redisUsernameGetTimer.time())
     {
-      String result = jedis.get(getUsernameMapKey(username));
+      final String key = getUsernameMapKey(username);
+
+      String result = jedis.get(key);
+      redisClusterExperiment.compareResult(result, cacheCluster.withReadCluster(connection -> connection.async().get(key)));
 
       if (result == null) return Optional.empty();
       else                return Optional.of(UUID.fromString(result));
@@ -156,7 +162,12 @@ public class UsernamesManager {
     try (Jedis         jedis   = cacheClient.getReadResource();
          Timer.Context ignored = redisUuidGetTimer.time())
     {
-      return Optional.ofNullable(jedis.get(getUuidMapKey(uuid)));
+      final String key = getUuidMapKey(uuid);
+
+      final String result = jedis.get(key);
+      redisClusterExperiment.compareResult(result, cacheCluster.withReadCluster(connection -> connection.async().get(key)));
+
+      return Optional.ofNullable(result);
     } catch (JedisException e) {
       logger.warn("Redis get failure", e);
       return Optional.empty();

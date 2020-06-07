@@ -75,6 +75,7 @@ import org.whispersystems.textsecuregcm.controllers.SecureBackupController;
 import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
 import org.whispersystems.textsecuregcm.controllers.StickerController;
 import org.whispersystems.textsecuregcm.controllers.VoiceVerificationController;
+import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.liquibase.NameableMigrationsBundle;
@@ -251,9 +252,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     DirectoryQueue             directoryQueue             = new DirectoryQueue(config.getDirectoryConfiguration().getSqsConfiguration());
     PendingAccountsManager     pendingAccountsManager     = new PendingAccountsManager(pendingAccounts, cacheClient, cacheCluster);
     PendingDevicesManager      pendingDevicesManager      = new PendingDevicesManager(pendingDevices, cacheClient, cacheCluster);
-    AccountsManager            accountsManager            = new AccountsManager(accounts, directory, cacheClient, cacheCluster);
-    UsernamesManager           usernamesManager           = new UsernamesManager(usernames, reservedUsernames, cacheClient, cacheCluster);
-    ProfilesManager            profilesManager            = new ProfilesManager(profiles, cacheClient, cacheCluster);
+    AccountsManager            accountsManager            = new AccountsManager(accounts, directory, cacheClient, cacheCluster, new Experiment("RedisCluster", "AccountsManager"));
+    UsernamesManager           usernamesManager           = new UsernamesManager(usernames, reservedUsernames, cacheClient, cacheCluster, new Experiment("RedisCluster", "UsernamesManager"));
+    ProfilesManager            profilesManager            = new ProfilesManager(profiles, cacheClient, cacheCluster, new Experiment("RedisCluster", "ProfilesManager"));
     MessagesCache              messagesCache              = new MessagesCache(messagesClient, messages, accountsManager, config.getMessageCacheConfiguration().getPersistDelayMinutes());
     MessagesManager            messagesManager            = new MessagesManager(messages, messagesCache);
     RemoteConfigsManager       remoteConfigsManager       = new RemoteConfigsManager(remoteConfigs);
@@ -286,7 +287,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     DirectoryReconciliationClient directoryReconciliationClient = new DirectoryReconciliationClient(config.getDirectoryConfiguration().getDirectoryServerConfiguration());
 
-    ActiveUserCounter                    activeUserCounter               = new ActiveUserCounter(config.getMetricsFactory(), cacheClient, cacheCluster);
+    ActiveUserCounter                    activeUserCounter               = new ActiveUserCounter(config.getMetricsFactory(), cacheClient, cacheCluster, new Experiment("RedisCluster", "ActiveUserCounter"));
     DirectoryReconciler                  directoryReconciler             = new DirectoryReconciler(directoryReconciliationClient, directory);
     AccountCleaner                       accountCleaner                  = new AccountCleaner(accountsManager, directoryQueue);
     PushFeedbackProcessor                pushFeedbackProcessor           = new PushFeedbackProcessor(accountsManager, directoryQueue);

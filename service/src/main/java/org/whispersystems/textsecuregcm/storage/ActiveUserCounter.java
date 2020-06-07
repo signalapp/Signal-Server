@@ -21,6 +21,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.whispersystems.textsecuregcm.entities.ActiveUserTally;
+import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -51,12 +52,14 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
   private final ReplicatedJedisPool       jedisPool;
   private final FaultTolerantRedisCluster cacheCluster;
   private final ObjectMapper              mapper;
+  private final Experiment                redisClusterExperiment;
 
-  public ActiveUserCounter(MetricsFactory metricsFactory, ReplicatedJedisPool jedisPool, FaultTolerantRedisCluster cacheCluster) {
-    this.metricsFactory  = metricsFactory;
-    this.jedisPool       = jedisPool;
-    this.cacheCluster    = cacheCluster;
-    this.mapper          = SystemMapper.getMapper();
+  public ActiveUserCounter(MetricsFactory metricsFactory, ReplicatedJedisPool jedisPool, FaultTolerantRedisCluster cacheCluster, Experiment redisClusterExperiment) {
+    this.metricsFactory         = metricsFactory;
+    this.jedisPool              = jedisPool;
+    this.cacheCluster           = cacheCluster;
+    this.mapper                 = SystemMapper.getMapper();
+    this.redisClusterExperiment = redisClusterExperiment;
   }
 
   @Override
@@ -162,6 +165,8 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
   private void incrementTallies(UUID fromUuid, Map<String, long[]> platformIncrements, Map<String, long[]> countryIncrements) {
     try (Jedis jedis = jedisPool.getWriteResource()) {
       String tallyValue = jedis.get(TALLY_KEY);
+      redisClusterExperiment.compareResult(tallyValue, cacheCluster.withReadCluster(connection -> connection.async().get(TALLY_KEY)));
+
       ActiveUserTally activeUserTally;
 
       if (tallyValue == null) {
@@ -204,7 +209,10 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
 
   private ActiveUserTally getFinalTallies() {
     try (Jedis jedis = jedisPool.getReadResource()) {
-      return mapper.readValue(jedis.get(TALLY_KEY), ActiveUserTally.class);
+      final String tallyJson = jedis.get(TALLY_KEY);
+      redisClusterExperiment.compareResult(tallyJson, cacheCluster.withReadCluster(connection -> connection.async().get(TALLY_KEY)));
+
+      return mapper.readValue(tallyJson, ActiveUserTally.class);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

@@ -17,6 +17,7 @@
 
 package org.whispersystems.textsecuregcm.tests.storage;
 
+import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -70,7 +71,7 @@ public class ActiveUserCounterTest {
   private final FaultTolerantRedisCluster cacheCluster   = mock(FaultTolerantRedisCluster.class);
   private final MetricsFactory            metricsFactory = mock(MetricsFactory.class);
 
-  private final ActiveUserCounter activeUserCounter = new ActiveUserCounter(metricsFactory, jedisPool, cacheCluster);
+  private final ActiveUserCounter activeUserCounter = new ActiveUserCounter(metricsFactory, jedisPool, cacheCluster, mock(Experiment.class));
 
   @Before
   public void setup() {

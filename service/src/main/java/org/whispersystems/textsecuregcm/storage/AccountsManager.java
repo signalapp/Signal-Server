@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
+import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -61,13 +62,15 @@ public class AccountsManager {
   private final FaultTolerantRedisCluster cacheCluster;
   private final DirectoryManager          directory;
   private final ObjectMapper              mapper;
+  private final Experiment                redisClusterExperiment;
 
-  public AccountsManager(Accounts accounts, DirectoryManager directory, ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster) {
-    this.accounts     = accounts;
-    this.directory    = directory;
-    this.cacheClient  = cacheClient;
-    this.cacheCluster = cacheCluster;
-    this.mapper       = SystemMapper.getMapper();
+  public AccountsManager(Accounts accounts, DirectoryManager directory, ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster, Experiment redisClusterExperiment) {
+    this.accounts               = accounts;
+    this.directory              = directory;
+    this.cacheClient            = cacheClient;
+    this.cacheCluster           = cacheCluster;
+    this.mapper                 = SystemMapper.getMapper();
+    this.redisClusterExperiment = redisClusterExperiment;
   }
 
   public boolean create(Account account) {
@@ -173,7 +176,10 @@ public class AccountsManager {
     try (Jedis         jedis   = cacheClient.getReadResource();
          Timer.Context ignored = redisNumberGetTimer.time())
     {
-      String uuid = jedis.get(getAccountMapKey(number));
+      final String key = getAccountMapKey(number);
+
+      String uuid = jedis.get(key);
+      redisClusterExperiment.compareResult(uuid, cacheCluster.withReadCluster(connection -> connection.async().get(key)));
 
       if (uuid != null) return redisGet(jedis, UUID.fromString(uuid));
       else              return Optional.empty();
@@ -194,7 +200,10 @@ public class AccountsManager {
 
   private Optional<Account> redisGet(Jedis jedis, UUID uuid) {
     try (Timer.Context ignored = redisUuidGetTimer.time()) {
-      String json = jedis.get(getAccountEntityKey(uuid));
+      final String key = getAccountEntityKey(uuid);
+
+      String json = jedis.get(key);
+      redisClusterExperiment.compareResult(json, cacheCluster.withReadCluster(connection -> connection.async().get(key)));
 
       if (json != null) {
         Account account = mapper.readValue(json, Account.class);
