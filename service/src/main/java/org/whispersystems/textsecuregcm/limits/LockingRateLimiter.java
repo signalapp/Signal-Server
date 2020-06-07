@@ -56,7 +56,11 @@ public class LockingRateLimiter extends RateLimiter {
       final String lockName = getLockName(key);
 
       final boolean acquiredLock = jedis.set(lockName, "L", "NX", "EX", 10) != null;
-      cacheCluster.useWriteCluster(connection -> connection.async().set(lockName, "L", SetArgs.Builder.nx().ex(10)));
+
+      if (acquiredLock) {
+        // TODO Restore the NX flag when the cluster becomes the primary source of truth
+        cacheCluster.useWriteCluster(connection -> connection.async().set(lockName, "L", SetArgs.Builder.ex(10)));
+      }
 
       return acquiredLock;
     }
