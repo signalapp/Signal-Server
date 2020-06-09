@@ -3,6 +3,7 @@ package org.whispersystems.textsecuregcm.experiment;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Timer;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -13,11 +14,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.anyVararg;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -34,63 +38,63 @@ public class ExperimentTest {
 
     @Test
     public void compareResultMatch() {
-        final Counter counter = mock(Counter.class);
-        when(meterRegistry.counter(anyString(), ArgumentMatchers.<Iterable<Tag>>any())).thenReturn(counter);
+        final Timer timer = mock(Timer.class);
+        when(meterRegistry.timer(anyString(), ArgumentMatchers.<Iterable<Tag>>any())).thenReturn(timer);
 
         new Experiment(meterRegistry, "test").compareResult(12, CompletableFuture.completedFuture(12));
 
         @SuppressWarnings("unchecked") final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
 
-        verify(meterRegistry).counter(anyString(), tagCaptor.capture());
+        verify(meterRegistry).timer(anyString(), tagCaptor.capture());
 
         final Set<Tag> tags = getTagSet(tagCaptor.getValue());
         assertEquals(tags, Set.of(Tag.of(Experiment.OUTCOME_TAG, Experiment.MATCH_OUTCOME)));
 
-        verify(counter).increment();
+        verify(timer).record(anyLong(), eq(TimeUnit.NANOSECONDS));
     }
 
     @Test
     public void compareResultMismatch() {
-        final Counter counter = mock(Counter.class);
-        when(meterRegistry.counter(anyString(), ArgumentMatchers.<Iterable<Tag>>any())).thenReturn(counter);
+        final Timer timer = mock(Timer.class);
+        when(meterRegistry.timer(anyString(), ArgumentMatchers.<Iterable<Tag>>any())).thenReturn(timer);
 
         new Experiment(meterRegistry, "test").compareResult(12, CompletableFuture.completedFuture(77));
 
         @SuppressWarnings("unchecked") final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
 
-        verify(meterRegistry).counter(anyString(), tagCaptor.capture());
+        verify(meterRegistry).timer(anyString(), tagCaptor.capture());
 
         final Set<Tag> tags = getTagSet(tagCaptor.getValue());
         assertEquals(tags, Set.of(Tag.of(Experiment.OUTCOME_TAG, Experiment.MISMATCH_OUTCOME)));
 
-        verify(counter).increment();
+        verify(timer).record(anyLong(), eq(TimeUnit.NANOSECONDS));
     }
 
     @Test
     public void compareResultError() {
-        final Counter counter = mock(Counter.class);
-        when(meterRegistry.counter(anyString(), ArgumentMatchers.<Iterable<Tag>>any())).thenReturn(counter);
+        final Timer timer = mock(Timer.class);
+        when(meterRegistry.timer(anyString(), ArgumentMatchers.<Iterable<Tag>>any())).thenReturn(timer);
 
         new Experiment(meterRegistry, "test").compareResult(12, CompletableFuture.failedFuture(new RuntimeException("OH NO")));
 
         @SuppressWarnings("unchecked") final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
 
-        verify(meterRegistry).counter(anyString(), tagCaptor.capture());
+        verify(meterRegistry).timer(anyString(), tagCaptor.capture());
 
         final Set<Tag> tags = getTagSet(tagCaptor.getValue());
         assertEquals(tags, Set.of(Tag.of(Experiment.OUTCOME_TAG, Experiment.ERROR_OUTCOME), Tag.of(Experiment.CAUSE_TAG, "RuntimeException")));
 
-        verify(counter).increment();
+        verify(timer).record(anyLong(), eq(TimeUnit.NANOSECONDS));
     }
 
     @Test
     public void compareResultNoExperimentData() {
-        final Counter counter = mock(Counter.class);
-        when(meterRegistry.counter(anyString(), ArgumentMatchers.<Iterable<Tag>>any())).thenReturn(counter);
+        final Timer timer = mock(Timer.class);
+        when(meterRegistry.timer(anyString(), ArgumentMatchers.<Iterable<Tag>>any())).thenReturn(timer);
 
         new Experiment(meterRegistry, "test").compareResult(12, CompletableFuture.completedFuture(null));
 
-        verify(counter, never()).increment();
+        verify(timer, never()).record(anyLong(), eq(TimeUnit.NANOSECONDS));
     }
 
     private static Set<Tag> getTagSet(final Iterable<Tag> tags) {
