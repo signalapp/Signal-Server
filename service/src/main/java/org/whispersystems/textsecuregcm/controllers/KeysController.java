@@ -17,6 +17,7 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
+import io.dropwizard.auth.Auth;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
@@ -51,8 +52,6 @@ import javax.ws.rs.core.Response;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
-
-import io.dropwizard.auth.Auth;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v2/keys")
@@ -134,7 +133,7 @@ public class KeysController {
     assert(target.isPresent());
 
     if (account.isPresent()) {
-      rateLimiters.getPreKeysLimiter().validate(account.get().getNumber() +  "__" + target.get().getNumber() + "." + deviceId);
+      rateLimiters.getPreKeysLimiter().validate(account.get().getNumber() + "." + account.get().getAuthenticatedDevice().get().getId() +  "__" + target.get().getNumber() + "." + deviceId);
     }
 
     List<KeyRecord>          targetKeys = getLocalKeys(target.get(), deviceId);
