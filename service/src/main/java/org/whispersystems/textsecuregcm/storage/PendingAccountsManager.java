@@ -89,7 +89,7 @@ public class PendingAccountsManager {
       final String key = CACHE_PREFIX + number;
 
       String json = jedis.get(key);
-      redisClusterExperiment.compareResult(json, cacheCluster.withReadCluster(connection -> connection.async().get(key)));
+      redisClusterExperiment.compareFutureResult(json, cacheCluster.withReadCluster(connection -> connection.async().get(key)));
 
       if (json == null) return Optional.empty();
       else              return Optional.of(mapper.readValue(json, StoredVerificationCode.class));

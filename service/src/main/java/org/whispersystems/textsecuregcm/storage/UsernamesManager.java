@@ -148,7 +148,7 @@ public class UsernamesManager {
       final String key = getUsernameMapKey(username);
 
       String result = jedis.get(key);
-      redisClusterExperiment.compareResult(result, cacheCluster.withReadCluster(connection -> connection.async().get(key)));
+      redisClusterExperiment.compareFutureResult(result, cacheCluster.withReadCluster(connection -> connection.async().get(key)));
 
       if (result == null) return Optional.empty();
       else                return Optional.of(UUID.fromString(result));
@@ -165,7 +165,7 @@ public class UsernamesManager {
       final String key = getUuidMapKey(uuid);
 
       final String result = jedis.get(key);
-      redisClusterExperiment.compareResult(result, cacheCluster.withReadCluster(connection -> connection.async().get(key)));
+      redisClusterExperiment.compareFutureResult(result, cacheCluster.withReadCluster(connection -> connection.async().get(key)));
 
       return Optional.ofNullable(result);
     } catch (JedisException e) {

@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 /**
  * An experiment compares the results of two operations and records metrics to assess how frequently they match.
@@ -40,7 +41,7 @@ public class Experiment {
         this.meterRegistry = meterRegistry;
     }
 
-    public <T> void compareResult(final T expected, final CompletionStage<T> experimentStage) {
+    public <T> void compareFutureResult(final T expected, final CompletionStage<T> experimentStage) {
         // We're assuming that we get the experiment completion stage as soon as possible after it's started, but this
         // start time will inescapably have some "wiggle" to it.
         final long start = System.nanoTime();
@@ -49,18 +50,37 @@ public class Experiment {
             final long duration = System.nanoTime() - start;
 
             if (cause != null) {
-                meterRegistry.timer(timerName,
-                        List.of(Tag.of(OUTCOME_TAG, ERROR_OUTCOME), Tag.of(CAUSE_TAG, cause.getClass().getSimpleName())))
-                        .record(duration, TimeUnit.NANOSECONDS);
+                recordError(duration, cause);
             } else {
-                final boolean shouldIgnore = actual == null && expected != null;
-
-                if (!shouldIgnore) {
-                    meterRegistry.timer(timerName,
-                            List.of(Tag.of(OUTCOME_TAG, Objects.equals(expected, actual) ? MATCH_OUTCOME : MISMATCH_OUTCOME)))
-                            .record(duration, TimeUnit.NANOSECONDS);
-                }
+                recordResult(duration, expected, actual);
             }
         });
+    }
+
+    public <T> void compareSupplierResult(final T expected, final Supplier<T> experimentSupplier) {
+        final long start = System.nanoTime();
+
+        try {
+            final T result = experimentSupplier.get();
+            recordResult(System.nanoTime() - start, expected, result);
+        } catch (final Exception e) {
+            recordError(System.nanoTime() - start, e);
+        }
+    }
+
+    private void recordError(final long durationNanos, final Throwable cause) {
+        meterRegistry.timer(timerName,
+                List.of(Tag.of(OUTCOME_TAG, ERROR_OUTCOME), Tag.of(CAUSE_TAG, cause.getClass().getSimpleName())))
+                .record(durationNanos, TimeUnit.NANOSECONDS);
+    }
+
+    private <T> void recordResult(final long durationNanos, final T expected, final T actual) {
+        final boolean shouldIgnore = actual == null && expected != null;
+
+        if (!shouldIgnore) {
+            meterRegistry.timer(timerName,
+                    List.of(Tag.of(OUTCOME_TAG, Objects.equals(expected, actual) ? MATCH_OUTCOME : MISMATCH_OUTCOME)))
+                    .record(durationNanos, TimeUnit.NANOSECONDS);
+        }
     }
 }

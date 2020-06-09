@@ -60,7 +60,7 @@ public class AccountDatabaseCrawlerCache {
   public boolean isAccelerated() {
     try (Jedis jedis = jedisPool.getWriteResource()) {
       final String accelerated = jedis.get(ACCELERATE_KEY);
-      redisClusterExperiment.compareResult(accelerated, cacheCluster.withReadCluster(connection -> connection.async().get(ACCELERATE_KEY)));
+      redisClusterExperiment.compareFutureResult(accelerated, cacheCluster.withReadCluster(connection -> connection.async().get(ACCELERATE_KEY)));
 
       return "1".equals(accelerated);
     }
@@ -88,7 +88,7 @@ public class AccountDatabaseCrawlerCache {
   public Optional<UUID> getLastUuid() {
     try (Jedis jedis = jedisPool.getWriteResource()) {
       String lastUuidString = jedis.get(LAST_UUID_KEY);
-      redisClusterExperiment.compareResult(lastUuidString, cacheCluster.withWriteCluster(connection -> connection.async().get(LAST_UUID_KEY)));
+      redisClusterExperiment.compareFutureResult(lastUuidString, cacheCluster.withWriteCluster(connection -> connection.async().get(LAST_UUID_KEY)));
 
       if (lastUuidString == null) return Optional.empty();
       else                        return Optional.of(UUID.fromString(lastUuidString));

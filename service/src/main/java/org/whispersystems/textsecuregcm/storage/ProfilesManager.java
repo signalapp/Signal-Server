@@ -74,7 +74,7 @@ public class ProfilesManager {
       final String key = CACHE_PREFIX + uuid.toString();
 
       String json = jedis.hget(key, version);
-      redisClusterExperiment.compareResult(json, cacheCluster.withReadCluster(connection -> connection.async().hget(key, version)));
+      redisClusterExperiment.compareFutureResult(json, cacheCluster.withReadCluster(connection -> connection.async().hget(key, version)));
 
       if (json == null) return Optional.empty();
       else              return Optional.of(mapper.readValue(json, VersionedProfile.class));
