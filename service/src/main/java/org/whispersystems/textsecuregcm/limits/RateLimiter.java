@@ -113,7 +113,7 @@ public class RateLimiter {
       final String bucketName = getBucketName(key);
 
       String serialized = jedis.get(bucketName);
-      redisClusterExperiment.compareFutureResult(serialized, cacheCluster.withReadCluster(connection -> connection.async().get(bucketName)));
+      redisClusterExperiment.compareSupplierResult(serialized, () -> cacheCluster.withReadCluster(connection -> connection.sync().get(bucketName)));
 
       if (serialized != null) {
         return LeakyBucket.fromSerialized(mapper, serialized);

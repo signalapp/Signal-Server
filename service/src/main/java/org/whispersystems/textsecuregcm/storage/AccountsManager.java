@@ -179,7 +179,7 @@ public class AccountsManager {
       final String key = getAccountMapKey(number);
 
       String uuid = jedis.get(key);
-      redisClusterExperiment.compareFutureResult(uuid, cacheCluster.withReadCluster(connection -> connection.async().get(key)));
+      redisClusterExperiment.compareSupplierResult(uuid, () -> cacheCluster.withReadCluster(connection -> connection.sync().get(key)));
 
       if (uuid != null) return redisGet(jedis, UUID.fromString(uuid));
       else              return Optional.empty();
@@ -203,7 +203,7 @@ public class AccountsManager {
       final String key = getAccountEntityKey(uuid);
 
       String json = jedis.get(key);
-      redisClusterExperiment.compareFutureResult(json, cacheCluster.withReadCluster(connection -> connection.async().get(key)));
+      redisClusterExperiment.compareSupplierResult(json, () -> cacheCluster.withReadCluster(connection -> connection.sync().get(key)));
 
       if (json != null) {
         Account account = mapper.readValue(json, Account.class);
