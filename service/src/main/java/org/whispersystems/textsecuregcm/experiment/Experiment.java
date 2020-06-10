@@ -2,11 +2,9 @@ package org.whispersystems.textsecuregcm.experiment;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
-import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Timer;
 
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
@@ -17,28 +15,35 @@ import java.util.function.Supplier;
  */
 public class Experiment {
 
-    private final String timerName;
-    private final MeterRegistry meterRegistry;
+    private final Timer  matchTimer;
+    private final Timer  mismatchTimer;
+    private final Timer  errorTimer;
 
-    static final String OUTCOME_TAG = "outcome";
-    static final String CAUSE_TAG   = "cause";
-
+    static final String OUTCOME_TAG      = "outcome";
     static final String MATCH_OUTCOME    = "match";
     static final String MISMATCH_OUTCOME = "mismatch";
     static final String ERROR_OUTCOME    = "error";
 
     public Experiment(final String... names) {
-        this(Metrics.globalRegistry, names);
+        this(buildTimer(MATCH_OUTCOME, names), buildTimer(MISMATCH_OUTCOME, names), buildTimer(ERROR_OUTCOME, names));
     }
 
-    @VisibleForTesting
-    Experiment(final MeterRegistry meterRegistry, final String... names) {
+    private static Timer buildTimer(final String outcome, final String... names) {
         if (names == null || names.length == 0) {
             throw new IllegalArgumentException("Experiments must have a name");
         }
 
-        this.timerName     = MetricRegistry.name(getClass(), names);
-        this.meterRegistry = meterRegistry;
+        return Timer.builder(MetricRegistry.name(Experiment.class, names))
+                .tag(OUTCOME_TAG, outcome)
+                .publishPercentileHistogram()
+                .register(Metrics.globalRegistry);
+    }
+
+    @VisibleForTesting
+    Experiment(final Timer matchTimer, final Timer mismatchTimer, final Timer errorTimer) {
+        this.matchTimer = matchTimer;
+        this.mismatchTimer = mismatchTimer;
+        this.errorTimer = errorTimer;
     }
 
     public <T> void compareFutureResult(final T expected, final CompletionStage<T> experimentStage) {
@@ -50,7 +55,7 @@ public class Experiment {
             final long duration = System.nanoTime() - start;
 
             if (cause != null) {
-                recordError(duration, cause);
+                recordError(duration);
             } else {
                 recordResult(duration, expected, actual);
             }
@@ -64,23 +69,20 @@ public class Experiment {
             final T result = experimentSupplier.get();
             recordResult(System.nanoTime() - start, expected, result);
         } catch (final Exception e) {
-            recordError(System.nanoTime() - start, e);
+            recordError(System.nanoTime() - start);
         }
     }
 
-    private void recordError(final long durationNanos, final Throwable cause) {
-        meterRegistry.timer(timerName,
-                List.of(Tag.of(OUTCOME_TAG, ERROR_OUTCOME), Tag.of(CAUSE_TAG, cause.getClass().getSimpleName())))
-                .record(durationNanos, TimeUnit.NANOSECONDS);
+    private void recordError(final long durationNanos) {
+        errorTimer.record(durationNanos, TimeUnit.NANOSECONDS);
     }
 
     private <T> void recordResult(final long durationNanos, final T expected, final T actual) {
         final boolean shouldIgnore = actual == null && expected != null;
 
         if (!shouldIgnore) {
-            meterRegistry.timer(timerName,
-                    List.of(Tag.of(OUTCOME_TAG, Objects.equals(expected, actual) ? MATCH_OUTCOME : MISMATCH_OUTCOME)))
-                    .record(durationNanos, TimeUnit.NANOSECONDS);
+            final Timer timer = Objects.equals(expected, actual) ? matchTimer : mismatchTimer;
+            timer.record(durationNanos, TimeUnit.NANOSECONDS);
         }
     }
 }
