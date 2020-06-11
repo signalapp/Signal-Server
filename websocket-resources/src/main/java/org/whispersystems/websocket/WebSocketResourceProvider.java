@@ -71,6 +71,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
   private Session                 session;
   private RemoteEndpoint          remoteEndpoint;
   private WebSocketSessionContext context;
+  private String                  userAgent;
 
   public WebSocketResourceProvider(String                             remoteAddress,
                                    ApplicationHandler                 jerseyHandler,
@@ -92,6 +93,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
   @Override
   public void onWebSocketConnect(Session session) {
     this.session        = session;
+    this.userAgent      = session.getUpgradeRequest().getHeader("User-Agent");
     this.remoteEndpoint = session.getRemote();
     this.context        = new WebSocketSessionContext(new WebSocketClient(session, remoteEndpoint, messageFactory, requestMap));
     this.context.setAuthenticated(authenticated);
@@ -155,6 +157,12 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
 
     for (Map.Entry<String, String> entry : requestMessage.getHeaders().entrySet()) {
       containerRequest.header(entry.getKey(), entry.getValue());
+    }
+
+    final List<String> requestUserAgentHeader = containerRequest.getRequestHeader("User-Agent");
+
+    if ((requestUserAgentHeader == null || requestUserAgentHeader.isEmpty()) && userAgent != null) {
+      containerRequest.header("User-Agent", userAgent);
     }
 
     if (requestMessage.getBody().isPresent()) {
