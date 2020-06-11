@@ -181,18 +181,16 @@ public class UsernamesManager {
       final String uuidMapKey = getUuidMapKey(uuid);
 
       redisGet(uuid).ifPresent(username -> {
-        jedis.del(getUsernameMapKey(username));
+        final String usernameMapKey = getUsernameMapKey(username);
+
+        jedis.del(usernameMapKey);
         jedis.del(uuidMapKey);
-      });
 
-      cacheCluster.useWriteCluster(connection -> {
-        final RedisAdvancedClusterAsyncCommands<String, String> asyncCommands = connection.async();
+        cacheCluster.useWriteCluster(connection -> {
+          final RedisAdvancedClusterAsyncCommands<String, String> asyncCommands = connection.async();
 
-        asyncCommands.get(uuidMapKey).thenAccept(username -> {
-          if (username != null) {
-            asyncCommands.del(getUsernameMapKey(username));
-            asyncCommands.del(uuidMapKey);
-          }
+          asyncCommands.del(usernameMapKey);
+          asyncCommands.del(uuidMapKey);
         });
       });
     }
