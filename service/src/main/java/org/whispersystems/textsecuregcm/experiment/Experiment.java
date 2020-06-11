@@ -15,35 +15,49 @@ import java.util.function.Supplier;
  */
 public class Experiment {
 
-    private final Timer  matchTimer;
-    private final Timer  mismatchTimer;
-    private final Timer  errorTimer;
+    private final Timer matchTimer;
+    private final Timer errorTimer;
 
-    static final String OUTCOME_TAG      = "outcome";
-    static final String MATCH_OUTCOME    = "match";
-    static final String MISMATCH_OUTCOME = "mismatch";
-    static final String ERROR_OUTCOME    = "error";
+    private final Timer bothPresentMismatchTimer;
+    private final Timer controlNullMismatchTimer;
+    private final Timer experimentNullMismatchTimer;
+
+    private static final String OUTCOME_TAG      = "outcome";
+    private static final String MATCH_OUTCOME    = "match";
+    private static final String MISMATCH_OUTCOME = "mismatch";
+    private static final String ERROR_OUTCOME    = "error";
+
+    private static final String MISMATCH_TYPE_TAG        = "mismatchType";
+    private static final String BOTH_PRESENT_MISMATCH    = "bothPresent";
+    private static final String CONTROL_NULL_MISMATCH    = "controlResultNull";
+    private static final String EXPERIMENT_NULL_MISMATCH = "experimentResultNull";
 
     public Experiment(final String... names) {
-        this(buildTimer(MATCH_OUTCOME, names), buildTimer(MISMATCH_OUTCOME, names), buildTimer(ERROR_OUTCOME, names));
+        this(buildTimer(MATCH_OUTCOME, names).register(Metrics.globalRegistry),
+             buildTimer(ERROR_OUTCOME, names).register(Metrics.globalRegistry),
+             buildTimer(MISMATCH_OUTCOME, names).tag(MISMATCH_TYPE_TAG, BOTH_PRESENT_MISMATCH).register(Metrics.globalRegistry),
+             buildTimer(MISMATCH_OUTCOME, names).tag(MISMATCH_TYPE_TAG, CONTROL_NULL_MISMATCH).register(Metrics.globalRegistry),
+             buildTimer(MISMATCH_OUTCOME, names).tag(MISMATCH_TYPE_TAG, EXPERIMENT_NULL_MISMATCH).register(Metrics.globalRegistry));
     }
 
-    private static Timer buildTimer(final String outcome, final String... names) {
+    private static Timer.Builder buildTimer(final String outcome, final String... names) {
         if (names == null || names.length == 0) {
             throw new IllegalArgumentException("Experiments must have a name");
         }
 
         return Timer.builder(MetricRegistry.name(Experiment.class, names))
                 .tag(OUTCOME_TAG, outcome)
-                .publishPercentileHistogram()
-                .register(Metrics.globalRegistry);
+                .publishPercentileHistogram();
     }
 
     @VisibleForTesting
-    Experiment(final Timer matchTimer, final Timer mismatchTimer, final Timer errorTimer) {
+    Experiment(final Timer matchTimer, final Timer errorTimer, final Timer bothPresentMismatchTimer, final Timer controlNullMismatchTimer, final Timer experimentNullMismatchTimer) {
         this.matchTimer = matchTimer;
-        this.mismatchTimer = mismatchTimer;
         this.errorTimer = errorTimer;
+
+        this.bothPresentMismatchTimer = bothPresentMismatchTimer;
+        this.controlNullMismatchTimer = controlNullMismatchTimer;
+        this.experimentNullMismatchTimer = experimentNullMismatchTimer;
     }
 
     public <T> void compareFutureResult(final T expected, final CompletionStage<T> experimentStage) {
@@ -78,11 +92,18 @@ public class Experiment {
     }
 
     private <T> void recordResult(final long durationNanos, final T expected, final T actual) {
-        final boolean shouldIgnore = actual == null && expected != null;
+        final Timer timer;
 
-        if (!shouldIgnore) {
-            final Timer timer = Objects.equals(expected, actual) ? matchTimer : mismatchTimer;
-            timer.record(durationNanos, TimeUnit.NANOSECONDS);
+        if (Objects.equals(expected, actual)) {
+            timer = matchTimer;
+        } else if (expected == null) {
+            timer = controlNullMismatchTimer;
+        } else if (actual == null) {
+            timer = experimentNullMismatchTimer;
+        } else {
+            timer = bothPresentMismatchTimer;
         }
+
+        timer.record(durationNanos, TimeUnit.NANOSECONDS);
     }
 }
