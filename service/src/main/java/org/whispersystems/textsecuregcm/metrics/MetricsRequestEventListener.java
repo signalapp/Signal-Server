@@ -6,6 +6,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import org.glassfish.jersey.server.ExtendedUriInfo;
+import org.glassfish.jersey.server.internal.process.MappableException;
 import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.glassfish.jersey.server.monitoring.RequestEventListener;
 
@@ -22,6 +23,7 @@ class MetricsRequestEventListener implements RequestEventListener {
     static final  String        PATH_TAG           = "path";
     static final  String        STATUS_CODE_TAG    = "status";
     static final  String        TRAFFIC_SOURCE_TAG = "trafficSource";
+    static final  String        EXCEPTION_TAG      = "exception";
 
     private final TrafficSource trafficSource;
     private final MeterRegistry meterRegistry;
@@ -47,6 +49,14 @@ class MetricsRequestEventListener implements RequestEventListener {
 
                 final List<String> userAgentValues = event.getContainerRequest().getRequestHeader("User-Agent");
                 tags.addAll(UserAgentTagUtil.getUserAgentTags(userAgentValues != null ? userAgentValues.stream().findFirst().orElse(null) : null));
+
+                if (event.getException() != null) {
+                    if (event.getException() instanceof MappableException) {
+                        tags.add(Tag.of(EXCEPTION_TAG, event.getException().getCause().getClass().getSimpleName()));
+                    } else {
+                        tags.add(Tag.of(EXCEPTION_TAG, event.getException().getClass().getSimpleName()));
+                    }
+                }
 
                 meterRegistry.counter(COUNTER_NAME, tags).increment();
             }

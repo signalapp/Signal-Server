@@ -16,6 +16,7 @@ import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.ContainerResponse;
 import org.glassfish.jersey.server.ExtendedUriInfo;
 import org.glassfish.jersey.server.ResourceConfig;
+import org.glassfish.jersey.server.internal.process.MappableException;
 import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.glassfish.jersey.uri.UriTemplate;
 import org.junit.Before;
@@ -106,6 +107,51 @@ public class MetricsRequestEventListenerTest {
         assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
         assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
         assertTrue(tags.contains(Tag.of(UserAgentTagUtil.VERSION_TAG, "4.53.7")));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testOnEventWithException() {
+        final String path = "/test";
+        final int statusCode = 500;
+
+        final ExtendedUriInfo uriInfo = mock(ExtendedUriInfo.class);
+        when(uriInfo.getMatchedTemplates()).thenReturn(Collections.singletonList(new UriTemplate(path)));
+
+        final ContainerRequest request = mock(ContainerRequest.class);
+        when(request.getRequestHeader("User-Agent")).thenReturn(Collections.singletonList("Signal-Android 4.53.7 (Android 8.1)"));
+
+        final ContainerResponse response = mock(ContainerResponse.class);
+        when(response.getStatus()).thenReturn(statusCode);
+
+        final RequestEvent event = mock(RequestEvent.class);
+        when(event.getType()).thenReturn(RequestEvent.Type.FINISHED);
+        when(event.getUriInfo()).thenReturn(uriInfo);
+        when(event.getContainerRequest()).thenReturn(request);
+        when(event.getContainerResponse()).thenReturn(response);
+        when(event.getException()).thenReturn(new MappableException(new RuntimeException("OH NO")));
+
+        final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
+        when(meterRegistry.counter(eq(MetricsRequestEventListener.COUNTER_NAME), any(Iterable.class))).thenReturn(counter);
+
+        listener.onEvent(event);
+
+        verify(meterRegistry).counter(eq(MetricsRequestEventListener.COUNTER_NAME), tagCaptor.capture());
+
+        final Iterable<Tag> tagIterable = tagCaptor.getValue();
+        final Set<Tag> tags = new HashSet<>();
+
+        for (final Tag tag : tagIterable) {
+            tags.add(tag);
+        }
+
+        assertEquals(6, tags.size());
+        assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PATH_TAG, path)));
+        assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(statusCode))));
+        assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
+        assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
+        assertTrue(tags.contains(Tag.of(UserAgentTagUtil.VERSION_TAG, "4.53.7")));
+        assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.EXCEPTION_TAG, "RuntimeException")));
     }
 
     @Test
