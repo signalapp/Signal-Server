@@ -16,8 +16,10 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
+import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.SetArgs;
 import org.whispersystems.textsecuregcm.experiment.Experiment;
+import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.LuaScript;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
@@ -41,13 +43,15 @@ public class AccountDatabaseCrawlerCache {
 
   private final ReplicatedJedisPool       jedisPool;
   private final FaultTolerantRedisCluster cacheCluster;
-  private final LuaScript                 luaScript;
+  private final LuaScript                 unlockScript;
+  private final ClusterLuaScript          unlockClusterScript;
   private final Experiment                redisClusterExperiment = new Experiment("RedisCluster", "AccountDatabaseCrawlerCache");
 
   public AccountDatabaseCrawlerCache(ReplicatedJedisPool jedisPool, FaultTolerantRedisCluster cacheCluster) throws IOException {
-    this.jedisPool = jedisPool;
-    this.cacheCluster = cacheCluster;
-    this.luaScript = LuaScript.fromResource(jedisPool, "lua/account_database_crawler/unlock.lua");
+    this.jedisPool           = jedisPool;
+    this.cacheCluster        = cacheCluster;
+    this.unlockScript        = LuaScript.fromResource(jedisPool, "lua/account_database_crawler/unlock.lua");
+    this.unlockClusterScript = ClusterLuaScript.fromResource(cacheCluster, "lua/account_database_crawler/unlock.lua", ScriptOutputType.INTEGER);
   }
 
   public void clearAccelerate() {
@@ -82,7 +86,8 @@ public class AccountDatabaseCrawlerCache {
   public void releaseActiveWork(String workerId) {
     List<byte[]> keys = Arrays.asList(ACTIVE_WORKER_KEY.getBytes());
     List<byte[]> args = Arrays.asList(workerId.getBytes());
-    luaScript.execute(keys, args);
+    unlockScript.execute(keys, args);
+    unlockClusterScript.execute(List.of(ACTIVE_WORKER_KEY), List.of(workerId));
   }
 
   public Optional<UUID> getLastUuid() {
