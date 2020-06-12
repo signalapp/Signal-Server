@@ -10,7 +10,7 @@ public class BlockingThreadPoolExecutorTest {
 
   @Test
   public void testBlocking() {
-    BlockingThreadPoolExecutor executor = new BlockingThreadPoolExecutor(1, 3);
+    BlockingThreadPoolExecutor executor = new BlockingThreadPoolExecutor("test", 1, 3);
     long                       start    = System.currentTimeMillis();
 
     executor.execute(new Runnable() {

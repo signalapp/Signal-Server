@@ -56,7 +56,7 @@ public class PushSender implements Managed {
     this.apnSender          = apnSender;
     this.webSocketSender    = websocketSender;
     this.queueSize          = queueSize;
-    this.executor           = new BlockingThreadPoolExecutor(50, queueSize);
+    this.executor           = new BlockingThreadPoolExecutor("pushSender", 50, queueSize);
 
     SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME)
                           .register(name(PushSender.class, "send_queue_depth"),
