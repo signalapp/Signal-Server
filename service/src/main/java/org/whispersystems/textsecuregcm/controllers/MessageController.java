@@ -16,6 +16,7 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
+import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
@@ -77,11 +78,12 @@ import io.dropwizard.auth.Auth;
 @Path("/v1/messages")
 public class MessageController {
 
-  private final Logger         logger                   = LoggerFactory.getLogger(MessageController.class);
-  private final MetricRegistry metricRegistry           = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private final Meter          unidentifiedMeter        = metricRegistry.meter(name(getClass(), "delivery", "unidentified"));
-  private final Meter          identifiedMeter          = metricRegistry.meter(name(getClass(), "delivery", "identified"  ));
-  private final Timer          sendMessageInternalTimer = metricRegistry.timer(name(getClass(), "sendMessageInternal"));
+  private final Logger         logger                       = LoggerFactory.getLogger(MessageController.class);
+  private final MetricRegistry metricRegistry               = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  private final Meter          unidentifiedMeter            = metricRegistry.meter(name(getClass(), "delivery", "unidentified"));
+  private final Meter          identifiedMeter              = metricRegistry.meter(name(getClass(), "delivery", "identified"  ));
+  private final Timer          sendMessageInternalTimer     = metricRegistry.timer(name(getClass(), "sendMessageInternal"));
+  private final Histogram      incomingMessageSizeHistogram = metricRegistry.histogram(name(getClass(), "incomingMessageListSize"));
 
   private final RateLimiters           rateLimiters;
   private final PushSender             pushSender;
@@ -116,6 +118,8 @@ public class MessageController {
                                          @Valid                                    IncomingMessageList messages)
       throws RateLimitExceededException
   {
+    incomingMessageSizeHistogram.update(messages.getMessages().size());
+
     if (!source.isPresent() && !accessKey.isPresent()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
