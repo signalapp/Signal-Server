@@ -19,6 +19,7 @@ package org.whispersystems.textsecuregcm.limits;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -41,6 +42,7 @@ public class RateLimiter {
   private final ObjectMapper mapper = SystemMapper.getMapper();
 
   private   final Meter                     meter;
+  private   final Timer                     validateTimer;
   protected final ReplicatedJedisPool       cacheClient;
   protected final FaultTolerantRedisCluster cacheCluster;
   protected final String                    name;
@@ -62,6 +64,7 @@ public class RateLimiter {
     MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
 
     this.meter                  = metricRegistry.meter(name(getClass(), name, "exceeded"));
+    this.validateTimer          = metricRegistry.timer(name(getClass(), name, "validate"));
     this.cacheClient            = cacheClient;
     this.cacheCluster           = cacheCluster;
     this.name                   = name;
@@ -72,13 +75,15 @@ public class RateLimiter {
   }
 
   public void validate(String key, int amount) throws RateLimitExceededException {
-    LeakyBucket bucket = getBucket(key);
+    try (final Timer.Context ignored = validateTimer.time()) {
+      LeakyBucket bucket = getBucket(key);
 
-    if (bucket.add(amount)) {
-      setBucket(key, bucket);
-    } else {
-      meter.mark();
-      throw new RateLimitExceededException(key + " , " + amount);
+      if (bucket.add(amount)) {
+        setBucket(key, bucket);
+      } else {
+        meter.mark();
+        throw new RateLimitExceededException(key + " , " + amount);
+      }
     }
   }
 
