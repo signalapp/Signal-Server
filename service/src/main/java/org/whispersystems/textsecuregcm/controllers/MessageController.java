@@ -19,6 +19,7 @@ package org.whispersystems.textsecuregcm.controllers;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.Timer;
 import com.codahale.metrics.annotation.Timed;
 import com.google.protobuf.ByteString;
 import org.slf4j.Logger;
@@ -76,10 +77,11 @@ import io.dropwizard.auth.Auth;
 @Path("/v1/messages")
 public class MessageController {
 
-  private final Logger         logger            = LoggerFactory.getLogger(MessageController.class);
-  private final MetricRegistry metricRegistry    = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private final Meter          unidentifiedMeter = metricRegistry.meter(name(getClass(), "delivery", "unidentified"));
-  private final Meter          identifiedMeter   = metricRegistry.meter(name(getClass(), "delivery", "identified"  ));
+  private final Logger         logger                   = LoggerFactory.getLogger(MessageController.class);
+  private final MetricRegistry metricRegistry           = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  private final Meter          unidentifiedMeter        = metricRegistry.meter(name(getClass(), "delivery", "unidentified"));
+  private final Meter          identifiedMeter          = metricRegistry.meter(name(getClass(), "delivery", "identified"  ));
+  private final Timer          sendMessageInternalTimer = metricRegistry.timer(name(getClass(), "sendMessageInternal"));
 
   private final RateLimiters           rateLimiters;
   private final PushSender             pushSender;
@@ -232,7 +234,7 @@ public class MessageController {
                            IncomingMessage incomingMessage)
       throws NoSuchUserException
   {
-    try {
+    try (final Timer.Context ignored = sendMessageInternalTimer.time()) {
       Optional<byte[]> messageBody    = getMessageBody(incomingMessage);
       Optional<byte[]> messageContent = getMessageContent(incomingMessage);
       Envelope.Builder messageBuilder = Envelope.newBuilder();
