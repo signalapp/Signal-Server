@@ -2,9 +2,9 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.lettuce.core.RedisException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -14,7 +14,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import redis.clients.jedis.Jedis;
-import redis.clients.jedis.exceptions.JedisException;
 
 public class ProfilesManager {
 
@@ -26,14 +25,12 @@ public class ProfilesManager {
   private final ReplicatedJedisPool       cacheClient;
   private final FaultTolerantRedisCluster cacheCluster;
   private final ObjectMapper              mapper;
-  private final Experiment                redisClusterExperiment;
 
-  public ProfilesManager(Profiles profiles, ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster, Experiment redisClusterExperiment) {
-    this.profiles               = profiles;
+  public ProfilesManager(Profiles profiles, ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster) {
     this.cacheClient            = cacheClient;
+    this.profiles               = profiles;
     this.cacheCluster           = cacheCluster;
     this.mapper                 = SystemMapper.getMapper();
-    this.redisClusterExperiment = redisClusterExperiment;
   }
 
   public void set(UUID uuid, VersionedProfile versionedProfile) {
@@ -70,18 +67,15 @@ public class ProfilesManager {
   }
 
   private Optional<VersionedProfile> memcacheGet(UUID uuid, String version) {
-    try (Jedis jedis = cacheClient.getReadResource()) {
-      final String key = CACHE_PREFIX + uuid.toString();
-
-      String json = jedis.hget(key, version);
-      redisClusterExperiment.compareSupplierResult(json, () -> cacheCluster.withReadCluster(connection -> connection.sync().hget(key, version)));
+    try {
+      final String json = cacheCluster.withReadCluster(connection -> connection.sync().hget(CACHE_PREFIX + uuid.toString(), version));
 
       if (json == null) return Optional.empty();
       else              return Optional.of(mapper.readValue(json, VersionedProfile.class));
     } catch (IOException e) {
       logger.warn("Error deserializing value...", e);
       return Optional.empty();
-    } catch (JedisException e) {
+    } catch (RedisException e) {
       logger.warn("Redis exception", e);
       return Optional.empty();
     }

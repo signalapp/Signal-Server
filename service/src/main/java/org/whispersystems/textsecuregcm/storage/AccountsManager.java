@@ -22,13 +22,13 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
-import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -42,7 +42,6 @@ import java.util.UUID;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import redis.clients.jedis.Jedis;
-import redis.clients.jedis.exceptions.JedisException;
 
 public class AccountsManager {
 
@@ -63,15 +62,13 @@ public class AccountsManager {
   private final FaultTolerantRedisCluster cacheCluster;
   private final DirectoryManager          directory;
   private final ObjectMapper              mapper;
-  private final Experiment                redisClusterExperiment;
 
-  public AccountsManager(Accounts accounts, DirectoryManager directory, ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster, Experiment redisClusterExperiment) {
+  public AccountsManager(Accounts accounts, DirectoryManager directory, ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster) {
     this.accounts               = accounts;
     this.directory              = directory;
     this.cacheClient            = cacheClient;
     this.cacheCluster           = cacheCluster;
     this.mapper                 = SystemMapper.getMapper();
-    this.redisClusterExperiment = redisClusterExperiment;
   }
 
   public boolean create(Account account) {
@@ -174,37 +171,23 @@ public class AccountsManager {
   }
 
   private Optional<Account> redisGet(String number) {
-    try (Jedis         jedis   = cacheClient.getReadResource();
-         Timer.Context ignored = redisNumberGetTimer.time())
-    {
-      final String key = getAccountMapKey(number);
+    try (Timer.Context ignored = redisNumberGetTimer.time()) {
+      final String uuid = cacheCluster.withReadCluster(connection -> connection.sync().get(getAccountMapKey(number)));
 
-      String uuid = jedis.get(key);
-      redisClusterExperiment.compareSupplierResult(uuid, () -> cacheCluster.withReadCluster(connection -> connection.sync().get(key)));
-
-      if (uuid != null) return redisGet(jedis, UUID.fromString(uuid));
+      if (uuid != null) return redisGet(UUID.fromString(uuid));
       else              return Optional.empty();
     } catch (IllegalArgumentException e) {
       logger.warn("Deserialization error", e);
       return Optional.empty();
-    } catch (JedisException e) {
+    } catch (RedisException e) {
       logger.warn("Redis failure", e);
       return Optional.empty();
     }
   }
 
   private Optional<Account> redisGet(UUID uuid) {
-    try (Jedis jedis = cacheClient.getReadResource()) {
-      return redisGet(jedis, uuid);
-    }
-  }
-
-  private Optional<Account> redisGet(Jedis jedis, UUID uuid) {
     try (Timer.Context ignored = redisUuidGetTimer.time()) {
-      final String key = getAccountEntityKey(uuid);
-
-      String json = jedis.get(key);
-      redisClusterExperiment.compareSupplierResult(json, () -> cacheCluster.withReadCluster(connection -> connection.sync().get(key)));
+      final String json = cacheCluster.withReadCluster(connection -> connection.sync().get(getAccountEntityKey(uuid)));
 
       if (json != null) {
         Account account = mapper.readValue(json, Account.class);
@@ -217,7 +200,7 @@ public class AccountsManager {
     } catch (IOException e) {
       logger.warn("Deserialization error", e);
       return Optional.empty();
-    } catch (JedisException e) {
+    } catch (RedisException e) {
       logger.warn("Redis failure", e);
       return Optional.empty();
     }

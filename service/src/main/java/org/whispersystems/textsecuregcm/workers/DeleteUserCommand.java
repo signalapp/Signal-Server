@@ -1,8 +1,10 @@
 package org.whispersystems.textsecuregcm.workers;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
-import io.lettuce.core.RedisURI;
-import io.lettuce.core.cluster.RedisClusterClient;
+import io.dropwizard.Application;
+import io.dropwizard.cli.EnvironmentCommand;
+import io.dropwizard.jdbi3.JdbiFactory;
+import io.dropwizard.setup.Environment;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.jdbi.v3.core.Jdbi;
@@ -10,7 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
-import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.providers.RedisClientFactory;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
@@ -25,12 +26,6 @@ import org.whispersystems.textsecuregcm.util.Base64;
 
 import java.security.SecureRandom;
 import java.util.Optional;
-import java.util.stream.Collectors;
-
-import io.dropwizard.Application;
-import io.dropwizard.cli.EnvironmentCommand;
-import io.dropwizard.jdbi3.JdbiFactory;
-import io.dropwizard.setup.Environment;
 
 public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfiguration> {
 
@@ -78,7 +73,7 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
       ReplicatedJedisPool redisClient     = new RedisClientFactory("directory_cache_delete_command", configuration.getDirectoryConfiguration().getRedisConfiguration().getUrl(), configuration.getDirectoryConfiguration().getRedisConfiguration().getReplicaUrls(), configuration.getDirectoryConfiguration().getRedisConfiguration().getCircuitBreakerConfiguration()).getRedisClientPool();
       DirectoryQueue      directoryQueue  = new DirectoryQueue  (configuration.getDirectoryConfiguration().getSqsConfiguration());
       DirectoryManager    directory       = new DirectoryManager(redisClient                                                    );
-      AccountsManager     accountsManager = new AccountsManager(accounts, directory, cacheClient, cacheCluster, new Experiment("RedisCluster", "AccountsManager"));
+      AccountsManager     accountsManager = new AccountsManager(accounts, directory, cacheClient, cacheCluster);
 
       for (String user: users) {
         Optional<Account> account = accountsManager.get(user);

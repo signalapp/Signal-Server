@@ -3,10 +3,10 @@ package org.whispersystems.textsecuregcm.storage;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
+import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -36,14 +36,12 @@ public class UsernamesManager {
   private final ReservedUsernames         reservedUsernames;
   private final ReplicatedJedisPool       cacheClient;
   private final FaultTolerantRedisCluster cacheCluster;
-  private final Experiment                redisClusterExperiment;
 
-  public UsernamesManager(Usernames usernames, ReservedUsernames reservedUsernames, ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster, Experiment redisClusterExperiment) {
+  public UsernamesManager(Usernames usernames, ReservedUsernames reservedUsernames, ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster) {
     this.usernames              = usernames;
     this.reservedUsernames      = reservedUsernames;
     this.cacheClient            = cacheClient;
     this.cacheCluster           = cacheCluster;
-    this.redisClusterExperiment = redisClusterExperiment;
   }
 
   public boolean put(UUID uuid, String username) {
@@ -116,59 +114,50 @@ public class UsernamesManager {
   }
 
   private void redisSet(UUID uuid, String username, boolean required) {
-    try (Jedis         jedis   = cacheClient.getWriteResource();
-         Timer.Context ignored = redisSetTimer.time())
-    {
-      final String uuidMapKey = getUuidMapKey(uuid);
-      final String usernameMapKey = getUsernameMapKey(username);
+    final String uuidMapKey = getUuidMapKey(uuid);
+    final String usernameMapKey = getUsernameMapKey(username);
 
-      final Optional<String> maybeOldUsername = Optional.ofNullable(jedis.get(uuidMapKey));
-      maybeOldUsername.ifPresent(oldUsername -> jedis.del(getUsernameMapKey(oldUsername)));
-
-      jedis.set(uuidMapKey, username);
-      jedis.set(usernameMapKey, uuid.toString());
-
+    try (Timer.Context ignored = redisSetTimer.time()) {
       cacheCluster.useWriteCluster(connection -> {
         final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
+
+        final Optional<String> maybeOldUsername = Optional.ofNullable(commands.get(uuidMapKey));
 
         maybeOldUsername.ifPresent(oldUsername -> commands.del(getUsernameMapKey(oldUsername)));
         commands.set(uuidMapKey, username);
         commands.set(usernameMapKey, uuid.toString());
+
+        try (final Jedis jedis = cacheClient.getWriteResource()) {
+          maybeOldUsername.ifPresent(oldUsername -> jedis.del(getUsernameMapKey(oldUsername)));
+
+          jedis.set(uuidMapKey, username);
+          jedis.set(usernameMapKey, uuid.toString());
+        }
       });
-    } catch (JedisException e) {
+    } catch (JedisException | RedisException e) {
       if (required) throw e;
-      else          logger.warn("Ignoring jedis failure", e);
+      else          logger.warn("Ignoring Redis failure", e);
     }
   }
 
   private Optional<UUID> redisGet(String username) {
-    try (Jedis         jedis   = cacheClient.getReadResource();
-         Timer.Context ignored = redisUsernameGetTimer.time())
-    {
-      final String key = getUsernameMapKey(username);
-
-      String result = jedis.get(key);
-      redisClusterExperiment.compareSupplierResult(result, () -> cacheCluster.withReadCluster(connection -> connection.sync().get(key)));
+    try (Timer.Context ignored = redisUsernameGetTimer.time()) {
+      final String result = cacheCluster.withReadCluster(connection -> connection.sync().get(getUsernameMapKey(username)));
 
       if (result == null) return Optional.empty();
       else                return Optional.of(UUID.fromString(result));
-    } catch (JedisException e) {
+    } catch (RedisException e) {
       logger.warn("Redis get failure", e);
       return Optional.empty();
     }
   }
 
   private Optional<String> redisGet(UUID uuid) {
-    try (Jedis         jedis   = cacheClient.getReadResource();
-         Timer.Context ignored = redisUuidGetTimer.time())
-    {
-      final String key = getUuidMapKey(uuid);
-
-      final String result = jedis.get(key);
-      redisClusterExperiment.compareSupplierResult(result, () -> cacheCluster.withReadCluster(connection -> connection.sync().get(key)));
+    try (Timer.Context ignored = redisUuidGetTimer.time()) {
+      final String result = cacheCluster.withReadCluster(connection -> connection.sync().get(getUuidMapKey(uuid)));
 
       return Optional.ofNullable(result);
-    } catch (JedisException e) {
+    } catch (RedisException e) {
       logger.warn("Redis get failure", e);
       return Optional.empty();
     }

@@ -25,7 +25,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -49,7 +48,6 @@ public class RateLimiter {
   private   final int                       bucketSize;
   private   final double                    leakRatePerMillis;
   private   final boolean                   reportLimits;
-  private   final Experiment                redisClusterExperiment;
 
   public RateLimiter(ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster, String name,
                      int bucketSize, double leakRatePerMinute)
@@ -71,7 +69,6 @@ public class RateLimiter {
     this.bucketSize             = bucketSize;
     this.leakRatePerMillis      = leakRatePerMinute / (60.0 * 1000.0);
     this.reportLimits           = reportLimits;
-    this.redisClusterExperiment = new Experiment("RedisCluster", "RateLimiter", name);
   }
 
   public void validate(String key, int amount) throws RateLimitExceededException {
@@ -114,11 +111,8 @@ public class RateLimiter {
   }
 
   private LeakyBucket getBucket(String key) {
-    try (Jedis jedis = cacheClient.getReadResource()) {
-      final String bucketName = getBucketName(key);
-
-      String serialized = jedis.get(bucketName);
-      redisClusterExperiment.compareSupplierResult(serialized, () -> cacheCluster.withReadCluster(connection -> connection.sync().get(bucketName)));
+    try {
+      final String serialized = cacheCluster.withReadCluster(connection -> connection.sync().get(getBucketName(key)));
 
       if (serialized != null) {
         return LeakyBucket.fromSerialized(mapper, serialized);

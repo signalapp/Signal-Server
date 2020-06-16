@@ -17,14 +17,14 @@
 
 package org.whispersystems.textsecuregcm.tests.storage;
 
-import org.whispersystems.textsecuregcm.experiment.Experiment;
+import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.ActiveUserCounter;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.util.Util;
+import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 
 import com.google.common.collect.ImmutableList;
 import io.dropwizard.metrics.MetricsFactory;
@@ -38,7 +38,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -66,12 +65,13 @@ public class ActiveUserCounterTest {
   private final Account iosAccount     = mock(Account.class);
   private final Account noDeviceAccount = mock(Account.class);
 
-  private final Jedis                     jedis          = mock(Jedis.class);
-  private final ReplicatedJedisPool       jedisPool      = mock(ReplicatedJedisPool.class);
-  private final FaultTolerantRedisCluster cacheCluster   = mock(FaultTolerantRedisCluster.class);
-  private final MetricsFactory            metricsFactory = mock(MetricsFactory.class);
+  private final RedisAdvancedClusterCommands<String, String> commands       = mock(RedisAdvancedClusterCommands.class);
+  private final FaultTolerantRedisCluster                    cacheCluster   = RedisClusterHelper.buildMockRedisCluster(commands);
+  private final MetricsFactory                               metricsFactory = mock(MetricsFactory.class);
 
-  private final ActiveUserCounter activeUserCounter = new ActiveUserCounter(metricsFactory, jedisPool, cacheCluster, mock(Experiment.class));
+  private final ReplicatedJedisPool cacheClient  = mock(ReplicatedJedisPool.class);
+
+  private final ActiveUserCounter activeUserCounter = new ActiveUserCounter(metricsFactory, cacheClient, cacheCluster);
 
   @Before
   public void setup() {
@@ -99,20 +99,18 @@ public class ActiveUserCounterTest {
     when(noDeviceAccount.getMasterDevice()).thenReturn(Optional.ofNullable(null));
     when(noDeviceAccount.getNumber()).thenReturn(ACCOUNT_NUMBER_NODEVICE);
 
-    when(jedis.get(any(String.class))).thenReturn("{\"fromNumber\":\"+\",\"platforms\":{},\"countries\":{}}");
-    when(jedisPool.getWriteResource()).thenReturn(jedis);
-    when(jedisPool.getReadResource()).thenReturn(jedis);
+    when(commands.get(any(String.class))).thenReturn("{\"fromNumber\":\"+\",\"platforms\":{},\"countries\":{}}");
     when(metricsFactory.getReporters()).thenReturn(ImmutableList.of());
 
+    when(cacheClient.getWriteResource()).thenReturn(mock(Jedis.class));
   }
 
   @Test
   public void testCrawlStart() {
     activeUserCounter.onCrawlStart();
 
-    verify(jedisPool, times(1)).getWriteResource();
-    verify(jedis, times(1)).del(any(String.class));
-    verify(jedis, times(1)).close();
+    verify(cacheCluster, times(1)).useWriteCluster(any());
+    verify(commands, times(1)).del(any(String.class));
 
     verifyZeroInteractions(iosDevice);
     verifyZeroInteractions(iosAccount);
@@ -120,17 +118,16 @@ public class ActiveUserCounterTest {
     verifyZeroInteractions(androidAccount);
     verifyZeroInteractions(noDeviceAccount);
     verifyZeroInteractions(metricsFactory);
-    verifyNoMoreInteractions(jedis);
-    verifyNoMoreInteractions(jedisPool);
+    verifyNoMoreInteractions(commands);
+    verifyNoMoreInteractions(cacheCluster);
   }
 
   @Test
   public void testCrawlEnd() {
     activeUserCounter.onCrawlEnd(Optional.empty());
 
-    verify(jedisPool, times(1)).getReadResource();
-    verify(jedis, times(1)).get(any(String.class));
-    verify(jedis, times(1)).close();
+    verify(cacheCluster, times(1)).withReadCluster(any());
+    verify(commands, times(1)).get(any(String.class));
 
     verify(metricsFactory, times(1)).getReporters();
 
@@ -141,8 +138,8 @@ public class ActiveUserCounterTest {
     verifyZeroInteractions(noDeviceAccount);
 
     verifyNoMoreInteractions(metricsFactory);
-    verifyNoMoreInteractions(jedis);
-    verifyNoMoreInteractions(jedisPool);
+    verifyNoMoreInteractions(commands);
+    verifyNoMoreInteractions(cacheCluster);
 
   }
 
@@ -157,10 +154,10 @@ public class ActiveUserCounterTest {
     verify(iosDevice, times(1)).getApnId();
     verify(iosDevice, times(0)).getGcmId();
 
-    verify(jedisPool, times(1)).getWriteResource();
-    verify(jedis, times(1)).get(any(String.class));
-    verify(jedis, times(1)).set(any(String.class), eq("{\"fromUuid\":\""+UUID_IOS.toString()+"\",\"platforms\":{\"ios\":[1,1,1,1,1]},\"countries\":{\"1\":[1,1,1,1,1]}}"));
-    verify(jedis, times(1)).close();
+    verify(cacheCluster, times(1)).withReadCluster(any());
+    verify(cacheCluster, times(1)).useWriteCluster(any());
+    verify(commands, times(1)).get(any(String.class));
+    verify(commands, times(1)).set(any(String.class), eq("{\"fromUuid\":\""+UUID_IOS.toString()+"\",\"platforms\":{\"ios\":[1,1,1,1,1]},\"countries\":{\"1\":[1,1,1,1,1]}}"));
 
     verify(metricsFactory, times(0)).getReporters();
 
@@ -171,8 +168,8 @@ public class ActiveUserCounterTest {
 
     verifyNoMoreInteractions(iosDevice);
     verifyNoMoreInteractions(iosAccount);
-    verifyNoMoreInteractions(jedis);
-    verifyNoMoreInteractions(jedisPool);
+    verifyNoMoreInteractions(commands);
+    verifyNoMoreInteractions(cacheCluster);
   }
 
   @Test
@@ -181,10 +178,10 @@ public class ActiveUserCounterTest {
 
     verify(noDeviceAccount, times(1)).getMasterDevice();
 
-    verify(jedisPool, times(1)).getWriteResource();
-    verify(jedis, times(1)).get(eq(TALLY_KEY));
-    verify(jedis, times(1)).set(any(String.class), eq("{\"fromUuid\":\""+UUID_NODEVICE+"\",\"platforms\":{},\"countries\":{}}"));
-    verify(jedis, times(1)).close();
+    verify(cacheCluster, times(1)).withReadCluster(any());
+    verify(cacheCluster, times(1)).useWriteCluster(any());
+    verify(commands, times(1)).get(eq(TALLY_KEY));
+    verify(commands, times(1)).set(any(String.class), eq("{\"fromUuid\":\""+UUID_NODEVICE+"\",\"platforms\":{},\"countries\":{}}"));
 
     verify(metricsFactory, times(0)).getReporters();
 
@@ -195,8 +192,8 @@ public class ActiveUserCounterTest {
     verifyZeroInteractions(noDeviceAccount);
     verifyZeroInteractions(metricsFactory);
 
-    verifyNoMoreInteractions(jedis);
-    verifyNoMoreInteractions(jedisPool);
+    verifyNoMoreInteractions(commands);
+    verifyNoMoreInteractions(cacheCluster);
   }
 
   @Test
@@ -217,10 +214,10 @@ public class ActiveUserCounterTest {
     verify(androidDevice, times(1)).getApnId();
     verify(androidDevice, times(1)).getGcmId();
 
-    verify(jedisPool, times(1)).getWriteResource();
-    verify(jedis, times(1)).get(eq(TALLY_KEY));
-    verify(jedis, times(1)).set(any(String.class), eq("{\"fromUuid\":\""+UUID_IOS+"\",\"platforms\":{\"android\":[0,0,0,1,1],\"ios\":[1,1,1,1,1]},\"countries\":{\"55\":[0,0,0,1,1],\"1\":[1,1,1,1,1]}}"));
-    verify(jedis, times(1)).close();
+    verify(cacheCluster, times(1)).withReadCluster(any());
+    verify(cacheCluster, times(1)).useWriteCluster(any());
+    verify(commands, times(1)).get(eq(TALLY_KEY));
+    verify(commands, times(1)).set(any(String.class), eq("{\"fromUuid\":\""+UUID_IOS+"\",\"platforms\":{\"android\":[0,0,0,1,1],\"ios\":[1,1,1,1,1]},\"countries\":{\"55\":[0,0,0,1,1],\"1\":[1,1,1,1,1]}}"));
 
     verify(metricsFactory, times(0)).getReporters();
 
@@ -231,8 +228,8 @@ public class ActiveUserCounterTest {
     verifyNoMoreInteractions(androidDevice);
     verifyNoMoreInteractions(androidAccount);
     verifyNoMoreInteractions(noDeviceAccount);
-    verifyNoMoreInteractions(jedis);
-    verifyNoMoreInteractions(jedisPool);
+    verifyNoMoreInteractions(commands);
+    verifyNoMoreInteractions(cacheCluster);
   }
 
 }

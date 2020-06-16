@@ -20,19 +20,17 @@ import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.SetArgs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.LuaScript;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
+import redis.clients.jedis.Jedis;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-
-import redis.clients.jedis.Jedis;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class AccountDatabaseCrawlerCache {
@@ -49,8 +47,6 @@ public class AccountDatabaseCrawlerCache {
   private final FaultTolerantRedisCluster cacheCluster;
   private final LuaScript                 unlockScript;
   private final ClusterLuaScript          unlockClusterScript;
-  private final Experiment                isAcceleratedExperiment = new Experiment("RedisCluster", "AccountDatabaseCrawlerCache", "isAccelerated");
-  private final Experiment                getLastUuidExperiment   = new Experiment("RedisCluster", "AccountDatabaseCrawlerCache", "getLastUuid");
 
   public AccountDatabaseCrawlerCache(ReplicatedJedisPool jedisPool, FaultTolerantRedisCluster cacheCluster) throws IOException {
     this.jedisPool           = jedisPool;
@@ -67,12 +63,7 @@ public class AccountDatabaseCrawlerCache {
   }
 
   public boolean isAccelerated() {
-    try (Jedis jedis = jedisPool.getWriteResource()) {
-      final String accelerated = jedis.get(ACCELERATE_KEY);
-      isAcceleratedExperiment.compareSupplierResult(accelerated, () -> cacheCluster.withReadCluster(connection -> connection.sync().get(ACCELERATE_KEY)));
-
-      return "1".equals(accelerated);
-    }
+    return "1".equals(cacheCluster.withReadCluster(connection -> connection.sync().get(ACCELERATE_KEY)));
   }
 
   public boolean claimActiveWork(String workerId, long ttlMs) {
@@ -101,13 +92,10 @@ public class AccountDatabaseCrawlerCache {
   }
 
   public Optional<UUID> getLastUuid() {
-    try (Jedis jedis = jedisPool.getWriteResource()) {
-      String lastUuidString = jedis.get(LAST_UUID_KEY);
-      getLastUuidExperiment.compareSupplierResult(lastUuidString, () -> cacheCluster.withWriteCluster(connection -> connection.sync().get(LAST_UUID_KEY)));
+    final String lastUuidString = cacheCluster.withWriteCluster(connection -> connection.sync().get(LAST_UUID_KEY));
 
-      if (lastUuidString == null) return Optional.empty();
-      else                        return Optional.of(UUID.fromString(lastUuidString));
-    }
+    if (lastUuidString == null) return Optional.empty();
+    else                        return Optional.of(UUID.fromString(lastUuidString));
   }
 
   public void setLastUuid(Optional<UUID> lastUuid) {

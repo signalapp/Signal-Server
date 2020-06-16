@@ -21,7 +21,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
-import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -41,7 +40,6 @@ public class PendingAccountsManager {
   private final ReplicatedJedisPool       cacheClient;
   private final FaultTolerantRedisCluster cacheCluster;
   private final ObjectMapper              mapper;
-  private final Experiment                redisClusterExperiment = new Experiment("RedisCluster", "PendingAccountsManager");
 
   public PendingAccountsManager(PendingAccounts pendingAccounts, ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster)
   {
@@ -85,11 +83,8 @@ public class PendingAccountsManager {
   }
 
   private Optional<StoredVerificationCode> memcacheGet(String number) {
-    try (Jedis jedis = cacheClient.getReadResource()) {
-      final String key = CACHE_PREFIX + number;
-
-      String json = jedis.get(key);
-      redisClusterExperiment.compareSupplierResult(json, () -> cacheCluster.withReadCluster(connection -> connection.sync().get(key)));
+    try {
+      final String json = cacheCluster.withReadCluster(connection -> connection.sync().get(CACHE_PREFIX + number));
 
       if (json == null) return Optional.empty();
       else              return Optional.of(mapper.readValue(json, StoredVerificationCode.class));
