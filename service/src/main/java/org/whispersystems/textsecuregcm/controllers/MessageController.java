@@ -16,13 +16,14 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
-import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.codahale.metrics.annotation.Timed;
 import com.google.protobuf.ByteString;
+import io.dropwizard.auth.Auth;
+import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
@@ -37,6 +38,7 @@ import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
 import org.whispersystems.textsecuregcm.entities.SendMessageResponse;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushSender;
@@ -72,7 +74,6 @@ import java.util.Set;
 import java.util.UUID;
 
 import static com.codahale.metrics.MetricRegistry.name;
-import io.dropwizard.auth.Auth;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/messages")
@@ -83,7 +84,6 @@ public class MessageController {
   private final Meter          unidentifiedMeter            = metricRegistry.meter(name(getClass(), "delivery", "unidentified"));
   private final Meter          identifiedMeter              = metricRegistry.meter(name(getClass(), "delivery", "identified"  ));
   private final Timer          sendMessageInternalTimer     = metricRegistry.timer(name(getClass(), "sendMessageInternal"));
-  private final Histogram      incomingMessageSizeHistogram = metricRegistry.histogram(name(getClass(), "incomingMessageListSize"));
 
   private final RateLimiters           rateLimiters;
   private final PushSender             pushSender;
@@ -91,6 +91,8 @@ public class MessageController {
   private final AccountsManager        accountsManager;
   private final MessagesManager        messagesManager;
   private final ApnFallbackManager     apnFallbackManager;
+
+  private static final String CONTENT_SIZE_DISTRIBUTION_NAME = name(MessageController.class, "messageContentSize");
 
   public MessageController(RateLimiters rateLimiters,
                            PushSender pushSender,
@@ -114,12 +116,11 @@ public class MessageController {
   @Produces(MediaType.APPLICATION_JSON)
   public SendMessageResponse sendMessage(@Auth                                     Optional<Account>   source,
                                          @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
+                                         @HeaderParam("User-Agent")                String userAgent,
                                          @PathParam("destination")                 AmbiguousIdentifier destinationName,
                                          @Valid                                    IncomingMessageList messages)
       throws RateLimitExceededException
   {
-    incomingMessageSizeHistogram.update(messages.getMessages().size());
-
     if (!source.isPresent() && !accessKey.isPresent()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
@@ -152,6 +153,10 @@ public class MessageController {
         Optional<Device> destinationDevice = destination.get().getDevice(incomingMessage.getDestinationDeviceId());
 
         if (destinationDevice.isPresent()) {
+          if (!Util.isEmpty(incomingMessage.getContent())) {
+            Metrics.summary(CONTENT_SIZE_DISTRIBUTION_NAME, UserAgentTagUtil.getUserAgentTags(userAgent)).record(incomingMessage.getContent().length());
+          }
+
           sendMessage(source, destination.get(), destinationDevice.get(), messages.getTimestamp(), messages.isOnline(), incomingMessage);
         }
       }
