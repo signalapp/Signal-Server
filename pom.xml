@@ -16,7 +16,7 @@
     </modules>
 
     <properties>
-        <dropwizard.version>2.0.8</dropwizard.version>
+        <dropwizard.version>2.0.10</dropwizard.version>
         <resilience4j.version>0.14.1</resilience4j.version>
         <mockito.version>2.25.1</mockito.version>
 
@@ -27,7 +27,7 @@
     <parent>
         <groupId>io.dropwizard</groupId>
         <artifactId>dropwizard-dependencies</artifactId>
-        <version>2.0.2</version>
+        <version>2.0.10</version>
     </parent>
 
 
