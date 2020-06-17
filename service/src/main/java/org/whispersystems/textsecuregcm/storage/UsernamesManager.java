@@ -3,7 +3,7 @@ package org.whispersystems.textsecuregcm.storage;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
+import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.experiment.Experiment;
@@ -129,11 +129,11 @@ public class UsernamesManager {
       jedis.set(usernameMapKey, uuid.toString());
 
       cacheCluster.useWriteCluster(connection -> {
-        final RedisAdvancedClusterAsyncCommands<String, String> asyncCommands = connection.async();
+        final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
 
-        maybeOldUsername.ifPresent(oldUsername -> asyncCommands.del(getUsernameMapKey(oldUsername)));
-        asyncCommands.set(uuidMapKey, username);
-        asyncCommands.set(usernameMapKey, uuid.toString());
+        maybeOldUsername.ifPresent(oldUsername -> commands.del(getUsernameMapKey(oldUsername)));
+        commands.set(uuidMapKey, username);
+        commands.set(usernameMapKey, uuid.toString());
       });
     } catch (JedisException e) {
       if (required) throw e;
@@ -187,10 +187,10 @@ public class UsernamesManager {
         jedis.del(uuidMapKey);
 
         cacheCluster.useWriteCluster(connection -> {
-          final RedisAdvancedClusterAsyncCommands<String, String> asyncCommands = connection.async();
+          final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
 
-          asyncCommands.del(usernameMapKey);
-          asyncCommands.del(uuidMapKey);
+          commands.del(usernameMapKey);
+          commands.del(uuidMapKey);
         });
       });
     }

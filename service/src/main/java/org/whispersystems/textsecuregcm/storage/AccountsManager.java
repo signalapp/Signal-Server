@@ -23,6 +23,7 @@ import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
+import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
@@ -162,10 +163,10 @@ public class AccountsManager {
       jedis.set(accountEntityKey, accountJson);
 
       cacheCluster.useWriteCluster(connection -> {
-        RedisAdvancedClusterAsyncCommands<String, String> asyncCommands = connection.async();
+        final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
 
-        asyncCommands.set(accountMapKey, account.getUuid().toString());
-        asyncCommands.set(accountEntityKey, accountJson);
+        commands.set(accountMapKey, account.getUuid().toString());
+        commands.set(accountEntityKey, accountJson);
       });
     } catch (JsonProcessingException e) {
       throw new IllegalStateException(e);

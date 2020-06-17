@@ -78,7 +78,7 @@ public class PendingAccountsManager {
       final String verificationCodeJson = mapper.writeValueAsString(code);
 
       jedis.set(key, verificationCodeJson);
-      cacheCluster.useWriteCluster(connection -> connection.async().set(key, verificationCodeJson));
+      cacheCluster.useWriteCluster(connection -> connection.sync().set(key, verificationCodeJson));
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException(e);
     }
@@ -104,7 +104,7 @@ public class PendingAccountsManager {
       final String key = CACHE_PREFIX + number;
 
       jedis.del(key);
-      cacheCluster.useWriteCluster(connection -> connection.async().del(key));
+      cacheCluster.useWriteCluster(connection -> connection.sync().del(key));
     }
   }
 }

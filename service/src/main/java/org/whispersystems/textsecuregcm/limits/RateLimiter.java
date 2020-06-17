@@ -96,7 +96,7 @@ public class RateLimiter {
       final String bucketName = getBucketName(key);
 
       jedis.del(bucketName);
-      cacheCluster.useWriteCluster(connection -> connection.async().del(bucketName));
+      cacheCluster.useWriteCluster(connection -> connection.sync().del(bucketName));
     }
   }
 
@@ -107,7 +107,7 @@ public class RateLimiter {
       final int    level      = (int) Math.ceil((bucketSize / leakRatePerMillis) / 1000);
 
       jedis.setex(bucketName, level, serialized);
-      cacheCluster.useWriteCluster(connection -> connection.async().setex(bucketName, level, serialized));
+      cacheCluster.useWriteCluster(connection -> connection.sync().setex(bucketName, level, serialized));
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException(e);
     }

@@ -66,7 +66,7 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
   public void onCrawlStart() {
     try (Jedis jedis = jedisPool.getWriteResource()) {
       jedis.del(TALLY_KEY);
-      cacheCluster.useWriteCluster(connection -> connection.async().del(TALLY_KEY));
+      cacheCluster.useWriteCluster(connection -> connection.sync().del(TALLY_KEY));
     }
   }
 
@@ -186,7 +186,7 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
       final String tallyJson = mapper.writeValueAsString(activeUserTally);
 
       jedis.set(TALLY_KEY, tallyJson);
-      cacheCluster.useWriteCluster(connection -> connection.async().set(TALLY_KEY, tallyJson));
+      cacheCluster.useWriteCluster(connection -> connection.sync().set(TALLY_KEY, tallyJson));
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException(e);
     } catch (IOException e) {

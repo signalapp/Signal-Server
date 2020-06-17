@@ -63,7 +63,7 @@ public class ProfilesManager {
       final String profileJson = mapper.writeValueAsString(profile);
 
       jedis.hset(key, profile.getVersion(), profileJson);
-      cacheCluster.useWriteCluster(connection -> connection.async().hset(key, profile.getVersion(), profileJson));
+      cacheCluster.useWriteCluster(connection -> connection.sync().hset(key, profile.getVersion(), profileJson));
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException(e);
     }
@@ -92,7 +92,7 @@ public class ProfilesManager {
       final String key = CACHE_PREFIX + uuid.toString();
 
       jedis.del(key);
-      cacheCluster.useWriteCluster(connection -> connection.async().del(key));
+      cacheCluster.useWriteCluster(connection -> connection.sync().del(key));
     }
   }
 }
