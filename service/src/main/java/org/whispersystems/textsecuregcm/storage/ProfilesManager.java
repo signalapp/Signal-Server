@@ -6,14 +6,11 @@ import io.lettuce.core.RedisException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 import java.io.IOException;
 import java.util.Optional;
 import java.util.UUID;
-
-import redis.clients.jedis.Jedis;
 
 public class ProfilesManager {
 
@@ -22,12 +19,10 @@ public class ProfilesManager {
   private static final String CACHE_PREFIX = "profiles::";
 
   private final Profiles                  profiles;
-  private final ReplicatedJedisPool       cacheClient;
   private final FaultTolerantRedisCluster cacheCluster;
   private final ObjectMapper              mapper;
 
-  public ProfilesManager(Profiles profiles, ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster) {
-    this.cacheClient            = cacheClient;
+  public ProfilesManager(Profiles profiles, FaultTolerantRedisCluster cacheCluster) {
     this.profiles               = profiles;
     this.cacheCluster           = cacheCluster;
     this.mapper                 = SystemMapper.getMapper();
@@ -55,12 +50,10 @@ public class ProfilesManager {
   }
 
   private void memcacheSet(UUID uuid, VersionedProfile profile) {
-    try (Jedis jedis = cacheClient.getWriteResource()) {
-      final String key         = CACHE_PREFIX + uuid.toString();
+    try {
       final String profileJson = mapper.writeValueAsString(profile);
 
-      jedis.hset(key, profile.getVersion(), profileJson);
-      cacheCluster.useWriteCluster(connection -> connection.sync().hset(key, profile.getVersion(), profileJson));
+      cacheCluster.useWriteCluster(connection -> connection.sync().hset(CACHE_PREFIX + uuid.toString(), profile.getVersion(), profileJson));
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException(e);
     }
@@ -82,11 +75,6 @@ public class ProfilesManager {
   }
 
   private void memcacheDelete(UUID uuid) {
-    try (Jedis jedis = cacheClient.getWriteResource()) {
-      final String key = CACHE_PREFIX + uuid.toString();
-
-      jedis.del(key);
-      cacheCluster.useWriteCluster(connection -> connection.sync().del(key));
-    }
+    cacheCluster.useWriteCluster(connection -> connection.sync().del(CACHE_PREFIX + uuid.toString()));
   }
 }

@@ -18,16 +18,10 @@ package org.whispersystems.textsecuregcm.storage;
 
 import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.SetArgs;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.redis.LuaScript;
-import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
-import redis.clients.jedis.Jedis;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -41,25 +35,16 @@ public class AccountDatabaseCrawlerCache {
 
   private static final long LAST_NUMBER_TTL_MS  = 86400_000L;
 
-  private static final Logger log = LoggerFactory.getLogger(AccountDatabaseCrawlerCache.class);
-
-  private final ReplicatedJedisPool       jedisPool;
   private final FaultTolerantRedisCluster cacheCluster;
-  private final LuaScript                 unlockScript;
   private final ClusterLuaScript          unlockClusterScript;
 
-  public AccountDatabaseCrawlerCache(ReplicatedJedisPool jedisPool, FaultTolerantRedisCluster cacheCluster) throws IOException {
-    this.jedisPool           = jedisPool;
+  public AccountDatabaseCrawlerCache(FaultTolerantRedisCluster cacheCluster) throws IOException {
     this.cacheCluster        = cacheCluster;
-    this.unlockScript        = LuaScript.fromResource(jedisPool, "lua/account_database_crawler/unlock.lua");
     this.unlockClusterScript = ClusterLuaScript.fromResource(cacheCluster, "lua/account_database_crawler/unlock.lua", ScriptOutputType.INTEGER);
   }
 
   public void clearAccelerate() {
-    try (Jedis jedis = jedisPool.getWriteResource()) {
-      jedis.del(ACCELERATE_KEY);
-      cacheCluster.useWriteCluster(connection -> connection.sync().del(ACCELERATE_KEY));
-    }
+    cacheCluster.useWriteCluster(connection -> connection.sync().del(ACCELERATE_KEY));
   }
 
   public boolean isAccelerated() {
@@ -67,28 +52,11 @@ public class AccountDatabaseCrawlerCache {
   }
 
   public boolean claimActiveWork(String workerId, long ttlMs) {
-    try (Jedis jedis = jedisPool.getWriteResource()) {
-      final boolean claimed = "OK".equals(jedis.set(ACTIVE_WORKER_KEY, workerId, "NX", "PX", ttlMs));
-
-      if (claimed) {
-        // TODO Restore the NX flag when making the cluster the primary data store
-        cacheCluster.useWriteCluster(connection -> connection.sync().set(ACTIVE_WORKER_KEY, workerId, SetArgs.Builder.px(ttlMs)));
-      }
-
-      return claimed;
-    }
+    return "OK".equals(cacheCluster.withWriteCluster(connection -> connection.sync().set(ACCELERATE_KEY, workerId, SetArgs.Builder.nx().px(ttlMs))));
   }
 
   public void releaseActiveWork(String workerId) {
-    List<byte[]> keys = Arrays.asList(ACTIVE_WORKER_KEY.getBytes());
-    List<byte[]> args = Arrays.asList(workerId.getBytes());
-    unlockScript.execute(keys, args);
-
-    try {
-      unlockClusterScript.execute(List.of(ACTIVE_WORKER_KEY), List.of(workerId));
-    } catch (Exception e) {
-      log.warn("Failed to execute clustered unlock script", e);
-    }
+    unlockClusterScript.execute(List.of(ACTIVE_WORKER_KEY), List.of(workerId));
   }
 
   public Optional<UUID> getLastUuid() {
@@ -99,14 +67,10 @@ public class AccountDatabaseCrawlerCache {
   }
 
   public void setLastUuid(Optional<UUID> lastUuid) {
-    try (Jedis jedis = jedisPool.getWriteResource()) {
-      if (lastUuid.isPresent()) {
-        jedis.psetex(LAST_UUID_KEY, LAST_NUMBER_TTL_MS, lastUuid.get().toString());
-        cacheCluster.useWriteCluster(connection -> connection.sync().psetex(LAST_UUID_KEY, LAST_NUMBER_TTL_MS, lastUuid.get().toString()));
-      } else {
-        jedis.del(LAST_UUID_KEY);
-        cacheCluster.useWriteCluster(connection -> connection.sync().del(LAST_UUID_KEY));
-      }
+    if (lastUuid.isPresent()) {
+      cacheCluster.useWriteCluster(connection -> connection.sync().psetex(LAST_UUID_KEY, LAST_NUMBER_TTL_MS, lastUuid.get().toString()));
+    } else {
+      cacheCluster.useWriteCluster(connection -> connection.sync().del(LAST_UUID_KEY));
     }
   }
 

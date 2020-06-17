@@ -69,9 +69,7 @@ public class ActiveUserCounterTest {
   private final FaultTolerantRedisCluster                    cacheCluster   = RedisClusterHelper.buildMockRedisCluster(commands);
   private final MetricsFactory                               metricsFactory = mock(MetricsFactory.class);
 
-  private final ReplicatedJedisPool cacheClient  = mock(ReplicatedJedisPool.class);
-
-  private final ActiveUserCounter activeUserCounter = new ActiveUserCounter(metricsFactory, cacheClient, cacheCluster);
+  private final ActiveUserCounter activeUserCounter = new ActiveUserCounter(metricsFactory, cacheCluster);
 
   @Before
   public void setup() {
@@ -101,8 +99,6 @@ public class ActiveUserCounterTest {
 
     when(commands.get(any(String.class))).thenReturn("{\"fromNumber\":\"+\",\"platforms\":{},\"countries\":{}}");
     when(metricsFactory.getReporters()).thenReturn(ImmutableList.of());
-
-    when(cacheClient.getWriteResource()).thenReturn(mock(Jedis.class));
   }
 
   @Test

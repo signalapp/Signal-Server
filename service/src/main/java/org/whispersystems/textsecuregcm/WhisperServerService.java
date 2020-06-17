@@ -144,7 +144,6 @@ import org.whispersystems.textsecuregcm.websocket.DeadLetterHandler;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningConnectListener;
 import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.workers.CertificateCommand;
-import org.whispersystems.textsecuregcm.workers.ClearCacheClusterCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
 import org.whispersystems.textsecuregcm.workers.VacuumCommand;
 import org.whispersystems.textsecuregcm.workers.ZkParamsCommand;
@@ -175,7 +174,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new DeleteUserCommand());
     bootstrap.addCommand(new CertificateCommand());
     bootstrap.addCommand(new ZkParamsCommand());
-    bootstrap.addCommand(new ClearCacheClusterCommand());
 
     bootstrap.addBundle(new NameableMigrationsBundle<WhisperServerConfiguration>("accountdb", "accountsdb.xml") {
       @Override
@@ -269,13 +267,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     AbusiveHostRules  abusiveHostRules  = new AbusiveHostRules(abuseDatabase);
     RemoteConfigs     remoteConfigs     = new RemoteConfigs(accountDatabase);
 
-    RedisClientFactory cacheClientFactory         = new RedisClientFactory("main_cache", config.getCacheConfiguration().getUrl(), config.getCacheConfiguration().getReplicaUrls(), config.getCacheConfiguration().getCircuitBreakerConfiguration());
     RedisClientFactory pubSubClientFactory        = new RedisClientFactory("pubsub_cache", config.getPubsubCacheConfiguration().getUrl(), config.getPubsubCacheConfiguration().getReplicaUrls(), config.getPubsubCacheConfiguration().getCircuitBreakerConfiguration());
     RedisClientFactory directoryClientFactory     = new RedisClientFactory("directory_cache", config.getDirectoryConfiguration().getRedisConfiguration().getUrl(), config.getDirectoryConfiguration().getRedisConfiguration().getReplicaUrls(), config.getDirectoryConfiguration().getRedisConfiguration().getCircuitBreakerConfiguration());
     RedisClientFactory messagesClientFactory      = new RedisClientFactory("message_cache", config.getMessageCacheConfiguration().getRedisConfiguration().getUrl(), config.getMessageCacheConfiguration().getRedisConfiguration().getReplicaUrls(), config.getMessageCacheConfiguration().getRedisConfiguration().getCircuitBreakerConfiguration());
     RedisClientFactory pushSchedulerClientFactory = new RedisClientFactory("push_scheduler_cache", config.getPushScheduler().getUrl(), config.getPushScheduler().getReplicaUrls(), config.getPushScheduler().getCircuitBreakerConfiguration());
 
-    ReplicatedJedisPool cacheClient         = cacheClientFactory.getRedisClientPool();
     ReplicatedJedisPool pubsubClient        = pubSubClientFactory.getRedisClientPool();
     ReplicatedJedisPool directoryClient     = directoryClientFactory.getRedisClientPool();
     ReplicatedJedisPool messagesClient      = messagesClientFactory.getRedisClientPool();
@@ -288,11 +284,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     DirectoryManager           directory                  = new DirectoryManager(directoryClient);
     DirectoryQueue             directoryQueue             = new DirectoryQueue(config.getDirectoryConfiguration().getSqsConfiguration());
-    PendingAccountsManager     pendingAccountsManager     = new PendingAccountsManager(pendingAccounts, cacheClient, cacheCluster);
-    PendingDevicesManager      pendingDevicesManager      = new PendingDevicesManager(pendingDevices, cacheClient, cacheCluster);
-    AccountsManager            accountsManager            = new AccountsManager(accounts, directory, cacheClient, cacheCluster);
-    UsernamesManager           usernamesManager           = new UsernamesManager(usernames, reservedUsernames, cacheClient, cacheCluster);
-    ProfilesManager            profilesManager            = new ProfilesManager(profiles, cacheClient, cacheCluster);
+    PendingAccountsManager     pendingAccountsManager     = new PendingAccountsManager(pendingAccounts, cacheCluster);
+    PendingDevicesManager      pendingDevicesManager      = new PendingDevicesManager(pendingDevices, cacheCluster);
+    AccountsManager            accountsManager            = new AccountsManager(accounts, directory, cacheCluster);
+    UsernamesManager           usernamesManager           = new UsernamesManager(usernames, reservedUsernames, cacheCluster);
+    ProfilesManager            profilesManager            = new ProfilesManager(profiles, cacheCluster);
     MessagesCache              messagesCache              = new MessagesCache(messagesClient, messages, accountsManager, config.getMessageCacheConfiguration().getPersistDelayMinutes());
     MessagesManager            messagesManager            = new MessagesManager(messages, messagesCache);
     RemoteConfigsManager       remoteConfigsManager       = new RemoteConfigsManager(remoteConfigs);
@@ -302,7 +298,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     APNSender                  apnSender                  = new APNSender(accountsManager, config.getApnConfiguration());
     GCMSender                  gcmSender                  = new GCMSender(accountsManager, config.getGcmConfiguration().getApiKey());
     WebsocketSender            websocketSender            = new WebsocketSender(messagesManager, pubSubManager);
-    RateLimiters               rateLimiters               = new RateLimiters(config.getLimitsConfiguration(), cacheClient, cacheCluster);
+    RateLimiters               rateLimiters               = new RateLimiters(config.getLimitsConfiguration(), cacheCluster);
 
     AccountAuthenticator                  accountAuthenticator                  = new AccountAuthenticator(accountsManager);
     DisabledPermittedAccountAuthenticator disabledPermittedAccountAuthenticator = new DisabledPermittedAccountAuthenticator(accountsManager);
@@ -325,13 +321,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     DirectoryReconciliationClient directoryReconciliationClient = new DirectoryReconciliationClient(config.getDirectoryConfiguration().getDirectoryServerConfiguration());
 
-    ActiveUserCounter                    activeUserCounter               = new ActiveUserCounter(config.getMetricsFactory(), cacheClient, cacheCluster);
+    ActiveUserCounter                    activeUserCounter               = new ActiveUserCounter(config.getMetricsFactory(), cacheCluster);
     DirectoryReconciler                  directoryReconciler             = new DirectoryReconciler(directoryReconciliationClient, directory);
     AccountCleaner                       accountCleaner                  = new AccountCleaner(accountsManager, directoryQueue);
     PushFeedbackProcessor                pushFeedbackProcessor           = new PushFeedbackProcessor(accountsManager, directoryQueue);
     List<AccountDatabaseCrawlerListener> accountDatabaseCrawlerListeners = List.of(pushFeedbackProcessor, activeUserCounter, directoryReconciler, accountCleaner);
 
-    AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(cacheClient, cacheCluster);
+    AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(cacheCluster);
     AccountDatabaseCrawler      accountDatabaseCrawler      = new AccountDatabaseCrawler(accountsManager, accountDatabaseCrawlerCache, accountDatabaseCrawlerListeners, config.getAccountDatabaseCrawlerConfiguration().getChunkSize(), config.getAccountDatabaseCrawlerConfiguration().getChunkIntervalMs());
 
     messagesCache.setPubSubManager(pubSubManager, pushSender);
@@ -429,7 +425,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 ///
 
     environment.healthChecks().register("directory", new RedisHealthCheck(directoryClient));
-    environment.healthChecks().register("cache", new RedisHealthCheck(cacheClient));
     environment.healthChecks().register("cacheCluster", new RedisClusterHealthCheck(cacheCluster));
 
     environment.metrics().register(name(CpuUsageGauge.class, "cpu"), new CpuUsageGauge());

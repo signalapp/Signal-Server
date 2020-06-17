@@ -4,13 +4,11 @@ import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 import org.whispersystems.textsecuregcm.util.Base64;
-import redis.clients.jedis.Jedis;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -35,14 +33,11 @@ public class ProfilesManagerTest {
     FaultTolerantRedisCluster                    cacheCluster = RedisClusterHelper.buildMockRedisCluster(commands);
     Profiles                                     profiles     = mock(Profiles.class);
 
-    ReplicatedJedisPool cacheClient  = mock(ReplicatedJedisPool.class);
-    when(cacheClient.getWriteResource()).thenReturn(mock(Jedis.class));
-
     UUID uuid = UUID.randomUUID();
 
     when(commands.hget(eq("profiles::" + uuid.toString()), eq("someversion"))).thenReturn("{\"version\": \"someversion\", \"name\": \"somename\", \"avatar\": \"someavatar\", \"commitment\":\"" + Base64.encodeBytes("somecommitment".getBytes()) + "\"}");
 
-    ProfilesManager            profilesManager = new ProfilesManager(profiles, cacheClient, cacheCluster);
+    ProfilesManager            profilesManager = new ProfilesManager(profiles, cacheCluster);
     Optional<VersionedProfile> profile         = profilesManager.get(uuid, "someversion");
 
     assertTrue(profile.isPresent());
@@ -61,16 +56,13 @@ public class ProfilesManagerTest {
     FaultTolerantRedisCluster cacheCluster                = RedisClusterHelper.buildMockRedisCluster(commands);
     Profiles            profiles                          = mock(Profiles.class);
 
-    ReplicatedJedisPool cacheClient  = mock(ReplicatedJedisPool.class);
-    when(cacheClient.getWriteResource()).thenReturn(mock(Jedis.class));
-
     UUID             uuid    = UUID.randomUUID();
     VersionedProfile profile = new VersionedProfile("someversion", "somename", "someavatar", "somecommitment".getBytes());
 
     when(commands.hget(eq("profiles::" + uuid.toString()), eq("someversion"))).thenReturn(null);
     when(profiles.get(eq(uuid), eq("someversion"))).thenReturn(Optional.of(profile));
 
-    ProfilesManager            profilesManager = new ProfilesManager(profiles, cacheClient, cacheCluster);
+    ProfilesManager            profilesManager = new ProfilesManager(profiles, cacheCluster);
     Optional<VersionedProfile> retrieved       = profilesManager.get(uuid, "someversion");
 
     assertTrue(retrieved.isPresent());
@@ -90,16 +82,13 @@ public class ProfilesManagerTest {
     FaultTolerantRedisCluster cacheCluster                = RedisClusterHelper.buildMockRedisCluster(commands);
     Profiles            profiles                          = mock(Profiles.class);
 
-    ReplicatedJedisPool cacheClient  = mock(ReplicatedJedisPool.class);
-    when(cacheClient.getWriteResource()).thenReturn(mock(Jedis.class));
-
     UUID             uuid    = UUID.randomUUID();
     VersionedProfile profile = new VersionedProfile("someversion", "somename", "someavatar", "somecommitment".getBytes());
 
     when(commands.hget(eq("profiles::" + uuid.toString()), eq("someversion"))).thenThrow(new RedisException("Connection lost"));
     when(profiles.get(eq(uuid), eq("someversion"))).thenReturn(Optional.of(profile));
 
-    ProfilesManager            profilesManager = new ProfilesManager(profiles, cacheClient, cacheCluster);
+    ProfilesManager            profilesManager = new ProfilesManager(profiles, cacheCluster);
     Optional<VersionedProfile> retrieved       = profilesManager.get(uuid, "someversion");
 
     assertTrue(retrieved.isPresent());

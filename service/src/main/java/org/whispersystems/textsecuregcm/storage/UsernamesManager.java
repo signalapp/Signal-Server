@@ -8,15 +8,12 @@ import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.Constants;
 
 import java.util.Optional;
 import java.util.UUID;
 
 import static com.codahale.metrics.MetricRegistry.name;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.exceptions.JedisException;
 
 public class UsernamesManager {
 
@@ -34,13 +31,11 @@ public class UsernamesManager {
 
   private final Usernames                 usernames;
   private final ReservedUsernames         reservedUsernames;
-  private final ReplicatedJedisPool       cacheClient;
   private final FaultTolerantRedisCluster cacheCluster;
 
-  public UsernamesManager(Usernames usernames, ReservedUsernames reservedUsernames, ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster) {
+  public UsernamesManager(Usernames usernames, ReservedUsernames reservedUsernames, FaultTolerantRedisCluster cacheCluster) {
     this.usernames              = usernames;
     this.reservedUsernames      = reservedUsernames;
-    this.cacheClient            = cacheClient;
     this.cacheCluster           = cacheCluster;
   }
 
@@ -126,15 +121,8 @@ public class UsernamesManager {
         maybeOldUsername.ifPresent(oldUsername -> commands.del(getUsernameMapKey(oldUsername)));
         commands.set(uuidMapKey, username);
         commands.set(usernameMapKey, uuid.toString());
-
-        try (final Jedis jedis = cacheClient.getWriteResource()) {
-          maybeOldUsername.ifPresent(oldUsername -> jedis.del(getUsernameMapKey(oldUsername)));
-
-          jedis.set(uuidMapKey, username);
-          jedis.set(usernameMapKey, uuid.toString());
-        }
       });
-    } catch (JedisException | RedisException e) {
+    } catch (RedisException e) {
       if (required) throw e;
       else          logger.warn("Ignoring Redis failure", e);
     }
@@ -164,22 +152,14 @@ public class UsernamesManager {
   }
 
   private void redisDelete(UUID uuid) {
-    try (Jedis         jedis   = cacheClient.getWriteResource();
-         Timer.Context ignored = redisUuidGetTimer.time())
-    {
-      final String uuidMapKey = getUuidMapKey(uuid);
+    try (Timer.Context ignored = redisUuidGetTimer.time()) {
+      cacheCluster.useWriteCluster(connection -> {
+        final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
 
-      redisGet(uuid).ifPresent(username -> {
-        final String usernameMapKey = getUsernameMapKey(username);
+        commands.del(getUuidMapKey(uuid));
 
-        jedis.del(usernameMapKey);
-        jedis.del(uuidMapKey);
-
-        cacheCluster.useWriteCluster(connection -> {
-          final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
-
-          commands.del(usernameMapKey);
-          commands.del(uuidMapKey);
+        redisGet(uuid).ifPresent(username -> {
+          commands.del(getUsernameMapKey(username));
         });
       });
     }

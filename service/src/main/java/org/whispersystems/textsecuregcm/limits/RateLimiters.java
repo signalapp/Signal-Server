@@ -19,7 +19,6 @@ package org.whispersystems.textsecuregcm.limits;
 
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 
 public class RateLimiters {
 
@@ -48,84 +47,84 @@ public class RateLimiters {
   private final RateLimiter usernameLookupLimiter;
   private final RateLimiter usernameSetLimiter;
 
-  public RateLimiters(RateLimitsConfiguration config, ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster) {
-    this.smsDestinationLimiter = new RateLimiter(cacheClient, cacheCluster, "smsDestination",
+  public RateLimiters(RateLimitsConfiguration config, FaultTolerantRedisCluster cacheCluster) {
+    this.smsDestinationLimiter = new RateLimiter(cacheCluster, "smsDestination",
                                                  config.getSmsDestination().getBucketSize(),
                                                  config.getSmsDestination().getLeakRatePerMinute());
 
-    this.voiceDestinationLimiter = new RateLimiter(cacheClient, cacheCluster, "voxDestination",
+    this.voiceDestinationLimiter = new RateLimiter(cacheCluster, "voxDestination",
                                                    config.getVoiceDestination().getBucketSize(),
                                                    config.getVoiceDestination().getLeakRatePerMinute());
 
-    this.voiceDestinationDailyLimiter = new RateLimiter(cacheClient, cacheCluster, "voxDestinationDaily",
+    this.voiceDestinationDailyLimiter = new RateLimiter(cacheCluster, "voxDestinationDaily",
                                                         config.getVoiceDestinationDaily().getBucketSize(),
                                                         config.getVoiceDestinationDaily().getLeakRatePerMinute());
 
-    this.smsVoiceIpLimiter = new RateLimiter(cacheClient, cacheCluster, "smsVoiceIp",
+    this.smsVoiceIpLimiter = new RateLimiter(cacheCluster, "smsVoiceIp",
                                              config.getSmsVoiceIp().getBucketSize(),
                                              config.getSmsVoiceIp().getLeakRatePerMinute());
 
-    this.smsVoicePrefixLimiter = new RateLimiter(cacheClient, cacheCluster, "smsVoicePrefix",
+    this.smsVoicePrefixLimiter = new RateLimiter(cacheCluster, "smsVoicePrefix",
                                                  config.getSmsVoicePrefix().getBucketSize(),
                                                  config.getSmsVoicePrefix().getLeakRatePerMinute());
 
-    this.autoBlockLimiter = new RateLimiter(cacheClient, cacheCluster, "autoBlock",
+    this.autoBlockLimiter = new RateLimiter(cacheCluster, "autoBlock",
                                             config.getAutoBlock().getBucketSize(),
                                             config.getAutoBlock().getLeakRatePerMinute());
 
-    this.verifyLimiter = new LockingRateLimiter(cacheClient, cacheCluster, "verify",
+    this.verifyLimiter = new LockingRateLimiter(cacheCluster, "verify",
                                                 config.getVerifyNumber().getBucketSize(),
                                                 config.getVerifyNumber().getLeakRatePerMinute());
 
-    this.pinLimiter = new LockingRateLimiter(cacheClient, cacheCluster, "pin",
+    this.pinLimiter = new LockingRateLimiter(cacheCluster, "pin",
                                              config.getVerifyPin().getBucketSize(),
                                              config.getVerifyPin().getLeakRatePerMinute());
 
-    this.attachmentLimiter = new RateLimiter(cacheClient, cacheCluster, "attachmentCreate",
+    this.attachmentLimiter = new RateLimiter(cacheCluster, "attachmentCreate",
                                              config.getAttachments().getBucketSize(),
                                              config.getAttachments().getLeakRatePerMinute());
 
-    this.contactsLimiter = new RateLimiter(cacheClient, cacheCluster, "contactsQuery",
+    this.contactsLimiter = new RateLimiter(cacheCluster, "contactsQuery",
                                            config.getContactQueries().getBucketSize(),
                                            config.getContactQueries().getLeakRatePerMinute());
 
-    this.contactsIpLimiter = new RateLimiter(cacheClient, cacheCluster, "contactsIpQuery",
+    this.contactsIpLimiter = new RateLimiter(cacheCluster, "contactsIpQuery",
                                              config.getContactIpQueries().getBucketSize(),
                                              config.getContactIpQueries().getLeakRatePerMinute());
 
-    this.preKeysLimiter = new RateLimiter(cacheClient, cacheCluster, "prekeys",
+    this.preKeysLimiter = new RateLimiter(cacheCluster, "prekeys",
                                           config.getPreKeys().getBucketSize(),
                                           config.getPreKeys().getLeakRatePerMinute());
 
-    this.messagesLimiter = new RateLimiter(cacheClient, cacheCluster, "messages",
+    this.messagesLimiter = new RateLimiter(cacheCluster, "messages",
                                            config.getMessages().getBucketSize(),
                                            config.getMessages().getLeakRatePerMinute());
 
-    this.allocateDeviceLimiter = new RateLimiter(cacheClient, cacheCluster, "allocateDevice",
+    this.allocateDeviceLimiter = new RateLimiter(cacheCluster, "allocateDevice",
                                                  config.getAllocateDevice().getBucketSize(),
                                                  config.getAllocateDevice().getLeakRatePerMinute());
 
-    this.verifyDeviceLimiter = new RateLimiter(cacheClient, cacheCluster, "verifyDevice",
+    this.verifyDeviceLimiter = new RateLimiter(cacheCluster, "verifyDevice",
                                                config.getVerifyDevice().getBucketSize(),
                                                config.getVerifyDevice().getLeakRatePerMinute());
 
-    this.turnLimiter = new RateLimiter(cacheClient, cacheCluster, "turnAllocate",
+    this.turnLimiter = new RateLimiter(cacheCluster, "turnAllocate",
                                        config.getTurnAllocations().getBucketSize(),
                                        config.getTurnAllocations().getLeakRatePerMinute());
 
-    this.profileLimiter = new RateLimiter(cacheClient, cacheCluster, "profile",
+    this.profileLimiter = new RateLimiter(cacheCluster, "profile",
                                           config.getProfile().getBucketSize(),
                                           config.getProfile().getLeakRatePerMinute());
 
-    this.stickerPackLimiter = new RateLimiter(cacheClient, cacheCluster, "stickerPack",
+    this.stickerPackLimiter = new RateLimiter(cacheCluster, "stickerPack",
                                               config.getStickerPack().getBucketSize(),
                                               config.getStickerPack().getLeakRatePerMinute());
 
-    this.usernameLookupLimiter = new RateLimiter(cacheClient, cacheCluster, "usernameLookup",
+    this.usernameLookupLimiter = new RateLimiter(cacheCluster, "usernameLookup",
                                                  config.getUsernameLookup().getBucketSize(),
                                                  config.getUsernameLookup().getLeakRatePerMinute());
 
-    this.usernameSetLimiter = new RateLimiter(cacheClient, cacheCluster, "usernameSet",
+    this.usernameSetLimiter = new RateLimiter(cacheCluster, "usernameSet",
                                               config.getUsernameSet().getBucketSize(),
                                               config.getUsernameSet().getLeakRatePerMinute());
   }

@@ -23,14 +23,12 @@ import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.lettuce.core.RedisException;
-import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -41,7 +39,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static com.codahale.metrics.MetricRegistry.name;
-import redis.clients.jedis.Jedis;
 
 public class AccountsManager {
 
@@ -58,15 +55,13 @@ public class AccountsManager {
   private final Logger logger = LoggerFactory.getLogger(AccountsManager.class);
 
   private final Accounts                  accounts;
-  private final ReplicatedJedisPool       cacheClient;
   private final FaultTolerantRedisCluster cacheCluster;
   private final DirectoryManager          directory;
   private final ObjectMapper              mapper;
 
-  public AccountsManager(Accounts accounts, DirectoryManager directory, ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster) {
+  public AccountsManager(Accounts accounts, DirectoryManager directory, FaultTolerantRedisCluster cacheCluster) {
     this.accounts               = accounts;
     this.directory              = directory;
-    this.cacheClient            = cacheClient;
     this.cacheCluster           = cacheCluster;
     this.mapper                 = SystemMapper.getMapper();
   }
@@ -149,21 +144,14 @@ public class AccountsManager {
   }
 
   private void redisSet(Account account) {
-    try (Jedis         jedis   = cacheClient.getWriteResource();
-         Timer.Context ignored = redisSetTimer.time())
-    {
-      final String accountMapKey    = getAccountMapKey(account.getNumber());
-      final String accountEntityKey = getAccountEntityKey(account.getUuid());
-      final String accountJson      = mapper.writeValueAsString(account);
-
-      jedis.set(accountMapKey, account.getUuid().toString());
-      jedis.set(accountEntityKey, accountJson);
+    try (Timer.Context ignored = redisSetTimer.time()) {
+      final String accountJson = mapper.writeValueAsString(account);
 
       cacheCluster.useWriteCluster(connection -> {
         final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
 
-        commands.set(accountMapKey, account.getUuid().toString());
-        commands.set(accountEntityKey, accountJson);
+        commands.set(getAccountMapKey(account.getNumber()), account.getUuid().toString());
+        commands.set(getAccountEntityKey(account.getUuid()), accountJson);
       });
     } catch (JsonProcessingException e) {
       throw new IllegalStateException(e);

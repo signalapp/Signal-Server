@@ -20,9 +20,10 @@ import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.dropwizard.metrics.MetricsFactory;
+import io.dropwizard.metrics.ReporterFactory;
 import org.whispersystems.textsecuregcm.entities.ActiveUserTally;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -34,10 +35,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import io.dropwizard.metrics.MetricsFactory;
-import io.dropwizard.metrics.ReporterFactory;
-import redis.clients.jedis.Jedis;
-
 public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
 
   private static final String TALLY_KEY         = "active_user_tally";
@@ -48,23 +45,18 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
   private static final String INTERVALS[] = {"daily", "weekly", "monthly", "quarterly", "yearly"};
 
   private final MetricsFactory            metricsFactory;
-  private final ReplicatedJedisPool       jedisPool;
   private final FaultTolerantRedisCluster cacheCluster;
   private final ObjectMapper              mapper;
 
-  public ActiveUserCounter(MetricsFactory metricsFactory, ReplicatedJedisPool jedisPool, FaultTolerantRedisCluster cacheCluster) {
+  public ActiveUserCounter(MetricsFactory metricsFactory, FaultTolerantRedisCluster cacheCluster) {
     this.metricsFactory         = metricsFactory;
-    this.jedisPool              = jedisPool;
     this.cacheCluster           = cacheCluster;
     this.mapper                 = SystemMapper.getMapper();
   }
 
   @Override
   public void onCrawlStart() {
-    try (Jedis jedis = jedisPool.getWriteResource()) {
-      jedis.del(TALLY_KEY);
-      cacheCluster.useWriteCluster(connection -> connection.sync().del(TALLY_KEY));
-    }
+    cacheCluster.useWriteCluster(connection -> connection.sync().del(TALLY_KEY));
   }
 
   @Override
@@ -160,7 +152,7 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
   }
 
   private void incrementTallies(UUID fromUuid, Map<String, long[]> platformIncrements, Map<String, long[]> countryIncrements) {
-    try (Jedis jedis = jedisPool.getWriteResource()) {
+    try {
       final String tallyValue = cacheCluster.withReadCluster(connection -> connection.sync().get(TALLY_KEY));
 
       ActiveUserTally activeUserTally;
@@ -181,12 +173,9 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
 
       final String tallyJson = mapper.writeValueAsString(activeUserTally);
 
-      jedis.set(TALLY_KEY, tallyJson);
       cacheCluster.useWriteCluster(connection -> connection.sync().set(TALLY_KEY, tallyJson));
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException(e);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
     }
   }
 

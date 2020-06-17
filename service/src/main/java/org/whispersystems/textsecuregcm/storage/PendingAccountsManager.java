@@ -22,13 +22,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 import java.io.IOException;
 import java.util.Optional;
-
-import redis.clients.jedis.Jedis;
 
 public class PendingAccountsManager {
 
@@ -37,14 +34,12 @@ public class PendingAccountsManager {
   private static final String CACHE_PREFIX = "pending_account2::";
 
   private final PendingAccounts           pendingAccounts;
-  private final ReplicatedJedisPool       cacheClient;
   private final FaultTolerantRedisCluster cacheCluster;
   private final ObjectMapper              mapper;
 
-  public PendingAccountsManager(PendingAccounts pendingAccounts, ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster)
+  public PendingAccountsManager(PendingAccounts pendingAccounts, FaultTolerantRedisCluster cacheCluster)
   {
     this.pendingAccounts = pendingAccounts;
-    this.cacheClient     = cacheClient;
     this.cacheCluster    = cacheCluster;
     this.mapper          = SystemMapper.getMapper();
   }
@@ -71,12 +66,10 @@ public class PendingAccountsManager {
   }
 
   private void memcacheSet(String number, StoredVerificationCode code) {
-    try (Jedis jedis = cacheClient.getWriteResource()) {
-      final String key                  = CACHE_PREFIX + number;
+    try {
       final String verificationCodeJson = mapper.writeValueAsString(code);
 
-      jedis.set(key, verificationCodeJson);
-      cacheCluster.useWriteCluster(connection -> connection.sync().set(key, verificationCodeJson));
+      cacheCluster.useWriteCluster(connection -> connection.sync().set(CACHE_PREFIX + number, verificationCodeJson));
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException(e);
     }
@@ -95,11 +88,6 @@ public class PendingAccountsManager {
   }
 
   private void memcacheDelete(String number) {
-    try (Jedis jedis = cacheClient.getWriteResource()) {
-      final String key = CACHE_PREFIX + number;
-
-      jedis.del(key);
-      cacheCluster.useWriteCluster(connection -> connection.sync().del(key));
-    }
+    cacheCluster.useWriteCluster(connection -> connection.sync().del(CACHE_PREFIX + number));
   }
 }

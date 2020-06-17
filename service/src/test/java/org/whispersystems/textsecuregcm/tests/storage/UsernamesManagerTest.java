@@ -4,12 +4,10 @@ import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.storage.ReservedUsernames;
 import org.whispersystems.textsecuregcm.storage.Usernames;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
-import redis.clients.jedis.Jedis;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -33,14 +31,11 @@ public class UsernamesManagerTest {
     Usernames                 usernames                   = mock(Usernames.class);
     ReservedUsernames         reserved                    = mock(ReservedUsernames.class);
 
-    ReplicatedJedisPool cacheClient  = mock(ReplicatedJedisPool.class);
-    when(cacheClient.getWriteResource()).thenReturn(mock(Jedis.class));
-
     UUID uuid = UUID.randomUUID();
 
     when(commands.get(eq("UsernameByUsername::n00bkiller"))).thenReturn(uuid.toString());
 
-    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheClient, cacheCluster);
+    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheCluster);
     Optional<UUID>   retrieved        = usernamesManager.get("n00bkiller");
 
     assertTrue(retrieved.isPresent());
@@ -58,14 +53,11 @@ public class UsernamesManagerTest {
     Usernames                 usernames                   = mock(Usernames.class);
     ReservedUsernames         reserved                    = mock(ReservedUsernames.class);
 
-    ReplicatedJedisPool cacheClient  = mock(ReplicatedJedisPool.class);
-    when(cacheClient.getWriteResource()).thenReturn(mock(Jedis.class));
-
     UUID uuid = UUID.randomUUID();
 
     when(commands.get(eq("UsernameByUuid::" + uuid.toString()))).thenReturn("n00bkiller");
 
-    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheClient, cacheCluster);
+    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheCluster);
     Optional<String> retrieved        = usernamesManager.get(uuid);
 
     assertTrue(retrieved.isPresent());
@@ -84,15 +76,12 @@ public class UsernamesManagerTest {
     Usernames                 usernames                   = mock(Usernames.class);
     ReservedUsernames         reserved                    = mock(ReservedUsernames.class);
 
-    ReplicatedJedisPool cacheClient  = mock(ReplicatedJedisPool.class);
-    when(cacheClient.getWriteResource()).thenReturn(mock(Jedis.class));
-
     UUID uuid = UUID.randomUUID();
 
     when(commands.get(eq("UsernameByUsername::n00bkiller"))).thenReturn(null);
     when(usernames.get(eq("n00bkiller"))).thenReturn(Optional.of(uuid));
 
-    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheClient, cacheCluster);
+    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheCluster);
     Optional<UUID>   retrieved        = usernamesManager.get("n00bkiller");
 
     assertTrue(retrieved.isPresent());
@@ -115,15 +104,12 @@ public class UsernamesManagerTest {
     Usernames                 usernames                   = mock(Usernames.class);
     ReservedUsernames         reserved                    = mock(ReservedUsernames.class);
 
-    ReplicatedJedisPool cacheClient  = mock(ReplicatedJedisPool.class);
-    when(cacheClient.getWriteResource()).thenReturn(mock(Jedis.class));
-
     UUID uuid = UUID.randomUUID();
 
     when(commands.get(eq("UsernameByUuid::" + uuid.toString()))).thenReturn(null);
     when(usernames.get(eq(uuid))).thenReturn(Optional.of("n00bkiller"));
 
-    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheClient, cacheCluster);
+    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheCluster);
     Optional<String> retrieved        = usernamesManager.get(uuid);
 
     assertTrue(retrieved.isPresent());
@@ -145,15 +131,12 @@ public class UsernamesManagerTest {
     Usernames                 usernames                   = mock(Usernames.class);
     ReservedUsernames         reserved                    = mock(ReservedUsernames.class);
 
-    ReplicatedJedisPool cacheClient  = mock(ReplicatedJedisPool.class);
-    when(cacheClient.getWriteResource()).thenReturn(mock(Jedis.class));
-
     UUID                uuid        = UUID.randomUUID();
 
     when(commands.get(eq("UsernameByUsername::n00bkiller"))).thenThrow(new RedisException("Connection lost!"));
     when(usernames.get(eq("n00bkiller"))).thenReturn(Optional.of(uuid));
 
-    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheClient, cacheCluster);
+    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheCluster);
     Optional<UUID>   retrieved        = usernamesManager.get("n00bkiller");
 
     assertTrue(retrieved.isPresent());
@@ -176,15 +159,12 @@ public class UsernamesManagerTest {
     Usernames                 usernames                   = mock(Usernames.class);
     ReservedUsernames         reserved                    = mock(ReservedUsernames.class);
 
-    ReplicatedJedisPool cacheClient  = mock(ReplicatedJedisPool.class);
-    when(cacheClient.getWriteResource()).thenReturn(mock(Jedis.class));
-
     UUID uuid = UUID.randomUUID();
 
     when(commands.get(eq("UsernameByUuid::" + uuid))).thenThrow(new RedisException("Connection lost!"));
     when(usernames.get(eq(uuid))).thenReturn(Optional.of("n00bkiller"));
 
-    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheClient, cacheCluster);
+    UsernamesManager usernamesManager = new UsernamesManager(usernames, reserved, cacheCluster);
     Optional<String>   retrieved        = usernamesManager.get(uuid);
 
     assertTrue(retrieved.isPresent());

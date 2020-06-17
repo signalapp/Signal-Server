@@ -69,11 +69,10 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
       FaultTolerantRedisCluster cacheCluster = new FaultTolerantRedisCluster("main_cache_cluster", configuration.getCacheClusterConfiguration().getUrls(), configuration.getCacheClusterConfiguration().getTimeout(), configuration.getCacheClusterConfiguration().getCircuitBreakerConfiguration());
 
       Accounts            accounts        = new Accounts(accountDatabase);
-      ReplicatedJedisPool cacheClient     = new RedisClientFactory("main_cache_delete_command", configuration.getCacheConfiguration().getUrl(), configuration.getCacheConfiguration().getReplicaUrls(), configuration.getCacheConfiguration().getCircuitBreakerConfiguration()).getRedisClientPool();
       ReplicatedJedisPool redisClient     = new RedisClientFactory("directory_cache_delete_command", configuration.getDirectoryConfiguration().getRedisConfiguration().getUrl(), configuration.getDirectoryConfiguration().getRedisConfiguration().getReplicaUrls(), configuration.getDirectoryConfiguration().getRedisConfiguration().getCircuitBreakerConfiguration()).getRedisClientPool();
       DirectoryQueue      directoryQueue  = new DirectoryQueue  (configuration.getDirectoryConfiguration().getSqsConfiguration());
       DirectoryManager    directory       = new DirectoryManager(redisClient                                                    );
-      AccountsManager     accountsManager = new AccountsManager(accounts, directory, cacheClient, cacheCluster);
+      AccountsManager     accountsManager = new AccountsManager(accounts, directory, cacheCluster);
 
       for (String user: users) {
         Optional<Account> account = accountsManager.get(user);

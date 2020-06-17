@@ -26,14 +26,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 import java.io.IOException;
 
 import static com.codahale.metrics.MetricRegistry.name;
-import redis.clients.jedis.Jedis;
 
 public class RateLimiter {
 
@@ -42,20 +40,19 @@ public class RateLimiter {
 
   private   final Meter                     meter;
   private   final Timer                     validateTimer;
-  protected final ReplicatedJedisPool       cacheClient;
   protected final FaultTolerantRedisCluster cacheCluster;
   protected final String                    name;
   private   final int                       bucketSize;
   private   final double                    leakRatePerMillis;
   private   final boolean                   reportLimits;
 
-  public RateLimiter(ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster, String name,
+  public RateLimiter(FaultTolerantRedisCluster cacheCluster, String name,
                      int bucketSize, double leakRatePerMinute)
   {
-    this(cacheClient, cacheCluster, name, bucketSize, leakRatePerMinute, false);
+    this(cacheCluster, name, bucketSize, leakRatePerMinute, false);
   }
 
-  public RateLimiter(ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster, String name,
+  public RateLimiter(FaultTolerantRedisCluster cacheCluster, String name,
                      int bucketSize, double leakRatePerMinute,
                      boolean reportLimits)
   {
@@ -63,7 +60,6 @@ public class RateLimiter {
 
     this.meter                  = metricRegistry.meter(name(getClass(), name, "exceeded"));
     this.validateTimer          = metricRegistry.timer(name(getClass(), name, "validate"));
-    this.cacheClient            = cacheClient;
     this.cacheCluster           = cacheCluster;
     this.name                   = name;
     this.bucketSize             = bucketSize;
@@ -89,22 +85,14 @@ public class RateLimiter {
   }
 
   public void clear(String key) {
-    try (Jedis jedis = cacheClient.getWriteResource()) {
-      final String bucketName = getBucketName(key);
-
-      jedis.del(bucketName);
-      cacheCluster.useWriteCluster(connection -> connection.sync().del(bucketName));
-    }
+    cacheCluster.useWriteCluster(connection -> connection.sync().del(getBucketName(key)));
   }
 
   private void setBucket(String key, LeakyBucket bucket) {
-    try (Jedis jedis = cacheClient.getWriteResource()) {
-      final String bucketName = getBucketName(key);
+    try {
       final String serialized = bucket.serialize(mapper);
-      final int    level      = (int) Math.ceil((bucketSize / leakRatePerMillis) / 1000);
 
-      jedis.setex(bucketName, level, serialized);
-      cacheCluster.useWriteCluster(connection -> connection.sync().setex(bucketName, level, serialized));
+      cacheCluster.useWriteCluster(connection -> connection.sync().setex(getBucketName(key), (int) Math.ceil((bucketSize / leakRatePerMillis) / 1000), serialized));
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException(e);
     }

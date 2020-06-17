@@ -24,10 +24,6 @@ turn: # TURN server configuration
     - turn:yourdomain:443?transport=udp
     - turn:etc.com:80?transport=udp
 
-cache: # Redis server configuration for cache cluster
-  url:
-  replicaUrls:
-
 cacheCluster: # Redis server configuration for cache cluster
   urls:
     - redis://redis.example.com:6379/
