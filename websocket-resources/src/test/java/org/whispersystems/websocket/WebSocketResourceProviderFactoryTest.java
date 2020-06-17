@@ -2,6 +2,7 @@ package org.whispersystems.websocket;
 
 
 import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.UpgradeRequest;
 import org.eclipse.jetty.websocket.servlet.ServletUpgradeRequest;
 import org.eclipse.jetty.websocket.servlet.ServletUpgradeResponse;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
@@ -58,6 +59,7 @@ public class WebSocketResourceProviderFactoryTest {
     when(environment.getAuthenticator()).thenReturn(authenticator);
     when(authenticator.authenticate(eq(request))).thenReturn(new WebSocketAuthenticator.AuthenticationResult<>(Optional.of(account), true));
     when(environment.jersey()).thenReturn(jerseyEnvironment);
+    when(session.getUpgradeRequest()).thenReturn(mock(UpgradeRequest.class));
 
     WebSocketResourceProviderFactory factory    = new WebSocketResourceProviderFactory(environment, Account.class);
     Object                           connection = factory.createWebSocket(request, response);
