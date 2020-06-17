@@ -131,7 +131,7 @@ public class UsernamesManager {
       cacheCluster.useWriteCluster(connection -> {
         final RedisAdvancedClusterAsyncCommands<String, String> asyncCommands = connection.async();
 
-        maybeOldUsername.ifPresent(asyncCommands::del);
+        maybeOldUsername.ifPresent(oldUsername -> asyncCommands.del(getUsernameMapKey(oldUsername)));
         asyncCommands.set(uuidMapKey, username);
         asyncCommands.set(usernameMapKey, uuid.toString());
       });
