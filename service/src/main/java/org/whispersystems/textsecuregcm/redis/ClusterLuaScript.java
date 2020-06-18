@@ -1,5 +1,6 @@
 package org.whispersystems.textsecuregcm.redis;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.lettuce.core.RedisNoScriptException;
 import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.api.sync.RedisCommands;
@@ -36,7 +37,8 @@ public class ClusterLuaScript {
         }
     }
 
-    private ClusterLuaScript(final FaultTolerantRedisCluster redisCluster, final String script, final ScriptOutputType scriptOutputType) {
+    @VisibleForTesting
+    ClusterLuaScript(final FaultTolerantRedisCluster redisCluster, final String script, final ScriptOutputType scriptOutputType) {
         this.redisCluster     = redisCluster;
         this.scriptOutputType = scriptOutputType;
         this.script           = script;
