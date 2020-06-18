@@ -46,20 +46,12 @@ public class ClusterLuaScript {
     public Object execute(final List<String> keys, final List<String> args) {
         return redisCluster.withWriteCluster(connection -> {
             final RedisAdvancedClusterCommands<String, String> clusterCommands = connection.sync();
-            final RedisCommands<String, String>                redisCommands;
-
-            if (keys.isEmpty()) {
-                redisCommands = clusterCommands.masters().commands(0);
-            } else {
-                final int slot = SlotHash.getSlot(keys.get(0));
-                redisCommands = clusterCommands.nodes(node -> node.is(RedisClusterNode.NodeFlag.MASTER) && node.hasSlot(slot)).commands(0);
-            }
 
             try {
-                return redisCommands.evalsha(sha, scriptOutputType, keys.toArray(STRING_ARRAY), args.toArray(STRING_ARRAY));
+                return clusterCommands.evalsha(sha, scriptOutputType, keys.toArray(STRING_ARRAY), args.toArray(STRING_ARRAY));
             } catch (final RedisNoScriptException e) {
                 clusterCommands.scriptLoad(script);
-                return redisCommands.evalsha(sha, scriptOutputType, keys.toArray(STRING_ARRAY), args.toArray(STRING_ARRAY));
+                return clusterCommands.evalsha(sha, scriptOutputType, keys.toArray(STRING_ARRAY), args.toArray(STRING_ARRAY));
             }
         });
     }
