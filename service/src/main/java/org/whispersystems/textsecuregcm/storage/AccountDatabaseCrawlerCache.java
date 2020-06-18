@@ -93,11 +93,11 @@ public class AccountDatabaseCrawlerCache {
     List<byte[]> args = Arrays.asList(workerId.getBytes());
     unlockScript.execute(keys, args);
 
-    /* try {
+    try {
       unlockClusterScript.execute(List.of(ACTIVE_WORKER_KEY), List.of(workerId));
     } catch (Exception e) {
       log.warn("Failed to execute clustered unlock script", e);
-    } */
+    }
   }
 
   public Optional<UUID> getLastUuid() {
