@@ -34,6 +34,10 @@ public class StoredRegistrationLock {
     return registrationLock.isPresent() && registrationLockSalt.isPresent();
   }
 
+  public boolean hasDeprecatedPin() {
+    return deprecatedPin.isPresent();
+  }
+
   public long getTimeRemaining() {
     return TimeUnit.DAYS.toMillis(7) - (System.currentTimeMillis() - lastSeen);
   }
