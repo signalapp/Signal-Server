@@ -32,12 +32,12 @@ public class RemoteConfigsManager implements Managed {
 
   @Override
   public void start() {
-    this.cachedConfigs.set(remoteConfigs.getAll());
+    refreshCache();
 
     new Thread(() -> {
       while (true) {
         try {
-          this.cachedConfigs.set(remoteConfigs.getAll());
+          refreshCache();
         } catch (Throwable t) {
           logger.warn("Error updating remote configs cache", t);
         }
@@ -45,6 +45,21 @@ public class RemoteConfigsManager implements Managed {
         Util.sleep(sleepInterval);
       }
     }).start();
+  }
+
+  private void refreshCache() {
+    this.cachedConfigs.set(remoteConfigs.getAll());
+
+    synchronized (this.cachedConfigs) {
+      this.cachedConfigs.notifyAll();
+    }
+  }
+
+  @VisibleForTesting
+  void waitForCacheRefresh() throws InterruptedException {
+    synchronized (this.cachedConfigs) {
+      this.cachedConfigs.wait();
+    }
   }
 
   public List<RemoteConfig> getAll() {

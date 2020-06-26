@@ -1,4 +1,4 @@
-package org.whispersystems.textsecuregcm.tests.storage;
+package org.whispersystems.textsecuregcm.storage;
 
 import com.opentable.db.postgres.embedded.LiquibasePreparer;
 import com.opentable.db.postgres.junit.EmbeddedPostgresRules;
@@ -8,10 +8,6 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
-import org.whispersystems.textsecuregcm.storage.RemoteConfig;
-import org.whispersystems.textsecuregcm.storage.RemoteConfigs;
-import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
 import java.util.List;
@@ -41,7 +37,7 @@ public class RemoteConfigsManagerTest {
     remoteConfigs.set(new RemoteConfig("ios.stickers", 75, Set.of(), "FALSE", "TRUE", null));
     remoteConfigs.set(new RemoteConfig("value.sometimes", 25, Set.of(AuthHelper.VALID_UUID), "abc", "def", null));
 
-    Thread.sleep(501);
+    remoteConfigs.waitForCacheRefresh();
 
     List<RemoteConfig> results = remoteConfigs.getAll();
 
