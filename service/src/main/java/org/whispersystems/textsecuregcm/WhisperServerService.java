@@ -29,6 +29,7 @@ import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.wavefront.sdk.common.WavefrontSender;
 import io.dropwizard.Application;
 import io.dropwizard.auth.AuthFilter;
 import io.dropwizard.auth.PolymorphicAuthDynamicFeature;
@@ -42,7 +43,6 @@ import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.cluster.RedisClusterClient;
-import io.micrometer.core.instrument.Clock;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.wavefront.WavefrontMeterRegistry;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -58,6 +58,7 @@ import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
+import org.whispersystems.textsecuregcm.configuration.MicrometerConfiguration;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV1;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV2;
@@ -153,7 +154,6 @@ import org.whispersystems.websocket.setup.WebSocketEnvironment;
 import javax.servlet.DispatcherType;
 import javax.servlet.FilterRegistration;
 import javax.servlet.ServletRegistration;
-import java.net.URI;
 import java.security.Security;
 import java.util.EnumSet;
 import java.util.List;
@@ -209,7 +209,21 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       throws Exception
   {
     SharedMetricRegistries.add(Constants.METRICS_NAME, environment.metrics());
-    Metrics.addRegistry(new WavefrontMeterRegistry(config.getMicrometerConfiguration(), Clock.SYSTEM));
+
+    {
+      // This is a workaround for an issue where the configured step duration isn't being honored by
+      // WavefrontMeterRegistry; we can simplify if https://github.com/micrometer-metrics/micrometer/pull/2173 gets
+      // merged.
+      final MicrometerConfiguration micrometerConfig = config.getMicrometerConfiguration();
+
+      final WavefrontSender wavefrontSender = WavefrontMeterRegistry.getDefaultSenderBuilder(micrometerConfig)
+                                                                    .flushIntervalSeconds((int)micrometerConfig.step().toSeconds())
+                                                                    .build();
+
+      Metrics.addRegistry(WavefrontMeterRegistry.builder(micrometerConfig)
+                                                .wavefrontSender(wavefrontSender)
+                                                .build());
+    }
 
     environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     environment.getObjectMapper().setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);
