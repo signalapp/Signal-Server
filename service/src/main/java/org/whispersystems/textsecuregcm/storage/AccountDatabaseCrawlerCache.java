@@ -81,7 +81,7 @@ public class AccountDatabaseCrawlerCache {
 
       if (claimed) {
         // TODO Restore the NX flag when making the cluster the primary data store
-        cacheCluster.useWriteCluster(connection -> connection.sync().set(ACCELERATE_KEY, workerId, SetArgs.Builder.px(ttlMs)));
+        cacheCluster.useWriteCluster(connection -> connection.sync().set(ACTIVE_WORKER_KEY, workerId, SetArgs.Builder.px(ttlMs)));
       }
 
       return claimed;
