@@ -1,22 +1,31 @@
 package org.whispersystems.textsecuregcm.limits;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.redis.AbstractRedisTest;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.providers.RedisClientFactory;
+import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
+import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import redis.clients.jedis.Jedis;
+import redis.embedded.RedisServer;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.fail;
-import static org.mockito.Mockito.mock;
 
-public class RateLimiterTest extends AbstractRedisTest {
+public class RateLimiterTest extends AbstractRedisClusterTest {
 
     private static final long   NOW_MILLIS = System.currentTimeMillis();
     private static final String KEY        = "key";
+
+    private RedisServer redisServer;
+
+    private ReplicatedJedisPool replicatedJedisPool;
 
     @FunctionalInterface
     private interface RateLimitedTask {
@@ -24,10 +33,23 @@ public class RateLimiterTest extends AbstractRedisTest {
     }
 
     @Before
-    public void clearCache() {
-        try (final Jedis jedis = getReplicatedJedisPool().getWriteResource()) {
+    public void clearCache() throws URISyntaxException, IOException {
+        redisServer = new RedisServer(AbstractRedisClusterTest.getNextRedisClusterPort());
+        redisServer.start();
+
+        final String redisUrl = "redis://127.0.0.1:" + redisServer.ports().get(0);
+        replicatedJedisPool = new RedisClientFactory("test-pool", redisUrl, List.of(redisUrl), new CircuitBreakerConfiguration()).getRedisClientPool();
+
+        try (final Jedis jedis = replicatedJedisPool.getWriteResource()) {
             jedis.flushAll();
         }
+
+        getRedisCluster().useWriteCluster(connection -> connection.sync().flushall());
+    }
+
+    @After
+    public void stopServer() {
+        redisServer.stop();
     }
 
     @Test
@@ -52,9 +74,11 @@ public class RateLimiterTest extends AbstractRedisTest {
         final RateLimiter rateLimiter     = buildRateLimiter(2, 8.333333333333334E-6);
         final String      leakyBucketJson = "{\"bucketSize\":2,\"leakRatePerMillis\":8.333333333333334E-6,\"spaceRemaining\":0,\"lastUpdateTimeMillis\":" + (NOW_MILLIS - TimeUnit.MINUTES.toMillis(2)) + "}";
 
-        try (final Jedis jedis = getReplicatedJedisPool().getWriteResource()) {
+        try (final Jedis jedis = replicatedJedisPool.getWriteResource()) {
             jedis.set(rateLimiter.getBucketName(KEY), leakyBucketJson);
         }
+
+        getRedisCluster().useWriteCluster(connection -> connection.sync().set(rateLimiter.getBucketName(KEY), leakyBucketJson));
 
         rateLimiter.validate(KEY, 1, NOW_MILLIS);
         assertRateLimitExceeded(() -> rateLimiter.validate(KEY, 1, NOW_MILLIS));
@@ -65,9 +89,11 @@ public class RateLimiterTest extends AbstractRedisTest {
         final RateLimiter rateLimiter     = buildRateLimiter(2, 8.333333333333334E-6);
         final String      leakyBucketJson = "{\"bucketSize\":2,\"leakRatePerMillis\":8.333333333333334E-6,\"spaceRemaining\":0,\"lastUpdateTimeMillis\":" + (NOW_MILLIS - TimeUnit.MINUTES.toMillis(1)) + "}";
 
-        try (final Jedis jedis = getReplicatedJedisPool().getWriteResource()) {
+        try (final Jedis jedis = replicatedJedisPool.getWriteResource()) {
             jedis.set(rateLimiter.getBucketName(KEY), leakyBucketJson);
         }
+
+        getRedisCluster().useWriteCluster(connection -> connection.sync().set(rateLimiter.getBucketName(KEY), leakyBucketJson));
 
         assertRateLimitExceeded(() -> rateLimiter.validate(KEY, 1, NOW_MILLIS));
     }
@@ -83,6 +109,6 @@ public class RateLimiterTest extends AbstractRedisTest {
     @SuppressWarnings("SameParameterValue")
     private RateLimiter buildRateLimiter(final int bucketSize, final double leakRatePerMilli) throws IOException {
         final double leakRatePerMinute = leakRatePerMilli * 60_000d;
-        return new RateLimiter(getReplicatedJedisPool(), mock(FaultTolerantRedisCluster.class), KEY, bucketSize, leakRatePerMinute);
+        return new RateLimiter(replicatedJedisPool, getRedisCluster(), KEY, bucketSize, leakRatePerMinute);
     }
 }

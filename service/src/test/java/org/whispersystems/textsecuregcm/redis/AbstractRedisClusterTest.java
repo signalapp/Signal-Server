@@ -143,7 +143,7 @@ public abstract class AbstractRedisClusterTest {
         }
     }
 
-    private static int getNextRedisClusterPort() throws IOException {
+    public static int getNextRedisClusterPort() throws IOException {
         final int MAX_ITERATIONS = 11_000;
         int port;
         for (int i = 0; i < MAX_ITERATIONS; i++) {
