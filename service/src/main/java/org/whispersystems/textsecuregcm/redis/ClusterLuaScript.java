@@ -7,6 +7,8 @@ import io.lettuce.core.api.sync.RedisCommands;
 import io.lettuce.core.cluster.SlotHash;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -21,6 +23,8 @@ public class ClusterLuaScript {
     private final String                    sha;
 
     private static final String[] STRING_ARRAY = new String[0];
+
+    private static final Logger log = LoggerFactory.getLogger(ClusterLuaScript.class);
 
     public static ClusterLuaScript fromResource(final FaultTolerantRedisCluster redisCluster, final String resource, final ScriptOutputType scriptOutputType) throws IOException {
         try (final InputStream inputStream    = LuaScript.class.getClassLoader().getResourceAsStream(resource);
@@ -47,13 +51,18 @@ public class ClusterLuaScript {
 
     public Object execute(final List<String> keys, final List<String> args) {
         return redisCluster.withWriteCluster(connection -> {
-            final RedisAdvancedClusterCommands<String, String> clusterCommands = connection.sync();
-
             try {
-                return clusterCommands.evalsha(sha, scriptOutputType, keys.toArray(STRING_ARRAY), args.toArray(STRING_ARRAY));
-            } catch (final RedisNoScriptException e) {
-                clusterCommands.scriptLoad(script);
-                return clusterCommands.evalsha(sha, scriptOutputType, keys.toArray(STRING_ARRAY), args.toArray(STRING_ARRAY));
+                final RedisAdvancedClusterCommands<String, String> clusterCommands = connection.sync();
+
+                try {
+                    return clusterCommands.evalsha(sha, scriptOutputType, keys.toArray(STRING_ARRAY), args.toArray(STRING_ARRAY));
+                } catch (final RedisNoScriptException e) {
+                    clusterCommands.scriptLoad(script);
+                    return clusterCommands.evalsha(sha, scriptOutputType, keys.toArray(STRING_ARRAY), args.toArray(STRING_ARRAY));
+                }
+            } catch (final Exception e) {
+                log.warn("Failed to execute script", e);
+                return null;
             }
         });
     }
