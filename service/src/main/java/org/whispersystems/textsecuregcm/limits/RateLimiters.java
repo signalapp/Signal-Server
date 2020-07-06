@@ -21,6 +21,8 @@ import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 
+import java.io.IOException;
+
 public class RateLimiters {
 
   private final RateLimiter smsDestinationLimiter;
@@ -48,7 +50,7 @@ public class RateLimiters {
   private final RateLimiter usernameLookupLimiter;
   private final RateLimiter usernameSetLimiter;
 
-  public RateLimiters(RateLimitsConfiguration config, ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster) {
+  public RateLimiters(RateLimitsConfiguration config, ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster) throws IOException {
     this.smsDestinationLimiter = new RateLimiter(cacheClient, cacheCluster, "smsDestination",
                                                  config.getSmsDestination().getBucketSize(),
                                                  config.getSmsDestination().getLeakRatePerMinute());
@@ -73,11 +75,11 @@ public class RateLimiters {
                                             config.getAutoBlock().getBucketSize(),
                                             config.getAutoBlock().getLeakRatePerMinute());
 
-    this.verifyLimiter = new LockingRateLimiter(cacheClient, cacheCluster, "verify",
+    this.verifyLimiter = new RateLimiter(cacheClient, cacheCluster, "verify",
                                                 config.getVerifyNumber().getBucketSize(),
                                                 config.getVerifyNumber().getLeakRatePerMinute());
 
-    this.pinLimiter = new LockingRateLimiter(cacheClient, cacheCluster, "pin",
+    this.pinLimiter = new RateLimiter(cacheClient, cacheCluster, "pin",
                                              config.getVerifyPin().getBucketSize(),
                                              config.getVerifyPin().getLeakRatePerMinute());
 

@@ -20,26 +20,25 @@ import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.google.common.annotations.VisibleForTesting;
+import io.lettuce.core.ScriptOutputType;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.experiment.Experiment;
+import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.LuaScript;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.SystemMapper;
-
-import java.io.IOException;
-
-import static com.codahale.metrics.MetricRegistry.name;
 import redis.clients.jedis.Jedis;
 
-public class RateLimiter {
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.stream.Collectors;
 
-  private final Logger       logger = LoggerFactory.getLogger(RateLimiter.class);
-  private final ObjectMapper mapper = SystemMapper.getMapper();
+import static com.codahale.metrics.MetricRegistry.name;
+
+public class RateLimiter {
 
   private   final Meter                     meter;
   private   final Timer                     validateTimer;
@@ -48,19 +47,12 @@ public class RateLimiter {
   protected final String                    name;
   private   final int                       bucketSize;
   private   final double                    leakRatePerMillis;
-  private   final boolean                   reportLimits;
   private   final Experiment                redisClusterExperiment;
+  private   final LuaScript                 validateScript;
+  private   final ClusterLuaScript          clusterValidateScript;
 
   public RateLimiter(ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster, String name,
-                     int bucketSize, double leakRatePerMinute)
-  {
-    this(cacheClient, cacheCluster, name, bucketSize, leakRatePerMinute, false);
-  }
-
-  public RateLimiter(ReplicatedJedisPool cacheClient, FaultTolerantRedisCluster cacheCluster, String name,
-                     int bucketSize, double leakRatePerMinute,
-                     boolean reportLimits)
-  {
+                     int bucketSize, double leakRatePerMinute) throws IOException {
     MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
 
     this.meter                  = metricRegistry.meter(name(getClass(), name, "exceeded"));
@@ -70,25 +62,35 @@ public class RateLimiter {
     this.name                   = name;
     this.bucketSize             = bucketSize;
     this.leakRatePerMillis      = leakRatePerMinute / (60.0 * 1000.0);
-    this.reportLimits           = reportLimits;
     this.redisClusterExperiment = new Experiment("RedisCluster", "RateLimiter", name);
-  }
-
-  public void validate(String key, int amount) throws RateLimitExceededException {
-    try (final Timer.Context ignored = validateTimer.time()) {
-      LeakyBucket bucket = getBucket(key);
-
-      if (bucket.add(amount)) {
-        setBucket(key, bucket);
-      } else {
-        meter.mark();
-        throw new RateLimitExceededException(key + " , " + amount);
-      }
-    }
+    this.validateScript         = LuaScript.fromResource(cacheClient, "lua/validate_rate_limit.lua");
+    this.clusterValidateScript  = ClusterLuaScript.fromResource(cacheCluster, "lua/validate_rate_limit.lua", ScriptOutputType.INTEGER);
   }
 
   public void validate(String key) throws RateLimitExceededException {
     validate(key, 1);
+  }
+
+  public void validate(String key, int amount) throws RateLimitExceededException {
+    validate(key, amount, System.currentTimeMillis());
+  }
+
+  @VisibleForTesting
+  void validate(String key, int amount, final long currentTimeMillis) throws RateLimitExceededException {
+    try (final Timer.Context ignored = validateTimer.time()) {
+      final List<String> keys = List.of(getBucketName(key));
+      final List<String> arguments = List.of(String.valueOf(bucketSize), String.valueOf(leakRatePerMillis), String.valueOf(currentTimeMillis), String.valueOf(amount));
+
+      final Object result = validateScript.execute(keys.stream().map(k -> k.getBytes(StandardCharsets.UTF_8)).collect(Collectors.toList()),
+                                                   arguments.stream().map(a -> a.getBytes(StandardCharsets.UTF_8)).collect(Collectors.toList()));
+
+      redisClusterExperiment.compareSupplierResult(result, () -> clusterValidateScript.execute(keys, arguments));
+
+      if (result == null) {
+        meter.mark();
+        throw new RateLimitExceededException(key + " , " + amount);
+      }
+    }
   }
 
   public void clear(String key) {
@@ -100,37 +102,8 @@ public class RateLimiter {
     }
   }
 
-  private void setBucket(String key, LeakyBucket bucket) {
-    try (Jedis jedis = cacheClient.getWriteResource()) {
-      final String bucketName = getBucketName(key);
-      final String serialized = bucket.serialize(mapper);
-      final int    level      = (int) Math.ceil((bucketSize / leakRatePerMillis) / 1000);
-
-      jedis.setex(bucketName, level, serialized);
-      cacheCluster.useWriteCluster(connection -> connection.sync().setex(bucketName, level, serialized));
-    } catch (JsonProcessingException e) {
-      throw new IllegalArgumentException(e);
-    }
-  }
-
-  private LeakyBucket getBucket(String key) {
-    try (Jedis jedis = cacheClient.getReadResource()) {
-      final String bucketName = getBucketName(key);
-
-      String serialized = jedis.get(bucketName);
-      redisClusterExperiment.compareSupplierResult(serialized, () -> cacheCluster.withReadCluster(connection -> connection.sync().get(bucketName)));
-
-      if (serialized != null) {
-        return LeakyBucket.fromSerialized(mapper, serialized);
-      }
-    } catch (IOException e) {
-      logger.warn("Deserialization error", e);
-    }
-
-    return new LeakyBucket(bucketSize, leakRatePerMillis);
-  }
-
-  private String getBucketName(String key) {
+  @VisibleForTesting
+  String getBucketName(String key) {
     return "leaky_bucket::" + name + "::" + key;
   }
 }
