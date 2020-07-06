@@ -27,7 +27,7 @@ public class ExperimentTest {
         controlNullMismatchCounter = mock(Counter.class);
         experimentNullMismatchCounter = mock(Counter.class);
 
-        experiment = new Experiment(matchCounter, errorCounter, bothPresentMismatchCounter, controlNullMismatchCounter, experimentNullMismatchCounter);
+        experiment = new Experiment("test", matchCounter, errorCounter, bothPresentMismatchCounter, controlNullMismatchCounter, experimentNullMismatchCounter);
     }
 
     @Test

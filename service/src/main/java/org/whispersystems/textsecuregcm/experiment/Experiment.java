@@ -3,6 +3,8 @@ package org.whispersystems.textsecuregcm.experiment;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;
@@ -14,6 +16,8 @@ import static com.codahale.metrics.MetricRegistry.name;
  * An experiment compares the results of two operations and records metrics to assess how frequently they match.
  */
 public class Experiment {
+
+    private final String name;
 
     private final Counter matchCounter;
     private final Counter errorCounter;
@@ -32,8 +36,11 @@ public class Experiment {
     private static final String CONTROL_NULL_MISMATCH    = "controlResultNull";
     private static final String EXPERIMENT_NULL_MISMATCH = "experimentResultNull";
 
+    private static final Logger log = LoggerFactory.getLogger(Experiment.class);
+
     public Experiment(final String... names) {
-        this(Metrics.counter(name(Experiment.class, names), OUTCOME_TAG, MATCH_OUTCOME),
+        this(name(Experiment.class, names),
+             Metrics.counter(name(Experiment.class, names), OUTCOME_TAG, MATCH_OUTCOME),
              Metrics.counter(name(Experiment.class, names), OUTCOME_TAG, ERROR_OUTCOME),
              Metrics.counter(name(Experiment.class, names), OUTCOME_TAG, MISMATCH_OUTCOME, MISMATCH_TYPE_TAG, BOTH_PRESENT_MISMATCH),
              Metrics.counter(name(Experiment.class, names), OUTCOME_TAG, MISMATCH_OUTCOME, MISMATCH_TYPE_TAG, CONTROL_NULL_MISMATCH),
@@ -41,7 +48,9 @@ public class Experiment {
     }
 
     @VisibleForTesting
-    Experiment(final Counter matchCounter, final Counter errorCounter, final Counter bothPresentMismatchCounter, final Counter controlNullMismatchCounter, final Counter experimentNullMismatchCounter) {
+    Experiment(final String name, final Counter matchCounter, final Counter errorCounter, final Counter bothPresentMismatchCounter, final Counter controlNullMismatchCounter, final Counter experimentNullMismatchCounter) {
+        this.name = name;
+
         this.matchCounter = matchCounter;
         this.errorCounter = errorCounter;
 
@@ -53,7 +62,7 @@ public class Experiment {
     public <T> void compareFutureResult(final T expected, final CompletionStage<T> experimentStage) {
         experimentStage.whenComplete((actual, cause) -> {
             if (cause != null) {
-                errorCounter.increment();
+                recordError(cause);
             } else {
                 recordResult(expected, actual);
             }
@@ -64,8 +73,13 @@ public class Experiment {
         try {
             recordResult(expected, experimentSupplier.get());
         } catch (final Exception e) {
-            errorCounter.increment();
+            recordError(e);
         }
+    }
+
+    private void recordError(final Throwable cause) {
+        log.warn("Experiment {} threw an exception.", name, cause);
+        errorCounter.increment();
     }
 
     private <T> void recordResult(final T expected, final T actual) {
