@@ -42,7 +42,7 @@ public abstract class AbstractRedisClusterTest {
         clusterNodes = new RedisServer[NODE_COUNT];
 
         for (int i = 0; i < NODE_COUNT; i++) {
-            clusterNodes[i] = buildClusterNode(getNextPort());
+            clusterNodes[i] = buildClusterNode(getNextRedisClusterPort());
             clusterNodes[i].start();
         }
 
@@ -143,10 +143,18 @@ public abstract class AbstractRedisClusterTest {
         }
     }
 
-    private static int getNextPort() throws IOException {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            socket.setReuseAddress(false);
-            return socket.getLocalPort();
+    private static int getNextRedisClusterPort() throws IOException {
+        final int MAX_ITERATIONS = 11_000;
+        int port;
+        for (int i = 0; i < MAX_ITERATIONS; i++) {
+            try (ServerSocket socket = new ServerSocket(0)) {
+                socket.setReuseAddress(false);
+                port = socket.getLocalPort();
+            }
+            if (port < 55535) {
+                return port;
+            }
         }
+        throw new IOException("Couldn't find an open port below 55,535 in " + MAX_ITERATIONS + " tries");
     }
 }
