@@ -62,7 +62,7 @@ public class ClusterLuaScript {
                 }
             } catch (final Exception e) {
                 log.warn("Failed to execute script", e);
-                return null;
+                throw e;
             }
         });
     }
