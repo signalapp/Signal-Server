@@ -22,6 +22,7 @@ import com.google.common.annotations.VisibleForTesting;
 import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import java.util.ArrayList;
 import java.util.List;
 
 public class TwilioConfiguration {
@@ -55,7 +56,7 @@ public class TwilioConfiguration {
 
   @NotNull
   @Valid
-  private List<TwilioAlphaIdConfiguration> alphaId;
+  private List<TwilioAlphaIdConfiguration> alphaId = new ArrayList<>();
 
   public String getAccountId() {
     return accountId;
