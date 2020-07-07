@@ -21,9 +21,6 @@ end
 local elapsedTime = currentTimeMillis - leakyBucket["lastUpdateTimeMillis"]
 local updatedSpaceRemaining = math.min(leakyBucket["bucketSize"], math.floor(leakyBucket["spaceRemaining"] + (elapsedTime * leakyBucket["leakRatePerMillis"])))
 
-redis.call("SET", "elapsedTime", elapsedTime)
-redis.call("SET", "updatedSpaceRemaining", updatedSpaceRemaining)
-
 if updatedSpaceRemaining >= amount then
     leakyBucket["spaceRemaining"] = updatedSpaceRemaining - amount
     redis.call("SET", bucketId, cjson.encode(leakyBucket))
