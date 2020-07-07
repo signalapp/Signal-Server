@@ -18,9 +18,9 @@ package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
-import org.hibernate.validator.constraints.NotEmpty;
 
 import javax.validation.Valid;
+import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import java.util.List;
 
@@ -52,6 +52,10 @@ public class TwilioConfiguration {
   @NotNull
   @Valid
   private RetryConfiguration retry = new RetryConfiguration();
+
+  @NotNull
+  @Valid
+  private List<TwilioAlphaIdConfiguration> alphaId;
 
   public String getAccountId() {
     return accountId;
@@ -114,5 +118,14 @@ public class TwilioConfiguration {
   @VisibleForTesting
   public void setRetry(RetryConfiguration retry) {
     this.retry = retry;
+  }
+
+  public List<TwilioAlphaIdConfiguration> getAlphaId() {
+    return alphaId;
+  }
+
+  @VisibleForTesting
+  public void setAlphaId(List<TwilioAlphaIdConfiguration> alphaId) {
+    this.alphaId = alphaId;
   }
 }

@@ -1,11 +1,13 @@
-package org.whispersystems.sms;
+package org.whispersystems.textsecuregcm.tests.sms;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import org.junit.Rule;
 import org.junit.Test;
+import org.whispersystems.textsecuregcm.configuration.TwilioAlphaIdConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
 import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
 
+import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,6 +26,17 @@ public class TwilioSmsSenderTest {
   @Rule
   public WireMockRule wireMockRule = new WireMockRule(options().dynamicPort().dynamicHttpsPort());
 
+  @Nonnull
+  private TwilioConfiguration createTwilioConfiguration() {
+    TwilioConfiguration configuration = new TwilioConfiguration();
+    configuration.setAccountId(ACCOUNT_ID);
+    configuration.setAccountToken(ACCOUNT_TOKEN);
+    configuration.setNumbers(NUMBERS);
+    configuration.setMessagingServicesId(MESSAGING_SERVICES_ID);
+    configuration.setLocalDomain(LOCAL_DOMAIN);
+    return configuration;
+  }
+
   @Test
   public void testSendSms() {
     wireMockRule.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
@@ -33,12 +46,7 @@ public class TwilioSmsSenderTest {
                                              .withBody("{\"price\": -0.00750, \"status\": \"sent\"}")));
 
 
-    TwilioConfiguration configuration = new TwilioConfiguration();
-    configuration.setAccountId(ACCOUNT_ID);
-    configuration.setAccountToken(ACCOUNT_TOKEN);
-    configuration.setNumbers(NUMBERS);
-    configuration.setMessagingServicesId(MESSAGING_SERVICES_ID);
-    configuration.setLocalDomain(LOCAL_DOMAIN);
+    TwilioConfiguration configuration = createTwilioConfiguration();
 
     TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration);
     boolean         success = sender.deliverSmsVerification("+14153333333", Optional.of("android-ng"), "123-456").join();
@@ -59,12 +67,7 @@ public class TwilioSmsSenderTest {
                                              .withBody("{\"price\": -0.00750, \"status\": \"completed\"}")));
 
 
-    TwilioConfiguration configuration = new TwilioConfiguration();
-    configuration.setAccountId(ACCOUNT_ID);
-    configuration.setAccountToken(ACCOUNT_TOKEN);
-    configuration.setNumbers(NUMBERS);
-    configuration.setMessagingServicesId(MESSAGING_SERVICES_ID);
-    configuration.setLocalDomain(LOCAL_DOMAIN);
+    TwilioConfiguration configuration = createTwilioConfiguration();
 
     TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration);
     boolean         success = sender.deliverVoxVerification("+14153333333", "123-456", Optional.of("en_US")).join();
@@ -86,12 +89,7 @@ public class TwilioSmsSenderTest {
                                              .withBody("{\"message\": \"Server error!\"}")));
 
 
-    TwilioConfiguration configuration = new TwilioConfiguration();
-    configuration.setAccountId(ACCOUNT_ID);
-    configuration.setAccountToken(ACCOUNT_TOKEN);
-    configuration.setNumbers(NUMBERS);
-    configuration.setMessagingServicesId(MESSAGING_SERVICES_ID);
-    configuration.setLocalDomain(LOCAL_DOMAIN);
+    TwilioConfiguration configuration = createTwilioConfiguration();
 
     TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration);
     boolean         success = sender.deliverSmsVerification("+14153333333", Optional.of("android-ng"), "123-456").join();
@@ -112,12 +110,7 @@ public class TwilioSmsSenderTest {
                                              .withHeader("Content-Type", "application/json")
                                              .withBody("{\"message\": \"Server error!\"}")));
 
-    TwilioConfiguration configuration = new TwilioConfiguration();
-    configuration.setAccountId(ACCOUNT_ID);
-    configuration.setAccountToken(ACCOUNT_TOKEN);
-    configuration.setNumbers(NUMBERS);
-    configuration.setMessagingServicesId(MESSAGING_SERVICES_ID);
-    configuration.setLocalDomain(LOCAL_DOMAIN);
+    TwilioConfiguration configuration = createTwilioConfiguration();
 
     TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration);
     boolean         success = sender.deliverVoxVerification("+14153333333", "123-456", Optional.of("en_US")).join();
@@ -132,12 +125,7 @@ public class TwilioSmsSenderTest {
 
   @Test
   public void testSendSmsNetworkFailure() {
-    TwilioConfiguration configuration = new TwilioConfiguration();
-    configuration.setAccountId(ACCOUNT_ID);
-    configuration.setAccountToken(ACCOUNT_TOKEN);
-    configuration.setNumbers(NUMBERS);
-    configuration.setMessagingServicesId(MESSAGING_SERVICES_ID);
-    configuration.setLocalDomain(LOCAL_DOMAIN);
+    TwilioConfiguration configuration = createTwilioConfiguration();
 
     TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + 39873, configuration);
     boolean         success = sender.deliverSmsVerification("+14153333333", Optional.of("android-ng"), "123-456").join();
@@ -145,6 +133,28 @@ public class TwilioSmsSenderTest {
     assertThat(success).isFalse();
   }
 
+  @Test
+  public void testSendAlphaIdByCountryCode() {
+    wireMockRule.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+                                 .withBasicAuth(ACCOUNT_ID, ACCOUNT_TOKEN)
+                                 .willReturn(aResponse()
+                                                     .withHeader("Content-Type", "application/json")
+                                                     .withBody("{\"price\": -0.00750, \"status\": \"sent\"}")));
 
+    TwilioConfiguration configuration = createTwilioConfiguration();
+    TwilioAlphaIdConfiguration alphaIdConfiguration = new TwilioAlphaIdConfiguration();
+    alphaIdConfiguration.setPrefix("852");
+    alphaIdConfiguration.setValue("SIGNAL");
+    configuration.setAlphaId(List.of(alphaIdConfiguration));
+
+    TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration);
+    boolean         success = sender.deliverSmsVerification("+85278675309", Optional.of("android-ng"), "987-654").join();
+
+    assertThat(success).isTrue();
+
+    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+            .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
+            .withRequestBody(equalTo("To=%2B85278675309&From=SIGNAL&Body=%3C%23%3E+Your+Signal+verification+code%3A+987-654%0A%0AdoDiFGKPO1r")));
+  }
 
 }
