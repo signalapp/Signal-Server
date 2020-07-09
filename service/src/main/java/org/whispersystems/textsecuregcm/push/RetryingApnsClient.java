@@ -7,6 +7,7 @@ import com.eatthepath.pushy.apns.ApnsClient;
 import com.eatthepath.pushy.apns.ApnsClientBuilder;
 import com.eatthepath.pushy.apns.DeliveryPriority;
 import com.eatthepath.pushy.apns.PushNotificationResponse;
+import com.eatthepath.pushy.apns.PushType;
 import com.eatthepath.pushy.apns.auth.ApnsSigningKey;
 import com.eatthepath.pushy.apns.metrics.dropwizard.DropwizardApnsClientMetricsListener;
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
@@ -54,9 +55,9 @@ public class RetryingApnsClient {
     this.apnsClient = apnsClient;
   }
 
-  ListenableFuture<ApnResult> send(final String apnId, final String topic, final String payload, final Instant expiration) {
+  ListenableFuture<ApnResult> send(final String apnId, final String topic, final String payload, final Instant expiration, final boolean isVoip) {
     SettableFuture<ApnResult>  result       = SettableFuture.create();
-    SimpleApnsPushNotification notification = new SimpleApnsPushNotification(apnId, topic, payload, expiration, DeliveryPriority.IMMEDIATE);
+    SimpleApnsPushNotification notification = new SimpleApnsPushNotification(apnId, topic, payload, expiration, DeliveryPriority.IMMEDIATE, isVoip ? PushType.VOIP : PushType.ALERT);
         
     apnsClient.sendNotification(notification).whenComplete(new ResponseHandler(result));
 

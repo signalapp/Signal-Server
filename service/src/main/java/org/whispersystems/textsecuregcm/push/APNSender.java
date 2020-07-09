@@ -92,7 +92,8 @@ public class APNSender implements Managed {
     
     ListenableFuture<ApnResult> future = apnsClient.send(message.getApnId(), topic,
                                                          message.getMessage(),
-                                                         Instant.ofEpochMilli(message.getExpirationTime()));
+                                                         Instant.ofEpochMilli(message.getExpirationTime()),
+                                                         message.isVoip());
 
     Futures.addCallback(future, new FutureCallback<ApnResult>() {
       @Override
