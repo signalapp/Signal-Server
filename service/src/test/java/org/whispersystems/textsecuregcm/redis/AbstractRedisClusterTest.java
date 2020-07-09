@@ -36,7 +36,7 @@ public abstract class AbstractRedisClusterTest {
     private FaultTolerantRedisCluster redisCluster;
 
     @BeforeClass
-    public static void setUpBeforeClass() throws IOException, URISyntaxException, InterruptedException {
+    public static void setUpBeforeClass() throws Exception {
         assumeFalse(System.getProperty("os.name").equalsIgnoreCase("windows"));
 
         clusterNodes = new RedisServer[NODE_COUNT];
@@ -50,7 +50,7 @@ public abstract class AbstractRedisClusterTest {
     }
 
     @Before
-    public void setUp() {
+    public void setUp() throws Exception {
         final List<String> urls = Arrays.stream(clusterNodes)
                                         .map(node -> String.format("redis://127.0.0.1:%d", node.ports().get(0)))
                                         .collect(Collectors.toList());
@@ -63,12 +63,12 @@ public abstract class AbstractRedisClusterTest {
     }
 
     @After
-    public void tearDown() {
+    public void tearDown() throws Exception {
         redisCluster.stop();
     }
 
     @AfterClass
-    public static void tearDownAfterClass() {
+    public static void tearDownAfterClass() throws Exception {
         for (final RedisServer node : clusterNodes) {
             node.stop();
         }

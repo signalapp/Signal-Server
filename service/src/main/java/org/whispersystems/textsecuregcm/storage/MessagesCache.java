@@ -5,10 +5,12 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.google.protobuf.InvalidProtocolBufferException;
+import io.dropwizard.lifecycle.Managed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
+import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.redis.LuaScript;
@@ -17,6 +19,9 @@ import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.Tuple;
+import redis.clients.util.SafeEncoder;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -27,18 +32,17 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.codahale.metrics.MetricRegistry.name;
-import io.dropwizard.lifecycle.Managed;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.Tuple;
-import redis.clients.util.SafeEncoder;
 
-public class MessagesCache implements Managed {
+public class MessagesCache implements Managed, UserMessagesCache {
 
-  private static final Logger         logger         = LoggerFactory.getLogger(MessagesCache.class);
+  private static final Logger         logger            = LoggerFactory.getLogger(MessagesCache.class);
 
   private static final MetricRegistry metricRegistry    = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private static final Timer          insertTimer       = metricRegistry.timer(name(MessagesCache.class, "insert"      ));
@@ -54,50 +58,85 @@ public class MessagesCache implements Managed {
   private final AccountsManager     accountsManager;
   private final int                 delayMinutes;
 
-  private InsertOperation  insertOperation;
-  private RemoveOperation  removeOperation;
-  private GetOperation     getOperation;
+  private final InsertOperation insertOperation;
+  private final RemoveOperation removeOperation;
+  private final GetOperation    getOperation;
 
   private PubSubManager    pubSubManager;
   private PushSender       pushSender;
   private MessagePersister messagePersister;
 
-  public MessagesCache(ReplicatedJedisPool jedisPool, Messages database, AccountsManager accountsManager, int delayMinutes) {
-    this.jedisPool       = jedisPool;
-    this.database        = database;
-    this.accountsManager = accountsManager;
-    this.delayMinutes    = delayMinutes;
+  private final RedisClusterMessagesCache clusterMessagesCache;
+  private final ExecutorService           experimentExecutor = new ThreadPoolExecutor(8, 8, 0, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(1_000));
+
+  private final Experiment insertExperiment         = new Experiment("MessagesCache", "insert");
+  private final Experiment removeByIdExperiment     = new Experiment("MessagesCache", "removeById");
+  private final Experiment removeBySenderExperiment = new Experiment("MessagesCache", "removeBySender");
+  private final Experiment removeByUuidExperiment   = new Experiment("MessagesCache", "removeByUuid");
+  private final Experiment getMessagesExperiment    = new Experiment("MessagesCache", "getMessages");
+
+  public MessagesCache(ReplicatedJedisPool jedisPool, Messages database, AccountsManager accountsManager, int delayMinutes, RedisClusterMessagesCache clusterMessagesCache) throws IOException {
+    this.jedisPool        = jedisPool;
+    this.database         = database;
+    this.accountsManager  = accountsManager;
+    this.delayMinutes     = delayMinutes;
+
+    this.insertOperation  = new InsertOperation(jedisPool);
+    this.removeOperation  = new RemoveOperation(jedisPool);
+    this.getOperation     = new GetOperation(jedisPool);
+
+    this.clusterMessagesCache = clusterMessagesCache;
   }
 
-  public void insert(UUID guid, String destination, long destinationDevice, Envelope message) {
-    message = message.toBuilder().setServerGuid(guid.toString()).build();
+  @Override
+  public long insert(UUID guid, String destination, long destinationDevice, Envelope message) {
+    final Envelope messageWithGuid = message.toBuilder().setServerGuid(guid.toString()).build();
 
     Timer.Context timer = insertTimer.time();
 
     try {
-      insertOperation.insert(guid, destination, destinationDevice, System.currentTimeMillis(), message);
+      final long messageId = insertOperation.insert(guid, destination, destinationDevice, System.currentTimeMillis(), messageWithGuid);
+      insertExperiment.compareSupplierResultAsync(messageId, () -> clusterMessagesCache.insert(guid, destination, destinationDevice, message, messageId), experimentExecutor);
+
+      return messageId;
     } finally {
       timer.stop();
     }
   }
 
-  public void remove(String destination, long destinationDevice, long id) {
+  @Override
+  public Optional<OutgoingMessageEntity> remove(String destination, long destinationDevice, long id) {
+    OutgoingMessageEntity removedMessageEntity = null;
+
     try (Jedis         jedis   = jedisPool.getWriteResource();
          Timer.Context ignored = removeByIdTimer.time())
     {
-      removeOperation.remove(jedis, destination, destinationDevice, id);
+      byte[] serialized = removeOperation.remove(jedis, destination, destinationDevice, id);
+
+      if (serialized != null) {
+        removedMessageEntity = UserMessagesCache.constructEntityFromEnvelope(id, Envelope.parseFrom(serialized));
+      }
+    } catch (InvalidProtocolBufferException e) {
+      logger.warn("Failed to parse envelope", e);
     }
+
+    final Optional<OutgoingMessageEntity> maybeRemovedMessage = Optional.ofNullable(removedMessageEntity);
+
+    removeByIdExperiment.compareSupplierResultAsync(maybeRemovedMessage, () -> clusterMessagesCache.remove(destination, destinationDevice, id), experimentExecutor);
+
+    return maybeRemovedMessage;
   }
 
+  @Override
   public Optional<OutgoingMessageEntity> remove(String destination, long destinationDevice, String sender, long timestamp) {
+    OutgoingMessageEntity removedMessageEntity = null;
     Timer.Context timer = removeByNameTimer.time();
 
     try {
       byte[] serialized = removeOperation.remove(destination, destinationDevice, sender, timestamp);
 
       if (serialized != null) {
-        Envelope envelope = Envelope.parseFrom(serialized);
-        return Optional.of(constructEntityFromEnvelope(0, envelope));
+        removedMessageEntity = UserMessagesCache.constructEntityFromEnvelope(0, Envelope.parseFrom(serialized));
       }
     } catch (InvalidProtocolBufferException e) {
       logger.warn("Failed to parse envelope", e);
@@ -105,18 +144,23 @@ public class MessagesCache implements Managed {
       timer.stop();
     }
 
-    return Optional.empty();
+    final Optional<OutgoingMessageEntity> maybeRemovedMessage = Optional.ofNullable(removedMessageEntity);
+
+    removeBySenderExperiment.compareSupplierResultAsync(maybeRemovedMessage, () -> clusterMessagesCache.remove(destination, destinationDevice, sender, timestamp), experimentExecutor);
+
+    return maybeRemovedMessage;
   }
 
+  @Override
   public Optional<OutgoingMessageEntity> remove(String destination, long destinationDevice, UUID guid) {
+    OutgoingMessageEntity removedMessageEntity = null;
     Timer.Context timer = removeByGuidTimer.time();
 
     try {
       byte[] serialized = removeOperation.remove(destination, destinationDevice, guid);
 
       if (serialized != null) {
-        Envelope envelope = Envelope.parseFrom(serialized);
-        return Optional.of(constructEntityFromEnvelope(0, envelope));
+        removedMessageEntity = UserMessagesCache.constructEntityFromEnvelope(0, Envelope.parseFrom(serialized));
       }
     } catch (InvalidProtocolBufferException e) {
       logger.warn("Failed to parse envelope", e);
@@ -124,9 +168,14 @@ public class MessagesCache implements Managed {
       timer.stop();
     }
 
-    return Optional.empty();
+    final Optional<OutgoingMessageEntity> maybeRemovedMessage = Optional.ofNullable(removedMessageEntity);
+
+    removeByUuidExperiment.compareSupplierResultAsync(maybeRemovedMessage, () -> clusterMessagesCache.remove(destination, destinationDevice, guid), experimentExecutor);
+
+    return maybeRemovedMessage;
   }
 
+  @Override
   public List<OutgoingMessageEntity> get(String destination, long destinationDevice, int limit) {
     Timer.Context timer = getTimer.time();
 
@@ -139,11 +188,13 @@ public class MessagesCache implements Managed {
         try {
           long     id      = item.second().longValue();
           Envelope message = Envelope.parseFrom(item.first());
-          results.add(constructEntityFromEnvelope(id, message));
+          results.add(UserMessagesCache.constructEntityFromEnvelope(id, message));
         } catch (InvalidProtocolBufferException e) {
           logger.warn("Failed to parse envelope", e);
         }
       }
+
+      getMessagesExperiment.compareSupplierResultAsync(results, () -> clusterMessagesCache.get(destination, destinationDevice, limit), experimentExecutor);
 
       return results;
     } finally {
@@ -151,6 +202,7 @@ public class MessagesCache implements Managed {
     }
   }
 
+  @Override
   public void clear(String destination) {
     Timer.Context timer = clearAccountTimer.time();
 
@@ -163,6 +215,7 @@ public class MessagesCache implements Managed {
     }
   }
 
+  @Override
   public void clear(String destination, long deviceId) {
     Timer.Context timer = clearDeviceTimer.time();
 
@@ -180,11 +233,7 @@ public class MessagesCache implements Managed {
 
   @Override
   public void start() throws Exception {
-    this.insertOperation  = new InsertOperation(jedisPool);
-    this.removeOperation  = new RemoveOperation(jedisPool);
-    this.getOperation     = new GetOperation(jedisPool);
     this.messagePersister = new MessagePersister(jedisPool, database, pubSubManager, pushSender, accountsManager, delayMinutes, TimeUnit.MINUTES);
-
     this.messagePersister.start();
   }
 
@@ -192,20 +241,8 @@ public class MessagesCache implements Managed {
   public void stop() throws Exception {
     messagePersister.shutdown();
     logger.info("Message persister shut down...");
-  }
 
-  private OutgoingMessageEntity constructEntityFromEnvelope(long id, Envelope envelope) {
-    return new OutgoingMessageEntity(id, true,
-                                     envelope.hasServerGuid() ? UUID.fromString(envelope.getServerGuid()) : null,
-                                     envelope.getType().getNumber(),
-                                     envelope.getRelay(),
-                                     envelope.getTimestamp(),
-                                     envelope.getSource(),
-                                     envelope.hasSourceUuid() ? UUID.fromString(envelope.getSourceUuid()) : null,
-                                     envelope.getSourceDevice(),
-                                     envelope.hasLegacyMessage() ? envelope.getLegacyMessage().toByteArray() : null,
-                                     envelope.hasContent() ? envelope.getContent().toByteArray() : null,
-                                     envelope.hasServerTimestamp() ? envelope.getServerTimestamp() : 0);
+    this.experimentExecutor.shutdown();
   }
 
   private static class Key {
@@ -271,14 +308,14 @@ public class MessagesCache implements Managed {
       this.insert = LuaScript.fromResource(jedisPool, "lua/insert_item.lua");
     }
 
-    public void insert(UUID guid, String destination, long destinationDevice, long timestamp, Envelope message) {
+    public long insert(UUID guid, String destination, long destinationDevice, long timestamp, Envelope message) {
       Key    key    = new Key(destination, destinationDevice);
       String sender = message.hasSource() ? (message.getSource() + "::" + message.getTimestamp()) : "nil";
 
       List<byte[]> keys = Arrays.asList(key.getUserMessageQueue(), key.getUserMessageQueueMetadata(), Key.getUserMessageQueueIndex());
       List<byte[]> args = Arrays.asList(message.toByteArray(), String.valueOf(timestamp).getBytes(), sender.getBytes(), guid.toString().getBytes());
 
-      insert.execute(keys, args);
+      return (long)insert.execute(keys, args);
     }
   }
 
@@ -296,13 +333,13 @@ public class MessagesCache implements Managed {
       this.removeQueue    = LuaScript.fromResource(jedisPool, "lua/remove_queue.lua"         );
     }
 
-    public void remove(Jedis jedis, String destination, long destinationDevice, long id) {
+    public byte[] remove(Jedis jedis, String destination, long destinationDevice, long id) {
       Key key = new Key(destination, destinationDevice);
 
       List<byte[]> keys = Arrays.asList(key.getUserMessageQueue(), key.getUserMessageQueueMetadata(), Key.getUserMessageQueueIndex());
       List<byte[]> args = Collections.singletonList(String.valueOf(id).getBytes());
 
-      this.removeById.execute(jedis, keys, args);
+      return (byte[])this.removeById.execute(jedis, keys, args);
     }
 
     public byte[] remove(String destination, long destinationDevice, String sender, long timestamp) {

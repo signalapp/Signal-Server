@@ -47,8 +47,13 @@ directory:
     reconciliationChunkIntervalMs: # CDS reconciliation chunk interval, in milliseconds
 
 messageCache: # Redis server configuration for message store cache
-  url:
-  replicaUrls:
+  redis:
+    url:
+    replicaUrls:
+
+  cluster:
+    urls:
+      - redis://redis.example.com:6379/
 
 messageStore: # Postgresql database configuration for message store
   driverClass: org.postgresql.Driver

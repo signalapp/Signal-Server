@@ -3,6 +3,8 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.UUID;
 
 public class OutgoingMessageEntity {
@@ -114,4 +116,30 @@ public class OutgoingMessageEntity {
     return serverTimestamp;
   }
 
+  @Override
+  public boolean equals(final Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    final OutgoingMessageEntity that = (OutgoingMessageEntity)o;
+    return id == that.id &&
+            cached == that.cached &&
+            type == that.type &&
+            timestamp == that.timestamp &&
+            sourceDevice == that.sourceDevice &&
+            serverTimestamp == that.serverTimestamp &&
+            Objects.equals(guid, that.guid) &&
+            Objects.equals(relay, that.relay) &&
+            Objects.equals(source, that.source) &&
+            Objects.equals(sourceUuid, that.sourceUuid) &&
+            Arrays.equals(message, that.message) &&
+            Arrays.equals(content, that.content);
+  }
+
+  @Override
+  public int hashCode() {
+    int result = Objects.hash(id, cached, guid, type, relay, timestamp, source, sourceUuid, sourceDevice, serverTimestamp);
+    result = 31 * result + Arrays.hashCode(message);
+    result = 31 * result + Arrays.hashCode(content);
+    return result;
+  }
 }
