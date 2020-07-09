@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 public class ClusterLuaScript {
@@ -22,7 +23,8 @@ public class ClusterLuaScript {
     private final String                    script;
     private final String                    sha;
 
-    private static final String[] STRING_ARRAY = new String[0];
+    private static final String[] STRING_ARRAY     = new String[0];
+    private static final byte[][] BYTE_ARRAY_ARRAY = new byte[0][];
 
     private static final Logger log = LoggerFactory.getLogger(ClusterLuaScript.class);
 
@@ -59,6 +61,24 @@ public class ClusterLuaScript {
                 } catch (final RedisNoScriptException e) {
                     clusterCommands.scriptLoad(script);
                     return clusterCommands.evalsha(sha, scriptOutputType, keys.toArray(STRING_ARRAY), args.toArray(STRING_ARRAY));
+                }
+            } catch (final Exception e) {
+                log.warn("Failed to execute script", e);
+                throw e;
+            }
+        });
+    }
+
+    public Object executeBinary(final List<byte[]> keys, final List<byte[]> args) {
+        return redisCluster.withBinaryWriteCluster(connection -> {
+            try {
+                final RedisAdvancedClusterCommands<byte[], byte[]> binaryCommands = connection.sync();
+
+                try {
+                    return binaryCommands.evalsha(sha, scriptOutputType, keys.toArray(BYTE_ARRAY_ARRAY), args.toArray(BYTE_ARRAY_ARRAY));
+                } catch (final RedisNoScriptException e) {
+                    binaryCommands.scriptLoad(script.getBytes(StandardCharsets.UTF_8));
+                    return binaryCommands.evalsha(sha, scriptOutputType, keys.toArray(BYTE_ARRAY_ARRAY), args.toArray(BYTE_ARRAY_ARRAY));
                 }
             } catch (final Exception e) {
                 log.warn("Failed to execute script", e);
