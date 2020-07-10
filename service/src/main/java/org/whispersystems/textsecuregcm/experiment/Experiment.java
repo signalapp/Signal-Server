@@ -7,7 +7,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -77,24 +81,37 @@ public class Experiment {
         }
     }
 
+    public <T> void compareSupplierResultAsync(final T expected, final Supplier<T> experimentSupplier, final Executor executor) {
+        try {
+            compareFutureResult(expected, CompletableFuture.supplyAsync(experimentSupplier, executor));
+        } catch (final Exception e) {
+            recordError(e);
+        }
+    }
+
     private void recordError(final Throwable cause) {
         log.warn("Experiment {} threw an exception.", name, cause);
         errorCounter.increment();
     }
 
-    private <T> void recordResult(final T expected, final T actual) {
-        final Counter counter;
-
-        if (Objects.equals(expected, actual)) {
-            counter = matchCounter;
-        } else if (expected == null) {
-            counter = controlNullMismatchCounter;
-        } else if (actual == null) {
-            counter = experimentNullMismatchCounter;
+    @VisibleForTesting
+    <T> void recordResult(final T expected, final T actual) {
+        if (expected instanceof Optional && actual instanceof Optional) {
+            recordResult(((Optional)expected).orElse(null), ((Optional)actual).orElse(null));
         } else {
-            counter = bothPresentMismatchCounter;
-        }
+            final Counter counter;
 
-        counter.increment();
+            if (Objects.equals(expected, actual)) {
+                counter = matchCounter;
+            } else if (expected == null) {
+                counter = controlNullMismatchCounter;
+            } else if (actual == null) {
+                counter = experimentNullMismatchCounter;
+            } else {
+                counter = bothPresentMismatchCounter;
+            }
+
+            counter.increment();
+        }
     }
 }
