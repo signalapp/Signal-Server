@@ -55,7 +55,7 @@ public class RedisClientFactory implements RedisPubSubConnectionFactory {
     this.host      = redisURI.getHost();
     this.port      = redisURI.getPort();
 
-    JedisPool       masterPool   = new JedisPool(poolConfig, host, port, Protocol.DEFAULT_TIMEOUT, null);
+    JedisPool       masterPool   = createRedisMasterPool(redisURI, poolConfig);
     List<JedisPool> replicaPools = new LinkedList<>();
 
     for (String replicaUrl : replicaUrls) {
@@ -68,6 +68,19 @@ public class RedisClientFactory implements RedisPubSubConnectionFactory {
     }
 
     this.jedisPool = new ReplicatedJedisPool(name, masterPool, replicaPools, circuitBreakerConfiguration);
+  }
+  
+  private JedisPool createRedisMasterPool(URI uri, JedisPoolConfig poolConfig) {
+    String scheme = uri.getScheme().toLowerCase();
+
+    switch (scheme) {
+      case "redis":
+        return new JedisPool(poolConfig, host, port, Protocol.DEFAULT_TIMEOUT, null);
+      case "rediss":
+        return new JedisPool(poolConfig, host, port, true);
+      default:
+        throw new UnsupportedOperationException("The Redis URL scheme \"" + scheme + "://\" is not supported");
+    }
   }
 
   public ReplicatedJedisPool getRedisClientPool() {
