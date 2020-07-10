@@ -108,12 +108,12 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
 
   @Override
   protected void onCrawlChunk(Optional<UUID> fromNumber, List<Account> chunkAccounts) {
-    long nowDays  = TimeUnit.MILLISECONDS.toDays(System.currentTimeMillis());
-    long agoMs[]  = {TimeUnit.DAYS.toMillis(nowDays - 1),
-                     TimeUnit.DAYS.toMillis(nowDays - 7),
-                     TimeUnit.DAYS.toMillis(nowDays - 30),
-                     TimeUnit.DAYS.toMillis(nowDays - 90),
-                     TimeUnit.DAYS.toMillis(nowDays - 365)};
+    long nowHours  = TimeUnit.MILLISECONDS.toHours(System.currentTimeMillis());
+    long agoMs[]  = {TimeUnit.HOURS.toMillis(nowHours - 1   * 24 - 12),
+                     TimeUnit.HOURS.toMillis(nowHours - 7   * 24),
+                     TimeUnit.HOURS.toMillis(nowHours - 30  * 24),
+                     TimeUnit.HOURS.toMillis(nowHours - 90  * 24),
+                     TimeUnit.HOURS.toMillis(nowHours - 365 * 24)};
 
     Map<String, long[]> platformIncrements = new HashMap<>();
     Map<String, long[]> countryIncrements  = new HashMap<>();
