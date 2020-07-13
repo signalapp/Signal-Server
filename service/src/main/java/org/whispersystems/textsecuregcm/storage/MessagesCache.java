@@ -19,6 +19,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
@@ -451,20 +452,32 @@ public class MessagesCache implements Managed {
     }
 
     private void persistQueue(ReplicatedJedisPool jedisPool, Key key) throws IOException {
-      Timer.Context timer = persistQueueTimer.time();
-
       int messagesPersistedCount = 0;
 
-      try (Jedis jedis = jedisPool.getWriteResource()) {
+      try (Jedis jedis = jedisPool.getWriteResource();
+           Timer.Context ignored = persistQueueTimer.time()) {
+
         while (true) {
           jedis.setex(key.getUserMessageQueuePersistInProgress(), 30, "1".getBytes());
 
           Set<Tuple> messages = jedis.zrangeWithScores(key.getUserMessageQueue(), 0, CHUNK_SIZE);
+          List<Envelope> envelopes = new ArrayList<>(messages.size());
 
-          for (Tuple message : messages) {
-            persistMessage(jedis, key, (long)message.getScore(), message.getBinaryElement());
-            messagesPersistedCount++;
+          for (Tuple tuple : messages) {
+            try {
+              envelopes.add(Envelope.parseFrom(tuple.getBinaryElement()));
+            } catch (InvalidProtocolBufferException e) {
+              logger.error("Error parsing envelope", e);
+            }
           }
+
+          database.store(envelopes, key.getAddress(), key.getDeviceId());
+
+          for (Tuple tuple : messages) {
+            removeOperation.remove(jedis, key.getAddress(), key.getDeviceId(), (long)tuple.getScore());
+          }
+
+          messagesPersistedCount += envelopes.size();
 
           if (messages.size() < CHUNK_SIZE) {
             jedis.del(key.getUserMessageQueuePersistInProgress());
@@ -472,24 +485,8 @@ public class MessagesCache implements Managed {
           }
         }
       } finally {
-        timer.stop();
         queueSizeHistogram.update(messagesPersistedCount);
       }
-    }
-
-    private void persistMessage(Jedis jedis, Key key, long score, byte[] message) {
-      try {
-        Envelope envelope = Envelope.parseFrom(message);
-        UUID     guid     = envelope.hasServerGuid() ? UUID.fromString(envelope.getServerGuid()) : null;
-
-        envelope = envelope.toBuilder().clearServerGuid().build();
-
-        database.store(guid, envelope, key.getAddress(), key.getDeviceId());
-      } catch (InvalidProtocolBufferException e) {
-        logger.error("Error parsing envelope", e);
-      }
-
-      removeOperation.remove(jedis, key.getAddress(), key.getDeviceId(), score);
     }
 
     private List<byte[]> getQueuesToPersist(GetOperation getOperation) {
