@@ -65,7 +65,7 @@ public class TwilioSmsSender {
   private final ArrayList<String> numbers;
   private final String            messagingServicesId;
   private final String            localDomain;
-  private final SenderIdSelector  senderIdSelector;
+  private final SenderIdSupplier  senderIdSupplier;
   private final Random            random;
 
   private final FaultTolerantHttpClient httpClient;
@@ -81,7 +81,7 @@ public class TwilioSmsSender {
     this.numbers             = new ArrayList<>(twilioConfiguration.getNumbers());
     this.localDomain         = twilioConfiguration.getLocalDomain();
     this.messagingServicesId = twilioConfiguration.getMessagingServicesId();
-    this.senderIdSelector    = new SenderIdSelector(twilioConfiguration.getSenderId());
+    this.senderIdSupplier    = new SenderIdSupplier(twilioConfiguration.getSenderId());
     this.random              = new Random(System.currentTimeMillis());
     this.smsUri              = URI.create(baseUri + "/2010-04-01/Accounts/" + accountId + "/Messages.json");
     this.voxUri              = URI.create(baseUri + "/2010-04-01/Accounts/" + accountId + "/Calls.json"   );
@@ -174,7 +174,7 @@ public class TwilioSmsSender {
   }
 
   private void setOriginationRequestParameter(String destination, Map<String, String> requestParameters) {
-    final Optional<String> senderId = senderIdSelector.getSenderId(destination);
+    final Optional<String> senderId = senderIdSupplier.get(destination);
     if (senderId.isPresent()) {
       requestParameters.put("From", senderId.get());
     } else if (Util.isEmpty(messagingServicesId)) {

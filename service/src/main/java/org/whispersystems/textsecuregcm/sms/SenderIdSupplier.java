@@ -12,12 +12,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-class SenderIdSelector {
+class SenderIdSupplier {
   private final String              defaultSenderId;
   private final Map<String, String> countrySpecificSenderIds;
   private final Set<String>         countryCodesWithoutSenderId;
 
-  SenderIdSelector(String defaultSenderId, List<TwilioCountrySenderIdConfiguration> countrySpecificSenderIds, Set<String> countryCodesWithoutSenderId) {
+  SenderIdSupplier(String defaultSenderId, List<TwilioCountrySenderIdConfiguration> countrySpecificSenderIds, Set<String> countryCodesWithoutSenderId) {
     this.defaultSenderId = defaultSenderId;
     this.countrySpecificSenderIds = countrySpecificSenderIds.stream().collect(Collectors.toMap(
             TwilioCountrySenderIdConfiguration::getCountryCode,
@@ -25,13 +25,13 @@ class SenderIdSelector {
     this.countryCodesWithoutSenderId = countryCodesWithoutSenderId;
   }
 
-  SenderIdSelector(TwilioSenderIdConfiguration configuration) {
+  SenderIdSupplier(TwilioSenderIdConfiguration configuration) {
     this(configuration.getDefaultSenderId(),
          configuration.getCountrySpecificSenderIds(),
          configuration.getCountryCodesWithoutSenderId());
   }
 
-  Optional<String> getSenderId(@NotNull String destination) {
+  Optional<String> get(@NotNull String destination) {
     final String countryCode = Util.getCountryCode(destination);
     if (countryCodesWithoutSenderId.contains(countryCode)) {
       return Optional.empty();
