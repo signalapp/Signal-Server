@@ -16,34 +16,27 @@
  */
 package org.whispersystems.textsecuregcm.configuration;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
-import java.util.ArrayList;
 import java.util.List;
 
 public class TwilioConfiguration {
 
   @NotEmpty
-  @JsonProperty
   private String accountId;
 
   @NotEmpty
-  @JsonProperty
   private String accountToken;
 
   @NotNull
-  @JsonProperty
   private List<String> numbers;
 
   @NotEmpty
-  @JsonProperty
   private String localDomain;
 
-  @JsonProperty
   private String messagingServicesId;
 
   @NotNull
@@ -56,7 +49,7 @@ public class TwilioConfiguration {
 
   @NotNull
   @Valid
-  private List<TwilioAlphaIdConfiguration> alphaId = new ArrayList<>();
+  private TwilioSenderIdConfiguration senderId = new TwilioSenderIdConfiguration();
 
   public String getAccountId() {
     return accountId;
@@ -121,12 +114,12 @@ public class TwilioConfiguration {
     this.retry = retry;
   }
 
-  public List<TwilioAlphaIdConfiguration> getAlphaId() {
-    return alphaId;
+  public TwilioSenderIdConfiguration getSenderId() {
+    return senderId;
   }
 
   @VisibleForTesting
-  public void setAlphaId(List<TwilioAlphaIdConfiguration> alphaId) {
-    this.alphaId = alphaId;
+  public void setSenderId(TwilioSenderIdConfiguration senderId) {
+    this.senderId = senderId;
   }
 }

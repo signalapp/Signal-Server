@@ -24,7 +24,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.configuration.TwilioAlphaIdConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.http.FormDataBodyPublisher;
@@ -42,7 +41,6 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
@@ -62,13 +60,13 @@ public class TwilioSmsSender {
   private final Meter          voxMeter       = metricRegistry.meter(name(getClass(), "vox", "delivered"));
   private final Meter          priceMeter     = metricRegistry.meter(name(getClass(), "price"));
 
-  private final String                           accountId;
-  private final String                           accountToken;
-  private final ArrayList<String>                numbers;
-  private final String                           messagingServicesId;
-  private final String                           localDomain;
-  private final List<TwilioAlphaIdConfiguration> alphaId;
-  private final Random                           random;
+  private final String            accountId;
+  private final String            accountToken;
+  private final ArrayList<String> numbers;
+  private final String            messagingServicesId;
+  private final String            localDomain;
+  private final Random            random;
+  private final SenderIdStrategy  senderIdStrategy;
 
   private final FaultTolerantHttpClient httpClient;
   private final URI                     smsUri;
@@ -83,7 +81,7 @@ public class TwilioSmsSender {
     this.numbers             = new ArrayList<>(twilioConfiguration.getNumbers());
     this.localDomain         = twilioConfiguration.getLocalDomain();
     this.messagingServicesId = twilioConfiguration.getMessagingServicesId();
-    this.alphaId             = twilioConfiguration.getAlphaId();
+    this.senderIdStrategy    = new SenderIdStrategy(twilioConfiguration.getSenderId());
     this.random              = new Random(System.currentTimeMillis());
     this.smsUri              = URI.create(baseUri + "/2010-04-01/Accounts/" + accountId + "/Messages.json");
     this.voxUri              = URI.create(baseUri + "/2010-04-01/Accounts/" + accountId + "/Calls.json"   );
@@ -176,9 +174,9 @@ public class TwilioSmsSender {
   }
 
   private void setOriginationRequestParameter(String destination, Map<String, String> requestParameters) {
-    final Optional<TwilioAlphaIdConfiguration> alphaIdConfiguration = getAlphaIdConfigurationForNumber(destination);
-    if (alphaIdConfiguration.isPresent()) {
-      requestParameters.put("From", alphaIdConfiguration.get().getValue());
+    final Optional<String> senderId = senderIdStrategy.get(destination);
+    if (senderId.isPresent()) {
+      requestParameters.put("From", senderId.get());
     } else if (Util.isEmpty(messagingServicesId)) {
       requestParameters.put("From", getRandom(random, numbers));
     } else {
@@ -222,21 +220,6 @@ public class TwilioSmsSender {
     } else {
       return new TwilioResponse(new TwilioResponse.TwilioFailureResponse());
     }
-  }
-
-  private Optional<TwilioAlphaIdConfiguration> getAlphaIdConfigurationForNumber(String number) {
-    if (alphaId == null) {
-      return Optional.empty();
-    }
-
-    final String countryCode = Util.getCountryCode(number);
-    for (TwilioAlphaIdConfiguration twilioAlphaIdConfiguration : alphaId) {
-      if (twilioAlphaIdConfiguration.getPrefix().equalsIgnoreCase(countryCode)) {
-        return Optional.of(twilioAlphaIdConfiguration);
-      }
-    }
-
-    return Optional.empty();
   }
 
   public static class TwilioResponse {
