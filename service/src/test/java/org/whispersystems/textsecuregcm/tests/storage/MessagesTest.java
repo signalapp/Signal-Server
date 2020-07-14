@@ -34,6 +34,8 @@ public class MessagesTest {
 
   private Messages messages;
 
+  private long serialTimestamp = 0;
+
   @Before
   public void setupAccountsDao() {
     this.messages = new Messages(new FaultTolerantDatabase("messages-test", Jdbi.create(db.getTestDatabase()), new CircuitBreakerConfiguration()));
@@ -233,8 +235,8 @@ public class MessagesTest {
     return Envelope.newBuilder()
                    .setSourceDevice(random.nextInt(10000))
                    .setSource("testSource" + random.nextInt())
-                   .setTimestamp(random.nextInt(100000))
-                   .setServerTimestamp(random.nextInt(100000))
+                   .setTimestamp(serialTimestamp++)
+                   .setServerTimestamp(serialTimestamp++)
                    .setLegacyMessage(ByteString.copyFrom(legacy))
                    .setContent(ByteString.copyFrom(content))
                    .setType(Envelope.Type.CIPHERTEXT)
