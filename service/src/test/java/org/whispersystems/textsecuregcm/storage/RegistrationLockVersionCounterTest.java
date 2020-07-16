@@ -52,63 +52,46 @@ public class RegistrationLockVersionCounterTest {
 
         registrationLockVersionCounter.onCrawlChunk(Optional.empty(), List.of(account));
 
-        verifyCount(1, 0, 0, 0);
+        verifyCount(0, 0);
     }
 
     @Test
-    public void testOnCrawlChunkPinOnly() {
+    public void testOnCrawlChunkPin() {
         final Account                account          = mock(Account.class);
         final StoredRegistrationLock registrationLock = mock(StoredRegistrationLock.class);
 
         when(account.getRegistrationLock()).thenReturn(registrationLock);
+        when(registrationLock.requiresClientRegistrationLock()).thenReturn(true);
         when(registrationLock.hasDeprecatedPin()).thenReturn(true);
-        when(registrationLock.needsFailureCredentials()).thenReturn(false);
 
         registrationLockVersionCounter.onCrawlChunk(Optional.empty(), List.of(account));
 
-        verifyCount(0, 1, 0, 0);
+        verifyCount(1, 0);
     }
 
     @Test
-    public void testOnCrawlChunkReglockOnly() {
+    public void testOnCrawlChunkReglock() {
         final Account                account          = mock(Account.class);
         final StoredRegistrationLock registrationLock = mock(StoredRegistrationLock.class);
 
         when(account.getRegistrationLock()).thenReturn(registrationLock);
+        when(registrationLock.requiresClientRegistrationLock()).thenReturn(true);
         when(registrationLock.hasDeprecatedPin()).thenReturn(false);
-        when(registrationLock.needsFailureCredentials()).thenReturn(true);
 
         registrationLockVersionCounter.onCrawlChunk(Optional.empty(), List.of(account));
 
-        verifyCount(0, 0, 1, 0);
+        verifyCount(0, 1);
     }
 
-    @Test
-    public void testOnCrawlChunkBoth() {
-        final Account                account          = mock(Account.class);
-        final StoredRegistrationLock registrationLock = mock(StoredRegistrationLock.class);
-
-        when(account.getRegistrationLock()).thenReturn(registrationLock);
-        when(registrationLock.hasDeprecatedPin()).thenReturn(true);
-        when(registrationLock.needsFailureCredentials()).thenReturn(true);
-
-        registrationLockVersionCounter.onCrawlChunk(Optional.empty(), List.of(account));
-
-        verifyCount(0, 0, 0, 1);
-    }
-
-    private void verifyCount(final int noReglock, final int pinOnly, final int reglockOnly, final int both) {
-        verify(redisCommands).hincrby(RegistrationLockVersionCounter.REGLOCK_COUNT_KEY, RegistrationLockVersionCounter.NO_REGLOCK_KEY,   noReglock);
-        verify(redisCommands).hincrby(RegistrationLockVersionCounter.REGLOCK_COUNT_KEY, RegistrationLockVersionCounter.PIN_ONLY_KEY,     pinOnly);
-        verify(redisCommands).hincrby(RegistrationLockVersionCounter.REGLOCK_COUNT_KEY, RegistrationLockVersionCounter.REGLOCK_ONLY_KEY, reglockOnly);
-        verify(redisCommands).hincrby(RegistrationLockVersionCounter.REGLOCK_COUNT_KEY, RegistrationLockVersionCounter.BOTH_KEY,         both);
+    private void verifyCount(final int pinCount, final int reglockCount) {
+        verify(redisCommands).hincrby(RegistrationLockVersionCounter.REGLOCK_COUNT_KEY, RegistrationLockVersionCounter.PIN_KEY,     pinCount);
+        verify(redisCommands).hincrby(RegistrationLockVersionCounter.REGLOCK_COUNT_KEY, RegistrationLockVersionCounter.REGLOCK_KEY, reglockCount);
     }
 
     @Test
     public void testOnCrawlEnd() {
-        final int noReglockCount   = 21;
-        final int pinOnlyCount     = 7;
-        final int reglockOnlyCount = 83;
+        final int pinCount     = 7;
+        final int reglockCount = 83;
 
         final ReporterFactory   reporterFactory = mock(ReporterFactory.class);
         final ScheduledReporter reporter        = mock(ScheduledReporter.class);
@@ -119,10 +102,8 @@ public class RegistrationLockVersionCounterTest {
         when(reporterFactory.build(any())).thenReturn(reporter);
 
         when(redisCommands.hmget(eq(RegistrationLockVersionCounter.REGLOCK_COUNT_KEY), any())).thenReturn(List.of(
-                KeyValue.just(RegistrationLockVersionCounter.NO_REGLOCK_KEY, String.valueOf(noReglockCount)),
-                KeyValue.just(RegistrationLockVersionCounter.PIN_ONLY_KEY, String.valueOf(pinOnlyCount)),
-                KeyValue.just(RegistrationLockVersionCounter.REGLOCK_ONLY_KEY, String.valueOf(reglockOnlyCount)),
-                KeyValue.empty(RegistrationLockVersionCounter.BOTH_KEY)));
+                KeyValue.just(RegistrationLockVersionCounter.PIN_KEY, String.valueOf(pinCount)),
+                KeyValue.just(RegistrationLockVersionCounter.REGLOCK_KEY, String.valueOf(reglockCount))));
 
         registrationLockVersionCounter.onCrawlEnd(Optional.empty());
 
@@ -130,9 +111,7 @@ public class RegistrationLockVersionCounterTest {
         verify(reporter).report();
 
         @SuppressWarnings("rawtypes") final Map<String, Gauge> gauges = registryCaptor.getValue().getGauges();
-        assertEquals(noReglockCount, gauges.get(name(RegistrationLockVersionCounter.class, RegistrationLockVersionCounter.NO_REGLOCK_KEY)).getValue());
-        assertEquals(pinOnlyCount, gauges.get(name(RegistrationLockVersionCounter.class, RegistrationLockVersionCounter.PIN_ONLY_KEY)).getValue());
-        assertEquals(reglockOnlyCount, gauges.get(name(RegistrationLockVersionCounter.class, RegistrationLockVersionCounter.REGLOCK_ONLY_KEY)).getValue());
-        assertEquals(0, gauges.get(name(RegistrationLockVersionCounter.class, RegistrationLockVersionCounter.BOTH_KEY)).getValue());
+        assertEquals(pinCount,     gauges.get(name(RegistrationLockVersionCounter.class, RegistrationLockVersionCounter.PIN_KEY)).getValue());
+        assertEquals(reglockCount, gauges.get(name(RegistrationLockVersionCounter.class, RegistrationLockVersionCounter.REGLOCK_KEY)).getValue());
     }
 }
