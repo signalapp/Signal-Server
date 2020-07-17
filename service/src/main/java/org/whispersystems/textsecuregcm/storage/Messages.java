@@ -51,14 +51,8 @@ public class Messages {
     this.database.getDatabase().registerRowMapper(new OutgoingMessageEntityRowMapper());
   }
 
-  @VisibleForTesting
-  public void store(UUID guid, Envelope message, String destination, long destinationDevice) {
-    final Envelope messageWithGuid = message.toBuilder().setServerGuid(guid.toString()).build();
-    store(List.of(messageWithGuid), destination, destinationDevice);
-  }
-
   public void store(List<Envelope> messages, String destination, long destinationDevice) {
-    database.use(jdbi ->jdbi.useHandle(handle -> {
+    database.use(jdbi -> jdbi.useHandle(handle -> {
       try (Timer.Context ignored = storeTimer.time()) {
         final PreparedBatch batch = handle.prepareBatch("INSERT INTO messages (" + GUID + ", " + TYPE + ", " + RELAY + ", " + TIMESTAMP + ", " + SERVER_TIMESTAMP + ", " + SOURCE + ", " + SOURCE_UUID + ", " + SOURCE_DEVICE + ", " + DESTINATION + ", " + DESTINATION_DEVICE + ", " + MESSAGE + ", " + CONTENT + ") " +
                 "VALUES (:guid, :type, :relay, :timestamp, :server_timestamp, :source, :source_uuid, :source_device, :destination, :destination_device, :message, :content)");
