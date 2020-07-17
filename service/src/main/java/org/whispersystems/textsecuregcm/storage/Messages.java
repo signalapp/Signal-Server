@@ -1,5 +1,6 @@
 package org.whispersystems.textsecuregcm.storage;
 
+import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
@@ -43,6 +44,7 @@ public class Messages {
   private final Timer          clearDeviceTimer    = metricRegistry.timer(name(Messages.class, "clearDevice"   ));
   private final Timer          clearTimer          = metricRegistry.timer(name(Messages.class, "clear"         ));
   private final Timer          vacuumTimer         = metricRegistry.timer(name(Messages.class, "vacuum"));
+  private final Histogram      storeSizeHistogram  = metricRegistry.histogram(name(Messages.class, "storeBatchSize"));
 
   private final FaultTolerantDatabase database;
 
@@ -74,6 +76,7 @@ public class Messages {
         }
 
         batch.execute();
+        storeSizeHistogram.update(messages.size());
       }
     }));
   }
