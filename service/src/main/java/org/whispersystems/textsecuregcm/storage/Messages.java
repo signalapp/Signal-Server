@@ -1,11 +1,8 @@
 package org.whispersystems.textsecuregcm.storage;
 
-import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import com.google.common.annotations.VisibleForTesting;
-import org.jdbi.v3.core.statement.PreparedBatch;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.storage.mappers.OutgoingMessageEntityRowMapper;
@@ -44,7 +41,6 @@ public class Messages {
   private final Timer          clearDeviceTimer    = metricRegistry.timer(name(Messages.class, "clearDevice"   ));
   private final Timer          clearTimer          = metricRegistry.timer(name(Messages.class, "clear"         ));
   private final Timer          vacuumTimer         = metricRegistry.timer(name(Messages.class, "vacuum"));
-  private final Histogram      storeSizeHistogram  = metricRegistry.histogram(name(Messages.class, "storeBatchSize"));
 
   private final FaultTolerantDatabase database;
 
@@ -53,30 +49,24 @@ public class Messages {
     this.database.getDatabase().registerRowMapper(new OutgoingMessageEntityRowMapper());
   }
 
-  public void store(List<Envelope> messages, String destination, long destinationDevice) {
-    database.use(jdbi -> jdbi.useTransaction(handle -> {
+  public void store(UUID guid, Envelope message, String destination, long destinationDevice) {
+    database.use(jdbi ->jdbi.useHandle(handle -> {
       try (Timer.Context ignored = storeTimer.time()) {
-        final PreparedBatch batch = handle.prepareBatch("INSERT INTO messages (" + GUID + ", " + TYPE + ", " + RELAY + ", " + TIMESTAMP + ", " + SERVER_TIMESTAMP + ", " + SOURCE + ", " + SOURCE_UUID + ", " + SOURCE_DEVICE + ", " + DESTINATION + ", " + DESTINATION_DEVICE + ", " + MESSAGE + ", " + CONTENT + ") " +
-                "VALUES (:guid, :type, :relay, :timestamp, :server_timestamp, :source, :source_uuid, :source_device, :destination, :destination_device, :message, :content)");
-
-        for (final Envelope message : messages) {
-          batch.bind("guid", UUID.fromString(message.getServerGuid()))
-               .bind("type", message.getType().getNumber())
-               .bind("relay", message.getRelay())
-               .bind("timestamp", message.getTimestamp())
-               .bind("server_timestamp", message.getServerTimestamp())
-               .bind("source", message.hasSource() ? message.getSource() : null)
-               .bind("source_uuid", message.hasSourceUuid() ? UUID.fromString(message.getSourceUuid()) : null)
-               .bind("source_device", message.hasSourceDevice() ? message.getSourceDevice() : null)
-               .bind("destination", destination)
-               .bind("destination_device", destinationDevice)
-               .bind("message", message.hasLegacyMessage() ? message.getLegacyMessage().toByteArray() : null)
-               .bind("content", message.hasContent() ? message.getContent().toByteArray() : null)
-               .add();
-        }
-
-        batch.execute();
-        storeSizeHistogram.update(messages.size());
+        handle.createUpdate("INSERT INTO messages (" + GUID + ", " + TYPE + ", " + RELAY + ", " + TIMESTAMP + ", " + SERVER_TIMESTAMP + ", " + SOURCE + ", " + SOURCE_UUID + ", " + SOURCE_DEVICE + ", " + DESTINATION + ", " + DESTINATION_DEVICE + ", " + MESSAGE + ", " + CONTENT + ") " +
+                                "VALUES (:guid, :type, :relay, :timestamp, :server_timestamp, :source, :source_uuid, :source_device, :destination, :destination_device, :message, :content)")
+              .bind("guid", guid)
+              .bind("destination", destination)
+              .bind("destination_device", destinationDevice)
+              .bind("type", message.getType().getNumber())
+              .bind("relay", message.getRelay())
+              .bind("timestamp", message.getTimestamp())
+              .bind("server_timestamp", message.getServerTimestamp())
+              .bind("source", message.hasSource() ? message.getSource() : null)
+              .bind("source_uuid", message.hasSourceUuid() ? UUID.fromString(message.getSourceUuid()) : null)
+              .bind("source_device", message.hasSourceDevice() ? message.getSourceDevice() : null)
+              .bind("message", message.hasLegacyMessage() ? message.getLegacyMessage().toByteArray() : null)
+              .bind("content", message.hasContent() ? message.getContent().toByteArray() : null)
+              .execute();
       }
     }));
   }

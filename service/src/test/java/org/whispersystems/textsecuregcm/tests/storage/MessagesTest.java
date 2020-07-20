@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
@@ -45,8 +44,9 @@ public class MessagesTest {
   @Test
   public void testStore() throws SQLException {
     Envelope envelope = generateEnvelope();
+    UUID     guid     = UUID.randomUUID();
 
-    messages.store(List.of(envelope), "+14151112222", 1);
+    messages.store(guid, envelope, "+14151112222", 1);
 
     PreparedStatement statement = db.getTestDatabase().getConnection().prepareStatement("SELECT * FROM messages WHERE destination = ?");
     statement.setString(1, "+14151112222");
@@ -54,7 +54,7 @@ public class MessagesTest {
     ResultSet resultSet = statement.executeQuery();
     assertThat(resultSet.next()).isTrue();
 
-    assertThat(resultSet.getString("guid")).isEqualTo(envelope.getServerGuid());
+    assertThat(resultSet.getString("guid")).isEqualTo(guid.toString());
     assertThat(resultSet.getInt("type")).isEqualTo(envelope.getType().getNumber());
     assertThat(resultSet.getString("relay")).isNullOrEmpty();
     assertThat(resultSet.getLong("timestamp")).isEqualTo(envelope.getTimestamp());
@@ -71,28 +71,36 @@ public class MessagesTest {
 
   @Test
   public void testLoad() {
-    List<Envelope> inserted = insertRandom("+14151112222", 1);
-    inserted.sort(Comparator.comparingLong(Envelope::getTimestamp));
+    List<MessageToStore> inserted = new ArrayList<>(50);
+
+    for (int i=0;i<50;i++) {
+      MessageToStore message = generateMessageToStore();
+      inserted.add(message);
+
+      messages.store(message.guid, message.envelope, "+14151112222", 1);
+    }
+
+    inserted.sort(Comparator.comparingLong(o -> o.envelope.getTimestamp()));
 
     List<OutgoingMessageEntity> retrieved = messages.load("+14151112222", 1);
 
     assertThat(retrieved.size()).isEqualTo(inserted.size());
 
     for (int i=0;i<retrieved.size();i++) {
-      verifyExpected(retrieved.get(i), inserted.get(i));
+      verifyExpected(retrieved.get(i), inserted.get(i).envelope, inserted.get(i).guid);
     }
 
   }
 
   @Test
   public void removeBySourceDestinationTimestamp() {
-    List<Envelope>                  inserted  = insertRandom("+14151112222", 1);
-    List<Envelope>                  unrelated = insertRandom("+14151114444", 3);
-    Envelope                        toRemove  = inserted.remove(new Random(System.currentTimeMillis()).nextInt(inserted.size() - 1));
-    Optional<OutgoingMessageEntity> removed   = messages.remove("+14151112222", 1, toRemove.getSource(), toRemove.getTimestamp());
+    List<MessageToStore>            inserted = insertRandom("+14151112222", 1);
+    List<MessageToStore>            unrelated = insertRandom("+14151114444", 3);
+    MessageToStore                  toRemove = inserted.remove(new Random(System.currentTimeMillis()).nextInt(inserted.size() - 1));
+    Optional<OutgoingMessageEntity> removed  = messages.remove("+14151112222", 1, toRemove.envelope.getSource(), toRemove.envelope.getTimestamp());
 
     assertThat(removed.isPresent()).isTrue();
-    verifyExpected(removed.get(), toRemove);
+    verifyExpected(removed.get(), toRemove.envelope, toRemove.guid);
 
     verifyInTact(inserted, "+14151112222", 1);
     verifyInTact(unrelated, "+14151114444", 3);
@@ -100,13 +108,13 @@ public class MessagesTest {
 
   @Test
   public void removeByDestinationGuid() {
-    List<Envelope>                  unrelated = insertRandom("+14151113333", 2);
-    List<Envelope>                  inserted  = insertRandom("+14151112222", 1);
-    Envelope                        toRemove  = inserted.remove(new Random(System.currentTimeMillis()).nextInt(inserted.size() - 1));
-    Optional<OutgoingMessageEntity> removed   = messages.remove("+14151112222", UUID.fromString(toRemove.getServerGuid()));
+    List<MessageToStore>            unrelated = insertRandom("+14151113333", 2);
+    List<MessageToStore>            inserted = insertRandom("+14151112222", 1);
+    MessageToStore                  toRemove = inserted.remove(new Random(System.currentTimeMillis()).nextInt(inserted.size() - 1));
+    Optional<OutgoingMessageEntity> removed  = messages.remove("+14151112222", toRemove.guid);
 
-    assertThat(removed).isPresent();
-    verifyExpected(removed.get(), toRemove);
+    assertThat(removed.isPresent()).isTrue();
+    verifyExpected(removed.get(), toRemove.envelope, toRemove.guid);
 
     verifyInTact(inserted, "+14151112222", 1);
     verifyInTact(unrelated, "+14151113333", 2);
@@ -114,10 +122,10 @@ public class MessagesTest {
 
   @Test
   public void removeByDestinationRowId() {
-    List<Envelope> unrelatedInserted = insertRandom("+14151111111", 1);
-    List<Envelope> inserted          = insertRandom("+14151112222", 1);
+    List<MessageToStore> unrelatedInserted = insertRandom("+14151111111", 1);
+    List<MessageToStore> inserted          = insertRandom("+14151112222", 1);
 
-    inserted.sort(Comparator.comparingLong(Envelope::getTimestamp));
+    inserted.sort(Comparator.comparingLong(o -> o.envelope.getTimestamp()));
 
     List<OutgoingMessageEntity> retrieved = messages.load("+14151112222", 1);
 
@@ -133,7 +141,7 @@ public class MessagesTest {
 
   @Test
   public void testLoadEmpty() {
-    insertRandom("+14151112222", 1);
+    List<MessageToStore> inserted = insertRandom("+14151112222", 1);
     List<OutgoingMessageEntity> loaded = messages.load("+14159999999", 1);
     assertThat(loaded.isEmpty()).isTrue();
   }
@@ -143,7 +151,7 @@ public class MessagesTest {
     insertRandom("+14151112222", 1);
     insertRandom("+14151112222", 2);
 
-    List<Envelope> unrelated = insertRandom("+14151111111", 1);
+    List<MessageToStore> unrelated = insertRandom("+14151111111", 1);
 
     messages.clear("+14151112222");
 
@@ -155,9 +163,9 @@ public class MessagesTest {
   @Test
   public void testClearDestinationDevice() {
     insertRandom("+14151112222", 1);
-    List<Envelope> inserted = insertRandom("+14151112222", 2);
+    List<MessageToStore> inserted = insertRandom("+14151112222", 2);
 
-    List<Envelope> unrelated = insertRandom("+14151111111", 1);
+    List<MessageToStore> unrelated = insertRandom("+14151111111", 1);
 
     messages.clear("+14151112222", 1);
 
@@ -169,37 +177,38 @@ public class MessagesTest {
 
   @Test
   public void testVacuum() {
-    List<Envelope> inserted = insertRandom("+14151112222", 2);
+    List<MessageToStore> inserted = insertRandom("+14151112222", 2);
     messages.vacuum();
     verifyInTact(inserted, "+14151112222", 2);
   }
 
-  private List<Envelope> insertRandom(String destination, int destinationDevice) {
-    List<Envelope> inserted = new ArrayList<>(50);
+  private List<MessageToStore> insertRandom(String destination, int destinationDevice) {
+    List<MessageToStore> inserted = new ArrayList<>(50);
 
     for (int i=0;i<50;i++) {
-      inserted.add(generateEnvelope());
-    }
+      MessageToStore message = generateMessageToStore();
+      inserted.add(message);
 
-    messages.store(inserted, destination, destinationDevice);
+      messages.store(message.guid, message.envelope, destination, destinationDevice);
+    }
 
     return inserted;
   }
 
-  private void verifyInTact(List<Envelope> inserted, String destination, int destinationDevice) {
-    inserted.sort(Comparator.comparingLong(Envelope::getTimestamp));
+  private void verifyInTact(List<MessageToStore> inserted, String destination, int destinationDevice) {
+    inserted.sort(Comparator.comparingLong(o -> o.envelope.getTimestamp()));
 
     List<OutgoingMessageEntity> retrieved = messages.load(destination, destinationDevice);
 
     assertThat(retrieved.size()).isEqualTo(inserted.size());
 
     for (int i=0;i<retrieved.size();i++) {
-      verifyExpected(retrieved.get(i), inserted.get(i));
+      verifyExpected(retrieved.get(i), inserted.get(i).envelope, inserted.get(i).guid);
     }
   }
 
 
-  private void verifyExpected(OutgoingMessageEntity retrieved, Envelope inserted) {
+  private void verifyExpected(OutgoingMessageEntity retrieved, Envelope inserted, UUID guid) {
     assertThat(retrieved.getTimestamp()).isEqualTo(inserted.getTimestamp());
     assertThat(retrieved.getSource()).isEqualTo(inserted.getSource());
     assertThat(retrieved.getRelay()).isEqualTo(inserted.getRelay());
@@ -207,8 +216,12 @@ public class MessagesTest {
     assertThat(retrieved.getContent()).isEqualTo(inserted.getContent().toByteArray());
     assertThat(retrieved.getMessage()).isEqualTo(inserted.getLegacyMessage().toByteArray());
     assertThat(retrieved.getServerTimestamp()).isEqualTo(inserted.getServerTimestamp());
-    assertThat(retrieved.getGuid()).isEqualTo(retrieved.getGuid());
+    assertThat(retrieved.getGuid()).isEqualTo(guid);
     assertThat(retrieved.getSourceDevice()).isEqualTo(inserted.getSourceDevice());
+  }
+
+  private MessageToStore generateMessageToStore() {
+    return new MessageToStore(UUID.randomUUID(), generateEnvelope());
   }
 
   private Envelope generateEnvelope() {
@@ -229,5 +242,15 @@ public class MessagesTest {
                    .setType(Envelope.Type.CIPHERTEXT)
                    .setServerGuid(UUID.randomUUID().toString())
                    .build();
+  }
+
+  private static class MessageToStore {
+    private final UUID guid;
+    private final Envelope envelope;
+
+    private MessageToStore(UUID guid, Envelope envelope) {
+      this.guid = guid;
+      this.envelope = envelope;
+    }
   }
 }
