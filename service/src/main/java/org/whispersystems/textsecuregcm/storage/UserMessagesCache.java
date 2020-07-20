@@ -3,7 +3,6 @@ package org.whispersystems.textsecuregcm.storage;
 import com.google.common.annotations.VisibleForTesting;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
-import org.whispersystems.textsecuregcm.push.PushSender;
 
 import java.util.List;
 import java.util.Optional;
@@ -25,17 +24,17 @@ public interface UserMessagesCache {
                                        envelope.hasServerTimestamp() ? envelope.getServerTimestamp() : 0);
     }
 
-    long insert(UUID guid, String destination, long destinationDevice, MessageProtos.Envelope message);
+    long insert(UUID guid, String destination, UUID destinationUuid, long destinationDevice, MessageProtos.Envelope message);
 
-    Optional<OutgoingMessageEntity> remove(String destination, long destinationDevice, long id);
+    Optional<OutgoingMessageEntity> remove(String destination, UUID destinationUuid, long destinationDevice, long id);
 
-    Optional<OutgoingMessageEntity> remove(String destination, long destinationDevice, String sender, long timestamp);
+    Optional<OutgoingMessageEntity> remove(String destination, UUID destinationUuid, long destinationDevice, String sender, long timestamp);
 
-    Optional<OutgoingMessageEntity> remove(String destination, long destinationDevice, UUID guid);
+    Optional<OutgoingMessageEntity> remove(String destination, UUID destinationUuid, long destinationDevice, UUID guid);
 
-    List<OutgoingMessageEntity> get(String destination, long destinationDevice, int limit);
+    List<OutgoingMessageEntity> get(String destination, UUID destinationUuid, long destinationDevice, int limit);
 
-    void clear(String destination);
+    void clear(String destination, UUID destinationUuid);
 
-    void clear(String destination, long deviceId);
+    void clear(String destination, UUID destinationUuid, long deviceId);
 }

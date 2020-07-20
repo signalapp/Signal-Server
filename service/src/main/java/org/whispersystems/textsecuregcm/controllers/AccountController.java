@@ -612,6 +612,8 @@ public class AccountController {
   }
 
   private Account createAccount(String number, String password, String userAgent, AccountAttributes accountAttributes) {
+    Optional<Account> maybeExistingAccount = accounts.get(number);
+
     Device device = new Device();
     device.setId(Device.MASTER_ID);
     device.setAuthenticationCredentials(new AuthenticationCredentials(password));
@@ -643,7 +645,7 @@ public class AccountController {
       directoryQueue.deleteRegisteredUser(account.getUuid(), number);
     }
 
-    messagesManager.clear(number);
+    messagesManager.clear(number, maybeExistingAccount.map(Account::getUuid).orElse(null));
     pendingAccounts.remove(number);
 
     return account;

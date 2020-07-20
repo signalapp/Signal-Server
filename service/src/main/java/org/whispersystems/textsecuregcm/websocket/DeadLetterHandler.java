@@ -7,8 +7,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.dispatch.DispatchChannel;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
+import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
+
+import java.util.Optional;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
@@ -16,11 +20,13 @@ public class DeadLetterHandler implements DispatchChannel {
 
   private final Logger logger = LoggerFactory.getLogger(DeadLetterHandler.class);
 
+  private final AccountsManager accountsManager;
   private final MessagesManager messagesManager;
 
   private final Counter deadLetterCounter = Metrics.counter(name(getClass(), "deadLetterCounter"));
 
-  public DeadLetterHandler(MessagesManager messagesManager) {
+  public DeadLetterHandler(AccountsManager accountsManager, MessagesManager messagesManager) {
+    this.accountsManager = accountsManager;
     this.messagesManager = messagesManager;
   }
 
@@ -35,8 +41,15 @@ public class DeadLetterHandler implements DispatchChannel {
 
       switch (pubSubMessage.getType().getNumber()) {
         case PubSubMessage.Type.DELIVER_VALUE:
-          Envelope message = Envelope.parseFrom(pubSubMessage.getContent());
-          messagesManager.insert(address.getNumber(), address.getDeviceId(), message);
+          Envelope          message      = Envelope.parseFrom(pubSubMessage.getContent());
+          Optional<Account> maybeAccount = accountsManager.get(address.getNumber());
+
+          if (maybeAccount.isPresent()) {
+            messagesManager.insert(address.getNumber(), maybeAccount.get().getUuid(), address.getDeviceId(), message);
+          } else {
+            logger.warn("Dead letter for account that no longer exists: {}", address);
+          }
+
           break;
       }
     } catch (InvalidProtocolBufferException e) {

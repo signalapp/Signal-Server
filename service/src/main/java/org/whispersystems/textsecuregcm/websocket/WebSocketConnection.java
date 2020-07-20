@@ -129,7 +129,7 @@ public class WebSocketConnection implements DispatchChannel {
               }
 
               if (isSuccessResponse(response)) {
-                if (storedMessageInfo.isPresent()) messagesManager.delete(account.getNumber(), device.getId(), storedMessageInfo.get().id, storedMessageInfo.get().cached);
+                if (storedMessageInfo.isPresent()) messagesManager.delete(account.getNumber(), account.getUuid(), device.getId(), storedMessageInfo.get().id, storedMessageInfo.get().cached);
                 if (!isReceipt)                    sendDeliveryReceiptFor(message);
                 if (requery)                       processStoredMessages();
               } else if (!isSuccessResponse(response) && !storedMessageInfo.isPresent()) {
@@ -172,7 +172,7 @@ public class WebSocketConnection implements DispatchChannel {
   }
 
   private void processStoredMessages() {
-    OutgoingMessageEntityList       messages = messagesManager.getMessagesForDevice(account.getNumber(), device.getId());
+    OutgoingMessageEntityList       messages = messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId());
     Iterator<OutgoingMessageEntity> iterator = messages.getMessages().iterator();
 
     while (iterator.hasNext()) {

@@ -53,28 +53,28 @@ public class RedisClusterMessagesCache implements UserMessagesCache {
     }
 
     @Override
-    public long insert(final UUID guid, final String destination, final long destinationDevice, final MessageProtos.Envelope message) {
+    public long insert(final UUID guid, final String destination, final UUID destinationUuid, final long destinationDevice, final MessageProtos.Envelope message) {
         final MessageProtos.Envelope messageWithGuid = message.toBuilder().setServerGuid(guid.toString()).build();
         final String                 sender          = message.hasSource() ? (message.getSource() + "::" + message.getTimestamp()) : "nil";
 
         return (long)Metrics.timer(INSERT_TIMER_NAME).record(() ->
-                insertScript.executeBinary(List.of(getMessageQueueKey(destination, destinationDevice),
-                                                   getMessageQueueMetadataKey(destination, destinationDevice),
-                                                   getQueueIndexKey(destination, destinationDevice)),
+                insertScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
+                                                   getMessageQueueMetadataKey(destinationUuid, destinationDevice),
+                                                   getQueueIndexKey(destinationUuid, destinationDevice)),
                                            List.of(messageWithGuid.toByteArray(),
                                                    String.valueOf(message.getTimestamp()).getBytes(StandardCharsets.UTF_8),
                                                    sender.getBytes(StandardCharsets.UTF_8),
                                                    guid.toString().getBytes(StandardCharsets.UTF_8))));
     }
 
-    public long insert(final UUID guid, final String destination, final long destinationDevice, final MessageProtos.Envelope message, final long messageId) {
+    public long insert(final UUID guid, final String destination, final UUID destinationUuid, final long destinationDevice, final MessageProtos.Envelope message, final long messageId) {
         final MessageProtos.Envelope messageWithGuid = message.toBuilder().setServerGuid(guid.toString()).build();
         final String                 sender          = message.hasSource() ? (message.getSource() + "::" + message.getTimestamp()) : "nil";
 
         return (long)Metrics.timer(INSERT_TIMER_NAME).record(() ->
-                insertScript.executeBinary(List.of(getMessageQueueKey(destination, destinationDevice),
-                                                   getMessageQueueMetadataKey(destination, destinationDevice),
-                                                   getQueueIndexKey(destination, destinationDevice)),
+                insertScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
+                                                   getMessageQueueMetadataKey(destinationUuid, destinationDevice),
+                                                   getQueueIndexKey(destinationUuid, destinationDevice)),
                                            List.of(messageWithGuid.toByteArray(),
                                                    String.valueOf(message.getTimestamp()).getBytes(StandardCharsets.UTF_8),
                                                    sender.getBytes(StandardCharsets.UTF_8),
@@ -83,12 +83,12 @@ public class RedisClusterMessagesCache implements UserMessagesCache {
     }
 
     @Override
-    public Optional<OutgoingMessageEntity> remove(final String destination, final long destinationDevice, final long id) {
+    public Optional<OutgoingMessageEntity> remove(final String destination, final UUID destinationUuid, final long destinationDevice, final long id) {
         try {
             final byte[] serialized = (byte[])Metrics.timer(REMOVE_TIMER_NAME, REMOVE_METHOD_TAG, REMOVE_METHOD_ID).record(() ->
-                    removeByIdScript.executeBinary(List.of(getMessageQueueKey(destination, destinationDevice),
-                                                           getMessageQueueMetadataKey(destination, destinationDevice),
-                                                           getQueueIndexKey(destination, destinationDevice)),
+                    removeByIdScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
+                                                           getMessageQueueMetadataKey(destinationUuid, destinationDevice),
+                                                           getQueueIndexKey(destinationUuid, destinationDevice)),
                                                    List.of(String.valueOf(id).getBytes(StandardCharsets.UTF_8))));
 
 
@@ -103,12 +103,12 @@ public class RedisClusterMessagesCache implements UserMessagesCache {
     }
 
     @Override
-    public Optional<OutgoingMessageEntity> remove(final String destination, final long destinationDevice, final String sender, final long timestamp) {
+    public Optional<OutgoingMessageEntity> remove(final String destination, final UUID destinationUuid, final long destinationDevice, final String sender, final long timestamp) {
         try {
             final byte[] serialized = (byte[])Metrics.timer(REMOVE_TIMER_NAME, REMOVE_METHOD_TAG, REMOVE_METHOD_SENDER).record(() ->
-                    removeBySenderScript.executeBinary(List.of(getMessageQueueKey(destination, destinationDevice),
-                                                               getMessageQueueMetadataKey(destination, destinationDevice),
-                                                               getQueueIndexKey(destination, destinationDevice)),
+                    removeBySenderScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
+                                                               getMessageQueueMetadataKey(destinationUuid, destinationDevice),
+                                                               getQueueIndexKey(destinationUuid, destinationDevice)),
                                                        List.of((sender + "::" + timestamp).getBytes(StandardCharsets.UTF_8))));
 
             if (serialized != null) {
@@ -122,12 +122,12 @@ public class RedisClusterMessagesCache implements UserMessagesCache {
     }
 
     @Override
-    public Optional<OutgoingMessageEntity> remove(final String destination, final long destinationDevice, final UUID guid) {
+    public Optional<OutgoingMessageEntity> remove(final String destination, final UUID destinationUuid, final long destinationDevice, final UUID guid) {
         try {
             final byte[] serialized = (byte[])Metrics.timer(REMOVE_TIMER_NAME, REMOVE_METHOD_TAG, REMOVE_METHOD_UUID).record(() ->
-                    removeByGuidScript.executeBinary(List.of(getMessageQueueKey(destination, destinationDevice),
-                                                             getMessageQueueMetadataKey(destination, destinationDevice),
-                                                             getQueueIndexKey(destination, destinationDevice)),
+                    removeByGuidScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
+                                                             getMessageQueueMetadataKey(destinationUuid, destinationDevice),
+                                                             getQueueIndexKey(destinationUuid, destinationDevice)),
                                                      List.of(guid.toString().getBytes(StandardCharsets.UTF_8))));
 
             if (serialized != null) {
@@ -142,10 +142,10 @@ public class RedisClusterMessagesCache implements UserMessagesCache {
 
     @Override
     @SuppressWarnings("unchecked")
-    public List<OutgoingMessageEntity> get(String destination, long destinationDevice, int limit) {
+    public List<OutgoingMessageEntity> get(String destination, final UUID destinationUuid, long destinationDevice, int limit) {
         return Metrics.timer(GET_TIMER_NAME).record(() -> {
-            final List<byte[]> queueItems = (List<byte[]>)getItemsScript.executeBinary(List.of(getMessageQueueKey(destination, destinationDevice),
-                                                                                               getPersistInProgressKey(destination, destinationDevice)),
+            final List<byte[]> queueItems = (List<byte[]>)getItemsScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
+                                                                                               getPersistInProgressKey(destinationUuid, destinationDevice)),
                                                                                        List.of(String.valueOf(limit).getBytes()));
 
             final List<OutgoingMessageEntity> messageEntities;
@@ -173,34 +173,37 @@ public class RedisClusterMessagesCache implements UserMessagesCache {
     }
 
     @Override
-    public void clear(final String destination) {
-        for (int i = 1; i < 256; i++) {
-            clear(destination, i);
+    public void clear(final String destination, final UUID destinationUuid) {
+        // TODO Remove null check in a fully UUID-based world
+        if (destinationUuid != null) {
+            for (int i = 1; i < 256; i++) {
+                clear(destination, destinationUuid, i);
+            }
         }
     }
 
     @Override
-    public void clear(final String destination, final long deviceId) {
+    public void clear(final String destination, final UUID destinationUuid, final long deviceId) {
         Metrics.timer(CLEAR_TIMER_NAME).record(() ->
-                removeQueueScript.executeBinary(List.of(getMessageQueueKey(destination, deviceId),
-                                                        getMessageQueueMetadataKey(destination, deviceId),
-                                                        getQueueIndexKey(destination, deviceId)),
+                removeQueueScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, deviceId),
+                                                        getMessageQueueMetadataKey(destinationUuid, deviceId),
+                                                        getQueueIndexKey(destinationUuid, deviceId)),
                                                 Collections.emptyList()));
     }
 
-    private static byte[] getMessageQueueKey(final String address, final long deviceId) {
-        return ("user_queue::{" + address + "::" + deviceId + "}").getBytes(StandardCharsets.UTF_8);
+    private static byte[] getMessageQueueKey(final UUID accountUuid, final long deviceId) {
+        return ("user_queue::{" + accountUuid.toString() + "::" + deviceId + "}").getBytes(StandardCharsets.UTF_8);
     }
 
-    private static byte[] getMessageQueueMetadataKey(final String address, final long deviceId) {
-        return ("user_queue_metadata::{" + address + "::" + deviceId + "}").getBytes(StandardCharsets.UTF_8);
+    private static byte[] getMessageQueueMetadataKey(final UUID accountUuid, final long deviceId) {
+        return ("user_queue_metadata::{" + accountUuid.toString() + "::" + deviceId + "}").getBytes(StandardCharsets.UTF_8);
     }
 
-    private byte[] getQueueIndexKey(final String address, final long deviceId) {
-        return ("user_queue_index::{" + RedisClusterUtil.getMinimalHashTag(address + "::" + deviceId) + "}").getBytes(StandardCharsets.UTF_8);
+    private byte[] getQueueIndexKey(final UUID accountUuid, final long deviceId) {
+        return ("user_queue_index::{" + RedisClusterUtil.getMinimalHashTag(accountUuid.toString() + "::" + deviceId) + "}").getBytes(StandardCharsets.UTF_8);
     }
 
-    private byte[] getPersistInProgressKey(final String address, final long deviceId) {
-        return ("user_queue_persisting::{" + address + "::" + deviceId + "}").getBytes(StandardCharsets.UTF_8);
+    private byte[] getPersistInProgressKey(final UUID accountUuid, final long deviceId) {
+        return ("user_queue_persisting::{" + accountUuid.toString() + "::" + deviceId + "}").getBytes(StandardCharsets.UTF_8);
     }
 }
