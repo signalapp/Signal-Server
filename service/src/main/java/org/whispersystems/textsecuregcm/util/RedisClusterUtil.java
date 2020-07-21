@@ -1,8 +1,6 @@
 package org.whispersystems.textsecuregcm.util;
 
 import io.lettuce.core.cluster.SlotHash;
-import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
-import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
 
 public class RedisClusterUtil {
 
@@ -23,15 +21,7 @@ public class RedisClusterUtil {
         }
     }
 
-    /**
-     * Returns a short Redis hash tag that maps to the same Redis cluster slot as the given key.
-     *
-     * @param key the key for which to find a matching hash tag
-     * @return a Redis hash tag that maps to the same Redis cluster slot as the given key
-     *
-     * @see <a href="https://redis.io/topics/cluster-spec#keys-hash-tags">Redis Cluster Specification - Keys hash tags</a>
-     */
-    public static String getMinimalHashTag(final String key) {
-        return HASHES_BY_SLOT[SlotHash.getSlot(key)];
+    public static String getMinimalHashTag(final int slot) {
+        return HASHES_BY_SLOT[slot];
     }
 }
