@@ -113,7 +113,7 @@ public abstract class AbstractRedisClusterTest {
             final int startInclusive = i * slotsPerNode;
             final int endExclusive   = i == nodes.length - 1 ? MAX_SLOT : (i + 1) * slotsPerNode;
 
-            final RedisClient assignSlotClient = RedisClient.create(RedisURI.create("127.0.0.1", nodes[0].ports().get(0)));
+            final RedisClient assignSlotClient = RedisClient.create(RedisURI.create("127.0.0.1", nodes[i].ports().get(0)));
 
             try {
                 final int[] slots = new int[endExclusive - startInclusive];
