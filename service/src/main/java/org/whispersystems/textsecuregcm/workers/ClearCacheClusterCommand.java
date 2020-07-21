@@ -1,5 +1,6 @@
 package org.whispersystems.textsecuregcm.workers;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.cli.ConfiguredCommand;
 import io.dropwizard.setup.Bootstrap;
 import net.sourceforge.argparse4j.inf.Namespace;
@@ -14,7 +15,11 @@ public class ClearCacheClusterCommand extends ConfiguredCommand<WhisperServerCon
 
     @Override
     protected void run(final Bootstrap<WhisperServerConfiguration> bootstrap, final Namespace namespace, final WhisperServerConfiguration config) {
-        final FaultTolerantRedisCluster cacheCluster = new FaultTolerantRedisCluster("main_cache_cluster", config.getCacheClusterConfiguration().getUrls(), config.getCacheClusterConfiguration().getTimeout(), config.getCacheClusterConfiguration().getCircuitBreakerConfiguration());
-        cacheCluster.useWriteCluster(connection -> connection.sync().flushallAsync());
+        clearCache(new FaultTolerantRedisCluster("main_cache_cluster", config.getCacheClusterConfiguration().getUrls(), config.getCacheClusterConfiguration().getTimeout(), config.getCacheClusterConfiguration().getCircuitBreakerConfiguration()));
+    }
+
+    @VisibleForTesting
+    static void clearCache(final FaultTolerantRedisCluster cacheCluster) {
+        cacheCluster.useWriteCluster(connection -> connection.sync().masters().commands().flushallAsync());
     }
 }
