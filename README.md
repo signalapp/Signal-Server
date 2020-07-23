@@ -1,5 +1,12 @@
 Signal-Server
 =================
+Running Tests
+-------------
+
+1. Run `<service/pom.xml awk '/zkgroup-java/ { getline; print; }' | grep -o -E '[0-9]+\.[0-9]+\.[0-9]+'` in the root of the repository. This will give you the needed version of `libzkgroup`. As of writing, the version is `0.6.0`. 
+1. Download [libzkgroup](https://github.com/signalapp/zkgroup/releases). The version should match the result from the previous step.
+1. Place `libzkgroup` somewhere in the Java library path. The default Java library path is platform dependent. The details for your platform can be found [here](https://stackoverflow.com/a/49018031).
+1. Run `mvn verify`.
 
 Documentation
 -------------
