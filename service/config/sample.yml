@@ -97,5 +97,7 @@ gcm: # GCM Configuration
   apiKey:
 
 micrometer: # Micrometer metrics config
-  uri: "https://metrics.example.com/"
-  apiToken:
+  - name: "example"
+  - uri: "https://metrics.example.com/"
+  - apiKey:
+  - accountId:

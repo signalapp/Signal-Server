@@ -43,7 +43,11 @@ import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.cluster.RedisClusterClient;
+import io.micrometer.core.instrument.Clock;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.newrelic.NewRelicConfig;
+import io.micrometer.newrelic.NewRelicMeterRegistry;
+import io.micrometer.wavefront.WavefrontConfig;
 import io.micrometer.wavefront.WavefrontMeterRegistry;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
@@ -157,6 +161,7 @@ import javax.servlet.ServletRegistration;
 import java.security.Security;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -210,19 +215,59 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
   {
     SharedMetricRegistries.add(Constants.METRICS_NAME, environment.metrics());
 
+    final Map<String, MicrometerConfiguration> micrometerConfigurationByName = config.getMicrometerConfiguration();
+
     {
       // This is a workaround for an issue where the configured step duration isn't being honored by
       // WavefrontMeterRegistry; we can simplify if https://github.com/micrometer-metrics/micrometer/pull/2173 gets
       // merged.
-      final MicrometerConfiguration micrometerConfig = config.getMicrometerConfiguration();
+      final MicrometerConfiguration micrometerWavefrontConfig = micrometerConfigurationByName.get("wavefront");
 
-      final WavefrontSender wavefrontSender = WavefrontMeterRegistry.getDefaultSenderBuilder(micrometerConfig)
-                                                                    .flushIntervalSeconds((int)micrometerConfig.step().toSeconds())
+      final WavefrontConfig wavefrontConfig = new WavefrontConfig() {
+        @Override
+        public String get(final String key) {
+          return null;
+        }
+
+        @Override
+        public String uri() {
+          return micrometerWavefrontConfig.getUri();
+        }
+
+        @Override
+        public String apiToken() {
+          return micrometerWavefrontConfig.getApiKey();
+        }
+      };
+
+      final WavefrontSender wavefrontSender = WavefrontMeterRegistry.getDefaultSenderBuilder(wavefrontConfig)
+                                                                    .flushIntervalSeconds((int)wavefrontConfig.step().toSeconds())
                                                                     .build();
 
-      Metrics.addRegistry(WavefrontMeterRegistry.builder(micrometerConfig)
+      Metrics.addRegistry(WavefrontMeterRegistry.builder(wavefrontConfig)
                                                 .wavefrontSender(wavefrontSender)
                                                 .build());
+    }
+
+    {
+      final MicrometerConfiguration micrometerNewRelicConfig = micrometerConfigurationByName.get("newrelic");
+
+      Metrics.addRegistry(new NewRelicMeterRegistry(new NewRelicConfig() {
+        @Override
+        public String get(final String key) {
+          return null;
+        }
+
+        @Override
+        public String accountId() {
+          return micrometerNewRelicConfig.getAccountId();
+        }
+
+        @Override
+        public String apiKey() {
+          return micrometerNewRelicConfig.getApiKey();
+        }
+      }, Clock.SYSTEM));
     }
 
     environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);

@@ -5,28 +5,35 @@ import io.micrometer.wavefront.WavefrontConfig;
 
 import javax.validation.constraints.NotEmpty;
 
-public class MicrometerConfiguration implements WavefrontConfig {
+public class MicrometerConfiguration {
 
     @JsonProperty
     @NotEmpty
+    private String name;
+
+    @JsonProperty
     private String uri;
 
     @JsonProperty
     @NotEmpty
-    private String apiToken;
+    private String apiKey;
 
-    @Override
-    public String get(final String key) {
-        return null;
+    @JsonProperty
+    private String accountId;
+
+    public String getName() {
+        return name;
     }
 
-    @Override
-    public String uri() {
+    public String getUri() {
         return uri;
     }
 
-    @Override
-    public String apiToken() {
-        return apiToken;
+    public String getApiKey() {
+        return apiKey;
+    }
+
+    public String getAccountId() {
+        return accountId;
     }
 }
