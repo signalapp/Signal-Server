@@ -84,12 +84,19 @@
             <groupId>com.newrelic.telemetry</groupId>
             <artifactId>micrometer-registry-new-relic</artifactId>
             <version>0.5.0</version>
+
+            <exclusions>
+                <exclusion>
+                    <groupId>com.newrelic.telemetry</groupId>
+                    <artifactId>telemetry</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>com.newrelic.telemetry</groupId>
             <artifactId>telemetry-http-okhttp</artifactId>
-            <version>0.5.0</version>
+            <version>0.6.1</version>
         </dependency>
 
         <dependency>
