@@ -18,9 +18,6 @@ public class MicrometerConfiguration {
     @NotEmpty
     private String apiKey;
 
-    @JsonProperty
-    private String accountId;
-
     public String getName() {
         return name;
     }
@@ -31,9 +28,5 @@ public class MicrometerConfiguration {
 
     public String getApiKey() {
         return apiKey;
-    }
-
-    public String getAccountId() {
-        return accountId;
     }
 }

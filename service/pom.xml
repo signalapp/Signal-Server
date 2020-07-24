@@ -81,9 +81,9 @@
         </dependency>
 
         <dependency>
-            <groupId>io.micrometer</groupId>
+            <groupId>com.newrelic.telemetry</groupId>
             <artifactId>micrometer-registry-new-relic</artifactId>
-            <version>1.5.2</version>
+            <version>0.5.0</version>
         </dependency>
 
         <dependency>
