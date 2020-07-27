@@ -33,6 +33,7 @@ import org.whispersystems.textsecuregcm.util.ExecutorUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -41,6 +42,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
@@ -67,6 +69,10 @@ public class TwilioSmsSender {
   private final String            localDomain;
   private final SenderIdSupplier  senderIdSupplier;
   private final Random            random;
+  private final String            androidNgVerificationText;
+  private final String            android202001VerificationText;
+  private final String            iosVerificationText;
+  private final String            genericVerificationText;
 
   private final FaultTolerantHttpClient httpClient;
   private final URI                     smsUri;
@@ -76,24 +82,28 @@ public class TwilioSmsSender {
   public TwilioSmsSender(String baseUri, TwilioConfiguration twilioConfiguration) {
     Executor executor = ExecutorUtils.newFixedThreadBoundedQueueExecutor(10, 100);
 
-    this.accountId           = twilioConfiguration.getAccountId();
-    this.accountToken        = twilioConfiguration.getAccountToken();
-    this.numbers             = new ArrayList<>(twilioConfiguration.getNumbers());
-    this.localDomain         = twilioConfiguration.getLocalDomain();
-    this.messagingServicesId = twilioConfiguration.getMessagingServicesId();
-    this.senderIdSupplier    = new SenderIdSupplier(twilioConfiguration.getSenderId());
-    this.random              = new Random(System.currentTimeMillis());
-    this.smsUri              = URI.create(baseUri + "/2010-04-01/Accounts/" + accountId + "/Messages.json");
-    this.voxUri              = URI.create(baseUri + "/2010-04-01/Accounts/" + accountId + "/Calls.json"   );
-    this.httpClient          = FaultTolerantHttpClient.newBuilder()
-                                                      .withCircuitBreaker(twilioConfiguration.getCircuitBreaker())
-                                                      .withRetry(twilioConfiguration.getRetry())
-                                                      .withVersion(HttpClient.Version.HTTP_2)
-                                                      .withConnectTimeout(Duration.ofSeconds(10))
-                                                      .withRedirect(HttpClient.Redirect.NEVER)
-                                                      .withExecutor(executor)
-                                                      .withName("twilio")
-                                                      .build();
+    this.accountId                     = twilioConfiguration.getAccountId();
+    this.accountToken                  = twilioConfiguration.getAccountToken();
+    this.numbers                       = new ArrayList<>(twilioConfiguration.getNumbers());
+    this.localDomain                   = twilioConfiguration.getLocalDomain();
+    this.messagingServicesId           = twilioConfiguration.getMessagingServicesId();
+    this.senderIdSupplier              = new SenderIdSupplier(twilioConfiguration.getSenderId());
+    this.random                        = new Random(System.currentTimeMillis());
+    this.androidNgVerificationText     = twilioConfiguration.getAndroidNgVerificationText();
+    this.android202001VerificationText = twilioConfiguration.getAndroid202001VerificationText();
+    this.iosVerificationText           = twilioConfiguration.getIosVerificationText();
+    this.genericVerificationText       = twilioConfiguration.getGenericVerificationText();
+    this.smsUri                        = URI.create(baseUri + "/2010-04-01/Accounts/" + accountId + "/Messages.json");
+    this.voxUri                        = URI.create(baseUri + "/2010-04-01/Accounts/" + accountId + "/Calls.json"   );
+    this.httpClient                    = FaultTolerantHttpClient.newBuilder()
+                                                                .withCircuitBreaker(twilioConfiguration.getCircuitBreaker())
+                                                                .withRetry(twilioConfiguration.getRetry())
+                                                                .withVersion(HttpClient.Version.HTTP_2)
+                                                                .withConnectTimeout(Duration.ofSeconds(10))
+                                                                .withRedirect(HttpClient.Redirect.NEVER)
+                                                                .withExecutor(executor)
+                                                                .withName("twilio")
+                                                                .build();
   }
 
   public TwilioSmsSender(TwilioConfiguration twilioConfiguration) {
@@ -125,13 +135,7 @@ public class TwilioSmsSender {
     requestParameters.put("To", destination);
     setOriginationRequestParameter(destination, requestParameters);
 
-    if ("ios".equals(clientType.orElse(null))) {
-      requestParameters.put("Body", String.format(SmsSender.SMS_IOS_VERIFICATION_TEXT, verificationCode, verificationCode));
-    } else if ("android-ng".equals(clientType.orElse(null))) {
-      requestParameters.put("Body", String.format(SmsSender.SMS_ANDROID_NG_VERIFICATION_TEXT, verificationCode));
-    } else {
-      requestParameters.put("Body", String.format(SmsSender.SMS_VERIFICATION_TEXT, verificationCode));
-    }
+    requestParameters.put("Body", String.format(Locale.US, getBodyFormatString(clientType.orElse(null)), verificationCode));
 
     HttpRequest request = HttpRequest.newBuilder()
                                      .uri(smsUri)
@@ -145,6 +149,18 @@ public class TwilioSmsSender {
     return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                      .thenApply(this::parseResponse)
                      .handle(this::processResponse);
+  }
+
+  private String getBodyFormatString(@Nullable String clientType) {
+    if ("ios".equals(clientType)) {
+      return iosVerificationText;
+    } else if ("android-ng".equals(clientType)) {
+      return androidNgVerificationText;
+    } else if ("android-2020-01".equals(clientType)) {
+      return android202001VerificationText;
+    } else {
+      return genericVerificationText;
+    }
   }
 
   public CompletableFuture<Boolean> deliverVoxVerification(String destination, String verificationCode, Optional<String> locale) {

@@ -17,22 +17,13 @@
 package org.whispersystems.textsecuregcm.sms;
 
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.Optional;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class SmsSender {
-
-  static final String SMS_IOS_VERIFICATION_TEXT        = "Your Signal verification code: %s\n\nOr tap: sgnl://verify/%s";
-  static final String SMS_ANDROID_NG_VERIFICATION_TEXT = "<#> Your Signal verification code: %s\n\ndoDiFGKPO1r";
-  static final String SMS_VERIFICATION_TEXT            = "Your Signal verification code: %s";
-
   private final TwilioSmsSender twilioSender;
 
-  public SmsSender(TwilioSmsSender twilioSender)
-  {
+  public SmsSender(TwilioSmsSender twilioSender) {
     this.twilioSender = twilioSender;
   }
 

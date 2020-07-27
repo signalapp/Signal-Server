@@ -51,6 +51,18 @@ public class TwilioConfiguration {
   @Valid
   private TwilioSenderIdConfiguration senderId = new TwilioSenderIdConfiguration();
 
+  @NotEmpty
+  private String iosVerificationText;
+
+  @NotEmpty
+  private String androidNgVerificationText;
+
+  @NotEmpty
+  private String android202001VerificationText;
+
+  @NotEmpty
+  private String genericVerificationText;
+
   public String getAccountId() {
     return accountId;
   }
@@ -121,5 +133,41 @@ public class TwilioConfiguration {
   @VisibleForTesting
   public void setSenderId(TwilioSenderIdConfiguration senderId) {
     this.senderId = senderId;
+  }
+
+  public String getIosVerificationText() {
+    return iosVerificationText;
+  }
+
+  @VisibleForTesting
+  public void setIosVerificationText(String iosVerificationText) {
+    this.iosVerificationText = iosVerificationText;
+  }
+
+  public String getAndroidNgVerificationText() {
+    return androidNgVerificationText;
+  }
+
+  @VisibleForTesting
+  public void setAndroidNgVerificationText(String androidNgVerificationText) {
+    this.androidNgVerificationText = androidNgVerificationText;
+  }
+
+  public String getAndroid202001VerificationText() {
+    return android202001VerificationText;
+  }
+
+  @VisibleForTesting
+  public void setAndroid202001VerificationText(String android202001VerificationText) {
+    this.android202001VerificationText = android202001VerificationText;
+  }
+
+  public String getGenericVerificationText() {
+    return genericVerificationText;
+  }
+
+  @VisibleForTesting
+  public void setGenericVerificationText(String genericVerificationText) {
+    this.genericVerificationText = genericVerificationText;
   }
 }

@@ -45,6 +45,10 @@ public class TwilioSmsSenderTest {
     configuration.setNumbers(NUMBERS);
     configuration.setMessagingServicesId(MESSAGING_SERVICES_ID);
     configuration.setLocalDomain(LOCAL_DOMAIN);
+    configuration.setIosVerificationText("Verify on iOS: %1$s\n\nsomelink://verify/%1$s");
+    configuration.setAndroidNgVerificationText("<#> Verify on AndroidNg: %1$s\n\ncharacters");
+    configuration.setAndroid202001VerificationText("Verify on Android202001: %1$s\n\nsomelink://verify/%1$s\n\ncharacters");
+    configuration.setGenericVerificationText("Verify on whatever: %1$s");
     return configuration;
   }
 
@@ -58,7 +62,6 @@ public class TwilioSmsSenderTest {
 
 
     TwilioConfiguration configuration = createTwilioConfiguration();
-
     TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration);
     boolean         success = sender.deliverSmsVerification("+14153333333", Optional.of("android-ng"), "123-456").join();
 
@@ -66,7 +69,26 @@ public class TwilioSmsSenderTest {
 
     verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
         .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
-        .withRequestBody(equalTo("MessagingServiceSid=test_messaging_services_id&To=%2B14153333333&Body=%3C%23%3E+Your+Signal+verification+code%3A+123-456%0A%0AdoDiFGKPO1r")));
+        .withRequestBody(equalTo("MessagingServiceSid=test_messaging_services_id&To=%2B14153333333&Body=%3C%23%3E+Verify+on+AndroidNg%3A+123-456%0A%0Acharacters")));
+  }
+
+  @Test
+  public void testSendSmsAndroid202001() {
+    wireMockRule.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+                                 .withBasicAuth(ACCOUNT_ID, ACCOUNT_TOKEN)
+                                 .willReturn(aResponse()
+                                                     .withHeader("Content-Type", "application/json")
+                                                     .withBody("{\"price\": -0.00750, \"status\": \"sent\"}")));
+
+    TwilioConfiguration configuration = createTwilioConfiguration();
+    TwilioSmsSender sender = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration);
+    boolean success = sender.deliverSmsVerification("+14153333333", Optional.of("android-2020-01"), "123-456").join();
+
+    assertThat(success).isTrue();
+
+    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+            .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
+            .withRequestBody(equalTo("MessagingServiceSid=test_messaging_services_id&To=%2B14153333333&Body=Verify+on+Android202001%3A+123-456%0A%0Asomelink%3A%2F%2Fverify%2F123-456%0A%0Acharacters")));
   }
 
   @Test
@@ -91,7 +113,7 @@ public class TwilioSmsSenderTest {
   }
 
   @Test
-  public void testSendSmsFiveHundered() {
+  public void testSendSmsFiveHundred() {
     wireMockRule.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
                              .withBasicAuth(ACCOUNT_ID, ACCOUNT_TOKEN)
                              .willReturn(aResponse()
@@ -109,7 +131,7 @@ public class TwilioSmsSenderTest {
 
     verify(3, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
         .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
-        .withRequestBody(equalTo("MessagingServiceSid=test_messaging_services_id&To=%2B14153333333&Body=%3C%23%3E+Your+Signal+verification+code%3A+123-456%0A%0AdoDiFGKPO1r")));
+        .withRequestBody(equalTo("MessagingServiceSid=test_messaging_services_id&To=%2B14153333333&Body=%3C%23%3E+Verify+on+AndroidNg%3A+123-456%0A%0Acharacters")));
   }
 
   @Test
@@ -162,7 +184,7 @@ public class TwilioSmsSenderTest {
     assertThat(success).isTrue();
 
     final String requestBodyToParam = "To=" + URLEncoder.encode(destination, StandardCharsets.UTF_8);
-    final String requestBodySuffix  = "&Body=%3C%23%3E+Your+Signal+verification+code%3A+987-654%0A%0AdoDiFGKPO1r";
+    final String requestBodySuffix  = "&Body=%3C%23%3E+Verify+on+AndroidNg%3A+987-654%0A%0Acharacters";
     final String expectedRequestBody;
     if (expectedSenderId != null) {
       expectedRequestBody = requestBodyToParam + "&From=" + expectedSenderId + requestBodySuffix;
