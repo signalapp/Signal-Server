@@ -43,9 +43,7 @@ import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.cluster.RedisClusterClient;
-import io.micrometer.NewRelicRegistryConfig;
 import io.micrometer.core.instrument.Metrics;
-import io.micrometer.newrelic.NewRelicRegistry;
 import io.micrometer.wavefront.WavefrontConfig;
 import io.micrometer.wavefront.WavefrontMeterRegistry;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -246,22 +244,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       Metrics.addRegistry(WavefrontMeterRegistry.builder(wavefrontConfig)
                                                 .wavefrontSender(wavefrontSender)
                                                 .build());
-    }
-
-    {
-      final MicrometerConfiguration micrometerNewRelicConfig = micrometerConfigurationByName.get("newrelic");
-
-      Metrics.addRegistry(NewRelicRegistry.builder(new NewRelicRegistryConfig() {
-        @Override
-        public String get(final String key) {
-          return null;
-        }
-
-        @Override
-        public String apiKey() {
-          return micrometerNewRelicConfig.getApiKey();
-        }
-      }).build());
     }
 
     environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
