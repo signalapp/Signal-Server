@@ -98,7 +98,7 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
   @Override
   protected void onCrawlChunk(Optional<UUID> fromNumber, List<Account> chunkAccounts) {
     long nowHours  = TimeUnit.MILLISECONDS.toHours(System.currentTimeMillis());
-    long agoMs[]  = {TimeUnit.HOURS.toMillis(nowHours - 1   * 24 - 12),
+    long agoMs[]  = {TimeUnit.HOURS.toMillis(nowHours - 1   * 24 - 8),
                      TimeUnit.HOURS.toMillis(nowHours - 7   * 24),
                      TimeUnit.HOURS.toMillis(nowHours - 30  * 24),
                      TimeUnit.HOURS.toMillis(nowHours - 90  * 24),
