@@ -43,10 +43,14 @@ import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.cluster.RedisClusterClient;
+import io.micrometer.core.instrument.Clock;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.datadog.DatadogConfig;
+import io.micrometer.datadog.DatadogMeterRegistry;
 import io.micrometer.wavefront.WavefrontConfig;
 import io.micrometer.wavefront.WavefrontMeterRegistry;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.coursera.metrics.datadog.DatadogReporter;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
 import org.jdbi.v3.core.Jdbi;
 import org.signal.zkgroup.ServerSecretParams;
@@ -241,6 +245,22 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       Metrics.addRegistry(WavefrontMeterRegistry.builder(wavefrontConfig)
                                                 .wavefrontSender(wavefrontSender)
                                                 .build());
+    }
+
+    {
+      final MicrometerConfiguration micrometerDatadogConfig = micrometerConfigurationByName.get("datadog");
+
+      Metrics.addRegistry(new DatadogMeterRegistry(new DatadogConfig() {
+        @Override
+        public String get(final String key) {
+          return null;
+        }
+
+        @Override
+        public String apiKey() {
+          return micrometerDatadogConfig.getApiKey();
+        }
+      }, Clock.SYSTEM));
     }
 
     environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
