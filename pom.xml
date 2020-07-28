@@ -21,7 +21,7 @@
         <mockito.version>2.25.1</mockito.version>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <TextSecureServer.version>3.63</TextSecureServer.version>
+        <TextSecureServer.version>3.64</TextSecureServer.version>
     </properties>
 
     <parent>
