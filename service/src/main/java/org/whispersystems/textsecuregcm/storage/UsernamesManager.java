@@ -18,16 +18,16 @@ import static com.codahale.metrics.MetricRegistry.name;
 public class UsernamesManager {
 
   private static final MetricRegistry metricRegistry        = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private static final Timer          createTimer           = metricRegistry.timer(name(AccountsManager.class, "create"          ));
-  private static final Timer          deleteTimer           = metricRegistry.timer(name(AccountsManager.class, "delete"          ));
-  private static final Timer          getByUuidTimer        = metricRegistry.timer(name(AccountsManager.class, "getByUuid"       ));
-  private static final Timer          getByUsernameTimer    = metricRegistry.timer(name(AccountsManager.class, "getByUsername"   ));
+  private static final Timer          createTimer           = metricRegistry.timer(name(UsernamesManager.class, "create"          ));
+  private static final Timer          deleteTimer           = metricRegistry.timer(name(UsernamesManager.class, "delete"          ));
+  private static final Timer          getByUuidTimer        = metricRegistry.timer(name(UsernamesManager.class, "getByUuid"       ));
+  private static final Timer          getByUsernameTimer    = metricRegistry.timer(name(UsernamesManager.class, "getByUsername"   ));
 
-  private static final Timer          redisSetTimer         = metricRegistry.timer(name(AccountsManager.class, "redisSet"        ));
-  private static final Timer          redisUuidGetTimer     = metricRegistry.timer(name(AccountsManager.class, "redisUuidGet"    ));
-  private static final Timer          redisUsernameGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisUsernameGet"));
+  private static final Timer          redisSetTimer         = metricRegistry.timer(name(UsernamesManager.class, "redisSet"        ));
+  private static final Timer          redisUuidGetTimer     = metricRegistry.timer(name(UsernamesManager.class, "redisUuidGet"    ));
+  private static final Timer          redisUsernameGetTimer = metricRegistry.timer(name(UsernamesManager.class, "redisUsernameGet"));
 
-  private final Logger logger = LoggerFactory.getLogger(AccountsManager.class);
+  private final Logger logger = LoggerFactory.getLogger(UsernamesManager.class);
 
   private final Usernames                 usernames;
   private final ReservedUsernames         reservedUsernames;
