@@ -52,7 +52,7 @@ public class AccountDatabaseCrawlerCache {
   }
 
   public boolean claimActiveWork(String workerId, long ttlMs) {
-    return "OK".equals(cacheCluster.withWriteCluster(connection -> connection.sync().set(ACCELERATE_KEY, workerId, SetArgs.Builder.nx().px(ttlMs))));
+    return "OK".equals(cacheCluster.withWriteCluster(connection -> connection.sync().set(ACTIVE_WORKER_KEY, workerId, SetArgs.Builder.nx().px(ttlMs))));
   }
 
   public void releaseActiveWork(String workerId) {
