@@ -1,7 +1,6 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.micrometer.wavefront.WavefrontConfig;
 
 import javax.validation.constraints.NotEmpty;
 
@@ -18,6 +17,9 @@ public class MicrometerConfiguration {
     @NotEmpty
     private String apiKey;
 
+    @JsonProperty
+    private String environment;
+
     public String getName() {
         return name;
     }
@@ -28,5 +30,9 @@ public class MicrometerConfiguration {
 
     public String getApiKey() {
         return apiKey;
+    }
+
+    public String getEnvironment() {
+        return environment;
     }
 }

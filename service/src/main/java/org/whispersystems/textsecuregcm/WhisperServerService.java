@@ -45,7 +45,10 @@ import io.dropwizard.setup.Environment;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.cluster.RedisClusterClient;
 import io.micrometer.core.instrument.Clock;
+import io.micrometer.core.instrument.ImmutableTag;
+import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
 import io.micrometer.datadog.DatadogConfig;
 import io.micrometer.datadog.DatadogMeterRegistry;
 import io.micrometer.wavefront.WavefrontConfig;
@@ -156,6 +159,7 @@ import org.whispersystems.textsecuregcm.workers.ZkParamsCommand;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
 
+import javax.annotation.Nonnull;
 import javax.servlet.DispatcherType;
 import javax.servlet.FilterRegistration;
 import javax.servlet.ServletRegistration;
@@ -269,7 +273,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         public String hostTag() {
           return instanceId;
         }
-      }, Clock.SYSTEM));
+      }, Clock.SYSTEM) {
+        @Override
+        protected List<Tag> getConventionTags(@Nonnull Meter.Id id) {
+          final List<Tag> tags = super.getConventionTags(id);
+          tags.add(new ImmutableTag("environment", micrometerDatadogConfig.getEnvironment()));
+          return tags;
+        }
+      });
     }
 
     environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
