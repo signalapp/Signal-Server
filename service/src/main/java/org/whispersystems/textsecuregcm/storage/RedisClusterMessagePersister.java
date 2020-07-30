@@ -128,18 +128,18 @@ public class RedisClusterMessagePersister implements Managed {
                 int messageCount = 0;
                 List<MessageProtos.Envelope> messages;
 
-                /* do {
+                do {
                     messages = messagesCache.getMessagesToPersist(accountUuid, deviceId, MESSAGE_BATCH_LIMIT);
 
                     for (final MessageProtos.Envelope message : messages) {
                         final UUID uuid = UUID.fromString(message.getServerGuid());
 
-                        messagesDatabase.store(uuid, message, accountNumber, deviceId);
+                        // messagesDatabase.store(uuid, message, accountNumber, deviceId);
                         messagesCache.remove(accountNumber, accountUuid, deviceId, uuid);
 
                         messageCount++;
                     }
-                } while (messages.size() == MESSAGE_BATCH_LIMIT); */
+                } while (messages.size() == MESSAGE_BATCH_LIMIT);
 
                 queueSizeHistogram.update(messageCount);
             } finally {
