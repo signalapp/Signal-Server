@@ -64,7 +64,7 @@ public abstract class AbstractRedisClusterTest {
 
     @After
     public void tearDown() throws Exception {
-        redisCluster.stop();
+        redisCluster.shutdown();
     }
 
     @AfterClass

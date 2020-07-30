@@ -2,7 +2,6 @@ package org.whispersystems.textsecuregcm.redis;
 
 import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.annotations.VisibleForTesting;
-import io.dropwizard.lifecycle.Managed;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.cluster.RedisClusterClient;
@@ -23,7 +22,7 @@ import java.util.stream.Collectors;
  * read and write operations because the leader in a Redis cluster shard may fail while its read-only replicas can still
  * serve traffic.
  */
-public class FaultTolerantRedisCluster implements Managed {
+public class FaultTolerantRedisCluster {
 
     private final RedisClusterClient clusterClient;
 
@@ -56,6 +55,10 @@ public class FaultTolerantRedisCluster implements Managed {
                 FaultTolerantRedisCluster.class);
     }
 
+    void shutdown() {
+        clusterClient.shutdown();
+    }
+
     public void useReadCluster(final Consumer<StatefulRedisClusterConnection<String, String>> consumer) {
         this.readCircuitBreaker.executeRunnable(() -> consumer.accept(stringClusterConnection));
     }
@@ -86,14 +89,5 @@ public class FaultTolerantRedisCluster implements Managed {
 
     public <T> T withBinaryWriteCluster(final Function<StatefulRedisClusterConnection<byte[], byte[]>, T> consumer) {
         return this.writeCircuitBreaker.executeSupplier(() -> consumer.apply(binaryClusterConnection));
-    }
-
-    @Override
-    public void start() {
-    }
-
-    @Override
-    public void stop() {
-        clusterClient.shutdown();
     }
 }

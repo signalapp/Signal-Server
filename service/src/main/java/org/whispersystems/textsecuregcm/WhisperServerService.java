@@ -382,7 +382,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(messagesCache);
     environment.lifecycle().manage(accountDatabaseCrawler);
     environment.lifecycle().manage(remoteConfigsManager);
-    environment.lifecycle().manage(cacheCluster);
     environment.lifecycle().manage(clusterMessagePersister);
 
     AWSCredentials         credentials               = new BasicAWSCredentials(config.getCdnConfiguration().getAccessKey(), config.getCdnConfiguration().getAccessSecret());
