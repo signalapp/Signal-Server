@@ -22,6 +22,7 @@ import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.util.EC2MetadataUtils;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.jdbi3.strategies.DefaultNameStrategy;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
@@ -252,6 +253,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     {
       final MicrometerConfiguration micrometerDatadogConfig = micrometerConfigurationByName.get("datadog");
 
+      final String instanceId = EC2MetadataUtils.getInstanceId();
       Metrics.addRegistry(new DatadogMeterRegistry(new DatadogConfig() {
         @Override
         public String get(final String key) {
@@ -261,6 +263,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         @Override
         public String apiKey() {
           return micrometerDatadogConfig.getApiKey();
+        }
+
+        @Override
+        public String hostTag() {
+          return instanceId;
         }
       }, Clock.SYSTEM));
     }
