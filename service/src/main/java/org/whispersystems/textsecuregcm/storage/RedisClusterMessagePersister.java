@@ -1,15 +1,17 @@
 package org.whispersystems.textsecuregcm.storage;
 
+import com.codahale.metrics.Histogram;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.lifecycle.Managed;
-import io.micrometer.core.instrument.DistributionSummary;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushSender;
+import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
@@ -34,11 +36,12 @@ public class RedisClusterMessagePersister implements Managed {
     private volatile boolean running = false;
     private          Thread  workerThread;
 
-    private static final Timer               GET_QUEUES_TIMER         = Metrics.timer(name(RedisClusterMessagePersister.class, "getQueues"));
-    private static final Timer               PERSIST_QUEUE_TIMER      = Metrics.timer(name(RedisClusterMessagePersister.class, "persistQueue"));
-    private static final Timer               NOTIFY_SUBSCRIBERS_TIMER = Metrics.timer(name(RedisClusterMessagePersister.class, "notifySubscribers"));
-    private static final DistributionSummary QUEUE_COUNT_SUMMARY      = Metrics.summary(name(RedisClusterMessagePersister.class, "queueCount"));
-    private static final DistributionSummary QUEUE_SIZE_SUMMARY       = Metrics.summary(name(RedisClusterMessagePersister.class, "queueSize"));
+    private final MetricRegistry metricRegistry         = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+    private final Timer          getQueuesTimer         = metricRegistry.timer(name(RedisClusterMessagePersister.class, "getQueues"));
+    private final Timer          persistQueueTimer      = metricRegistry.timer(name(RedisClusterMessagePersister.class, "persistQueue"));
+    private final Timer          notifySubscribersTimer = metricRegistry.timer(name(RedisClusterMessagePersister.class, "notifySubscribers"));
+    private final Histogram      queueCountHistogram    = metricRegistry.histogram(name(RedisClusterMessagePersister.class, "queueCount"));
+    private final Histogram      queueSizeHistogram     = metricRegistry.histogram(name(RedisClusterMessagePersister.class, "queueSize"));
 
     static final int QUEUE_BATCH_LIMIT   = 100;
     static final int MESSAGE_BATCH_LIMIT = 100;
@@ -87,7 +90,9 @@ public class RedisClusterMessagePersister implements Managed {
         int queuesPersisted = 0;
 
         do {
-            queuesToPersist = GET_QUEUES_TIMER.record(() -> messagesCache.getQueuesToPersist(slot, currentTime.minus(persistDelay), QUEUE_BATCH_LIMIT));
+            try (final Timer.Context ignored = getQueuesTimer.time()) {
+                queuesToPersist = messagesCache.getQueuesToPersist(slot, currentTime.minus(persistDelay), QUEUE_BATCH_LIMIT);
+            }
 
             for (final String queue : queuesToPersist) {
                 persistQueue(queue);
@@ -97,7 +102,7 @@ public class RedisClusterMessagePersister implements Managed {
             queuesPersisted += queuesToPersist.size();
         } while (queuesToPersist.size() == QUEUE_BATCH_LIMIT);
 
-        QUEUE_COUNT_SUMMARY.record(queuesPersisted);
+        queueCountHistogram.update(queuesPersisted);
     }
 
     @VisibleForTesting
@@ -116,7 +121,7 @@ public class RedisClusterMessagePersister implements Managed {
             return;
         }
 
-        PERSIST_QUEUE_TIMER.record(() -> {
+        try (final Timer.Context ignored = persistQueueTimer.time()) {
             messagesCache.lockQueueForPersistence(queue);
 
             try {
@@ -136,15 +141,15 @@ public class RedisClusterMessagePersister implements Managed {
                     }
                 } while (messages.size() == MESSAGE_BATCH_LIMIT);
 
-                QUEUE_SIZE_SUMMARY.record(messageCount);
+                queueSizeHistogram.update(messageCount);
             } finally {
                 messagesCache.unlockQueueForPersistence(queue);
             }
-        });
+        }
     }
 
     public void notifyClients(final UUID accountUuid, final long deviceId) {
-        NOTIFY_SUBSCRIBERS_TIMER.record(() -> {
+        try (final Timer.Context ignored = notifySubscribersTimer.time()) {
             final Optional<Account> maybeAccount = accountsManager.get(accountUuid);
 
             final String address;
@@ -176,6 +181,6 @@ public class RedisClusterMessagePersister implements Managed {
                     }
                 }
             }
-        });
+        }
     }
 }
