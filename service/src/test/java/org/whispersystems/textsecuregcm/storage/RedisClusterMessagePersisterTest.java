@@ -3,6 +3,7 @@ package org.whispersystems.textsecuregcm.storage;
 import com.google.protobuf.ByteString;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.push.PushSender;
@@ -115,6 +116,7 @@ public class RedisClusterMessagePersisterTest {
     }
 
     @Test
+    @Ignore
     public void testPersistQueueNoMessages() {
         final String queueName = new String(RedisClusterMessagesCache.getMessageQueueKey(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID), StandardCharsets.UTF_8);
 
@@ -130,6 +132,7 @@ public class RedisClusterMessagePersisterTest {
     }
 
     @Test
+    @Ignore
     public void testPersistQueueSingleMessage() {
         final String queueName = new String(RedisClusterMessagesCache.getMessageQueueKey(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID), StandardCharsets.UTF_8);
 
@@ -141,12 +144,13 @@ public class RedisClusterMessagePersisterTest {
 
         verify(messagesCache).lockQueueForPersistence(queueName);
         verify(messagesCache).getMessagesToPersist(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID, RedisClusterMessagePersister.MESSAGE_BATCH_LIMIT);
-        // verify(messagesDatabase).store(UUID.fromString(message.getServerGuid()), message, DESTINATION_ACCOUNT_NUMBER, DESTINATION_DEVICE_ID);
+        verify(messagesDatabase).store(UUID.fromString(message.getServerGuid()), message, DESTINATION_ACCOUNT_NUMBER, DESTINATION_DEVICE_ID);
         verify(messagesCache).remove(DESTINATION_ACCOUNT_NUMBER, DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID, UUID.fromString(message.getServerGuid()));
         verify(messagesCache).unlockQueueForPersistence(queueName);
     }
 
     @Test
+    @Ignore
     public void testPersistQueueMultiplePages() {
         final int messageCount = RedisClusterMessagePersister.MESSAGE_BATCH_LIMIT * 3;
         final List<MessageProtos.Envelope> messagesInQueue = new ArrayList<>(messageCount);
@@ -167,7 +171,7 @@ public class RedisClusterMessagePersisterTest {
 
         verify(messagesCache).lockQueueForPersistence(queueName);
         verify(messagesCache, times(4)).getMessagesToPersist(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID, RedisClusterMessagePersister.MESSAGE_BATCH_LIMIT);
-        // verify(messagesDatabase, times(messageCount)).store(any(UUID.class), any(MessageProtos.Envelope.class), eq(DESTINATION_ACCOUNT_NUMBER), eq(DESTINATION_DEVICE_ID));
+        verify(messagesDatabase, times(messageCount)).store(any(UUID.class), any(MessageProtos.Envelope.class), eq(DESTINATION_ACCOUNT_NUMBER), eq(DESTINATION_DEVICE_ID));
         verify(messagesCache, times(messageCount)).remove(eq(DESTINATION_ACCOUNT_NUMBER), eq(DESTINATION_ACCOUNT_UUID), eq(DESTINATION_DEVICE_ID), any(UUID.class));
         verify(messagesCache).unlockQueueForPersistence(queueName);
     }

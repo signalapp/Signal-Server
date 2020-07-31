@@ -403,15 +403,15 @@ public class MessagesCache implements Managed, UserMessagesCache {
     }
   }
 
-  private static class MessagePersister extends Thread {
+  private class MessagePersister extends Thread {
 
-    private static final Logger         logger              = LoggerFactory.getLogger(MessagePersister.class);
-    private static final MetricRegistry metricRegistry      = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-    private static final Timer          getQueuesTimer      = metricRegistry.timer(name(MessagesCache.class, "getQueues"   ));
-    private static final Timer          persistQueueTimer   = metricRegistry.timer(name(MessagesCache.class, "persistQueue"));
-    private static final Timer          notifyTimer         = metricRegistry.timer(name(MessagesCache.class, "notifyUser"  ));
-    private static final Histogram      queueSizeHistogram  = metricRegistry.histogram(name(MessagesCache.class, "persistQueueSize" ));
-    private static final Histogram      queueCountHistogram = metricRegistry.histogram(name(MessagesCache.class, "persistQueueCount"));
+    private final Logger         logger              = LoggerFactory.getLogger(MessagePersister.class);
+    private final MetricRegistry metricRegistry      = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+    private final Timer          getQueuesTimer      = metricRegistry.timer(name(MessagesCache.class, "getQueues"   ));
+    private final Timer          persistQueueTimer   = metricRegistry.timer(name(MessagesCache.class, "persistQueue"));
+    private final Timer          notifyTimer         = metricRegistry.timer(name(MessagesCache.class, "notifyUser"  ));
+    private final Histogram      queueSizeHistogram  = metricRegistry.histogram(name(MessagesCache.class, "persistQueueSize" ));
+    private final Histogram      queueCountHistogram = metricRegistry.histogram(name(MessagesCache.class, "persistQueueCount"));
 
     private static final int CHUNK_SIZE = 100;
 
@@ -492,6 +492,8 @@ public class MessagesCache implements Managed, UserMessagesCache {
 
       int messagesPersistedCount = 0;
 
+      UUID destinationUuid = accountsManager.get(key.getAddress()).map(Account::getUuid).orElse(null);
+
       try (Jedis jedis = jedisPool.getWriteResource()) {
         while (true) {
           jedis.setex(key.getUserMessageQueuePersistInProgress(), 30, "1".getBytes());
@@ -499,7 +501,7 @@ public class MessagesCache implements Managed, UserMessagesCache {
           Set<Tuple> messages = jedis.zrangeWithScores(key.getUserMessageQueue(), 0, CHUNK_SIZE);
 
           for (Tuple message : messages) {
-            persistMessage(jedis, key, (long)message.getScore(), message.getBinaryElement());
+            persistMessage(key, destinationUuid, (long)message.getScore(), message.getBinaryElement());
             messagesPersistedCount++;
           }
 
@@ -514,7 +516,7 @@ public class MessagesCache implements Managed, UserMessagesCache {
       }
     }
 
-    private void persistMessage(Jedis jedis, Key key, long score, byte[] message) {
+    private void persistMessage(Key key, UUID destinationUuid, long score, byte[] message) {
       try {
         Envelope envelope = Envelope.parseFrom(message);
         UUID     guid     = envelope.hasServerGuid() ? UUID.fromString(envelope.getServerGuid()) : null;
@@ -526,7 +528,7 @@ public class MessagesCache implements Managed, UserMessagesCache {
         logger.error("Error parsing envelope", e);
       }
 
-      removeOperation.remove(jedis, key.getAddress(), key.getDeviceId(), score);
+      remove(key.getAddress(), destinationUuid, key.getDeviceId(), score);
     }
 
     private List<byte[]> getQueuesToPersist(GetOperation getOperation) {

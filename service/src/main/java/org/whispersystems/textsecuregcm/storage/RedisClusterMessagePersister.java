@@ -125,7 +125,7 @@ public class RedisClusterMessagePersister implements Managed {
             messagesCache.lockQueueForPersistence(queue);
 
             try {
-                int messageCount = 0;
+                /* int messageCount = 0;
                 List<MessageProtos.Envelope> messages;
 
                 do {
@@ -134,14 +134,14 @@ public class RedisClusterMessagePersister implements Managed {
                     for (final MessageProtos.Envelope message : messages) {
                         final UUID uuid = UUID.fromString(message.getServerGuid());
 
-                        // messagesDatabase.store(uuid, message, accountNumber, deviceId);
+                        messagesDatabase.store(uuid, message, accountNumber, deviceId);
                         messagesCache.remove(accountNumber, accountUuid, deviceId, uuid);
 
                         messageCount++;
                     }
                 } while (messages.size() == MESSAGE_BATCH_LIMIT);
 
-                queueSizeHistogram.update(messageCount);
+                queueSizeHistogram.update(messageCount); */
             } finally {
                 messagesCache.unlockQueueForPersistence(queue);
             }
