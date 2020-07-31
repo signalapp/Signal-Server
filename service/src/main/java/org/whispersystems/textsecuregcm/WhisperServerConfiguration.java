@@ -99,7 +99,7 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
-  private RedisConfiguration metricsCache;
+  private RedisClusterConfiguration metricsCluster;
 
   @NotNull
   @Valid
@@ -253,8 +253,8 @@ public class WhisperServerConfiguration extends Configuration {
     return pubsub;
   }
 
-  public RedisConfiguration getMetricsCacheConfiguration() {
-    return metricsCache;
+  public RedisClusterConfiguration getMetricsClusterConfiguration() {
+    return metricsCluster;
   }
 
   public DirectoryConfiguration getDirectoryConfiguration() {

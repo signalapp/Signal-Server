@@ -114,7 +114,7 @@ public class PushSender implements Managed {
 
     gcmSender.sendMessage(gcmMessage);
 
-    RedisOperation.unchecked(() -> pushLatencyManager.recordPushSent(account.getNumber(), device.getId()));
+    RedisOperation.unchecked(() -> pushLatencyManager.recordPushSent(account.getUuid(), device.getId()));
   }
 
   private void sendApnMessage(Account account, Device device, Envelope outgoingMessage, boolean online) {
@@ -141,7 +141,7 @@ public class PushSender implements Managed {
 
     apnSender.sendMessage(apnMessage);
 
-    RedisOperation.unchecked(() -> pushLatencyManager.recordPushSent(account.getNumber(), device.getId()));
+    RedisOperation.unchecked(() -> pushLatencyManager.recordPushSent(account.getUuid(), device.getId()));
   }
 
   private void sendWebSocketMessage(Account account, Device device, Envelope outgoingMessage, boolean online)

@@ -61,6 +61,10 @@ messageStore: # Postgresql database configuration for message store
   password:
   url:
 
+metricsCluster:
+  urls:
+    - redis://redis.example.com:6379/
+
 awsAttachments: # AWS S3 configuration
   accessKey:
   accessSecret:

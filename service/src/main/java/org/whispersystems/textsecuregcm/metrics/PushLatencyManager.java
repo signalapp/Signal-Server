@@ -2,102 +2,68 @@ package org.whispersystems.textsecuregcm.metrics;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
+import io.lettuce.core.SetArgs;
+import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
 import io.micrometer.core.instrument.Metrics;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.Response;
-import redis.clients.jedis.Transaction;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 
 import java.time.Duration;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
  * Measures and records the latency between sending a push notification to a device and that device draining its queue
  * of messages.
+ * <p/>
+ * When the server sends a push notification to a device, the push latency manager creates a Redis key/value pair
+ * mapping the current timestamp to the given device if such a mapping doesn't already exist. When a client connects and
+ * clears its message queue, the push latency manager gets and clears the time of the initial push notification to that
+ * device and records the time elapsed since the push notification timestamp as a latency observation.
  */
 public class PushLatencyManager {
-    private static final Logger         logger         = LoggerFactory.getLogger(PushLatencyManager.class);
-    private static final String         TIMER_NAME     = MetricRegistry.name(PushLatencyManager.class, "latency");
-    private static final int            TTL            = (int)Duration.ofDays(3).toSeconds();
+    private static final String TIMER_NAME = MetricRegistry.name(PushLatencyManager.class, "latency");
+    private static final int    TTL        = (int)Duration.ofDays(1).toSeconds();
 
-    @VisibleForTesting
-    static final int                    QUEUE_SIZE     = 1_000;
+    private final FaultTolerantRedisCluster redisCluster;
 
-    private final ReplicatedJedisPool   jedisPool;
-    private final ThreadPoolExecutor    threadPoolExecutor;
+    public PushLatencyManager(final FaultTolerantRedisCluster redisCluster) {
+        this.redisCluster = redisCluster;
+    }
 
-    public PushLatencyManager(final ReplicatedJedisPool jedisPool) {
-        this(jedisPool, new ThreadPoolExecutor( 1, 1, 0L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(QUEUE_SIZE), new ThreadPoolExecutor.DiscardPolicy()));
+    public void recordPushSent(final UUID accountUuid, final long deviceId) {
+        recordPushSent(accountUuid, deviceId, System.currentTimeMillis());
     }
 
     @VisibleForTesting
-    PushLatencyManager(final ReplicatedJedisPool jedisPool, final ThreadPoolExecutor threadPoolExecutor) {
-        this.jedisPool          = jedisPool;
-        this.threadPoolExecutor = threadPoolExecutor;
-
-        Metrics.gaugeCollectionSize(MetricRegistry.name(getClass(), "queueDepth"), Collections.emptyList(), threadPoolExecutor.getQueue());
+    void recordPushSent(final UUID accountUuid, final long deviceId, final long currentTime) {
+        redisCluster.useWriteCluster(connection ->
+                connection.async().set(getFirstUnacknowledgedPushKey(accountUuid, deviceId), String.valueOf(currentTime), SetArgs.Builder.nx().ex(TTL)));
     }
 
-    public void recordPushSent(final String accountNumber, final long deviceId) {
-        recordPushSent(accountNumber, deviceId, System.currentTimeMillis());
-    }
-
-    @VisibleForTesting
-    void recordPushSent(final String accountNumber, final long deviceId, final long currentTime) {
-        final String key = getFirstUnacknowledgedPushKey(accountNumber, deviceId);
-
-        threadPoolExecutor.execute(() -> {
-            try (final Jedis jedis = jedisPool.getWriteResource()) {
-                final Transaction transaction = jedis.multi();
-                transaction.setnx(key, String.valueOf(currentTime));
-                transaction.expire(key, TTL);
-                transaction.exec();
-            }
-        });
-    }
-
-    public void recordQueueRead(final String accountNumber, final long deviceId, final String userAgent) {
-        threadPoolExecutor.execute(() -> {
-            final Optional<Long> maybeLatency = getLatencyAndClearTimestamp(accountNumber, deviceId, System.currentTimeMillis());
-
-            if (maybeLatency.isPresent()) {
-                Metrics.timer(TIMER_NAME, UserAgentTagUtil.getUserAgentTags(userAgent)).record(maybeLatency.get(), TimeUnit.MILLISECONDS);
+    public void recordQueueRead(final UUID accountUuid, final long deviceId, final String userAgent) {
+        getLatencyAndClearTimestamp(accountUuid, deviceId, System.currentTimeMillis()).thenAccept(latency -> {
+            if (latency != null) {
+                Metrics.timer(TIMER_NAME, UserAgentTagUtil.getUserAgentTags(userAgent)).record(latency, TimeUnit.MILLISECONDS);
             }
         });
     }
 
     @VisibleForTesting
-    Optional<Long> getLatencyAndClearTimestamp(final String accountNumber, final long deviceId, final long currentTimeMillis) {
-        final String key = getFirstUnacknowledgedPushKey(accountNumber, deviceId);
+    CompletableFuture<Long> getLatencyAndClearTimestamp(final UUID accountUuid, final long deviceId, final long currentTimeMillis) {
+        final String key = getFirstUnacknowledgedPushKey(accountUuid, deviceId);
 
-        try (final Jedis jedis = jedisPool.getWriteResource()) {
-            final Transaction transaction = jedis.multi();
-            transaction.get(key);
-            transaction.del(key);
+        return redisCluster.withWriteCluster(connection -> {
+            final RedisAdvancedClusterAsyncCommands<String, String> commands = connection.async();
 
-            final List<Response<?>> responses       = transaction.execGetResponse();
-            final String            timestampString = (String)responses.get(0).get();
+            final CompletableFuture<String> getFuture = commands.get(key).toCompletableFuture();
+            commands.del(key);
 
-            if (timestampString != null) {
-                try {
-                    return Optional.of(currentTimeMillis - Long.parseLong(timestampString, 10));
-                } catch (final NumberFormatException e) {
-                    logger.warn("Failed to parse timestamp: {}", timestampString);
-                }
-            }
-
-            return Optional.empty();
-        }
+            return getFuture.thenApply(timestampString -> timestampString != null ? currentTimeMillis - Long.parseLong(timestampString, 10) : null);
+        });
     }
 
-    private static String getFirstUnacknowledgedPushKey(final String accountNumber, final long deviceId) {
-        return "push_latency::" + accountNumber + "::" + deviceId;
+    private static String getFirstUnacknowledgedPushKey(final UUID accountUuid, final long deviceId) {
+        return "push_latency::" + accountUuid.toString() + "::" + deviceId;
     }
 }

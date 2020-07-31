@@ -29,11 +29,8 @@ public class MessagesManager {
   private static final Meter          cacheHitByGuidMeter  = metricRegistry.meter(name(MessagesManager.class, "cacheHitByGuid" ));
   private static final Meter          cacheMissByGuidMeter = metricRegistry.meter(name(MessagesManager.class, "cacheMissByGuid"));
 
-  private static final Logger         logger               = LoggerFactory.getLogger(MessagesManager.class);
-
-  private final Messages      messages;
-  private final MessagesCache messagesCache;
-
+  private final Messages           messages;
+  private final MessagesCache      messagesCache;
   private final PushLatencyManager pushLatencyManager;
 
   public MessagesManager(Messages messages, MessagesCache messagesCache, PushLatencyManager pushLatencyManager) {
@@ -48,7 +45,7 @@ public class MessagesManager {
   }
 
   public OutgoingMessageEntityList getMessagesForDevice(String destination, UUID destinationUuid, long destinationDevice, final String userAgent) {
-    RedisOperation.unchecked(() -> pushLatencyManager.recordQueueRead(destination, destinationDevice, userAgent));
+    RedisOperation.unchecked(() -> pushLatencyManager.recordQueueRead(destinationUuid, destinationDevice, userAgent));
 
     List<OutgoingMessageEntity> messages = this.messages.load(destination, destinationDevice);
 
