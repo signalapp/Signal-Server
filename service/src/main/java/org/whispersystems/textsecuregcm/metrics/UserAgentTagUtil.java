@@ -26,7 +26,7 @@ public class UserAgentTagUtil {
             "desktop", Pattern.compile("^Signal Desktop (1[^ ]+).*$", Pattern.CASE_INSENSITIVE),
             "ios", Pattern.compile("^Signal/(3[^ ]+) \\(.*ios.*\\)$", Pattern.CASE_INSENSITIVE));
 
-    static final         int                       MAX_VERSIONS  = 10_000;
+    static final         int                       MAX_VERSIONS  = 1_000;
     private static final Set<Pair<String, String>> SEEN_VERSIONS = new HashSet<>();
 
     private UserAgentTagUtil() {
