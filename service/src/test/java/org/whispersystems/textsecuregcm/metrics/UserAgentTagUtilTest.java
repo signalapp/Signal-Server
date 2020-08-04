@@ -22,17 +22,27 @@ public class UserAgentTagUtilTest {
                      new HashSet<>(UserAgentTagUtil.getUserAgentTags(userAgent)));
     }
 
+    private static List<Tag> platformVersionTags(String platform, String version) {
+        return List.of(Tag.of(UserAgentTagUtil.PLATFORM_TAG, platform), Tag.of(UserAgentTagUtil.VERSION_TAG, version));
+    }
+
     @SuppressWarnings("unused")
     private Object argumentsForTestGetUserAgentTags() {
         return new Object[] {
                 new Object[] { "This is obviously not a reasonable User-Agent string.", UserAgentTagUtil.UNRECOGNIZED_TAGS },
                 new Object[] { null,                                                    UserAgentTagUtil.UNRECOGNIZED_TAGS },
-                new Object[] { "Signal-Android 4.53.7 (Android 8.1)",                   List.of(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android"), Tag.of(UserAgentTagUtil.VERSION_TAG, "4.53.7")) },
-                new Object[] { "Signal Desktop 1.2.3",                                  List.of(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "desktop"), Tag.of(UserAgentTagUtil.VERSION_TAG, "1.2.3")) },
-                new Object[] { "Signal/3.9.0 (iPhone; iOS 12.2; Scale/3.00)",           List.of(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "ios"), Tag.of(UserAgentTagUtil.VERSION_TAG, "3.9.0")) },
+                new Object[] { "Signal-Android 4.53.7 (Android 8.1)",                   platformVersionTags("android", "4.53.7") },
+                new Object[] { "Signal Desktop 1.2.3",                                  platformVersionTags("desktop", "1.2.3") },
+                new Object[] { "Signal/3.9.0 (iPhone; iOS 12.2; Scale/3.00)",           platformVersionTags("ios", "3.9.0") },
                 new Object[] { "Signal-Android 1.2.3 (Android 8.1)",                    UserAgentTagUtil.UNRECOGNIZED_TAGS },
                 new Object[] { "Signal Desktop 3.9.0",                                  UserAgentTagUtil.UNRECOGNIZED_TAGS },
                 new Object[] { "Signal/4.53.7 (iPhone; iOS 12.2; Scale/3.00)",          UserAgentTagUtil.UNRECOGNIZED_TAGS },
+                new Object[] { "Signal-Android 4.68.3 (Android 9)",                     platformVersionTags("android", "4.68.3") },
+                new Object[] { "Signal-Android 1.2.3 (Android 4.3)",                    UserAgentTagUtil.UNRECOGNIZED_TAGS },
+                new Object[] { "Signal-Android 4.68.3.0-bobsbootlegclient",             UserAgentTagUtil.UNRECOGNIZED_TAGS },
+                new Object[] { "Signal Desktop 1.22.45-foo-0",                          UserAgentTagUtil.UNRECOGNIZED_TAGS },
+                new Object[] { "Signal Desktop 1.34.5-beta.1-fakeclientemporium",       UserAgentTagUtil.UNRECOGNIZED_TAGS },
+                new Object[] { "Signal Desktop 1.32.0-beta.3",                          UserAgentTagUtil.UNRECOGNIZED_TAGS },
         };
     }
 

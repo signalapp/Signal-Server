@@ -6,7 +6,6 @@ import org.whispersystems.textsecuregcm.util.Pair;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -22,9 +21,9 @@ public class UserAgentTagUtil {
     static final         List<Tag> UNRECOGNIZED_TAGS = List.of(Tag.of(PLATFORM_TAG, "unrecognized"), Tag.of(VERSION_TAG, "unrecognized"));
 
     private static final Map<String, Pattern> PATTERNS_BY_PLATFORM = Map.of(
-            "android", Pattern.compile("^Signal-Android (4[^ ]+).*$", Pattern.CASE_INSENSITIVE),
-            "desktop", Pattern.compile("^Signal Desktop (1[^ ]+).*$", Pattern.CASE_INSENSITIVE),
-            "ios", Pattern.compile("^Signal/(3[^ ]+) \\(.*ios.*\\)$", Pattern.CASE_INSENSITIVE));
+            "android", Pattern.compile("^Signal-Android (4\\.\\d+\\.\\d+(?:\\.\\d+)?)(?:\\s.*)?$", Pattern.CASE_INSENSITIVE),
+            "desktop", Pattern.compile("^Signal Desktop (1\\.\\d+\\.\\d+(?:\\.\\d+)?)(?:\\s.*)?$", Pattern.CASE_INSENSITIVE),
+            "ios", Pattern.compile("^Signal/(3\\.\\d+\\.\\d+(?:\\.\\d+)?) \\(.*ios.*\\)(?:\\s.*)?$", Pattern.CASE_INSENSITIVE));
 
     static final         int                       MAX_VERSIONS  = 1_000;
     private static final Set<Pair<String, String>> SEEN_VERSIONS = new HashSet<>();
