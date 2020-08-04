@@ -1,6 +1,7 @@
 package org.whispersystems.textsecuregcm.websocket;
 
 import com.codahale.metrics.Counter;
+import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
@@ -8,6 +9,8 @@ import com.google.protobuf.ByteString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
+import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
+import org.whispersystems.textsecuregcm.push.DisplacedPresenceListener;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
@@ -31,24 +34,28 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private static final Timer          durationTimer                = metricRegistry.timer(name(WebSocketConnection.class, "connected_duration"                 ));
   private static final Timer          unauthenticatedDurationTimer = metricRegistry.timer(name(WebSocketConnection.class, "unauthenticated_connection_duration"));
   private static final Counter        openWebsocketCounter         = metricRegistry.counter(name(WebSocketConnection.class, "open_websockets"));
+  private static final Meter          explicitDisplacementMeter    = metricRegistry.meter(name(WebSocketConnection.class, "explicitDisplacement"));
 
-  private final PushSender         pushSender;
-  private final ReceiptSender      receiptSender;
-  private final MessagesManager    messagesManager;
-  private final PubSubManager      pubSubManager;
-  private final ApnFallbackManager apnFallbackManager;
+  private final PushSender            pushSender;
+  private final ReceiptSender         receiptSender;
+  private final MessagesManager       messagesManager;
+  private final PubSubManager         pubSubManager;
+  private final ApnFallbackManager    apnFallbackManager;
+  private final ClientPresenceManager clientPresenceManager;
 
   public AuthenticatedConnectListener(PushSender pushSender,
                                       ReceiptSender receiptSender,
                                       MessagesManager messagesManager,
                                       PubSubManager pubSubManager,
-                                      ApnFallbackManager apnFallbackManager)
+                                      ApnFallbackManager apnFallbackManager,
+                                      ClientPresenceManager clientPresenceManager)
   {
-    this.pushSender         = pushSender;
-    this.receiptSender      = receiptSender;
-    this.messagesManager    = messagesManager;
-    this.pubSubManager      = pubSubManager;
-    this.apnFallbackManager = apnFallbackManager;
+    this.pushSender            = pushSender;
+    this.receiptSender         = receiptSender;
+    this.messagesManager       = messagesManager;
+    this.pubSubManager         = pubSubManager;
+    this.apnFallbackManager    = apnFallbackManager;
+    this.clientPresenceManager = clientPresenceManager;
   }
 
   @Override
@@ -68,6 +75,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
       openWebsocketCounter.inc();
       RedisOperation.unchecked(() -> apnFallbackManager.cancel(account, device));
+      clientPresenceManager.setPresent(account.getUuid(), device.getId(), explicitDisplacementMeter::mark);
       pubSubManager.publish(address, connectMessage);
       pubSubManager.subscribe(address, connection);
 
@@ -76,6 +84,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
         public void onWebSocketClose(WebSocketSessionContext context, int statusCode, String reason) {
           openWebsocketCounter.dec();
           pubSubManager.unsubscribe(address, connection);
+          clientPresenceManager.clearPresence(account.getUuid(), device.getId());
           timer.stop();
         }
       });

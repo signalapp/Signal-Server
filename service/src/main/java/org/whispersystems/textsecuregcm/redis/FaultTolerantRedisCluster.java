@@ -51,6 +51,8 @@ public class FaultTolerantRedisCluster {
         this.writeCircuitBreaker     = CircuitBreaker.of(name + "-write", circuitBreakerConfiguration.toCircuitBreakerConfig());
         this.pubSubCircuitBreaker    = CircuitBreaker.of(name + "-pubsub", circuitBreakerConfiguration.toCircuitBreakerConfig());
 
+        this.pubSubClusterConnection.setNodeMessagePropagation(true);
+
         CircuitBreakerUtil.registerMetrics(SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME),
                 readCircuitBreaker,
                 FaultTolerantRedisCluster.class);

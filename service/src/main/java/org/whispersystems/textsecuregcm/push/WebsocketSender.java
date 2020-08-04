@@ -22,6 +22,7 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.google.protobuf.ByteString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
@@ -29,6 +30,8 @@ import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningAddress;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
+
+import java.util.concurrent.Executor;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
@@ -60,12 +63,18 @@ public class WebsocketSender {
   private final Meter provisioningOnlineMeter  = metricRegistry.meter(name(getClass(), "provisioning_online" ));
   private final Meter provisioningOfflineMeter = metricRegistry.meter(name(getClass(), "provisioning_offline"));
 
-  private final MessagesManager messagesManager;
-  private final PubSubManager   pubSubManager;
+  private final MessagesManager       messagesManager;
+  private final PubSubManager         pubSubManager;
+  private final ClientPresenceManager clientPresenceManager;
 
-  public WebsocketSender(MessagesManager messagesManager, PubSubManager pubSubManager) {
-    this.messagesManager = messagesManager;
-    this.pubSubManager   = pubSubManager;
+  private final Experiment presenceExperiment = new Experiment("presence", "websocketSender");
+  private final Executor   experimentExecutor;
+
+  public WebsocketSender(MessagesManager messagesManager, PubSubManager pubSubManager, ClientPresenceManager clientPresenceManager, Executor experimentExecutor) {
+    this.messagesManager       = messagesManager;
+    this.pubSubManager         = pubSubManager;
+    this.clientPresenceManager = clientPresenceManager;
+    this.experimentExecutor    = experimentExecutor;
   }
 
   public DeliveryStatus sendMessage(Account account, Device device, Envelope message, Type channel, boolean online) {
@@ -75,7 +84,11 @@ public class WebsocketSender {
                                                   .setContent(message.toByteString())
                                                   .build();
 
-    if (pubSubManager.publish(address, pubSubMessage)) {
+    final boolean clientPresent = pubSubManager.publish(address, pubSubMessage);
+
+    presenceExperiment.compareSupplierResultAsync(clientPresent, () -> clientPresenceManager.isPresent(account.getUuid(), device.getId()), experimentExecutor);
+
+    if (clientPresent) {
       if      (channel == Type.APN) apnOnlineMeter.mark();
       else if (channel == Type.GCM) gcmOnlineMeter.mark();
       else                          websocketOnlineMeter.mark();

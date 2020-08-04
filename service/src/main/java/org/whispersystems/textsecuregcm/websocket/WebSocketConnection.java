@@ -15,6 +15,7 @@ import org.whispersystems.textsecuregcm.entities.CryptoEncodingException;
 import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
+import org.whispersystems.textsecuregcm.push.DisplacedPresenceListener;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -40,9 +41,10 @@ import static org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessag
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class WebSocketConnection implements DispatchChannel {
 
-  private static final MetricRegistry metricRegistry   = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  public  static final Histogram      messageTime      = metricRegistry.histogram(name(MessageController.class, "message_delivery_duration"));
-  private static final Meter          sendMessageMeter = metricRegistry.meter(name(WebSocketConnection.class, "send_message"));
+  private static final MetricRegistry metricRegistry          = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  public  static final Histogram      messageTime             = metricRegistry.histogram(name(MessageController.class, "message_delivery_duration"));
+  private static final Meter          sendMessageMeter        = metricRegistry.meter(name(WebSocketConnection.class, "send_message"));
+  private static final Meter          pubSubDisplacementMeter = metricRegistry.meter(name(WebSocketConnection.class, "pubSubDisplacement"));
 
   private static final Logger logger = LoggerFactory.getLogger(WebSocketConnection.class);
 
@@ -86,6 +88,7 @@ public class WebSocketConnection implements DispatchChannel {
           break;
         case PubSubMessage.Type.CONNECTED_VALUE:
           if (pubSubMessage.hasContent() && !new String(pubSubMessage.getContent().toByteArray()).equals(connectionId)) {
+            pubSubDisplacementMeter.mark();
             client.hardDisconnectQuietly();
           }
           break;
