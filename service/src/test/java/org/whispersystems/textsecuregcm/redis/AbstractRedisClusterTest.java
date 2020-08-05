@@ -14,7 +14,6 @@ import redis.embedded.RedisServer;
 import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
-import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
@@ -74,21 +73,16 @@ public abstract class AbstractRedisClusterTest {
         }
     }
 
-    private static RedisServer buildClusterNode(final int port) throws IOException, URISyntaxException {
-        final File clusterConfigFile     = File.createTempFile("redis", ".conf");
-        final File rdbFile               = File.createTempFile("redis", ".rdb");
-
-        // Redis struggles with existing-but-empty RDB files
-        rdbFile.delete();
-        rdbFile.deleteOnExit();
+    private static RedisServer buildClusterNode(final int port) throws IOException {
+        final File clusterConfigFile = File.createTempFile("redis", ".conf");
         clusterConfigFile.deleteOnExit();
 
         return RedisServer.builder()
                 .setting("cluster-enabled yes")
                 .setting("cluster-config-file " + clusterConfigFile.getAbsolutePath())
                 .setting("cluster-node-timeout 5000")
+                .setting("appendonly no")
                 .setting("dir " + System.getProperty("java.io.tmpdir"))
-                .setting("dbfilename " + rdbFile.getName())
                 .port(port)
                 .build();
     }
