@@ -56,6 +56,9 @@ public class FaultTolerantRedisCluster {
     }
 
     void shutdown() {
+        stringClusterConnection.close();
+        binaryClusterConnection.close();
+
         clusterClient.shutdown();
     }
 
