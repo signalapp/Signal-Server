@@ -330,9 +330,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ReplicatedJedisPool messagesClient      = messagesClientFactory.getRedisClientPool();
     ReplicatedJedisPool pushSchedulerClient = pushSchedulerClientFactory.getRedisClientPool();
 
-    RedisClusterClient cacheClusterClient = RedisClusterClient.create(config.getCacheClusterConfiguration().getUrls().stream().map(RedisURI::create).collect(Collectors.toList()));
-    cacheClusterClient.setDefaultTimeout(config.getCacheClusterConfiguration().getTimeout());
-
     FaultTolerantRedisCluster cacheCluster         = new FaultTolerantRedisCluster("main_cache_cluster", config.getCacheClusterConfiguration().getUrls(), config.getCacheClusterConfiguration().getTimeout(), config.getCacheClusterConfiguration().getCircuitBreakerConfiguration());
     FaultTolerantRedisCluster messagesCacheCluster = new FaultTolerantRedisCluster("messages_cluster", config.getMessageCacheConfiguration().getRedisClusterConfiguration().getUrls(), config.getMessageCacheConfiguration().getRedisClusterConfiguration().getTimeout(), config.getMessageCacheConfiguration().getRedisClusterConfiguration().getCircuitBreakerConfiguration());
     FaultTolerantRedisCluster metricsCluster       = new FaultTolerantRedisCluster("metrics_cluster", config.getMetricsClusterConfiguration().getUrls(), config.getMetricsClusterConfiguration().getTimeout(), config.getMetricsClusterConfiguration().getCircuitBreakerConfiguration());
