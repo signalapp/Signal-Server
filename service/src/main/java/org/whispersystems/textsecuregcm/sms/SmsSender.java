@@ -27,10 +27,6 @@ public class SmsSender {
     this.twilioSender = twilioSender;
   }
 
-  public void deliverUpdatetoSignalSms(String destination) {
-    twilioSender.deliverArbitrarySms(destination, "To continue installing, update to Signal: https://play.google.com/store/apps/details?id=org.thoughtcrime.securesms");
-  }
-
   public void deliverSmsVerification(String destination, Optional<String> clientType, String verificationCode) {
     // Fix up mexico numbers to 'mobile' format just for SMS delivery.
     if (destination.startsWith("+52") && !destination.startsWith("+521")) {

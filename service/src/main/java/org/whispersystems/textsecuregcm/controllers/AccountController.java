@@ -21,6 +21,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
+import io.dropwizard.auth.Auth;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
@@ -84,7 +85,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static com.codahale.metrics.MetricRegistry.name;
-import io.dropwizard.auth.Auth;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/accounts")
@@ -225,11 +225,6 @@ public class AccountController {
         break;
       default:
         throw new WebApplicationException(Response.status(422).build());
-    }
-
-    if (userAgent != null && userAgent.stream().anyMatch(header -> header.toLowerCase().contains("okhttp"))) {
-      smsSender.deliverUpdatetoSignalSms(number);
-      return Response.ok().build();
     }
 
     VerificationCode       verificationCode       = generateVerificationCode(number);

@@ -22,6 +22,7 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
@@ -57,7 +58,6 @@ public class TwilioSmsSender {
   private static final Logger         logger         = LoggerFactory.getLogger(TwilioSmsSender.class);
 
   private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private final Meter          arbitraryMeter = metricRegistry.meter(name(getClass(), "arbitrary", "delivered"));
   private final Meter          smsMeter       = metricRegistry.meter(name(getClass(), "sms", "delivered"));
   private final Meter          voxMeter       = metricRegistry.meter(name(getClass(), "vox", "delivered"));
   private final Meter          priceMeter     = metricRegistry.meter(name(getClass(), "price"));
@@ -65,7 +65,8 @@ public class TwilioSmsSender {
   private final String            accountId;
   private final String            accountToken;
   private final ArrayList<String> numbers;
-  private final String            messagingServicesId;
+  private final String            messagingServiceSid;
+  private final String            nanpaMessagingServiceSid;
   private final String            localDomain;
   private final SenderIdSupplier  senderIdSupplier;
   private final Random            random;
@@ -86,7 +87,8 @@ public class TwilioSmsSender {
     this.accountToken                  = twilioConfiguration.getAccountToken();
     this.numbers                       = new ArrayList<>(twilioConfiguration.getNumbers());
     this.localDomain                   = twilioConfiguration.getLocalDomain();
-    this.messagingServicesId           = twilioConfiguration.getMessagingServicesId();
+    this.messagingServiceSid           = twilioConfiguration.getMessagingServiceSid();
+    this.nanpaMessagingServiceSid      = twilioConfiguration.getNanpaMessagingServiceSid();
     this.senderIdSupplier              = new SenderIdSupplier(twilioConfiguration.getSenderId());
     this.random                        = new Random(System.currentTimeMillis());
     this.androidNgVerificationText     = twilioConfiguration.getAndroidNgVerificationText();
@@ -108,26 +110,6 @@ public class TwilioSmsSender {
 
   public TwilioSmsSender(TwilioConfiguration twilioConfiguration) {
       this("https://api.twilio.com", twilioConfiguration);
-  }
-
-  public CompletableFuture<Boolean> deliverArbitrarySms(String destination, String message) {
-    Map<String, String> requestParameters = new HashMap<>();
-    requestParameters.put("To", destination);
-    setOriginationRequestParameter(destination, requestParameters);
-    requestParameters.put("Body", message);
-
-    HttpRequest request = HttpRequest.newBuilder()
-                                     .uri(smsUri)
-                                     .POST(FormDataBodyPublisher.of(requestParameters))
-                                     .header("Content-Type", "application/x-www-form-urlencoded")
-                                     .header("Authorization", "Basic " + Base64.encodeBytes((accountId + ":" + accountToken).getBytes()))
-                                     .build();
-
-    arbitraryMeter.mark();
-
-    return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                     .thenApply(this::parseResponse)
-                     .handle(this::processResponse);
   }
 
   public CompletableFuture<Boolean> deliverSmsVerification(String destination, Optional<String> clientType, String verificationCode) {
@@ -193,10 +175,12 @@ public class TwilioSmsSender {
     final Optional<String> senderId = senderIdSupplier.get(destination);
     if (senderId.isPresent()) {
       requestParameters.put("From", senderId.get());
-    } else if (Util.isEmpty(messagingServicesId)) {
-      requestParameters.put("From", getRandom(random, numbers));
+    } else if (StringUtils.isNotEmpty(nanpaMessagingServiceSid) && "1".equals(Util.getCountryCode(destination))) {
+      requestParameters.put("MessagingServiceSid", nanpaMessagingServiceSid);
+    } else if (StringUtils.isNotEmpty(messagingServiceSid)) {
+      requestParameters.put("MessagingServiceSid", messagingServiceSid);
     } else {
-      requestParameters.put("MessagingServiceSid", messagingServicesId);
+      requestParameters.put("From", getRandom(random, numbers));
     }
   }
 
