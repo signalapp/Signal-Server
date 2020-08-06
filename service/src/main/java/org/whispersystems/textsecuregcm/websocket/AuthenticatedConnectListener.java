@@ -1,5 +1,6 @@
 package org.whispersystems.textsecuregcm.websocket;
 
+import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
@@ -29,6 +30,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private static final MetricRegistry metricRegistry               = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private static final Timer          durationTimer                = metricRegistry.timer(name(WebSocketConnection.class, "connected_duration"                 ));
   private static final Timer          unauthenticatedDurationTimer = metricRegistry.timer(name(WebSocketConnection.class, "unauthenticated_connection_duration"));
+  private static final Counter        openWebsocketCounter         = metricRegistry.counter(name(WebSocketConnection.class, "open_websockets"));
 
   private final PushSender         pushSender;
   private final ReceiptSender      receiptSender;
@@ -64,6 +66,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
                                                                   .setContent(ByteString.copyFrom(connectionId.getBytes()))
                                                                   .build();
 
+      openWebsocketCounter.inc();
       RedisOperation.unchecked(() -> apnFallbackManager.cancel(account, device));
       pubSubManager.publish(address, connectMessage);
       pubSubManager.subscribe(address, connection);
@@ -71,6 +74,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       context.addListener(new WebSocketSessionContext.WebSocketEventListener() {
         @Override
         public void onWebSocketClose(WebSocketSessionContext context, int statusCode, String reason) {
+          openWebsocketCounter.dec();
           pubSubManager.unsubscribe(address, connection);
           timer.stop();
         }
