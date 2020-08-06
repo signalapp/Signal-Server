@@ -375,7 +375,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     TurnTokenGenerator       turnTokenGenerator  = new TurnTokenGenerator(config.getTurnConfiguration());
     RecaptchaClient          recaptchaClient     = new RecaptchaClient(config.getRecaptchaConfiguration().getSecret());
 
-    MessagePersister             messagePersister        = new MessagePersister(messagesCache, messagesClient, messages, pubSubManager, pushSender, accountsManager,config.getMessageCacheConfiguration().getPersistDelayMinutes(), TimeUnit.MINUTES);
+    MessagePersister             messagePersister        = new MessagePersister(messagesClient, messagesManager, pubSubManager, pushSender, accountsManager,config.getMessageCacheConfiguration().getPersistDelayMinutes(), TimeUnit.MINUTES);
     RedisClusterMessagePersister clusterMessagePersister = new RedisClusterMessagePersister(clusterMessagesCache, messages, pubSubManager, pushSender, accountsManager, Duration.ofMinutes(config.getMessageCacheConfiguration().getPersistDelayMinutes()));
 
     DirectoryReconciliationClient directoryReconciliationClient = new DirectoryReconciliationClient(config.getDirectoryConfiguration().getDirectoryServerConfiguration());
