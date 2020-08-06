@@ -66,16 +66,7 @@ public class MessagesCache implements Managed, UserMessagesCache {
   private PushSender       pushSender;
   private MessagePersister messagePersister;
 
-  private final RedisClusterMessagesCache clusterMessagesCache;
-  private final ExecutorService           experimentExecutor = new ThreadPoolExecutor(8, 8, 0, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(1_000));
-
-  private final Experiment insertExperiment         = new Experiment("MessagesCache", "insert");
-  private final Experiment removeByIdExperiment     = new Experiment("MessagesCache", "removeById");
-  private final Experiment removeBySenderExperiment = new Experiment("MessagesCache", "removeBySender");
-  private final Experiment removeByUuidExperiment   = new Experiment("MessagesCache", "removeByUuid");
-  private final Experiment getMessagesExperiment    = new Experiment("MessagesCache", "getMessages");
-
-  public MessagesCache(ReplicatedJedisPool jedisPool, Messages database, AccountsManager accountsManager, int delayMinutes, RedisClusterMessagesCache clusterMessagesCache) throws IOException {
+  public MessagesCache(ReplicatedJedisPool jedisPool, Messages database, AccountsManager accountsManager, int delayMinutes) throws IOException {
     this.jedisPool        = jedisPool;
     this.database         = database;
     this.accountsManager  = accountsManager;
@@ -84,8 +75,6 @@ public class MessagesCache implements Managed, UserMessagesCache {
     this.insertOperation  = new InsertOperation(jedisPool);
     this.removeOperation  = new RemoveOperation(jedisPool);
     this.getOperation     = new GetOperation(jedisPool);
-
-    this.clusterMessagesCache = clusterMessagesCache;
   }
 
   @Override
@@ -95,10 +84,7 @@ public class MessagesCache implements Managed, UserMessagesCache {
     Timer.Context timer = insertTimer.time();
 
     try {
-      final long messageId = insertOperation.insert(guid, destination, destinationDevice, System.currentTimeMillis(), messageWithGuid);
-      insertExperiment.compareSupplierResultAsync(messageId, () -> clusterMessagesCache.insert(guid, destination, destinationUuid, destinationDevice, message, messageId), experimentExecutor);
-
-      return messageId;
+      return insertOperation.insert(guid, destination, destinationDevice, System.currentTimeMillis(), messageWithGuid);
     } finally {
       timer.stop();
     }
@@ -120,11 +106,7 @@ public class MessagesCache implements Managed, UserMessagesCache {
       logger.warn("Failed to parse envelope", e);
     }
 
-    final Optional<OutgoingMessageEntity> maybeRemovedMessage = Optional.ofNullable(removedMessageEntity);
-
-    removeByIdExperiment.compareSupplierResultAsync(maybeRemovedMessage, () -> clusterMessagesCache.remove(destination, destinationUuid, destinationDevice, id), experimentExecutor);
-
-    return maybeRemovedMessage;
+    return Optional.ofNullable(removedMessageEntity);
   }
 
   @Override
@@ -144,11 +126,7 @@ public class MessagesCache implements Managed, UserMessagesCache {
       timer.stop();
     }
 
-    final Optional<OutgoingMessageEntity> maybeRemovedMessage = Optional.ofNullable(removedMessageEntity);
-
-    removeBySenderExperiment.compareSupplierResultAsync(maybeRemovedMessage, () -> clusterMessagesCache.remove(destination, destinationUuid, destinationDevice, sender, timestamp), experimentExecutor);
-
-    return maybeRemovedMessage;
+    return Optional.ofNullable(removedMessageEntity);
   }
 
   @Override
@@ -168,11 +146,7 @@ public class MessagesCache implements Managed, UserMessagesCache {
       timer.stop();
     }
 
-    final Optional<OutgoingMessageEntity> maybeRemovedMessage = Optional.ofNullable(removedMessageEntity);
-
-    removeByUuidExperiment.compareSupplierResultAsync(maybeRemovedMessage, () -> clusterMessagesCache.remove(destination, destinationUuid, destinationDevice, guid), experimentExecutor);
-
-    return maybeRemovedMessage;
+    return Optional.ofNullable(removedMessageEntity);
   }
 
   @Override
@@ -193,8 +167,6 @@ public class MessagesCache implements Managed, UserMessagesCache {
           logger.warn("Failed to parse envelope", e);
         }
       }
-
-      getMessagesExperiment.compareSupplierResultAsync(results, () -> clusterMessagesCache.get(destination, destinationUuid, destinationDevice, limit), experimentExecutor);
 
       return results;
     } finally {
@@ -241,8 +213,6 @@ public class MessagesCache implements Managed, UserMessagesCache {
   public void stop() throws Exception {
     messagePersister.shutdown();
     logger.info("Message persister shut down...");
-
-    this.experimentExecutor.shutdown();
   }
 
   private static class Key {

@@ -4,11 +4,10 @@ package org.whispersystems.textsecuregcm.storage;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
+import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -16,6 +15,7 @@ import org.whispersystems.textsecuregcm.util.Constants;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
@@ -29,19 +29,31 @@ public class MessagesManager {
   private static final Meter          cacheHitByGuidMeter  = metricRegistry.meter(name(MessagesManager.class, "cacheHitByGuid" ));
   private static final Meter          cacheMissByGuidMeter = metricRegistry.meter(name(MessagesManager.class, "cacheMissByGuid"));
 
-  private final Messages           messages;
-  private final MessagesCache      messagesCache;
-  private final PushLatencyManager pushLatencyManager;
+  private final Messages                  messages;
+  private final MessagesCache             messagesCache;
+  private final RedisClusterMessagesCache clusterMessagesCache;
+  private final PushLatencyManager        pushLatencyManager;
 
-  public MessagesManager(Messages messages, MessagesCache messagesCache, PushLatencyManager pushLatencyManager) {
-    this.messages           = messages;
-    this.messagesCache      = messagesCache;
-    this.pushLatencyManager = pushLatencyManager;
+  private final ExecutorService experimentExecutor;
+  private final Experiment      insertExperiment         = new Experiment("MessagesCache", "insert");
+  private final Experiment      removeByIdExperiment     = new Experiment("MessagesCache", "removeById");
+  private final Experiment      removeBySenderExperiment = new Experiment("MessagesCache", "removeBySender");
+  private final Experiment      removeByUuidExperiment   = new Experiment("MessagesCache", "removeByUuid");
+  private final Experiment      getMessagesExperiment    = new Experiment("MessagesCache", "getMessages");
+
+  public MessagesManager(Messages messages, MessagesCache messagesCache, RedisClusterMessagesCache clusterMessagesCache, PushLatencyManager pushLatencyManager, final ExecutorService experimentExecutor) {
+    this.messages             = messages;
+    this.messagesCache        = messagesCache;
+    this.clusterMessagesCache = clusterMessagesCache;
+    this.pushLatencyManager   = pushLatencyManager;
+    this.experimentExecutor   = experimentExecutor;
   }
 
   public void insert(String destination, UUID destinationUuid, long destinationDevice, Envelope message) {
-    UUID guid = UUID.randomUUID();
-    messagesCache.insert(guid, destination, destinationUuid, destinationDevice, message);
+    final UUID guid      = UUID.randomUUID();
+    final long messageId = messagesCache.insert(guid, destination, destinationUuid, destinationDevice, message);
+
+    insertExperiment.compareSupplierResultAsync(messageId, () -> clusterMessagesCache.insert(guid, destination, destinationUuid, destinationDevice, message, messageId), experimentExecutor);
   }
 
   public OutgoingMessageEntityList getMessagesForDevice(String destination, UUID destinationUuid, long destinationDevice, final String userAgent) {
@@ -50,7 +62,10 @@ public class MessagesManager {
     List<OutgoingMessageEntity> messages = this.messages.load(destination, destinationDevice);
 
     if (messages.size() <= Messages.RESULT_SET_CHUNK_SIZE) {
-      messages.addAll(this.messagesCache.get(destination, destinationUuid, destinationDevice, Messages.RESULT_SET_CHUNK_SIZE - messages.size()));
+      final List<OutgoingMessageEntity> messagesFromCache = this.messagesCache.get(destination, destinationUuid, destinationDevice, Messages.RESULT_SET_CHUNK_SIZE - messages.size());
+      getMessagesExperiment.compareSupplierResultAsync(messagesFromCache, () -> clusterMessagesCache.get(destination, destinationUuid, destinationDevice, Messages.RESULT_SET_CHUNK_SIZE - messages.size()), experimentExecutor);
+
+      messages.addAll(messagesFromCache);
     }
 
     return new OutgoingMessageEntityList(messages, messages.size() >= Messages.RESULT_SET_CHUNK_SIZE);
@@ -69,6 +84,7 @@ public class MessagesManager {
   public Optional<OutgoingMessageEntity> delete(String destination, UUID destinationUuid, long destinationDevice, String source, long timestamp)
   {
     Optional<OutgoingMessageEntity> removed = this.messagesCache.remove(destination, destinationUuid, destinationDevice, source, timestamp);
+    removeBySenderExperiment.compareSupplierResultAsync(removed, () -> clusterMessagesCache.remove(destination, destinationUuid, destinationDevice, source, timestamp), experimentExecutor);
 
     if (!removed.isPresent()) {
       removed = this.messages.remove(destination, destinationDevice, source, timestamp);
@@ -82,6 +98,7 @@ public class MessagesManager {
 
   public Optional<OutgoingMessageEntity> delete(String destination, UUID destinationUuid, long deviceId, UUID guid) {
     Optional<OutgoingMessageEntity> removed = this.messagesCache.remove(destination, destinationUuid, deviceId, guid);
+    removeByUuidExperiment.compareSupplierResultAsync(removed, () -> clusterMessagesCache.remove(destination, destinationUuid, deviceId, guid), experimentExecutor);
 
     if (!removed.isPresent()) {
       removed = this.messages.remove(destination, guid);
@@ -95,7 +112,8 @@ public class MessagesManager {
 
   public void delete(String destination, UUID destinationUuid, long deviceId, long id, boolean cached) {
     if (cached) {
-      this.messagesCache.remove(destination, destinationUuid, deviceId, id);
+      final Optional<OutgoingMessageEntity> maybeRemovedMessage = this.messagesCache.remove(destination, destinationUuid, deviceId, id);
+      removeByIdExperiment.compareSupplierResultAsync(maybeRemovedMessage, () -> clusterMessagesCache.remove(destination, destinationUuid, deviceId, id), experimentExecutor);
       cacheHitByIdMeter.mark();
     } else {
       this.messages.remove(destination, id);
