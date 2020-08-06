@@ -26,7 +26,7 @@ public class MessagesCacheTest extends AbstractMessagesCacheTest {
         final RedisClientFactory  clientFactory = new RedisClientFactory("message-cache-test", redisUrl, List.of(redisUrl), new CircuitBreakerConfiguration());
         final ReplicatedJedisPool jedisPool     = clientFactory.getRedisClientPool();
 
-        messagesCache = new MessagesCache(jedisPool, mock(Messages.class), mock(AccountsManager.class), 60);
+        messagesCache = new MessagesCache(jedisPool);
     }
 
     @After
