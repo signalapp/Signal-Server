@@ -5,11 +5,14 @@ import junitparams.Parameters;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -20,6 +23,7 @@ public class RedisClusterMessagesCacheTest extends AbstractMessagesCacheTest {
     private static final UUID   DESTINATION_UUID      = UUID.randomUUID();
     private static final int    DESTINATION_DEVICE_ID = 7;
 
+    private ExecutorService           notificationExecutorService;
     private RedisClusterMessagesCache messagesCache;
 
     @Override
@@ -27,13 +31,18 @@ public class RedisClusterMessagesCacheTest extends AbstractMessagesCacheTest {
     public void setUp() throws Exception {
         super.setUp();
 
-        try {
-            messagesCache = new RedisClusterMessagesCache(getRedisCluster());
-        } catch (final IOException e) {
-            throw new RuntimeException(e);
-        }
+        getRedisCluster().useWriteCluster(connection -> connection.sync().masters().commands().configSet("notify-keyspace-events", "K$gz"));
 
-        getRedisCluster().useWriteCluster(connection -> connection.sync().flushall());
+        notificationExecutorService = Executors.newSingleThreadExecutor();
+        messagesCache               = new RedisClusterMessagesCache(getRedisCluster(), notificationExecutorService);
+    }
+
+    @Override
+    public void tearDown() throws Exception {
+        super.tearDown();
+
+        notificationExecutorService.shutdown();
+        notificationExecutorService.awaitTermination(1, TimeUnit.SECONDS);
     }
 
     @Override
@@ -71,6 +80,12 @@ public class RedisClusterMessagesCacheTest extends AbstractMessagesCacheTest {
     }
 
     @Test
+    public void testGetQueueNameFromKeyspaceChannel() {
+        assertEquals("1b363a31-a429-4fb6-8959-984a025e72ff::7",
+                     RedisClusterMessagesCache.getQueueNameFromKeyspaceChannel("__keyspace@0__:user_queue::{1b363a31-a429-4fb6-8959-984a025e72ff::7}"));
+    }
+
+    @Test
     @Parameters({"true", "false"})
     public void testGetQueuesToPersist(final boolean sealedSender) {
         final UUID messageGuid  = UUID.randomUUID();
@@ -85,5 +100,68 @@ public class RedisClusterMessagesCacheTest extends AbstractMessagesCacheTest {
         assertEquals(1, queues.size());
         assertEquals(DESTINATION_UUID, RedisClusterMessagesCache.getAccountUuidFromQueueName(queues.get(0)));
         assertEquals(DESTINATION_DEVICE_ID, RedisClusterMessagesCache.getDeviceIdFromQueueName(queues.get(0)));
+    }
+
+    @Test(timeout = 5_000L)
+    public void testNotifyListenerNewMessage() throws InterruptedException {
+        final AtomicBoolean notified    = new AtomicBoolean(false);
+        final UUID          messageGuid = UUID.randomUUID();
+
+        final MessageAvailabilityListener listener = new MessageAvailabilityListener() {
+            @Override
+            public void handleNewMessagesAvailable() {
+                synchronized (notified) {
+                    notified.set(true);
+                    notified.notifyAll();
+                }
+            }
+
+            @Override
+            public void handleMessagesPersisted() {
+            }
+        };
+
+        messagesCache.addMessageAvailabilityListener(DESTINATION_UUID, DESTINATION_DEVICE_ID, listener);
+        messagesCache.insert(messageGuid, DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID, generateRandomMessage(messageGuid, true));
+
+        synchronized (notified) {
+            while (!notified.get()) {
+                notified.wait();
+            }
+        }
+
+        assertTrue(notified.get());
+    }
+
+    @Test(timeout = 5_000L)
+    public void testNotifyListenerPersisted() throws InterruptedException {
+        final AtomicBoolean notified    = new AtomicBoolean(false);
+
+        final MessageAvailabilityListener listener = new MessageAvailabilityListener() {
+            @Override
+            public void handleNewMessagesAvailable() {
+            }
+
+            @Override
+            public void handleMessagesPersisted() {
+                synchronized (notified) {
+                    notified.set(true);
+                    notified.notifyAll();
+                }
+            }
+        };
+
+        messagesCache.addMessageAvailabilityListener(DESTINATION_UUID, DESTINATION_DEVICE_ID, listener);
+
+        messagesCache.lockQueueForPersistence(RedisClusterMessagesCache.getQueueName(DESTINATION_UUID, DESTINATION_DEVICE_ID));
+        messagesCache.unlockQueueForPersistence(RedisClusterMessagesCache.getQueueName(DESTINATION_UUID, DESTINATION_DEVICE_ID));
+
+        synchronized (notified) {
+            while (!notified.get()) {
+                notified.wait();
+            }
+        }
+
+        assertTrue(notified.get());
     }
 }

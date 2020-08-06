@@ -4,6 +4,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.cluster.SlotHash;
+import io.lettuce.core.cluster.event.ClusterTopologyChangedEvent;
+import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
+import io.lettuce.core.cluster.pubsub.RedisClusterPubSubAdapter;
 import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,15 +21,20 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-public class RedisClusterMessagesCache implements UserMessagesCache {
+public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String, String> implements UserMessagesCache {
 
     private final FaultTolerantRedisCluster redisCluster;
+    private final ExecutorService           notificationExecutorService;
 
     private final ClusterLuaScript insertScript;
     private final ClusterLuaScript removeByIdScript;
@@ -36,8 +44,14 @@ public class RedisClusterMessagesCache implements UserMessagesCache {
     private final ClusterLuaScript removeQueueScript;
     private final ClusterLuaScript getQueuesToPersistScript;
 
+    private final Map<String, MessageAvailabilityListener> messageListenersByQueueName = new HashMap<>();
+    private final Map<MessageAvailabilityListener, String> queueNamesByMessageListener = new IdentityHashMap<>();
+
     static final         String NEXT_SLOT_TO_PERSIST_KEY  = "user_queue_persist_slot";
     private static final byte[] LOCK_VALUE                = "1".getBytes(StandardCharsets.UTF_8);
+
+    private static final String QUEUE_KEYSPACE_PATTERN      = "__keyspace@0__:user_queue::*";
+    private static final String PERSISTING_KEYSPACE_PATTERN = "__keyspace@0__:user_queue_persisting::*";
 
     private static final String INSERT_TIMER_NAME = name(RedisClusterMessagesCache.class, "insert");
     private static final String REMOVE_TIMER_NAME = name(RedisClusterMessagesCache.class, "remove");
@@ -51,9 +65,10 @@ public class RedisClusterMessagesCache implements UserMessagesCache {
 
     private static final Logger logger = LoggerFactory.getLogger(RedisClusterMessagesCache.class);
 
-    public RedisClusterMessagesCache(final FaultTolerantRedisCluster redisCluster) throws IOException {
+    public RedisClusterMessagesCache(final FaultTolerantRedisCluster redisCluster, final ExecutorService notificationExecutorService) throws IOException {
 
-        this.redisCluster = redisCluster;
+        this.redisCluster                = redisCluster;
+        this.notificationExecutorService = notificationExecutorService;
 
         this.insertScript             = ClusterLuaScript.fromResource(redisCluster, "lua/insert_item.lua",           ScriptOutputType.INTEGER);
         this.removeByIdScript         = ClusterLuaScript.fromResource(redisCluster, "lua/remove_item_by_id.lua",     ScriptOutputType.VALUE);
@@ -62,6 +77,24 @@ public class RedisClusterMessagesCache implements UserMessagesCache {
         this.getItemsScript           = ClusterLuaScript.fromResource(redisCluster, "lua/get_items.lua",             ScriptOutputType.MULTI);
         this.removeQueueScript        = ClusterLuaScript.fromResource(redisCluster, "lua/remove_queue.lua",          ScriptOutputType.STATUS);
         this.getQueuesToPersistScript = ClusterLuaScript.fromResource(redisCluster, "lua/get_queues_to_persist.lua", ScriptOutputType.MULTI);
+
+        RedisClusterUtil.assertKeyspaceNotificationsConfigured(redisCluster, "K$gz");
+
+        redisCluster.usePubSubConnection(connection -> {
+            connection.addListener(this);
+            connection.getResources().eventBus().get()
+                    .filter(event -> event instanceof ClusterTopologyChangedEvent)
+                    .handle((event, sink) -> {
+                        resubscribeAll();
+                        sink.next(event);
+                    });
+
+            connection.sync().masters().commands().psubscribe(QUEUE_KEYSPACE_PATTERN, PERSISTING_KEYSPACE_PATTERN);
+        });
+    }
+
+    private void resubscribeAll() {
+        redisCluster.usePubSubConnection(connection -> connection.sync().masters().commands().psubscribe(QUEUE_KEYSPACE_PATTERN, PERSISTING_KEYSPACE_PATTERN));
     }
 
     @Override
@@ -249,6 +282,55 @@ public class RedisClusterMessagesCache implements UserMessagesCache {
 
     void unlockQueueForPersistence(final String queue) {
         redisCluster.useBinaryWriteCluster(connection -> connection.sync().del(getPersistInProgressKey(queue)));
+    }
+
+    public void addMessageAvailabilityListener(final UUID destinationUuid, final long deviceId, final MessageAvailabilityListener listener) {
+        final String queueName = getQueueName(destinationUuid, deviceId);
+
+        synchronized (messageListenersByQueueName) {
+            messageListenersByQueueName.put(queueName, listener);
+            queueNamesByMessageListener.put(listener, queueName);
+        }
+    }
+
+    public void removeMessageAvailabilityListener(final MessageAvailabilityListener listener) {
+        synchronized (messageListenersByQueueName) {
+            final String queueName = queueNamesByMessageListener.remove(listener);
+
+            if (queueName != null) {
+                messageListenersByQueueName.remove(queueName);
+            }
+        }
+    }
+
+    @Override
+    public void message(final RedisClusterNode node, final String pattern, final String channel, final String message) {
+        if (QUEUE_KEYSPACE_PATTERN.equals(pattern) && "zadd".equals(message)) {
+            notificationExecutorService.execute(() -> findListener(channel).ifPresent(MessageAvailabilityListener::handleNewMessagesAvailable));
+        } else if (PERSISTING_KEYSPACE_PATTERN.equals(pattern) && "del".equals(message)) {
+            notificationExecutorService.execute(() -> findListener(channel).ifPresent(MessageAvailabilityListener::handleMessagesPersisted));
+        }
+    }
+
+    private Optional<MessageAvailabilityListener> findListener(final String keyspaceChannel) {
+        final String queueName = getQueueNameFromKeyspaceChannel(keyspaceChannel);
+
+        synchronized (messageListenersByQueueName) {
+            return Optional.ofNullable(messageListenersByQueueName.get(queueName));
+        }
+    }
+
+    @VisibleForTesting
+    static String getQueueName(final UUID accountUuid, final long deviceId) {
+        return accountUuid + "::" + deviceId;
+    }
+
+    @VisibleForTesting
+    static String getQueueNameFromKeyspaceChannel(final String channel) {
+        final int startOfHashTag = channel.indexOf('{');
+        final int endOfHashTag = channel.lastIndexOf('}');
+
+        return channel.substring(startOfHashTag + 1, endOfHashTag);
     }
 
     @VisibleForTesting

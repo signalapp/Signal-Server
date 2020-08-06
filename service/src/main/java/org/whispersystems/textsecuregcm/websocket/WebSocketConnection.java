@@ -15,12 +15,12 @@ import org.whispersystems.textsecuregcm.entities.CryptoEncodingException;
 import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
-import org.whispersystems.textsecuregcm.push.DisplacedPresenceListener;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.MessageAvailabilityListener;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.TimestampHeaderUtil;
@@ -39,12 +39,16 @@ import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import static org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public class WebSocketConnection implements DispatchChannel {
+public class WebSocketConnection implements DispatchChannel, MessageAvailabilityListener {
 
   private static final MetricRegistry metricRegistry          = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   public  static final Histogram      messageTime             = metricRegistry.histogram(name(MessageController.class, "message_delivery_duration"));
   private static final Meter          sendMessageMeter        = metricRegistry.meter(name(WebSocketConnection.class, "send_message"));
   private static final Meter          pubSubDisplacementMeter = metricRegistry.meter(name(WebSocketConnection.class, "pubSubDisplacement"));
+  private static final Meter          messageAvailableMeter   = metricRegistry.meter(name(WebSocketConnection.class, "messagesAvailable"));
+  private static final Meter          messagesPersistedMeter  = metricRegistry.meter(name(WebSocketConnection.class, "messagesPersisted"));
+  private static final Meter          pubSubNewMessageMeter   = metricRegistry.meter(name(WebSocketConnection.class, "pubSubNewMessage"));
+  private static final Meter          pubSubPersistedMeter    = metricRegistry.meter(name(WebSocketConnection.class, "pubSubPersisted"));
 
   private static final Logger logger = LoggerFactory.getLogger(WebSocketConnection.class);
 
@@ -81,9 +85,11 @@ public class WebSocketConnection implements DispatchChannel {
 
       switch (pubSubMessage.getType().getNumber()) {
         case PubSubMessage.Type.QUERY_DB_VALUE:
+          pubSubPersistedMeter.mark();
           processStoredMessages();
           break;
         case PubSubMessage.Type.DELIVER_VALUE:
+          pubSubNewMessageMeter.mark();
           sendMessage(Envelope.parseFrom(pubSubMessage.getContent()), Optional.empty(), false);
           break;
         case PubSubMessage.Type.CONNECTED_VALUE:
@@ -212,6 +218,16 @@ public class WebSocketConnection implements DispatchChannel {
     if (!messages.hasMore()) {
       client.sendRequest("PUT", "/api/v1/queue/empty", Collections.singletonList(TimestampHeaderUtil.getTimestampHeader()), Optional.empty());
     }
+  }
+
+  @Override
+  public void handleNewMessagesAvailable() {
+    messageAvailableMeter.mark();
+  }
+
+  @Override
+  public void handleMessagesPersisted() {
+    messagesPersistedMeter.mark();
   }
 
   private static class StoredMessageInfo {

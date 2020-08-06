@@ -127,4 +127,12 @@ public class MessagesManager {
     final Optional<OutgoingMessageEntity> maybeRemovedMessage = messagesCache.remove(destination, destinationUuid, deviceId, id);
     removeByIdExperiment.compareSupplierResultAsync(maybeRemovedMessage, () -> clusterMessagesCache.remove(destination, destinationUuid, deviceId, id), experimentExecutor);
   }
+
+  public void addMessageAvailabilityListener(final UUID destinationUuid, final long deviceId, final MessageAvailabilityListener listener) {
+    clusterMessagesCache.addMessageAvailabilityListener(destinationUuid, deviceId, listener);
+  }
+
+  public void removeMessageAvailabilityListener(final MessageAvailabilityListener listener) {
+    clusterMessagesCache.removeMessageAvailabilityListener(listener);
+  }
 }

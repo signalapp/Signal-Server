@@ -76,6 +76,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       openWebsocketCounter.inc();
       RedisOperation.unchecked(() -> apnFallbackManager.cancel(account, device));
       clientPresenceManager.setPresent(account.getUuid(), device.getId(), explicitDisplacementMeter::mark);
+      messagesManager.addMessageAvailabilityListener(account.getUuid(), device.getId(), connection);
       pubSubManager.publish(address, connectMessage);
       pubSubManager.subscribe(address, connection);
 
@@ -85,6 +86,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
           openWebsocketCounter.dec();
           pubSubManager.unsubscribe(address, connection);
           clientPresenceManager.clearPresence(account.getUuid(), device.getId());
+          messagesManager.removeMessageAvailabilityListener(connection);
           timer.stop();
         }
       });
