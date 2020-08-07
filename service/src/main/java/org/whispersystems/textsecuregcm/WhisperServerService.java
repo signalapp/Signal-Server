@@ -51,7 +51,6 @@ import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import io.micrometer.datadog.DatadogConfig;
 import io.micrometer.datadog.DatadogMeterRegistry;
 import io.micrometer.signalfx.SignalFxConfig;
-import io.micrometer.signalfx.SignalFxMeterRegistry;
 import io.micrometer.wavefront.WavefrontConfig;
 import io.micrometer.wavefront.WavefrontMeterRegistry;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -99,6 +98,7 @@ import org.whispersystems.textsecuregcm.metrics.MetricsApplicationEventListener;
 import org.whispersystems.textsecuregcm.metrics.NetworkReceivedGauge;
 import org.whispersystems.textsecuregcm.metrics.NetworkSentGauge;
 import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
+import org.whispersystems.textsecuregcm.metrics.SignalSignalFxMeterRegistry;
 import org.whispersystems.textsecuregcm.metrics.TrafficSource;
 import org.whispersystems.textsecuregcm.providers.RedisClientFactory;
 import org.whispersystems.textsecuregcm.providers.RedisClusterHealthCheck;
@@ -296,7 +296,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     {
       final MicrometerConfiguration micrometerSignalfxConfig = micrometerConfigurationByName.get("signalfx");
-      Metrics.addRegistry(new SignalFxMeterRegistry(new SignalFxConfig() {
+      Metrics.addRegistry(new SignalSignalFxMeterRegistry(new SignalFxConfig() {
         @Override
         public String get(String key) {
           return null;
