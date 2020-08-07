@@ -48,8 +48,6 @@ import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
-import io.micrometer.datadog.DatadogConfig;
-import io.micrometer.datadog.DatadogMeterRegistry;
 import io.micrometer.signalfx.SignalFxConfig;
 import io.micrometer.wavefront.WavefrontConfig;
 import io.micrometer.wavefront.WavefrontMeterRegistry;
@@ -257,41 +255,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       Metrics.addRegistry(WavefrontMeterRegistry.builder(wavefrontConfig)
                                                 .wavefrontSender(wavefrontSender)
                                                 .build());
-    }
-
-    {
-      final MicrometerConfiguration micrometerDatadogConfig = micrometerConfigurationByName.get("datadog");
-      Metrics.addRegistry(new DatadogMeterRegistry(new DatadogConfig() {
-        @Override
-        public String get(final String key) {
-          return null;
-        }
-
-        @Override
-        public String apiKey() {
-          return micrometerDatadogConfig.getApiKey();
-        }
-
-        @Override
-        public String hostTag() {
-          return instanceId;
-        }
-      }, Clock.SYSTEM) {
-        @Override
-        protected List<Tag> getConventionTags(@Nonnull Meter.Id id) {
-          final List<Tag> tags = super.getConventionTags(id);
-          tags.add(new ImmutableTag("environment", micrometerDatadogConfig.getEnvironment()));
-          return tags;
-        }
-
-        @Override
-        protected DistributionStatisticConfig defaultHistogramConfig() {
-          return DistributionStatisticConfig.builder()
-                  .percentiles(.75, .95, .99, .999)
-                  .build()
-                  .merge(super.defaultHistogramConfig());
-        }
-      });
     }
 
     {

@@ -82,12 +82,6 @@
 
         <dependency>
             <groupId>io.micrometer</groupId>
-            <artifactId>micrometer-registry-datadog</artifactId>
-            <version>1.5.2</version>
-        </dependency>
-
-        <dependency>
-            <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-signalfx</artifactId>
             <version>1.5.3</version>
         </dependency>
@@ -96,12 +90,6 @@
             <groupId>com.signalfx.public</groupId>
             <artifactId>signalfx-codahale</artifactId>
             <version>1.0.4</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.coursera</groupId>
-            <artifactId>dropwizard-metrics-datadog</artifactId>
-            <version>1.1.13</version>
         </dependency>
 
         <dependency>
