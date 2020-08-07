@@ -6,11 +6,16 @@ import com.sun.management.OperatingSystemMXBean;
 import java.lang.management.ManagementFactory;
 
 public class CpuUsageGauge implements Gauge<Integer> {
+
+  private final OperatingSystemMXBean operatingSystemMXBean;
+
+  public CpuUsageGauge() {
+    this.operatingSystemMXBean = (com.sun.management.OperatingSystemMXBean)
+            ManagementFactory.getOperatingSystemMXBean();
+  }
+
   @Override
   public Integer getValue() {
-    OperatingSystemMXBean mbean = (com.sun.management.OperatingSystemMXBean)
-        ManagementFactory.getOperatingSystemMXBean();
-
-    return (int) Math.ceil(mbean.getSystemCpuLoad() * 100);
+    return (int) Math.ceil(operatingSystemMXBean.getSystemCpuLoad() * 100);
   }
 }
