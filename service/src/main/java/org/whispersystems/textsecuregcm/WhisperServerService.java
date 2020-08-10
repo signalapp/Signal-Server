@@ -227,12 +227,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final Map<String, MicrometerConfiguration> micrometerConfigurationByName = config.getMicrometerConfiguration();
 
     {
-      // This is a workaround for an issue where the configured step duration isn't being honored by
-      // WavefrontMeterRegistry; we can simplify if https://github.com/micrometer-metrics/micrometer/pull/2173 gets
-      // merged.
       final MicrometerConfiguration micrometerWavefrontConfig = micrometerConfigurationByName.get("wavefront");
 
-      final WavefrontConfig wavefrontConfig = new WavefrontConfig() {
+      Metrics.addRegistry(new WavefrontMeterRegistry(new WavefrontConfig() {
         @Override
         public String get(final String key) {
           return null;
@@ -247,15 +244,15 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         public String apiToken() {
           return micrometerWavefrontConfig.getApiKey();
         }
-      };
-
-      final WavefrontSender wavefrontSender = WavefrontMeterRegistry.getDefaultSenderBuilder(wavefrontConfig)
-                                                                    .flushIntervalSeconds((int)wavefrontConfig.step().toSeconds())
-                                                                    .build();
-
-      Metrics.addRegistry(WavefrontMeterRegistry.builder(wavefrontConfig)
-                                                .wavefrontSender(wavefrontSender)
-                                                .build());
+      }, Clock.SYSTEM) {
+        @Override
+        protected DistributionStatisticConfig defaultHistogramConfig() {
+          return DistributionStatisticConfig.builder()
+                  .percentiles(.75, .95, .99, .999)
+                  .build()
+                  .merge(super.defaultHistogramConfig());
+        }
+      });
     }
 
     {
