@@ -127,3 +127,11 @@ micrometer: # Micrometer metrics config
   - uri: "https://metrics.example.com/"
   - apiKey:
   - accountId:
+
+remoteConfig:
+  authorizedTokens:
+    - # 1st authorized token
+    - # 2nd authorized token
+    - # ...
+    - # Nth authorized token
+  globalConfig: # keys and values that are given to clients on GET /v1/config

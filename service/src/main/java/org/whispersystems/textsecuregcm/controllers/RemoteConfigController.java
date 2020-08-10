@@ -27,19 +27,23 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Path("/v1/config")
 public class RemoteConfigController {
 
   private final RemoteConfigsManager remoteConfigsManager;
   private final List<String>         configAuthTokens;
+  private final Map<String, String>  globalConfig;
 
-  public RemoteConfigController(RemoteConfigsManager remoteConfigsManager, List<String> configAuthTokens) {
+  public RemoteConfigController(RemoteConfigsManager remoteConfigsManager, List<String> configAuthTokens, Map<String, String> globalConfig) {
     this.remoteConfigsManager = remoteConfigsManager;
-    this.configAuthTokens      = configAuthTokens;
+    this.configAuthTokens = configAuthTokens;
+    this.globalConfig = globalConfig;
   }
 
   @Timed
@@ -50,11 +54,12 @@ public class RemoteConfigController {
     try {
       MessageDigest digest = MessageDigest.getInstance("SHA1");
 
-      return new UserRemoteConfigList(remoteConfigsManager.getAll().stream().map(config -> {
+      final Stream<UserRemoteConfig> globalConfigStream = globalConfig.entrySet().stream().map(entry -> new UserRemoteConfig("g." + entry.getKey(), true, entry.getValue()));
+      return new UserRemoteConfigList(Stream.concat(remoteConfigsManager.getAll().stream().map(config -> {
         final byte[] hashKey = config.getHashKey() != null ? config.getHashKey().getBytes(StandardCharsets.UTF_8) : config.getName().getBytes(StandardCharsets.UTF_8);
         boolean inBucket = isInBucket(digest, account.getUuid(), hashKey, config.getPercentage(), config.getUuids());
         return new UserRemoteConfig(config.getName(), inBucket, inBucket ? config.getValue() : config.getDefaultValue());
-      }).collect(Collectors.toList()));
+      }), globalConfigStream).collect(Collectors.toList()));
     } catch (NoSuchAlgorithmException e) {
       throw new AssertionError(e);
     }
@@ -69,6 +74,10 @@ public class RemoteConfigController {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
+    if (config.getName().startsWith("g.")) {
+      throw new WebApplicationException(Response.Status.FORBIDDEN);
+    }
+
     remoteConfigsManager.set(config);
   }
 
@@ -78,6 +87,10 @@ public class RemoteConfigController {
   public void delete(@HeaderParam("Config-Token") String configToken, @PathParam("name") String name) {
     if (!isAuthorized(configToken)) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
+    }
+
+    if (name.startsWith("g.")) {
+      throw new WebApplicationException(Response.Status.FORBIDDEN);
     }
 
     remoteConfigsManager.delete(name);
