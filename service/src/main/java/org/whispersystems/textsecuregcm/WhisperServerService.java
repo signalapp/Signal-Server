@@ -171,6 +171,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
@@ -484,7 +485,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.healthChecks().register("directory", new RedisHealthCheck(directoryClient));
     environment.healthChecks().register("cacheCluster", new RedisClusterHealthCheck(cacheCluster));
 
-    environment.metrics().register(name(CpuUsageGauge.class, "cpu"), new CpuUsageGauge());
+    environment.metrics().register(name(CpuUsageGauge.class, "cpu"), new CpuUsageGauge(3, TimeUnit.SECONDS));
     environment.metrics().register(name(FreeMemoryGauge.class, "free_memory"), new FreeMemoryGauge());
     environment.metrics().register(name(NetworkSentGauge.class, "bytes_sent"), new NetworkSentGauge());
     environment.metrics().register(name(NetworkReceivedGauge.class, "bytes_received"), new NetworkReceivedGauge());
