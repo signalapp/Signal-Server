@@ -100,7 +100,7 @@ public class RemoteConfigControllerTest {
     assertThat(configuration.getConfig().get(7).getName()).isEqualTo("linked.config.0");
     assertThat(configuration.getConfig().get(8).getName()).isEqualTo("linked.config.1");
     assertThat(configuration.getConfig().get(9).getName()).isEqualTo("unlinked.config");
-    assertThat(configuration.getConfig().get(10).getName()).isEqualTo("g.maxGroupSize");
+    assertThat(configuration.getConfig().get(10).getName()).isEqualTo("global.maxGroupSize");
   }
 
   @Test
@@ -134,7 +134,7 @@ public class RemoteConfigControllerTest {
     assertThat(configuration.getConfig().get(7).getName()).isEqualTo("linked.config.0");
     assertThat(configuration.getConfig().get(8).getName()).isEqualTo("linked.config.1");
     assertThat(configuration.getConfig().get(9).getName()).isEqualTo("unlinked.config");
-    assertThat(configuration.getConfig().get(10).getName()).isEqualTo("g.maxGroupSize");
+    assertThat(configuration.getConfig().get(10).getName()).isEqualTo("global.maxGroupSize");
   }
 
   @Test
@@ -305,7 +305,7 @@ public class RemoteConfigControllerTest {
                                  .target("/v1/config")
                                  .request()
                                  .header("Config-Token", "foo")
-                                 .put(Entity.entity(new RemoteConfig("g.maxGroupSize", 88, Set.of(), "FALSE", "TRUE", null), MediaType.APPLICATION_JSON_TYPE));
+                                 .put(Entity.entity(new RemoteConfig("global.maxGroupSize", 88, Set.of(), "FALSE", "TRUE", null), MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(403);
     verifyNoMoreInteractions(remoteConfigsManager);
   }
@@ -340,7 +340,7 @@ public class RemoteConfigControllerTest {
   @Test
   public void testDeleteGlobalConfig() {
     Response response = resources.getJerseyTest()
-                                 .target("/v1/config/g.maxGroupSize")
+                                 .target("/v1/config/global.maxGroupSize")
                                  .request()
                                  .header("Config-Token", "foo")
                                  .delete();

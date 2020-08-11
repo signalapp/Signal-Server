@@ -40,6 +40,8 @@ public class RemoteConfigController {
   private final List<String>         configAuthTokens;
   private final Map<String, String>  globalConfig;
 
+  private static final String GLOBAL_CONFIG_PREFIX = "global.";
+
   public RemoteConfigController(RemoteConfigsManager remoteConfigsManager, List<String> configAuthTokens, Map<String, String> globalConfig) {
     this.remoteConfigsManager = remoteConfigsManager;
     this.configAuthTokens = configAuthTokens;
@@ -54,7 +56,7 @@ public class RemoteConfigController {
     try {
       MessageDigest digest = MessageDigest.getInstance("SHA1");
 
-      final Stream<UserRemoteConfig> globalConfigStream = globalConfig.entrySet().stream().map(entry -> new UserRemoteConfig("g." + entry.getKey(), true, entry.getValue()));
+      final Stream<UserRemoteConfig> globalConfigStream = globalConfig.entrySet().stream().map(entry -> new UserRemoteConfig(GLOBAL_CONFIG_PREFIX + entry.getKey(), true, entry.getValue()));
       return new UserRemoteConfigList(Stream.concat(remoteConfigsManager.getAll().stream().map(config -> {
         final byte[] hashKey = config.getHashKey() != null ? config.getHashKey().getBytes(StandardCharsets.UTF_8) : config.getName().getBytes(StandardCharsets.UTF_8);
         boolean inBucket = isInBucket(digest, account.getUuid(), hashKey, config.getPercentage(), config.getUuids());
@@ -74,7 +76,7 @@ public class RemoteConfigController {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
-    if (config.getName().startsWith("g.")) {
+    if (config.getName().startsWith(GLOBAL_CONFIG_PREFIX)) {
       throw new WebApplicationException(Response.Status.FORBIDDEN);
     }
 
@@ -89,7 +91,7 @@ public class RemoteConfigController {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
-    if (name.startsWith("g.")) {
+    if (name.startsWith(GLOBAL_CONFIG_PREFIX)) {
       throw new WebApplicationException(Response.Status.FORBIDDEN);
     }
 
