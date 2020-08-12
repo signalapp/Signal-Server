@@ -1,6 +1,7 @@
 package org.whispersystems.textsecuregcm.websocket;
 
 import com.codahale.metrics.Histogram;
+import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.google.protobuf.ByteString;
@@ -39,8 +40,9 @@ import static org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessag
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class WebSocketConnection implements DispatchChannel {
 
-  private static final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  public  static final Histogram      messageTime    = metricRegistry.histogram(name(MessageController.class, "message_delivery_duration"));
+  private static final MetricRegistry metricRegistry   = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  public  static final Histogram      messageTime      = metricRegistry.histogram(name(MessageController.class, "message_delivery_duration"));
+  private static final Meter          sendMessageMeter = metricRegistry.meter(name(WebSocketConnection.class, "send_message"));
 
   private static final Logger logger = LoggerFactory.getLogger(WebSocketConnection.class);
 
@@ -119,6 +121,8 @@ public class WebSocketConnection implements DispatchChannel {
         header = "X-Signal-Key: true";
         body   = Optional.ofNullable(new EncryptedOutgoingMessage(message, device.getSignalingKey()).toByteArray());
       }
+
+      sendMessageMeter.mark();
 
       client.sendRequest("PUT", "/api/v1/message", List.of(header, TimestampHeaderUtil.getTimestampHeader()), body)
             .thenAccept(response -> {
