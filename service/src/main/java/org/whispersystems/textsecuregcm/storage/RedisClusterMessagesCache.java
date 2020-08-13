@@ -78,8 +78,6 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
         this.removeQueueScript        = ClusterLuaScript.fromResource(redisCluster, "lua/remove_queue.lua",          ScriptOutputType.STATUS);
         this.getQueuesToPersistScript = ClusterLuaScript.fromResource(redisCluster, "lua/get_queues_to_persist.lua", ScriptOutputType.MULTI);
 
-        RedisClusterUtil.assertKeyspaceNotificationsConfigured(redisCluster, "K$gz");
-
         redisCluster.usePubSubConnection(connection -> {
             connection.addListener(this);
             connection.getResources().eventBus().get()

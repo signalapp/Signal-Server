@@ -1,7 +1,6 @@
 package org.whispersystems.textsecuregcm.util;
 
 import io.lettuce.core.cluster.SlotHash;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 
 public class RedisClusterUtil {
 
@@ -33,28 +32,5 @@ public class RedisClusterUtil {
      */
     public static String getMinimalHashTag(final int slot) {
         return HASHES_BY_SLOT[slot];
-    }
-
-    /**
-     * Asserts that a Redis cluster is configured to generate (at least) a specific set of keyspace notification events.
-     *
-     * @param redisCluster the Redis cluster to check for the required keyspace notification configuration
-     * @param requiredKeyspaceNotifications a string representing the required keyspace notification events (e.g. "Kg$lz")
-     *
-     * @throws IllegalStateException if the given Redis cluster is not configured to generate the required keyspace
-     * notification events
-     *
-     * @see <a href="https://redis.io/topics/notifications#configuration">Redis Keyspace Notifications - Configuration</a>
-     */
-    public static void assertKeyspaceNotificationsConfigured(final FaultTolerantRedisCluster redisCluster, final String requiredKeyspaceNotifications) {
-        final String configuredKeyspaceNotifications = redisCluster.withReadCluster(connection -> connection.sync().configGet("notify-keyspace-events"))
-                                                                   .getOrDefault("notify-keyspace-events", "")
-                                                                   .replace("A", "g$lshztxe");
-
-        for (final char requiredNotificationType : requiredKeyspaceNotifications.toCharArray()) {
-            if (configuredKeyspaceNotifications.indexOf(requiredNotificationType) == -1) {
-                throw new IllegalStateException(String.format("Required at least \"%s\" for keyspace notifications, but only had \"%s\".", requiredKeyspaceNotifications, configuredKeyspaceNotifications));
-            }
-        }
     }
 }

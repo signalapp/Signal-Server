@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -82,8 +81,6 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
 
     @Override
     public void start() {
-        RedisClusterUtil.assertKeyspaceNotificationsConfigured(presenceCluster, "K$");
-
         presenceCluster.usePubSubConnection(connection -> {
             connection.addListener(this);
             connection.getResources().eventBus().get()
