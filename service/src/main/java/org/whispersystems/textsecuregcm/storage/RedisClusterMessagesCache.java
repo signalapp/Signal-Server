@@ -83,7 +83,7 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
         this.removeQueueScript        = ClusterLuaScript.fromResource(redisCluster, "lua/remove_queue.lua",          ScriptOutputType.STATUS);
         this.getQueuesToPersistScript = ClusterLuaScript.fromResource(redisCluster, "lua/get_queues_to_persist.lua", ScriptOutputType.MULTI);
 
-        pubSubConnection.usePubSubConnection(connection -> {
+        /* pubSubConnection.usePubSubConnection(connection -> {
             connection.addListener(this);
             connection.getResources().eventBus().get()
                     .filter(event -> event instanceof ClusterTopologyChangedEvent)
@@ -93,7 +93,7 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
                     });
         });
 
-        subscribeForKeyspaceNotifications();
+        subscribeForKeyspaceNotifications(); */
     }
 
     private void subscribeForKeyspaceNotifications() {

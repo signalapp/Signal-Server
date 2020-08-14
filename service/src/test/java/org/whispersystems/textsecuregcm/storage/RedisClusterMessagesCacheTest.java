@@ -3,6 +3,7 @@ package org.whispersystems.textsecuregcm.storage;
 import io.lettuce.core.cluster.SlotHash;
 import junitparams.Parameters;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -103,6 +104,7 @@ public class RedisClusterMessagesCacheTest extends AbstractMessagesCacheTest {
     }
 
     @Test(timeout = 5_000L)
+    @Ignore
     public void testNotifyListenerNewMessage() throws InterruptedException {
         final AtomicBoolean notified    = new AtomicBoolean(false);
         final UUID          messageGuid = UUID.randomUUID();
@@ -134,6 +136,7 @@ public class RedisClusterMessagesCacheTest extends AbstractMessagesCacheTest {
     }
 
     @Test(timeout = 5_000L)
+    @Ignore
     public void testNotifyListenerPersisted() throws InterruptedException {
         final AtomicBoolean notified    = new AtomicBoolean(false);
 
