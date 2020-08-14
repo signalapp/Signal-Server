@@ -196,7 +196,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
     }
 
     private void unsubscribeFromRemotePresenceChanges(final String presenceKey) {
-        pubSubConnection.usePubSubConnection(connection -> connection.async().masters().commands().unsubscribe(getKeyspaceNotificationChannel(presenceKey)));
+        pubSubConnection.usePubSubConnection(connection -> connection.sync().masters().commands().unsubscribe(getKeyspaceNotificationChannel(presenceKey)));
     }
 
     void pruneMissingPeers() {

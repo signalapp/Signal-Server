@@ -14,10 +14,8 @@ public class RedisClusterHealthCheck extends HealthCheck {
     }
 
     @Override
-    protected Result check() throws Exception {
-        return CompletableFuture.allOf(redisCluster.withCluster(connection -> connection.async().masters().commands().ping()).futures())
-                .thenApply(v -> Result.healthy())
-                .exceptionally(Result::unhealthy)
-                .get();
+    protected Result check() {
+        redisCluster.withCluster(connection -> connection.sync().masters().commands().ping());
+        return Result.healthy();
     }
 }

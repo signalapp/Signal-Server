@@ -8,6 +8,11 @@ import io.lettuce.core.cluster.RedisClusterClient;
 import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
 import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
 import io.lettuce.core.codec.ByteArrayCodec;
+import io.lettuce.core.support.ConnectionPoolSupport;
+import org.apache.commons.pool2.impl.GenericObjectPool;
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -20,9 +25,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * A fault-tolerant access manager for a Redis cluster. A fault-tolerant Redis cluster has separate circuit breakers for
- * read and write operations because the leader in a Redis cluster shard may fail while its read-only replicas can still
- * serve traffic.
+ * A fault-tolerant access manager for a Redis cluster. A fault-tolerant Redis cluster provides managed,
+ * circuit-breaker-protected access to a pool of connections.
  */
 public class FaultTolerantRedisCluster {
 
@@ -30,13 +34,15 @@ public class FaultTolerantRedisCluster {
 
     private final RedisClusterClient clusterClient;
 
-    private final StatefulRedisClusterConnection<String, String> stringClusterConnection;
-    private final StatefulRedisClusterConnection<byte[], byte[]> binaryClusterConnection;
+    private final GenericObjectPool<StatefulRedisClusterConnection<String, String>> stringConnectionPool;
+    private final GenericObjectPool<StatefulRedisClusterConnection<byte[], byte[]>> binaryConnectionPool;
 
     private final List<StatefulRedisClusterPubSubConnection<?, ?>> pubSubConnections = new ArrayList<>();
 
     private final CircuitBreakerConfiguration circuitBreakerConfiguration;
     private final CircuitBreaker circuitBreaker;
+
+    private static final Logger log = LoggerFactory.getLogger(FaultTolerantRedisCluster.class);
 
     public FaultTolerantRedisCluster(final String name, final List<String> urls, final Duration timeout, final CircuitBreakerConfiguration circuitBreakerConfiguration) {
         this(name, RedisClusterClient.create(urls.stream().map(RedisURI::create).collect(Collectors.toList())), timeout, circuitBreakerConfiguration);
@@ -49,8 +55,11 @@ public class FaultTolerantRedisCluster {
         this.clusterClient = clusterClient;
         this.clusterClient.setDefaultTimeout(timeout);
 
-        this.stringClusterConnection = clusterClient.connect();
-        this.binaryClusterConnection = clusterClient.connect(ByteArrayCodec.INSTANCE);
+        //noinspection unchecked,rawtypes,rawtypes
+        this.stringConnectionPool = ConnectionPoolSupport.createGenericObjectPool(clusterClient::connect, new GenericObjectPoolConfig());
+
+        //noinspection unchecked,rawtypes,rawtypes
+        this.binaryConnectionPool = ConnectionPoolSupport.createGenericObjectPool(() -> clusterClient.connect(ByteArrayCodec.INSTANCE), new GenericObjectPoolConfig());
 
         this.circuitBreakerConfiguration = circuitBreakerConfiguration;
         this.circuitBreaker              = CircuitBreaker.of(name + "-read", circuitBreakerConfiguration.toCircuitBreakerConfig());
@@ -61,8 +70,8 @@ public class FaultTolerantRedisCluster {
     }
 
     void shutdown() {
-        stringClusterConnection.close();
-        binaryClusterConnection.close();
+        stringConnectionPool.close();
+        binaryConnectionPool.close();
 
         for (final StatefulRedisClusterPubSubConnection<?, ?> pubSubConnection : pubSubConnections) {
             pubSubConnection.close();
@@ -72,19 +81,55 @@ public class FaultTolerantRedisCluster {
     }
 
     public void useCluster(final Consumer<StatefulRedisClusterConnection<String, String>> consumer) {
-        this.circuitBreaker.executeRunnable(() -> consumer.accept(stringClusterConnection));
+        acceptPooledConnection(stringConnectionPool, consumer);
     }
 
-    public <T> T withCluster(final Function<StatefulRedisClusterConnection<String, String>, T> consumer) {
-        return this.circuitBreaker.executeSupplier(() -> consumer.apply(stringClusterConnection));
+    public <T> T withCluster(final Function<StatefulRedisClusterConnection<String, String>, T> function) {
+        return applyToPooledConnection(stringConnectionPool, function);
     }
 
     public void useBinaryCluster(final Consumer<StatefulRedisClusterConnection<byte[], byte[]>> consumer) {
-        this.circuitBreaker.executeRunnable(() -> consumer.accept(binaryClusterConnection));
+        acceptPooledConnection(binaryConnectionPool, consumer);
     }
 
-    public <T> T withBinaryCluster(final Function<StatefulRedisClusterConnection<byte[], byte[]>, T> consumer) {
-        return this.circuitBreaker.executeSupplier(() -> consumer.apply(binaryClusterConnection));
+    public <T> T withBinaryCluster(final Function<StatefulRedisClusterConnection<byte[], byte[]>, T> function) {
+        return applyToPooledConnection(binaryConnectionPool, function);
+    }
+
+    private <K, V> void acceptPooledConnection(final GenericObjectPool<StatefulRedisClusterConnection<K, V>> pool, final Consumer<StatefulRedisClusterConnection<K, V>> consumer) {
+        try {
+            circuitBreaker.executeCheckedRunnable(() -> {
+                try (final StatefulRedisClusterConnection<K, V> connection = pool.borrowObject()) {
+                    consumer.accept(connection);
+                }
+            });
+        } catch (final Throwable t) {
+            log.warn("Redis operation failure", t);
+
+            if (t instanceof RuntimeException) {
+                throw (RuntimeException) t;
+            } else {
+                throw new RuntimeException(t);
+            }
+        }
+    }
+
+    private <T, K, V> T applyToPooledConnection(final GenericObjectPool<StatefulRedisClusterConnection<K, V>> pool, final Function<StatefulRedisClusterConnection<K, V>, T> function) {
+        try {
+            return circuitBreaker.executeCheckedSupplier(() -> {
+                try (final StatefulRedisClusterConnection<K, V> connection = pool.borrowObject()) {
+                    return function.apply(connection);
+                }
+            });
+        } catch (final Throwable t) {
+            log.warn("Redis operation failure", t);
+
+            if (t instanceof RuntimeException) {
+                throw (RuntimeException) t;
+            } else {
+                throw new RuntimeException(t);
+            }
+        }
     }
 
     public FaultTolerantPubSubConnection<String, String> createPubSubConnection() {

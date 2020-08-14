@@ -3,13 +3,15 @@ package org.whispersystems.textsecuregcm.metrics;
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import io.lettuce.core.SetArgs;
-import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
+import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import io.micrometer.core.instrument.Metrics;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 
 import java.time.Duration;
+import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -27,6 +29,8 @@ public class PushLatencyManager {
 
     private final FaultTolerantRedisCluster redisCluster;
 
+    private static final Logger log = LoggerFactory.getLogger(PushLatencyManager.class);
+
     public PushLatencyManager(final FaultTolerantRedisCluster redisCluster) {
         this.redisCluster = redisCluster;
     }
@@ -37,29 +41,33 @@ public class PushLatencyManager {
 
     @VisibleForTesting
     void recordPushSent(final UUID accountUuid, final long deviceId, final long currentTime) {
-        redisCluster.useCluster(connection ->
-                connection.async().set(getFirstUnacknowledgedPushKey(accountUuid, deviceId), String.valueOf(currentTime), SetArgs.Builder.nx().ex(TTL)));
+        try {
+            redisCluster.useCluster(connection ->
+                    connection.sync().set(getFirstUnacknowledgedPushKey(accountUuid, deviceId), String.valueOf(currentTime), SetArgs.Builder.nx().ex(TTL)));
+        } catch (final Exception e) {
+            log.warn("Failed to record \"push notification sent\" timestamp", e);
+        }
     }
 
     public void recordQueueRead(final UUID accountUuid, final long deviceId, final String userAgent) {
-        getLatencyAndClearTimestamp(accountUuid, deviceId, System.currentTimeMillis()).thenAccept(latency -> {
-            if (latency != null) {
-                Metrics.timer(TIMER_NAME, UserAgentTagUtil.getUserAgentTags(userAgent)).record(latency, TimeUnit.MILLISECONDS);
-            }
-        });
+        final Optional<Long> maybeLatency = getLatencyAndClearTimestamp(accountUuid, deviceId, System.currentTimeMillis());
+
+        if (maybeLatency.isPresent()) {
+            Metrics.timer(TIMER_NAME, UserAgentTagUtil.getUserAgentTags(userAgent)).record(maybeLatency.get(), TimeUnit.MILLISECONDS);
+        }
     }
 
     @VisibleForTesting
-    CompletableFuture<Long> getLatencyAndClearTimestamp(final UUID accountUuid, final long deviceId, final long currentTimeMillis) {
+    Optional<Long> getLatencyAndClearTimestamp(final UUID accountUuid, final long deviceId, final long currentTimeMillis) {
         final String key = getFirstUnacknowledgedPushKey(accountUuid, deviceId);
 
         return redisCluster.withCluster(connection -> {
-            final RedisAdvancedClusterAsyncCommands<String, String> commands = connection.async();
+            final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
 
-            final CompletableFuture<String> getFuture = commands.get(key).toCompletableFuture();
+            final String timestampString = commands.get(key);
             commands.del(key);
 
-            return getFuture.thenApply(timestampString -> timestampString != null ? currentTimeMillis - Long.parseLong(timestampString, 10) : null);
+            return timestampString != null ? Optional.of(currentTimeMillis - Long.parseLong(timestampString, 10)) : Optional.empty();
         });
     }
 
