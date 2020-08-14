@@ -85,14 +85,14 @@ public class RateLimiter {
   }
 
   public void clear(String key) {
-    cacheCluster.useWriteCluster(connection -> connection.sync().del(getBucketName(key)));
+    cacheCluster.useCluster(connection -> connection.sync().del(getBucketName(key)));
   }
 
   private void setBucket(String key, LeakyBucket bucket) {
     try {
       final String serialized = bucket.serialize(mapper);
 
-      cacheCluster.useWriteCluster(connection -> connection.sync().setex(getBucketName(key), (int) Math.ceil((bucketSize / leakRatePerMillis) / 1000), serialized));
+      cacheCluster.useCluster(connection -> connection.sync().setex(getBucketName(key), (int) Math.ceil((bucketSize / leakRatePerMillis) / 1000), serialized));
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException(e);
     }
@@ -100,7 +100,7 @@ public class RateLimiter {
 
   private LeakyBucket getBucket(String key) {
     try {
-      final String serialized = cacheCluster.withReadCluster(connection -> connection.sync().get(getBucketName(key)));
+      final String serialized = cacheCluster.withCluster(connection -> connection.sync().get(getBucketName(key)));
 
       if (serialized != null) {
         return LeakyBucket.fromSerialized(mapper, serialized);

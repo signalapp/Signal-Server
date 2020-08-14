@@ -69,7 +69,7 @@ public class PendingAccountsManager {
     try {
       final String verificationCodeJson = mapper.writeValueAsString(code);
 
-      cacheCluster.useWriteCluster(connection -> connection.sync().set(CACHE_PREFIX + number, verificationCodeJson));
+      cacheCluster.useCluster(connection -> connection.sync().set(CACHE_PREFIX + number, verificationCodeJson));
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException(e);
     }
@@ -77,7 +77,7 @@ public class PendingAccountsManager {
 
   private Optional<StoredVerificationCode> memcacheGet(String number) {
     try {
-      final String json = cacheCluster.withReadCluster(connection -> connection.sync().get(CACHE_PREFIX + number));
+      final String json = cacheCluster.withCluster(connection -> connection.sync().get(CACHE_PREFIX + number));
 
       if (json == null) return Optional.empty();
       else              return Optional.of(mapper.readValue(json, StoredVerificationCode.class));
@@ -88,6 +88,6 @@ public class PendingAccountsManager {
   }
 
   private void memcacheDelete(String number) {
-    cacheCluster.useWriteCluster(connection -> connection.sync().del(CACHE_PREFIX + number));
+    cacheCluster.useCluster(connection -> connection.sync().del(CACHE_PREFIX + number));
   }
 }

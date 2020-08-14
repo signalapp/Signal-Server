@@ -105,7 +105,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
             connection.sync().nodes(node -> node.is(RedisClusterNode.NodeFlag.MASTER) && node.hasSlot(slot)).commands().subscribe(presenceChannel);
         });
 
-        presenceCluster.useWriteCluster(connection -> connection.sync().sadd(MANAGER_SET_KEY, managerId));
+        presenceCluster.useCluster(connection -> connection.sync().sadd(MANAGER_SET_KEY, managerId));
 
         pruneMissingPeersFuture = scheduledExecutorService.scheduleAtFixedRate(this::pruneMissingPeers, new Random().nextInt(PRUNE_PEERS_INTERVAL_SECONDS), PRUNE_PEERS_INTERVAL_SECONDS, TimeUnit.SECONDS);
     }
@@ -122,7 +122,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
             clearPresence(presenceKey);
         }
 
-        presenceCluster.useWriteCluster(connection -> {
+        presenceCluster.useCluster(connection -> {
             connection.sync().srem(MANAGER_SET_KEY, managerId);
             connection.sync().del(getConnectedClientSetKey(managerId));
         });
@@ -138,7 +138,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
 
             displacementListenersByPresenceKey.put(presenceKey, displacementListener);
 
-            presenceCluster.useWriteCluster(connection -> {
+            presenceCluster.useCluster(connection -> {
                 final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
 
                 commands.set(presenceKey, managerId);
@@ -161,7 +161,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
 
     public boolean isPresent(final UUID accountUuid, final long deviceId) {
         try (final Timer.Context ignored = checkPresenceTimer.time()) {
-            return presenceCluster.withReadCluster(connection -> connection.sync().exists(getPresenceKey(accountUuid, deviceId))) == 1;
+            return presenceCluster.withCluster(connection -> connection.sync().exists(getPresenceKey(accountUuid, deviceId))) == 1;
         }
     }
 
@@ -175,7 +175,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
             unsubscribeFromRemotePresenceChanges(presenceKey);
 
             final boolean removed = clearPresenceScript.execute(List.of(presenceKey), List.of(managerId)) != null;
-            presenceCluster.useWriteCluster(connection -> connection.sync().srem(connectedClientSetKey, presenceKey));
+            presenceCluster.useCluster(connection -> connection.sync().srem(connectedClientSetKey, presenceKey));
 
             return removed;
         }
@@ -201,18 +201,18 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
 
     void pruneMissingPeers() {
         try (final Timer.Context ignored = prunePeersTimer.time()) {
-            final Set<String> peerIds = presenceCluster.withReadCluster(connection -> connection.sync().smembers(MANAGER_SET_KEY));
+            final Set<String> peerIds = presenceCluster.withCluster(connection -> connection.sync().smembers(MANAGER_SET_KEY));
             peerIds.remove(managerId);
 
             for (final String peerId : peerIds) {
-                final boolean peerMissing = presenceCluster.withWriteCluster(connection -> connection.sync().publish(getManagerPresenceChannel(peerId), "ping") == 0);
+                final boolean peerMissing = presenceCluster.withCluster(connection -> connection.sync().publish(getManagerPresenceChannel(peerId), "ping") == 0);
 
                 if (peerMissing) {
                     log.debug("Presence manager {} did not respond to ping", peerId);
 
                     final String connectedClientsKey = getConnectedClientSetKey(peerId);
 
-                    presenceCluster.useWriteCluster(connection -> {
+                    presenceCluster.useCluster(connection -> {
                         final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
 
                         String presenceKey;

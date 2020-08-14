@@ -36,8 +36,7 @@ public class FaultTolerantRedisCluster {
     private final List<StatefulRedisClusterPubSubConnection<?, ?>> pubSubConnections = new ArrayList<>();
 
     private final CircuitBreakerConfiguration circuitBreakerConfiguration;
-    private final CircuitBreaker              readCircuitBreaker;
-    private final CircuitBreaker              writeCircuitBreaker;
+    private final CircuitBreaker circuitBreaker;
 
     public FaultTolerantRedisCluster(final String name, final List<String> urls, final Duration timeout, final CircuitBreakerConfiguration circuitBreakerConfiguration) {
         this(name, RedisClusterClient.create(urls.stream().map(RedisURI::create).collect(Collectors.toList())), timeout, circuitBreakerConfiguration);
@@ -54,15 +53,10 @@ public class FaultTolerantRedisCluster {
         this.binaryClusterConnection = clusterClient.connect(ByteArrayCodec.INSTANCE);
 
         this.circuitBreakerConfiguration = circuitBreakerConfiguration;
-        this.readCircuitBreaker          = CircuitBreaker.of(name + "-read", circuitBreakerConfiguration.toCircuitBreakerConfig());
-        this.writeCircuitBreaker         = CircuitBreaker.of(name + "-write", circuitBreakerConfiguration.toCircuitBreakerConfig());
+        this.circuitBreaker              = CircuitBreaker.of(name + "-read", circuitBreakerConfiguration.toCircuitBreakerConfig());
 
         CircuitBreakerUtil.registerMetrics(SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME),
-                readCircuitBreaker,
-                FaultTolerantRedisCluster.class);
-
-        CircuitBreakerUtil.registerMetrics(SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME),
-                writeCircuitBreaker,
+                circuitBreaker,
                 FaultTolerantRedisCluster.class);
     }
 
@@ -77,36 +71,20 @@ public class FaultTolerantRedisCluster {
         clusterClient.shutdown();
     }
 
-    public void useReadCluster(final Consumer<StatefulRedisClusterConnection<String, String>> consumer) {
-        this.readCircuitBreaker.executeRunnable(() -> consumer.accept(stringClusterConnection));
+    public void useCluster(final Consumer<StatefulRedisClusterConnection<String, String>> consumer) {
+        this.circuitBreaker.executeRunnable(() -> consumer.accept(stringClusterConnection));
     }
 
-    public <T> T withReadCluster(final Function<StatefulRedisClusterConnection<String, String>, T> consumer) {
-        return this.readCircuitBreaker.executeSupplier(() -> consumer.apply(stringClusterConnection));
+    public <T> T withCluster(final Function<StatefulRedisClusterConnection<String, String>, T> consumer) {
+        return this.circuitBreaker.executeSupplier(() -> consumer.apply(stringClusterConnection));
     }
 
-    public void useWriteCluster(final Consumer<StatefulRedisClusterConnection<String, String>> consumer) {
-        this.writeCircuitBreaker.executeRunnable(() -> consumer.accept(stringClusterConnection));
+    public void useBinaryCluster(final Consumer<StatefulRedisClusterConnection<byte[], byte[]>> consumer) {
+        this.circuitBreaker.executeRunnable(() -> consumer.accept(binaryClusterConnection));
     }
 
-    public <T> T withWriteCluster(final Function<StatefulRedisClusterConnection<String, String>, T> consumer) {
-        return this.writeCircuitBreaker.executeSupplier(() -> consumer.apply(stringClusterConnection));
-    }
-
-    public void useBinaryReadCluster(final Consumer<StatefulRedisClusterConnection<byte[], byte[]>> consumer) {
-        this.readCircuitBreaker.executeRunnable(() -> consumer.accept(binaryClusterConnection));
-    }
-
-    public <T> T withBinaryReadCluster(final Function<StatefulRedisClusterConnection<byte[], byte[]>, T> consumer) {
-        return this.readCircuitBreaker.executeSupplier(() -> consumer.apply(binaryClusterConnection));
-    }
-
-    public void useBinaryWriteCluster(final Consumer<StatefulRedisClusterConnection<byte[], byte[]>> consumer) {
-        this.writeCircuitBreaker.executeRunnable(() -> consumer.accept(binaryClusterConnection));
-    }
-
-    public <T> T withBinaryWriteCluster(final Function<StatefulRedisClusterConnection<byte[], byte[]>, T> consumer) {
-        return this.writeCircuitBreaker.executeSupplier(() -> consumer.apply(binaryClusterConnection));
+    public <T> T withBinaryCluster(final Function<StatefulRedisClusterConnection<byte[], byte[]>, T> consumer) {
+        return this.circuitBreaker.executeSupplier(() -> consumer.apply(binaryClusterConnection));
     }
 
     public FaultTolerantPubSubConnection<String, String> createPubSubConnection() {

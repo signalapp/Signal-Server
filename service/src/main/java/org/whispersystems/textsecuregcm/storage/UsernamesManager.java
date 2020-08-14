@@ -113,7 +113,7 @@ public class UsernamesManager {
     final String usernameMapKey = getUsernameMapKey(username);
 
     try (Timer.Context ignored = redisSetTimer.time()) {
-      cacheCluster.useWriteCluster(connection -> {
+      cacheCluster.useCluster(connection -> {
         final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
 
         final Optional<String> maybeOldUsername = Optional.ofNullable(commands.get(uuidMapKey));
@@ -130,7 +130,7 @@ public class UsernamesManager {
 
   private Optional<UUID> redisGet(String username) {
     try (Timer.Context ignored = redisUsernameGetTimer.time()) {
-      final String result = cacheCluster.withReadCluster(connection -> connection.sync().get(getUsernameMapKey(username)));
+      final String result = cacheCluster.withCluster(connection -> connection.sync().get(getUsernameMapKey(username)));
 
       if (result == null) return Optional.empty();
       else                return Optional.of(UUID.fromString(result));
@@ -142,7 +142,7 @@ public class UsernamesManager {
 
   private Optional<String> redisGet(UUID uuid) {
     try (Timer.Context ignored = redisUuidGetTimer.time()) {
-      final String result = cacheCluster.withReadCluster(connection -> connection.sync().get(getUuidMapKey(uuid)));
+      final String result = cacheCluster.withCluster(connection -> connection.sync().get(getUuidMapKey(uuid)));
 
       return Optional.ofNullable(result);
     } catch (RedisException e) {
@@ -153,7 +153,7 @@ public class UsernamesManager {
 
   private void redisDelete(UUID uuid) {
     try (Timer.Context ignored = redisUuidGetTimer.time()) {
-      cacheCluster.useWriteCluster(connection -> {
+      cacheCluster.useCluster(connection -> {
         final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
 
         commands.del(getUuidMapKey(uuid));

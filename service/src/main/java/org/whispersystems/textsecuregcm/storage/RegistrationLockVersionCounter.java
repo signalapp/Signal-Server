@@ -36,7 +36,7 @@ public class RegistrationLockVersionCounter extends AccountDatabaseCrawlerListen
 
     @Override
     public void onCrawlStart() {
-        redisCluster.useWriteCluster(connection -> connection.sync().hset(REGLOCK_COUNT_KEY, Map.of(PIN_KEY, "0", REGLOCK_KEY, "0")));
+        redisCluster.useCluster(connection -> connection.sync().hset(REGLOCK_COUNT_KEY, Map.of(PIN_KEY, "0", REGLOCK_KEY, "0")));
     }
 
     @Override
@@ -60,7 +60,7 @@ public class RegistrationLockVersionCounter extends AccountDatabaseCrawlerListen
     }
 
     private void incrementReglockCounts(final int pinCount, final int reglockCount) {
-        redisCluster.useWriteCluster(connection -> {
+        redisCluster.useCluster(connection -> {
             final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
 
             commands.hincrby(REGLOCK_COUNT_KEY, PIN_KEY,     pinCount);
@@ -71,7 +71,7 @@ public class RegistrationLockVersionCounter extends AccountDatabaseCrawlerListen
     @Override
     public void onCrawlEnd(final Optional<UUID> fromUuid) {
         final Map<String, Integer> countsByReglockType =
-                redisCluster.withReadCluster(connection -> connection.sync().hmget(REGLOCK_COUNT_KEY, PIN_KEY, REGLOCK_KEY))
+                redisCluster.withCluster(connection -> connection.sync().hmget(REGLOCK_COUNT_KEY, PIN_KEY, REGLOCK_KEY))
                             .stream()
                             .collect(Collectors.toMap(KeyValue::getKey, keyValue -> keyValue.hasValue() ? keyValue.map(Integer::parseInt).getValue() : 0));
 

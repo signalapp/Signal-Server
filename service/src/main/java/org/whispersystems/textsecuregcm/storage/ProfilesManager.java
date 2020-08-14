@@ -53,7 +53,7 @@ public class ProfilesManager {
     try {
       final String profileJson = mapper.writeValueAsString(profile);
 
-      cacheCluster.useWriteCluster(connection -> connection.sync().hset(CACHE_PREFIX + uuid.toString(), profile.getVersion(), profileJson));
+      cacheCluster.useCluster(connection -> connection.sync().hset(CACHE_PREFIX + uuid.toString(), profile.getVersion(), profileJson));
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException(e);
     }
@@ -61,7 +61,7 @@ public class ProfilesManager {
 
   private Optional<VersionedProfile> memcacheGet(UUID uuid, String version) {
     try {
-      final String json = cacheCluster.withReadCluster(connection -> connection.sync().hget(CACHE_PREFIX + uuid.toString(), version));
+      final String json = cacheCluster.withCluster(connection -> connection.sync().hget(CACHE_PREFIX + uuid.toString(), version));
 
       if (json == null) return Optional.empty();
       else              return Optional.of(mapper.readValue(json, VersionedProfile.class));
@@ -75,6 +75,6 @@ public class ProfilesManager {
   }
 
   private void memcacheDelete(UUID uuid) {
-    cacheCluster.useWriteCluster(connection -> connection.sync().del(CACHE_PREFIX + uuid.toString()));
+    cacheCluster.useCluster(connection -> connection.sync().del(CACHE_PREFIX + uuid.toString()));
   }
 }

@@ -269,7 +269,7 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
     }
 
     int getNextSlotToPersist() {
-        return (int)(redisCluster.withWriteCluster(connection -> connection.sync().incr(NEXT_SLOT_TO_PERSIST_KEY)) % SlotHash.SLOT_COUNT);
+        return (int)(redisCluster.withCluster(connection -> connection.sync().incr(NEXT_SLOT_TO_PERSIST_KEY)) % SlotHash.SLOT_COUNT);
     }
 
     List<String> getQueuesToPersist(final int slot, final Instant maxTime, final int limit) {
@@ -280,11 +280,11 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
     }
 
     void lockQueueForPersistence(final String queue) {
-        redisCluster.useBinaryWriteCluster(connection -> connection.sync().setex(getPersistInProgressKey(queue), 30, LOCK_VALUE));
+        redisCluster.useBinaryCluster(connection -> connection.sync().setex(getPersistInProgressKey(queue), 30, LOCK_VALUE));
     }
 
     void unlockQueueForPersistence(final String queue) {
-        redisCluster.useBinaryWriteCluster(connection -> connection.sync().del(getPersistInProgressKey(queue)));
+        redisCluster.useBinaryCluster(connection -> connection.sync().del(getPersistInProgressKey(queue)));
     }
 
     public void addMessageAvailabilityListener(final UUID destinationUuid, final long deviceId, final MessageAvailabilityListener listener) {

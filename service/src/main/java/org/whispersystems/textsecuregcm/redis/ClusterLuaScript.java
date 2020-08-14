@@ -48,11 +48,11 @@ public class ClusterLuaScript {
         this.redisCluster     = redisCluster;
         this.scriptOutputType = scriptOutputType;
         this.script           = script;
-        this.sha              = redisCluster.withWriteCluster(connection -> connection.sync().scriptLoad(script));
+        this.sha              = redisCluster.withCluster(connection -> connection.sync().scriptLoad(script));
     }
 
     public Object execute(final List<String> keys, final List<String> args) {
-        return redisCluster.withWriteCluster(connection -> {
+        return redisCluster.withCluster(connection -> {
             try {
                 final RedisAdvancedClusterCommands<String, String> clusterCommands = connection.sync();
 
@@ -70,7 +70,7 @@ public class ClusterLuaScript {
     }
 
     public Object executeBinary(final List<byte[]> keys, final List<byte[]> args) {
-        return redisCluster.withBinaryWriteCluster(connection -> {
+        return redisCluster.withBinaryCluster(connection -> {
             try {
                 final RedisAdvancedClusterCommands<byte[], byte[]> binaryCommands = connection.sync();
 

@@ -44,47 +44,17 @@ public class FaultTolerantRedisClusterTest {
     }
 
     @Test
-    public void testReadBreaker() {
+    public void testBreaker() {
         when(clusterCommands.get(anyString()))
                 .thenReturn("value")
                 .thenThrow(new RedisException("Badness has ensued."));
 
-        assertEquals("value", faultTolerantCluster.withReadCluster(connection -> connection.sync().get("key")));
+        assertEquals("value", faultTolerantCluster.withCluster(connection -> connection.sync().get("key")));
 
         assertThrows(RedisException.class,
-                () -> faultTolerantCluster.withReadCluster(connection -> connection.sync().get("OH NO")));
+                () -> faultTolerantCluster.withCluster(connection -> connection.sync().get("OH NO")));
 
         assertThrows(CircuitBreakerOpenException.class,
-                () -> faultTolerantCluster.withReadCluster(connection -> connection.sync().get("OH NO")));
-    }
-
-    @Test
-    public void testReadsContinueWhileWriteBreakerOpen() {
-        when(clusterCommands.set(anyString(), anyString())).thenThrow(new RedisException("Badness has ensued."));
-
-        assertThrows(RedisException.class,
-                () -> faultTolerantCluster.useWriteCluster(connection -> connection.sync().set("OH", "NO")));
-
-        assertThrows(CircuitBreakerOpenException.class,
-                () -> faultTolerantCluster.useWriteCluster(connection -> connection.sync().set("OH", "NO")));
-
-        when(clusterCommands.get("key")).thenReturn("value");
-
-        assertEquals("value", faultTolerantCluster.withReadCluster(connection -> connection.sync().get("key")));
-    }
-
-    @Test
-    public void testWriteBreaker() {
-        when(clusterCommands.get(anyString()))
-                .thenReturn("value")
-                .thenThrow(new RedisException("Badness has ensued."));
-
-        assertEquals("value", faultTolerantCluster.withWriteCluster(connection -> connection.sync().get("key")));
-
-        assertThrows(RedisException.class,
-                () -> faultTolerantCluster.withWriteCluster(connection -> connection.sync().get("OH NO")));
-
-        assertThrows(CircuitBreakerOpenException.class,
-                () -> faultTolerantCluster.withWriteCluster(connection -> connection.sync().get("OH NO")));
+                () -> faultTolerantCluster.withCluster(connection -> connection.sync().get("OH NO")));
     }
 }

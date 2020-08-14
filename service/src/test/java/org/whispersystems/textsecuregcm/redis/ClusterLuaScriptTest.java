@@ -15,7 +15,6 @@ import java.util.List;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -33,35 +32,35 @@ public class ClusterLuaScriptTest extends AbstractRedisClusterTest {
         final ClusterLuaScript script = new ClusterLuaScript(redisCluster, "return redis.call(\"SET\", KEYS[1], ARGV[1])", ScriptOutputType.VALUE);
 
         assertEquals("OK", script.execute(List.of(key), List.of(value)));
-        assertEquals(value, redisCluster.withReadCluster(connection -> connection.sync().get(key)));
+        assertEquals(value, redisCluster.withCluster(connection -> connection.sync().get(key)));
 
         final int    slot            = SlotHash.getSlot(key);
 
-        final int                           sourcePort          = redisCluster.withWriteCluster(connection -> connection.sync().nodes(node -> node.hasSlot(slot) && node.is(RedisClusterNode.NodeFlag.MASTER)).node(0).getUri().getPort());
-        final RedisCommands<String, String> sourceCommands      = redisCluster.withWriteCluster(connection -> connection.sync().nodes(node -> node.hasSlot(slot) && node.is(RedisClusterNode.NodeFlag.MASTER)).commands(0));
-        final RedisCommands<String, String> destinationCommands = redisCluster.withWriteCluster(connection -> connection.sync().nodes(node -> !node.hasSlot(slot) && node.is(RedisClusterNode.NodeFlag.MASTER)).commands(0));
+        final int                           sourcePort          = redisCluster.withCluster(connection -> connection.sync().nodes(node -> node.hasSlot(slot) && node.is(RedisClusterNode.NodeFlag.MASTER)).node(0).getUri().getPort());
+        final RedisCommands<String, String> sourceCommands      = redisCluster.withCluster(connection -> connection.sync().nodes(node -> node.hasSlot(slot) && node.is(RedisClusterNode.NodeFlag.MASTER)).commands(0));
+        final RedisCommands<String, String> destinationCommands = redisCluster.withCluster(connection -> connection.sync().nodes(node -> !node.hasSlot(slot) && node.is(RedisClusterNode.NodeFlag.MASTER)).commands(0));
 
         destinationCommands.clusterSetSlotImporting(slot, sourceCommands.clusterMyId());
 
         assertEquals("OK", script.execute(List.of(key), List.of(value)));
-        assertEquals(value, redisCluster.withReadCluster(connection -> connection.sync().get(key)));
+        assertEquals(value, redisCluster.withCluster(connection -> connection.sync().get(key)));
 
         sourceCommands.clusterSetSlotMigrating(slot, destinationCommands.clusterMyId());
 
         assertEquals("OK", script.execute(List.of(key), List.of(value)));
-        assertEquals(value, redisCluster.withReadCluster(connection -> connection.sync().get(key)));
+        assertEquals(value, redisCluster.withCluster(connection -> connection.sync().get(key)));
 
         for (final String migrateKey : sourceCommands.clusterGetKeysInSlot(slot, Integer.MAX_VALUE)) {
             destinationCommands.migrate("127.0.0.1", sourcePort, migrateKey, 0, 1000);
         }
 
         assertEquals("OK", script.execute(List.of(key), List.of(value)));
-        assertEquals(value, redisCluster.withReadCluster(connection -> connection.sync().get(key)));
+        assertEquals(value, redisCluster.withCluster(connection -> connection.sync().get(key)));
 
         destinationCommands.clusterSetSlotNode(slot, destinationCommands.clusterMyId());
 
         assertEquals("OK", script.execute(List.of(key), List.of(value)));
-        assertEquals(value, redisCluster.withReadCluster(connection -> connection.sync().get(key)));
+        assertEquals(value, redisCluster.withCluster(connection -> connection.sync().get(key)));
     }
 
     @Test

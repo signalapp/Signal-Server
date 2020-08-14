@@ -44,15 +44,15 @@ public class AccountDatabaseCrawlerCache {
   }
 
   public void clearAccelerate() {
-    cacheCluster.useWriteCluster(connection -> connection.sync().del(ACCELERATE_KEY));
+    cacheCluster.useCluster(connection -> connection.sync().del(ACCELERATE_KEY));
   }
 
   public boolean isAccelerated() {
-    return "1".equals(cacheCluster.withReadCluster(connection -> connection.sync().get(ACCELERATE_KEY)));
+    return "1".equals(cacheCluster.withCluster(connection -> connection.sync().get(ACCELERATE_KEY)));
   }
 
   public boolean claimActiveWork(String workerId, long ttlMs) {
-    return "OK".equals(cacheCluster.withWriteCluster(connection -> connection.sync().set(ACTIVE_WORKER_KEY, workerId, SetArgs.Builder.nx().px(ttlMs))));
+    return "OK".equals(cacheCluster.withCluster(connection -> connection.sync().set(ACTIVE_WORKER_KEY, workerId, SetArgs.Builder.nx().px(ttlMs))));
   }
 
   public void releaseActiveWork(String workerId) {
@@ -60,7 +60,7 @@ public class AccountDatabaseCrawlerCache {
   }
 
   public Optional<UUID> getLastUuid() {
-    final String lastUuidString = cacheCluster.withWriteCluster(connection -> connection.sync().get(LAST_UUID_KEY));
+    final String lastUuidString = cacheCluster.withCluster(connection -> connection.sync().get(LAST_UUID_KEY));
 
     if (lastUuidString == null) return Optional.empty();
     else                        return Optional.of(UUID.fromString(lastUuidString));
@@ -68,9 +68,9 @@ public class AccountDatabaseCrawlerCache {
 
   public void setLastUuid(Optional<UUID> lastUuid) {
     if (lastUuid.isPresent()) {
-      cacheCluster.useWriteCluster(connection -> connection.sync().psetex(LAST_UUID_KEY, LAST_NUMBER_TTL_MS, lastUuid.get().toString()));
+      cacheCluster.useCluster(connection -> connection.sync().psetex(LAST_UUID_KEY, LAST_NUMBER_TTL_MS, lastUuid.get().toString()));
     } else {
-      cacheCluster.useWriteCluster(connection -> connection.sync().del(LAST_UUID_KEY));
+      cacheCluster.useCluster(connection -> connection.sync().del(LAST_UUID_KEY));
     }
   }
 

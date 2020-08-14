@@ -37,7 +37,7 @@ public class PushLatencyManager {
 
     @VisibleForTesting
     void recordPushSent(final UUID accountUuid, final long deviceId, final long currentTime) {
-        redisCluster.useWriteCluster(connection ->
+        redisCluster.useCluster(connection ->
                 connection.async().set(getFirstUnacknowledgedPushKey(accountUuid, deviceId), String.valueOf(currentTime), SetArgs.Builder.nx().ex(TTL)));
     }
 
@@ -53,7 +53,7 @@ public class PushLatencyManager {
     CompletableFuture<Long> getLatencyAndClearTimestamp(final UUID accountUuid, final long deviceId, final long currentTimeMillis) {
         final String key = getFirstUnacknowledgedPushKey(accountUuid, deviceId);
 
-        return redisCluster.withWriteCluster(connection -> {
+        return redisCluster.withCluster(connection -> {
             final RedisAdvancedClusterAsyncCommands<String, String> commands = connection.async();
 
             final CompletableFuture<String> getFuture = commands.get(key).toCompletableFuture();

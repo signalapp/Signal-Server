@@ -147,7 +147,7 @@ public class AccountsManager {
     try (Timer.Context ignored = redisSetTimer.time()) {
       final String accountJson = mapper.writeValueAsString(account);
 
-      cacheCluster.useWriteCluster(connection -> {
+      cacheCluster.useCluster(connection -> {
         final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
 
         commands.set(getAccountMapKey(account.getNumber()), account.getUuid().toString());
@@ -160,7 +160,7 @@ public class AccountsManager {
 
   private Optional<Account> redisGet(String number) {
     try (Timer.Context ignored = redisNumberGetTimer.time()) {
-      final String uuid = cacheCluster.withReadCluster(connection -> connection.sync().get(getAccountMapKey(number)));
+      final String uuid = cacheCluster.withCluster(connection -> connection.sync().get(getAccountMapKey(number)));
 
       if (uuid != null) return redisGet(UUID.fromString(uuid));
       else              return Optional.empty();
@@ -175,7 +175,7 @@ public class AccountsManager {
 
   private Optional<Account> redisGet(UUID uuid) {
     try (Timer.Context ignored = redisUuidGetTimer.time()) {
-      final String json = cacheCluster.withReadCluster(connection -> connection.sync().get(getAccountEntityKey(uuid)));
+      final String json = cacheCluster.withCluster(connection -> connection.sync().get(getAccountEntityKey(uuid)));
 
       if (json != null) {
         Account account = mapper.readValue(json, Account.class);

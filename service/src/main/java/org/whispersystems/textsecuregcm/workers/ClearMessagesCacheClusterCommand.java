@@ -15,6 +15,6 @@ public class ClearMessagesCacheClusterCommand extends ConfiguredCommand<WhisperS
     @Override
     protected void run(final Bootstrap<WhisperServerConfiguration> bootstrap, final Namespace namespace, final WhisperServerConfiguration config) {
         final FaultTolerantRedisCluster messagesCacheCluster = new FaultTolerantRedisCluster("messages_cluster", config.getMessageCacheConfiguration().getRedisClusterConfiguration().getUrls(), config.getMessageCacheConfiguration().getRedisClusterConfiguration().getTimeout(), config.getMessageCacheConfiguration().getRedisClusterConfiguration().getCircuitBreakerConfiguration());
-        messagesCacheCluster.useWriteCluster(connection -> connection.sync().masters().commands().flushallAsync());
+        messagesCacheCluster.useCluster(connection -> connection.sync().masters().commands().flushallAsync());
     }
 }

@@ -56,7 +56,7 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
 
   @Override
   public void onCrawlStart() {
-    cacheCluster.useWriteCluster(connection -> connection.sync().del(TALLY_KEY));
+    cacheCluster.useCluster(connection -> connection.sync().del(TALLY_KEY));
   }
 
   @Override
@@ -153,7 +153,7 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
 
   private void incrementTallies(UUID fromUuid, Map<String, long[]> platformIncrements, Map<String, long[]> countryIncrements) {
     try {
-      final String tallyValue = cacheCluster.withReadCluster(connection -> connection.sync().get(TALLY_KEY));
+      final String tallyValue = cacheCluster.withCluster(connection -> connection.sync().get(TALLY_KEY));
 
       ActiveUserTally activeUserTally;
 
@@ -173,7 +173,7 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
 
       final String tallyJson = mapper.writeValueAsString(activeUserTally);
 
-      cacheCluster.useWriteCluster(connection -> connection.sync().set(TALLY_KEY, tallyJson));
+      cacheCluster.useCluster(connection -> connection.sync().set(TALLY_KEY, tallyJson));
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException(e);
     }
@@ -194,7 +194,7 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
 
   private ActiveUserTally getFinalTallies() {
     try {
-      final String tallyJson = cacheCluster.withReadCluster(connection -> connection.sync().get(TALLY_KEY));
+      final String tallyJson = cacheCluster.withCluster(connection -> connection.sync().get(TALLY_KEY));
 
       return mapper.readValue(tallyJson, ActiveUserTally.class);
     } catch (IOException e) {

@@ -19,7 +19,6 @@ package org.whispersystems.textsecuregcm.tests.storage;
 
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.ActiveUserCounter;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
@@ -30,7 +29,6 @@ import com.google.common.collect.ImmutableList;
 import io.dropwizard.metrics.MetricsFactory;
 import org.junit.Before;
 import org.junit.Test;
-import redis.clients.jedis.Jedis;
 
 import java.util.Arrays;
 import java.util.UUID;
@@ -105,7 +103,7 @@ public class ActiveUserCounterTest {
   public void testCrawlStart() {
     activeUserCounter.onCrawlStart();
 
-    verify(cacheCluster, times(1)).useWriteCluster(any());
+    verify(cacheCluster, times(1)).useCluster(any());
     verify(commands, times(1)).del(any(String.class));
 
     verifyZeroInteractions(iosDevice);
@@ -122,7 +120,7 @@ public class ActiveUserCounterTest {
   public void testCrawlEnd() {
     activeUserCounter.onCrawlEnd(Optional.empty());
 
-    verify(cacheCluster, times(1)).withReadCluster(any());
+    verify(cacheCluster, times(1)).withCluster(any());
     verify(commands, times(1)).get(any(String.class));
 
     verify(metricsFactory, times(1)).getReporters();
@@ -150,8 +148,8 @@ public class ActiveUserCounterTest {
     verify(iosDevice, times(1)).getApnId();
     verify(iosDevice, times(0)).getGcmId();
 
-    verify(cacheCluster, times(1)).withReadCluster(any());
-    verify(cacheCluster, times(1)).useWriteCluster(any());
+    verify(cacheCluster, times(1)).withCluster(any());
+    verify(cacheCluster, times(1)).useCluster(any());
     verify(commands, times(1)).get(any(String.class));
     verify(commands, times(1)).set(any(String.class), eq("{\"fromUuid\":\""+UUID_IOS.toString()+"\",\"platforms\":{\"ios\":[1,1,1,1,1]},\"countries\":{\"1\":[1,1,1,1,1]}}"));
 
@@ -174,8 +172,8 @@ public class ActiveUserCounterTest {
 
     verify(noDeviceAccount, times(1)).getMasterDevice();
 
-    verify(cacheCluster, times(1)).withReadCluster(any());
-    verify(cacheCluster, times(1)).useWriteCluster(any());
+    verify(cacheCluster, times(1)).withCluster(any());
+    verify(cacheCluster, times(1)).useCluster(any());
     verify(commands, times(1)).get(eq(TALLY_KEY));
     verify(commands, times(1)).set(any(String.class), eq("{\"fromUuid\":\""+UUID_NODEVICE+"\",\"platforms\":{},\"countries\":{}}"));
 
@@ -210,8 +208,8 @@ public class ActiveUserCounterTest {
     verify(androidDevice, times(1)).getApnId();
     verify(androidDevice, times(1)).getGcmId();
 
-    verify(cacheCluster, times(1)).withReadCluster(any());
-    verify(cacheCluster, times(1)).useWriteCluster(any());
+    verify(cacheCluster, times(1)).withCluster(any());
+    verify(cacheCluster, times(1)).useCluster(any());
     verify(commands, times(1)).get(eq(TALLY_KEY));
     verify(commands, times(1)).set(any(String.class), eq("{\"fromUuid\":\""+UUID_IOS+"\",\"platforms\":{\"android\":[0,0,0,1,1],\"ios\":[1,1,1,1,1]},\"countries\":{\"55\":[0,0,0,1,1],\"1\":[1,1,1,1,1]}}"));
 

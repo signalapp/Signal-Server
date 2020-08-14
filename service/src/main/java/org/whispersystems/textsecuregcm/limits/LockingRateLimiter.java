@@ -41,11 +41,11 @@ public class LockingRateLimiter extends RateLimiter {
   }
 
   private void releaseLock(String key) {
-    cacheCluster.useWriteCluster(connection -> connection.sync().del(getLockName(key)));
+    cacheCluster.useCluster(connection -> connection.sync().del(getLockName(key)));
   }
 
   private boolean acquireLock(String key) {
-    return cacheCluster.withWriteCluster(connection -> connection.sync().set(getLockName(key), "L", SetArgs.Builder.nx().ex(10))) != null;
+    return cacheCluster.withCluster(connection -> connection.sync().set(getLockName(key), "L", SetArgs.Builder.nx().ex(10))) != null;
   }
 
   private String getLockName(String key) {

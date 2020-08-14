@@ -28,41 +28,41 @@ public class RedisClusterHelper {
         when(stringConnection.sync()).thenReturn(stringCommands);
         when(binaryConnection.sync()).thenReturn(binaryCommands);
 
-        when(cluster.withReadCluster(any(Function.class))).thenAnswer(invocation -> {
+        when(cluster.withCluster(any(Function.class))).thenAnswer(invocation -> {
             return invocation.getArgument(0, Function.class).apply(stringConnection);
         });
         
         doAnswer(invocation -> {
             invocation.getArgument(0, Consumer.class).accept(stringConnection);
             return null;
-        }).when(cluster).useReadCluster(any(Consumer.class));
+        }).when(cluster).useCluster(any(Consumer.class));
 
-        when(cluster.withWriteCluster(any(Function.class))).thenAnswer(invocation -> {
+        when(cluster.withCluster(any(Function.class))).thenAnswer(invocation -> {
             return invocation.getArgument(0, Function.class).apply(stringConnection);
         });
 
         doAnswer(invocation -> {
             invocation.getArgument(0, Consumer.class).accept(stringConnection);
             return null;
-        }).when(cluster).useWriteCluster(any(Consumer.class));
+        }).when(cluster).useCluster(any(Consumer.class));
 
-        when(cluster.withBinaryReadCluster(any(Function.class))).thenAnswer(invocation -> {
+        when(cluster.withBinaryCluster(any(Function.class))).thenAnswer(invocation -> {
             return invocation.getArgument(0, Function.class).apply(binaryConnection);
         });
 
         doAnswer(invocation -> {
             invocation.getArgument(0, Consumer.class).accept(binaryConnection);
             return null;
-        }).when(cluster).useBinaryReadCluster(any(Consumer.class));
+        }).when(cluster).useBinaryCluster(any(Consumer.class));
 
-        when(cluster.withBinaryWriteCluster(any(Function.class))).thenAnswer(invocation -> {
+        when(cluster.withBinaryCluster(any(Function.class))).thenAnswer(invocation -> {
             return invocation.getArgument(0, Function.class).apply(binaryConnection);
         });
 
         doAnswer(invocation -> {
             invocation.getArgument(0, Consumer.class).accept(binaryConnection);
             return null;
-        }).when(cluster).useBinaryWriteCluster(any(Consumer.class));
+        }).when(cluster).useBinaryCluster(any(Consumer.class));
         
         return cluster;
     }

@@ -58,7 +58,7 @@ public abstract class AbstractRedisClusterTest {
 
         redisCluster = new FaultTolerantRedisCluster("test-cluster", urls, Duration.ofSeconds(2), new CircuitBreakerConfiguration());
 
-        redisCluster.useWriteCluster(connection -> {
+        redisCluster.useCluster(connection -> {
             boolean setAll = false;
 
             final String[] keys = new String[NODE_COUNT];
@@ -84,7 +84,7 @@ public abstract class AbstractRedisClusterTest {
             }
         });
 
-        redisCluster.useWriteCluster(connection -> connection.sync().flushall());
+        redisCluster.useCluster(connection -> connection.sync().flushall());
     }
 
     protected FaultTolerantRedisCluster getRedisCluster() {
