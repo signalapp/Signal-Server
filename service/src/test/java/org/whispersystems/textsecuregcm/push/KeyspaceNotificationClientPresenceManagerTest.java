@@ -18,10 +18,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-public class ClientPresenceManagerTest extends AbstractRedisClusterTest {
+public class KeyspaceNotificationClientPresenceManagerTest extends AbstractRedisClusterTest {
 
     private ScheduledExecutorService presenceRenewalExecutorService;
-    private ClientPresenceManager    clientPresenceManager;
+    private KeyspaceNotificationClientPresenceManager clientPresenceManager;
 
     private static final DisplacedPresenceListener NO_OP = () -> {};
 
@@ -36,7 +36,7 @@ public class ClientPresenceManagerTest extends AbstractRedisClusterTest {
         });
 
         presenceRenewalExecutorService = Executors.newSingleThreadScheduledExecutor();
-        clientPresenceManager          = new ClientPresenceManager(getRedisCluster(), presenceRenewalExecutorService);
+        clientPresenceManager          = new KeyspaceNotificationClientPresenceManager(getRedisCluster(), presenceRenewalExecutorService);
     }
 
     @Override
@@ -93,7 +93,7 @@ public class ClientPresenceManagerTest extends AbstractRedisClusterTest {
                 }
             });
 
-            getRedisCluster().useCluster(connection -> connection.sync().set(ClientPresenceManager.getPresenceKey(accountUuid, deviceId),
+            getRedisCluster().useCluster(connection -> connection.sync().set(KeyspaceNotificationClientPresenceManager.getPresenceKey(accountUuid, deviceId),
                     UUID.randomUUID().toString()));
 
             synchronized (displaced) {
@@ -125,7 +125,7 @@ public class ClientPresenceManagerTest extends AbstractRedisClusterTest {
 
             clientPresenceManager.getPubSubConnection().usePubSubConnection(connection -> connection.getResources().eventBus().publish(new ClusterTopologyChangedEvent(List.of(), List.of())));
 
-            getRedisCluster().useCluster(connection -> connection.sync().set(ClientPresenceManager.getPresenceKey(accountUuid, deviceId),
+            getRedisCluster().useCluster(connection -> connection.sync().set(KeyspaceNotificationClientPresenceManager.getPresenceKey(accountUuid, deviceId),
                     UUID.randomUUID().toString()));
 
             synchronized (displaced) {
@@ -149,7 +149,7 @@ public class ClientPresenceManagerTest extends AbstractRedisClusterTest {
         assertTrue(clientPresenceManager.clearPresence(accountUuid, deviceId));
 
         clientPresenceManager.setPresent(accountUuid, deviceId, NO_OP);
-        getRedisCluster().useCluster(connection -> connection.sync().set(ClientPresenceManager.getPresenceKey(accountUuid, deviceId),
+        getRedisCluster().useCluster(connection -> connection.sync().set(KeyspaceNotificationClientPresenceManager.getPresenceKey(accountUuid, deviceId),
                 UUID.randomUUID().toString()));
 
         assertFalse(clientPresenceManager.clearPresence(accountUuid, deviceId));
@@ -161,8 +161,8 @@ public class ClientPresenceManagerTest extends AbstractRedisClusterTest {
         final String missingPeerId = UUID.randomUUID().toString();
 
         getRedisCluster().useCluster(connection -> {
-            connection.sync().sadd(ClientPresenceManager.MANAGER_SET_KEY, presentPeerId);
-            connection.sync().sadd(ClientPresenceManager.MANAGER_SET_KEY, missingPeerId);
+            connection.sync().sadd(KeyspaceNotificationClientPresenceManager.MANAGER_SET_KEY, presentPeerId);
+            connection.sync().sadd(KeyspaceNotificationClientPresenceManager.MANAGER_SET_KEY, missingPeerId);
         });
 
         for (int i = 0; i < 10; i++) {
@@ -170,22 +170,22 @@ public class ClientPresenceManagerTest extends AbstractRedisClusterTest {
             addClientPresence(missingPeerId);
         }
 
-        clientPresenceManager.getPubSubConnection().usePubSubConnection(connection -> connection.sync().masters().commands().subscribe(ClientPresenceManager.getManagerPresenceChannel(presentPeerId)));
+        clientPresenceManager.getPubSubConnection().usePubSubConnection(connection -> connection.sync().masters().commands().subscribe(KeyspaceNotificationClientPresenceManager.getManagerPresenceChannel(presentPeerId)));
         clientPresenceManager.pruneMissingPeers();
 
-        assertEquals(1, (long)getRedisCluster().withCluster(connection -> connection.sync().exists(ClientPresenceManager.getConnectedClientSetKey(presentPeerId))));
-        assertTrue(getRedisCluster().withCluster(connection -> connection.sync().sismember(ClientPresenceManager.MANAGER_SET_KEY, presentPeerId)));
+        assertEquals(1, (long)getRedisCluster().withCluster(connection -> connection.sync().exists(KeyspaceNotificationClientPresenceManager.getConnectedClientSetKey(presentPeerId))));
+        assertTrue(getRedisCluster().withCluster(connection -> connection.sync().sismember(KeyspaceNotificationClientPresenceManager.MANAGER_SET_KEY, presentPeerId)));
 
-        assertEquals(0, (long)getRedisCluster().withCluster(connection -> connection.sync().exists(ClientPresenceManager.getConnectedClientSetKey(missingPeerId))));
-        assertFalse(getRedisCluster().withCluster(connection -> connection.sync().sismember(ClientPresenceManager.MANAGER_SET_KEY, missingPeerId)));
+        assertEquals(0, (long)getRedisCluster().withCluster(connection -> connection.sync().exists(KeyspaceNotificationClientPresenceManager.getConnectedClientSetKey(missingPeerId))));
+        assertFalse(getRedisCluster().withCluster(connection -> connection.sync().sismember(KeyspaceNotificationClientPresenceManager.MANAGER_SET_KEY, missingPeerId)));
     }
 
     private void addClientPresence(final String managerId) {
-        final String clientPresenceKey = ClientPresenceManager.getPresenceKey(UUID.randomUUID(), 7);
+        final String clientPresenceKey = KeyspaceNotificationClientPresenceManager.getPresenceKey(UUID.randomUUID(), 7);
 
         getRedisCluster().useCluster(connection -> {
             connection.sync().set(clientPresenceKey, managerId);
-            connection.sync().sadd(ClientPresenceManager.getConnectedClientSetKey(managerId), clientPresenceKey);
+            connection.sync().sadd(KeyspaceNotificationClientPresenceManager.getConnectedClientSetKey(managerId), clientPresenceKey);
         });
     }
 
@@ -206,7 +206,7 @@ public class ClientPresenceManagerTest extends AbstractRedisClusterTest {
         final long displacedAccountDeviceId = 7;
 
         clientPresenceManager.setPresent(displacedAccountUuid, displacedAccountDeviceId, NO_OP);
-        getRedisCluster().useCluster(connection -> connection.sync().set(ClientPresenceManager.getPresenceKey(displacedAccountUuid, displacedAccountDeviceId),
+        getRedisCluster().useCluster(connection -> connection.sync().set(KeyspaceNotificationClientPresenceManager.getPresenceKey(displacedAccountUuid, displacedAccountDeviceId),
                                                                               UUID.randomUUID().toString()));
 
         clientPresenceManager.stop();
