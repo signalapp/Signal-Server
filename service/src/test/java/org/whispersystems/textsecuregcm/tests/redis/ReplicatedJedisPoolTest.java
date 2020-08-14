@@ -1,5 +1,6 @@
 package org.whispersystems.textsecuregcm.tests.redis;
 
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
@@ -8,8 +9,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
 
-import io.github.resilience4j.circuitbreaker.CircuitBreaker;
-import io.github.resilience4j.circuitbreaker.CircuitBreakerOpenException;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 import redis.clients.jedis.Jedis;
@@ -136,7 +135,7 @@ public class ReplicatedJedisPoolTest {
     try {
       replicatedJedisPool.getWriteResource();
       throw new AssertionError();
-    } catch (CircuitBreakerOpenException e) {
+    } catch (CallNotPermittedException e) {
       // good
     }
   }
@@ -176,7 +175,7 @@ public class ReplicatedJedisPoolTest {
     try {
       replicatedJedisPool.getWriteResource();
       throw new AssertionError();
-    } catch (CircuitBreakerOpenException e) {
+    } catch (CallNotPermittedException e) {
       // good
     }
 
@@ -192,7 +191,7 @@ public class ReplicatedJedisPoolTest {
     try {
       replicatedJedisPool.getWriteResource();
       throw new AssertionError();
-    } catch (CircuitBreakerOpenException e) {
+    } catch (CallNotPermittedException e) {
       // good
     }
 

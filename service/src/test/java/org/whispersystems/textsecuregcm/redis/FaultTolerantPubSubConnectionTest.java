@@ -1,6 +1,6 @@
 package org.whispersystems.textsecuregcm.redis;
 
-import io.github.resilience4j.circuitbreaker.CircuitBreakerOpenException;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
 import io.lettuce.core.cluster.pubsub.api.sync.RedisClusterPubSubCommands;
@@ -47,7 +47,7 @@ public class FaultTolerantPubSubConnectionTest {
         assertThrows(RedisException.class,
                 () -> faultTolerantPubSubConnection.withPubSubConnection(connection -> connection.sync().get("OH NO")));
 
-        assertThrows(CircuitBreakerOpenException.class,
+        assertThrows(CallNotPermittedException.class,
                 () -> faultTolerantPubSubConnection.withPubSubConnection(connection -> connection.sync().get("OH NO")));
     }
 }

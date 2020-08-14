@@ -12,7 +12,7 @@ public class RetryConfiguration {
 
   @JsonProperty
   @Min(1)
-  private int maxAttempts = RetryConfig.DEFAULT_MAX_ATTEMPTS;
+  private int maxAttempts = 3;
 
   @JsonProperty
   @Min(1)

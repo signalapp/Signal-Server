@@ -3,7 +3,7 @@ package org.whispersystems.textsecuregcm.tests.storage;
 import com.opentable.db.postgres.embedded.LiquibasePreparer;
 import com.opentable.db.postgres.junit.EmbeddedPostgresRules;
 import com.opentable.db.postgres.junit.PreparedDbRule;
-import io.github.resilience4j.circuitbreaker.CircuitBreakerOpenException;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
@@ -321,7 +321,7 @@ public class KeysTest {
     try {
       keys.store("+14152222222", 1, deviceOnePreKeys);
       throw new AssertionError();
-    } catch (CircuitBreakerOpenException e) {
+    } catch (CallNotPermittedException e) {
       // good
     }
 
