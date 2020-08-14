@@ -123,7 +123,7 @@ public class ClientPresenceManagerTest extends AbstractRedisClusterTest {
                 }
             });
 
-            getRedisCluster().usePubSubConnection(connection -> connection.getResources().eventBus().publish(new ClusterTopologyChangedEvent(List.of(), List.of())));
+            clientPresenceManager.getPubSubConnection().usePubSubConnection(connection -> connection.getResources().eventBus().publish(new ClusterTopologyChangedEvent(List.of(), List.of())));
 
             getRedisCluster().useWriteCluster(connection -> connection.sync().set(ClientPresenceManager.getPresenceKey(accountUuid, deviceId),
                     UUID.randomUUID().toString()));
@@ -170,8 +170,7 @@ public class ClientPresenceManagerTest extends AbstractRedisClusterTest {
             addClientPresence(missingPeerId);
         }
 
-        getRedisCluster().usePubSubConnection(connection -> connection.sync().masters().commands().subscribe(ClientPresenceManager.getManagerPresenceChannel(presentPeerId)));
-
+        clientPresenceManager.getPubSubConnection().usePubSubConnection(connection -> connection.sync().masters().commands().subscribe(ClientPresenceManager.getManagerPresenceChannel(presentPeerId)));
         clientPresenceManager.pruneMissingPeers();
 
         assertEquals(1, (long)getRedisCluster().withWriteCluster(connection -> connection.sync().exists(ClientPresenceManager.getConnectedClientSetKey(presentPeerId))));

@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 
@@ -33,8 +34,10 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String, String> implements UserMessagesCache {
 
-    private final FaultTolerantRedisCluster redisCluster;
-    private final ExecutorService           notificationExecutorService;
+    private final FaultTolerantRedisCluster                     redisCluster;
+    private final FaultTolerantPubSubConnection<String, String> pubSubConnection;
+
+    private final ExecutorService notificationExecutorService;
 
     private final ClusterLuaScript insertScript;
     private final ClusterLuaScript removeByIdScript;
@@ -67,7 +70,9 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
 
     public RedisClusterMessagesCache(final FaultTolerantRedisCluster redisCluster, final ExecutorService notificationExecutorService) throws IOException {
 
-        this.redisCluster                = redisCluster;
+        this.redisCluster     = redisCluster;
+        this.pubSubConnection = redisCluster.createPubSubConnection();
+
         this.notificationExecutorService = notificationExecutorService;
 
         this.insertScript             = ClusterLuaScript.fromResource(redisCluster, "lua/insert_item.lua",           ScriptOutputType.INTEGER);
@@ -78,21 +83,21 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
         this.removeQueueScript        = ClusterLuaScript.fromResource(redisCluster, "lua/remove_queue.lua",          ScriptOutputType.STATUS);
         this.getQueuesToPersistScript = ClusterLuaScript.fromResource(redisCluster, "lua/get_queues_to_persist.lua", ScriptOutputType.MULTI);
 
-        redisCluster.usePubSubConnection(connection -> {
+        pubSubConnection.usePubSubConnection(connection -> {
             connection.addListener(this);
             connection.getResources().eventBus().get()
                     .filter(event -> event instanceof ClusterTopologyChangedEvent)
                     .handle((event, sink) -> {
-                        resubscribeAll();
+                        subscribeForKeyspaceNotifications();
                         sink.next(event);
                     });
-
-            connection.sync().masters().commands().psubscribe(QUEUE_KEYSPACE_PATTERN, PERSISTING_KEYSPACE_PATTERN);
         });
+
+        subscribeForKeyspaceNotifications();
     }
 
-    private void resubscribeAll() {
-        redisCluster.usePubSubConnection(connection -> connection.sync().masters().commands().psubscribe(QUEUE_KEYSPACE_PATTERN, PERSISTING_KEYSPACE_PATTERN));
+    private void subscribeForKeyspaceNotifications() {
+        pubSubConnection.usePubSubConnection(connection -> connection.sync().masters().commands().psubscribe(QUEUE_KEYSPACE_PATTERN, PERSISTING_KEYSPACE_PATTERN));
     }
 
     @Override

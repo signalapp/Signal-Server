@@ -6,7 +6,6 @@ import io.lettuce.core.cluster.RedisClusterClient;
 import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
-import io.lettuce.core.cluster.pubsub.api.sync.RedisClusterPubSubCommands;
 import org.junit.Before;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
@@ -21,9 +20,7 @@ import static org.mockito.Mockito.when;
 public class FaultTolerantRedisClusterTest {
 
     private RedisAdvancedClusterCommands<String, String> clusterCommands;
-    private RedisClusterPubSubCommands<String, String>   pubSubCommands;
-
-    private FaultTolerantRedisCluster faultTolerantCluster;
+    private FaultTolerantRedisCluster                    faultTolerantCluster;
 
     @SuppressWarnings("unchecked")
     @Before
@@ -33,12 +30,10 @@ public class FaultTolerantRedisClusterTest {
         final StatefulRedisClusterPubSubConnection<String, String> pubSubConnection  = mock(StatefulRedisClusterPubSubConnection.class);
 
         clusterCommands = mock(RedisAdvancedClusterCommands.class);
-        pubSubCommands  = mock(RedisClusterPubSubCommands.class);
 
         when(clusterClient.connect()).thenReturn(clusterConnection);
         when(clusterClient.connectPubSub()).thenReturn(pubSubConnection);
         when(clusterConnection.sync()).thenReturn(clusterCommands);
-        when(pubSubConnection.sync()).thenReturn(pubSubCommands);
 
         final CircuitBreakerConfiguration breakerConfiguration = new CircuitBreakerConfiguration();
         breakerConfiguration.setFailureRateThreshold(100);
@@ -91,20 +86,5 @@ public class FaultTolerantRedisClusterTest {
 
         assertThrows(CircuitBreakerOpenException.class,
                 () -> faultTolerantCluster.withWriteCluster(connection -> connection.sync().get("OH NO")));
-    }
-
-    @Test
-    public void testPubSubBreaker() {
-        when(pubSubCommands.publish(anyString(), anyString()))
-                .thenReturn(1L)
-                .thenThrow(new RedisException("Badness has ensued."));
-
-        assertEquals(1L, (long)faultTolerantCluster.withPubSubConnection(connection -> connection.sync().publish("channel", "message")));
-
-        assertThrows(RedisException.class,
-                () -> faultTolerantCluster.withPubSubConnection(connection -> connection.sync().publish("channel", "OH NO")));
-
-        assertThrows(CircuitBreakerOpenException.class,
-                () -> faultTolerantCluster.withPubSubConnection(connection -> connection.sync().publish("channel", "OH NO")));
     }
 }
