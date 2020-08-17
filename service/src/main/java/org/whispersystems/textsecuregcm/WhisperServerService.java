@@ -104,7 +104,6 @@ import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.GCMSender;
-import org.whispersystems.textsecuregcm.push.NoopClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.push.WebsocketSender;
@@ -338,13 +337,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     FaultTolerantRedisCluster messagesCacheCluster = new FaultTolerantRedisCluster("messages_cluster", config.getMessageCacheConfiguration().getRedisClusterConfiguration().getUrls(), config.getMessageCacheConfiguration().getRedisClusterConfiguration().getTimeout(), config.getMessageCacheConfiguration().getRedisClusterConfiguration().getCircuitBreakerConfiguration());
     FaultTolerantRedisCluster metricsCluster       = new FaultTolerantRedisCluster("metrics_cluster", config.getMetricsClusterConfiguration().getUrls(), config.getMetricsClusterConfiguration().getTimeout(), config.getMetricsClusterConfiguration().getCircuitBreakerConfiguration());
 
-    // ScheduledExecutorService clientPresenceExecutor                = environment.lifecycle().scheduledExecutorService("clientPresenceManager").threads(1).build();
+    ScheduledExecutorService clientPresenceExecutor                = environment.lifecycle().scheduledExecutorService("clientPresenceManager").threads(1).build();
     ExecutorService          messageNotificationExecutor           = environment.lifecycle().executorService("messageCacheNotifications").maxThreads(8).workQueue(new ArrayBlockingQueue<>(1_000)).build();
     ExecutorService          messageCacheClusterExperimentExecutor = environment.lifecycle().executorService("messages_cache_experiment").maxThreads(8).workQueue(new ArrayBlockingQueue<>(1_000)).build();
     ExecutorService          websocketExperimentExecutor           = environment.lifecycle().executorService("websocketPresenceExperiment").maxThreads(8).workQueue(new ArrayBlockingQueue<>(1_000)).build();
-    // ClientPresenceManager    clientPresenceManager                 = new KeyspaceNotificationClientPresenceManager(messagesCacheCluster, clientPresenceExecutor);
-    ClientPresenceManager    clientPresenceManager                 = new NoopClientPresenceManager();
 
+    ClientPresenceManager      clientPresenceManager      = new ClientPresenceManager(messagesCacheCluster, clientPresenceExecutor);
     DirectoryManager           directory                  = new DirectoryManager(directoryClient);
     DirectoryQueue             directoryQueue             = new DirectoryQueue(config.getDirectoryConfiguration().getSqsConfiguration());
     PendingAccountsManager     pendingAccountsManager     = new PendingAccountsManager(pendingAccounts, cacheCluster);
@@ -406,7 +404,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(accountDatabaseCrawler);
     environment.lifecycle().manage(remoteConfigsManager);
     environment.lifecycle().manage(clusterMessagePersister);
-    // environment.lifecycle().manage(clientPresenceManager);
+    environment.lifecycle().manage(clientPresenceManager);
 
     AWSCredentials         credentials               = new BasicAWSCredentials(config.getCdnConfiguration().getAccessKey(), config.getCdnConfiguration().getAccessSecret());
     AWSCredentialsProvider credentialsProvider       = new AWSStaticCredentialsProvider(credentials);
