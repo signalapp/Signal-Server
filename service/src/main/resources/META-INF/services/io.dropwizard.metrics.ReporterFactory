@@ -1,2 +1,1 @@
 org.whispersystems.textsecuregcm.metrics.JsonMetricsReporterFactory
-org.whispersystems.textsecuregcm.metrics.SignalSignalfxReporterFactory

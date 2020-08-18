@@ -81,18 +81,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.micrometer</groupId>
-            <artifactId>micrometer-registry-signalfx</artifactId>
-            <version>1.5.3</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.signalfx.public</groupId>
-            <artifactId>signalfx-codahale</artifactId>
-            <version>1.0.4</version>
-        </dependency>
-
-        <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-s3</artifactId>
             <version>1.11.366</version>

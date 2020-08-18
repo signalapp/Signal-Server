@@ -22,7 +22,6 @@ import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.util.EC2MetadataUtils;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.jdbi3.strategies.DefaultNameStrategy;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
@@ -42,12 +41,8 @@ import io.dropwizard.jdbi3.JdbiFactory;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import io.micrometer.core.instrument.Clock;
-import io.micrometer.core.instrument.ImmutableTag;
-import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
-import io.micrometer.signalfx.SignalFxConfig;
 import io.micrometer.wavefront.WavefrontConfig;
 import io.micrometer.wavefront.WavefrontMeterRegistry;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -95,7 +90,6 @@ import org.whispersystems.textsecuregcm.metrics.MetricsApplicationEventListener;
 import org.whispersystems.textsecuregcm.metrics.NetworkReceivedGauge;
 import org.whispersystems.textsecuregcm.metrics.NetworkSentGauge;
 import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
-import org.whispersystems.textsecuregcm.metrics.SignalSignalFxMeterRegistry;
 import org.whispersystems.textsecuregcm.metrics.TrafficSource;
 import org.whispersystems.textsecuregcm.providers.RedisClientFactory;
 import org.whispersystems.textsecuregcm.providers.RedisClusterHealthCheck;
@@ -162,7 +156,6 @@ import org.whispersystems.textsecuregcm.workers.ZkParamsCommand;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
 
-import javax.annotation.Nonnull;
 import javax.servlet.DispatcherType;
 import javax.servlet.FilterRegistration;
 import javax.servlet.ServletRegistration;
@@ -225,79 +218,32 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
   public void run(WhisperServerConfiguration config, Environment environment)
       throws Exception
   {
-    final String instanceId = EC2MetadataUtils.getInstanceId();
     SharedMetricRegistries.add(Constants.METRICS_NAME, environment.metrics());
 
-    final Map<String, MicrometerConfiguration> micrometerConfigurationByName = config.getMicrometerConfiguration();
+    Metrics.addRegistry(new WavefrontMeterRegistry(new WavefrontConfig() {
+      @Override
+      public String get(final String key) {
+        return null;
+      }
 
-    {
-      final MicrometerConfiguration micrometerWavefrontConfig = micrometerConfigurationByName.get("wavefront");
+      @Override
+      public String uri() {
+        return config.getMicrometerConfiguration().getUri();
+      }
 
-      Metrics.addRegistry(new WavefrontMeterRegistry(new WavefrontConfig() {
-        @Override
-        public String get(final String key) {
-          return null;
-        }
-
-        @Override
-        public String uri() {
-          return micrometerWavefrontConfig.getUri();
-        }
-
-        @Override
-        public String apiToken() {
-          return micrometerWavefrontConfig.getApiKey();
-        }
-      }, Clock.SYSTEM) {
-        @Override
-        protected DistributionStatisticConfig defaultHistogramConfig() {
-          return DistributionStatisticConfig.builder()
-                  .percentiles(.75, .95, .99, .999)
-                  .build()
-                  .merge(super.defaultHistogramConfig());
-        }
-      });
-    }
-
-    {
-      final MicrometerConfiguration micrometerSignalfxConfig = micrometerConfigurationByName.get("signalfx");
-      Metrics.addRegistry(new SignalSignalFxMeterRegistry(new SignalFxConfig() {
-        @Override
-        public String get(String key) {
-          return null;
-        }
-
-        @Override
-        public String accessToken() {
-          return micrometerSignalfxConfig.getApiKey();
-        }
-
-        @Override
-        public String source() {
-          return instanceId;
-        }
-
-        @Override
-        public String uri() {
-          return micrometerSignalfxConfig.getUri();
-        }
-      }, Clock.SYSTEM) {
-        @Override
-        protected List<Tag> getConventionTags(@Nonnull Meter.Id id) {
-          final List<Tag> tags = super.getConventionTags(id);
-          tags.add(new ImmutableTag("environment", micrometerSignalfxConfig.getEnvironment()));
-          return tags;
-        }
-
-        @Override
-        protected DistributionStatisticConfig defaultHistogramConfig() {
-          return DistributionStatisticConfig.builder()
-                                            .percentiles(.75, .95, .99, .999)
-                                            .build()
-                                            .merge(super.defaultHistogramConfig());
-        }
-      });
-    }
+      @Override
+      public String apiToken() {
+        return config.getMicrometerConfiguration().getApiKey();
+      }
+    }, Clock.SYSTEM) {
+      @Override
+      protected DistributionStatisticConfig defaultHistogramConfig() {
+        return DistributionStatisticConfig.builder()
+                .percentiles(.75, .95, .99, .999)
+                .build()
+                .merge(super.defaultHistogramConfig());
+      }
+    });
 
     environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     environment.getObjectMapper().setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);

@@ -84,7 +84,7 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
-  private List<MicrometerConfiguration> micrometer = new LinkedList<>();
+  private MicrometerConfiguration micrometer;
 
   @NotNull
   @Valid
@@ -309,14 +309,8 @@ public class WhisperServerConfiguration extends Configuration {
     return cdn;
   }
 
-  public Map<String, MicrometerConfiguration> getMicrometerConfiguration() {
-    final Map<String, MicrometerConfiguration> micrometerConfigurationByName = new HashMap<>();
-
-    for (final MicrometerConfiguration micrometerConfiguration : micrometer) {
-      micrometerConfigurationByName.put(micrometerConfiguration.getName(), micrometerConfiguration);
-    }
-
-    return micrometerConfigurationByName;
+  public MicrometerConfiguration getMicrometerConfiguration() {
+    return micrometer;
   }
 
   public UnidentifiedDeliveryConfiguration getDeliveryCertificate() {
