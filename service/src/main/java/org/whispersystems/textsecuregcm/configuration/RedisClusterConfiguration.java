@@ -16,7 +16,7 @@ public class RedisClusterConfiguration {
 
     @JsonProperty
     @NotNull
-    private Duration timeout = Duration.ofSeconds(2);
+    private Duration timeout = Duration.ofSeconds(10);
 
     @JsonProperty
     @NotNull

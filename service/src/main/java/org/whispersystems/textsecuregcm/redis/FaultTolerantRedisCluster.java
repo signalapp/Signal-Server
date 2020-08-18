@@ -56,11 +56,11 @@ public class FaultTolerantRedisCluster {
     }
 
     @VisibleForTesting
-    FaultTolerantRedisCluster(final String name, final RedisClusterClient clusterClient, final Duration timeout, final CircuitBreakerConfiguration circuitBreakerConfiguration) {
+    FaultTolerantRedisCluster(final String name, final RedisClusterClient clusterClient, final Duration commandTimeout, final CircuitBreakerConfiguration circuitBreakerConfiguration) {
         this.name = name;
 
         this.clusterClient = clusterClient;
-        this.clusterClient.setDefaultTimeout(timeout);
+        this.clusterClient.setDefaultTimeout(commandTimeout);
 
         this.stringConnection = clusterClient.connect();
         this.binaryConnection = clusterClient.connect(ByteArrayCodec.INSTANCE);
