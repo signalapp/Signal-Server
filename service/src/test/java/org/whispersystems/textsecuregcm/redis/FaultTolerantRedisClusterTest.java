@@ -9,7 +9,6 @@ import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
 import org.junit.Before;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.configuration.RedisConnectionPoolConfiguration;
 
 import java.time.Duration;
 
@@ -41,7 +40,7 @@ public class FaultTolerantRedisClusterTest {
         breakerConfiguration.setRingBufferSizeInClosedState(1);
         breakerConfiguration.setWaitDurationInOpenStateInSeconds(Integer.MAX_VALUE);
 
-        faultTolerantCluster = new FaultTolerantRedisCluster("test", clusterClient, Duration.ofSeconds(2), breakerConfiguration, new RedisConnectionPoolConfiguration());
+        faultTolerantCluster = new FaultTolerantRedisCluster("test", clusterClient, Duration.ofSeconds(2), breakerConfiguration);
     }
 
     @Test

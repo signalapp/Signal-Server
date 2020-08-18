@@ -23,10 +23,6 @@ public class RedisClusterConfiguration {
     @Valid
     private CircuitBreakerConfiguration circuitBreaker = new CircuitBreakerConfiguration();
 
-    @JsonProperty
-    @Valid
-    private RedisConnectionPoolConfiguration connectionPool = new RedisConnectionPoolConfiguration();
-
     public List<String> getUrls() {
         return urls;
     }
@@ -37,9 +33,5 @@ public class RedisClusterConfiguration {
 
     public CircuitBreakerConfiguration getCircuitBreakerConfiguration() {
         return circuitBreaker;
-    }
-
-    public RedisConnectionPoolConfiguration getConnectionPoolConfiguration() {
-        return connectionPool;
     }
 }

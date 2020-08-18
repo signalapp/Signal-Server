@@ -12,8 +12,6 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.configuration.RedisClusterConfiguration;
-import org.whispersystems.textsecuregcm.configuration.RedisConnectionPoolConfiguration;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 import redis.embedded.RedisServer;
 
@@ -62,8 +60,7 @@ public abstract class AbstractRedisClusterTest {
         redisCluster = new FaultTolerantRedisCluster("test-cluster",
                                                      RedisClusterClient.create(urls.stream().map(RedisURI::create).collect(Collectors.toList())),
                                                      Duration.ofSeconds(2),
-                                                     new CircuitBreakerConfiguration(),
-                                                     new RedisConnectionPoolConfiguration());
+                                                     new CircuitBreakerConfiguration());
 
         redisCluster.useCluster(connection -> {
             boolean setAll = false;
