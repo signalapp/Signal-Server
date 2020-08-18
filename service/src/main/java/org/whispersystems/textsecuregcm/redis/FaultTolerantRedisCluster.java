@@ -66,7 +66,7 @@ public class FaultTolerantRedisCluster {
         this.binaryConnection = clusterClient.connect(ByteArrayCodec.INSTANCE);
 
         this.circuitBreakerConfiguration = circuitBreakerConfiguration;
-        this.circuitBreaker              = CircuitBreaker.of(name + "-read", circuitBreakerConfiguration.toCircuitBreakerConfig());
+        this.circuitBreaker              = CircuitBreaker.of(name, circuitBreakerConfiguration.toCircuitBreakerConfig());
 
         CircuitBreakerUtil.registerMetrics(SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME),
                 circuitBreaker,
