@@ -507,8 +507,37 @@ public class AccountControllerTest {
     assertThat(result.getUuid()).isNotNull();
     assertThat(result.isStorageCapable()).isFalse();
 
-    verify(accountsManager, times(1)).create(isA(Account.class));
+    final ArgumentCaptor<Account> accountArgumentCaptor = ArgumentCaptor.forClass(Account.class);
+
+    verify(accountsManager, times(1)).create(accountArgumentCaptor.capture());
     verify(directoryQueue, times(1)).deleteRegisteredUser(notNull(), eq(SENDER));
+
+    final Account createdAccount = accountArgumentCaptor.getValue();
+
+    assertThat(createdAccount.isDiscoverableByPhoneNumber()).isTrue();
+  }
+
+  @Test
+  public void testVerifyCodeUndiscoverable() throws Exception {
+    AccountCreationResult result =
+            resources.getJerseyTest()
+                    .target(String.format("/v1/accounts/code/%s", "1234"))
+                    .request()
+                    .header("Authorization", AuthHelper.getAuthHeader(SENDER, "bar"))
+                    .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 2222, null, null, null, null, false),
+                            MediaType.APPLICATION_JSON_TYPE), AccountCreationResult.class);
+
+    assertThat(result.getUuid()).isNotNull();
+    assertThat(result.isStorageCapable()).isFalse();
+
+    final ArgumentCaptor<Account> accountArgumentCaptor = ArgumentCaptor.forClass(Account.class);
+
+    verify(accountsManager, times(1)).create(accountArgumentCaptor.capture());
+    verify(directoryQueue, times(1)).deleteRegisteredUser(notNull(), eq(SENDER));
+
+    final Account createdAccount = accountArgumentCaptor.getValue();
+
+    assertThat(createdAccount.isDiscoverableByPhoneNumber()).isFalse();
   }
 
   @Test
@@ -580,7 +609,7 @@ public class AccountControllerTest {
                  .target(String.format("/v1/accounts/code/%s", "666666"))
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(SENDER_REG_LOCK, "bar"))
-                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 3333, null, null, Hex.toStringCondensed(registration_lock_key), null),
+                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 3333, null, null, Hex.toStringCondensed(registration_lock_key), null, true),
                                     MediaType.APPLICATION_JSON_TYPE), AccountCreationResult.class);
 
     assertThat(result.getUuid()).isNotNull();
@@ -596,7 +625,7 @@ public class AccountControllerTest {
                  .target(String.format("/v1/accounts/code/%s", "666666"))
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(SENDER_REG_LOCK, "bar"))
-                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 3333, null, null, Hex.toStringCondensed(registration_lock_key), null),
+                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 3333, null, null, Hex.toStringCondensed(registration_lock_key), null, true),
                                     MediaType.APPLICATION_JSON_TYPE), AccountCreationResult.class);
 
     assertThat(result.getUuid()).isNotNull();
@@ -630,7 +659,7 @@ public class AccountControllerTest {
                    .target(String.format("/v1/accounts/code/%s", "666666"))
                    .request()
                    .header("Authorization", AuthHelper.getAuthHeader(SENDER_REG_LOCK, "bar"))
-                   .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 3333, null, null, null, null),
+                   .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 3333, null, null, null, null, true),
                                       MediaType.APPLICATION_JSON_TYPE), AccountCreationResult.class);
 
       assertThat(result.getUuid()).isNotNull();

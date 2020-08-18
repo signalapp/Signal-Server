@@ -23,7 +23,9 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.storage.PaymentAddress;
 
+import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Optional;
 
 public class AccountAttributes {
 
@@ -58,22 +60,26 @@ public class AccountAttributes {
   @JsonProperty
   private DeviceCapabilities capabilities;
 
+  @JsonProperty
+  private boolean discoverableByPhoneNumber = true;
+
   public AccountAttributes() {}
 
   @VisibleForTesting
   public AccountAttributes(String signalingKey, boolean fetchesMessages, int registrationId, String pin) {
-    this(signalingKey, fetchesMessages, registrationId, null, pin, null, null);
+    this(signalingKey, fetchesMessages, registrationId, null, pin, null, null, true);
   }
 
   @VisibleForTesting
-  public AccountAttributes(String signalingKey, boolean fetchesMessages, int registrationId, String name, String pin, String registrationLock, List<PaymentAddress> payments) {
-    this.signalingKey     = signalingKey;
-    this.fetchesMessages  = fetchesMessages;
-    this.registrationId   = registrationId;
-    this.name             = name;
-    this.pin              = pin;
-    this.registrationLock = registrationLock;
-    this.payments         = payments;
+  public AccountAttributes(String signalingKey, boolean fetchesMessages, int registrationId, String name, String pin, String registrationLock, List<PaymentAddress> payments, boolean discoverableByPhoneNumber) {
+    this.signalingKey              = signalingKey;
+    this.fetchesMessages           = fetchesMessages;
+    this.registrationId            = registrationId;
+    this.name                      = name;
+    this.pin                       = pin;
+    this.registrationLock          = registrationLock;
+    this.payments                  = payments;
+    this.discoverableByPhoneNumber = discoverableByPhoneNumber;
   }
 
   public String getSignalingKey() {
@@ -114,5 +120,9 @@ public class AccountAttributes {
 
   public List<PaymentAddress> getPayments() {
     return payments;
+  }
+
+  public boolean isDiscoverableByPhoneNumber() {
+    return discoverableByPhoneNumber;
   }
 }

@@ -70,6 +70,9 @@ public class Account implements Principal  {
   @JsonProperty("uua")
   private boolean unrestrictedUnidentifiedAccess;
 
+  @JsonProperty("inCds")
+  private boolean discoverableByPhoneNumber = true;
+
   @JsonIgnore
   private Device authenticatedDevice;
 
@@ -270,6 +273,14 @@ public class Account implements Principal  {
     if      (identifier.hasUuid())   return identifier.getUuid().equals(uuid);
     else if (identifier.hasNumber()) return identifier.getNumber().equals(number);
     else                             throw new AssertionError();
+  }
+
+  public boolean isDiscoverableByPhoneNumber() {
+    return this.discoverableByPhoneNumber;
+  }
+
+  public void setDiscoverableByPhoneNumber(final boolean discoverableByPhoneNumber) {
+    this.discoverableByPhoneNumber = discoverableByPhoneNumber;
   }
 
   // Principal implementation
