@@ -1,8 +1,8 @@
 package org.whispersystems.textsecuregcm.experiment;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,7 +11,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -23,12 +23,12 @@ public class Experiment {
 
     private final String name;
 
-    private final Counter matchCounter;
-    private final Counter errorCounter;
+    private final Timer matchTimer;
+    private final Timer errorTimer;
 
-    private final Counter bothPresentMismatchCounter;
-    private final Counter controlNullMismatchCounter;
-    private final Counter experimentNullMismatchCounter;
+    private final Timer bothPresentMismatchTimer;
+    private final Timer controlNullMismatchTimer;
+    private final Timer experimentNullMismatchTimer;
 
     private static final String OUTCOME_TAG      = "outcome";
     private static final String MATCH_OUTCOME    = "match";
@@ -44,74 +44,84 @@ public class Experiment {
 
     public Experiment(final String... names) {
         this(name(Experiment.class, names),
-             Metrics.counter(name(Experiment.class, names), OUTCOME_TAG, MATCH_OUTCOME),
-             Metrics.counter(name(Experiment.class, names), OUTCOME_TAG, ERROR_OUTCOME),
-             Metrics.counter(name(Experiment.class, names), OUTCOME_TAG, MISMATCH_OUTCOME, MISMATCH_TYPE_TAG, BOTH_PRESENT_MISMATCH),
-             Metrics.counter(name(Experiment.class, names), OUTCOME_TAG, MISMATCH_OUTCOME, MISMATCH_TYPE_TAG, CONTROL_NULL_MISMATCH),
-             Metrics.counter(name(Experiment.class, names), OUTCOME_TAG, MISMATCH_OUTCOME, MISMATCH_TYPE_TAG, EXPERIMENT_NULL_MISMATCH));
+             Metrics.timer(name(Experiment.class, names), OUTCOME_TAG, MATCH_OUTCOME),
+             Metrics.timer(name(Experiment.class, names), OUTCOME_TAG, ERROR_OUTCOME),
+             Metrics.timer(name(Experiment.class, names), OUTCOME_TAG, MISMATCH_OUTCOME, MISMATCH_TYPE_TAG, BOTH_PRESENT_MISMATCH),
+             Metrics.timer(name(Experiment.class, names), OUTCOME_TAG, MISMATCH_OUTCOME, MISMATCH_TYPE_TAG, CONTROL_NULL_MISMATCH),
+             Metrics.timer(name(Experiment.class, names), OUTCOME_TAG, MISMATCH_OUTCOME, MISMATCH_TYPE_TAG, EXPERIMENT_NULL_MISMATCH));
     }
 
     @VisibleForTesting
-    Experiment(final String name, final Counter matchCounter, final Counter errorCounter, final Counter bothPresentMismatchCounter, final Counter controlNullMismatchCounter, final Counter experimentNullMismatchCounter) {
+    Experiment(final String name, final Timer matchTimer, final Timer errorTimer, final Timer bothPresentMismatchTimer, final Timer controlNullMismatchTimer, final Timer experimentNullMismatchTimer) {
         this.name = name;
 
-        this.matchCounter = matchCounter;
-        this.errorCounter = errorCounter;
+        this.matchTimer = matchTimer;
+        this.errorTimer = errorTimer;
 
-        this.bothPresentMismatchCounter = bothPresentMismatchCounter;
-        this.controlNullMismatchCounter = controlNullMismatchCounter;
-        this.experimentNullMismatchCounter = experimentNullMismatchCounter;
+        this.bothPresentMismatchTimer = bothPresentMismatchTimer;
+        this.controlNullMismatchTimer = controlNullMismatchTimer;
+        this.experimentNullMismatchTimer = experimentNullMismatchTimer;
     }
 
     public <T> void compareFutureResult(final T expected, final CompletionStage<T> experimentStage) {
+        final long startNanos = System.nanoTime();
+
         experimentStage.whenComplete((actual, cause) -> {
+            final long durationNanos = System.nanoTime() - startNanos;
+
             if (cause != null) {
-                recordError(cause);
+                recordError(cause, durationNanos);
             } else {
-                recordResult(expected, actual);
+                recordResult(expected, actual, durationNanos);
             }
         });
     }
 
     public <T> void compareSupplierResult(final T expected, final Supplier<T> experimentSupplier) {
+        final long startNanos = System.nanoTime();
+
         try {
-            recordResult(expected, experimentSupplier.get());
+            final T result = experimentSupplier.get();
+
+            recordResult(expected, result, System.nanoTime() - startNanos);
         } catch (final Exception e) {
-            recordError(e);
+            recordError(e, System.nanoTime() - startNanos);
         }
     }
 
     public <T> void compareSupplierResultAsync(final T expected, final Supplier<T> experimentSupplier, final Executor executor) {
+        final long startNanos = System.nanoTime();
+
         try {
             compareFutureResult(expected, CompletableFuture.supplyAsync(experimentSupplier, executor));
         } catch (final Exception e) {
-            recordError(e);
+            recordError(e, System.nanoTime() - startNanos);
         }
     }
 
-    private void recordError(final Throwable cause) {
+    private void recordError(final Throwable cause, final long durationNanos) {
         log.warn("Experiment {} threw an exception.", name, cause);
-        errorCounter.increment();
+        errorTimer.record(durationNanos, TimeUnit.NANOSECONDS);
     }
 
     @VisibleForTesting
-    <T> void recordResult(final T expected, final T actual) {
+    <T> void recordResult(final T expected, final T actual, final long durationNanos) {
         if (expected instanceof Optional && actual instanceof Optional) {
-            recordResult(((Optional)expected).orElse(null), ((Optional)actual).orElse(null));
+            recordResult(((Optional)expected).orElse(null), ((Optional)actual).orElse(null), durationNanos);
         } else {
-            final Counter counter;
+            final Timer Timer;
 
             if (Objects.equals(expected, actual)) {
-                counter = matchCounter;
+                Timer = matchTimer;
             } else if (expected == null) {
-                counter = controlNullMismatchCounter;
+                Timer = controlNullMismatchTimer;
             } else if (actual == null) {
-                counter = experimentNullMismatchCounter;
+                Timer = experimentNullMismatchTimer;
             } else {
-                counter = bothPresentMismatchCounter;
+                Timer = bothPresentMismatchTimer;
             }
 
-            counter.increment();
+            Timer.record(durationNanos, TimeUnit.NANOSECONDS);
         }
     }
 }
