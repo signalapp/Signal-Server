@@ -5,12 +5,15 @@ import io.lettuce.core.RedisException;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
+import io.lettuce.core.cluster.RedisClusterClient;
 import io.lettuce.core.cluster.SlotHash;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RedisClusterConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RedisConnectionPoolConfiguration;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 import redis.embedded.RedisServer;
 
@@ -56,7 +59,11 @@ public abstract class AbstractRedisClusterTest {
                                         .map(node -> String.format("redis://127.0.0.1:%d", node.ports().get(0)))
                                         .collect(Collectors.toList());
 
-        redisCluster = new FaultTolerantRedisCluster("test-cluster", urls, Duration.ofSeconds(2), new CircuitBreakerConfiguration());
+        redisCluster = new FaultTolerantRedisCluster("test-cluster",
+                                                     RedisClusterClient.create(urls.stream().map(RedisURI::create).collect(Collectors.toList())),
+                                                     Duration.ofSeconds(2),
+                                                     new CircuitBreakerConfiguration(),
+                                                     new RedisConnectionPoolConfiguration());
 
         redisCluster.useCluster(connection -> {
             boolean setAll = false;

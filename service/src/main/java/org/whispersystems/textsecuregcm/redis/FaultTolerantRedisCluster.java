@@ -14,6 +14,8 @@ import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RedisClusterConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RedisConnectionPoolConfiguration;
 import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.Constants;
 
@@ -44,22 +46,31 @@ public class FaultTolerantRedisCluster {
 
     private static final Logger log = LoggerFactory.getLogger(FaultTolerantRedisCluster.class);
 
-    public FaultTolerantRedisCluster(final String name, final List<String> urls, final Duration timeout, final CircuitBreakerConfiguration circuitBreakerConfiguration) {
-        this(name, RedisClusterClient.create(urls.stream().map(RedisURI::create).collect(Collectors.toList())), timeout, circuitBreakerConfiguration);
+    public FaultTolerantRedisCluster(final String name, final RedisClusterConfiguration clusterConfiguration) {
+        this(name,
+             RedisClusterClient.create(clusterConfiguration.getUrls().stream().map(RedisURI::create).collect(Collectors.toList())),
+             clusterConfiguration.getTimeout(),
+             clusterConfiguration.getCircuitBreakerConfiguration(),
+             clusterConfiguration.getConnectionPoolConfiguration());
     }
 
     @VisibleForTesting
-    FaultTolerantRedisCluster(final String name, final RedisClusterClient clusterClient, final Duration timeout, final CircuitBreakerConfiguration circuitBreakerConfiguration) {
+    FaultTolerantRedisCluster(final String name, final RedisClusterClient clusterClient, final Duration timeout, final CircuitBreakerConfiguration circuitBreakerConfiguration, final RedisConnectionPoolConfiguration connectionPoolConfiguration) {
         this.name = name;
 
         this.clusterClient = clusterClient;
         this.clusterClient.setDefaultTimeout(timeout);
 
-        //noinspection unchecked,rawtypes,rawtypes
-        this.stringConnectionPool = ConnectionPoolSupport.createGenericObjectPool(clusterClient::connect, new GenericObjectPoolConfig());
+        @SuppressWarnings("rawtypes") final GenericObjectPoolConfig poolConfig = new GenericObjectPoolConfig();
+        poolConfig.setMaxIdle(connectionPoolConfiguration.getPoolSize());
+        poolConfig.setMaxTotal(connectionPoolConfiguration.getPoolSize());
+        poolConfig.setMaxWaitMillis(connectionPoolConfiguration.getMaxWait().toMillis());
 
-        //noinspection unchecked,rawtypes,rawtypes
-        this.binaryConnectionPool = ConnectionPoolSupport.createGenericObjectPool(() -> clusterClient.connect(ByteArrayCodec.INSTANCE), new GenericObjectPoolConfig());
+        //noinspection unchecked
+        this.stringConnectionPool = ConnectionPoolSupport.createGenericObjectPool(clusterClient::connect, poolConfig);
+
+        //noinspection unchecked
+        this.binaryConnectionPool = ConnectionPoolSupport.createGenericObjectPool(() -> clusterClient.connect(ByteArrayCodec.INSTANCE), poolConfig);
 
         this.circuitBreakerConfiguration = circuitBreakerConfiguration;
         this.circuitBreaker              = CircuitBreaker.of(name + "-read", circuitBreakerConfiguration.toCircuitBreakerConfig());
