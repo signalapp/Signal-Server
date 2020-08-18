@@ -1,6 +1,8 @@
 package org.whispersystems.textsecuregcm.redis;
 
+import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.lettuce.core.RedisURI;
@@ -26,6 +28,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 /**
  * A fault-tolerant access manager for a Redis cluster. A fault-tolerant Redis cluster provides managed,
  * circuit-breaker-protected access to a pool of connections.
@@ -43,6 +47,9 @@ public class FaultTolerantRedisCluster {
 
     private final CircuitBreakerConfiguration circuitBreakerConfiguration;
     private final CircuitBreaker circuitBreaker;
+
+    private final Timer acquireAndExecuteTimer;
+    private final Timer executeTimer;
 
     private static final Logger log = LoggerFactory.getLogger(FaultTolerantRedisCluster.class);
 
@@ -78,6 +85,11 @@ public class FaultTolerantRedisCluster {
         CircuitBreakerUtil.registerMetrics(SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME),
                 circuitBreaker,
                 FaultTolerantRedisCluster.class);
+
+        final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+
+        this.acquireAndExecuteTimer = metricRegistry.timer(name(getClass(), name, "acquireConnectionAndExecute"));
+        this.executeTimer           = metricRegistry.timer(name(getClass(), name, "execute"));
     }
 
     void shutdown() {
@@ -110,8 +122,12 @@ public class FaultTolerantRedisCluster {
     private <K, V> void acceptPooledConnection(final GenericObjectPool<StatefulRedisClusterConnection<K, V>> pool, final Consumer<StatefulRedisClusterConnection<K, V>> consumer) {
         try {
             circuitBreaker.executeCheckedRunnable(() -> {
-                try (final StatefulRedisClusterConnection<K, V> connection = pool.borrowObject()) {
-                    consumer.accept(connection);
+                try (final Timer.Context ignored = acquireAndExecuteTimer.time();
+                     final StatefulRedisClusterConnection<K, V> connection = pool.borrowObject()) {
+
+                    try (final Timer.Context ignored2 = executeTimer.time()) {
+                        consumer.accept(connection);
+                    }
                 }
             });
         } catch (final Throwable t) {
@@ -128,8 +144,12 @@ public class FaultTolerantRedisCluster {
     private <T, K, V> T applyToPooledConnection(final GenericObjectPool<StatefulRedisClusterConnection<K, V>> pool, final Function<StatefulRedisClusterConnection<K, V>, T> function) {
         try {
             return circuitBreaker.executeCheckedSupplier(() -> {
-                try (final StatefulRedisClusterConnection<K, V> connection = pool.borrowObject()) {
-                    return function.apply(connection);
+                try (final Timer.Context ignored = acquireAndExecuteTimer.time();
+                     final StatefulRedisClusterConnection<K, V> connection = pool.borrowObject()) {
+
+                    try (final Timer.Context ignored2 = executeTimer.time()) {
+                        return function.apply(connection);
+                    }
                 }
             });
         } catch (final Throwable t) {
