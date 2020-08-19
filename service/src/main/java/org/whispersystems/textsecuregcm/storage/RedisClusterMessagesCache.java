@@ -2,6 +2,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.InvalidProtocolBufferException;
+import io.dropwizard.lifecycle.Managed;
 import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.cluster.SlotHash;
 import io.lettuce.core.cluster.event.ClusterTopologyChangedEvent;
@@ -36,7 +37,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String, String> implements UserMessagesCache {
+public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String, String> implements UserMessagesCache, Managed {
 
     private final FaultTolerantRedisCluster                     redisCluster;
     private final FaultTolerantPubSubConnection<String, String> pubSubConnection;
@@ -90,7 +91,10 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
         this.getItemsScript           = ClusterLuaScript.fromResource(redisCluster, "lua/get_items.lua",             ScriptOutputType.MULTI);
         this.removeQueueScript        = ClusterLuaScript.fromResource(redisCluster, "lua/remove_queue.lua",          ScriptOutputType.STATUS);
         this.getQueuesToPersistScript = ClusterLuaScript.fromResource(redisCluster, "lua/get_queues_to_persist.lua", ScriptOutputType.MULTI);
+    }
 
+    @Override
+    public void start() {
         pubSubConnection.usePubSubConnection(connection -> {
             connection.addListener(this);
             connection.getResources().eventBus().get()
@@ -100,6 +104,11 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
                         sink.next(event);
                     });
         });
+    }
+
+    @Override
+    public void stop() {
+        pubSubConnection.usePubSubConnection(connection -> connection.sync().masters().commands().unsubscribe());
     }
 
     private void resubscribeAll() {

@@ -35,14 +35,18 @@ public class RedisClusterMessagesCacheTest extends AbstractMessagesCacheTest {
 
         notificationExecutorService = Executors.newSingleThreadExecutor();
         messagesCache               = new RedisClusterMessagesCache(getRedisCluster(), notificationExecutorService);
+
+        messagesCache.start();
     }
 
     @Override
     public void tearDown() throws Exception {
-        super.tearDown();
+        messagesCache.stop();
 
         notificationExecutorService.shutdown();
         notificationExecutorService.awaitTermination(1, TimeUnit.SECONDS);
+
+        super.tearDown();
     }
 
     @Override
