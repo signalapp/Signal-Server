@@ -47,6 +47,7 @@ public class CertificateController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/delivery")
   public DeliveryCertificate getDeliveryCertificate(@Auth Account account,
+                                                    @QueryParam("includeE164") Optional<Boolean> includeE164,
                                                     @QueryParam("includeUuid") Optional<Boolean> includeUuid)
       throws IOException, InvalidKeyException
   {
@@ -56,7 +57,14 @@ public class CertificateController {
       throw new WebApplicationException(Response.Status.BAD_REQUEST);
     }
 
-    return new DeliveryCertificate(certificateGenerator.createFor(account, account.getAuthenticatedDevice().get(), includeUuid.orElse(false)));
+    final boolean effectiveIncludeE164 = includeE164.orElse(true);
+    final boolean effectiveIncludeUuid = includeUuid.orElse(false);
+
+    if (!effectiveIncludeE164 && !effectiveIncludeUuid) {
+      throw new WebApplicationException(Response.Status.BAD_REQUEST);
+    }
+
+    return new DeliveryCertificate(certificateGenerator.createFor(account, account.getAuthenticatedDevice().get(), effectiveIncludeE164, effectiveIncludeUuid));
   }
 
   @Timed
