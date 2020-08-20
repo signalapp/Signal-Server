@@ -58,6 +58,11 @@ public class RedisClusterMessagePersister implements Managed {
         this.persistDelay     = persistDelay;
     }
 
+    @VisibleForTesting
+    Duration getPersistDelay() {
+        return persistDelay;
+    }
+
     @Override
     public void start() {
         running = true;
@@ -125,7 +130,7 @@ public class RedisClusterMessagePersister implements Managed {
             messagesCache.lockQueueForPersistence(queue);
 
             try {
-                /* int messageCount = 0;
+                int messageCount = 0;
                 List<MessageProtos.Envelope> messages;
 
                 do {
@@ -139,9 +144,9 @@ public class RedisClusterMessagePersister implements Managed {
 
                         messageCount++;
                     }
-                } while (messages.size() == MESSAGE_BATCH_LIMIT);
+                } while (!messages.isEmpty());
 
-                queueSizeHistogram.update(messageCount); */
+                queueSizeHistogram.update(messageCount);
             } finally {
                 messagesCache.unlockQueueForPersistence(queue);
             }
