@@ -23,6 +23,7 @@ import org.hibernate.validator.constraints.URL;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
+import java.time.Duration;
 import java.util.List;
 
 public class RedisConfiguration {
@@ -37,6 +38,10 @@ public class RedisConfiguration {
 
   @JsonProperty
   @NotNull
+  private Duration timeout = Duration.ofSeconds(10);
+
+  @JsonProperty
+  @NotNull
   @Valid
   private CircuitBreakerConfiguration circuitBreaker = new CircuitBreakerConfiguration();
 
@@ -46,6 +51,10 @@ public class RedisConfiguration {
 
   public List<String> getReplicaUrls() {
     return replicaUrls;
+  }
+
+  public Duration getTimeout() {
+    return timeout;
   }
 
   public CircuitBreakerConfiguration getCircuitBreakerConfiguration() {
