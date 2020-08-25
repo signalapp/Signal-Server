@@ -112,11 +112,7 @@ public class DeviceController {
 
     account.removeDevice(deviceId);
     accounts.update(account);
-
-    if (!account.isEnabled()) {
-      directoryQueue.deleteRegisteredUser(account.getUuid(), account.getNumber());
-    }
-
+    directoryQueue.refreshRegisteredUser(account);
     messages.clear(account.getNumber(), account.getUuid(), deviceId);
   }
 

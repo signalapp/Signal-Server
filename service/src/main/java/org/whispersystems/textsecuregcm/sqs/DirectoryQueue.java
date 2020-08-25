@@ -28,9 +28,11 @@ import com.amazonaws.services.sqs.model.SendMessageRequest;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.SqsConfiguration;
+import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.Constants;
 
 import java.util.HashMap;
@@ -58,12 +60,14 @@ public class DirectoryQueue {
     this.sqs      = AmazonSQSClientBuilder.standard().withRegion(sqsConfig.getRegion()).withCredentials(credentialsProvider).build();
   }
 
-  public void addRegisteredUser(UUID uuid, String number) {
-    sendMessage("add", uuid, number);
+  @VisibleForTesting
+  DirectoryQueue(final String queueUrl, final AmazonSQS sqs) {
+    this.queueUrl = queueUrl;
+    this.sqs      = sqs;
   }
 
-  public void deleteRegisteredUser(UUID uuid, String number) {
-    sendMessage("delete", uuid, number);
+  public void refreshRegisteredUser(final Account account) {
+    sendMessage(account.isEnabled() && account.isDiscoverableByPhoneNumber() ? "add" : "delete", account.getUuid(), account.getNumber());
   }
 
   private void sendMessage(String action, UUID uuid, String number) {

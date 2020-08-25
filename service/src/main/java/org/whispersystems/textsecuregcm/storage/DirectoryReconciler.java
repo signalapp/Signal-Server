@@ -36,7 +36,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
@@ -83,7 +82,7 @@ public class DirectoryReconciler extends AccountDatabaseCrawlerListener {
 
     try {
       for (Account account : accounts) {
-        if (account.isEnabled()) {
+        if (account.isEnabled() && account.isDiscoverableByPhoneNumber()) {
           byte[]        token         = Util.getContactToken(account.getNumber());
           ClientContact clientContact = new ClientContact(token, null, true, true);
           directoryManager.add(batchOperation, clientContact);
@@ -100,7 +99,7 @@ public class DirectoryReconciler extends AccountDatabaseCrawlerListener {
   private DirectoryReconciliationRequest createChunkRequest(Optional<UUID> fromUuid, List<Account> accounts) {
     List<DirectoryReconciliationRequest.User> users = new ArrayList<>(accounts.size());
     for (Account account : accounts) {
-      if (account.isEnabled()) {
+      if (account.isEnabled() && account.isDiscoverableByPhoneNumber()) {
         users.add(new DirectoryReconciliationRequest.User(account.getUuid(), account.getNumber()));
       }
     }

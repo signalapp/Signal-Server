@@ -345,7 +345,7 @@ public class AccountController {
     accounts.update(account);
 
     if (!wasAccountEnabled && account.isEnabled()) {
-      directoryQueue.addRegisteredUser(account.getUuid(), account.getNumber());
+      directoryQueue.refreshRegisteredUser(account);
     }
   }
 
@@ -359,10 +359,7 @@ public class AccountController {
     device.setFetchesMessages(false);
 
     accounts.update(account);
-
-    if (!account.isEnabled()) {
-      directoryQueue.deleteRegisteredUser(account.getUuid(), account.getNumber());
-    }
+    directoryQueue.refreshRegisteredUser(account);
   }
 
   @Timed
@@ -381,7 +378,7 @@ public class AccountController {
     accounts.update(account);
 
     if (!wasAccountEnabled && account.isEnabled()) {
-      directoryQueue.addRegisteredUser(account.getUuid(), account.getNumber());
+      directoryQueue.refreshRegisteredUser(account);
     }
   }
 
@@ -395,10 +392,7 @@ public class AccountController {
     device.setFetchesMessages(false);
 
     accounts.update(account);
-
-    if (!account.isEnabled()) {
-      directoryQueue.deleteRegisteredUser(account.getUuid(), account.getNumber());
-    }
+    directoryQueue.refreshRegisteredUser(account);
   }
 
   @Timed
@@ -485,7 +479,9 @@ public class AccountController {
     account.setDiscoverableByPhoneNumber(attributes.isDiscoverableByPhoneNumber());
 
     accounts.update(account);
+    directoryQueue.refreshRegisteredUser(account);
   }
+
   @GET
   @Path("/whoami")
   @Produces(MediaType.APPLICATION_JSON)
@@ -636,12 +632,7 @@ public class AccountController {
       newUserMeter.mark();
     }
 
-    if (account.isEnabled()) {
-      directoryQueue.addRegisteredUser(account.getUuid(), number);
-    } else {
-      directoryQueue.deleteRegisteredUser(account.getUuid(), number);
-    }
-
+    directoryQueue.refreshRegisteredUser(account);
     messagesManager.clear(number, maybeExistingAccount.map(Account::getUuid).orElse(null));
     pendingAccounts.remove(number);
 

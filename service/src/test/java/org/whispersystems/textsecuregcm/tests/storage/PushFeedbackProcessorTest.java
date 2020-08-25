@@ -24,11 +24,12 @@ public class PushFeedbackProcessorTest {
   private AccountsManager accountsManager = mock(AccountsManager.class);
   private DirectoryQueue  directoryQueue  = mock(DirectoryQueue.class);
 
-  private Account uninstalledAccount = mock(Account.class);
-  private Account mixedAccount       = mock(Account.class);
-  private Account freshAccount       = mock(Account.class);
-  private Account cleanAccount       = mock(Account.class);
-  private Account stillActiveAccount = mock(Account.class);
+  private Account uninstalledAccount    = mock(Account.class);
+  private Account mixedAccount          = mock(Account.class);
+  private Account freshAccount          = mock(Account.class);
+  private Account cleanAccount          = mock(Account.class);
+  private Account stillActiveAccount    = mock(Account.class);
+  private Account undiscoverableAccount = mock(Account.class);
 
   private Device uninstalledDevice       = mock(Device.class);
   private Device uninstalledDeviceTwo    = mock(Device.class);
@@ -36,6 +37,7 @@ public class PushFeedbackProcessorTest {
   private Device installedDeviceTwo      = mock(Device.class);
   private Device recentUninstalledDevice = mock(Device.class);
   private Device stillActiveDevice       = mock(Device.class);
+  private Device undiscoverableDevice    = mock(Device.class);
 
   @Before
   public void setup() {
@@ -53,11 +55,25 @@ public class PushFeedbackProcessorTest {
     when(stillActiveDevice.getUninstalledFeedbackTimestamp()).thenReturn(Util.todayInMillis() - TimeUnit.DAYS.toMillis(2));
     when(stillActiveDevice.getLastSeen()).thenReturn(Util.todayInMillis());
 
+    when(undiscoverableDevice.getUninstalledFeedbackTimestamp()).thenReturn(Util.todayInMillis() - TimeUnit.DAYS.toMillis(2));
+    when(undiscoverableDevice.getLastSeen()).thenReturn(Util.todayInMillis() - TimeUnit.DAYS.toMillis(2));
+
     when(uninstalledAccount.getDevices()).thenReturn(Set.of(uninstalledDevice));
     when(mixedAccount.getDevices()).thenReturn(Set.of(installedDevice, uninstalledDeviceTwo));
     when(freshAccount.getDevices()).thenReturn(Set.of(recentUninstalledDevice));
     when(cleanAccount.getDevices()).thenReturn(Set.of(installedDeviceTwo));
     when(stillActiveAccount.getDevices()).thenReturn(Set.of(stillActiveDevice));
+    when(undiscoverableAccount.getDevices()).thenReturn(Set.of(undiscoverableDevice));
+
+    when(uninstalledAccount.isEnabled()).thenReturn(true);
+    when(uninstalledAccount.isDiscoverableByPhoneNumber()).thenReturn(true);
+    when(uninstalledAccount.getUuid()).thenReturn(UUID.randomUUID());
+    when(uninstalledAccount.getNumber()).thenReturn("+18005551234");
+
+    when(undiscoverableAccount.isEnabled()).thenReturn(true);
+    when(undiscoverableAccount.isDiscoverableByPhoneNumber()).thenReturn(false);
+    when(undiscoverableAccount.getUuid()).thenReturn(UUID.randomUUID());
+    when(undiscoverableAccount.getNumber()).thenReturn("+18005559876");
   }
 
 
@@ -73,7 +89,7 @@ public class PushFeedbackProcessorTest {
   @Test
   public void testUpdate() throws AccountDatabaseCrawlerRestartException {
     PushFeedbackProcessor processor = new PushFeedbackProcessor(accountsManager, directoryQueue);
-    processor.timeAndProcessCrawlChunk(Optional.of(UUID.randomUUID()), List.of(uninstalledAccount, mixedAccount, stillActiveAccount, freshAccount, cleanAccount));
+    processor.timeAndProcessCrawlChunk(Optional.of(UUID.randomUUID()), List.of(uninstalledAccount, mixedAccount, stillActiveAccount, freshAccount, cleanAccount, undiscoverableAccount));
 
     verify(uninstalledDevice).setApnId(isNull());
     verify(uninstalledDevice).setGcmId(isNull());
@@ -109,6 +125,9 @@ public class PushFeedbackProcessorTest {
     verify(stillActiveDevice, never()).setFetchesMessages(anyBoolean());
 
     verify(accountsManager).update(eq(stillActiveAccount));
+
+    verify(directoryQueue).refreshRegisteredUser(undiscoverableAccount);
+    verify(directoryQueue).refreshRegisteredUser(uninstalledAccount);
   }
 
 

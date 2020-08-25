@@ -60,13 +60,17 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.isA;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.notNull;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -148,6 +152,8 @@ public class AccountControllerTest {
 
   @Before
   public void setup() throws Exception {
+    clearInvocations(AuthHelper.VALID_ACCOUNT, AuthHelper.UNDISCOVERABLE_ACCOUNT);
+
     new SecureRandom().nextBytes(registration_lock_key);
     AuthenticationCredentials registrationLockCredentials = new AuthenticationCredentials(Hex.toStringCondensed(registration_lock_key));
 
@@ -510,11 +516,9 @@ public class AccountControllerTest {
     final ArgumentCaptor<Account> accountArgumentCaptor = ArgumentCaptor.forClass(Account.class);
 
     verify(accountsManager, times(1)).create(accountArgumentCaptor.capture());
-    verify(directoryQueue, times(1)).deleteRegisteredUser(notNull(), eq(SENDER));
+    verify(directoryQueue, times(1)).refreshRegisteredUser(argThat(account -> SENDER.equals(account.getNumber())));
 
-    final Account createdAccount = accountArgumentCaptor.getValue();
-
-    assertThat(createdAccount.isDiscoverableByPhoneNumber()).isTrue();
+    assertThat(accountArgumentCaptor.getValue().isDiscoverableByPhoneNumber()).isTrue();
   }
 
   @Test
@@ -533,11 +537,9 @@ public class AccountControllerTest {
     final ArgumentCaptor<Account> accountArgumentCaptor = ArgumentCaptor.forClass(Account.class);
 
     verify(accountsManager, times(1)).create(accountArgumentCaptor.capture());
-    verify(directoryQueue, times(1)).deleteRegisteredUser(notNull(), eq(SENDER));
+    verify(directoryQueue, times(1)).refreshRegisteredUser(argThat(account -> SENDER.equals(account.getNumber())));
 
-    final Account createdAccount = accountArgumentCaptor.getValue();
-
-    assertThat(createdAccount.isDiscoverableByPhoneNumber()).isFalse();
+    assertThat(accountArgumentCaptor.getValue().isDiscoverableByPhoneNumber()).isFalse();
   }
 
   @Test
@@ -554,7 +556,7 @@ public class AccountControllerTest {
     assertThat(result.isStorageCapable()).isTrue();
 
     verify(accountsManager, times(1)).create(isA(Account.class));
-    verify(directoryQueue, times(1)).deleteRegisteredUser(notNull(), eq(SENDER_HAS_STORAGE));
+    verify(directoryQueue, times(1)).refreshRegisteredUser(argThat(account -> SENDER_HAS_STORAGE.equals(account.getNumber())));
   }
 
   @Test
@@ -1007,6 +1009,7 @@ public class AccountControllerTest {
 
     verify(AuthHelper.DISABLED_DEVICE, times(1)).setGcmId(eq("c00lz0rz"));
     verify(accountsManager, times(1)).update(eq(AuthHelper.DISABLED_ACCOUNT));
+    verify(directoryQueue, never()).refreshRegisteredUser(any(Account.class));
   }
 
   @Test
@@ -1022,6 +1025,7 @@ public class AccountControllerTest {
 
     verify(AuthHelper.DISABLED_DEVICE, times(1)).setGcmId(eq("z000"));
     verify(accountsManager, times(1)).update(eq(AuthHelper.DISABLED_ACCOUNT));
+    verify(directoryQueue, never()).refreshRegisteredUser(any(Account.class));
   }
 
   @Test
@@ -1038,6 +1042,7 @@ public class AccountControllerTest {
     verify(AuthHelper.DISABLED_DEVICE, times(1)).setApnId(eq("first"));
     verify(AuthHelper.DISABLED_DEVICE, times(1)).setVoipApnId(eq("second"));
     verify(accountsManager, times(1)).update(eq(AuthHelper.DISABLED_ACCOUNT));
+    verify(directoryQueue, never()).refreshRegisteredUser(any(Account.class));
   }
 
   @Test
@@ -1054,6 +1059,7 @@ public class AccountControllerTest {
     verify(AuthHelper.DISABLED_DEVICE, times(1)).setApnId(eq("third"));
     verify(AuthHelper.DISABLED_DEVICE, times(1)).setVoipApnId(eq("fourth"));
     verify(accountsManager, times(1)).update(eq(AuthHelper.DISABLED_ACCOUNT));
+    verify(directoryQueue, never()).refreshRegisteredUser(any(Account.class));
   }
 
   @Test
@@ -1153,4 +1159,16 @@ public class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(401);
   }
 
+  @Test
+  public void testSetAccountAttributes() {
+    Response response =
+            resources.getJerseyTest()
+                    .target("/v1/accounts/attributes/")
+                    .request()
+                    .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                    .put(Entity.json(new AccountAttributes("keykeykeykey", false, 2222, null, null, null, null, true)));
+
+    assertThat(response.getStatus()).isEqualTo(204);
+    verify(directoryQueue, times(1)).refreshRegisteredUser(AuthHelper.VALID_ACCOUNT);
+  }
 }

@@ -24,22 +24,24 @@ import org.whispersystems.textsecuregcm.storage.AccountCleaner;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyBoolean;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 public class AccountCleanerTest {
 
@@ -98,8 +100,7 @@ public class AccountCleanerTest {
     verify(deletedDisabledDevice, never()).setFetchesMessages(anyBoolean());
 
     verify(accountsManager, never()).update(eq(deletedDisabledAccount));
-    verify(directoryQueue, never()).deleteRegisteredUser(notNull(), eq("+14151231234"));
-
+    verify(directoryQueue, never()).refreshRegisteredUser(deletedDisabledAccount);
 
     verify(undeletedDisabledDevice, times(1)).setGcmId(isNull());
     verify(undeletedDisabledDevice, times(1)).setApnId(isNull());
@@ -107,7 +108,7 @@ public class AccountCleanerTest {
     verify(undeletedDisabledDevice, times(1)).setFetchesMessages(eq(false));
 
     verify(accountsManager, times(1)).update(eq(undeletedDisabledAccount));
-    verify(directoryQueue, times(1)).deleteRegisteredUser(notNull(), eq("+14152222222"));
+    verify(directoryQueue, times(1)).refreshRegisteredUser(undeletedDisabledAccount);
 
     verify(undeletedEnabledDevice, never()).setGcmId(any());
     verify(undeletedEnabledDevice, never()).setApnId(any());
@@ -115,7 +116,7 @@ public class AccountCleanerTest {
     verify(undeletedEnabledDevice, never()).setFetchesMessages(anyBoolean());
 
     verify(accountsManager, never()).update(eq(undeletedEnabledAccount));
-    verify(directoryQueue, never()).deleteRegisteredUser(notNull(), eq("+14153333333"));
+    verify(directoryQueue, never()).refreshRegisteredUser(undeletedEnabledAccount);
 
     verifyNoMoreInteractions(accountsManager);
     verifyNoMoreInteractions(directoryQueue);
@@ -144,7 +145,7 @@ public class AccountCleanerTest {
     verify(undeletedDisabledDevice, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).setFetchesMessages(eq(false));
 
     verify(accountsManager, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).update(eq(undeletedDisabledAccount));
-    verify(directoryQueue, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).deleteRegisteredUser(notNull(), eq("+14152222222"));
+    verify(directoryQueue, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).refreshRegisteredUser(undeletedDisabledAccount);
 
     verify(deletedDisabledDevice, never()).setGcmId(any());
     verify(deletedDisabledDevice, never()).setApnId(any());
