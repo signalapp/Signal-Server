@@ -3,15 +3,16 @@ package org.whispersystems.textsecuregcm.metrics;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
 
-import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 public class PushLatencyManagerTest extends AbstractRedisClusterTest {
 
     @Test
-    public void testGetLatency() {
+    public void testGetLatency() throws ExecutionException, InterruptedException {
         final PushLatencyManager pushLatencyManager  = new PushLatencyManager(getRedisCluster());
         final UUID               accountUuid         = UUID.randomUUID();
         final long               deviceId            = 1;
@@ -19,13 +20,13 @@ public class PushLatencyManagerTest extends AbstractRedisClusterTest {
         final long               pushSentTimestamp   = System.currentTimeMillis();
         final long               clearQueueTimestamp = pushSentTimestamp + expectedLatency;
 
-        assertEquals(Optional.empty(), pushLatencyManager.getLatencyAndClearTimestamp(accountUuid, deviceId, System.currentTimeMillis()));
+        assertNull(pushLatencyManager.getLatencyAndClearTimestamp(accountUuid, deviceId, System.currentTimeMillis()).get());
 
         {
             pushLatencyManager.recordPushSent(accountUuid, deviceId, pushSentTimestamp);
 
-            assertEquals(Optional.of(expectedLatency), pushLatencyManager.getLatencyAndClearTimestamp(accountUuid, deviceId, clearQueueTimestamp));
-            assertEquals(Optional.empty(), pushLatencyManager.getLatencyAndClearTimestamp(accountUuid, deviceId, System.currentTimeMillis()));
+            assertEquals(expectedLatency, (long)pushLatencyManager.getLatencyAndClearTimestamp(accountUuid, deviceId, clearQueueTimestamp).get());
+            assertNull(pushLatencyManager.getLatencyAndClearTimestamp(accountUuid, deviceId, System.currentTimeMillis()).get());
         }
     }
 }
