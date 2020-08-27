@@ -20,12 +20,15 @@ import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.Form;
 import javax.ws.rs.core.Response;
 import java.util.List;
+import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 @RunWith(JUnitParamsRunner.class)
 public class FeatureFlagsControllerTest {
@@ -77,6 +80,35 @@ public class FeatureFlagsControllerTest {
                     .request()
                     .header("Token", "bogus-token")
                     .put(Entity.form(new Form().param("active", "true")));
+
+            assertEquals(401, response.getStatus());
+            verifyNoMoreInteractions(FEATURE_FLAG_MANAGER);
+        }
+    }
+
+    @SuppressWarnings("rawtypes")
+    @Test
+    public void testGet() {
+        final Map<String, Boolean> managedFlags = Map.of("activeFlag", true, "inactiveFlag", false);
+        when(FEATURE_FLAG_MANAGER.getAllFlags()).thenReturn(managedFlags);
+
+        {
+            final Map returnedFlags = resources.getJerseyTest()
+                    .target("/v1/featureflag")
+                    .request()
+                    .header("Token", "first")
+                    .get(Map.class);
+
+            verify(FEATURE_FLAG_MANAGER).getAllFlags();
+            assertEquals(managedFlags, returnedFlags);
+        }
+
+        {
+            final Response response = resources.getJerseyTest()
+                    .target("/v1/featureflag")
+                    .request()
+                    .header("Token", "bogus-token")
+                    .get();
 
             assertEquals(401, response.getStatus());
             verifyNoMoreInteractions(FEATURE_FLAG_MANAGER);

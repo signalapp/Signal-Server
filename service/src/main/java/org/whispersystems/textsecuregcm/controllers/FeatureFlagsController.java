@@ -6,15 +6,19 @@ import org.whispersystems.textsecuregcm.storage.FeatureFlagsManager;
 
 import javax.ws.rs.DELETE;
 import javax.ws.rs.FormParam;
+import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Path("/v1/featureflag")
@@ -26,6 +30,17 @@ public class FeatureFlagsController {
     public FeatureFlagsController(final FeatureFlagsManager featureFlagsManager, final List<String> authorizedTokens) {
         this.featureFlagsManager = featureFlagsManager;
         this.authorizedTokens    = authorizedTokens.stream().map(token -> token.getBytes(StandardCharsets.UTF_8)).collect(Collectors.toList());
+    }
+
+    @Timed
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    public Map<String, Boolean> get(@HeaderParam("Token") final String token) {
+        if (!isAuthorized(token)) {
+            throw new WebApplicationException(Response.Status.UNAUTHORIZED);
+        }
+
+        return featureFlagsManager.getAllFlags();
     }
 
     @Timed

@@ -67,11 +67,15 @@ public class FeatureFlagsManager implements Managed {
         refreshFeatureFlags();
     }
 
+    public Map<String, Boolean> getAllFlags() {
+        return featureFlags.get();
+    }
+
     @VisibleForTesting
     void refreshFeatureFlags() {
         final Map<String, Boolean> refreshedFeatureFlags = featureFlagDatabase.getFeatureFlags();
 
-        featureFlags.set(refreshedFeatureFlags);
+        featureFlags.set(Collections.unmodifiableMap(refreshedFeatureFlags));
 
         for (final Map.Entry<String, Boolean> entry : refreshedFeatureFlags.entrySet()) {
             final String  featureFlag = entry.getKey();
