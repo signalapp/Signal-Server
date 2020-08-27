@@ -62,6 +62,17 @@ public class FeatureFlagsControllerTest {
 
         {
             final Response response = resources.getJerseyTest()
+                    .target("/v1/featureflag/secondFlag")
+                    .request()
+                    .header("Token", "first")
+                    .put(Entity.form(new Form().param("active", "false")));
+
+            assertEquals(204, response.getStatus());
+            verify(FEATURE_FLAG_MANAGER).setFeatureFlag("secondFlag", false);
+        }
+
+        {
+            final Response response = resources.getJerseyTest()
                     .target("/v1/featureflag/testFlag")
                     .request()
                     .header("Token", "bogus-token")

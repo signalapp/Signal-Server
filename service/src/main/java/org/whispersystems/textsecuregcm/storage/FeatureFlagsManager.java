@@ -26,10 +26,10 @@ import static com.codahale.metrics.MetricRegistry.name;
  */
 public class FeatureFlagsManager implements Managed {
 
-    private final FeatureFlags                              featureFlagDatabase;
-    private final ScheduledExecutorService                  refreshExecutorService;
-    private       ScheduledFuture<?>                        refreshFuture;
-    private final AtomicReference<Map<String, Boolean>>     featureFlags = new AtomicReference<>(Collections.emptyMap());
+    private final FeatureFlags                          featureFlagDatabase;
+    private final ScheduledExecutorService              refreshExecutorService;
+    private       ScheduledFuture<?>                    refreshFuture;
+    private final AtomicReference<Map<String, Boolean>> featureFlags = new AtomicReference<>(Collections.emptyMap());
 
     private static final String GAUGE_NAME    = "status";
     private static final String FLAG_TAG_NAME = "flag";
@@ -70,6 +70,7 @@ public class FeatureFlagsManager implements Managed {
     @VisibleForTesting
     void refreshFeatureFlags() {
         final Map<String, Boolean> refreshedFeatureFlags = featureFlagDatabase.getFeatureFlags();
+
         featureFlags.set(refreshedFeatureFlags);
 
         for (final Map.Entry<String, Boolean> entry : refreshedFeatureFlags.entrySet()) {

@@ -1,44 +1,46 @@
 package org.whispersystems.textsecuregcm.storage;
 
+import com.opentable.db.postgres.embedded.LiquibasePreparer;
+import com.opentable.db.postgres.junit.EmbeddedPostgresRules;
+import com.opentable.db.postgres.junit.PreparedDbRule;
+import org.jdbi.v3.core.Jdbi;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 public class FeatureFlagsManagerTest {
 
-    private FeatureFlags       featureFlagDatabase;
     private FeatureFlagsManager featureFlagsManager;
+
+    @Rule
+    public PreparedDbRule db = EmbeddedPostgresRules.preparedDatabase(LiquibasePreparer.forClasspathLocation("accountsdb.xml"));
 
     @Before
     public void setUp() {
-        featureFlagDatabase = mock(FeatureFlags.class);
-        featureFlagsManager = new FeatureFlagsManager(featureFlagDatabase, mock(ScheduledExecutorService.class));
+        final FaultTolerantDatabase database = new FaultTolerantDatabase("featureFlagsTest",
+                Jdbi.create(db.getTestDatabase()),
+                new CircuitBreakerConfiguration());
+
+        featureFlagsManager  = new FeatureFlagsManager(new FeatureFlags(database), mock(ScheduledExecutorService.class));
     }
 
     @Test
     public void testIsFeatureFlagActive() {
-        final Map<String, Boolean> featureFlags = new HashMap<>();
-        featureFlags.put("testFlag", true);
+        final String flagName = "testFlag";
 
-        when(featureFlagDatabase.getFeatureFlags()).thenReturn(featureFlags);
+        assertFalse(featureFlagsManager.isFeatureFlagActive(flagName));
 
-        assertFalse(featureFlagsManager.isFeatureFlagActive("testFlag"));
+        featureFlagsManager.setFeatureFlag(flagName, true);
+        assertTrue(featureFlagsManager.isFeatureFlagActive(flagName));
 
-        featureFlagsManager.refreshFeatureFlags();
-
-        assertTrue(featureFlagsManager.isFeatureFlagActive("testFlag"));
-
-        featureFlags.put("testFlag", false);
-        featureFlagsManager.refreshFeatureFlags();
-
-        assertFalse(featureFlagsManager.isFeatureFlagActive("testFlag"));
+        featureFlagsManager.setFeatureFlag(flagName, false);
+        assertFalse(featureFlagsManager.isFeatureFlagActive(flagName));
     }
 }
