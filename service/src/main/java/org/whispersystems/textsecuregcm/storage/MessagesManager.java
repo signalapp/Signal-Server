@@ -73,11 +73,13 @@ public class MessagesManager {
 
   public void clear(String destination, UUID destinationUuid) {
     this.messagesCache.clear(destination, destinationUuid);
+    this.clusterMessagesCache.clear(destination, destinationUuid);
     this.messages.clear(destination);
   }
 
   public void clear(String destination, UUID destinationUuid, long deviceId) {
     this.messagesCache.clear(destination, destinationUuid, deviceId);
+    this.clusterMessagesCache.clear(destination, destinationUuid, deviceId);
     this.messages.clear(destination, deviceId);
   }
 
