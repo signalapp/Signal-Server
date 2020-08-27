@@ -25,6 +25,7 @@ import org.whispersystems.textsecuregcm.configuration.AwsAttachmentsConfiguratio
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DatabaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
+import org.whispersystems.textsecuregcm.configuration.FeatureFlagConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
@@ -211,6 +212,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private RemoteConfigConfiguration remoteConfig;
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private FeatureFlagConfiguration featureFlag;
+
   private Map<String, String> transparentDataIndex = new HashMap<>();
 
   public RecaptchaConfiguration getRecaptchaConfiguration() {
@@ -353,5 +359,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public RemoteConfigConfiguration getRemoteConfigConfiguration() {
     return remoteConfig;
+  }
+
+  public FeatureFlagConfiguration getFeatureFlagConfiguration() {
+    return featureFlag;
   }
 }
