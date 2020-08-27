@@ -2,13 +2,14 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.lifecycle.Managed;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tag;
 
 import java.time.Duration;
 import java.util.Collections;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -30,6 +31,7 @@ public class FeatureFlagsManager implements Managed {
     private final ScheduledExecutorService              refreshExecutorService;
     private       ScheduledFuture<?>                    refreshFuture;
     private final AtomicReference<Map<String, Boolean>> featureFlags = new AtomicReference<>(Collections.emptyMap());
+    private final Set<Gauge>                            gauges = new HashSet<>();
 
     private static final String GAUGE_NAME    = "status";
     private static final String FLAG_TAG_NAME = "flag";
@@ -77,11 +79,19 @@ public class FeatureFlagsManager implements Managed {
 
         featureFlags.set(Collections.unmodifiableMap(refreshedFeatureFlags));
 
+        for (final Gauge gauge : gauges) {
+            Metrics.globalRegistry.remove(gauge);
+        }
+
+        gauges.clear();
+
         for (final Map.Entry<String, Boolean> entry : refreshedFeatureFlags.entrySet()) {
             final String  featureFlag = entry.getKey();
             final boolean active      = entry.getValue();
 
-            Metrics.gauge(name(getClass(), GAUGE_NAME), List.of(Tag.of(FLAG_TAG_NAME, featureFlag)), active ? 1 : 0);
+            gauges.add(Gauge.builder(name(getClass(), GAUGE_NAME), () -> active ? 1 : 0)
+                            .tag(FLAG_TAG_NAME, featureFlag)
+                            .register(Metrics.globalRegistry));
         }
     }
 }
