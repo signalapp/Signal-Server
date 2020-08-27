@@ -23,13 +23,13 @@ import java.util.UUID;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-public class RedisClusterMessagePersister implements Managed {
+public class MessagePersister implements Managed {
 
-    private final RedisClusterMessagesCache messagesCache;
-    private final MessagesManager           messagesManager;
-    private final PubSubManager             pubSubManager;
-    private final PushSender                pushSender;
-    private final AccountsManager           accountsManager;
+    private final MessagesCache   messagesCache;
+    private final MessagesManager messagesManager;
+    private final PubSubManager   pubSubManager;
+    private final PushSender      pushSender;
+    private final AccountsManager accountsManager;
 
     private final Duration persistDelay;
 
@@ -37,20 +37,20 @@ public class RedisClusterMessagePersister implements Managed {
     private          Thread  workerThread;
 
     private final MetricRegistry metricRegistry         = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-    private final Timer          getQueuesTimer         = metricRegistry.timer(name(RedisClusterMessagePersister.class, "getQueues"));
-    private final Timer          persistQueueTimer      = metricRegistry.timer(name(RedisClusterMessagePersister.class, "persistQueue"));
-    private final Timer          notifySubscribersTimer = metricRegistry.timer(name(RedisClusterMessagePersister.class, "notifySubscribers"));
-    private final Histogram      queueCountHistogram    = metricRegistry.histogram(name(RedisClusterMessagePersister.class, "queueCount"));
-    private final Histogram      queueSizeHistogram     = metricRegistry.histogram(name(RedisClusterMessagePersister.class, "queueSize"));
+    private final Timer          getQueuesTimer         = metricRegistry.timer(name(MessagePersister.class, "getQueues"));
+    private final Timer          persistQueueTimer      = metricRegistry.timer(name(MessagePersister.class, "persistQueue"));
+    private final Timer          notifySubscribersTimer = metricRegistry.timer(name(MessagePersister.class, "notifySubscribers"));
+    private final Histogram      queueCountHistogram    = metricRegistry.histogram(name(MessagePersister.class, "queueCount"));
+    private final Histogram      queueSizeHistogram     = metricRegistry.histogram(name(MessagePersister.class, "queueSize"));
 
     static final int QUEUE_BATCH_LIMIT   = 100;
     static final int MESSAGE_BATCH_LIMIT = 100;
 
     static final String ENABLE_PERSISTENCE_FLAG = "enable-cluster-persister";
 
-    private static final Logger logger = LoggerFactory.getLogger(RedisClusterMessagePersister.class);
+    private static final Logger logger = LoggerFactory.getLogger(MessagePersister.class);
 
-    public RedisClusterMessagePersister(final RedisClusterMessagesCache messagesCache, final MessagesManager messagesManager, final PubSubManager pubSubManager, final PushSender pushSender, final AccountsManager accountsManager, final Duration persistDelay) {
+    public MessagePersister(final MessagesCache messagesCache, final MessagesManager messagesManager, final PubSubManager pubSubManager, final PushSender pushSender, final AccountsManager accountsManager, final Duration persistDelay) {
         this.messagesCache       = messagesCache;
         this.messagesManager     = messagesManager;
         this.pubSubManager       = pubSubManager;
@@ -102,7 +102,7 @@ public class RedisClusterMessagePersister implements Managed {
 
             for (final String queue : queuesToPersist) {
                 persistQueue(queue);
-                notifyClients(RedisClusterMessagesCache.getAccountUuidFromQueueName(queue), RedisClusterMessagesCache.getDeviceIdFromQueueName(queue));
+                notifyClients(MessagesCache.getAccountUuidFromQueueName(queue), MessagesCache.getDeviceIdFromQueueName(queue));
             }
 
             queuesPersisted += queuesToPersist.size();
@@ -113,8 +113,8 @@ public class RedisClusterMessagePersister implements Managed {
 
     @VisibleForTesting
     void persistQueue(final String queue) {
-        final UUID accountUuid = RedisClusterMessagesCache.getAccountUuidFromQueueName(queue);
-        final long deviceId    = RedisClusterMessagesCache.getDeviceIdFromQueueName(queue);
+        final UUID accountUuid = MessagesCache.getAccountUuidFromQueueName(queue);
+        final long deviceId    = MessagesCache.getDeviceIdFromQueueName(queue);
 
         final Optional<Account> maybeAccount = accountsManager.get(accountUuid);
 

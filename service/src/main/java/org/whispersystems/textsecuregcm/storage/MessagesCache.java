@@ -37,7 +37,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String, String> implements Managed {
+public class MessagesCache extends RedisClusterPubSubAdapter<String, String> implements Managed {
 
     private final FaultTolerantRedisCluster                     redisCluster;
     private final FaultTolerantPubSubConnection<String, String> pubSubConnection;
@@ -55,12 +55,12 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
     private final Map<String, MessageAvailabilityListener> messageListenersByQueueName = new HashMap<>();
     private final Map<MessageAvailabilityListener, String> queueNamesByMessageListener = new IdentityHashMap<>();
 
-    private final Timer   insertTimer                       = Metrics.timer(name(RedisClusterMessagesCache.class, "insert"));
-    private final Timer   getMessagesTimer                  = Metrics.timer(name(RedisClusterMessagesCache.class, "get"));
-    private final Timer   clearQueueTimer                   = Metrics.timer(name(RedisClusterMessagesCache.class, "clear"));
-    private final Counter pubSubMessageCounter              = Metrics.counter(name(RedisClusterMessagesCache.class, "pubSubMessage"));
-    private final Counter newMessageNotificationCounter     = Metrics.counter(name(RedisClusterMessagesCache.class, "newMessageNotification"));
-    private final Counter queuePersistedNotificationCounter = Metrics.counter(name(RedisClusterMessagesCache.class, "queuePersisted"));
+    private final Timer   insertTimer                       = Metrics.timer(name(MessagesCache.class, "insert"));
+    private final Timer   getMessagesTimer                  = Metrics.timer(name(MessagesCache.class, "get"));
+    private final Timer   clearQueueTimer                   = Metrics.timer(name(MessagesCache.class, "clear"));
+    private final Counter pubSubMessageCounter              = Metrics.counter(name(MessagesCache.class, "pubSubMessage"));
+    private final Counter newMessageNotificationCounter     = Metrics.counter(name(MessagesCache.class, "newMessageNotification"));
+    private final Counter queuePersistedNotificationCounter = Metrics.counter(name(MessagesCache.class, "queuePersisted"));
 
     static final         String NEXT_SLOT_TO_PERSIST_KEY  = "user_queue_persist_slot";
     private static final byte[] LOCK_VALUE                = "1".getBytes(StandardCharsets.UTF_8);
@@ -68,16 +68,16 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
     private static final String QUEUE_KEYSPACE_PREFIX      = "__keyspace@0__:user_queue::";
     private static final String PERSISTING_KEYSPACE_PREFIX = "__keyspace@0__:user_queue_persisting::";
 
-    private static final String REMOVE_TIMER_NAME = name(RedisClusterMessagesCache.class, "remove");
+    private static final String REMOVE_TIMER_NAME = name(MessagesCache.class, "remove");
 
     private static final String REMOVE_METHOD_TAG    = "method";
     private static final String REMOVE_METHOD_ID     = "id";
     private static final String REMOVE_METHOD_SENDER = "sender";
     private static final String REMOVE_METHOD_UUID   = "uuid";
 
-    private static final Logger logger = LoggerFactory.getLogger(RedisClusterMessagesCache.class);
+    private static final Logger logger = LoggerFactory.getLogger(MessagesCache.class);
 
-    public RedisClusterMessagesCache(final FaultTolerantRedisCluster redisCluster, final ExecutorService notificationExecutorService) throws IOException {
+    public MessagesCache(final FaultTolerantRedisCluster redisCluster, final ExecutorService notificationExecutorService) throws IOException {
 
         this.redisCluster     = redisCluster;
         this.pubSubConnection = redisCluster.createPubSubConnection();

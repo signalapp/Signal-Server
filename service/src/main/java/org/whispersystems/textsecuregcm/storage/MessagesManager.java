@@ -27,18 +27,18 @@ public class MessagesManager {
   private static final Meter          cacheHitByGuidMeter  = metricRegistry.meter(name(MessagesManager.class, "cacheHitByGuid" ));
   private static final Meter          cacheMissByGuidMeter = metricRegistry.meter(name(MessagesManager.class, "cacheMissByGuid"));
 
-  private final Messages                  messages;
-  private final RedisClusterMessagesCache clusterMessagesCache;
-  private final PushLatencyManager        pushLatencyManager;
+  private final Messages           messages;
+  private final MessagesCache      messagesCache;
+  private final PushLatencyManager pushLatencyManager;
 
-  public MessagesManager(Messages messages, RedisClusterMessagesCache clusterMessagesCache, PushLatencyManager pushLatencyManager) {
+  public MessagesManager(Messages messages, MessagesCache messagesCache, PushLatencyManager pushLatencyManager) {
     this.messages             = messages;
-    this.clusterMessagesCache = clusterMessagesCache;
+    this.messagesCache = messagesCache;
     this.pushLatencyManager   = pushLatencyManager;
   }
 
   public void insert(String destination, UUID destinationUuid, long destinationDevice, Envelope message) {
-    clusterMessagesCache.insert(UUID.randomUUID(), destination, destinationUuid, destinationDevice, message);
+    messagesCache.insert(UUID.randomUUID(), destination, destinationUuid, destinationDevice, message);
   }
 
   public OutgoingMessageEntityList getMessagesForDevice(String destination, UUID destinationUuid, long destinationDevice, final String userAgent) {
@@ -47,25 +47,25 @@ public class MessagesManager {
     List<OutgoingMessageEntity> messages = this.messages.load(destination, destinationDevice);
 
     if (messages.size() <= Messages.RESULT_SET_CHUNK_SIZE) {
-      messages.addAll(clusterMessagesCache.get(destination, destinationUuid, destinationDevice, Messages.RESULT_SET_CHUNK_SIZE - messages.size()));
+      messages.addAll(messagesCache.get(destination, destinationUuid, destinationDevice, Messages.RESULT_SET_CHUNK_SIZE - messages.size()));
     }
 
     return new OutgoingMessageEntityList(messages, messages.size() >= Messages.RESULT_SET_CHUNK_SIZE);
   }
 
   public void clear(String destination, UUID destinationUuid) {
-    this.clusterMessagesCache.clear(destination, destinationUuid);
+    this.messagesCache.clear(destination, destinationUuid);
     this.messages.clear(destination);
   }
 
   public void clear(String destination, UUID destinationUuid, long deviceId) {
-    this.clusterMessagesCache.clear(destination, destinationUuid, deviceId);
+    this.messagesCache.clear(destination, destinationUuid, deviceId);
     this.messages.clear(destination, deviceId);
   }
 
   public Optional<OutgoingMessageEntity> delete(String destination, UUID destinationUuid, long destinationDevice, String source, long timestamp)
   {
-    Optional<OutgoingMessageEntity> removed = clusterMessagesCache.remove(destination, destinationUuid, destinationDevice, source, timestamp);
+    Optional<OutgoingMessageEntity> removed = messagesCache.remove(destination, destinationUuid, destinationDevice, source, timestamp);
 
     if (!removed.isPresent()) {
       removed = this.messages.remove(destination, destinationDevice, source, timestamp);
@@ -78,7 +78,7 @@ public class MessagesManager {
   }
 
   public Optional<OutgoingMessageEntity> delete(String destination, UUID destinationUuid, long deviceId, UUID guid) {
-    Optional<OutgoingMessageEntity> removed = clusterMessagesCache.remove(destination, destinationUuid, deviceId, guid);
+    Optional<OutgoingMessageEntity> removed = messagesCache.remove(destination, destinationUuid, deviceId, guid);
 
     if (!removed.isPresent()) {
       removed = this.messages.remove(destination, guid);
@@ -92,7 +92,7 @@ public class MessagesManager {
 
   public void delete(String destination, UUID destinationUuid, long deviceId, long id, boolean cached) {
     if (cached) {
-      clusterMessagesCache.remove(destination, destinationUuid, deviceId, id);
+      messagesCache.remove(destination, destinationUuid, deviceId, id);
       cacheHitByIdMeter.mark();
     } else {
       this.messages.remove(destination, id);
@@ -102,14 +102,14 @@ public class MessagesManager {
 
   public void persistMessage(String destination, UUID destinationUuid, Envelope envelope, UUID messageGuid, long deviceId) {
     messages.store(messageGuid, envelope, destination, deviceId);
-    clusterMessagesCache.remove(destination, destinationUuid, deviceId, messageGuid);
+    messagesCache.remove(destination, destinationUuid, deviceId, messageGuid);
   }
 
   public void addMessageAvailabilityListener(final UUID destinationUuid, final long deviceId, final MessageAvailabilityListener listener) {
-    clusterMessagesCache.addMessageAvailabilityListener(destinationUuid, deviceId, listener);
+    messagesCache.addMessageAvailabilityListener(destinationUuid, deviceId, listener);
   }
 
   public void removeMessageAvailabilityListener(final MessageAvailabilityListener listener) {
-    clusterMessagesCache.removeMessageAvailabilityListener(listener);
+    messagesCache.removeMessageAvailabilityListener(listener);
   }
 }
