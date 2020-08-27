@@ -18,12 +18,10 @@ import java.util.List;
  */
 class MetricsRequestEventListener implements RequestEventListener {
 
-    static final  String        COUNTER_NAME       = MetricRegistry.name(MetricsRequestEventListener.class, "request");
-
-    static final  String        PATH_TAG           = "path";
-    static final  String        STATUS_CODE_TAG    = "status";
-    static final  String        TRAFFIC_SOURCE_TAG = "trafficSource";
-    static final  String        EXCEPTION_TAG      = "exception";
+    static final  String COUNTER_NAME       = MetricRegistry.name(MetricsRequestEventListener.class, "request");
+    static final  String PATH_TAG           = "path";
+    static final  String STATUS_CODE_TAG    = "status";
+    static final  String TRAFFIC_SOURCE_TAG = "trafficSource";
 
     private final TrafficSource trafficSource;
     private final MeterRegistry meterRegistry;
@@ -49,14 +47,6 @@ class MetricsRequestEventListener implements RequestEventListener {
 
                 final List<String> userAgentValues = event.getContainerRequest().getRequestHeader("User-Agent");
                 tags.addAll(UserAgentTagUtil.getUserAgentTags(userAgentValues != null ? userAgentValues.stream().findFirst().orElse(null) : null));
-
-                if (event.getException() != null) {
-                    if (event.getException() instanceof MappableException) {
-                        tags.add(Tag.of(EXCEPTION_TAG, event.getException().getCause().getClass().getSimpleName()));
-                    } else {
-                        tags.add(Tag.of(EXCEPTION_TAG, event.getException().getClass().getSimpleName()));
-                    }
-                }
 
                 meterRegistry.counter(COUNTER_NAME, tags).increment();
             }
