@@ -55,17 +55,6 @@ public class RedisClusterMessagesCacheTest extends AbstractMessagesCacheTest {
     }
 
     @Test
-    @Parameters({"true", "false"})
-    public void testInsertWithPrescribedId(final boolean sealedSender) {
-        final UUID firstMessageGuid  = UUID.randomUUID();
-        final UUID secondMessageGuid = UUID.randomUUID();
-        final long messageId         = 74;
-
-        assertEquals(messageId, messagesCache.insert(firstMessageGuid, DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID, generateRandomMessage(firstMessageGuid, sealedSender), messageId));
-        assertEquals(messageId + 1, messagesCache.insert(secondMessageGuid, DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID, generateRandomMessage(secondMessageGuid, sealedSender)));
-    }
-
-    @Test
     public void testClearNullUuid() {
         // We're happy as long as this doesn't throw an exception
         messagesCache.clear(DESTINATION_ACCOUNT, null);

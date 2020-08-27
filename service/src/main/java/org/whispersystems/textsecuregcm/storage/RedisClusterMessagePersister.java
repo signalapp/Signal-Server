@@ -30,7 +30,6 @@ public class RedisClusterMessagePersister implements Managed {
     private final PubSubManager             pubSubManager;
     private final PushSender                pushSender;
     private final AccountsManager           accountsManager;
-    private final FeatureFlagsManager       featureFlagsManager;
 
     private final Duration persistDelay;
 
@@ -51,13 +50,12 @@ public class RedisClusterMessagePersister implements Managed {
 
     private static final Logger logger = LoggerFactory.getLogger(RedisClusterMessagePersister.class);
 
-    public RedisClusterMessagePersister(final RedisClusterMessagesCache messagesCache, final MessagesManager messagesManager, final PubSubManager pubSubManager, final PushSender pushSender, final AccountsManager accountsManager, final FeatureFlagsManager featureFlagsManager, final Duration persistDelay) {
+    public RedisClusterMessagePersister(final RedisClusterMessagesCache messagesCache, final MessagesManager messagesManager, final PubSubManager pubSubManager, final PushSender pushSender, final AccountsManager accountsManager, final Duration persistDelay) {
         this.messagesCache       = messagesCache;
         this.messagesManager     = messagesManager;
         this.pubSubManager       = pubSubManager;
         this.pushSender          = pushSender;
         this.accountsManager     = accountsManager;
-        this.featureFlagsManager = featureFlagsManager;
         this.persistDelay        = persistDelay;
     }
 
@@ -72,10 +70,7 @@ public class RedisClusterMessagePersister implements Managed {
 
         workerThread = new Thread(() -> {
             while (running) {
-                if (featureFlagsManager.isFeatureFlagActive(ENABLE_PERSISTENCE_FLAG)) {
-                    persistNextQueues(Instant.now());
-                }
-
+                persistNextQueues(Instant.now());
                 Util.sleep(100);
             }
         });
