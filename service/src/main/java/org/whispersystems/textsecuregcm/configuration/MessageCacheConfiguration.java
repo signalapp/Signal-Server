@@ -10,19 +10,10 @@ public class MessageCacheConfiguration {
   @JsonProperty
   @NotNull
   @Valid
-  private RedisConfiguration redis;
-
-  @JsonProperty
-  @NotNull
-  @Valid
   private RedisClusterConfiguration cluster;
 
   @JsonProperty
   private int persistDelayMinutes = 10;
-
-  public RedisConfiguration getRedisConfiguration() {
-    return redis;
-  }
 
   public RedisClusterConfiguration getRedisClusterConfiguration() {
     return cluster;

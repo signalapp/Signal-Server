@@ -68,9 +68,7 @@ directory:
     reconciliationChunkIntervalMs: # CDS reconciliation chunk interval, in milliseconds
 
 messageCache: # Redis server configuration for message store cache
-  redis:
-    url:
-    replicaUrls:
+  persistDelayMinutes:
 
   cluster:
     urls:

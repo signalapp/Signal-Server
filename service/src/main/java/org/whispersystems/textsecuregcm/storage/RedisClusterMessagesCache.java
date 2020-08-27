@@ -37,7 +37,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String, String> implements UserMessagesCache, Managed {
+public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String, String> implements Managed {
 
     private final FaultTolerantRedisCluster                     redisCluster;
     private final FaultTolerantPubSubConnection<String, String> pubSubConnection;
@@ -123,7 +123,6 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
         }
     }
 
-    @Override
     public long insert(final UUID guid, final String destination, final UUID destinationUuid, final long destinationDevice, final MessageProtos.Envelope message) {
         final MessageProtos.Envelope messageWithGuid = message.toBuilder().setServerGuid(guid.toString()).build();
         final String                 sender          = message.hasSource() ? (message.getSource() + "::" + message.getTimestamp()) : "nil";
@@ -138,7 +137,6 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
                                                    guid.toString().getBytes(StandardCharsets.UTF_8))));
     }
 
-    @Override
     public Optional<OutgoingMessageEntity> remove(final String destination, final UUID destinationUuid, final long destinationDevice, final long id) {
         try {
             final byte[] serialized = (byte[])Metrics.timer(REMOVE_TIMER_NAME, REMOVE_METHOD_TAG, REMOVE_METHOD_ID).record(() ->
@@ -149,7 +147,7 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
 
 
             if (serialized != null) {
-                return Optional.of(UserMessagesCache.constructEntityFromEnvelope(id, MessageProtos.Envelope.parseFrom(serialized)));
+                return Optional.of(constructEntityFromEnvelope(id, MessageProtos.Envelope.parseFrom(serialized)));
             }
         } catch (final InvalidProtocolBufferException e) {
             logger.warn("Failed to parse envelope", e);
@@ -158,7 +156,6 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
         return Optional.empty();
     }
 
-    @Override
     public Optional<OutgoingMessageEntity> remove(final String destination, final UUID destinationUuid, final long destinationDevice, final String sender, final long timestamp) {
         try {
             final byte[] serialized = (byte[])Metrics.timer(REMOVE_TIMER_NAME, REMOVE_METHOD_TAG, REMOVE_METHOD_SENDER).record(() ->
@@ -168,7 +165,7 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
                                                        List.of((sender + "::" + timestamp).getBytes(StandardCharsets.UTF_8))));
 
             if (serialized != null) {
-                return Optional.of(UserMessagesCache.constructEntityFromEnvelope(0, MessageProtos.Envelope.parseFrom(serialized)));
+                return Optional.of(constructEntityFromEnvelope(0, MessageProtos.Envelope.parseFrom(serialized)));
             }
         } catch (final InvalidProtocolBufferException e) {
             logger.warn("Failed to parse envelope", e);
@@ -177,7 +174,6 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
         return Optional.empty();
     }
 
-    @Override
     public Optional<OutgoingMessageEntity> remove(final String destination, final UUID destinationUuid, final long destinationDevice, final UUID messageGuid) {
         try {
             final byte[] serialized = (byte[])Metrics.timer(REMOVE_TIMER_NAME, REMOVE_METHOD_TAG, REMOVE_METHOD_UUID).record(() ->
@@ -187,7 +183,7 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
                                                      List.of(messageGuid.toString().getBytes(StandardCharsets.UTF_8))));
 
             if (serialized != null) {
-                return Optional.of(UserMessagesCache.constructEntityFromEnvelope(0, MessageProtos.Envelope.parseFrom(serialized)));
+                return Optional.of(constructEntityFromEnvelope(0, MessageProtos.Envelope.parseFrom(serialized)));
             }
         } catch (final InvalidProtocolBufferException e) {
             logger.warn("Failed to parse envelope", e);
@@ -196,7 +192,6 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
         return Optional.empty();
     }
 
-    @Override
     @SuppressWarnings("unchecked")
     public List<OutgoingMessageEntity> get(final String destination, final UUID destinationUuid, final long destinationDevice, final int limit) {
         return getMessagesTimer.record(() -> {
@@ -214,7 +209,7 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
                         final MessageProtos.Envelope message = MessageProtos.Envelope.parseFrom(queueItems.get(i));
                         final long id = Long.parseLong(new String(queueItems.get(i + 1), StandardCharsets.UTF_8));
 
-                        messageEntities.add(UserMessagesCache.constructEntityFromEnvelope(id, message));
+                        messageEntities.add(constructEntityFromEnvelope(id, message));
                     } catch (InvalidProtocolBufferException e) {
                         logger.warn("Failed to parse envelope", e);
                     }
@@ -257,7 +252,6 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
         });
     }
 
-    @Override
     public void clear(final String destination, final UUID destinationUuid) {
         // TODO Remove null check in a fully UUID-based world
         if (destinationUuid != null) {
@@ -267,7 +261,6 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
         }
     }
 
-    @Override
     public void clear(final String destination, final UUID destinationUuid, final long deviceId) {
         clearQueueTimer.record(() ->
                 removeQueueScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, deviceId),
@@ -352,6 +345,21 @@ public class RedisClusterMessagesCache extends RedisClusterPubSubAdapter<String,
         synchronized (messageListenersByQueueName) {
             return Optional.ofNullable(messageListenersByQueueName.get(queueName));
         }
+    }
+
+    @VisibleForTesting
+    static OutgoingMessageEntity constructEntityFromEnvelope(long id, MessageProtos.Envelope envelope) {
+        return new OutgoingMessageEntity(id, true,
+                envelope.hasServerGuid() ? UUID.fromString(envelope.getServerGuid()) : null,
+                envelope.getType().getNumber(),
+                envelope.getRelay(),
+                envelope.getTimestamp(),
+                envelope.getSource(),
+                envelope.hasSourceUuid() ? UUID.fromString(envelope.getSourceUuid()) : null,
+                envelope.getSourceDevice(),
+                envelope.hasLegacyMessage() ? envelope.getLegacyMessage().toByteArray() : null,
+                envelope.hasContent() ? envelope.getContent().toByteArray() : null,
+                envelope.hasServerTimestamp() ? envelope.getServerTimestamp() : 0);
     }
 
     @VisibleForTesting
