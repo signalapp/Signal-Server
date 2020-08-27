@@ -30,6 +30,7 @@ public class RedisClusterMessagePersister implements Managed {
     private final PubSubManager             pubSubManager;
     private final PushSender                pushSender;
     private final AccountsManager           accountsManager;
+    private final FeatureFlagsManager       featureFlagsManager;
 
     private final Duration persistDelay;
 
@@ -46,16 +47,18 @@ public class RedisClusterMessagePersister implements Managed {
     static final int QUEUE_BATCH_LIMIT   = 100;
     static final int MESSAGE_BATCH_LIMIT = 100;
 
+    static final String ENABLE_PERSISTENCE_FLAG = "enable-cluster-persister";
+
     private static final Logger logger = LoggerFactory.getLogger(RedisClusterMessagePersister.class);
 
-    public RedisClusterMessagePersister(final RedisClusterMessagesCache messagesCache, final Messages messagesDatabase, final PubSubManager pubSubManager, final PushSender pushSender, final AccountsManager accountsManager, final Duration persistDelay) {
-        this.messagesCache    = messagesCache;
-        this.messagesDatabase = messagesDatabase;
-        this.pubSubManager    = pubSubManager;
-        this.pushSender       = pushSender;
-        this.accountsManager  = accountsManager;
-
-        this.persistDelay     = persistDelay;
+    public RedisClusterMessagePersister(final RedisClusterMessagesCache messagesCache, final Messages messagesDatabase, final PubSubManager pubSubManager, final PushSender pushSender, final AccountsManager accountsManager, final FeatureFlagsManager featureFlagsManager, final Duration persistDelay) {
+        this.messagesCache       = messagesCache;
+        this.messagesDatabase    = messagesDatabase;
+        this.pubSubManager       = pubSubManager;
+        this.pushSender          = pushSender;
+        this.accountsManager     = accountsManager;
+        this.featureFlagsManager = featureFlagsManager;
+        this.persistDelay        = persistDelay;
     }
 
     @VisibleForTesting
@@ -69,7 +72,10 @@ public class RedisClusterMessagePersister implements Managed {
 
         workerThread = new Thread(() -> {
             while (running) {
-                persistNextQueues(Instant.now());
+                if (featureFlagsManager.isFeatureFlagActive(ENABLE_PERSISTENCE_FLAG)) {
+                    persistNextQueues(Instant.now());
+                }
+
                 Util.sleep(100);
             }
         });
@@ -130,7 +136,7 @@ public class RedisClusterMessagePersister implements Managed {
             messagesCache.lockQueueForPersistence(queue);
 
             try {
-                /* int messageCount = 0;
+                int messageCount = 0;
                 List<MessageProtos.Envelope> messages;
 
                 do {
@@ -146,7 +152,7 @@ public class RedisClusterMessagePersister implements Managed {
                     }
                 } while (!messages.isEmpty());
 
-                queueSizeHistogram.update(messageCount); */
+                queueSizeHistogram.update(messageCount);
             } finally {
                 messagesCache.unlockQueueForPersistence(queue);
             }

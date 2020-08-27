@@ -49,30 +49,35 @@ public class MessagePersister implements Managed, Runnable {
   private final long                delayTime;
   private final TimeUnit            delayTimeUnit;
 
-  private final MessagesManager messagesManager;
-  private final PubSubManager   pubSubManager;
-  private final PushSender      pushSender;
-  private final AccountsManager accountsManager;
+  private final MessagesManager     messagesManager;
+  private final PubSubManager       pubSubManager;
+  private final PushSender          pushSender;
+  private final AccountsManager     accountsManager;
+  private final FeatureFlagsManager featureFlagsManager;
 
   private final LuaScript getQueuesScript;
 
   private boolean finished = false;
 
+  private static final String DISABLE_PERSISTENCE_FLAG = "disable-singleton-persister";
+
   public MessagePersister(final ReplicatedJedisPool jedisPool,
-                          final MessagesManager     messagesManager,
-                          final PubSubManager       pubSubManager,
-                          final PushSender          pushSender,
-                          final AccountsManager     accountsManager,
-                          final long                delayTime,
-                          final TimeUnit            delayTimeUnit)
+                          final MessagesManager messagesManager,
+                          final PubSubManager pubSubManager,
+                          final PushSender pushSender,
+                          final AccountsManager accountsManager,
+                          final FeatureFlagsManager featureFlagsManager,
+                          final long delayTime,
+                          final TimeUnit delayTimeUnit)
       throws IOException
   {
-    this.jedisPool     = jedisPool;
+    this.jedisPool = jedisPool;
 
-    this.messagesManager = messagesManager;
-    this.pubSubManager   = pubSubManager;
-    this.pushSender      = pushSender;
-    this.accountsManager = accountsManager;
+    this.messagesManager     = messagesManager;
+    this.pubSubManager       = pubSubManager;
+    this.pushSender          = pushSender;
+    this.accountsManager     = accountsManager;
+    this.featureFlagsManager = featureFlagsManager;
 
     this.delayTime       = delayTime;
     this.delayTimeUnit   = delayTimeUnit;
@@ -87,23 +92,30 @@ public class MessagePersister implements Managed, Runnable {
   @Override
   public void run() {
     while (running.get()) {
-      try {
-        List<byte[]> queuesToPersist = getQueuesToPersist();
-        queueCountHistogram.update(queuesToPersist.size());
+      if (!featureFlagsManager.isFeatureFlagActive(DISABLE_PERSISTENCE_FLAG)) {
+        try {
+          List<byte[]> queuesToPersist = getQueuesToPersist();
+          queueCountHistogram.update(queuesToPersist.size());
 
-        for (byte[] queue : queuesToPersist) {
-          Key key = Key.fromUserMessageQueue(queue);
+          for (byte[] queue : queuesToPersist) {
+            Key key = Key.fromUserMessageQueue(queue);
 
-          persistQueue(jedisPool, key);
-          notifyClients(accountsManager, pubSubManager, pushSender, key);
+            persistQueue(jedisPool, key);
+            notifyClients(accountsManager, pubSubManager, pushSender, key);
+          }
+
+          if (queuesToPersist.isEmpty()) {
+            //noinspection BusyWait
+            Thread.sleep(10_000);
+          }
+        } catch (Throwable t) {
+          logger.error("Exception while persisting: ", t);
         }
-
-        if (queuesToPersist.isEmpty()) {
-          //noinspection BusyWait
+      } else {
+        try {
           Thread.sleep(10_000);
+        } catch (final InterruptedException ignored) {
         }
-      } catch (Throwable t) {
-        logger.error("Exception while persisting: ", t);
       }
     }
 

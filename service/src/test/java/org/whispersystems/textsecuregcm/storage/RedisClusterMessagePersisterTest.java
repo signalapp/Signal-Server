@@ -4,7 +4,6 @@ import com.google.protobuf.ByteString;
 import io.lettuce.core.cluster.SlotHash;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.push.PushSender;
@@ -29,7 +28,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@Ignore
 public class RedisClusterMessagePersisterTest extends AbstractRedisClusterTest {
 
     private ExecutorService              notificationExecutorService;
@@ -50,6 +48,9 @@ public class RedisClusterMessagePersisterTest extends AbstractRedisClusterTest {
     public void setUp() throws Exception {
         super.setUp();
 
+        final FeatureFlagsManager featureFlagsManager = mock(FeatureFlagsManager.class);
+        when(featureFlagsManager.isFeatureFlagActive(RedisClusterMessagePersister.ENABLE_PERSISTENCE_FLAG)).thenReturn(true);
+
         messagesDatabase = mock(Messages.class);
         accountsManager  = mock(AccountsManager.class);
         pubSubManager    = mock(PubSubManager.class);
@@ -61,7 +62,7 @@ public class RedisClusterMessagePersisterTest extends AbstractRedisClusterTest {
 
         notificationExecutorService = Executors.newSingleThreadExecutor();
         messagesCache               = new RedisClusterMessagesCache(getRedisCluster(), notificationExecutorService);
-        messagePersister            = new RedisClusterMessagePersister(messagesCache, messagesDatabase, pubSubManager, mock(PushSender.class), accountsManager, PERSIST_DELAY);
+        messagePersister            = new RedisClusterMessagePersister(messagesCache, messagesDatabase, pubSubManager, mock(PushSender.class), accountsManager, featureFlagsManager, PERSIST_DELAY);
     }
 
     @Override
@@ -136,6 +137,7 @@ public class RedisClusterMessagePersisterTest extends AbstractRedisClusterTest {
         verify(messagesDatabase, times(queueCount * messagesPerQueue)).store(any(UUID.class), any(MessageProtos.Envelope.class), anyString(), anyLong());
     }
 
+    @SuppressWarnings("SameParameterValue")
     private static String generateRandomQueueNameForSlot(final int slot) {
         final UUID uuid = UUID.randomUUID();
 
