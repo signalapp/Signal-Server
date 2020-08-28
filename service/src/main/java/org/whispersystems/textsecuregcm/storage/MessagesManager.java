@@ -15,7 +15,6 @@ import org.whispersystems.textsecuregcm.util.Constants;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
@@ -34,26 +33,24 @@ public class MessagesManager {
   private final RedisClusterMessagesCache clusterMessagesCache;
   private final PushLatencyManager        pushLatencyManager;
 
-  private final ExecutorService experimentExecutor;
   private final Experiment      insertExperiment         = new Experiment("MessagesCache", "insert");
   private final Experiment      removeByIdExperiment     = new Experiment("MessagesCache", "removeById");
   private final Experiment      removeBySenderExperiment = new Experiment("MessagesCache", "removeBySender");
   private final Experiment      removeByUuidExperiment   = new Experiment("MessagesCache", "removeByUuid");
   private final Experiment      getMessagesExperiment    = new Experiment("MessagesCache", "getMessages");
 
-  public MessagesManager(Messages messages, MessagesCache messagesCache, RedisClusterMessagesCache clusterMessagesCache, PushLatencyManager pushLatencyManager, final ExecutorService experimentExecutor) {
+  public MessagesManager(Messages messages, MessagesCache messagesCache, RedisClusterMessagesCache clusterMessagesCache, PushLatencyManager pushLatencyManager) {
     this.messages             = messages;
     this.messagesCache        = messagesCache;
     this.clusterMessagesCache = clusterMessagesCache;
     this.pushLatencyManager   = pushLatencyManager;
-    this.experimentExecutor   = experimentExecutor;
   }
 
   public void insert(String destination, UUID destinationUuid, long destinationDevice, Envelope message) {
     final UUID guid      = UUID.randomUUID();
     final long messageId = messagesCache.insert(guid, destination, destinationUuid, destinationDevice, message);
 
-    insertExperiment.compareSupplierResultAsync(messageId, () -> clusterMessagesCache.insert(guid, destination, destinationUuid, destinationDevice, message, messageId), experimentExecutor);
+    insertExperiment.compareSupplierResult(messageId, () -> clusterMessagesCache.insert(guid, destination, destinationUuid, destinationDevice, message, messageId));
   }
 
   public OutgoingMessageEntityList getMessagesForDevice(String destination, UUID destinationUuid, long destinationDevice, final String userAgent) {
@@ -63,7 +60,7 @@ public class MessagesManager {
 
     if (messages.size() <= Messages.RESULT_SET_CHUNK_SIZE) {
       final List<OutgoingMessageEntity> messagesFromCache = this.messagesCache.get(destination, destinationUuid, destinationDevice, Messages.RESULT_SET_CHUNK_SIZE - messages.size());
-      getMessagesExperiment.compareSupplierResultAsync(messagesFromCache, () -> clusterMessagesCache.get(destination, destinationUuid, destinationDevice, Messages.RESULT_SET_CHUNK_SIZE - messages.size()), experimentExecutor);
+      getMessagesExperiment.compareSupplierResult(messagesFromCache, () -> clusterMessagesCache.get(destination, destinationUuid, destinationDevice, Messages.RESULT_SET_CHUNK_SIZE - messages.size()));
 
       messages.addAll(messagesFromCache);
     }
@@ -86,7 +83,7 @@ public class MessagesManager {
   public Optional<OutgoingMessageEntity> delete(String destination, UUID destinationUuid, long destinationDevice, String source, long timestamp)
   {
     Optional<OutgoingMessageEntity> removed = this.messagesCache.remove(destination, destinationUuid, destinationDevice, source, timestamp);
-    removeBySenderExperiment.compareSupplierResultAsync(removed, () -> clusterMessagesCache.remove(destination, destinationUuid, destinationDevice, source, timestamp), experimentExecutor);
+    removeBySenderExperiment.compareSupplierResult(removed, () -> clusterMessagesCache.remove(destination, destinationUuid, destinationDevice, source, timestamp));
 
     if (!removed.isPresent()) {
       removed = this.messages.remove(destination, destinationDevice, source, timestamp);
@@ -100,7 +97,7 @@ public class MessagesManager {
 
   public Optional<OutgoingMessageEntity> delete(String destination, UUID destinationUuid, long deviceId, UUID guid) {
     Optional<OutgoingMessageEntity> removed = this.messagesCache.remove(destination, destinationUuid, deviceId, guid);
-    removeByUuidExperiment.compareSupplierResultAsync(removed, () -> clusterMessagesCache.remove(destination, destinationUuid, deviceId, guid), experimentExecutor);
+    removeByUuidExperiment.compareSupplierResult(removed, () -> clusterMessagesCache.remove(destination, destinationUuid, deviceId, guid));
 
     if (!removed.isPresent()) {
       removed = this.messages.remove(destination, guid);
@@ -115,7 +112,7 @@ public class MessagesManager {
   public void delete(String destination, UUID destinationUuid, long deviceId, long id, boolean cached) {
     if (cached) {
       final Optional<OutgoingMessageEntity> maybeRemovedMessage = this.messagesCache.remove(destination, destinationUuid, deviceId, id);
-      removeByIdExperiment.compareSupplierResultAsync(maybeRemovedMessage, () -> clusterMessagesCache.remove(destination, destinationUuid, deviceId, id), experimentExecutor);
+      removeByIdExperiment.compareSupplierResult(maybeRemovedMessage, () -> clusterMessagesCache.remove(destination, destinationUuid, deviceId, id));
       cacheHitByIdMeter.mark();
     } else {
       this.messages.remove(destination, id);
@@ -127,7 +124,7 @@ public class MessagesManager {
     messages.store(messageGuid, envelope, destination, deviceId);
 
     final Optional<OutgoingMessageEntity> maybeRemovedMessage = messagesCache.remove(destination, destinationUuid, deviceId, id);
-    removeByIdExperiment.compareSupplierResultAsync(maybeRemovedMessage, () -> clusterMessagesCache.remove(destination, destinationUuid, deviceId, id), experimentExecutor);
+    removeByIdExperiment.compareSupplierResult(maybeRemovedMessage, () -> clusterMessagesCache.remove(destination, destinationUuid, deviceId, id));
   }
 
   public void addMessageAvailabilityListener(final UUID destinationUuid, final long deviceId, final MessageAvailabilityListener listener) {
