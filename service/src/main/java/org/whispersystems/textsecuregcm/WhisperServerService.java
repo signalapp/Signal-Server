@@ -358,6 +358,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(clusterMessagesCache);
     environment.lifecycle().manage(clusterMessagePersister);
     environment.lifecycle().manage(clientPresenceManager);
+    environment.lifecycle().manage(featureFlagsManager);
 
     AWSCredentials         credentials               = new BasicAWSCredentials(config.getCdnConfiguration().getAccessKey(), config.getCdnConfiguration().getAccessSecret());
     AWSCredentialsProvider credentialsProvider       = new AWSStaticCredentialsProvider(credentials);
