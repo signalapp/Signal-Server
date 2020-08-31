@@ -7,6 +7,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.Pair;
 
@@ -49,7 +50,7 @@ public class StickerController {
     String                    packId            = generatePackId();
     String                    packLocation      = "stickers/" + packId;
     String                    manifestKey       = packLocation + "/manifest.proto";
-    Pair<String, String>      manifestPolicy    = policyGenerator.createFor(now, manifestKey, 10240);
+    Pair<String, String>      manifestPolicy    = policyGenerator.createFor(now, manifestKey, Constants.MAXIMUM_STICKER_MANIFEST_SIZE_BYTES);
     String                    manifestSignature = policySigner.getSignature(now, manifestPolicy.second());
     StickerPackFormUploadItem manifest          = new StickerPackFormUploadItem(-1, manifestKey, manifestPolicy.first(), "private", "AWS4-HMAC-SHA256",
                                                                                 now.format(PostPolicyGenerator.AWS_DATE_TIME), manifestPolicy.second(), manifestSignature);
@@ -59,7 +60,7 @@ public class StickerController {
 
     for (int i=0;i<stickerCount;i++) {
       String               stickerKey       = packLocation + "/full/" + i;
-      Pair<String, String> stickerPolicy    = policyGenerator.createFor(now, stickerKey, 307_200);
+      Pair<String, String> stickerPolicy    = policyGenerator.createFor(now, stickerKey, Constants.MAXIMUM_STICKER_SIZE_BYTES);
       String               stickerSignature = policySigner.getSignature(now, stickerPolicy.second());
       stickers.add(new StickerPackFormUploadItem(i, stickerKey, stickerPolicy.first(), "private", "AWS4-HMAC-SHA256",
                                                  now.format(PostPolicyGenerator.AWS_DATE_TIME), stickerPolicy.second(), stickerSignature));
