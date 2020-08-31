@@ -1,5 +1,6 @@
 package org.whispersystems.textsecuregcm.controllers;
 
+import io.dropwizard.auth.Auth;
 import org.whispersystems.textsecuregcm.entities.StickerPackFormUploadAttributes;
 import org.whispersystems.textsecuregcm.entities.StickerPackFormUploadAttributes.StickerPackFormUploadItem;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -21,8 +22,6 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.LinkedList;
 import java.util.List;
-
-import io.dropwizard.auth.Auth;
 
 @Path("/v1/sticker")
 public class StickerController {
@@ -60,7 +59,7 @@ public class StickerController {
 
     for (int i=0;i<stickerCount;i++) {
       String               stickerKey       = packLocation + "/full/" + i;
-      Pair<String, String> stickerPolicy    = policyGenerator.createFor(now, stickerKey, 100155);
+      Pair<String, String> stickerPolicy    = policyGenerator.createFor(now, stickerKey, 307_200);
       String               stickerSignature = policySigner.getSignature(now, stickerPolicy.second());
       stickers.add(new StickerPackFormUploadItem(i, stickerKey, stickerPolicy.first(), "private", "AWS4-HMAC-SHA256",
                                                  now.format(PostPolicyGenerator.AWS_DATE_TIME), stickerPolicy.second(), stickerSignature));
