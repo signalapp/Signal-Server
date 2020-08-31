@@ -1,8 +1,5 @@
 package org.whispersystems.textsecuregcm.workers;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.cli.ConfiguredCommand;
@@ -19,21 +16,15 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.Messages;
-import org.whispersystems.textsecuregcm.util.Constants;
 
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.codahale.metrics.MetricRegistry.name;
-
 public class ScourMessageCacheCommand extends ConfiguredCommand<WhisperServerConfiguration> {
 
     private FaultTolerantRedisClient redisClient;
     private Messages                 messageDatabase;
-
-    private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-    private final Histogram queueSizeHistogram  = metricRegistry.histogram(name(getClass(), "queueSize"));
 
     private static final Logger log = LoggerFactory.getLogger(ScourMessageCacheCommand.class);
 
@@ -96,7 +87,7 @@ public class ScourMessageCacheCommand extends ConfiguredCommand<WhisperServerCon
                                   "user_queue_persisting::" + accountNumberAndDeviceId);
         });
 
-        queueSizeHistogram.update(messageCount.longValue());
+        log.info("Persisted a queue with {} messages", messageCount.get());
     }
 
     private void persistMessage(final String accountNumber, final long deviceId, final byte[] message) {
