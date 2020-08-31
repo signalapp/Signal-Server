@@ -3,13 +3,10 @@ package org.whispersystems.textsecuregcm.workers;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
-import com.codahale.metrics.jdbi3.strategies.DefaultNameStrategy;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.InvalidProtocolBufferException;
-import io.dropwizard.Application;
-import io.dropwizard.cli.EnvironmentCommand;
-import io.dropwizard.jdbi3.JdbiFactory;
-import io.dropwizard.setup.Environment;
+import io.dropwizard.cli.ConfiguredCommand;
+import io.dropwizard.setup.Bootstrap;
 import io.lettuce.core.ScanArgs;
 import io.lettuce.core.ScanIterator;
 import net.sourceforge.argparse4j.inf.Namespace;
@@ -17,6 +14,7 @@ import org.jdbi.v3.core.Jdbi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
+import org.whispersystems.textsecuregcm.configuration.DatabaseConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
@@ -29,7 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-public class ScourMessageCacheCommand extends EnvironmentCommand<WhisperServerConfiguration> {
+public class ScourMessageCacheCommand extends ConfiguredCommand<WhisperServerConfiguration> {
 
     private FaultTolerantRedisClient redisClient;
     private Messages                 messageDatabase;
@@ -40,17 +38,14 @@ public class ScourMessageCacheCommand extends EnvironmentCommand<WhisperServerCo
     private static final Logger log = LoggerFactory.getLogger(ScourMessageCacheCommand.class);
 
     public ScourMessageCacheCommand() {
-        super(new Application<>() {
-            @Override
-            public void run(final WhisperServerConfiguration whisperServerConfiguration, final Environment environment) {
-            }
-        }, "scourmessagecache", "Persist and remove all message queues from the old message cache");
+        super("scourmessagecache", "Persist and remove all message queues from the old message cache");
     }
 
+    @SuppressWarnings("ConstantConditions")
     @Override
-    protected void run(final Environment environment, final Namespace namespace, final WhisperServerConfiguration config) {
-        final JdbiFactory jdbiFactory               = new JdbiFactory(DefaultNameStrategy.CHECK_EMPTY);
-        final Jdbi messageJdbi                      = jdbiFactory.build(environment, config.getMessageStoreConfiguration(), "messagedb" );
+    protected void run(final Bootstrap<WhisperServerConfiguration> bootstrap, final Namespace namespace, final WhisperServerConfiguration config) {
+        final DatabaseConfiguration messageDbConfig = config.getMessageStoreConfiguration();
+        final Jdbi messageJdbi                      = Jdbi.create(messageDbConfig.getUrl(), messageDbConfig.getUser(), messageDbConfig.getPassword());
         final FaultTolerantDatabase messageDatabase = new FaultTolerantDatabase("message_database", messageJdbi, config.getMessageStoreConfiguration().getCircuitBreakerConfiguration());
 
         this.setMessageDatabase(new Messages(messageDatabase));
