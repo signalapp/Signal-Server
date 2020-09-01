@@ -67,14 +67,10 @@ public class WebsocketSender {
   private final PubSubManager         pubSubManager;
   private final ClientPresenceManager clientPresenceManager;
 
-  private final Experiment presenceExperiment = new Experiment("presence", "websocketSender");
-  private final Executor   experimentExecutor;
-
-  public WebsocketSender(MessagesManager messagesManager, PubSubManager pubSubManager, ClientPresenceManager clientPresenceManager, Executor experimentExecutor) {
+  public WebsocketSender(MessagesManager messagesManager, PubSubManager pubSubManager, ClientPresenceManager clientPresenceManager) {
     this.messagesManager       = messagesManager;
     this.pubSubManager         = pubSubManager;
     this.clientPresenceManager = clientPresenceManager;
-    this.experimentExecutor    = experimentExecutor;
   }
 
   public DeliveryStatus sendMessage(Account account, Device device, Envelope message, Type channel, boolean online) {
@@ -84,11 +80,9 @@ public class WebsocketSender {
                                                   .setContent(message.toByteString())
                                                   .build();
 
-    final boolean clientPresent = pubSubManager.publish(address, pubSubMessage);
+    pubSubManager.publish(address, pubSubMessage);
 
-    presenceExperiment.compareSupplierResultAsync(clientPresent, () -> clientPresenceManager.isPresent(account.getUuid(), device.getId()), experimentExecutor);
-
-    if (clientPresent) {
+    if (clientPresenceManager.isPresent(account.getUuid(), device.getId())) {
       if      (channel == Type.APN) apnOnlineMeter.mark();
       else if (channel == Type.GCM) gcmOnlineMeter.mark();
       else                          websocketOnlineMeter.mark();
