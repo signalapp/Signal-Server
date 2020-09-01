@@ -27,6 +27,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -48,6 +49,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
 
     private final ClusterLuaScript clearPresenceScript;
 
+    private final ExecutorService          keyspaceNotificationExecutorService;
     private final ScheduledExecutorService scheduledExecutorService;
     private       ScheduledFuture<?>       pruneMissingPeersFuture;
 
@@ -67,11 +69,12 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
 
     private static final Logger log = LoggerFactory.getLogger(ClientPresenceManager.class);
 
-    public ClientPresenceManager(final FaultTolerantRedisCluster presenceCluster, final ScheduledExecutorService scheduledExecutorService) throws IOException {
-        this.presenceCluster          = presenceCluster;
-        this.pubSubConnection         = this.presenceCluster.createPubSubConnection();
-        this.clearPresenceScript      = ClusterLuaScript.fromResource(presenceCluster, "lua/clear_presence.lua", ScriptOutputType.INTEGER);
-        this.scheduledExecutorService = scheduledExecutorService;
+    public ClientPresenceManager(final FaultTolerantRedisCluster presenceCluster, final ScheduledExecutorService scheduledExecutorService, final ExecutorService keyspaceNotificationExecutorService) throws IOException {
+        this.presenceCluster                     = presenceCluster;
+        this.pubSubConnection                    = this.presenceCluster.createPubSubConnection();
+        this.clearPresenceScript                 = ClusterLuaScript.fromResource(presenceCluster, "lua/clear_presence.lua", ScriptOutputType.INTEGER);
+        this.scheduledExecutorService            = scheduledExecutorService;
+        this.keyspaceNotificationExecutorService = keyspaceNotificationExecutorService;
 
         final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
         metricRegistry.gauge(name(getClass(), "localClientCount"), () -> displacementListenersByPresenceKey::size);
@@ -240,7 +243,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
             // Another process has overwritten this presence key, which means the client has connected to another host.
             // At this point, we're on a Lettuce IO thread and need to dispatch to a separate thread before making
             // synchronous Lettuce calls to avoid deadlocking.
-            scheduledExecutorService.execute(() -> {
+            keyspaceNotificationExecutorService.execute(() -> {
                 displacePresence(channel.substring("__keyspace@0__:".length()));
                 remoteDisplacementMeter.mark();
             });
