@@ -15,6 +15,7 @@ import org.whispersystems.textsecuregcm.entities.CryptoEncodingException;
 import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
+import org.whispersystems.textsecuregcm.push.DisplacedPresenceListener;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -39,7 +40,7 @@ import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import static org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public class WebSocketConnection implements DispatchChannel, MessageAvailabilityListener {
+public class WebSocketConnection implements DispatchChannel, MessageAvailabilityListener, DisplacedPresenceListener {
 
   private static final MetricRegistry metricRegistry          = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   public  static final Histogram      messageTime             = metricRegistry.histogram(name(MessageController.class, "message_delivery_duration"));
@@ -49,6 +50,7 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
   private static final Meter          messagesPersistedMeter  = metricRegistry.meter(name(WebSocketConnection.class, "messagesPersisted"));
   private static final Meter          pubSubNewMessageMeter   = metricRegistry.meter(name(WebSocketConnection.class, "pubSubNewMessage"));
   private static final Meter          pubSubPersistedMeter    = metricRegistry.meter(name(WebSocketConnection.class, "pubSubPersisted"));
+  private static final Meter          displacementMeter       = metricRegistry.meter(name(WebSocketConnection.class, "explicitDisplacement"));
 
   private static final Logger logger = LoggerFactory.getLogger(WebSocketConnection.class);
 
@@ -228,6 +230,12 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
   @Override
   public void handleMessagesPersisted() {
     messagesPersistedMeter.mark();
+  }
+
+  @Override
+  public void handleDisplacement() {
+    displacementMeter.mark();
+    client.hardDisconnectQuietly();
   }
 
   private static class StoredMessageInfo {

@@ -33,7 +33,6 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private static final Timer          durationTimer                = metricRegistry.timer(name(WebSocketConnection.class, "connected_duration"                 ));
   private static final Timer          unauthenticatedDurationTimer = metricRegistry.timer(name(WebSocketConnection.class, "unauthenticated_connection_duration"));
   private static final Counter        openWebsocketCounter         = metricRegistry.counter(name(WebSocketConnection.class, "open_websockets"));
-  private static final Meter          explicitDisplacementMeter    = metricRegistry.meter(name(WebSocketConnection.class, "explicitDisplacement"));
 
   private final PushSender            pushSender;
   private final ReceiptSender         receiptSender;
@@ -74,7 +73,8 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
       openWebsocketCounter.inc();
       RedisOperation.unchecked(() -> apnFallbackManager.cancel(account, device));
-      clientPresenceManager.setPresent(account.getUuid(), device.getId(), explicitDisplacementMeter::mark);
+
+      clientPresenceManager.setPresent(account.getUuid(), device.getId(), connection);
       messagesManager.addMessageAvailabilityListener(account.getUuid(), device.getId(), connection);
       pubSubManager.publish(address, connectMessage);
       pubSubManager.subscribe(address, connection);
@@ -95,4 +95,3 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     }
   }
 }
-
