@@ -120,11 +120,9 @@ public class MessagesManager {
     }
   }
 
-  public void persistMessage(String destination, UUID destinationUuid, Envelope envelope, UUID messageGuid, long deviceId, long id) {
+  public void persistMessage(String destination, UUID destinationUuid, Envelope envelope, UUID messageGuid, long deviceId) {
     messages.store(messageGuid, envelope, destination, deviceId);
-
-    final Optional<OutgoingMessageEntity> maybeRemovedMessage = messagesCache.remove(destination, destinationUuid, deviceId, id);
-    removeByIdExperiment.compareSupplierResult(maybeRemovedMessage, () -> clusterMessagesCache.remove(destination, destinationUuid, deviceId, id));
+    delete(destination, destinationUuid, deviceId, messageGuid);
   }
 
   public void addMessageAvailabilityListener(final UUID destinationUuid, final long deviceId, final MessageAvailabilityListener listener) {

@@ -26,7 +26,7 @@ import static com.codahale.metrics.MetricRegistry.name;
 public class RedisClusterMessagePersister implements Managed {
 
     private final RedisClusterMessagesCache messagesCache;
-    private final Messages                  messagesDatabase;
+    private final MessagesManager           messagesManager;
     private final PubSubManager             pubSubManager;
     private final PushSender                pushSender;
     private final AccountsManager           accountsManager;
@@ -51,9 +51,9 @@ public class RedisClusterMessagePersister implements Managed {
 
     private static final Logger logger = LoggerFactory.getLogger(RedisClusterMessagePersister.class);
 
-    public RedisClusterMessagePersister(final RedisClusterMessagesCache messagesCache, final Messages messagesDatabase, final PubSubManager pubSubManager, final PushSender pushSender, final AccountsManager accountsManager, final FeatureFlagsManager featureFlagsManager, final Duration persistDelay) {
+    public RedisClusterMessagePersister(final RedisClusterMessagesCache messagesCache, final MessagesManager messagesManager, final PubSubManager pubSubManager, final PushSender pushSender, final AccountsManager accountsManager, final FeatureFlagsManager featureFlagsManager, final Duration persistDelay) {
         this.messagesCache       = messagesCache;
-        this.messagesDatabase    = messagesDatabase;
+        this.messagesManager     = messagesManager;
         this.pubSubManager       = pubSubManager;
         this.pushSender          = pushSender;
         this.accountsManager     = accountsManager;
@@ -143,11 +143,7 @@ public class RedisClusterMessagePersister implements Managed {
                     messages = messagesCache.getMessagesToPersist(accountUuid, deviceId, MESSAGE_BATCH_LIMIT);
 
                     for (final MessageProtos.Envelope message : messages) {
-                        final UUID uuid = UUID.fromString(message.getServerGuid());
-
-                        messagesDatabase.store(uuid, message, accountNumber, deviceId);
-                        messagesCache.remove(accountNumber, accountUuid, deviceId, uuid);
-
+                        messagesManager.persistMessage(accountNumber, accountUuid, message, UUID.fromString(message.getServerGuid()), deviceId);
                         messageCount++;
                     }
                 } while (!messages.isEmpty());

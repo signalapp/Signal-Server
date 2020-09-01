@@ -333,7 +333,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     RecaptchaClient          recaptchaClient    = new RecaptchaClient(config.getRecaptchaConfiguration().getSecret());
 
     MessagePersister             messagePersister        = new MessagePersister(messagesClient, messagesManager, pubSubManager, pushSender, accountsManager, featureFlagsManager, config.getMessageCacheConfiguration().getPersistDelayMinutes(), TimeUnit.MINUTES);
-    RedisClusterMessagePersister clusterMessagePersister = new RedisClusterMessagePersister(clusterMessagesCache, messages, pubSubManager, pushSender, accountsManager, featureFlagsManager, Duration.ofMinutes(config.getMessageCacheConfiguration().getPersistDelayMinutes()));
+    RedisClusterMessagePersister clusterMessagePersister = new RedisClusterMessagePersister(clusterMessagesCache, messagesManager, pubSubManager, pushSender, accountsManager, featureFlagsManager, Duration.ofMinutes(config.getMessageCacheConfiguration().getPersistDelayMinutes()));
 
     DirectoryReconciliationClient directoryReconciliationClient = new DirectoryReconciliationClient(config.getDirectoryConfiguration().getDirectoryServerConfiguration());
 

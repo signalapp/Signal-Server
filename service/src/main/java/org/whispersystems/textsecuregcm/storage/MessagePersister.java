@@ -169,7 +169,7 @@ public class MessagePersister implements Managed, Runnable {
 
       envelope = envelope.toBuilder().clearServerGuid().build();
 
-      messagesManager.persistMessage(key.getAddress(), destinationUuid, envelope, guid, key.getDeviceId(), score);
+      messagesManager.persistMessage(key.getAddress(), destinationUuid, envelope, guid, key.getDeviceId());
     } catch (InvalidProtocolBufferException e) {
       logger.error("Error parsing envelope", e);
     }

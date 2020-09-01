@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -48,6 +49,7 @@ public class RedisClusterMessagePersisterTest extends AbstractRedisClusterTest {
     public void setUp() throws Exception {
         super.setUp();
 
+        final MessagesManager messagesManager         = mock(MessagesManager.class);
         final FeatureFlagsManager featureFlagsManager = mock(FeatureFlagsManager.class);
         when(featureFlagsManager.isFeatureFlagActive(RedisClusterMessagePersister.ENABLE_PERSISTENCE_FLAG)).thenReturn(true);
 
@@ -62,7 +64,20 @@ public class RedisClusterMessagePersisterTest extends AbstractRedisClusterTest {
 
         notificationExecutorService = Executors.newSingleThreadExecutor();
         messagesCache               = new RedisClusterMessagesCache(getRedisCluster(), notificationExecutorService);
-        messagePersister            = new RedisClusterMessagePersister(messagesCache, messagesDatabase, pubSubManager, mock(PushSender.class), accountsManager, featureFlagsManager, PERSIST_DELAY);
+        messagePersister            = new RedisClusterMessagePersister(messagesCache, messagesManager, pubSubManager, mock(PushSender.class), accountsManager, featureFlagsManager, PERSIST_DELAY);
+
+        doAnswer(invocation -> {
+            final String destination             = invocation.getArgument(0, String.class);
+            final UUID destinationUuid           = invocation.getArgument(1, UUID.class);
+            final MessageProtos.Envelope message = invocation.getArgument(2, MessageProtos.Envelope.class);
+            final UUID messageGuid               = invocation.getArgument(3, UUID.class);
+            final long deviceId                  = invocation.getArgument(4, Long.class);
+
+            messagesDatabase.store(messageGuid, message, destination, deviceId);
+            messagesCache.remove(destination, destinationUuid, deviceId, messageGuid);
+
+            return null;
+        }).when(messagesManager).persistMessage(anyString(), any(UUID.class), any(MessageProtos.Envelope.class), any(UUID.class), anyLong());
     }
 
     @Override
