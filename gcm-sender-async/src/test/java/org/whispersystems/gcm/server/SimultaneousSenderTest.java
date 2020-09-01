@@ -47,10 +47,8 @@ public class SimultaneousSenderTest {
       results.add(sender.send(Message.newBuilder().withDestination("1").build()));
     }
 
-    int i=0;
     for (CompletableFuture<Result> future : results) {
       Result result = future.get(60, TimeUnit.SECONDS);
-      System.out.println("Got " + (i++));
 
       if (!result.isSuccess()) {
         throw new AssertionError(result.getError());
