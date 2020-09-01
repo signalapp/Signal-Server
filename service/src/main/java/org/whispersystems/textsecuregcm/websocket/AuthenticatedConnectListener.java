@@ -1,11 +1,9 @@
 package org.whispersystems.textsecuregcm.websocket;
 
 import com.codahale.metrics.Counter;
-import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import com.google.protobuf.ByteString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
@@ -17,7 +15,6 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
-import org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 import org.whispersystems.websocket.setup.WebSocketConnectListener;
@@ -67,16 +64,12 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       final WebSocketConnection     connection     = new WebSocketConnection(pushSender, receiptSender,
                                                                              messagesManager, account, device,
                                                                              context.getClient(), connectionId);
-      final PubSubMessage           connectMessage = PubSubMessage.newBuilder().setType(PubSubMessage.Type.CONNECTED)
-                                                                  .setContent(ByteString.copyFrom(connectionId.getBytes()))
-                                                                  .build();
 
       openWebsocketCounter.inc();
       RedisOperation.unchecked(() -> apnFallbackManager.cancel(account, device));
 
       clientPresenceManager.setPresent(account.getUuid(), device.getId(), connection);
       messagesManager.addMessageAvailabilityListener(account.getUuid(), device.getId(), connection);
-      pubSubManager.publish(address, connectMessage);
       pubSubManager.subscribe(address, connection);
 
       context.addListener(new WebSocketSessionContext.WebSocketEventListener() {

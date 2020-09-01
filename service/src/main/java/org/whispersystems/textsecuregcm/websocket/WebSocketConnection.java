@@ -45,7 +45,6 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
   private static final MetricRegistry metricRegistry          = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   public  static final Histogram      messageTime             = metricRegistry.histogram(name(MessageController.class, "message_delivery_duration"));
   private static final Meter          sendMessageMeter        = metricRegistry.meter(name(WebSocketConnection.class, "send_message"));
-  private static final Meter          pubSubDisplacementMeter = metricRegistry.meter(name(WebSocketConnection.class, "pubSubDisplacement"));
   private static final Meter          messageAvailableMeter   = metricRegistry.meter(name(WebSocketConnection.class, "messagesAvailable"));
   private static final Meter          messagesPersistedMeter  = metricRegistry.meter(name(WebSocketConnection.class, "messagesPersisted"));
   private static final Meter          pubSubNewMessageMeter   = metricRegistry.meter(name(WebSocketConnection.class, "pubSubNewMessage"));
@@ -93,12 +92,6 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
         case PubSubMessage.Type.DELIVER_VALUE:
           pubSubNewMessageMeter.mark();
           sendMessage(Envelope.parseFrom(pubSubMessage.getContent()), Optional.empty(), false);
-          break;
-        case PubSubMessage.Type.CONNECTED_VALUE:
-          if (pubSubMessage.hasContent() && !new String(pubSubMessage.getContent().toByteArray()).equals(connectionId)) {
-            pubSubDisplacementMeter.mark();
-            client.hardDisconnectQuietly();
-          }
           break;
         default:
           logger.warn("Unknown pubsub message: " + pubSubMessage.getType().getNumber());
