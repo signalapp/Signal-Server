@@ -24,6 +24,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -243,6 +244,10 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
             }
 
             @Override
+            public void handleEphemeralMessageAvailable(final UUID ephemeralMessageGuid) {
+            }
+
+            @Override
             public void handleMessagesPersisted() {
             }
         };
@@ -261,11 +266,15 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
 
     @Test(timeout = 5_000L)
     public void testNotifyListenerPersisted() throws InterruptedException {
-        final AtomicBoolean notified    = new AtomicBoolean(false);
+        final AtomicBoolean notified = new AtomicBoolean(false);
 
         final MessageAvailabilityListener listener = new MessageAvailabilityListener() {
             @Override
             public void handleNewMessagesAvailable() {
+            }
+
+            @Override
+            public void handleEphemeralMessageAvailable(final UUID ephemeralMessageGuid) {
             }
 
             @Override
@@ -289,5 +298,54 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
         }
 
         assertTrue(notified.get());
+    }
+
+    @Test(timeout = 5_000L)
+    public void testInsertAndNotifyEphemeralMessage() throws InterruptedException {
+        final AtomicReference<UUID>  notifiedGuid = new AtomicReference<>();
+        final UUID                   messageGuid  = UUID.randomUUID();
+        final MessageProtos.Envelope message      = generateRandomMessage(messageGuid, true);
+
+        final MessageAvailabilityListener listener = new MessageAvailabilityListener() {
+            @Override
+            public void handleNewMessagesAvailable() {
+            }
+
+            @Override
+            public void handleEphemeralMessageAvailable(final UUID ephemeralMessageGuid) {
+                synchronized (notifiedGuid) {
+                    notifiedGuid.set(ephemeralMessageGuid);
+                    notifiedGuid.notifyAll();
+                }
+            }
+
+            @Override
+            public void handleMessagesPersisted() {
+            }
+        };
+
+        messagesCache.addMessageAvailabilityListener(DESTINATION_UUID, DESTINATION_DEVICE_ID, listener);
+        messagesCache.insertEphemeral(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
+
+        synchronized (notifiedGuid) {
+            while (notifiedGuid.get() == null) {
+                notifiedGuid.wait();
+            }
+        }
+
+        assertEquals(messageGuid, notifiedGuid.get());
+    }
+
+    @Test
+    public void testTakeEphemeralMessage() {
+        final UUID messageGuid               = UUID.randomUUID();
+        final MessageProtos.Envelope message = generateRandomMessage(messageGuid, true);
+
+        assertEquals(Optional.empty(), messagesCache.takeEphemeralMessage(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageGuid));
+
+        messagesCache.insertEphemeral(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
+
+        assertEquals(Optional.of(message), messagesCache.takeEphemeralMessage(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageGuid));
+        assertEquals(Optional.empty(), messagesCache.takeEphemeralMessage(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageGuid));
     }
 }
