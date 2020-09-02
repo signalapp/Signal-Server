@@ -123,7 +123,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         }
     }
 
-    public long insert(final UUID guid, final String destination, final UUID destinationUuid, final long destinationDevice, final MessageProtos.Envelope message) {
+    public long insert(final UUID guid, final UUID destinationUuid, final long destinationDevice, final MessageProtos.Envelope message) {
         final MessageProtos.Envelope messageWithGuid = message.toBuilder().setServerGuid(guid.toString()).build();
         final String                 sender          = message.hasSource() ? (message.getSource() + "::" + message.getTimestamp()) : "nil";
 
@@ -137,7 +137,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
                                                    guid.toString().getBytes(StandardCharsets.UTF_8))));
     }
 
-    public Optional<OutgoingMessageEntity> remove(final String destination, final UUID destinationUuid, final long destinationDevice, final long id) {
+    public Optional<OutgoingMessageEntity> remove(final UUID destinationUuid, final long destinationDevice, final long id) {
         try {
             final byte[] serialized = (byte[])Metrics.timer(REMOVE_TIMER_NAME, REMOVE_METHOD_TAG, REMOVE_METHOD_ID).record(() ->
                     removeByIdScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
@@ -156,7 +156,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         return Optional.empty();
     }
 
-    public Optional<OutgoingMessageEntity> remove(final String destination, final UUID destinationUuid, final long destinationDevice, final String sender, final long timestamp) {
+    public Optional<OutgoingMessageEntity> remove(final UUID destinationUuid, final long destinationDevice, final String sender, final long timestamp) {
         try {
             final byte[] serialized = (byte[])Metrics.timer(REMOVE_TIMER_NAME, REMOVE_METHOD_TAG, REMOVE_METHOD_SENDER).record(() ->
                     removeBySenderScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
@@ -174,7 +174,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         return Optional.empty();
     }
 
-    public Optional<OutgoingMessageEntity> remove(final String destination, final UUID destinationUuid, final long destinationDevice, final UUID messageGuid) {
+    public Optional<OutgoingMessageEntity> remove(final UUID destinationUuid, final long destinationDevice, final UUID messageGuid) {
         try {
             final byte[] serialized = (byte[])Metrics.timer(REMOVE_TIMER_NAME, REMOVE_METHOD_TAG, REMOVE_METHOD_UUID).record(() ->
                     removeByGuidScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
@@ -193,7 +193,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     }
 
     @SuppressWarnings("unchecked")
-    public List<OutgoingMessageEntity> get(final String destination, final UUID destinationUuid, final long destinationDevice, final int limit) {
+    public List<OutgoingMessageEntity> get(final UUID destinationUuid, final long destinationDevice, final int limit) {
         return getMessagesTimer.record(() -> {
             final List<byte[]> queueItems = (List<byte[]>)getItemsScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
                                                                                                getPersistInProgressKey(destinationUuid, destinationDevice)),
@@ -252,16 +252,16 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         });
     }
 
-    public void clear(final String destination, final UUID destinationUuid) {
+    public void clear(final UUID destinationUuid) {
         // TODO Remove null check in a fully UUID-based world
         if (destinationUuid != null) {
             for (int i = 1; i < 256; i++) {
-                clear(destination, destinationUuid, i);
+                clear(destinationUuid, i);
             }
         }
     }
 
-    public void clear(final String destination, final UUID destinationUuid, final long deviceId) {
+    public void clear(final UUID destinationUuid, final long deviceId) {
         clearQueueTimer.record(() ->
                 removeQueueScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, deviceId),
                                                         getMessageQueueMetadataKey(destinationUuid, deviceId),

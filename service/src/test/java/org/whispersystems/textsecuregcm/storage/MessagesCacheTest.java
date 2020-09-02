@@ -37,7 +37,6 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
     private final Random random          = new Random();
     private       long   serialTimestamp = 0;
 
-    private static final String DESTINATION_ACCOUNT   = "+18005551234";
     private static final UUID   DESTINATION_UUID      = UUID.randomUUID();
     private static final int    DESTINATION_DEVICE_ID = 7;
 
@@ -64,12 +63,11 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
         super.tearDown();
     }
 
-
     @Test
     @Parameters({"true", "false"})
     public void testInsert(final boolean sealedSender) {
         final UUID messageGuid = UUID.randomUUID();
-        assertTrue(messagesCache.insert(messageGuid, DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID, generateRandomMessage(messageGuid, sealedSender)) > 0);
+        assertTrue(messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, generateRandomMessage(messageGuid, sealedSender)) > 0);
     }
 
     @Test
@@ -78,12 +76,12 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
         final UUID                   messageGuid = UUID.randomUUID();
         final MessageProtos.Envelope message     = generateRandomMessage(messageGuid, sealedSender);
 
-        final long                            messageId           = messagesCache.insert(messageGuid, DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
-        final Optional<OutgoingMessageEntity> maybeRemovedMessage = messagesCache.remove(DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID, messageId);
+        final long                            messageId           = messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
+        final Optional<OutgoingMessageEntity> maybeRemovedMessage = messagesCache.remove(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageId);
 
         assertTrue(maybeRemovedMessage.isPresent());
         assertEquals(MessagesCache.constructEntityFromEnvelope(messageId, message), maybeRemovedMessage.get());
-        assertEquals(Optional.empty(), messagesCache.remove(DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID, messageId));
+        assertEquals(Optional.empty(), messagesCache.remove(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageId));
     }
 
     @Test
@@ -91,12 +89,12 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
         final UUID                   messageGuid = UUID.randomUUID();
         final MessageProtos.Envelope message     = generateRandomMessage(messageGuid, false);
 
-        messagesCache.insert(messageGuid, DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
-        final Optional<OutgoingMessageEntity> maybeRemovedMessage = messagesCache.remove(DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID, message.getSource(), message.getTimestamp());
+        messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
+        final Optional<OutgoingMessageEntity> maybeRemovedMessage = messagesCache.remove(DESTINATION_UUID, DESTINATION_DEVICE_ID, message.getSource(), message.getTimestamp());
 
         assertTrue(maybeRemovedMessage.isPresent());
         assertEquals(MessagesCache.constructEntityFromEnvelope(0, message), maybeRemovedMessage.get());
-        assertEquals(Optional.empty(), messagesCache.remove(DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID, message.getSource(), message.getTimestamp()));
+        assertEquals(Optional.empty(), messagesCache.remove(DESTINATION_UUID, DESTINATION_DEVICE_ID, message.getSource(), message.getTimestamp()));
     }
 
     @Test
@@ -104,12 +102,12 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
     public void testRemoveByUUID(final boolean sealedSender) {
         final UUID messageGuid = UUID.randomUUID();
 
-        assertEquals(Optional.empty(), messagesCache.remove(DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID, messageGuid));
+        assertEquals(Optional.empty(), messagesCache.remove(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageGuid));
 
         final MessageProtos.Envelope message = generateRandomMessage(messageGuid, sealedSender);
 
-        messagesCache.insert(messageGuid, DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
-        final Optional<OutgoingMessageEntity> maybeRemovedMessage = messagesCache.remove(DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID, messageGuid);
+        messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
+        final Optional<OutgoingMessageEntity> maybeRemovedMessage = messagesCache.remove(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageGuid);
 
         assertTrue(maybeRemovedMessage.isPresent());
         assertEquals(MessagesCache.constructEntityFromEnvelope(0, message), maybeRemovedMessage.get());
@@ -125,12 +123,12 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
         for (int i = 0; i < messageCount; i++) {
             final UUID                   messageGuid = UUID.randomUUID();
             final MessageProtos.Envelope message     = generateRandomMessage(messageGuid, sealedSender);
-            final long                   messageId   = messagesCache.insert(messageGuid, DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
+            final long                   messageId   = messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
 
             expectedMessages.add(MessagesCache.constructEntityFromEnvelope(messageId, message));
         }
 
-        assertEquals(expectedMessages, messagesCache.get(DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount));
+        assertEquals(expectedMessages, messagesCache.get(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount));
     }
 
     @Test
@@ -143,14 +141,14 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
                 final UUID                   messageGuid = UUID.randomUUID();
                 final MessageProtos.Envelope message     = generateRandomMessage(messageGuid, sealedSender);
 
-                messagesCache.insert(messageGuid, DESTINATION_ACCOUNT, DESTINATION_UUID, deviceId, message);
+                messagesCache.insert(messageGuid, DESTINATION_UUID, deviceId, message);
             }
         }
 
-        messagesCache.clear(DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID);
+        messagesCache.clear(DESTINATION_UUID, DESTINATION_DEVICE_ID);
 
-        assertEquals(Collections.emptyList(), messagesCache.get(DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount));
-        assertEquals(messageCount, messagesCache.get(DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID + 1, messageCount).size());
+        assertEquals(Collections.emptyList(), messagesCache.get(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount));
+        assertEquals(messageCount, messagesCache.get(DESTINATION_UUID, DESTINATION_DEVICE_ID + 1, messageCount).size());
     }
 
     @Test
@@ -163,14 +161,14 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
                 final UUID                   messageGuid = UUID.randomUUID();
                 final MessageProtos.Envelope message     = generateRandomMessage(messageGuid, sealedSender);
 
-                messagesCache.insert(messageGuid, DESTINATION_ACCOUNT, DESTINATION_UUID, deviceId, message);
+                messagesCache.insert(messageGuid, DESTINATION_UUID, deviceId, message);
             }
         }
 
-        messagesCache.clear(DESTINATION_ACCOUNT, DESTINATION_UUID);
+        messagesCache.clear(DESTINATION_UUID);
 
-        assertEquals(Collections.emptyList(), messagesCache.get(DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount));
-        assertEquals(Collections.emptyList(), messagesCache.get(DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID + 1, messageCount));
+        assertEquals(Collections.emptyList(), messagesCache.get(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount));
+        assertEquals(Collections.emptyList(), messagesCache.get(DESTINATION_UUID, DESTINATION_DEVICE_ID + 1, messageCount));
     }
 
     protected MessageProtos.Envelope generateRandomMessage(final UUID messageGuid, final boolean sealedSender) {
@@ -192,7 +190,7 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
     @Test
     public void testClearNullUuid() {
         // We're happy as long as this doesn't throw an exception
-        messagesCache.clear(DESTINATION_ACCOUNT, null);
+        messagesCache.clear(null);
     }
 
     @Test
@@ -218,7 +216,7 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
     public void testGetQueuesToPersist(final boolean sealedSender) {
         final UUID messageGuid  = UUID.randomUUID();
 
-        messagesCache.insert(messageGuid, DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID, generateRandomMessage(messageGuid, sealedSender));
+        messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, generateRandomMessage(messageGuid, sealedSender));
         final int slot = SlotHash.getSlot(DESTINATION_UUID.toString() + "::" + DESTINATION_DEVICE_ID);
 
         assertTrue(messagesCache.getQueuesToPersist(slot + 1, Instant.now().plusSeconds(60), 100).isEmpty());
@@ -250,7 +248,7 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
         };
 
         messagesCache.addMessageAvailabilityListener(DESTINATION_UUID, DESTINATION_DEVICE_ID, listener);
-        messagesCache.insert(messageGuid, DESTINATION_ACCOUNT, DESTINATION_UUID, DESTINATION_DEVICE_ID, generateRandomMessage(messageGuid, true));
+        messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, generateRandomMessage(messageGuid, true));
 
         synchronized (notified) {
             while (!notified.get()) {

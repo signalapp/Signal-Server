@@ -103,7 +103,7 @@ public class WebsocketSender {
 
     WebsocketAddress address = new WebsocketAddress(account.getNumber(), device.getId());
 
-    messagesManager.insert(account.getNumber(), account.getUuid(), device.getId(), message);
+    messagesManager.insert(account.getUuid(), device.getId(), message);
     pubSubManager.publish(address, PubSubMessage.newBuilder()
                                                 .setType(PubSubMessage.Type.QUERY_DB)
                                                 .build());

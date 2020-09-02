@@ -32,13 +32,13 @@ public class MessagesManager {
   private final PushLatencyManager pushLatencyManager;
 
   public MessagesManager(Messages messages, MessagesCache messagesCache, PushLatencyManager pushLatencyManager) {
-    this.messages             = messages;
-    this.messagesCache = messagesCache;
-    this.pushLatencyManager   = pushLatencyManager;
+    this.messages           = messages;
+    this.messagesCache      = messagesCache;
+    this.pushLatencyManager = pushLatencyManager;
   }
 
-  public void insert(String destination, UUID destinationUuid, long destinationDevice, Envelope message) {
-    messagesCache.insert(UUID.randomUUID(), destination, destinationUuid, destinationDevice, message);
+  public void insert(UUID destinationUuid, long destinationDevice, Envelope message) {
+    messagesCache.insert(UUID.randomUUID(), destinationUuid, destinationDevice, message);
   }
 
   public OutgoingMessageEntityList getMessagesForDevice(String destination, UUID destinationUuid, long destinationDevice, final String userAgent) {
@@ -47,25 +47,33 @@ public class MessagesManager {
     List<OutgoingMessageEntity> messages = this.messages.load(destination, destinationDevice);
 
     if (messages.size() <= Messages.RESULT_SET_CHUNK_SIZE) {
-      messages.addAll(messagesCache.get(destination, destinationUuid, destinationDevice, Messages.RESULT_SET_CHUNK_SIZE - messages.size()));
+      messages.addAll(messagesCache.get(destinationUuid, destinationDevice, Messages.RESULT_SET_CHUNK_SIZE - messages.size()));
     }
 
     return new OutgoingMessageEntityList(messages, messages.size() >= Messages.RESULT_SET_CHUNK_SIZE);
   }
 
   public void clear(String destination, UUID destinationUuid) {
-    this.messagesCache.clear(destination, destinationUuid);
+    // TODO Remove this null check in a fully-UUID-ified world
+    if (destinationUuid != null) {
+      this.messagesCache.clear(destinationUuid);
+    }
+
     this.messages.clear(destination);
   }
 
   public void clear(String destination, UUID destinationUuid, long deviceId) {
-    this.messagesCache.clear(destination, destinationUuid, deviceId);
+    // TODO Remove this null check in a fully-UUID-ified world
+    if (destinationUuid != null) {
+      this.messagesCache.clear(destinationUuid, deviceId);
+    }
+
     this.messages.clear(destination, deviceId);
   }
 
   public Optional<OutgoingMessageEntity> delete(String destination, UUID destinationUuid, long destinationDevice, String source, long timestamp)
   {
-    Optional<OutgoingMessageEntity> removed = messagesCache.remove(destination, destinationUuid, destinationDevice, source, timestamp);
+    Optional<OutgoingMessageEntity> removed = messagesCache.remove(destinationUuid, destinationDevice, source, timestamp);
 
     if (!removed.isPresent()) {
       removed = this.messages.remove(destination, destinationDevice, source, timestamp);
@@ -78,7 +86,7 @@ public class MessagesManager {
   }
 
   public Optional<OutgoingMessageEntity> delete(String destination, UUID destinationUuid, long deviceId, UUID guid) {
-    Optional<OutgoingMessageEntity> removed = messagesCache.remove(destination, destinationUuid, deviceId, guid);
+    Optional<OutgoingMessageEntity> removed = messagesCache.remove(destinationUuid, deviceId, guid);
 
     if (!removed.isPresent()) {
       removed = this.messages.remove(destination, guid);
@@ -92,7 +100,7 @@ public class MessagesManager {
 
   public void delete(String destination, UUID destinationUuid, long deviceId, long id, boolean cached) {
     if (cached) {
-      messagesCache.remove(destination, destinationUuid, deviceId, id);
+      messagesCache.remove(destinationUuid, deviceId, id);
       cacheHitByIdMeter.mark();
     } else {
       this.messages.remove(destination, id);
@@ -102,7 +110,7 @@ public class MessagesManager {
 
   public void persistMessage(String destination, UUID destinationUuid, Envelope envelope, UUID messageGuid, long deviceId) {
     messages.store(messageGuid, envelope, destination, deviceId);
-    messagesCache.remove(destination, destinationUuid, deviceId, messageGuid);
+    messagesCache.remove(destinationUuid, deviceId, messageGuid);
   }
 
   public void addMessageAvailabilityListener(final UUID destinationUuid, final long deviceId, final MessageAvailabilityListener listener) {

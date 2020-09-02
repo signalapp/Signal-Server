@@ -74,7 +74,7 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
             final long deviceId                  = invocation.getArgument(4, Long.class);
 
             messagesDatabase.store(messageGuid, message, destination, deviceId);
-            messagesCache.remove(destination, destinationUuid, deviceId, messageGuid);
+            messagesCache.remove(destinationUuid, deviceId, messageGuid);
 
             return null;
         }).when(messagesManager).persistMessage(anyString(), any(UUID.class), any(MessageProtos.Envelope.class), any(UUID.class), anyLong());
@@ -181,7 +181,7 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
                     .setServerGuid(messageGuid.toString())
                     .build();
 
-            messagesCache.insert(messageGuid, accountNumber, accountUuid, deviceId, envelope);
+            messagesCache.insert(messageGuid, accountUuid, deviceId, envelope);
         }
     }
 

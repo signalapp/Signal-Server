@@ -45,7 +45,7 @@ public class DeadLetterHandler implements DispatchChannel {
           Optional<Account> maybeAccount = accountsManager.get(address.getNumber());
 
           if (maybeAccount.isPresent()) {
-            messagesManager.insert(address.getNumber(), maybeAccount.get().getUuid(), address.getDeviceId(), message);
+            messagesManager.insert(maybeAccount.get().getUuid(), address.getDeviceId(), message);
           } else {
             logger.warn("Dead letter for account that no longer exists: {}", address);
           }
