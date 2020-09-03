@@ -80,7 +80,9 @@ public class ScourMessageCacheCommand extends ConfiguredCommand<WhisperServerCon
         List<ScoredValue<byte[]>> messages;
 
         do {
-            messages = redisClient.withBinaryClient(connection -> connection.sync().zpopmin(queueKeyBytes, MESSAGE_PAGE_SIZE));
+            final int start = messageCount;
+
+            messages = redisClient.withBinaryClient(connection -> connection.sync().zrangeWithScores(queueKeyBytes, start, start + MESSAGE_PAGE_SIZE));
 
             for (final ScoredValue<byte[]> scoredValue : messages) {
                 persistMessage(accountNumber, deviceId, scoredValue.getValue());
