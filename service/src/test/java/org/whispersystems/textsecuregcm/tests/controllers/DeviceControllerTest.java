@@ -117,6 +117,8 @@ public class DeviceControllerTest {
 //    when(maxedAccount.getActiveDeviceCount()).thenReturn(6);
     when(account.getAuthenticatedDevice()).thenReturn(Optional.of(masterDevice));
     when(account.isEnabled()).thenReturn(false);
+    when(account.isUuidAddressingSupported()).thenReturn(true);
+    when(account.isGroupsV2Supported()).thenReturn(true);
 
     when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(new StoredVerificationCode("5678901", System.currentTimeMillis(), null)));
     when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(new StoredVerificationCode("1112223", System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(31), null)));
@@ -213,11 +215,25 @@ public class DeviceControllerTest {
                                  .target("/v1/devices/5678901")
                                  .request()
                                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-                                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 1234, "this is a really long name that is longer than 80 characters it's so long that it's even longer than 204 characters. that's a lot of characters. we're talking lots and lots and lots of characters. 12345678", null, null, null, true),
+                                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 1234, "this is a really long name that is longer than 80 characters it's so long that it's even longer than 204 characters. that's a lot of characters. we're talking lots and lots and lots of characters. 12345678", null, null, null, true, null),
                                                     MediaType.APPLICATION_JSON_TYPE));
 
     assertEquals(response.getStatus(), 422);
     verifyNoMoreInteractions(messagesManager);
   }
 
+  @Test
+  public void deviceDowngradeCapabilitiesTest() throws Exception {
+    Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(true, false, true, false);
+    AccountAttributes accountAttributes = new AccountAttributes("keykeykeykey", false, 1234, null, null, null, null, true, deviceCapabilities);
+    Response response = resources.getJerseyTest()
+            .target("/v1/devices/5678901")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+            .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(409);
+
+    verifyNoMoreInteractions(messagesManager);
+  }
 }

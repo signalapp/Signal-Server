@@ -190,6 +190,11 @@ public class DeviceController {
         throw new DeviceLimitExceededException(account.get().getDevices().size(), MAX_DEVICES);
       }
 
+      final DeviceCapabilities capabilities = accountAttributes.getCapabilities();
+      if (capabilities != null && isCapabilityDowngrade(account.get(), capabilities)) {
+        throw new WebApplicationException(Response.status(409).build());
+      }
+
       Device device = new Device();
       device.setName(accountAttributes.getName());
       device.setAuthenticationCredentials(new AuthenticationCredentials(password));
@@ -234,5 +239,10 @@ public class DeviceController {
     SecureRandom random = new SecureRandom();
     int randomInt       = 100000 + random.nextInt(900000);
     return new VerificationCode(randomInt);
+  }
+
+  private boolean isCapabilityDowngrade(Account account, DeviceCapabilities capabilities) {
+    return (!capabilities.isGv2() && account.isGroupsV2Supported())
+            || (!capabilities.isUuid() && account.isUuidAddressingSupported());
   }
 }

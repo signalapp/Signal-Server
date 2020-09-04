@@ -67,11 +67,11 @@ public class AccountAttributes {
 
   @VisibleForTesting
   public AccountAttributes(String signalingKey, boolean fetchesMessages, int registrationId, String pin) {
-    this(signalingKey, fetchesMessages, registrationId, null, pin, null, null, true);
+    this(signalingKey, fetchesMessages, registrationId, null, pin, null, null, true, null);
   }
 
   @VisibleForTesting
-  public AccountAttributes(String signalingKey, boolean fetchesMessages, int registrationId, String name, String pin, String registrationLock, List<PaymentAddress> payments, boolean discoverableByPhoneNumber) {
+  public AccountAttributes(String signalingKey, boolean fetchesMessages, int registrationId, String name, String pin, String registrationLock, List<PaymentAddress> payments, boolean discoverableByPhoneNumber, final DeviceCapabilities capabilities) {
     this.signalingKey              = signalingKey;
     this.fetchesMessages           = fetchesMessages;
     this.registrationId            = registrationId;
@@ -80,6 +80,7 @@ public class AccountAttributes {
     this.registrationLock          = registrationLock;
     this.payments                  = payments;
     this.discoverableByPhoneNumber = discoverableByPhoneNumber;
+    this.capabilities              = capabilities;
   }
 
   public String getSignalingKey() {
