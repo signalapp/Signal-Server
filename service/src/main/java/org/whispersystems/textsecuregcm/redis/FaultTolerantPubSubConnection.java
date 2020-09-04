@@ -5,7 +5,6 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.Constants;
 
@@ -21,9 +20,9 @@ public class FaultTolerantPubSubConnection<K, V> {
 
     private final Timer executeTimer;
 
-    public FaultTolerantPubSubConnection(final String name, final StatefulRedisClusterPubSubConnection<K, V> pubSubConnection, final CircuitBreakerConfiguration circuitBreakerConfiguration) {
+    public FaultTolerantPubSubConnection(final String name, final StatefulRedisClusterPubSubConnection<K, V> pubSubConnection, final CircuitBreaker circuitBreaker) {
         this.pubSubConnection = pubSubConnection;
-        this.circuitBreaker   = CircuitBreaker.of(name + "-pubsub", circuitBreakerConfiguration.toCircuitBreakerConfig());
+        this.circuitBreaker   = circuitBreaker;
 
         CircuitBreakerUtil.registerMetrics(SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME),
                 this.circuitBreaker,

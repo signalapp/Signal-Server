@@ -41,7 +41,6 @@ public class FaultTolerantRedisCluster {
 
     private final List<StatefulRedisClusterPubSubConnection<?, ?>> pubSubConnections = new ArrayList<>();
 
-    private final CircuitBreakerConfiguration circuitBreakerConfiguration;
     private final CircuitBreaker circuitBreaker;
 
     private final Timer executeTimer;
@@ -65,8 +64,7 @@ public class FaultTolerantRedisCluster {
         this.stringConnection = clusterClient.connect();
         this.binaryConnection = clusterClient.connect(ByteArrayCodec.INSTANCE);
 
-        this.circuitBreakerConfiguration = circuitBreakerConfiguration;
-        this.circuitBreaker              = CircuitBreaker.of(name, circuitBreakerConfiguration.toCircuitBreakerConfig());
+        this.circuitBreaker = CircuitBreaker.of(name, circuitBreakerConfiguration.toCircuitBreakerConfig());
 
         CircuitBreakerUtil.registerMetrics(SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME),
                 circuitBreaker,
@@ -144,6 +142,6 @@ public class FaultTolerantRedisCluster {
         final StatefulRedisClusterPubSubConnection<String, String> pubSubConnection = clusterClient.connectPubSub();
         pubSubConnections.add(pubSubConnection);
 
-        return new FaultTolerantPubSubConnection<>(name, pubSubConnection, circuitBreakerConfiguration);
+        return new FaultTolerantPubSubConnection<>(name, pubSubConnection, circuitBreaker);
     }
 }
