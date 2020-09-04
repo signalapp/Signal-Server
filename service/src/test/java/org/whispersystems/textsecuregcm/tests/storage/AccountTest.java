@@ -5,9 +5,10 @@ import org.junit.Test;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -177,5 +178,46 @@ public class AccountTest {
 
     account.setDiscoverableByPhoneNumber(true);
     assertTrue(account.isDiscoverableByPhoneNumber());
+  }
+
+  @Test
+  public void isGroupsV2Supported() {
+    {
+      final Device                    gv2CapableDevice       = mock(Device.class);
+      final Device                    secondGv2CapableDevice = mock(Device.class);
+      final Device.DeviceCapabilities gv2Capabilities        = mock(Device.DeviceCapabilities.class);
+      final Device.DeviceCapabilities secondGv2Capabilities  = mock(Device.DeviceCapabilities.class);
+
+      when(gv2CapableDevice.isEnabled()).thenReturn(true);
+      when(gv2CapableDevice.getCapabilities()).thenReturn(gv2Capabilities);
+      when(gv2Capabilities.isGv2()).thenReturn(true);
+
+      when(secondGv2CapableDevice.isEnabled()).thenReturn(true);
+      when(secondGv2CapableDevice.getCapabilities()).thenReturn(secondGv2Capabilities);
+      when(secondGv2Capabilities.isGv2()).thenReturn(true);
+
+      final Account account = new Account("+18005551234", UUID.randomUUID(), Set.of(gv2CapableDevice, secondGv2CapableDevice), "1234".getBytes(StandardCharsets.UTF_8));
+
+      assertTrue(account.isGroupsV2Supported());
+    }
+
+    {
+      final Device                    gv2CapableDevice    = mock(Device.class);
+      final Device                    nonGv2CapableDevice = mock(Device.class);
+      final Device.DeviceCapabilities gv2Capabilities     = mock(Device.DeviceCapabilities.class);
+      final Device.DeviceCapabilities nonGv2Capabilities  = mock(Device.DeviceCapabilities.class);
+
+      when(gv2CapableDevice.isEnabled()).thenReturn(true);
+      when(gv2CapableDevice.getCapabilities()).thenReturn(gv2Capabilities);
+      when(gv2Capabilities.isGv2()).thenReturn(true);
+
+      when(nonGv2CapableDevice.isEnabled()).thenReturn(true);
+      when(nonGv2CapableDevice.getCapabilities()).thenReturn(nonGv2Capabilities);
+      when(nonGv2Capabilities.isGv2()).thenReturn(false);
+
+      final Account account = new Account("+18005551234", UUID.randomUUID(), Set.of(gv2CapableDevice, nonGv2CapableDevice), "1234".getBytes(StandardCharsets.UTF_8));
+
+      assertFalse(account.isGroupsV2Supported());
+    }
   }
 }

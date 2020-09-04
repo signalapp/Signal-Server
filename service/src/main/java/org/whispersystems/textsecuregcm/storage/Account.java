@@ -146,7 +146,7 @@ public class Account implements Principal  {
   public boolean isGroupsV2Supported() {
     return devices.stream()
                   .filter(Device::isEnabled)
-                  .anyMatch(device -> device.getCapabilities() != null && device.getCapabilities().isGv2());
+                  .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isGv2());
   }
 
   public boolean isStorageSupported() {
