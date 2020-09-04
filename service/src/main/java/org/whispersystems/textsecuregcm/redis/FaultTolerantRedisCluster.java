@@ -5,6 +5,8 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.retry.Retry;
+import io.lettuce.core.RedisCommandTimeoutException;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.cluster.RedisClusterClient;
 import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
@@ -14,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisClusterConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.Constants;
 
@@ -42,6 +45,7 @@ public class FaultTolerantRedisCluster {
     private final List<StatefulRedisClusterPubSubConnection<?, ?>> pubSubConnections = new ArrayList<>();
 
     private final CircuitBreaker circuitBreaker;
+    private final Retry          retry;
 
     private final Timer executeTimer;
 
@@ -51,11 +55,12 @@ public class FaultTolerantRedisCluster {
         this(name,
              RedisClusterClient.create(clusterConfiguration.getUrls().stream().map(RedisURI::create).collect(Collectors.toList())),
              clusterConfiguration.getTimeout(),
-             clusterConfiguration.getCircuitBreakerConfiguration());
+             clusterConfiguration.getCircuitBreakerConfiguration(),
+             clusterConfiguration.getRetryConfiguration());
     }
 
     @VisibleForTesting
-    FaultTolerantRedisCluster(final String name, final RedisClusterClient clusterClient, final Duration commandTimeout, final CircuitBreakerConfiguration circuitBreakerConfiguration) {
+    FaultTolerantRedisCluster(final String name, final RedisClusterClient clusterClient, final Duration commandTimeout, final CircuitBreakerConfiguration circuitBreakerConfiguration, final RetryConfiguration retryConfiguration) {
         this.name = name;
 
         this.clusterClient = clusterClient;
@@ -65,10 +70,10 @@ public class FaultTolerantRedisCluster {
         this.binaryConnection = clusterClient.connect(ByteArrayCodec.INSTANCE);
 
         this.circuitBreaker = CircuitBreaker.of(name, circuitBreakerConfiguration.toCircuitBreakerConfig());
+        this.retry          = Retry.of(name, retryConfiguration.toRetryConfigBuilder().retryOnException(exception -> exception instanceof RedisCommandTimeoutException).build());
 
-        CircuitBreakerUtil.registerMetrics(SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME),
-                circuitBreaker,
-                FaultTolerantRedisCluster.class);
+        CircuitBreakerUtil.registerMetrics(SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME), circuitBreaker, FaultTolerantRedisCluster.class);
+        CircuitBreakerUtil.registerMetrics(SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME), retry, FaultTolerantRedisCluster.class);
 
         final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
 
@@ -104,11 +109,11 @@ public class FaultTolerantRedisCluster {
 
     private <K, V> void useConnection(final StatefulRedisClusterConnection<K, V> connection, final Consumer<StatefulRedisClusterConnection<K, V>> consumer) {
         try {
-            circuitBreaker.executeCheckedRunnable(() -> {
+            circuitBreaker.executeCheckedRunnable(() -> retry.executeRunnable(() -> {
                 try (final Timer.Context ignored = executeTimer.time()) {
                     consumer.accept(connection);
                 }
-            });
+            }));
         } catch (final Throwable t) {
             log.warn("Redis operation failure", t);
 
@@ -122,11 +127,11 @@ public class FaultTolerantRedisCluster {
 
     private <T, K, V> T withConnection(final StatefulRedisClusterConnection<K, V> connection, final Function<StatefulRedisClusterConnection<K, V>, T> function) {
         try {
-            return circuitBreaker.executeCheckedSupplier(() -> {
+            return circuitBreaker.executeCheckedSupplier(() -> retry.executeCallable(() -> {
                 try (final Timer.Context ignored = executeTimer.time()) {
                     return function.apply(connection);
                 }
-            });
+            }));
         } catch (final Throwable t) {
             log.warn("Redis operation failure", t);
 
@@ -142,6 +147,6 @@ public class FaultTolerantRedisCluster {
         final StatefulRedisClusterPubSubConnection<String, String> pubSubConnection = clusterClient.connectPubSub();
         pubSubConnections.add(pubSubConnection);
 
-        return new FaultTolerantPubSubConnection<>(name, pubSubConnection, circuitBreaker);
+        return new FaultTolerantPubSubConnection<>(name, pubSubConnection, circuitBreaker, retry);
     }
 }

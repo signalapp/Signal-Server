@@ -1,6 +1,7 @@
 package org.whispersystems.textsecuregcm.redis;
 
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.lettuce.core.RedisCommandTimeoutException;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.RedisClusterClient;
 import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
@@ -9,6 +10,7 @@ import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
 import org.junit.Before;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 
 import java.time.Duration;
 
@@ -40,7 +42,11 @@ public class FaultTolerantRedisClusterTest {
         breakerConfiguration.setRingBufferSizeInClosedState(1);
         breakerConfiguration.setWaitDurationInOpenStateInSeconds(Integer.MAX_VALUE);
 
-        faultTolerantCluster = new FaultTolerantRedisCluster("test", clusterClient, Duration.ofSeconds(2), breakerConfiguration);
+        final RetryConfiguration retryConfiguration = new RetryConfiguration();
+        retryConfiguration.setMaxAttempts(3);
+        retryConfiguration.setWaitDuration(0);
+
+        faultTolerantCluster = new FaultTolerantRedisCluster("test", clusterClient, Duration.ofSeconds(2), breakerConfiguration, retryConfiguration);
     }
 
     @Test
@@ -56,5 +62,23 @@ public class FaultTolerantRedisClusterTest {
 
         assertThrows(CallNotPermittedException.class,
                 () -> faultTolerantCluster.withCluster(connection -> connection.sync().get("OH NO")));
+    }
+
+    @Test
+    public void testRetry() {
+        when(clusterCommands.get(anyString()))
+                .thenThrow(new RedisCommandTimeoutException())
+                .thenThrow(new RedisCommandTimeoutException())
+                .thenReturn("value");
+
+        assertEquals("value", faultTolerantCluster.withCluster(connection -> connection.sync().get("key")));
+
+        when(clusterCommands.get(anyString()))
+                .thenThrow(new RedisCommandTimeoutException())
+                .thenThrow(new RedisCommandTimeoutException())
+                .thenThrow(new RedisCommandTimeoutException())
+                .thenReturn("value");
+
+        assertThrows(RedisCommandTimeoutException.class, () -> faultTolerantCluster.withCluster(connection -> connection.sync().get("key")));
     }
 }

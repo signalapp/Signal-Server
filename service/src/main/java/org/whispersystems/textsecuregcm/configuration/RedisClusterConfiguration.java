@@ -23,6 +23,11 @@ public class RedisClusterConfiguration {
     @Valid
     private CircuitBreakerConfiguration circuitBreaker = new CircuitBreakerConfiguration();
 
+    @JsonProperty
+    @NotNull
+    @Valid
+    private RetryConfiguration retry = new RetryConfiguration();
+
     public List<String> getUrls() {
         return urls;
     }
@@ -33,5 +38,9 @@ public class RedisClusterConfiguration {
 
     public CircuitBreakerConfiguration getCircuitBreakerConfiguration() {
         return circuitBreaker;
+    }
+
+    public RetryConfiguration getRetryConfiguration() {
+        return retry;
     }
 }

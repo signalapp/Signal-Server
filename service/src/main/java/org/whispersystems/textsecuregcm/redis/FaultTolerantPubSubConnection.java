@@ -4,7 +4,10 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.retry.Retry;
 import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.Constants;
 
@@ -16,13 +19,18 @@ import static com.codahale.metrics.MetricRegistry.name;
 public class FaultTolerantPubSubConnection<K, V> {
 
     private final StatefulRedisClusterPubSubConnection<K, V> pubSubConnection;
+
     private final CircuitBreaker circuitBreaker;
+    private final Retry          retry;
 
     private final Timer executeTimer;
 
-    public FaultTolerantPubSubConnection(final String name, final StatefulRedisClusterPubSubConnection<K, V> pubSubConnection, final CircuitBreaker circuitBreaker) {
+    private static final Logger log = LoggerFactory.getLogger(FaultTolerantPubSubConnection.class);
+
+    public FaultTolerantPubSubConnection(final String name, final StatefulRedisClusterPubSubConnection<K, V> pubSubConnection, final CircuitBreaker circuitBreaker, final Retry retry) {
         this.pubSubConnection = pubSubConnection;
         this.circuitBreaker   = circuitBreaker;
+        this.retry            = retry;
 
         CircuitBreakerUtil.registerMetrics(SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME),
                 this.circuitBreaker,
@@ -36,14 +44,38 @@ public class FaultTolerantPubSubConnection<K, V> {
     }
 
     public void usePubSubConnection(final Consumer<StatefulRedisClusterPubSubConnection<K, V>> consumer) {
-        try (final Timer.Context ignored = executeTimer.time()) {
-            this.circuitBreaker.executeRunnable(() -> consumer.accept(pubSubConnection));
+        try {
+            circuitBreaker.executeCheckedRunnable(() -> retry.executeRunnable(() -> {
+                try (final Timer.Context ignored = executeTimer.time()) {
+                    consumer.accept(pubSubConnection);
+                }
+            }));
+        } catch (final Throwable t) {
+            log.warn("Redis operation failure", t);
+
+            if (t instanceof RuntimeException) {
+                throw (RuntimeException) t;
+            } else {
+                throw new RuntimeException(t);
+            }
         }
     }
 
-    public <T> T withPubSubConnection(final Function<StatefulRedisClusterPubSubConnection<K, V>, T> consumer) {
-        try (final Timer.Context ignored = executeTimer.time()) {
-            return this.circuitBreaker.executeSupplier(() -> consumer.apply(pubSubConnection));
+    public <T> T withPubSubConnection(final Function<StatefulRedisClusterPubSubConnection<K, V>, T> function) {
+        try {
+            return circuitBreaker.executeCheckedSupplier(() -> retry.executeCallable(() -> {
+                try (final Timer.Context ignored = executeTimer.time()) {
+                    return function.apply(pubSubConnection);
+                }
+            }));
+        } catch (final Throwable t) {
+            log.warn("Redis operation failure", t);
+
+            if (t instanceof RuntimeException) {
+                throw (RuntimeException) t;
+            } else {
+                throw new RuntimeException(t);
+            }
         }
     }
 }

@@ -1,12 +1,16 @@
 package org.whispersystems.textsecuregcm.redis;
 
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.retry.Retry;
+import io.lettuce.core.RedisCommandTimeoutException;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
 import io.lettuce.core.cluster.pubsub.api.sync.RedisClusterPubSubCommands;
 import org.junit.Before;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
@@ -33,7 +37,14 @@ public class FaultTolerantPubSubConnectionTest {
         breakerConfiguration.setRingBufferSizeInClosedState(1);
         breakerConfiguration.setWaitDurationInOpenStateInSeconds(Integer.MAX_VALUE);
 
-        faultTolerantPubSubConnection = new FaultTolerantPubSubConnection<>("test", pubSubConnection, breakerConfiguration);
+        final RetryConfiguration retryConfiguration = new RetryConfiguration();
+        retryConfiguration.setMaxAttempts(3);
+        retryConfiguration.setWaitDuration(0);
+
+        final CircuitBreaker circuitBreaker = CircuitBreaker.of("test", breakerConfiguration.toCircuitBreakerConfig());
+        final Retry          retry          = Retry.of("test", retryConfiguration.toRetryConfig());
+
+        faultTolerantPubSubConnection = new FaultTolerantPubSubConnection<>("test", pubSubConnection, circuitBreaker, retry);
     }
 
     @Test
@@ -49,5 +60,23 @@ public class FaultTolerantPubSubConnectionTest {
 
         assertThrows(CallNotPermittedException.class,
                 () -> faultTolerantPubSubConnection.withPubSubConnection(connection -> connection.sync().get("OH NO")));
+    }
+
+    @Test
+    public void testRetry() {
+        when(pubSubCommands.get(anyString()))
+                .thenThrow(new RedisCommandTimeoutException())
+                .thenThrow(new RedisCommandTimeoutException())
+                .thenReturn("value");
+
+        assertEquals("value", faultTolerantPubSubConnection.withPubSubConnection(connection -> connection.sync().get("key")));
+
+        when(pubSubCommands.get(anyString()))
+                .thenThrow(new RedisCommandTimeoutException())
+                .thenThrow(new RedisCommandTimeoutException())
+                .thenThrow(new RedisCommandTimeoutException())
+                .thenReturn("value");
+
+        assertThrows(RedisCommandTimeoutException.class, () -> faultTolerantPubSubConnection.withPubSubConnection(connection -> connection.sync().get("key")));
     }
 }

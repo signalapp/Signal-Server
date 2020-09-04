@@ -22,8 +22,16 @@ public class RetryConfiguration {
     return maxAttempts;
   }
 
+  public void setMaxAttempts(final int maxAttempts) {
+    this.maxAttempts = maxAttempts;
+  }
+
   public long getWaitDuration() {
     return waitDuration;
+  }
+
+  public void setWaitDuration(final long waitDuration) {
+    this.waitDuration = waitDuration;
   }
 
   public RetryConfig toRetryConfig() {
