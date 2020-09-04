@@ -224,6 +224,12 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
   @Override
   public void handleNewEphemeralMessageAvailable() {
     ephemeralMessageAvailableMeter.mark();
+
+    final Optional<Envelope> maybeMessage = messagesManager.takeEphemeralMessage(account.getUuid(), device.getId());
+
+    if (maybeMessage.isPresent()) {
+      sendMessage(maybeMessage.get(), Optional.empty(), false);
+    }
   }
 
   @Override
