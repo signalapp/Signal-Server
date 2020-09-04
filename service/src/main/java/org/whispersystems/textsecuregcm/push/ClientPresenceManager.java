@@ -221,18 +221,16 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
 
                     final String connectedClientsKey = getConnectedClientSetKey(peerId);
 
+                    String presenceKey;
+
+                    while ((presenceKey = presenceCluster.withCluster(connection -> connection.sync().spop(connectedClientsKey))) != null) {
+                        clearPresenceScript.execute(List.of(presenceKey), List.of(peerId));
+                        pruneClientMeter.mark();
+                    }
+
                     presenceCluster.useCluster(connection -> {
-                        final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
-
-                        String presenceKey;
-
-                        while ((presenceKey = commands.spop(connectedClientsKey)) != null) {
-                            clearPresenceScript.execute(List.of(presenceKey), List.of(peerId));
-                            pruneClientMeter.mark();
-                        }
-
-                        commands.del(connectedClientsKey);
-                        commands.srem(MANAGER_SET_KEY, peerId);
+                        connection.sync().del(connectedClientsKey);
+                        connection.sync().srem(MANAGER_SET_KEY, peerId);
                     });
                 }
             }
