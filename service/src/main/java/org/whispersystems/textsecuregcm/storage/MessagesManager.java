@@ -41,6 +41,14 @@ public class MessagesManager {
     messagesCache.insert(UUID.randomUUID(), destinationUuid, destinationDevice, message);
   }
 
+  public void insertEphemeral(final UUID destinationUuid, final long destinationDevice, final Envelope message) {
+    messagesCache.insertEphemeral(UUID.randomUUID(), destinationUuid, destinationDevice, message);
+  }
+
+  public Optional<Envelope> takeEphemeralMessage(final UUID destinationUuid, final long destinationDevice, final UUID messageGuid) {
+    return messagesCache.takeEphemeralMessage(destinationUuid, destinationDevice, messageGuid);
+  }
+
   public OutgoingMessageEntityList getMessagesForDevice(String destination, UUID destinationUuid, long destinationDevice, final String userAgent) {
     RedisOperation.unchecked(() -> pushLatencyManager.recordQueueRead(destinationUuid, destinationDevice, userAgent));
 
