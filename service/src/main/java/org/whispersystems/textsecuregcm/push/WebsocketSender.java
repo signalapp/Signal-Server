@@ -20,13 +20,10 @@ import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.google.protobuf.ByteString;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.FeatureFlagsManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -63,56 +60,38 @@ public class WebsocketSender {
   private final Meter provisioningOnlineMeter  = metricRegistry.meter(name(getClass(), "provisioning_online" ));
   private final Meter provisioningOfflineMeter = metricRegistry.meter(name(getClass(), "provisioning_offline"));
 
-  private final Counter ephemeralOnlineCounter  = Metrics.counter(name(getClass(), "ephemeral"), "online", "true");
-  private final Counter ephemeralOfflineCounter = Metrics.counter(name(getClass(), "ephemeral"), "offline", "true");
-
   private final MessagesManager       messagesManager;
   private final PubSubManager         pubSubManager;
   private final ClientPresenceManager clientPresenceManager;
-  private final FeatureFlagsManager   featureFlagsManager;
 
-  private static final String KEYSPACE_DELIVERY_FEATURE_FLAG = "keyspace-delivery-for-online-messages";
-
-  public WebsocketSender(MessagesManager messagesManager, PubSubManager pubSubManager, ClientPresenceManager clientPresenceManager, final FeatureFlagsManager featureFlagsManager) {
+  public WebsocketSender(MessagesManager messagesManager, PubSubManager pubSubManager, ClientPresenceManager clientPresenceManager) {
     this.messagesManager       = messagesManager;
     this.pubSubManager         = pubSubManager;
     this.clientPresenceManager = clientPresenceManager;
-    this.featureFlagsManager   = featureFlagsManager;
   }
 
   public boolean sendMessage(Account account, Device device, Envelope message, Type channel, boolean online) {
-    if (online && featureFlagsManager.isFeatureFlagActive(KEYSPACE_DELIVERY_FEATURE_FLAG)) {
-      if (clientPresenceManager.isPresent(account.getUuid(), device.getId())) {
-        ephemeralOnlineCounter.increment();
-        messagesManager.insertEphemeral(account.getUuid(), device.getId(), message);
-        return true;
-      } else {
-        ephemeralOfflineCounter.increment();
-        return false;
-      }
+    WebsocketAddress address       = new WebsocketAddress(account.getNumber(), device.getId());
+    PubSubMessage    pubSubMessage = PubSubMessage.newBuilder()
+                                                  .setType(PubSubMessage.Type.DELIVER)
+                                                  .setContent(message.toByteString())
+                                                  .build();
+
+    pubSubManager.publish(address, pubSubMessage);
+
+    if (clientPresenceManager.isPresent(account.getUuid(), device.getId())) {
+      if      (channel == Type.APN) apnOnlineMeter.mark();
+      else if (channel == Type.GCM) gcmOnlineMeter.mark();
+      else                          websocketOnlineMeter.mark();
+
+      return true;
     } else {
-      WebsocketAddress address = new WebsocketAddress(account.getNumber(), device.getId());
-      PubSubMessage pubSubMessage = PubSubMessage.newBuilder()
-              .setType(PubSubMessage.Type.DELIVER)
-              .setContent(message.toByteString())
-              .build();
+      if      (channel == Type.APN) apnOfflineMeter.mark();
+      else if (channel == Type.GCM) gcmOfflineMeter.mark();
+      else                          websocketOfflineMeter.mark();
 
-      pubSubManager.publish(address, pubSubMessage);
-
-      if (clientPresenceManager.isPresent(account.getUuid(), device.getId())) {
-        if (channel == Type.APN) apnOnlineMeter.mark();
-        else if (channel == Type.GCM) gcmOnlineMeter.mark();
-        else websocketOnlineMeter.mark();
-
-        return true;
-      } else {
-        if (channel == Type.APN) apnOfflineMeter.mark();
-        else if (channel == Type.GCM) gcmOfflineMeter.mark();
-        else websocketOfflineMeter.mark();
-
-        if (!online) queueMessage(account, device, message);
-        return false;
-      }
+      if (!online) queueMessage(account, device, message);
+      return false;
     }
   }
 
