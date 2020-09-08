@@ -21,7 +21,6 @@ import com.codahale.metrics.SharedMetricRegistries;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
-import org.whispersystems.textsecuregcm.push.WebsocketSender.DeliveryStatus;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -101,9 +100,9 @@ public class PushSender implements Managed {
   }
 
   private void sendGcmMessage(Account account, Device device, Envelope message, boolean online) {
-    DeliveryStatus deliveryStatus = webSocketSender.sendMessage(account, device, message, WebsocketSender.Type.GCM, online);
+    final boolean delivered = webSocketSender.sendMessage(account, device, message, WebsocketSender.Type.GCM, online);
 
-    if (!deliveryStatus.isDelivered() && !online) {
+    if (!delivered && !online) {
       sendGcmNotification(account, device);
     }
   }
@@ -118,9 +117,9 @@ public class PushSender implements Managed {
   }
 
   private void sendApnMessage(Account account, Device device, Envelope outgoingMessage, boolean online) {
-    DeliveryStatus deliveryStatus = webSocketSender.sendMessage(account, device, outgoingMessage, WebsocketSender.Type.APN, online);
+    final boolean delivered = webSocketSender.sendMessage(account, device, outgoingMessage, WebsocketSender.Type.APN, online);
 
-    if (!deliveryStatus.isDelivered() && outgoingMessage.getType() != Envelope.Type.RECEIPT && !online) {
+    if (!delivered && outgoingMessage.getType() != Envelope.Type.RECEIPT && !online) {
       sendApnNotification(account, device, false);
     }
   }

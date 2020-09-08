@@ -80,15 +80,15 @@ public class WebsocketSender {
     this.featureFlagsManager   = featureFlagsManager;
   }
 
-  public DeliveryStatus sendMessage(Account account, Device device, Envelope message, Type channel, boolean online) {
+  public boolean sendMessage(Account account, Device device, Envelope message, Type channel, boolean online) {
     if (online && featureFlagsManager.isFeatureFlagActive(KEYSPACE_DELIVERY_FEATURE_FLAG)) {
       if (clientPresenceManager.isPresent(account.getUuid(), device.getId())) {
         ephemeralOnlineCounter.increment();
         messagesManager.insertEphemeral(account.getUuid(), device.getId(), message);
-        return new DeliveryStatus(true);
+        return true;
       } else {
         ephemeralOfflineCounter.increment();
-        return new DeliveryStatus(false);
+        return false;
       }
     } else {
       WebsocketAddress address = new WebsocketAddress(account.getNumber(), device.getId());
@@ -104,14 +104,14 @@ public class WebsocketSender {
         else if (channel == Type.GCM) gcmOnlineMeter.mark();
         else websocketOnlineMeter.mark();
 
-        return new DeliveryStatus(true);
+        return true;
       } else {
         if (channel == Type.APN) apnOfflineMeter.mark();
         else if (channel == Type.GCM) gcmOfflineMeter.mark();
         else websocketOfflineMeter.mark();
 
         if (!online) queueMessage(account, device, message);
-        return new DeliveryStatus(false);
+        return false;
       }
     }
   }
@@ -140,19 +140,5 @@ public class WebsocketSender {
       provisioningOfflineMeter.mark();
       return false;
     }
-  }
-
-  static class DeliveryStatus {
-
-    private final boolean delivered;
-
-    DeliveryStatus(boolean delivered) {
-      this.delivered = delivered;
-    }
-
-    boolean isDelivered() {
-      return delivered;
-    }
-
   }
 }
