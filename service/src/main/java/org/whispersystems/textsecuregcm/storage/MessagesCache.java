@@ -22,6 +22,7 @@ import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -55,18 +56,24 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     private final Map<String, MessageAvailabilityListener> messageListenersByQueueName = new HashMap<>();
     private final Map<MessageAvailabilityListener, String> queueNamesByMessageListener = new IdentityHashMap<>();
 
-    private final Timer   insertTimer                       = Metrics.timer(name(MessagesCache.class, "insert"));
-    private final Timer   getMessagesTimer                  = Metrics.timer(name(MessagesCache.class, "get"));
-    private final Timer   clearQueueTimer                   = Metrics.timer(name(MessagesCache.class, "clear"));
-    private final Counter pubSubMessageCounter              = Metrics.counter(name(MessagesCache.class, "pubSubMessage"));
-    private final Counter newMessageNotificationCounter     = Metrics.counter(name(MessagesCache.class, "newMessageNotification"));
-    private final Counter queuePersistedNotificationCounter = Metrics.counter(name(MessagesCache.class, "queuePersisted"));
+    private final Timer   insertTimer                         = Metrics.timer(name(MessagesCache.class, "insert"), "ephemeral", "false");
+    private final Timer   insertEphemeralTimer                = Metrics.timer(name(MessagesCache.class, "insert"), "ephemeral", "true");
+    private final Timer   getMessagesTimer                    = Metrics.timer(name(MessagesCache.class, "get"));
+    private final Timer   clearQueueTimer                     = Metrics.timer(name(MessagesCache.class, "clear"));
+    private final Timer   takeEphemeralMessageTimer           = Metrics.timer(name(MessagesCache.class, "takeEphemeral"));
+    private final Counter pubSubMessageCounter                = Metrics.counter(name(MessagesCache.class, "pubSubMessage"));
+    private final Counter newMessageNotificationCounter       = Metrics.counter(name(MessagesCache.class, "newMessageNotification"), "ephemeral", "false");
+    private final Counter ephemeralMessageNotificationCounter = Metrics.counter(name(MessagesCache.class, "newMessageNotification"), "ephemeral", "true");
+    private final Counter queuePersistedNotificationCounter   = Metrics.counter(name(MessagesCache.class, "queuePersisted"));
 
     static final         String NEXT_SLOT_TO_PERSIST_KEY  = "user_queue_persist_slot";
     private static final byte[] LOCK_VALUE                = "1".getBytes(StandardCharsets.UTF_8);
 
-    private static final String QUEUE_KEYSPACE_PREFIX      = "__keyspace@0__:user_queue::";
-    private static final String PERSISTING_KEYSPACE_PREFIX = "__keyspace@0__:user_queue_persisting::";
+    private static final String QUEUE_KEYSPACE_PREFIX           = "__keyspace@0__:user_queue::";
+    private static final String EPHEMERAL_QUEUE_KEYSPACE_PREFIX = "__keyspace@0__:user_queue_ephemeral::";
+    private static final String PERSISTING_KEYSPACE_PREFIX      = "__keyspace@0__:user_queue_persisting::";
+
+    private static final Duration MAX_EPHEMERAL_MESSAGE_DELAY = Duration.ofSeconds(10);
 
     private static final String REMOVE_TIMER_NAME = name(MessagesCache.class, "remove");
 
@@ -135,6 +142,17 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
                                                    String.valueOf(message.getTimestamp()).getBytes(StandardCharsets.UTF_8),
                                                    sender.getBytes(StandardCharsets.UTF_8),
                                                    guid.toString().getBytes(StandardCharsets.UTF_8))));
+    }
+
+    public void insertEphemeral(final UUID destinationUuid, final long destinationDevice, final MessageProtos.Envelope message) {
+        insertEphemeralTimer.record(() -> {
+                final byte[] ephemeralQueueKey = getEphemeralMessageQueueKey(destinationUuid, destinationDevice);
+
+                redisCluster.useBinaryCluster(connection -> {
+                    connection.async().rpush(ephemeralQueueKey, message.toByteArray());
+                    connection.async().expire(ephemeralQueueKey, MAX_EPHEMERAL_MESSAGE_DELAY.toSeconds());
+                });
+        });
     }
 
     public Optional<OutgoingMessageEntity> remove(final UUID destinationUuid, final long destinationDevice, final long id) {
@@ -252,6 +270,33 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         });
     }
 
+    public Optional<MessageProtos.Envelope> takeEphemeralMessage(final UUID destinationUuid, final long destinationDevice) {
+        return takeEphemeralMessage(destinationUuid, destinationDevice, System.currentTimeMillis());
+    }
+
+    @VisibleForTesting
+    Optional<MessageProtos.Envelope> takeEphemeralMessage(final UUID destinationUuid, final long destinationDevice, final long currentTimeMillis) {
+        final long earliestAllowableTimestamp = currentTimeMillis - MAX_EPHEMERAL_MESSAGE_DELAY.toMillis();
+
+        return takeEphemeralMessageTimer.record(() -> redisCluster.withBinaryCluster(connection -> {
+            byte[] messageBytes;
+
+            while ((messageBytes = connection.sync().lpop(getEphemeralMessageQueueKey(destinationUuid, destinationDevice))) != null) {
+                try {
+                    final MessageProtos.Envelope message = MessageProtos.Envelope.parseFrom(messageBytes);
+
+                    if (message.getTimestamp() >= earliestAllowableTimestamp) {
+                        return Optional.of(message);
+                    }
+                } catch (final InvalidProtocolBufferException e) {
+                    logger.warn("Failed to parse envelope", e);
+                }
+            }
+
+            return Optional.empty();
+        }));
+    }
+
     public void clear(final UUID destinationUuid) {
         // TODO Remove null check in a fully UUID-based world
         if (destinationUuid != null) {
@@ -316,23 +361,33 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
         pubSubConnection.usePubSubConnection(connection -> connection.sync().nodes(node -> node.is(RedisClusterNode.NodeFlag.MASTER) && node.hasSlot(slot))
                                                                      .commands()
-                                                                     .subscribe(QUEUE_KEYSPACE_PREFIX + "{" + queueName + "}",
-                                                                                PERSISTING_KEYSPACE_PREFIX + "{" + queueName + "}"));
+                                                                     .subscribe(getKeyspaceChannels(queueName)));
     }
 
     private void unsubscribeFromKeyspaceNotifications(final String queueName) {
         pubSubConnection.usePubSubConnection(connection -> connection.sync().masters()
                                                                      .commands()
-                                                                     .unsubscribe(QUEUE_KEYSPACE_PREFIX + "{" + queueName + "}",
-                                                                                  PERSISTING_KEYSPACE_PREFIX + "{" + queueName + "}"));
+                                                                     .unsubscribe(getKeyspaceChannels(queueName)));
+    }
+
+    private static String[] getKeyspaceChannels(final String queueName) {
+        return new String[] {
+                QUEUE_KEYSPACE_PREFIX + "{" + queueName + "}",
+                EPHEMERAL_QUEUE_KEYSPACE_PREFIX + "{" + queueName + "}",
+                PERSISTING_KEYSPACE_PREFIX + "{" + queueName + "}"
+        };
     }
 
     @Override
     public void message(final RedisClusterNode node, final String channel, final String message) {
         pubSubMessageCounter.increment();
+
         if (channel.startsWith(QUEUE_KEYSPACE_PREFIX) && "zadd".equals(message)) {
             newMessageNotificationCounter.increment();
             notificationExecutorService.execute(() -> findListener(channel).ifPresent(MessageAvailabilityListener::handleNewMessagesAvailable));
+        } else if (channel.startsWith(EPHEMERAL_QUEUE_KEYSPACE_PREFIX) && "rpush".equals(message)) {
+            ephemeralMessageNotificationCounter.increment();
+            notificationExecutorService.execute(() -> findListener(channel).ifPresent(MessageAvailabilityListener::handleNewEphemeralMessageAvailable));
         } else if (channel.startsWith(PERSISTING_KEYSPACE_PREFIX) && "del".equals(message)) {
             queuePersistedNotificationCounter.increment();
             notificationExecutorService.execute(() -> findListener(channel).ifPresent(MessageAvailabilityListener::handleMessagesPersisted));
@@ -378,6 +433,10 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     @VisibleForTesting
     static byte[] getMessageQueueKey(final UUID accountUuid, final long deviceId) {
         return ("user_queue::{" + accountUuid.toString() + "::" + deviceId + "}").getBytes(StandardCharsets.UTF_8);
+    }
+
+    static byte[] getEphemeralMessageQueueKey(final UUID accountUuid, final long deviceId) {
+        return ("user_queue_ephemeral::{" + accountUuid.toString() + "::" + deviceId + "}").getBytes(StandardCharsets.UTF_8);
     }
 
     private static byte[] getMessageQueueMetadataKey(final UUID accountUuid, final long deviceId) {

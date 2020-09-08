@@ -45,7 +45,7 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
     public void setUp() throws Exception {
         super.setUp();
 
-        getRedisCluster().useCluster(connection -> connection.sync().masters().commands().configSet("notify-keyspace-events", "K$gz"));
+        getRedisCluster().useCluster(connection -> connection.sync().masters().commands().configSet("notify-keyspace-events", "Klgz"));
 
         notificationExecutorService = Executors.newSingleThreadExecutor();
         messagesCache               = new MessagesCache(getRedisCluster(), notificationExecutorService);
@@ -171,10 +171,14 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
         assertEquals(Collections.emptyList(), messagesCache.get(DESTINATION_UUID, DESTINATION_DEVICE_ID + 1, messageCount));
     }
 
-    protected MessageProtos.Envelope generateRandomMessage(final UUID messageGuid, final boolean sealedSender) {
+    private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid, final boolean sealedSender) {
+        return generateRandomMessage(messageGuid, sealedSender, serialTimestamp++);
+    }
+
+    private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid, final boolean sealedSender, final long timestamp) {
         final MessageProtos.Envelope.Builder envelopeBuilder = MessageProtos.Envelope.newBuilder()
-                .setTimestamp(serialTimestamp++)
-                .setServerTimestamp(serialTimestamp++)
+                .setTimestamp(timestamp)
+                .setServerTimestamp(timestamp)
                 .setContent(ByteString.copyFromUtf8(RandomStringUtils.randomAlphanumeric(256)))
                 .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
                 .setServerGuid(messageGuid.toString());
@@ -243,6 +247,10 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
             }
 
             @Override
+            public void handleNewEphemeralMessageAvailable() {
+            }
+
+            @Override
             public void handleMessagesPersisted() {
             }
         };
@@ -261,11 +269,15 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
 
     @Test(timeout = 5_000L)
     public void testNotifyListenerPersisted() throws InterruptedException {
-        final AtomicBoolean notified    = new AtomicBoolean(false);
+        final AtomicBoolean notified = new AtomicBoolean(false);
 
         final MessageAvailabilityListener listener = new MessageAvailabilityListener() {
             @Override
             public void handleNewMessagesAvailable() {
+            }
+
+            @Override
+            public void handleNewEphemeralMessageAvailable() {
             }
 
             @Override
@@ -289,5 +301,58 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
         }
 
         assertTrue(notified.get());
+    }
+
+    @Test(timeout = 5_000L)
+    public void testInsertAndNotifyEphemeralMessage() throws InterruptedException {
+        final AtomicBoolean          notified = new AtomicBoolean(false);
+        final MessageProtos.Envelope message  = generateRandomMessage(UUID.randomUUID(), true);
+
+        final MessageAvailabilityListener listener = new MessageAvailabilityListener() {
+            @Override
+            public void handleNewMessagesAvailable() {
+            }
+
+            @Override
+            public void handleNewEphemeralMessageAvailable() {
+                synchronized (notified) {
+                    notified.set(true);
+                    notified.notifyAll();
+                }
+            }
+
+            @Override
+            public void handleMessagesPersisted() {
+            }
+        };
+
+        messagesCache.addMessageAvailabilityListener(DESTINATION_UUID, DESTINATION_DEVICE_ID, listener);
+        messagesCache.insertEphemeral(DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
+
+        synchronized (notified) {
+            while (!notified.get()) {
+                notified.wait();
+            }
+        }
+
+        assertTrue(notified.get());
+    }
+
+    @Test
+    public void testTakeEphemeralMessage() {
+        final long                   currentTime = System.currentTimeMillis();
+        final UUID                   messageGuid = UUID.randomUUID();
+        final MessageProtos.Envelope message     = generateRandomMessage(messageGuid, true, currentTime);
+
+        assertEquals(Optional.empty(), messagesCache.takeEphemeralMessage(DESTINATION_UUID, DESTINATION_DEVICE_ID, currentTime));
+
+        messagesCache.insertEphemeral(DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
+
+        assertEquals(Optional.of(message), messagesCache.takeEphemeralMessage(DESTINATION_UUID, DESTINATION_DEVICE_ID, currentTime));
+        assertEquals(Optional.empty(), messagesCache.takeEphemeralMessage(DESTINATION_UUID, DESTINATION_DEVICE_ID, currentTime));
+
+        messagesCache.insertEphemeral(DESTINATION_UUID, DESTINATION_DEVICE_ID, generateRandomMessage(UUID.randomUUID(), true, 0));
+
+        assertEquals(Optional.empty(), messagesCache.takeEphemeralMessage(DESTINATION_UUID, DESTINATION_DEVICE_ID, currentTime));
     }
 }

@@ -42,14 +42,15 @@ import static org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessag
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class WebSocketConnection implements DispatchChannel, MessageAvailabilityListener, DisplacedPresenceListener {
 
-  private static final MetricRegistry metricRegistry          = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  public  static final Histogram      messageTime             = metricRegistry.histogram(name(MessageController.class, "message_delivery_duration"));
-  private static final Meter          sendMessageMeter        = metricRegistry.meter(name(WebSocketConnection.class, "send_message"));
-  private static final Meter          messageAvailableMeter   = metricRegistry.meter(name(WebSocketConnection.class, "messagesAvailable"));
-  private static final Meter          messagesPersistedMeter  = metricRegistry.meter(name(WebSocketConnection.class, "messagesPersisted"));
-  private static final Meter          pubSubNewMessageMeter   = metricRegistry.meter(name(WebSocketConnection.class, "pubSubNewMessage"));
-  private static final Meter          pubSubPersistedMeter    = metricRegistry.meter(name(WebSocketConnection.class, "pubSubPersisted"));
-  private static final Meter          displacementMeter       = metricRegistry.meter(name(WebSocketConnection.class, "explicitDisplacement"));
+  private static final MetricRegistry metricRegistry                 = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  public  static final Histogram      messageTime                    = metricRegistry.histogram(name(MessageController.class, "message_delivery_duration"));
+  private static final Meter          sendMessageMeter               = metricRegistry.meter(name(WebSocketConnection.class, "send_message"));
+  private static final Meter          messageAvailableMeter          = metricRegistry.meter(name(WebSocketConnection.class, "messagesAvailable"));
+  private static final Meter          ephemeralMessageAvailableMeter = metricRegistry.meter(name(WebSocketConnection.class, "ephemeralMessagesAvailable"));
+  private static final Meter          messagesPersistedMeter         = metricRegistry.meter(name(WebSocketConnection.class, "messagesPersisted"));
+  private static final Meter          pubSubNewMessageMeter          = metricRegistry.meter(name(WebSocketConnection.class, "pubSubNewMessage"));
+  private static final Meter          pubSubPersistedMeter           = metricRegistry.meter(name(WebSocketConnection.class, "pubSubPersisted"));
+  private static final Meter          displacementMeter              = metricRegistry.meter(name(WebSocketConnection.class, "explicitDisplacement"));
 
   private static final Logger logger = LoggerFactory.getLogger(WebSocketConnection.class);
 
@@ -218,6 +219,11 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
   @Override
   public void handleNewMessagesAvailable() {
     messageAvailableMeter.mark();
+  }
+
+  @Override
+  public void handleNewEphemeralMessageAvailable() {
+    ephemeralMessageAvailableMeter.mark();
   }
 
   @Override

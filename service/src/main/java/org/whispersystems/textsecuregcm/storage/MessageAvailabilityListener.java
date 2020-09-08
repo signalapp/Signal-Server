@@ -9,5 +9,7 @@ public interface MessageAvailabilityListener {
 
     void handleNewMessagesAvailable();
 
+    void handleNewEphemeralMessageAvailable();
+
     void handleMessagesPersisted();
 }
