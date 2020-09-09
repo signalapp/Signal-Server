@@ -65,6 +65,7 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
   private final WebSocketClient  client;
   private final String           connectionId;
 
+  private       int           storedMessageState           = 0;
   private       boolean       processingStoredMessages     = false;
   private final AtomicBoolean sentInitialQueueEmptyMessage = new AtomicBoolean(false);
 
@@ -93,6 +94,11 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
       switch (pubSubMessage.getType().getNumber()) {
         case PubSubMessage.Type.QUERY_DB_VALUE:
           pubSubPersistedMeter.mark();
+
+          synchronized (this) {
+            storedMessageState++;
+          }
+
           processStoredMessages();
           break;
         case PubSubMessage.Type.DELIVER_VALUE:
@@ -184,12 +190,15 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
 
   @VisibleForTesting
   void processStoredMessages() {
+    final int processedState;
+
     synchronized (this) {
       if (processingStoredMessages) {
         return;
       }
 
       processingStoredMessages = true;
+      processedState           = storedMessageState;
     }
 
     OutgoingMessageEntityList messages    = messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), client.getUserAgent());
@@ -227,7 +236,7 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
         processingStoredMessages = false;
       }
 
-      if (messages.hasMore()) {
+      if (messages.hasMore() || storedMessageState > processedState) {
         processStoredMessages();
       } else {
         final boolean shouldSendEmptyQueueMessage;

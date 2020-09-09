@@ -522,6 +522,57 @@ public class WebSocketConnectionTest {
     verify(client, times(1)).sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), any(List.class), eq(Optional.empty()));
   }
 
+  @Test
+  public void testRequeryAfterOnStateMismatch() throws InterruptedException {
+    final MessagesManager     messagesManager = mock(MessagesManager.class);
+    final WebSocketClient     client          = mock(WebSocketClient.class);
+    final WebSocketConnection connection      = new WebSocketConnection(pushSender, receiptSender, messagesManager, account, device, client, "concurrency");
+
+    when(account.getNumber()).thenReturn("+18005551234");
+    when(account.getUuid()).thenReturn(UUID.randomUUID());
+    when(device.getId()).thenReturn(1L);
+    when(client.getUserAgent()).thenReturn("Test-UA");
+
+    final List<OutgoingMessageEntity> firstPageMessages =
+            List.of(createMessage(1L, false, "sender1", UUID.randomUUID(), 1111, false, "first"),
+                    createMessage(2L, false, "sender1", UUID.randomUUID(), 2222, false, "second"));
+
+    final List<OutgoingMessageEntity> secondPageMessages =
+            List.of(createMessage(3L, false, "sender1", UUID.randomUUID(), 3333, false, "third"));
+
+    final OutgoingMessageEntityList firstPage  = new OutgoingMessageEntityList(firstPageMessages, false);
+    final OutgoingMessageEntityList secondPage = new OutgoingMessageEntityList(secondPageMessages, false);
+
+    when(messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), 1L, client.getUserAgent()))
+            .thenReturn(firstPage)
+            .thenReturn(secondPage)
+            .thenReturn(new OutgoingMessageEntityList(Collections.emptyList(), false));
+
+    final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
+    when(successResponse.getStatus()).thenReturn(200);
+
+    final byte[] queryDbMessageBytes = PubSubProtos.PubSubMessage.newBuilder()
+                                                                 .setType(PubSubProtos.PubSubMessage.Type.QUERY_DB)
+                                                                 .build()
+                                                                 .toByteArray();
+
+    final CountDownLatch sendLatch = new CountDownLatch(firstPageMessages.size() + secondPageMessages.size());
+
+    when(client.sendRequest(eq("PUT"), eq("/api/v1/message"), any(List.class), any(Optional.class))).thenAnswer((Answer<CompletableFuture<WebSocketResponseMessage>>)invocation -> {
+      connection.onDispatchMessage("channel", queryDbMessageBytes);
+      sendLatch.countDown();
+
+      return CompletableFuture.completedFuture(successResponse);
+    });
+
+    connection.processStoredMessages();
+
+    sendLatch.await();
+
+    verify(client, times(firstPageMessages.size() + secondPageMessages.size())).sendRequest(eq("PUT"), eq("/api/v1/message"), any(List.class), any(Optional.class));
+    verify(client).sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), any(List.class), eq(Optional.empty()));
+  }
+
   private OutgoingMessageEntity createMessage(long id, boolean cached, String sender, UUID senderUuid, long timestamp, boolean receipt, String content) {
     return new OutgoingMessageEntity(id, cached, UUID.randomUUID(), receipt ? Envelope.Type.RECEIPT_VALUE : Envelope.Type.CIPHERTEXT_VALUE,
                                      null, timestamp, sender, senderUuid, 1, content.getBytes(), null, 0);
