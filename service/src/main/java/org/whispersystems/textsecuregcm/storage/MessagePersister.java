@@ -9,11 +9,8 @@ import io.dropwizard.lifecycle.Managed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
-import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Util;
-import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -27,8 +24,6 @@ public class MessagePersister implements Managed {
 
     private final MessagesCache   messagesCache;
     private final MessagesManager messagesManager;
-    private final PubSubManager   pubSubManager;
-    private final PushSender      pushSender;
     private final AccountsManager accountsManager;
 
     private final Duration persistDelay;
@@ -39,7 +34,6 @@ public class MessagePersister implements Managed {
     private final MetricRegistry metricRegistry         = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
     private final Timer          getQueuesTimer         = metricRegistry.timer(name(MessagePersister.class, "getQueues"));
     private final Timer          persistQueueTimer      = metricRegistry.timer(name(MessagePersister.class, "persistQueue"));
-    private final Timer          notifySubscribersTimer = metricRegistry.timer(name(MessagePersister.class, "notifySubscribers"));
     private final Histogram      queueCountHistogram    = metricRegistry.histogram(name(MessagePersister.class, "queueCount"));
     private final Histogram      queueSizeHistogram     = metricRegistry.histogram(name(MessagePersister.class, "queueSize"));
 
@@ -50,11 +44,9 @@ public class MessagePersister implements Managed {
 
     private static final Logger logger = LoggerFactory.getLogger(MessagePersister.class);
 
-    public MessagePersister(final MessagesCache messagesCache, final MessagesManager messagesManager, final PubSubManager pubSubManager, final PushSender pushSender, final AccountsManager accountsManager, final Duration persistDelay) {
+    public MessagePersister(final MessagesCache messagesCache, final MessagesManager messagesManager, final AccountsManager accountsManager, final Duration persistDelay) {
         this.messagesCache       = messagesCache;
         this.messagesManager     = messagesManager;
-        this.pubSubManager       = pubSubManager;
-        this.pushSender          = pushSender;
         this.accountsManager     = accountsManager;
         this.persistDelay        = persistDelay;
     }
@@ -102,7 +94,6 @@ public class MessagePersister implements Managed {
 
             for (final String queue : queuesToPersist) {
                 persistQueue(queue);
-                notifyClients(MessagesCache.getAccountUuidFromQueueName(queue), MessagesCache.getDeviceIdFromQueueName(queue));
             }
 
             queuesPersisted += queuesToPersist.size();
@@ -146,42 +137,6 @@ public class MessagePersister implements Managed {
                 queueSizeHistogram.update(messageCount);
             } finally {
                 messagesCache.unlockQueueForPersistence(queue);
-            }
-        }
-    }
-
-    public void notifyClients(final UUID accountUuid, final long deviceId) {
-        try (final Timer.Context ignored = notifySubscribersTimer.time()) {
-            final Optional<Account> maybeAccount = accountsManager.get(accountUuid);
-
-            final String address;
-
-            if (maybeAccount.isPresent()) {
-                address = maybeAccount.get().getNumber();
-            } else {
-                logger.error("No account record found for account {}", accountUuid);
-                return;
-            }
-
-            final boolean notified = pubSubManager.publish(new WebsocketAddress(address, deviceId),
-                    PubSubProtos.PubSubMessage.newBuilder()
-                                              .setType(PubSubProtos.PubSubMessage.Type.QUERY_DB)
-                                              .build());
-
-            if (!notified) {
-                Optional<Account> account = accountsManager.get(address);
-
-                if (account.isPresent()) {
-                    Optional<Device> device = account.get().getDevice(deviceId);
-
-                    if (device.isPresent()) {
-                        try {
-                            pushSender.sendQueuedNotification(account.get(), device.get());
-                        } catch (final NotPushRegisteredException e) {
-                            logger.warn("After message persistence, no longer push registered!");
-                        }
-                    }
-                }
             }
         }
     }
