@@ -35,6 +35,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
@@ -95,7 +96,7 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
           break;
         case PubSubMessage.Type.DELIVER_VALUE:
           pubSubNewMessageMeter.mark();
-          sendMessage(Envelope.parseFrom(pubSubMessage.getContent()), Optional.empty(), false);
+          sendMessage(Envelope.parseFrom(pubSubMessage.getContent()), Optional.empty());
           break;
         default:
           logger.warn("Unknown pubsub message: " + pubSubMessage.getType().getNumber());
@@ -114,10 +115,7 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
     processStoredMessages();
   }
 
-  private void sendMessage(final Envelope                    message,
-                           final Optional<StoredMessageInfo> storedMessageInfo,
-                           final boolean                     requery)
-  {
+  private CompletableFuture<Void> sendMessage(final Envelope message, final Optional<StoredMessageInfo> storedMessageInfo) {
     try {
       String           header;
       Optional<byte[]> body;
@@ -132,7 +130,7 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
 
       sendMessageMeter.mark();
 
-      client.sendRequest("PUT", "/api/v1/message", List.of(header, TimestampHeaderUtil.getTimestampHeader()), body)
+      return client.sendRequest("PUT", "/api/v1/message", List.of(header, TimestampHeaderUtil.getTimestampHeader()), body)
             .thenAccept(response -> {
               boolean isReceipt = message.getType() == Envelope.Type.RECEIPT;
 
@@ -143,7 +141,6 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
               if (isSuccessResponse(response)) {
                 if (storedMessageInfo.isPresent()) messagesManager.delete(account.getNumber(), account.getUuid(), device.getId(), storedMessageInfo.get().id, storedMessageInfo.get().cached);
                 if (!isReceipt)                    sendDeliveryReceiptFor(message);
-                if (requery)                       processStoredMessages();
               } else if (!isSuccessResponse(response) && !storedMessageInfo.isPresent()) {
                 requeueMessage(message);
               }
@@ -154,6 +151,7 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
             });
     } catch (CryptoEncodingException e) {
       logger.warn("Bad signaling key", e);
+      return CompletableFuture.failedFuture(e);
     }
   }
 
@@ -193,11 +191,11 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
       processingStoredMessages = true;
     }
 
-    OutgoingMessageEntityList       messages = messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), client.getUserAgent());
-    Iterator<OutgoingMessageEntity> iterator = messages.getMessages().iterator();
+    OutgoingMessageEntityList messages    = messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), client.getUserAgent());
+    CompletableFuture<?>[]    sendFutures = new CompletableFuture[messages.getMessages().size()];
 
-    while (iterator.hasNext()) {
-      OutgoingMessageEntity message = iterator.next();
+    for (int i = 0; i < messages.getMessages().size(); i++) {
+      OutgoingMessageEntity message = messages.getMessages().get(i);
       Envelope.Builder      builder = Envelope.newBuilder()
                                               .setType(Envelope.Type.valueOf(message.getType()))
                                               .setTimestamp(message.getTimestamp())
@@ -220,16 +218,20 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
         builder.setRelay(message.getRelay());
       }
 
-      sendMessage(builder.build(), Optional.of(new StoredMessageInfo(message.getId(), message.isCached())), !iterator.hasNext() && messages.hasMore());
+      sendFutures[i] = sendMessage(builder.build(), Optional.of(new StoredMessageInfo(message.getId(), message.isCached())));
     }
 
-    if (!messages.hasMore()) {
-      client.sendRequest("PUT", "/api/v1/queue/empty", Collections.singletonList(TimestampHeaderUtil.getTimestampHeader()), Optional.empty());
-    }
+    CompletableFuture.allOf(sendFutures).whenComplete((v, cause) -> {
+      synchronized (this) {
+        processingStoredMessages = false;
+      }
 
-    synchronized (this) {
-      processingStoredMessages = false;
-    }
+      if (messages.hasMore()) {
+        processStoredMessages();
+      } else {
+        client.sendRequest("PUT", "/api/v1/queue/empty", Collections.singletonList(TimestampHeaderUtil.getTimestampHeader()), Optional.empty());
+      }
+    });
   }
 
   @Override
@@ -244,7 +246,7 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
     final Optional<Envelope> maybeMessage = messagesManager.takeEphemeralMessage(account.getUuid(), device.getId());
 
     if (maybeMessage.isPresent()) {
-      sendMessage(maybeMessage.get(), Optional.empty(), false);
+      sendMessage(maybeMessage.get(), Optional.empty());
     }
   }
 

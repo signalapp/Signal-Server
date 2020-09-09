@@ -1,6 +1,7 @@
 package org.whispersystems.textsecuregcm.websocket;
 
 import com.google.protobuf.ByteString;
+import io.dropwizard.auth.basic.BasicCredentials;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
 import org.junit.Test;
 import org.mockito.ArgumentMatchers;
@@ -21,10 +22,6 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.storage.PubSubProtos;
 import org.whispersystems.textsecuregcm.util.Base64;
-import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
-import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
-import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
-import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator.AuthenticationResult;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
@@ -43,10 +40,20 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import io.dropwizard.auth.basic.BasicCredentials;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 
 public class WebSocketConnectionTest {
@@ -438,6 +445,49 @@ public class WebSocketConnectionTest {
     }
 
     verify(messagesManager).getMessagesForDevice(anyString(), any(UUID.class), anyLong(), anyString());
+  }
+
+  @Test
+  public void testProcessStoredMessagesMultiplePages() throws InterruptedException {
+    final MessagesManager     messagesManager = mock(MessagesManager.class);
+    final WebSocketClient     client          = mock(WebSocketClient.class);
+    final WebSocketConnection connection      = new WebSocketConnection(pushSender, receiptSender, messagesManager, account, device, client, "concurrency");
+
+    when(account.getNumber()).thenReturn("+18005551234");
+    when(account.getUuid()).thenReturn(UUID.randomUUID());
+    when(device.getId()).thenReturn(1L);
+    when(client.getUserAgent()).thenReturn("Test-UA");
+
+    final List<OutgoingMessageEntity> firstPageMessages =
+            List.of(createMessage(1L, false, "sender1", UUID.randomUUID(), 1111, false, "first"),
+                    createMessage(2L, false, "sender1", UUID.randomUUID(), 2222, false, "second"));
+
+    final List<OutgoingMessageEntity> secondPageMessages =
+            List.of(createMessage(3L, false, "sender1", UUID.randomUUID(), 3333, false, "third"));
+
+    final OutgoingMessageEntityList firstPage  = new OutgoingMessageEntityList(firstPageMessages, true);
+    final OutgoingMessageEntityList secondPage = new OutgoingMessageEntityList(secondPageMessages, false);
+
+    when(messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), 1L, client.getUserAgent()))
+            .thenReturn(firstPage)
+            .thenReturn(secondPage);
+
+    final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
+    when(successResponse.getStatus()).thenReturn(200);
+
+    final CountDownLatch sendLatch = new CountDownLatch(firstPageMessages.size() + secondPageMessages.size());
+
+    when(client.sendRequest(eq("PUT"), eq("/api/v1/message"), any(List.class), any(Optional.class))).thenAnswer((Answer<CompletableFuture<WebSocketResponseMessage>>)invocation -> {
+      sendLatch.countDown();
+      return CompletableFuture.completedFuture(successResponse);
+    });
+
+    connection.processStoredMessages();
+
+    sendLatch.await();
+
+    verify(client, times(firstPageMessages.size() + secondPageMessages.size())).sendRequest(eq("PUT"), eq("/api/v1/message"), any(List.class), any(Optional.class));
+    verify(client).sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), any(List.class), eq(Optional.empty()));
   }
 
   private OutgoingMessageEntity createMessage(long id, boolean cached, String sender, UUID senderUuid, long timestamp, boolean receipt, String content) {
