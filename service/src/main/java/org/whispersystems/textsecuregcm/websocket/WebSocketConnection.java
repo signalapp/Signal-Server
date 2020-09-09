@@ -4,6 +4,7 @@ import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.slf4j.Logger;
@@ -62,6 +63,8 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
   private final Device           device;
   private final WebSocketClient  client;
   private final String           connectionId;
+
+  private boolean processingStoredMessages = false;
 
   public WebSocketConnection(PushSender pushSender,
                              ReceiptSender receiptSender,
@@ -180,7 +183,16 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
     return response != null && response.getStatus() >= 200 && response.getStatus() < 300;
   }
 
-  private void processStoredMessages() {
+  @VisibleForTesting
+  void processStoredMessages() {
+    synchronized (this) {
+      if (processingStoredMessages) {
+        return;
+      }
+
+      processingStoredMessages = true;
+    }
+
     OutgoingMessageEntityList       messages = messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), client.getUserAgent());
     Iterator<OutgoingMessageEntity> iterator = messages.getMessages().iterator();
 
@@ -213,6 +225,10 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
 
     if (!messages.hasMore()) {
       client.sendRequest("PUT", "/api/v1/queue/empty", Collections.singletonList(TimestampHeaderUtil.getTimestampHeader()), Optional.empty());
+    }
+
+    synchronized (this) {
+      processingStoredMessages = false;
     }
   }
 
