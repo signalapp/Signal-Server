@@ -44,7 +44,7 @@ import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import static org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public class WebSocketConnection implements DispatchChannel, MessageAvailabilityListener, DisplacedPresenceListener {
+public class WebSocketConnection implements MessageAvailabilityListener, DisplacedPresenceListener {
 
   private static final MetricRegistry metricRegistry                 = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   public  static final Histogram      messageTime                    = metricRegistry.histogram(name(MessageController.class, "message_delivery_duration"));
@@ -52,14 +52,11 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
   private static final Meter          messageAvailableMeter          = metricRegistry.meter(name(WebSocketConnection.class, "messagesAvailable"));
   private static final Meter          ephemeralMessageAvailableMeter = metricRegistry.meter(name(WebSocketConnection.class, "ephemeralMessagesAvailable"));
   private static final Meter          messagesPersistedMeter         = metricRegistry.meter(name(WebSocketConnection.class, "messagesPersisted"));
-  private static final Meter          pubSubNewMessageMeter          = metricRegistry.meter(name(WebSocketConnection.class, "pubSubNewMessage"));
-  private static final Meter          pubSubPersistedMeter           = metricRegistry.meter(name(WebSocketConnection.class, "pubSubPersisted"));
   private static final Meter          displacementMeter              = metricRegistry.meter(name(WebSocketConnection.class, "explicitDisplacement"));
 
   private static final Logger logger = LoggerFactory.getLogger(WebSocketConnection.class);
 
   private final ReceiptSender    receiptSender;
-  private final PushSender       pushSender;
   private final MessagesManager  messagesManager;
 
   private final Account          account;
@@ -77,15 +74,13 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
     PERSISTED_NEW_MESSAGES_AVAILABLE
   }
 
-  public WebSocketConnection(PushSender pushSender,
-                             ReceiptSender receiptSender,
+  public WebSocketConnection(ReceiptSender receiptSender,
                              MessagesManager messagesManager,
                              Account account,
                              Device device,
                              WebSocketClient client,
                              String connectionId)
   {
-    this.pushSender      = pushSender;
     this.receiptSender   = receiptSender;
     this.messagesManager = messagesManager;
     this.account         = account;
@@ -94,36 +89,12 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
     this.connectionId    = connectionId;
   }
 
-  @Override
-  public void onDispatchMessage(String channel, byte[] message) {
-    try {
-      PubSubMessage pubSubMessage = PubSubMessage.parseFrom(message);
-
-      switch (pubSubMessage.getType().getNumber()) {
-        case PubSubMessage.Type.QUERY_DB_VALUE:
-          pubSubPersistedMeter.mark();
-          storedMessageState.set(StoredMessageState.PERSISTED_NEW_MESSAGES_AVAILABLE);
-          processStoredMessages();
-          break;
-        case PubSubMessage.Type.DELIVER_VALUE:
-          pubSubNewMessageMeter.mark();
-          sendMessage(Envelope.parseFrom(pubSubMessage.getContent()), Optional.empty());
-          break;
-        default:
-          logger.warn("Unknown pubsub message: " + pubSubMessage.getType().getNumber());
-      }
-    } catch (InvalidProtocolBufferException e) {
-      logger.warn("Protobuf parse error", e);
-    }
-  }
-
-  @Override
-  public void onDispatchUnsubscribed(String channel) {
-    client.close(1000, "OK");
-  }
-
-  public void onDispatchSubscribed(String channel) {
+  public void start() {
     processStoredMessages();
+  }
+
+  public void stop() {
+    client.close(1000, "OK");
   }
 
   private CompletableFuture<WebSocketResponseMessage> sendMessage(final Envelope message, final Optional<StoredMessageInfo> storedMessageInfo) {
@@ -143,35 +114,21 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
 
       return client.sendRequest("PUT", "/api/v1/message", List.of(header, TimestampHeaderUtil.getTimestampHeader()), body).whenComplete((response, throwable) -> {
         if (throwable == null) {
-          boolean isReceipt = message.getType() == Envelope.Type.RECEIPT;
-
-          if (isSuccessResponse(response) && !isReceipt) {
-            messageTime.update(System.currentTimeMillis() - message.getTimestamp());
-          }
-
           if (isSuccessResponse(response)) {
-            if (storedMessageInfo.isPresent()) messagesManager.delete(account.getNumber(), account.getUuid(), device.getId(), storedMessageInfo.get().id, storedMessageInfo.get().cached);
-            if (!isReceipt)                    sendDeliveryReceiptFor(message);
-          } else if (!isSuccessResponse(response) && !storedMessageInfo.isPresent()) {
-            requeueMessage(message);
+            if (storedMessageInfo.isPresent()) {
+              messagesManager.delete(account.getNumber(), account.getUuid(), device.getId(), storedMessageInfo.get().id, storedMessageInfo.get().cached);
+            }
+
+            if (message.getType() != Envelope.Type.RECEIPT) {
+              messageTime.update(System.currentTimeMillis() - message.getTimestamp());
+              sendDeliveryReceiptFor(message);
+            }
           }
-        } else {
-          if (!storedMessageInfo.isPresent()) requeueMessage(message);
         }
       });
     } catch (CryptoEncodingException e) {
       logger.warn("Bad signaling key", e);
       return CompletableFuture.failedFuture(e);
-    }
-  }
-
-  private void requeueMessage(Envelope message) {
-    pushSender.getWebSocketSender().queueMessage(account, device, message);
-
-    try {
-      pushSender.sendQueuedNotification(account, device);
-    } catch (NotPushRegisteredException e) {
-      logger.warn("requeueMessage", e);
     }
   }
 

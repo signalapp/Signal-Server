@@ -14,7 +14,6 @@ import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
-import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -78,7 +77,7 @@ public class WebSocketConnectionIntegrationTest extends AbstractRedisClusterTest
         when(account.getUuid()).thenReturn(UUID.randomUUID());
         when(device.getId()).thenReturn(1L);
 
-        webSocketConnection = new WebSocketConnection(mock(PushSender.class),
+        webSocketConnection = new WebSocketConnection(
                 mock(ReceiptSender.class),
                 new MessagesManager(messages, messagesCache, mock(PushLatencyManager.class)),
                 account,

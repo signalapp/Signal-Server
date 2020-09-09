@@ -60,6 +60,19 @@ public class ClientPresenceManagerTest extends AbstractRedisClusterTest {
     }
 
     @Test
+    public void testIsLocallyPresent() {
+        final UUID accountUuid = UUID.randomUUID();
+        final long deviceId    = 1;
+
+        assertFalse(clientPresenceManager.isLocallyPresent(accountUuid, deviceId));
+
+        clientPresenceManager.setPresent(accountUuid, deviceId, NO_OP);
+        getRedisCluster().useCluster(connection -> connection.sync().flushall());
+
+        assertTrue(clientPresenceManager.isLocallyPresent(accountUuid, deviceId));
+    }
+
+    @Test
     public void testLocalDisplacement() {
         final UUID accountUuid = UUID.randomUUID();
         final long deviceId    = 1;

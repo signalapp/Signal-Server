@@ -404,9 +404,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ///
     WebSocketEnvironment<Account> webSocketEnvironment = new WebSocketEnvironment<>(environment, config.getWebSocketConfiguration(), 90000);
     webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(accountAuthenticator));
-    webSocketEnvironment.setConnectListener(new AuthenticatedConnectListener(pushSender, receiptSender, messagesManager, pubSubManager, apnFallbackManager, clientPresenceManager));
+    webSocketEnvironment.setConnectListener(new AuthenticatedConnectListener(receiptSender, messagesManager, apnFallbackManager, clientPresenceManager));
     webSocketEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET));
-    webSocketEnvironment.jersey().register(new KeepAliveController(pubSubManager));
+    webSocketEnvironment.jersey().register(new KeepAliveController(clientPresenceManager));
     webSocketEnvironment.jersey().register(messageController);
     webSocketEnvironment.jersey().register(profileController);
     webSocketEnvironment.jersey().register(attachmentControllerV1);
@@ -417,7 +417,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     WebSocketEnvironment<Account> provisioningEnvironment = new WebSocketEnvironment<>(environment, webSocketEnvironment.getRequestLog(), 60000);
     provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(pubSubManager));
     provisioningEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET));
-    provisioningEnvironment.jersey().register(new KeepAliveController(pubSubManager));
+    provisioningEnvironment.jersey().register(new KeepAliveController(clientPresenceManager));
 
     registerCorsFilter(environment);
     registerExceptionMappers(environment, webSocketEnvironment, provisioningEnvironment);

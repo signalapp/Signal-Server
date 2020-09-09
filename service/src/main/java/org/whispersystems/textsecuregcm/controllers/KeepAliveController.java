@@ -1,11 +1,11 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
+import io.dropwizard.auth.Auth;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.PubSubManager;
-import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 import org.whispersystems.websocket.session.WebSocketSession;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 
@@ -13,18 +13,16 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Response;
 
-import io.dropwizard.auth.Auth;
-
 
 @Path("/v1/keepalive")
 public class KeepAliveController {
 
   private final Logger logger = LoggerFactory.getLogger(KeepAliveController.class);
 
-  private final PubSubManager pubSubManager;
+  private final ClientPresenceManager clientPresenceManager;
 
-  public KeepAliveController(PubSubManager pubSubManager) {
-    this.pubSubManager = pubSubManager;
+  public KeepAliveController(final ClientPresenceManager clientPresenceManager) {
+    this.clientPresenceManager = clientPresenceManager;
   }
 
   @Timed
@@ -33,11 +31,8 @@ public class KeepAliveController {
                                @WebSocketSession WebSocketSessionContext context)
   {
     if (account != null) {
-      WebsocketAddress address = new WebsocketAddress(account.getNumber(),
-                                                      account.getAuthenticatedDevice().get().getId());
-
-      if (!pubSubManager.hasLocalSubscription(address)) {
-        logger.warn("***** No local subscription found for: " + address);
+      if (!clientPresenceManager.isLocallyPresent(account.getUuid(), account.getAuthenticatedDevice().get().getId())) {
+        logger.warn("***** No local subscription found for {}::{}", account.getUuid(), account.getAuthenticatedDevice().get().getId());
         context.getClient().close(1000, "OK");
       }
     }

@@ -170,6 +170,10 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
         }
     }
 
+    public boolean isLocallyPresent(final UUID accountUuid, final long deviceId) {
+        return displacementListenersByPresenceKey.containsKey(getPresenceKey(accountUuid, deviceId));
+    }
+
     public boolean clearPresence(final UUID accountUuid, final long deviceId) {
         return clearPresence(getPresenceKey(accountUuid, deviceId));
     }
