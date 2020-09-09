@@ -257,7 +257,7 @@ public class MessageControllerTest {
 
     OutgoingMessageEntityList messagesList = new OutgoingMessageEntityList(messages, false);
 
-    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_NUMBER), eq(AuthHelper.VALID_UUID), eq(1L), anyString())).thenReturn(messagesList);
+    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_NUMBER), eq(AuthHelper.VALID_UUID), eq(1L), anyString(), anyBoolean())).thenReturn(messagesList);
 
     OutgoingMessageEntityList response =
         resources.getJerseyTest().target("/v1/messages/")
@@ -294,7 +294,7 @@ public class MessageControllerTest {
 
     OutgoingMessageEntityList messagesList = new OutgoingMessageEntityList(messages, false);
 
-    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_NUMBER), eq(AuthHelper.VALID_UUID), eq(1L), anyString())).thenReturn(messagesList);
+    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_NUMBER), eq(AuthHelper.VALID_UUID), eq(1L), anyString(), anyBoolean())).thenReturn(messagesList);
 
     Response response =
         resources.getJerseyTest().target("/v1/messages/")

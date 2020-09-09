@@ -65,7 +65,9 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
   private final WebSocketClient  client;
   private final String           connectionId;
 
-  private       int           storedMessageState           = 0;
+  private       int           storedMessageState           = 1;
+  private       int           lastPersistedState           = 1;
+  private       int           lastDatabaseClearedState     = 0;
   private       boolean       processingStoredMessages     = false;
   private final AtomicBoolean sentInitialQueueEmptyMessage = new AtomicBoolean(false);
 
@@ -190,7 +192,8 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
 
   @VisibleForTesting
   void processStoredMessages() {
-    final int processedState;
+    final int     processedState;
+    final boolean cachedMessagesOnly;
 
     synchronized (this) {
       if (processingStoredMessages) {
@@ -199,9 +202,10 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
 
       processingStoredMessages = true;
       processedState           = storedMessageState;
+      cachedMessagesOnly       = lastPersistedState <= lastDatabaseClearedState;
     }
 
-    OutgoingMessageEntityList messages    = messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), client.getUserAgent());
+    OutgoingMessageEntityList messages    = messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), client.getUserAgent(), cachedMessagesOnly);
     CompletableFuture<?>[]    sendFutures = new CompletableFuture[messages.getMessages().size()];
 
     for (int i = 0; i < messages.getMessages().size(); i++) {
@@ -232,14 +236,19 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
     }
 
     CompletableFuture.allOf(sendFutures).whenComplete((v, cause) -> {
+      final boolean mayHaveMoreMessages;
+
       synchronized (this) {
         processingStoredMessages = false;
+        mayHaveMoreMessages      = messages.hasMore() || storedMessageState > processedState;
       }
 
-      if (messages.hasMore() || storedMessageState > processedState) {
+      if (mayHaveMoreMessages) {
         processStoredMessages();
       } else {
-        final boolean shouldSendEmptyQueueMessage;
+        synchronized (this) {
+          lastDatabaseClearedState = processedState;
+        }
 
         if (sentInitialQueueEmptyMessage.compareAndSet(false, true)) {
           client.sendRequest("PUT", "/api/v1/queue/empty", Collections.singletonList(TimestampHeaderUtil.getTimestampHeader()), Optional.empty());
@@ -267,6 +276,13 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
   @Override
   public void handleMessagesPersisted() {
     messagesPersistedMeter.mark();
+
+    synchronized (this) {
+      storedMessageState++;
+      lastPersistedState = storedMessageState;
+    }
+
+    processStoredMessages();
   }
 
   @Override

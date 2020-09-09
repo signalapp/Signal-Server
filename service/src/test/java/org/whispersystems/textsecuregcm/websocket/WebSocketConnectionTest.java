@@ -39,16 +39,17 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
@@ -149,7 +150,7 @@ public class WebSocketConnectionTest {
 
     String userAgent = "user-agent";
 
-    when(storedMessages.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), userAgent))
+    when(storedMessages.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), userAgent, false))
         .thenReturn(outgoingMessagesList);
 
     final List<CompletableFuture<WebSocketResponseMessage>> futures = new LinkedList<>();
@@ -236,7 +237,7 @@ public class WebSocketConnectionTest {
 
     String userAgent = "user-agent";
 
-    when(storedMessages.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), userAgent))
+    when(storedMessages.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), userAgent, false))
         .thenReturn(pendingMessagesList);
 
     final List<CompletableFuture<WebSocketResponseMessage>> futures = new LinkedList<>();
@@ -347,7 +348,7 @@ public class WebSocketConnectionTest {
 
     String userAgent = "user-agent";
 
-    when(storedMessages.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), userAgent))
+    when(storedMessages.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), userAgent, false))
         .thenReturn(pendingMessagesList);
 
     final List<CompletableFuture<WebSocketResponseMessage>> futures = new LinkedList<>();
@@ -401,7 +402,7 @@ public class WebSocketConnectionTest {
     final AtomicBoolean threadWaiting     = new AtomicBoolean(false);
     final AtomicBoolean returnMessageList = new AtomicBoolean(false);
 
-    when(messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), 1L, client.getUserAgent())).thenAnswer((Answer<OutgoingMessageEntityList>)invocation -> {
+    when(messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), 1L, client.getUserAgent(), false)).thenAnswer((Answer<OutgoingMessageEntityList>)invocation -> {
       synchronized (threadWaiting) {
         threadWaiting.set(true);
         threadWaiting.notifyAll();
@@ -445,7 +446,7 @@ public class WebSocketConnectionTest {
       thread.join();
     }
 
-    verify(messagesManager).getMessagesForDevice(anyString(), any(UUID.class), anyLong(), anyString());
+    verify(messagesManager).getMessagesForDevice(anyString(), any(UUID.class), anyLong(), anyString(), eq(false));
   }
 
   @Test
@@ -469,7 +470,7 @@ public class WebSocketConnectionTest {
     final OutgoingMessageEntityList firstPage  = new OutgoingMessageEntityList(firstPageMessages, true);
     final OutgoingMessageEntityList secondPage = new OutgoingMessageEntityList(secondPageMessages, false);
 
-    when(messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), 1L, client.getUserAgent()))
+    when(messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), 1L, client.getUserAgent(), false))
             .thenReturn(firstPage)
             .thenReturn(secondPage);
 
@@ -497,17 +498,15 @@ public class WebSocketConnectionTest {
     final WebSocketClient     client          = mock(WebSocketClient.class);
     final WebSocketConnection connection      = new WebSocketConnection(pushSender, receiptSender, messagesManager, account, device, client, "concurrency");
 
+    final UUID accountUuid = UUID.randomUUID();
+
     when(account.getNumber()).thenReturn("+18005551234");
-    when(account.getUuid()).thenReturn(UUID.randomUUID());
+    when(account.getUuid()).thenReturn(accountUuid);
     when(device.getId()).thenReturn(1L);
     when(client.getUserAgent()).thenReturn("Test-UA");
 
-    when(messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), 1L, client.getUserAgent())).thenAnswer(new Answer<OutgoingMessageEntityList>() {
-      @Override
-      public OutgoingMessageEntityList answer(final InvocationOnMock invocation) throws Throwable {
-        return new OutgoingMessageEntityList(Collections.emptyList(), false);
-      }
-    });
+    when(messagesManager.getMessagesForDevice(eq("+18005551234"), eq(accountUuid), eq(1L), eq("Test-UA"), anyBoolean()))
+            .thenReturn(new OutgoingMessageEntityList(Collections.emptyList(), false));
 
     final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
     when(successResponse.getStatus()).thenReturn(200);
@@ -523,7 +522,7 @@ public class WebSocketConnectionTest {
   }
 
   @Test
-  public void testRequeryAfterOnStateMismatch() throws InterruptedException {
+  public void testRequeryOnStateMismatch() throws InterruptedException {
     final MessagesManager     messagesManager = mock(MessagesManager.class);
     final WebSocketClient     client          = mock(WebSocketClient.class);
     final WebSocketConnection connection      = new WebSocketConnection(pushSender, receiptSender, messagesManager, account, device, client, "concurrency");
@@ -543,7 +542,7 @@ public class WebSocketConnectionTest {
     final OutgoingMessageEntityList firstPage  = new OutgoingMessageEntityList(firstPageMessages, false);
     final OutgoingMessageEntityList secondPage = new OutgoingMessageEntityList(secondPageMessages, false);
 
-    when(messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), 1L, client.getUserAgent()))
+    when(messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), 1L, client.getUserAgent(), false))
             .thenReturn(firstPage)
             .thenReturn(secondPage)
             .thenReturn(new OutgoingMessageEntityList(Collections.emptyList(), false));
@@ -571,6 +570,67 @@ public class WebSocketConnectionTest {
 
     verify(client, times(firstPageMessages.size() + secondPageMessages.size())).sendRequest(eq("PUT"), eq("/api/v1/message"), any(List.class), any(Optional.class));
     verify(client).sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), any(List.class), eq(Optional.empty()));
+  }
+
+  @Test
+  public void testProcessCachedMessagesOnly() {
+    final MessagesManager     messagesManager = mock(MessagesManager.class);
+    final WebSocketClient     client          = mock(WebSocketClient.class);
+    final WebSocketConnection connection      = new WebSocketConnection(pushSender, receiptSender, messagesManager, account, device, client, "concurrency");
+
+    final UUID accountUuid = UUID.randomUUID();
+
+    when(account.getNumber()).thenReturn("+18005551234");
+    when(account.getUuid()).thenReturn(accountUuid);
+    when(device.getId()).thenReturn(1L);
+    when(client.getUserAgent()).thenReturn("Test-UA");
+
+    when(messagesManager.getMessagesForDevice(eq("+18005551234"), eq(accountUuid), eq(1L), eq("Test-UA"), anyBoolean()))
+            .thenReturn(new OutgoingMessageEntityList(Collections.emptyList(), false));
+
+    final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
+    when(successResponse.getStatus()).thenReturn(200);
+
+    // This is a little hacky and non-obvious, but because we're always returning an empty list of messages, the call to
+    // CompletableFuture.allOf(...) in processStoredMessages will produce an instantly-succeeded future, and the
+    // whenComplete method will get called immediately on THIS thread, so we don't need to synchronize or wait for
+    // anything.
+    connection.processStoredMessages();
+
+    verify(messagesManager).getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), client.getUserAgent(), false);
+
+    connection.processStoredMessages();
+
+    verify(messagesManager).getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), client.getUserAgent(), true);
+  }
+
+  @Test
+  public void testProcessDatabaseMessagesAfterPersist() {
+    final MessagesManager     messagesManager = mock(MessagesManager.class);
+    final WebSocketClient     client          = mock(WebSocketClient.class);
+    final WebSocketConnection connection      = new WebSocketConnection(pushSender, receiptSender, messagesManager, account, device, client, "concurrency");
+
+    final UUID accountUuid = UUID.randomUUID();
+
+    when(account.getNumber()).thenReturn("+18005551234");
+    when(account.getUuid()).thenReturn(accountUuid);
+    when(device.getId()).thenReturn(1L);
+    when(client.getUserAgent()).thenReturn("Test-UA");
+
+    when(messagesManager.getMessagesForDevice(eq("+18005551234"), eq(accountUuid), eq(1L), eq("Test-UA"), anyBoolean()))
+            .thenReturn(new OutgoingMessageEntityList(Collections.emptyList(), false));
+
+    final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
+    when(successResponse.getStatus()).thenReturn(200);
+
+    // This is a little hacky and non-obvious, but because we're always returning an empty list of messages, the call to
+    // CompletableFuture.allOf(...) in processStoredMessages will produce an instantly-succeeded future, and the
+    // whenComplete method will get called immediately on THIS thread, so we don't need to synchronize or wait for
+    // anything.
+    connection.processStoredMessages();
+    connection.handleMessagesPersisted();
+
+    verify(messagesManager, times(2)).getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), client.getUserAgent(), false);
   }
 
   private OutgoingMessageEntity createMessage(long id, boolean cached, String sender, UUID senderUuid, long timestamp, boolean receipt, String content) {

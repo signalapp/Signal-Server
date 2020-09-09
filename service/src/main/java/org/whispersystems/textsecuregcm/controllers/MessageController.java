@@ -193,7 +193,7 @@ public class MessageController {
     final OutgoingMessageEntityList outgoingMessages = messagesManager.getMessagesForDevice(account.getNumber(),
                                                                                             account.getUuid(),
                                                                                             account.getAuthenticatedDevice().get().getId(),
-                                                                                            userAgent);
+                                                                                            userAgent, false);
 
     outgoingMessageListSizeHistogram.update(outgoingMessages.getMessages().size());
 
