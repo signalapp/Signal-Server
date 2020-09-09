@@ -39,6 +39,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -285,6 +286,64 @@ public class WebSocketConnectionTest {
     verify(client).close(anyInt(), anyString());
   }
 
+  @Test(timeout = 5_000L)
+  public void testOnlineSendViaKeyspaceNotification() throws Exception {
+    final MessagesManager     messagesManager = mock(MessagesManager.class);
+    final WebSocketClient     client          = mock(WebSocketClient.class);
+    final WebSocketConnection connection      = new WebSocketConnection(pushSender, receiptSender, messagesManager, account, device, client, "concurrency");
+
+    final UUID accountUuid = UUID.randomUUID();
+
+    when(account.getNumber()).thenReturn("+18005551234");
+    when(account.getUuid()).thenReturn(accountUuid);
+    when(device.getId()).thenReturn(1L);
+    when(client.getUserAgent()).thenReturn("Test-UA");
+
+    when(messagesManager.getMessagesForDevice(eq("+18005551234"), eq(accountUuid), eq(1L), eq("Test-UA"), anyBoolean()))
+            .thenReturn(new OutgoingMessageEntityList(Collections.emptyList(), false))
+            .thenReturn(new OutgoingMessageEntityList(List.of(createMessage(1L, false, "sender1", UUID.randomUUID(), 1111, false, "first")), false))
+            .thenReturn(new OutgoingMessageEntityList(List.of(createMessage(2L, false, "sender1", UUID.randomUUID(), 2222, false, "second")), false));
+
+    final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
+    when(successResponse.getStatus()).thenReturn(200);
+
+    final AtomicInteger sendCounter = new AtomicInteger(0);
+
+    when(client.sendRequest(eq("PUT"), eq("/api/v1/message"), any(List.class), any(Optional.class))).thenAnswer((Answer<CompletableFuture<WebSocketResponseMessage>>)invocation -> {
+      synchronized (sendCounter) {
+        sendCounter.incrementAndGet();
+        sendCounter.notifyAll();
+      }
+
+      return CompletableFuture.completedFuture(successResponse);
+    });
+
+    // This is a little hacky and non-obvious, but because the first call to getMessagesForDevice returns empty list of
+    // messages, the call to CompletableFuture.allOf(...) in processStoredMessages will produce an instantly-succeeded
+    // future, and the whenComplete method will get called immediately on THIS thread, so we don't need to synchronize
+    // or wait for anything.
+    connection.onDispatchSubscribed("channel");
+
+    connection.handleNewMessagesAvailable();
+
+    synchronized (sendCounter) {
+      while (sendCounter.get() < 1) {
+        sendCounter.wait();
+      }
+    }
+
+    connection.handleNewMessagesAvailable();
+
+    synchronized (sendCounter) {
+      while (sendCounter.get() < 2) {
+        sendCounter.wait();
+      }
+    }
+
+    verify(client, times(1)).sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), any(List.class), eq(Optional.empty()));
+    verify(client, times(2)).sendRequest(eq("PUT"), eq("/api/v1/message"), any(List.class), any(Optional.class));
+  }
+
   @Test
   public void testPendingSend() throws Exception {
     MessagesManager storedMessages  = mock(MessagesManager.class);
@@ -387,7 +446,7 @@ public class WebSocketConnectionTest {
     verify(client).close(anyInt(), anyString());
   }
 
-  @Test
+  @Test(timeout = 5000L)
   public void testProcessStoredMessageConcurrency() throws InterruptedException {
     final MessagesManager     messagesManager = mock(MessagesManager.class);
     final WebSocketClient     client          = mock(WebSocketClient.class);
@@ -448,7 +507,7 @@ public class WebSocketConnectionTest {
     verify(messagesManager).getMessagesForDevice(anyString(), any(UUID.class), anyLong(), anyString(), eq(false));
   }
 
-  @Test
+  @Test(timeout = 5000L)
   public void testProcessStoredMessagesMultiplePages() throws InterruptedException {
     final MessagesManager     messagesManager = mock(MessagesManager.class);
     final WebSocketClient     client          = mock(WebSocketClient.class);
@@ -520,7 +579,7 @@ public class WebSocketConnectionTest {
     verify(client, times(1)).sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), any(List.class), eq(Optional.empty()));
   }
 
-  @Test
+  @Test(timeout = 5000L)
   public void testRequeryOnStateMismatch() throws InterruptedException {
     final MessagesManager     messagesManager = mock(MessagesManager.class);
     final WebSocketClient     client          = mock(WebSocketClient.class);

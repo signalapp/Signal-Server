@@ -69,21 +69,43 @@ public class WebsocketSender {
   private final MessagesManager       messagesManager;
   private final PubSubManager         pubSubManager;
   private final ClientPresenceManager clientPresenceManager;
+  private final FeatureFlagsManager   featureFlagsManager;
 
-  public WebsocketSender(MessagesManager messagesManager, PubSubManager pubSubManager, ClientPresenceManager clientPresenceManager) {
+  private static final String KEYSPACE_DELIVERY_FEATURE_FLAG = "keyspace-delivery-for-all-messages";
+
+  public WebsocketSender(MessagesManager messagesManager, PubSubManager pubSubManager, ClientPresenceManager clientPresenceManager, final FeatureFlagsManager featureFlagsManager) {
     this.messagesManager       = messagesManager;
     this.pubSubManager         = pubSubManager;
     this.clientPresenceManager = clientPresenceManager;
+    this.featureFlagsManager   = featureFlagsManager;
   }
 
   public boolean sendMessage(Account account, Device device, Envelope message, Type channel, boolean online) {
+    final boolean clientPresent = clientPresenceManager.isPresent(account.getUuid(), device.getId());
+
     if (online) {
-      if (clientPresenceManager.isPresent(account.getUuid(), device.getId())) {
+      if (clientPresent) {
         ephemeralOnlineCounter.increment();
         messagesManager.insertEphemeral(account.getUuid(), device.getId(), message);
         return true;
       } else {
         ephemeralOfflineCounter.increment();
+        return false;
+      }
+    } else if (featureFlagsManager.isFeatureFlagActive(KEYSPACE_DELIVERY_FEATURE_FLAG)) {
+      messagesManager.insert(account.getUuid(), device.getId(), message);
+
+      if (clientPresent) {
+        if (channel == Type.APN) apnOnlineMeter.mark();
+        else if (channel == Type.GCM) gcmOnlineMeter.mark();
+        else websocketOnlineMeter.mark();
+
+        return true;
+      } else {
+        if (channel == Type.APN) apnOfflineMeter.mark();
+        else if (channel == Type.GCM) gcmOfflineMeter.mark();
+        else websocketOfflineMeter.mark();
+
         return false;
       }
     } else {
@@ -95,7 +117,7 @@ public class WebsocketSender {
 
       pubSubManager.publish(address, pubSubMessage);
 
-      if (clientPresenceManager.isPresent(account.getUuid(), device.getId())) {
+      if (clientPresent) {
         if (channel == Type.APN) apnOnlineMeter.mark();
         else if (channel == Type.GCM) gcmOnlineMeter.mark();
         else websocketOnlineMeter.mark();
