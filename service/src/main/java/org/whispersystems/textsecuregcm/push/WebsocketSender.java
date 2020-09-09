@@ -69,19 +69,15 @@ public class WebsocketSender {
   private final MessagesManager       messagesManager;
   private final PubSubManager         pubSubManager;
   private final ClientPresenceManager clientPresenceManager;
-  private final FeatureFlagsManager   featureFlagsManager;
 
-  private static final String KEYSPACE_DELIVERY_FEATURE_FLAG = "keyspace-delivery-for-online-messages";
-
-  public WebsocketSender(MessagesManager messagesManager, PubSubManager pubSubManager, ClientPresenceManager clientPresenceManager, final FeatureFlagsManager featureFlagsManager) {
+  public WebsocketSender(MessagesManager messagesManager, PubSubManager pubSubManager, ClientPresenceManager clientPresenceManager) {
     this.messagesManager       = messagesManager;
     this.pubSubManager         = pubSubManager;
     this.clientPresenceManager = clientPresenceManager;
-    this.featureFlagsManager   = featureFlagsManager;
   }
 
   public boolean sendMessage(Account account, Device device, Envelope message, Type channel, boolean online) {
-    if (online && featureFlagsManager.isFeatureFlagActive(KEYSPACE_DELIVERY_FEATURE_FLAG)) {
+    if (online) {
       if (clientPresenceManager.isPresent(account.getUuid(), device.getId())) {
         ephemeralOnlineCounter.increment();
         messagesManager.insertEphemeral(account.getUuid(), device.getId(), message);
@@ -110,7 +106,7 @@ public class WebsocketSender {
         else if (channel == Type.GCM) gcmOfflineMeter.mark();
         else websocketOfflineMeter.mark();
 
-        if (!online) queueMessage(account, device, message);
+        queueMessage(account, device, message);
         return false;
       }
     }
