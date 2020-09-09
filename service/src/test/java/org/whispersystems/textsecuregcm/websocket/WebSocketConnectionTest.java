@@ -39,6 +39,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -488,6 +489,37 @@ public class WebSocketConnectionTest {
 
     verify(client, times(firstPageMessages.size() + secondPageMessages.size())).sendRequest(eq("PUT"), eq("/api/v1/message"), any(List.class), any(Optional.class));
     verify(client).sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), any(List.class), eq(Optional.empty()));
+  }
+
+  @Test
+  public void testProcessStoredMessagesSingleEmptyCall() {
+    final MessagesManager     messagesManager = mock(MessagesManager.class);
+    final WebSocketClient     client          = mock(WebSocketClient.class);
+    final WebSocketConnection connection      = new WebSocketConnection(pushSender, receiptSender, messagesManager, account, device, client, "concurrency");
+
+    when(account.getNumber()).thenReturn("+18005551234");
+    when(account.getUuid()).thenReturn(UUID.randomUUID());
+    when(device.getId()).thenReturn(1L);
+    when(client.getUserAgent()).thenReturn("Test-UA");
+
+    when(messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), 1L, client.getUserAgent())).thenAnswer(new Answer<OutgoingMessageEntityList>() {
+      @Override
+      public OutgoingMessageEntityList answer(final InvocationOnMock invocation) throws Throwable {
+        return new OutgoingMessageEntityList(Collections.emptyList(), false);
+      }
+    });
+
+    final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
+    when(successResponse.getStatus()).thenReturn(200);
+
+    // This is a little hacky and non-obvious, but because we're always returning an empty list of messages, the call to
+    // CompletableFuture.allOf(...) in processStoredMessages will produce an instantly-succeeded future, and the
+    // whenComplete method will get called immediately on THIS thread, so we don't need to synchronize or wait for
+    // anything.
+    connection.processStoredMessages();
+    connection.processStoredMessages();
+
+    verify(client, times(1)).sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), any(List.class), eq(Optional.empty()));
   }
 
   private OutgoingMessageEntity createMessage(long id, boolean cached, String sender, UUID senderUuid, long timestamp, boolean receipt, String content) {

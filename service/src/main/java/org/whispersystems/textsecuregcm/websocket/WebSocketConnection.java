@@ -32,10 +32,10 @@ import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 
 import javax.ws.rs.WebApplicationException;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
@@ -65,7 +65,8 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
   private final WebSocketClient  client;
   private final String           connectionId;
 
-  private boolean processingStoredMessages = false;
+  private       boolean       processingStoredMessages     = false;
+  private final AtomicBoolean sentInitialQueueEmptyMessage = new AtomicBoolean(false);
 
   public WebSocketConnection(PushSender pushSender,
                              ReceiptSender receiptSender,
@@ -229,7 +230,11 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
       if (messages.hasMore()) {
         processStoredMessages();
       } else {
-        client.sendRequest("PUT", "/api/v1/queue/empty", Collections.singletonList(TimestampHeaderUtil.getTimestampHeader()), Optional.empty());
+        final boolean shouldSendEmptyQueueMessage;
+
+        if (sentInitialQueueEmptyMessage.compareAndSet(false, true)) {
+          client.sendRequest("PUT", "/api/v1/queue/empty", Collections.singletonList(TimestampHeaderUtil.getTimestampHeader()), Optional.empty());
+        }
       }
     });
   }
