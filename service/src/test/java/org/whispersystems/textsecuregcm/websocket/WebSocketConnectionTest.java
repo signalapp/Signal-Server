@@ -49,7 +49,6 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
@@ -526,9 +525,10 @@ public class WebSocketConnectionTest {
     final MessagesManager     messagesManager = mock(MessagesManager.class);
     final WebSocketClient     client          = mock(WebSocketClient.class);
     final WebSocketConnection connection      = new WebSocketConnection(pushSender, receiptSender, messagesManager, account, device, client, "concurrency");
+    final UUID                accountUuid     = UUID.randomUUID();
 
     when(account.getNumber()).thenReturn("+18005551234");
-    when(account.getUuid()).thenReturn(UUID.randomUUID());
+    when(account.getUuid()).thenReturn(accountUuid);
     when(device.getId()).thenReturn(1L);
     when(client.getUserAgent()).thenReturn("Test-UA");
 
@@ -542,7 +542,7 @@ public class WebSocketConnectionTest {
     final OutgoingMessageEntityList firstPage  = new OutgoingMessageEntityList(firstPageMessages, false);
     final OutgoingMessageEntityList secondPage = new OutgoingMessageEntityList(secondPageMessages, false);
 
-    when(messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), 1L, client.getUserAgent(), false))
+    when(messagesManager.getMessagesForDevice(eq("+18005551234"), eq(accountUuid), eq(1L), eq("Test-UA"), anyBoolean()))
             .thenReturn(firstPage)
             .thenReturn(secondPage)
             .thenReturn(new OutgoingMessageEntityList(Collections.emptyList(), false));
@@ -599,7 +599,7 @@ public class WebSocketConnectionTest {
 
     verify(messagesManager).getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), client.getUserAgent(), false);
 
-    connection.processStoredMessages();
+    connection.handleNewMessagesAvailable();
 
     verify(messagesManager).getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), client.getUserAgent(), true);
   }

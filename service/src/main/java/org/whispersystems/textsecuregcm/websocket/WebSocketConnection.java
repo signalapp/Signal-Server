@@ -35,6 +35,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -65,11 +66,10 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
   private final WebSocketClient  client;
   private final String           connectionId;
 
-  private       int           storedMessageState           = 1;
-  private       int           lastPersistedState           = 1;
-  private       int           lastDatabaseClearedState     = 0;
-  private       boolean       processingStoredMessages     = false;
-  private final AtomicBoolean sentInitialQueueEmptyMessage = new AtomicBoolean(false);
+  private final Semaphore     processStoredMessagesSemaphore = new Semaphore(1);
+  private final AtomicBoolean newMessagesAvailable           = new AtomicBoolean(true);
+  private final AtomicBoolean persistedMessagesAvailable     = new AtomicBoolean(true);
+  private final AtomicBoolean sentInitialQueueEmptyMessage   = new AtomicBoolean(false);
 
   public WebSocketConnection(PushSender pushSender,
                              ReceiptSender receiptSender,
@@ -96,11 +96,7 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
       switch (pubSubMessage.getType().getNumber()) {
         case PubSubMessage.Type.QUERY_DB_VALUE:
           pubSubPersistedMeter.mark();
-
-          synchronized (this) {
-            storedMessageState++;
-          }
-
+          newMessagesAvailable.set(true);
           processStoredMessages();
           break;
         case PubSubMessage.Type.DELIVER_VALUE:
@@ -192,42 +188,16 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
 
   @VisibleForTesting
   void processStoredMessages() {
-    final int     processedState;
-    final boolean cachedMessagesOnly;
-
-    synchronized (this) {
-      if (processingStoredMessages) {
-        return;
-      }
-
-      processingStoredMessages = true;
-      processedState           = storedMessageState;
-      cachedMessagesOnly       = lastPersistedState <= lastDatabaseClearedState;
-    }
-
-    sendNextMessagePage(cachedMessagesOnly).thenAccept(hasMoreStoredMessages -> {
-      final boolean mayHaveMoreMessages;
-
-      synchronized (this) {
-        processingStoredMessages = false;
-        mayHaveMoreMessages      = hasMoreStoredMessages || storedMessageState > processedState;
-      }
-
-      if (mayHaveMoreMessages) {
-        processStoredMessages();
+    if (processStoredMessagesSemaphore.tryAcquire()) {
+      if (newMessagesAvailable.getAndSet(false)) {
+        sendNextMessagePage(!persistedMessagesAvailable.getAndSet(false));
       } else {
-        synchronized (this) {
-          lastDatabaseClearedState = processedState;
-        }
-
-        if (sentInitialQueueEmptyMessage.compareAndSet(false, true)) {
-          client.sendRequest("PUT", "/api/v1/queue/empty", Collections.singletonList(TimestampHeaderUtil.getTimestampHeader()), Optional.empty());
-        }
+        processStoredMessagesSemaphore.release();
       }
-    });
+    }
   }
 
-  private CompletableFuture<Boolean> sendNextMessagePage(final boolean cachedMessagesOnly) {
+  private void sendNextMessagePage(final boolean cachedMessagesOnly) {
     final OutgoingMessageEntityList messages    = messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), client.getUserAgent(), cachedMessagesOnly);
     final CompletableFuture<?>[]    sendFutures = new CompletableFuture[messages.getMessages().size()];
 
@@ -258,34 +228,42 @@ public class WebSocketConnection implements DispatchChannel, MessageAvailability
       sendFutures[i] = sendMessage(builder.build(), Optional.of(new StoredMessageInfo(message.getId(), message.isCached())));
     }
 
-    return CompletableFuture.allOf(sendFutures).handle((v, cause) -> messages.hasMore());
+    CompletableFuture.allOf(sendFutures).whenComplete((v, cause) -> {
+      if (messages.hasMore()) {
+        sendNextMessagePage(cachedMessagesOnly);
+      } else {
+        if (sentInitialQueueEmptyMessage.compareAndSet(false, true)) {
+          client.sendRequest("PUT", "/api/v1/queue/empty", Collections.singletonList(TimestampHeaderUtil.getTimestampHeader()), Optional.empty());
+        }
+
+        processStoredMessagesSemaphore.release();
+        processStoredMessages();
+      }
+    });
   }
 
   @Override
   public void handleNewMessagesAvailable() {
     messageAvailableMeter.mark();
+
+    newMessagesAvailable.set(true);
+    processStoredMessages();
   }
 
   @Override
   public void handleNewEphemeralMessageAvailable() {
     ephemeralMessageAvailableMeter.mark();
 
-    final Optional<Envelope> maybeMessage = messagesManager.takeEphemeralMessage(account.getUuid(), device.getId());
-
-    if (maybeMessage.isPresent()) {
-      sendMessage(maybeMessage.get(), Optional.empty());
-    }
+    messagesManager.takeEphemeralMessage(account.getUuid(), device.getId())
+                   .ifPresent(message -> sendMessage(message, Optional.empty()));
   }
 
   @Override
   public void handleMessagesPersisted() {
     messagesPersistedMeter.mark();
 
-    synchronized (this) {
-      storedMessageState++;
-      lastPersistedState = storedMessageState;
-    }
-
+    persistedMessagesAvailable.set(true);
+    newMessagesAvailable.set(true);
     processStoredMessages();
   }
 
