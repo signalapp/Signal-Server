@@ -26,12 +26,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.FeatureFlagsManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningAddress;
-import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
@@ -50,7 +48,6 @@ public class WebsocketSender {
 
   private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
 
-  private final Meter websocketRequeueMeter = metricRegistry.meter(name(getClass(), "ws_requeue"));
   private final Meter websocketOnlineMeter  = metricRegistry.meter(name(getClass(), "ws_online"  ));
   private final Meter websocketOfflineMeter = metricRegistry.meter(name(getClass(), "ws_offline" ));
 
@@ -69,15 +66,11 @@ public class WebsocketSender {
   private final MessagesManager       messagesManager;
   private final PubSubManager         pubSubManager;
   private final ClientPresenceManager clientPresenceManager;
-  private final FeatureFlagsManager   featureFlagsManager;
 
-  private static final String KEYSPACE_DELIVERY_FEATURE_FLAG = "keyspace-delivery-for-all-messages";
-
-  public WebsocketSender(MessagesManager messagesManager, PubSubManager pubSubManager, ClientPresenceManager clientPresenceManager, final FeatureFlagsManager featureFlagsManager) {
+  public WebsocketSender(MessagesManager messagesManager, PubSubManager pubSubManager, ClientPresenceManager clientPresenceManager) {
     this.messagesManager       = messagesManager;
     this.pubSubManager         = pubSubManager;
     this.clientPresenceManager = clientPresenceManager;
-    this.featureFlagsManager   = featureFlagsManager;
   }
 
   public boolean sendMessage(Account account, Device device, Envelope message, Type channel, boolean online) {
@@ -92,7 +85,7 @@ public class WebsocketSender {
         ephemeralOfflineCounter.increment();
         return false;
       }
-    } else if (featureFlagsManager.isFeatureFlagActive(KEYSPACE_DELIVERY_FEATURE_FLAG)) {
+    } else {
       messagesManager.insert(account.getUuid(), device.getId(), message);
 
       if (clientPresent) {
@@ -108,41 +101,7 @@ public class WebsocketSender {
 
         return false;
       }
-    } else {
-      WebsocketAddress address = new WebsocketAddress(account.getNumber(), device.getId());
-      PubSubMessage pubSubMessage = PubSubMessage.newBuilder()
-              .setType(PubSubMessage.Type.DELIVER)
-              .setContent(message.toByteString())
-              .build();
-
-      pubSubManager.publish(address, pubSubMessage);
-
-      if (clientPresent) {
-        if (channel == Type.APN) apnOnlineMeter.mark();
-        else if (channel == Type.GCM) gcmOnlineMeter.mark();
-        else websocketOnlineMeter.mark();
-
-        return true;
-      } else {
-        if (channel == Type.APN) apnOfflineMeter.mark();
-        else if (channel == Type.GCM) gcmOfflineMeter.mark();
-        else websocketOfflineMeter.mark();
-
-        queueMessage(account, device, message);
-        return false;
-      }
     }
-  }
-
-  public void queueMessage(Account account, Device device, Envelope message) {
-    websocketRequeueMeter.mark();
-
-    WebsocketAddress address = new WebsocketAddress(account.getNumber(), device.getId());
-
-    messagesManager.insert(account.getUuid(), device.getId(), message);
-    pubSubManager.publish(address, PubSubMessage.newBuilder()
-                                                .setType(PubSubMessage.Type.QUERY_DB)
-                                                .build());
   }
 
   public boolean sendProvisioningMessage(ProvisioningAddress address, byte[] body) {

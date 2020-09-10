@@ -80,14 +80,6 @@ public class PushSender implements Managed {
     }
   }
 
-  public void sendQueuedNotification(Account account, Device device)
-      throws NotPushRegisteredException
-  {
-    if      (device.getGcmId() != null)    sendGcmNotification(account, device);
-    else if (device.getApnId() != null)    sendApnNotification(account, device, true);
-    else if (!device.getFetchesMessages()) throw new NotPushRegisteredException("No notification possible!");
-  }
-
   public WebsocketSender getWebSocketSender() {
     return webSocketSender;
   }
