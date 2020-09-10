@@ -277,4 +277,60 @@ public class TwilioSmsSenderTest {
     runSenderIdTest("+74991234567", null, senderIdConfigurationSupplier);
     runSenderIdTest("+85278675309", "SOMEHOW", senderIdConfigurationSupplier);
   }
+
+  @Test
+  public void testRetrySmsOnUnreachableErrorCodeIsTriedOnlyOnceWithoutSenderId() {
+    wireMockRule.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+                                 .withBasicAuth(ACCOUNT_ID, ACCOUNT_TOKEN)
+                                 .willReturn(aResponse()
+                                                     .withStatus(400)
+                                                     .withHeader("Content-Type", "application/json")
+                                                     .withBody("{\"status\": 400, \"message\": \"is not currently reachable\", \"code\": 21612}")));
+
+    TwilioConfiguration configuration = createTwilioConfiguration();
+
+    TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration);
+    boolean         success = sender.deliverSmsVerification("+14153333333", Optional.of("android-ng"), "123-456").join();
+
+    assertThat(success).isFalse();
+
+    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+            .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
+            .withRequestBody(equalTo("MessagingServiceSid=test_messaging_services_id&To=%2B14153333333&Body=%3C%23%3E+Verify+on+AndroidNg%3A+123-456%0A%0Acharacters")));
+  }
+
+  @Test
+  public void testRetrySmsOnUnreachableErrorCodeSkipsSenderIdSecondTime() {
+    wireMockRule.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+                                 .withBasicAuth(ACCOUNT_ID, ACCOUNT_TOKEN)
+                                 .withRequestBody(equalTo("To=%2B14153333333&From=WHENTHEMUSICPLAYS&Body=%3C%23%3E+Verify+on+AndroidNg%3A+123-456%0A%0Acharacters"))
+                                 .willReturn(aResponse()
+                                                     .withStatus(400)
+                                                     .withHeader("Content-Type", "application/json")
+                                                     .withBody("{\"status\": 400, \"message\": \"is not currently reachable\", \"code\": 21612}")));
+
+    wireMockRule.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+                                 .withBasicAuth(ACCOUNT_ID, ACCOUNT_TOKEN)
+                                 .withRequestBody(equalTo("MessagingServiceSid=test_messaging_services_id&To=%2B14153333333&Body=%3C%23%3E+Verify+on+AndroidNg%3A+123-456%0A%0Acharacters"))
+                                 .willReturn(aResponse()
+                                                     .withHeader("Content-Type", "application/json")
+                                                     .withBody("{\"price\": -0.00750, \"status\": \"sent\"}")));
+
+    TwilioConfiguration configuration = createTwilioConfiguration();
+    TwilioSenderIdConfiguration twilioSenderIdConfiguration = new TwilioSenderIdConfiguration();
+    twilioSenderIdConfiguration.setDefaultSenderId("WHENTHEMUSICPLAYS");
+    configuration.setSenderId(twilioSenderIdConfiguration);
+
+    TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration);
+    boolean         success = sender.deliverSmsVerification("+14153333333", Optional.of("android-ng"), "123-456").join();
+
+    assertThat(success).isTrue();
+
+    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+            .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
+            .withRequestBody(equalTo("To=%2B14153333333&From=WHENTHEMUSICPLAYS&Body=%3C%23%3E+Verify+on+AndroidNg%3A+123-456%0A%0Acharacters")));
+    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+            .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
+            .withRequestBody(equalTo("MessagingServiceSid=test_messaging_services_id&To=%2B14153333333&Body=%3C%23%3E+Verify+on+AndroidNg%3A+123-456%0A%0Acharacters")));
+  }
 }
