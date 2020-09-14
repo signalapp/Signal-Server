@@ -25,9 +25,9 @@ public class AccountTest {
   private final Device recentSecondaryDevice = mock(Device.class);
   private final Device oldSecondaryDevice    = mock(Device.class);
 
-  private final Device uuidCapableDevice          = mock(Device.class);
-  private final Device uuidIncapableDevice        = mock(Device.class);
-  private final Device uuidIncapableExpiredDevice = mock(Device.class);
+  private final Device gv2CapableDevice          = mock(Device.class);
+  private final Device gv2IncapableDevice        = mock(Device.class);
+  private final Device gv2IncapableExpiredDevice = mock(Device.class);
 
   @Before
   public void setup() {
@@ -51,17 +51,17 @@ public class AccountTest {
     when(oldSecondaryDevice.isEnabled()).thenReturn(false);
     when(oldSecondaryDevice.getId()).thenReturn(2L);
 
-    when(uuidCapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(true, true, true, true));
-    when(uuidCapableDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1));
-    when(uuidCapableDevice.isEnabled()).thenReturn(true);
+    when(gv2CapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(true, true, true));
+    when(gv2CapableDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1));
+    when(gv2CapableDevice.isEnabled()).thenReturn(true);
 
-    when(uuidIncapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(false, false, false, false));
-    when(uuidIncapableDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1));
-    when(uuidIncapableDevice.isEnabled()).thenReturn(true);
+    when(gv2IncapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(false, false, false));
+    when(gv2IncapableDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1));
+    when(gv2IncapableDevice.isEnabled()).thenReturn(true);
 
-    when(uuidIncapableExpiredDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(false, false, false, false));
-    when(uuidIncapableExpiredDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31));
-    when(uuidIncapableExpiredDevice.isEnabled()).thenReturn(false);
+    when(gv2IncapableExpiredDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(false, false, false));
+    when(gv2IncapableExpiredDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31));
+    when(gv2IncapableExpiredDevice.isEnabled()).thenReturn(false);
   }
 
   @Test
@@ -101,22 +101,22 @@ public class AccountTest {
   @Test
   public void testCapabilities() {
     Account uuidCapable = new Account("+14152222222", UUID.randomUUID(), new HashSet<Device>() {{
-      add(uuidCapableDevice);
+      add(gv2CapableDevice);
     }}, "1234".getBytes());
 
     Account uuidIncapable = new Account("+14152222222", UUID.randomUUID(), new HashSet<Device>() {{
-      add(uuidCapableDevice);
-      add(uuidIncapableDevice);
+      add(gv2CapableDevice);
+      add(gv2IncapableDevice);
     }}, "1234".getBytes());
 
     Account uuidCapableWithExpiredIncapable = new Account("+14152222222", UUID.randomUUID(), new HashSet<Device>() {{
-      add(uuidCapableDevice);
-      add(uuidIncapableExpiredDevice);
+      add(gv2CapableDevice);
+      add(gv2IncapableExpiredDevice);
     }}, "1234".getBytes());
 
-    assertTrue(uuidCapable.isUuidAddressingSupported());
-    assertFalse(uuidIncapable.isUuidAddressingSupported());
-    assertTrue(uuidCapableWithExpiredIncapable.isUuidAddressingSupported());
+    assertTrue(uuidCapable.isGroupsV2Supported());
+    assertFalse(uuidIncapable.isGroupsV2Supported());
+    assertTrue(uuidCapableWithExpiredIncapable.isGroupsV2Supported());
   }
 
   @Test

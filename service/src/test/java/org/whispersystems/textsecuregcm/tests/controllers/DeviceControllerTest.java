@@ -117,7 +117,6 @@ public class DeviceControllerTest {
 //    when(maxedAccount.getActiveDeviceCount()).thenReturn(6);
     when(account.getAuthenticatedDevice()).thenReturn(Optional.of(masterDevice));
     when(account.isEnabled()).thenReturn(false);
-    when(account.isUuidAddressingSupported()).thenReturn(true);
     when(account.isGroupsV2Supported()).thenReturn(true);
 
     when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(new StoredVerificationCode("5678901", System.currentTimeMillis(), null)));
@@ -224,7 +223,7 @@ public class DeviceControllerTest {
 
   @Test
   public void deviceDowngradeCapabilitiesTest() throws Exception {
-    Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(true, false, true, false);
+    Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(false, true, false);
     AccountAttributes accountAttributes = new AccountAttributes("keykeykeykey", false, 1234, null, null, null, null, true, deviceCapabilities);
     Response response = resources.getJerseyTest()
             .target("/v1/devices/5678901")

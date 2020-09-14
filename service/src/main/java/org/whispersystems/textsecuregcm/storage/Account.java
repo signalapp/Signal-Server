@@ -137,12 +137,6 @@ public class Account implements Principal  {
     return Optional.empty();
   }
 
-  public boolean isUuidAddressingSupported() {
-    return devices.stream()
-                  .filter(Device::isEnabled)
-                  .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isUuid());
-  }
-
   public boolean isGroupsV2Supported() {
     return devices.stream()
                   .filter(Device::isEnabled)
