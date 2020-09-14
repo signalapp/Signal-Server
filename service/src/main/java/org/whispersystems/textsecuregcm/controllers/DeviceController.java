@@ -242,7 +242,6 @@ public class DeviceController {
   }
 
   private boolean isCapabilityDowngrade(Account account, DeviceCapabilities capabilities) {
-    return (!capabilities.isGv2() && account.isGroupsV2Supported())
-            || (!capabilities.isUuid() && account.isUuidAddressingSupported());
+    return (!capabilities.isGv2() && account.isGroupsV2Supported());
   }
 }
