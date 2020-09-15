@@ -84,6 +84,7 @@ public class MessageController {
   private final MetricRegistry metricRegistry                   = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private final Meter          unidentifiedMeter                = metricRegistry.meter(name(getClass(), "delivery", "unidentified"));
   private final Meter          identifiedMeter                  = metricRegistry.meter(name(getClass(), "delivery", "identified"  ));
+  private final Meter          rejectOversizeMessageMeter       = metricRegistry.meter(name(getClass(), "rejectOversizeMessage"));
   private final Timer          sendMessageInternalTimer         = metricRegistry.timer(name(getClass(), "sendMessageInternal"));
   private final Histogram      outgoingMessageListSizeHistogram = metricRegistry.histogram(name(getClass(), "outgoingMessageListSize"));
 
@@ -95,6 +96,8 @@ public class MessageController {
   private final ApnFallbackManager     apnFallbackManager;
 
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME = name(MessageController.class, "messageContentSize");
+
+  private static final int MAX_MESSAGE_SIZE = 64 * 1024;
 
   public MessageController(RateLimiters rateLimiters,
                            PushSender pushSender,
@@ -137,6 +140,25 @@ public class MessageController {
       unidentifiedMeter.mark();
     }
 
+    for (final IncomingMessage message : messages.getMessages()) {
+      int contentLength = 0;
+
+      if (!Util.isEmpty(message.getContent())) {
+        contentLength += message.getContent().length();
+      }
+
+      if (!Util.isEmpty(message.getBody())) {
+        contentLength += message.getBody().length();
+      }
+
+      Metrics.summary(CONTENT_SIZE_DISTRIBUTION_NAME, UserAgentTagUtil.getUserAgentTags(userAgent)).record(contentLength);
+
+      if (contentLength > MAX_MESSAGE_SIZE) {
+        // TODO Reject the request
+        rejectOversizeMessageMeter.mark();
+      }
+    }
+
     try {
       boolean isSyncMessage = source.isPresent() && source.get().isFor(destinationName);
 
@@ -155,10 +177,6 @@ public class MessageController {
         Optional<Device> destinationDevice = destination.get().getDevice(incomingMessage.getDestinationDeviceId());
 
         if (destinationDevice.isPresent()) {
-          if (!Util.isEmpty(incomingMessage.getContent())) {
-            Metrics.summary(CONTENT_SIZE_DISTRIBUTION_NAME, UserAgentTagUtil.getUserAgentTags(userAgent)).record(incomingMessage.getContent().length());
-          }
-
           sendMessage(source, destination.get(), destinationDevice.get(), messages.getTimestamp(), messages.isOnline(), incomingMessage);
         }
       }
