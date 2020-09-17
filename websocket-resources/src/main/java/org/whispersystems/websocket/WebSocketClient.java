@@ -16,7 +16,6 @@
  */
 package org.whispersystems.websocket;
 
-import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketException;
