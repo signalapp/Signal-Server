@@ -39,7 +39,20 @@ import static com.codahale.metrics.MetricRegistry.name;
 import io.dropwizard.lifecycle.Managed;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 
-public class PushSender implements Managed {
+/**
+ * A MessageSender sends Signal messages to destination devices. Messages may be "normal" user-to-user messages,
+ * ephemeral ("online") messages like typing indicators, or delivery receipts.
+ * <p/>
+ * If a client is not actively connected to a Signal server to receive a message as soon as it is sent, the
+ * MessageSender will send a push notification to the destination device if possible. Some messages may be designated
+ * for "online" delivery only and will not be delivered (and clients will not be notified) if the destination device
+ * isn't actively connected to a Signal server.
+ *
+ * @see ClientPresenceManager
+ * @see org.whispersystems.textsecuregcm.storage.MessageAvailabilityListener
+ * @see ReceiptSender
+ */
+public class MessageSender implements Managed {
 
   private final ApnFallbackManager         apnFallbackManager;
   private final ClientPresenceManager      clientPresenceManager;
@@ -50,18 +63,18 @@ public class PushSender implements Managed {
   private final int                        queueSize;
   private final PushLatencyManager         pushLatencyManager;
 
-  private static final String SEND_COUNTER_NAME      = name(PushSender.class, "sendMessage");
+  private static final String SEND_COUNTER_NAME      = name(MessageSender.class, "sendMessage");
   private static final String CHANNEL_TAG_NAME       = "channel";
   private static final String EPHEMERAL_TAG_NAME     = "ephemeral";
   private static final String CLIENT_ONLINE_TAG_NAME = "clientOnline";
 
-  public PushSender(ApnFallbackManager    apnFallbackManager,
-                    ClientPresenceManager clientPresenceManager,
-                    MessagesManager       messagesManager,
-                    GCMSender             gcmSender,
-                    APNSender             apnSender,
-                    int                   queueSize,
-                    PushLatencyManager    pushLatencyManager)
+  public MessageSender(ApnFallbackManager    apnFallbackManager,
+                       ClientPresenceManager clientPresenceManager,
+                       MessagesManager       messagesManager,
+                       GCMSender             gcmSender,
+                       APNSender             apnSender,
+                       int                   queueSize,
+                       PushLatencyManager    pushLatencyManager)
   {
     this(apnFallbackManager,
          clientPresenceManager,
@@ -73,19 +86,19 @@ public class PushSender implements Managed {
          pushLatencyManager);
 
     SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME)
-                          .register(name(PushSender.class, "send_queue_depth"),
+                          .register(name(MessageSender.class, "send_queue_depth"),
                                     (Gauge<Integer>) ((BlockingThreadPoolExecutor)executor)::getSize);
   }
 
   @VisibleForTesting
-  PushSender(ApnFallbackManager    apnFallbackManager,
-             ClientPresenceManager clientPresenceManager,
-             MessagesManager       messagesManager,
-             GCMSender             gcmSender,
-             APNSender             apnSender,
-             int                   queueSize,
-             ExecutorService       executor,
-             PushLatencyManager    pushLatencyManager) {
+  MessageSender(ApnFallbackManager    apnFallbackManager,
+                ClientPresenceManager clientPresenceManager,
+                MessagesManager       messagesManager,
+                GCMSender             gcmSender,
+                APNSender             apnSender,
+                int                   queueSize,
+                ExecutorService       executor,
+                PushLatencyManager    pushLatencyManager) {
 
     this.apnFallbackManager    = apnFallbackManager;
     this.clientPresenceManager = clientPresenceManager;

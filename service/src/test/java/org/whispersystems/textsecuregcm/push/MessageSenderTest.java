@@ -21,7 +21,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
-public class PushSenderTest {
+public class MessageSenderTest {
 
     private Account                account;
     private Device                 device;
@@ -31,7 +31,7 @@ public class PushSenderTest {
     private MessagesManager       messagesManager;
     private GCMSender             gcmSender;
     private APNSender             apnSender;
-    private PushSender            pushSender;
+    private MessageSender         messageSender;
 
     private static final UUID ACCOUNT_UUID = UUID.randomUUID();
     private static final long DEVICE_ID = 1L;
@@ -47,14 +47,14 @@ public class PushSenderTest {
         messagesManager       = mock(MessagesManager.class);
         gcmSender             = mock(GCMSender.class);
         apnSender             = mock(APNSender.class);
-        pushSender            = new PushSender(mock(ApnFallbackManager.class),
-                                               clientPresenceManager,
-                                               messagesManager,
-                                               gcmSender,
-                                               apnSender,
-                                               0,
-                                               mock(ExecutorService.class),
-                                               mock(PushLatencyManager.class));
+        messageSender         = new MessageSender(mock(ApnFallbackManager.class),
+                                                  clientPresenceManager,
+                                                  messagesManager,
+                                                  gcmSender,
+                                                  apnSender,
+                                                  0,
+                                                  mock(ExecutorService.class),
+                                                  mock(PushLatencyManager.class));
 
         when(account.getUuid()).thenReturn(ACCOUNT_UUID);
         when(device.getId()).thenReturn(DEVICE_ID);
@@ -65,7 +65,7 @@ public class PushSenderTest {
         when(clientPresenceManager.isPresent(ACCOUNT_UUID, DEVICE_ID)).thenReturn(true);
         when(device.getGcmId()).thenReturn("gcm-id");
 
-        pushSender.sendSynchronousMessage(account, device, message, true);
+        messageSender.sendSynchronousMessage(account, device, message, true);
 
         verify(messagesManager).insertEphemeral(ACCOUNT_UUID, DEVICE_ID, message);
         verify(messagesManager, never()).insert(any(), anyLong(), any());
@@ -78,7 +78,7 @@ public class PushSenderTest {
         when(clientPresenceManager.isPresent(ACCOUNT_UUID, DEVICE_ID)).thenReturn(false);
         when(device.getGcmId()).thenReturn("gcm-id");
 
-        pushSender.sendSynchronousMessage(account, device, message, true);
+        messageSender.sendSynchronousMessage(account, device, message, true);
 
         verify(messagesManager, never()).insertEphemeral(any(), anyLong(), any());
         verify(messagesManager, never()).insert(any(), anyLong(), any());
@@ -91,7 +91,7 @@ public class PushSenderTest {
         when(clientPresenceManager.isPresent(ACCOUNT_UUID, DEVICE_ID)).thenReturn(true);
         when(device.getGcmId()).thenReturn("gcm-id");
 
-        pushSender.sendSynchronousMessage(account, device, message, false);
+        messageSender.sendSynchronousMessage(account, device, message, false);
 
         verify(messagesManager, never()).insertEphemeral(any(), anyLong(), any());
         verify(messagesManager).insert(ACCOUNT_UUID, DEVICE_ID, message);
@@ -104,7 +104,7 @@ public class PushSenderTest {
         when(clientPresenceManager.isPresent(ACCOUNT_UUID, DEVICE_ID)).thenReturn(false);
         when(device.getGcmId()).thenReturn("gcm-id");
 
-        pushSender.sendSynchronousMessage(account, device, message, false);
+        messageSender.sendSynchronousMessage(account, device, message, false);
 
         verify(messagesManager, never()).insertEphemeral(any(), anyLong(), any());
         verify(messagesManager).insert(ACCOUNT_UUID, DEVICE_ID, message);
@@ -117,7 +117,7 @@ public class PushSenderTest {
         when(clientPresenceManager.isPresent(ACCOUNT_UUID, DEVICE_ID)).thenReturn(false);
         when(device.getApnId()).thenReturn("apn-id");
 
-        pushSender.sendSynchronousMessage(account, device, message, false);
+        messageSender.sendSynchronousMessage(account, device, message, false);
 
         verify(messagesManager, never()).insertEphemeral(any(), anyLong(), any());
         verify(messagesManager).insert(ACCOUNT_UUID, DEVICE_ID, message);
@@ -130,7 +130,7 @@ public class PushSenderTest {
         when(clientPresenceManager.isPresent(ACCOUNT_UUID, DEVICE_ID)).thenReturn(false);
         when(device.getFetchesMessages()).thenReturn(true);
 
-        pushSender.sendSynchronousMessage(account, device, message, false);
+        messageSender.sendSynchronousMessage(account, device, message, false);
 
         verify(messagesManager, never()).insertEphemeral(any(), anyLong(), any());
         verify(messagesManager).insert(ACCOUNT_UUID, DEVICE_ID, message);

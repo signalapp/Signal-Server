@@ -42,7 +42,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
-import org.whispersystems.textsecuregcm.push.PushSender;
+import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -93,7 +93,7 @@ public class MessageController {
   private final Histogram      outgoingMessageListSizeHistogram = metricRegistry.histogram(name(getClass(), "outgoingMessageListSize"));
 
   private final RateLimiters           rateLimiters;
-  private final PushSender             pushSender;
+  private final MessageSender          messageSender;
   private final ReceiptSender          receiptSender;
   private final AccountsManager        accountsManager;
   private final MessagesManager        messagesManager;
@@ -105,14 +105,14 @@ public class MessageController {
   private static final int MAX_MESSAGE_SIZE = 64 * 1024;
 
   public MessageController(RateLimiters rateLimiters,
-                           PushSender pushSender,
+                           MessageSender messageSender,
                            ReceiptSender receiptSender,
                            AccountsManager accountsManager,
                            MessagesManager messagesManager,
                            ApnFallbackManager apnFallbackManager)
   {
     this.rateLimiters           = rateLimiters;
-    this.pushSender             = pushSender;
+    this.messageSender          = messageSender;
     this.receiptSender          = receiptSender;
     this.accountsManager        = accountsManager;
     this.messagesManager        = messagesManager;
@@ -325,7 +325,7 @@ public class MessageController {
         messageBuilder.setContent(ByteString.copyFrom(messageContent.get()));
       }
 
-      pushSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build(), online);
+      messageSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build(), online);
     } catch (NotPushRegisteredException e) {
       if (destinationDevice.isMaster()) throw new NoSuchUserException(e);
       else                              logger.debug("Not registered", e);

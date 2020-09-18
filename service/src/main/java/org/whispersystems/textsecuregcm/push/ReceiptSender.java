@@ -12,16 +12,16 @@ import java.util.Optional;
 
 public class ReceiptSender {
 
-  private final        PushSender      pushSender;
-  private final        AccountsManager accountManager;
+  private final MessageSender   messageSender;
+  private final AccountsManager accountManager;
 
-  private static final Logger          logger = LoggerFactory.getLogger(ReceiptSender.class);
+  private static final Logger logger = LoggerFactory.getLogger(ReceiptSender.class);
 
   public ReceiptSender(AccountsManager accountManager,
-                       PushSender      pushSender)
+                       MessageSender   messageSender)
   {
     this.accountManager = accountManager;
-    this.pushSender     = pushSender;
+    this.messageSender  = messageSender;
   }
 
   public void sendReceipt(Account source, String destination, long messageId)
@@ -45,7 +45,7 @@ public class ReceiptSender {
 
     for (final Device destinationDevice : destinationAccount.getDevices()) {
       try {
-        pushSender.sendMessage(destinationAccount, destinationDevice, message.build(), false);
+        messageSender.sendMessage(destinationAccount, destinationDevice, message.build(), false);
       } catch (NotPushRegisteredException e) {
         logger.info("User no longer push registered for delivery receipt: " + e.getMessage());
       }
