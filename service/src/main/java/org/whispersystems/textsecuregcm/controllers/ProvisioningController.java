@@ -3,8 +3,7 @@ package org.whispersystems.textsecuregcm.controllers;
 import com.codahale.metrics.annotation.Timed;
 import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.push.PushSender;
-import org.whispersystems.textsecuregcm.push.WebsocketSender;
+import org.whispersystems.textsecuregcm.push.ProvisioningManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.websocket.InvalidWebsocketAddressException;
@@ -26,12 +25,12 @@ import io.dropwizard.auth.Auth;
 @Path("/v1/provisioning")
 public class ProvisioningController {
 
-  private final RateLimiters    rateLimiters;
-  private final WebsocketSender websocketSender;
+  private final RateLimiters        rateLimiters;
+  private final ProvisioningManager provisioningManager;
 
-  public ProvisioningController(RateLimiters rateLimiters, PushSender pushSender) {
-    this.rateLimiters    = rateLimiters;
-    this.websocketSender = pushSender.getWebSocketSender();
+  public ProvisioningController(RateLimiters rateLimiters, ProvisioningManager provisioningManager) {
+    this.rateLimiters        = rateLimiters;
+    this.provisioningManager = provisioningManager;
   }
 
   @Timed
@@ -46,8 +45,8 @@ public class ProvisioningController {
   {
     rateLimiters.getMessagesLimiter().validate(source.getNumber());
 
-    if (!websocketSender.sendProvisioningMessage(new ProvisioningAddress(destinationName, 0),
-                                                 Base64.decode(message.getBody())))
+    if (!provisioningManager.sendProvisioningMessage(new ProvisioningAddress(destinationName, 0),
+                                                     Base64.decode(message.getBody())))
     {
       throw new WebApplicationException(Response.Status.NOT_FOUND);
     }

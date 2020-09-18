@@ -19,7 +19,6 @@ package org.whispersystems.textsecuregcm.push;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
-import com.google.protobuf.ByteString;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
@@ -27,13 +26,10 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
-import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.websocket.ProvisioningAddress;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
-import static org.whispersystems.textsecuregcm.storage.PubSubProtos.PubSubMessage;
 
 public class WebsocketSender {
 
@@ -57,19 +53,14 @@ public class WebsocketSender {
   private final Meter gcmOnlineMeter        = metricRegistry.meter(name(getClass(), "gcm_online" ));
   private final Meter gcmOfflineMeter       = metricRegistry.meter(name(getClass(), "gcm_offline"));
 
-  private final Meter provisioningOnlineMeter  = metricRegistry.meter(name(getClass(), "provisioning_online" ));
-  private final Meter provisioningOfflineMeter = metricRegistry.meter(name(getClass(), "provisioning_offline"));
-
   private final Counter ephemeralOnlineCounter  = Metrics.counter(name(getClass(), "ephemeral"), "online", "true");
   private final Counter ephemeralOfflineCounter = Metrics.counter(name(getClass(), "ephemeral"), "offline", "true");
 
   private final MessagesManager       messagesManager;
-  private final PubSubManager         pubSubManager;
   private final ClientPresenceManager clientPresenceManager;
 
-  public WebsocketSender(MessagesManager messagesManager, PubSubManager pubSubManager, ClientPresenceManager clientPresenceManager) {
+  public WebsocketSender(MessagesManager messagesManager, ClientPresenceManager clientPresenceManager) {
     this.messagesManager       = messagesManager;
-    this.pubSubManager         = pubSubManager;
     this.clientPresenceManager = clientPresenceManager;
   }
 
@@ -101,21 +92,6 @@ public class WebsocketSender {
 
         return false;
       }
-    }
-  }
-
-  public boolean sendProvisioningMessage(ProvisioningAddress address, byte[] body) {
-    PubSubMessage    pubSubMessage = PubSubMessage.newBuilder()
-                                                  .setType(PubSubMessage.Type.DELIVER)
-                                                  .setContent(ByteString.copyFrom(body))
-                                                  .build();
-
-    if (pubSubManager.publish(address, pubSubMessage)) {
-      provisioningOnlineMeter.mark();
-      return true;
-    } else {
-      provisioningOfflineMeter.mark();
-      return false;
     }
   }
 }
