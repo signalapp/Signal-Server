@@ -1,14 +1,18 @@
 package org.whispersystems.textsecuregcm.metrics;
 
+import com.vdurmont.semver4j.Semver;
 import io.micrometer.core.instrument.Tag;
 import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
+import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
+import org.whispersystems.textsecuregcm.util.ua.UserAgent;
+import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 
+import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Utility class for extracting platform/version metrics tags from User-Agent strings.
@@ -20,37 +24,43 @@ public class UserAgentTagUtil {
     static final         List<Tag> OVERFLOW_TAGS     = List.of(Tag.of(PLATFORM_TAG, "overflow"), Tag.of(VERSION_TAG, "overflow"));
     static final         List<Tag> UNRECOGNIZED_TAGS = List.of(Tag.of(PLATFORM_TAG, "unrecognized"), Tag.of(VERSION_TAG, "unrecognized"));
 
-    private static final Map<String, Pattern> PATTERNS_BY_PLATFORM = Map.of(
-            "android", Pattern.compile("^Signal-Android (4\\.\\d+\\.\\d+(?:\\.\\d+)?)(?:\\s.*)?$", Pattern.CASE_INSENSITIVE),
-            "desktop", Pattern.compile("^Signal Desktop (1\\.\\d+\\.\\d+(?:\\.\\d+)?)(?:\\s.*)?$", Pattern.CASE_INSENSITIVE),
-            "ios", Pattern.compile("^Signal/(3\\.\\d+\\.\\d+(?:\\.\\d+)?) \\(.*ios.*\\)(?:\\s.*)?$", Pattern.CASE_INSENSITIVE));
+    private static final Map<ClientPlatform, Semver> MINIMUM_VERSION_BY_PLATFORM = new EnumMap<>(ClientPlatform.class);
 
-    static final         int                       MAX_VERSIONS  = 1_000;
-    private static final Set<Pair<String, String>> SEEN_VERSIONS = new HashSet<>();
+    static {
+        MINIMUM_VERSION_BY_PLATFORM.put(ClientPlatform.ANDROID, new Semver("4.0.0"));
+        MINIMUM_VERSION_BY_PLATFORM.put(ClientPlatform.DESKTOP, new Semver("1.0.0"));
+        MINIMUM_VERSION_BY_PLATFORM.put(ClientPlatform.IOS,     new Semver("3.0.0"));
+    }
+
+    static final         int                               MAX_VERSIONS  = 1_000;
+    private static final Set<Pair<ClientPlatform, Semver>> SEEN_VERSIONS = new HashSet<>();
 
     private UserAgentTagUtil() {
     }
 
-    public static List<Tag> getUserAgentTags(final String userAgent) {
-        if (userAgent != null) {
-            for (final Map.Entry<String, Pattern> entry : PATTERNS_BY_PLATFORM.entrySet()) {
-                final String  platform = entry.getKey();
-                final Pattern pattern  = entry.getValue();
-                final Matcher matcher  = pattern.matcher(userAgent);
+    public static List<Tag> getUserAgentTags(final String userAgentString) {
+        try {
+            final UserAgent userAgent = UserAgentUtil.parseUserAgentString(userAgentString);
+            final List<Tag> tags;
 
-                if (matcher.matches()) {
-                    final String version = matcher.group(1);
-
-                    return allowVersion(platform, version) ? List.of(Tag.of(PLATFORM_TAG, platform), Tag.of(VERSION_TAG, version)) : OVERFLOW_TAGS;
+            if (userAgent.getVersion().isStable() && userAgent.getVersion().isGreaterThanOrEqualTo(MINIMUM_VERSION_BY_PLATFORM.get(userAgent.getPlatform()))) {
+                if (allowVersion(userAgent.getPlatform(), userAgent.getVersion())) {
+                    tags = List.of(Tag.of(PLATFORM_TAG, userAgent.getPlatform().name().toLowerCase()), Tag.of(VERSION_TAG, userAgent.getVersion().toString()));
+                } else {
+                    tags = OVERFLOW_TAGS;
                 }
+            } else {
+                tags = UNRECOGNIZED_TAGS;
             }
-        }
 
-        return UNRECOGNIZED_TAGS;
+            return tags;
+        } catch (final UnrecognizedUserAgentException e) {
+            return UNRECOGNIZED_TAGS;
+        }
     }
 
-    private static boolean allowVersion(final String platform, final String version) {
-        final Pair<String, String> platformAndVersion = new Pair<>(platform, version);
+    private static boolean allowVersion(final ClientPlatform platform, final Semver version) {
+        final Pair<ClientPlatform, Semver> platformAndVersion = new Pair<>(platform, version);
 
         synchronized (SEEN_VERSIONS) {
             return SEEN_VERSIONS.contains(platformAndVersion) || (SEEN_VERSIONS.size() < MAX_VERSIONS && SEEN_VERSIONS.add(platformAndVersion));
