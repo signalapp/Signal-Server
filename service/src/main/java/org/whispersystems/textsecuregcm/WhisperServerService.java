@@ -106,7 +106,6 @@ import org.whispersystems.textsecuregcm.push.GCMSender;
 import org.whispersystems.textsecuregcm.push.ProvisioningManager;
 import org.whispersystems.textsecuregcm.push.PushSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
-import org.whispersystems.textsecuregcm.push.WebsocketSender;
 import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
@@ -313,7 +312,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     PubSubManager              pubSubManager              = new PubSubManager(pubsubClient, dispatchManager);
     APNSender                  apnSender                  = new APNSender(accountsManager, config.getApnConfiguration());
     GCMSender                  gcmSender                  = new GCMSender(accountsManager, config.getGcmConfiguration().getApiKey());
-    WebsocketSender            websocketSender            = new WebsocketSender(messagesManager, clientPresenceManager);
     RateLimiters               rateLimiters               = new RateLimiters(config.getLimitsConfiguration(), cacheCluster);
     ProvisioningManager        provisioningManager        = new ProvisioningManager(pubSubManager);
 
@@ -331,7 +329,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ApnFallbackManager       apnFallbackManager = new ApnFallbackManager(pushSchedulerClient, apnSender, accountsManager);
     TwilioSmsSender          twilioSmsSender    = new TwilioSmsSender(config.getTwilioConfiguration());
     SmsSender                smsSender          = new SmsSender(twilioSmsSender);
-    PushSender               pushSender         = new PushSender(apnFallbackManager, gcmSender, apnSender, websocketSender, config.getPushConfiguration().getQueueSize(), pushLatencyManager);
+    PushSender               pushSender         = new PushSender(apnFallbackManager, clientPresenceManager, messagesManager, gcmSender, apnSender, config.getPushConfiguration().getQueueSize(), pushLatencyManager);
     ReceiptSender            receiptSender      = new ReceiptSender(accountsManager, pushSender);
     TurnTokenGenerator       turnTokenGenerator = new TurnTokenGenerator(config.getTurnConfiguration());
     RecaptchaClient          recaptchaClient    = new RecaptchaClient(config.getRecaptchaConfiguration().getSecret());

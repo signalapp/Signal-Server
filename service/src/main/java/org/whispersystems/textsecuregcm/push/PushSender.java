@@ -18,17 +18,21 @@ package org.whispersystems.textsecuregcm.push;
 
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.SharedMetricRegistries;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.google.common.annotations.VisibleForTesting;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
 import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.BlockingThreadPoolExecutor;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Util;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -37,33 +41,60 @@ import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 
 public class PushSender implements Managed {
 
-  @SuppressWarnings("unused")
-  private final Logger logger = LoggerFactory.getLogger(PushSender.class);
-
   private final ApnFallbackManager         apnFallbackManager;
+  private final ClientPresenceManager      clientPresenceManager;
+  private final MessagesManager            messagesManager;
   private final GCMSender                  gcmSender;
   private final APNSender                  apnSender;
-  private final WebsocketSender            webSocketSender;
-  private final BlockingThreadPoolExecutor executor;
+  private final ExecutorService            executor;
   private final int                        queueSize;
   private final PushLatencyManager         pushLatencyManager;
 
-  public PushSender(ApnFallbackManager apnFallbackManager,
-                    GCMSender gcmSender, APNSender apnSender,
-                    WebsocketSender websocketSender, int queueSize,
-                    PushLatencyManager pushLatencyManager)
+  private static final String SEND_COUNTER_NAME      = name(PushSender.class, "sendMessage");
+  private static final String CHANNEL_TAG_NAME       = "channel";
+  private static final String EPHEMERAL_TAG_NAME     = "ephemeral";
+  private static final String CLIENT_ONLINE_TAG_NAME = "clientOnline";
+
+  public PushSender(ApnFallbackManager    apnFallbackManager,
+                    ClientPresenceManager clientPresenceManager,
+                    MessagesManager       messagesManager,
+                    GCMSender             gcmSender,
+                    APNSender             apnSender,
+                    int                   queueSize,
+                    PushLatencyManager    pushLatencyManager)
   {
-    this.apnFallbackManager = apnFallbackManager;
-    this.gcmSender          = gcmSender;
-    this.apnSender          = apnSender;
-    this.webSocketSender    = websocketSender;
-    this.queueSize          = queueSize;
-    this.executor           = new BlockingThreadPoolExecutor("pushSender", 50, queueSize);
-    this.pushLatencyManager = pushLatencyManager;
+    this(apnFallbackManager,
+         clientPresenceManager,
+         messagesManager,
+         gcmSender,
+         apnSender,
+         queueSize,
+         new BlockingThreadPoolExecutor("pushSender", 50, queueSize),
+         pushLatencyManager);
 
     SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME)
                           .register(name(PushSender.class, "send_queue_depth"),
-                                    (Gauge<Integer>) executor::getSize);
+                                    (Gauge<Integer>) ((BlockingThreadPoolExecutor)executor)::getSize);
+  }
+
+  @VisibleForTesting
+  PushSender(ApnFallbackManager    apnFallbackManager,
+             ClientPresenceManager clientPresenceManager,
+             MessagesManager       messagesManager,
+             GCMSender             gcmSender,
+             APNSender             apnSender,
+             int                   queueSize,
+             ExecutorService       executor,
+             PushLatencyManager    pushLatencyManager) {
+
+    this.apnFallbackManager    = apnFallbackManager;
+    this.clientPresenceManager = clientPresenceManager;
+    this.messagesManager       = messagesManager;
+    this.gcmSender             = gcmSender;
+    this.apnSender             = apnSender;
+    this.queueSize             = queueSize;
+    this.executor              = executor;
+    this.pushLatencyManager    = pushLatencyManager;
   }
 
   public void sendMessage(final Account account, final Device device, final Envelope message, boolean online)
@@ -80,19 +111,44 @@ public class PushSender implements Managed {
     }
   }
 
-  private void sendSynchronousMessage(Account account, Device device, Envelope message, boolean online) {
-    if      (device.getGcmId() != null)   sendGcmMessage(account, device, message, online);
-    else if (device.getApnId() != null)   sendApnMessage(account, device, message, online);
-    else if (device.getFetchesMessages()) sendWebSocketMessage(account, device, message, online);
-    else                                  throw new AssertionError();
-  }
+  @VisibleForTesting
+  void sendSynchronousMessage(Account account, Device device, Envelope message, boolean online) {
+    final String channel;
 
-  private void sendGcmMessage(Account account, Device device, Envelope message, boolean online) {
-    final boolean delivered = webSocketSender.sendMessage(account, device, message, WebsocketSender.Type.GCM, online);
-
-    if (!delivered && !online) {
-      sendGcmNotification(account, device);
+    if (device.getGcmId() != null) {
+      channel = "gcm";
+    } else if (device.getApnId() != null) {
+      channel = "apn";
+    } else if (device.getFetchesMessages()) {
+      channel = "websocket";
+    } else {
+      throw new AssertionError();
     }
+
+    final boolean clientPresent = clientPresenceManager.isPresent(account.getUuid(), device.getId());
+
+    if (online) {
+      if (clientPresent) {
+        messagesManager.insertEphemeral(account.getUuid(), device.getId(), message);
+      }
+    } else {
+      messagesManager.insert(account.getUuid(), device.getId(), message);
+
+      if (!clientPresent) {
+        if (!Util.isEmpty(device.getGcmId())) {
+          sendGcmNotification(account, device);
+        } else if (!Util.isEmpty(device.getApnId()) || !Util.isEmpty(device.getVoipApnId())) {
+          sendApnNotification(account, device);
+        }
+      }
+    }
+
+    final List<Tag> tags = List.of(
+            Tag.of(CHANNEL_TAG_NAME, channel),
+            Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(online)),
+            Tag.of(CLIENT_ONLINE_TAG_NAME, String.valueOf(clientPresent)));
+
+    Metrics.counter(SEND_COUNTER_NAME, tags).increment();
   }
 
   private void sendGcmNotification(Account account, Device device) {
@@ -104,20 +160,8 @@ public class PushSender implements Managed {
     RedisOperation.unchecked(() -> pushLatencyManager.recordPushSent(account.getUuid(), device.getId()));
   }
 
-  private void sendApnMessage(Account account, Device device, Envelope outgoingMessage, boolean online) {
-    final boolean delivered = webSocketSender.sendMessage(account, device, outgoingMessage, WebsocketSender.Type.APN, online);
-
-    if (!delivered && outgoingMessage.getType() != Envelope.Type.RECEIPT && !online) {
-      sendApnNotification(account, device, false);
-    }
-  }
-
-  private void sendApnNotification(Account account, Device device, boolean newOnly) {
+  private void sendApnNotification(Account account, Device device) {
     ApnMessage apnMessage;
-
-    if (newOnly && RedisOperation.unchecked(() -> apnFallbackManager.isScheduled(account, device))) {
-      return;
-    }
 
     if (!Util.isEmpty(device.getVoipApnId())) {
       apnMessage = new ApnMessage(device.getVoipApnId(), account.getNumber(), device.getId(), true, Optional.empty());
@@ -131,13 +175,8 @@ public class PushSender implements Managed {
     RedisOperation.unchecked(() -> pushLatencyManager.recordPushSent(account.getUuid(), device.getId()));
   }
 
-  private void sendWebSocketMessage(Account account, Device device, Envelope outgoingMessage, boolean online)
-  {
-    webSocketSender.sendMessage(account, device, outgoingMessage, WebsocketSender.Type.WEB, online);
-  }
-
   @Override
-  public void start() throws Exception {
+  public void start() {
     apnSender.start();
     gcmSender.start();
   }
@@ -150,5 +189,4 @@ public class PushSender implements Managed {
     apnSender.stop();
     gcmSender.stop();
   }
-
 }
