@@ -19,12 +19,10 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
-import org.whispersystems.textsecuregcm.entities.UserCapabilities;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import javax.annotation.Nullable;
-import javax.validation.constraints.Null;
 import java.util.concurrent.TimeUnit;
 
 public class Device {
@@ -270,6 +268,9 @@ public class Device {
     @JsonProperty
     private boolean gv2;
 
+    @JsonProperty("gv2-2")
+    private boolean gv2_2;
+
     @JsonProperty
     private boolean storage;
 
@@ -278,14 +279,19 @@ public class Device {
 
     public DeviceCapabilities() {}
 
-    public DeviceCapabilities(boolean gv2, boolean storage, boolean transfer) {
+    public DeviceCapabilities(boolean gv2, final boolean gv2_2, boolean storage, boolean transfer) {
       this.gv2      = gv2;
+      this.gv2_2    = gv2_2;
       this.storage  = storage;
       this.transfer = transfer;
     }
 
     public boolean isGv2() {
       return gv2;
+    }
+
+    public boolean isGv2_2() {
+      return gv2_2;
     }
 
     public boolean isStorage() {

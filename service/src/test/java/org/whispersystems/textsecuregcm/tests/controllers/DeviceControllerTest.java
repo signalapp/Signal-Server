@@ -223,7 +223,7 @@ public class DeviceControllerTest {
 
   @Test
   public void deviceDowngradeCapabilitiesTest() throws Exception {
-    Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(false, true, false);
+    Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(false, false, true, false);
     AccountAttributes accountAttributes = new AccountAttributes("keykeykeykey", false, 1234, null, null, null, null, true, deviceCapabilities);
     Response response = resources.getJerseyTest()
             .target("/v1/devices/5678901")
