@@ -57,7 +57,6 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private final Account          account;
   private final Device           device;
   private final WebSocketClient  client;
-  private final String           connectionId;
 
   private final Semaphore                           processStoredMessagesSemaphore = new Semaphore(1);
   private final AtomicReference<StoredMessageState> storedMessageState             = new AtomicReference<>(StoredMessageState.PERSISTED_NEW_MESSAGES_AVAILABLE);
@@ -73,15 +72,13 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
                              MessagesManager messagesManager,
                              Account account,
                              Device device,
-                             WebSocketClient client,
-                             String connectionId)
+                             WebSocketClient client)
   {
     this.receiptSender   = receiptSender;
     this.messagesManager = messagesManager;
     this.account         = account;
     this.device          = device;
     this.client          = client;
-    this.connectionId    = connectionId;
   }
 
   public void start() {

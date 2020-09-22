@@ -90,8 +90,7 @@ public class WebSocketConnectionIntegrationTest extends AbstractRedisClusterTest
                 new MessagesManager(messages, messagesCache, mock(PushLatencyManager.class)),
                 account,
                 device,
-                webSocketClient,
-                "connection-id");
+                webSocketClient);
     }
 
     @After

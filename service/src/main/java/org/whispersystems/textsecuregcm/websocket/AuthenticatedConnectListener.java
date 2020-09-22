@@ -15,8 +15,6 @@ import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 import org.whispersystems.websocket.setup.WebSocketConnectListener;
 
-import java.security.SecureRandom;
-
 import static com.codahale.metrics.MetricRegistry.name;
 
 public class AuthenticatedConnectListener implements WebSocketConnectListener {
@@ -47,11 +45,10 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     if (context.getAuthenticated() != null) {
       final Account                 account        = context.getAuthenticated(Account.class);
       final Device                  device         = account.getAuthenticatedDevice().get();
-      final String                  connectionId   = String.valueOf(new SecureRandom().nextLong());
       final Timer.Context           timer          = durationTimer.time();
       final WebSocketConnection     connection     = new WebSocketConnection(receiptSender,
                                                                              messagesManager, account, device,
-                                                                             context.getClient(), connectionId);
+                                                                             context.getClient());
 
       openWebsocketCounter.inc();
       RedisOperation.unchecked(() -> apnFallbackManager.cancel(account, device));
