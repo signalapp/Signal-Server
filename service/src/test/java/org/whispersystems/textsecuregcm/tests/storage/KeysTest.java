@@ -271,6 +271,48 @@ public class KeysTest {
     assertThat(keys.getCount("+14152222222",2)).isEqualTo(80);
   }
 
+  @Test
+  public void testDelete() {
+    List<PreKey> deviceOnePreKeys = new LinkedList<>();
+    List<PreKey> deviceTwoPreKeys = new LinkedList<>();
+
+    List<PreKey> anotherDeviceOnePreKeys   = new LinkedList<>();
+    List<PreKey> anotherDeviceTwoPreKeys   = new LinkedList<>();
+    List<PreKey> anotherDeviceThreePreKeys = new LinkedList<>();
+
+    for (int i=1;i<=100;i++) {
+      deviceOnePreKeys.add(new PreKey(i, "+14152222222Device1PublicKey" + i));
+      deviceTwoPreKeys.add(new PreKey(i, "+14152222222Device2PublicKey" + i));
+    }
+
+    for (int i=1;i<=100;i++) {
+      anotherDeviceOnePreKeys.add(new PreKey(i, "+14151111111Device1PublicKey" + i));
+      anotherDeviceTwoPreKeys.add(new PreKey(i, "+14151111111Device2PublicKey" + i));
+      anotherDeviceThreePreKeys.add(new PreKey(i, "+14151111111Device3PublicKey" + i));
+    }
+
+    keys.store("+14152222222", 1, deviceOnePreKeys);
+    keys.store("+14152222222", 2, deviceTwoPreKeys);
+
+    keys.store("+14151111111", 1, anotherDeviceOnePreKeys);
+    keys.store("+14151111111", 2, anotherDeviceTwoPreKeys);
+    keys.store("+14151111111", 3, anotherDeviceThreePreKeys);
+
+
+    assertThat(keys.getCount("+14152222222", 1)).isEqualTo(100);
+    assertThat(keys.getCount("+14152222222", 2)).isEqualTo(100);
+    assertThat(keys.getCount("+14151111111", 1)).isEqualTo(100);
+    assertThat(keys.getCount("+14151111111", 2)).isEqualTo(100);
+    assertThat(keys.getCount("+14151111111", 3)).isEqualTo(100);
+
+    keys.delete("+14152222222");
+
+    assertThat(keys.getCount("+14152222222", 1)).isEqualTo(0);
+    assertThat(keys.getCount("+14152222222", 2)).isEqualTo(0);
+    assertThat(keys.getCount("+14151111111", 1)).isEqualTo(100);
+    assertThat(keys.getCount("+14151111111", 2)).isEqualTo(100);
+    assertThat(keys.getCount("+14151111111", 3)).isEqualTo(100);
+  }
 
   @Test
   public void testEmptyKeyGet() {

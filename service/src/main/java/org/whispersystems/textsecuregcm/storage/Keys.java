@@ -106,6 +106,16 @@ public class Keys {
     }));
   }
 
+  public void delete(final String number) {
+    database.use(jdbi -> jdbi.useHandle(handle -> {
+      try (Timer.Context ignored = getCountTimer.time()) {
+        handle.createUpdate("DELETE FROM keys WHERE number = :number")
+                .bind("number", number)
+                .execute();
+      }
+    }));
+  }
+
   public void vacuum() {
     database.use(jdbi -> jdbi.useHandle(handle -> {
       try (Timer.Context ignored = vacuumTimer.time()) {
