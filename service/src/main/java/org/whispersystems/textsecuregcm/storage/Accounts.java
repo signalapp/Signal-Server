@@ -48,6 +48,7 @@ public class Accounts {
   private final Timer          getByUuidTimer        = metricRegistry.timer(name(Accounts.class, "getByUuid"       ));
   private final Timer          getAllFromTimer       = metricRegistry.timer(name(Accounts.class, "getAllFrom"      ));
   private final Timer          getAllFromOffsetTimer = metricRegistry.timer(name(Accounts.class, "getAllFromOffset"));
+  private final Timer          deleteTimer           = metricRegistry.timer(name(Accounts.class, "delete"          ));
   private final Timer          vacuumTimer           = metricRegistry.timer(name(Accounts.class, "vacuum"          ));
 
   private final FaultTolerantDatabase database;
@@ -130,6 +131,16 @@ public class Accounts {
                      .bind("limit", length)
                      .mapTo(Account.class)
                      .list();
+      }
+    }));
+  }
+
+  public void delete(final UUID uuid) {
+    database.use(jdbi -> jdbi.useHandle(handle -> {
+      try (Timer.Context ignored = deleteTimer.time()) {
+        handle.createUpdate("DELETE FROM accounts WHERE " + UID + " = :uuid")
+                .bind("uuid", uuid)
+                .execute();
       }
     }));
   }
