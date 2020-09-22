@@ -70,6 +70,10 @@ public class DirectoryQueue {
     sendMessage(account.isEnabled() && account.isDiscoverableByPhoneNumber() ? "add" : "delete", account.getUuid(), account.getNumber());
   }
 
+  public void deleteAccount(final Account account) {
+    sendMessage("delete", account.getUuid(), account.getNumber());
+  }
+
   private void sendMessage(String action, UUID uuid, String number) {
     final Map<String, MessageAttributeValue> messageAttributes = new HashMap<>();
     messageAttributes.put("id", new MessageAttributeValue().withDataType("String").withStringValue(number));

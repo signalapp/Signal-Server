@@ -29,6 +29,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -51,19 +52,30 @@ public class AccountsManager {
   private static final Timer redisSetTimer       = metricRegistry.timer(name(AccountsManager.class, "redisSet"      ));
   private static final Timer redisNumberGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisNumberGet"));
   private static final Timer redisUuidGetTimer   = metricRegistry.timer(name(AccountsManager.class, "redisUuidGet"  ));
+  private static final Timer redisDeleteTimer    = metricRegistry.timer(name(AccountsManager.class, "redisDelete"   ));
 
   private final Logger logger = LoggerFactory.getLogger(AccountsManager.class);
 
   private final Accounts                  accounts;
   private final FaultTolerantRedisCluster cacheCluster;
   private final DirectoryManager          directory;
+  private final DirectoryQueue            directoryQueue;
+  private final Keys                      keys;
+  private final MessagesManager           messagesManager;
+  private final UsernamesManager          usernamesManager;
+  private final ProfilesManager           profilesManager;
   private final ObjectMapper              mapper;
 
-  public AccountsManager(Accounts accounts, DirectoryManager directory, FaultTolerantRedisCluster cacheCluster) {
-    this.accounts               = accounts;
-    this.directory              = directory;
-    this.cacheCluster           = cacheCluster;
-    this.mapper                 = SystemMapper.getMapper();
+  public AccountsManager(Accounts accounts, DirectoryManager directory, FaultTolerantRedisCluster cacheCluster, final DirectoryQueue directoryQueue, final Keys keys, final MessagesManager messagesManager, final UsernamesManager usernamesManager, final ProfilesManager profilesManager) {
+    this.accounts         = accounts;
+    this.directory        = directory;
+    this.cacheCluster     = cacheCluster;
+    this.directoryQueue   = directoryQueue;
+    this.keys             = keys;
+    this.messagesManager  = messagesManager;
+    this.usernamesManager = usernamesManager;
+    this.profilesManager  = profilesManager;
+    this.mapper           = SystemMapper.getMapper();
   }
 
   public boolean create(Account account) {
@@ -123,6 +135,17 @@ public class AccountsManager {
 
   public List<Account> getAllFrom(UUID uuid, int length) {
     return accounts.getAllFrom(uuid, length);
+  }
+
+  public void delete(final Account account) {
+    usernamesManager.delete(account.getUuid());
+    directoryQueue.deleteAccount(account);
+    directory.remove(account.getNumber());
+    profilesManager.deleteAll(account.getUuid());
+    keys.delete(account.getNumber());
+    messagesManager.clear(account.getNumber(), account.getUuid());
+    redisDelete(account);
+    databaseDelete(account);
   }
 
   private void updateDirectory(Account account) {
@@ -194,6 +217,12 @@ public class AccountsManager {
     }
   }
 
+  private void redisDelete(final Account account) {
+    try (final Timer.Context ignored = redisDeleteTimer.time()) {
+      cacheCluster.useCluster(connection -> connection.sync().del(getAccountMapKey(account.getNumber()), getAccountEntityKey(account.getUuid())));
+    }
+  }
+
   private Optional<Account> databaseGet(String number) {
     return accounts.get(number);
   }
@@ -208,5 +237,9 @@ public class AccountsManager {
 
   private void databaseUpdate(Account account) {
     accounts.update(account);
+  }
+
+  private void databaseDelete(final Account account) {
+    accounts.delete(account.getUuid());
   }
 }

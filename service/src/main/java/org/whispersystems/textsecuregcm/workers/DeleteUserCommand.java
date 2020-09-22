@@ -11,7 +11,7 @@ import org.jdbi.v3.core.Jdbi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
-import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
+import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
 import org.whispersystems.textsecuregcm.providers.RedisClientFactory;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
@@ -19,13 +19,22 @@ import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager;
 import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
-import org.whispersystems.textsecuregcm.util.Base64;
+import org.whispersystems.textsecuregcm.storage.Keys;
+import org.whispersystems.textsecuregcm.storage.Messages;
+import org.whispersystems.textsecuregcm.storage.MessagesCache;
+import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import org.whispersystems.textsecuregcm.storage.Profiles;
+import org.whispersystems.textsecuregcm.storage.ProfilesManager;
+import org.whispersystems.textsecuregcm.storage.ReservedUsernames;
+import org.whispersystems.textsecuregcm.storage.Usernames;
+import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 
-import java.security.SecureRandom;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+
+import static com.codahale.metrics.MetricRegistry.name;
 
 public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfiguration> {
 
@@ -64,39 +73,40 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
 
       JdbiFactory           jdbiFactory     = new JdbiFactory();
       Jdbi                  accountJdbi     = jdbiFactory.build(environment, configuration.getAccountsDatabaseConfiguration(), "accountdb");
+      Jdbi                  messageJdbi     = jdbiFactory.build(environment, configuration.getMessageStoreConfiguration(), "messagedb" );
       FaultTolerantDatabase accountDatabase = new FaultTolerantDatabase("account_database_delete_user", accountJdbi, configuration.getAccountsDatabaseConfiguration().getCircuitBreakerConfiguration());
+      FaultTolerantDatabase messageDatabase = new FaultTolerantDatabase("message_database", messageJdbi, configuration.getMessageStoreConfiguration().getCircuitBreakerConfiguration());
 
       FaultTolerantRedisCluster cacheCluster = new FaultTolerantRedisCluster("main_cache_cluster", configuration.getCacheClusterConfiguration());
 
-      Accounts            accounts        = new Accounts(accountDatabase);
-      ReplicatedJedisPool redisClient     = new RedisClientFactory("directory_cache_delete_command", configuration.getDirectoryConfiguration().getRedisConfiguration().getUrl(), configuration.getDirectoryConfiguration().getRedisConfiguration().getReplicaUrls(), configuration.getDirectoryConfiguration().getRedisConfiguration().getCircuitBreakerConfiguration()).getRedisClientPool();
-      DirectoryQueue      directoryQueue  = new DirectoryQueue  (configuration.getDirectoryConfiguration().getSqsConfiguration());
-      DirectoryManager    directory       = new DirectoryManager(redisClient                                                    );
-      AccountsManager     accountsManager = new AccountsManager(accounts, directory, cacheCluster);
+      ExecutorService keyspaceNotificationDispatchExecutor = environment.lifecycle().executorService(name(getClass(), "keyspaceNotification-%d")).maxThreads(4).build();
+
+      Accounts                  accounts             = new Accounts(accountDatabase);
+      Usernames                 usernames            = new Usernames(accountDatabase);
+      Profiles                  profiles             = new Profiles(accountDatabase);
+      ReservedUsernames         reservedUsernames    = new ReservedUsernames(accountDatabase);
+      Keys                      keys                 = new Keys(accountDatabase);
+      Messages                  messages             = new Messages(messageDatabase);
+      ReplicatedJedisPool       redisClient          = new RedisClientFactory("directory_cache_delete_command", configuration.getDirectoryConfiguration().getRedisConfiguration().getUrl(), configuration.getDirectoryConfiguration().getRedisConfiguration().getReplicaUrls(), configuration.getDirectoryConfiguration().getRedisConfiguration().getCircuitBreakerConfiguration()).getRedisClientPool();
+      FaultTolerantRedisCluster messagesCacheCluster = new FaultTolerantRedisCluster("messages_cluster", configuration.getMessageCacheConfiguration().getRedisClusterConfiguration());
+      FaultTolerantRedisCluster metricsCluster       = new FaultTolerantRedisCluster("metrics_cluster", configuration.getMetricsClusterConfiguration());
+      MessagesCache             messagesCache        = new MessagesCache(messagesCacheCluster, keyspaceNotificationDispatchExecutor);
+      PushLatencyManager        pushLatencyManager   = new PushLatencyManager(metricsCluster);
+      DirectoryQueue            directoryQueue       = new DirectoryQueue  (configuration.getDirectoryConfiguration().getSqsConfiguration());
+      DirectoryManager          directory            = new DirectoryManager(redisClient                                                    );
+      UsernamesManager          usernamesManager     = new UsernamesManager(usernames, reservedUsernames, cacheCluster);
+      ProfilesManager           profilesManager      = new ProfilesManager(profiles, cacheCluster);
+      MessagesManager           messagesManager      = new MessagesManager(messages, messagesCache, pushLatencyManager);
+      AccountsManager           accountsManager      = new AccountsManager(accounts, directory, cacheCluster, directoryQueue, keys, messagesManager, usernamesManager, profilesManager);
 
       for (String user: users) {
         Optional<Account> account = accountsManager.get(user);
 
         if (account.isPresent()) {
-          Optional<Device> device = account.get().getDevice(1);
-
-          if (device.isPresent()) {
-            byte[] random = new byte[16];
-            new SecureRandom().nextBytes(random);
-
-            device.get().setGcmId(null);
-            device.get().setFetchesMessages(false);
-            device.get().setAuthenticationCredentials(new AuthenticationCredentials(Base64.encodeBytes(random)));
-
-            accountsManager.update(account.get());
-            directoryQueue.refreshRegisteredUser(account.get());
-
-            logger.warn("Removed " + account.get().getNumber());
-          } else {
-            logger.warn("No primary device found...");
-          }
+          accountsManager.delete(account.get());
+          logger.warn("Removed " + account.get().getNumber());
         } else {
-          logger.warn("Account not found...");
+          logger.warn("Account not found");
         }
       }
     } catch (Exception ex) {
