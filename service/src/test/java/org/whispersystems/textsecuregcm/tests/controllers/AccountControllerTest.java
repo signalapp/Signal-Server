@@ -3,10 +3,13 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
@@ -76,6 +79,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+@RunWith(JUnitParamsRunner.class)
 public class AccountControllerTest {
 
   private static final String SENDER             = "+14152222222";
@@ -1063,10 +1067,11 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testWhoAmI() {
+  @Parameters({"/v1/accounts/whoami/", "/v1/accounts/me/"})
+  public void testWhoAmI(final String path) {
     AccountCreationResult response =
         resources.getJerseyTest()
-                 .target("/v1/accounts/whoami/")
+                 .target(path)
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                  .get(AccountCreationResult.class);
@@ -1170,5 +1175,18 @@ public class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(204);
     verify(directoryQueue, times(1)).refreshRegisteredUser(AuthHelper.VALID_ACCOUNT);
+  }
+
+  @Test
+  public void testDeleteAccount() {
+    Response response =
+            resources.getJerseyTest()
+                     .target("/v1/accounts/me")
+                     .request()
+                     .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                     .delete();
+
+    assertThat(response.getStatus()).isEqualTo(204);
+    verify(accountsManager).delete(AuthHelper.VALID_ACCOUNT);
   }
 }
