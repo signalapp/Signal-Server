@@ -123,10 +123,8 @@ public class MessagePersister implements Managed {
                 do {
                     messages = messagesCache.getMessagesToPersist(accountUuid, deviceId, MESSAGE_BATCH_LIMIT);
 
-                    for (final MessageProtos.Envelope message : messages) {
-                        messagesManager.persistMessage(accountNumber, accountUuid, message, UUID.fromString(message.getServerGuid()), deviceId);
-                        messageCount++;
-                    }
+                    messagesManager.persistMessages(accountNumber, accountUuid, deviceId, messages);
+                    messageCount += messages.size();
                 } while (!messages.isEmpty());
 
                 queueSizeHistogram.update(messageCount);

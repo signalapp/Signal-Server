@@ -5,12 +5,14 @@ import io.lettuce.core.cluster.SlotHash;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -18,14 +20,15 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -67,17 +70,19 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
         messagePersister            = new MessagePersister(messagesCache, messagesManager, accountsManager, scheduledExecutorService, PERSIST_DELAY);
 
         doAnswer(invocation -> {
-            final String destination             = invocation.getArgument(0, String.class);
-            final UUID destinationUuid           = invocation.getArgument(1, UUID.class);
-            final MessageProtos.Envelope message = invocation.getArgument(2, MessageProtos.Envelope.class);
-            final UUID messageGuid               = invocation.getArgument(3, UUID.class);
-            final long deviceId                  = invocation.getArgument(4, Long.class);
+            final String destination                    = invocation.getArgument(0, String.class);
+            final UUID destinationUuid                  = invocation.getArgument(1, UUID.class);
+            final long deviceId                         = invocation.getArgument(2, Long.class);
+            final List<MessageProtos.Envelope> messages = invocation.getArgument(3, List.class);
 
-            messagesDatabase.store(messageGuid, message, destination, deviceId);
-            messagesCache.remove(destinationUuid, deviceId, messageGuid);
+            messagesDatabase.store(messages, destination, deviceId);
+
+            for (final MessageProtos.Envelope message : messages) {
+                messagesCache.remove(destinationUuid, deviceId, UUID.fromString(message.getServerGuid()));
+            }
 
             return null;
-        }).when(messagesManager).persistMessage(anyString(), any(UUID.class), any(MessageProtos.Envelope.class), any(UUID.class), anyLong());
+        }).when(messagesManager).persistMessages(anyString(), any(UUID.class), anyLong(), any());
     }
 
     @Override
@@ -109,7 +114,10 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
 
         messagePersister.persistNextQueues(now.plus(messagePersister.getPersistDelay()));
 
-        verify(messagesDatabase, times(messageCount)).store(any(UUID.class), any(MessageProtos.Envelope.class), eq(DESTINATION_ACCOUNT_NUMBER), eq(DESTINATION_DEVICE_ID));
+        final ArgumentCaptor<List<MessageProtos.Envelope>> messagesCaptor = ArgumentCaptor.forClass(List.class);
+
+        verify(messagesDatabase, atLeastOnce()).store(messagesCaptor.capture(), eq(DESTINATION_ACCOUNT_NUMBER), eq(DESTINATION_DEVICE_ID));
+        assertEquals(messageCount, messagesCaptor.getAllValues().stream().mapToInt(List::size).sum());
     }
 
     @Test
@@ -123,7 +131,7 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
 
         messagePersister.persistNextQueues(now);
 
-        verify(messagesDatabase, never()).store(any(UUID.class), any(MessageProtos.Envelope.class), anyString(), anyLong());
+        verify(messagesDatabase, never()).store(any(), anyString(), anyLong());
     }
 
     @Test
@@ -151,7 +159,10 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
 
         messagePersister.persistNextQueues(now.plus(messagePersister.getPersistDelay()));
 
-        verify(messagesDatabase, times(queueCount * messagesPerQueue)).store(any(UUID.class), any(MessageProtos.Envelope.class), anyString(), anyLong());
+        final ArgumentCaptor<List<MessageProtos.Envelope>> messagesCaptor = ArgumentCaptor.forClass(List.class);
+
+        verify(messagesDatabase, atLeastOnce()).store(messagesCaptor.capture(), anyString(), anyLong());
+        assertEquals(queueCount * messagesPerQueue, messagesCaptor.getAllValues().stream().mapToInt(List::size).sum());
     }
 
     @SuppressWarnings("SameParameterValue")

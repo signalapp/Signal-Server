@@ -117,9 +117,12 @@ public class MessagesManager {
     }
   }
 
-  public void persistMessage(String destination, UUID destinationUuid, Envelope envelope, UUID messageGuid, long deviceId) {
-    messages.store(messageGuid, envelope, destination, deviceId);
-    messagesCache.remove(destinationUuid, deviceId, messageGuid);
+  public void persistMessages(final String destination, final UUID destinationUuid, final long destinationDeviceId, final List<Envelope> messages) {
+    this.messages.store(messages, destination, destinationDeviceId);
+
+    for (final Envelope message : messages) {
+      messagesCache.remove(destinationUuid, destinationDeviceId, UUID.fromString(message.getServerGuid()));
+    }
   }
 
   public void addMessageAvailabilityListener(final UUID destinationUuid, final long deviceId, final MessageAvailabilityListener listener) {

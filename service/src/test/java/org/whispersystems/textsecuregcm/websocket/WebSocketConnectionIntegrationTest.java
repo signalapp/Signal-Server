@@ -63,6 +63,8 @@ public class WebSocketConnectionIntegrationTest extends AbstractRedisClusterTest
     private WebSocketClient webSocketClient;
     private WebSocketConnection webSocketConnection;
 
+    private long serialTimestamp = System.currentTimeMillis();
+
     @Before
     public void setupAccountsDao() {
     }
@@ -108,12 +110,17 @@ public class WebSocketConnectionIntegrationTest extends AbstractRedisClusterTest
 
         final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(persistedMessageCount + cachedMessageCount);
 
-        for (int i = 0; i < persistedMessageCount; i++) {
-            final UUID messageGuid = UUID.randomUUID();
-            final MessageProtos.Envelope envelope = generateRandomMessage(messageGuid);
+        {
+            final List<MessageProtos.Envelope> persistedMessages = new ArrayList<>(persistedMessageCount);
 
-            messages.store(messageGuid, envelope, account.getNumber(), device.getId());
-            expectedMessages.add(envelope.toBuilder().clearServerGuid().build());
+            for (int i = 0; i < persistedMessageCount; i++) {
+                final MessageProtos.Envelope envelope = generateRandomMessage(UUID.randomUUID());
+
+                persistedMessages.add(envelope);
+                expectedMessages.add(envelope.toBuilder().clearServerGuid().build());
+            }
+
+            messages.store(persistedMessages, account.getNumber(), device.getId());
         }
 
         for (int i = 0; i < cachedMessageCount; i++) {
@@ -172,9 +179,14 @@ public class WebSocketConnectionIntegrationTest extends AbstractRedisClusterTest
         final int persistedMessageCount = 207;
         final int cachedMessageCount = 173;
 
-        for (int i = 0; i < persistedMessageCount; i++) {
-            final UUID messageGuid = UUID.randomUUID();
-            messages.store(messageGuid, generateRandomMessage(messageGuid), account.getNumber(), device.getId());
+        {
+            final List<MessageProtos.Envelope> persistedMessages = new ArrayList<>(persistedMessageCount);
+
+            for (int i = 0; i < persistedMessageCount; i++) {
+                persistedMessages.add(generateRandomMessage(UUID.randomUUID()));
+            }
+
+            messages.store(persistedMessages, account.getNumber(), device.getId());
         }
 
         for (int i = 0; i < cachedMessageCount; i++) {
@@ -191,9 +203,11 @@ public class WebSocketConnectionIntegrationTest extends AbstractRedisClusterTest
     }
 
     private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid) {
+        final long timestamp = serialTimestamp++;
+
         return MessageProtos.Envelope.newBuilder()
-                .setTimestamp(System.currentTimeMillis())
-                .setServerTimestamp(System.currentTimeMillis())
+                .setTimestamp(timestamp)
+                .setServerTimestamp(timestamp)
                 .setContent(ByteString.copyFromUtf8(RandomStringUtils.randomAlphanumeric(256)))
                 .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
                 .setServerGuid(messageGuid.toString())
