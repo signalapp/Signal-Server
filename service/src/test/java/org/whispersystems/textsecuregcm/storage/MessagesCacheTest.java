@@ -24,6 +24,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -111,6 +112,39 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
 
         assertTrue(maybeRemovedMessage.isPresent());
         assertEquals(MessagesCache.constructEntityFromEnvelope(0, message), maybeRemovedMessage.get());
+    }
+
+    @Test
+    @Parameters({"true", "false"})
+    public void testRemoveBatchByUUID(final boolean sealedSender) {
+        final int messageCount = 10;
+
+        final List<MessageProtos.Envelope> messagesToRemove = new ArrayList<>(messageCount);
+        final List<MessageProtos.Envelope> messagesToPreserve = new ArrayList<>(messageCount);
+
+        for (int i = 0; i < 10; i++) {
+            messagesToRemove.add(generateRandomMessage(UUID.randomUUID(), sealedSender));
+            messagesToPreserve.add(generateRandomMessage(UUID.randomUUID(), sealedSender));
+        }
+
+        assertEquals(Collections.emptyList(), messagesCache.remove(DESTINATION_UUID, DESTINATION_DEVICE_ID,
+                messagesToRemove.stream().map(message -> UUID.fromString(message.getServerGuid())).collect(Collectors.toList())));
+
+        for (final MessageProtos.Envelope message : messagesToRemove) {
+            messagesCache.insert(UUID.fromString(message.getServerGuid()), DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
+        }
+
+        for (final MessageProtos.Envelope message : messagesToPreserve) {
+            messagesCache.insert(UUID.fromString(message.getServerGuid()), DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
+        }
+
+        final List<OutgoingMessageEntity> removedMessages = messagesCache.remove(DESTINATION_UUID, DESTINATION_DEVICE_ID,
+                messagesToRemove.stream().map(message -> UUID.fromString(message.getServerGuid())).collect(Collectors.toList()));
+
+        assertEquals(messagesToRemove.stream().map(message -> MessagesCache.constructEntityFromEnvelope(0, message)).collect(Collectors.toList()),
+                     removedMessages);
+
+        assertEquals(messagesToPreserve, messagesCache.getMessagesToPersist(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount));
     }
 
     @Test

@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
@@ -94,7 +95,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         this.insertScript             = ClusterLuaScript.fromResource(redisCluster, "lua/insert_item.lua",           ScriptOutputType.INTEGER);
         this.removeByIdScript         = ClusterLuaScript.fromResource(redisCluster, "lua/remove_item_by_id.lua",     ScriptOutputType.VALUE);
         this.removeBySenderScript     = ClusterLuaScript.fromResource(redisCluster, "lua/remove_item_by_sender.lua", ScriptOutputType.VALUE);
-        this.removeByGuidScript       = ClusterLuaScript.fromResource(redisCluster, "lua/remove_item_by_guid.lua",   ScriptOutputType.VALUE);
+        this.removeByGuidScript       = ClusterLuaScript.fromResource(redisCluster, "lua/remove_item_by_guid.lua",   ScriptOutputType.MULTI);
         this.getItemsScript           = ClusterLuaScript.fromResource(redisCluster, "lua/get_items.lua",             ScriptOutputType.MULTI);
         this.removeQueueScript        = ClusterLuaScript.fromResource(redisCluster, "lua/remove_queue.lua",          ScriptOutputType.STATUS);
         this.getQueuesToPersistScript = ClusterLuaScript.fromResource(redisCluster, "lua/get_queues_to_persist.lua", ScriptOutputType.MULTI);
@@ -163,7 +164,6 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
                                                            getQueueIndexKey(destinationUuid, destinationDevice)),
                                                    List.of(String.valueOf(id).getBytes(StandardCharsets.UTF_8))));
 
-
             if (serialized != null) {
                 return Optional.of(constructEntityFromEnvelope(id, MessageProtos.Envelope.parseFrom(serialized)));
             }
@@ -193,21 +193,28 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     }
 
     public Optional<OutgoingMessageEntity> remove(final UUID destinationUuid, final long destinationDevice, final UUID messageGuid) {
-        try {
-            final byte[] serialized = (byte[])Metrics.timer(REMOVE_TIMER_NAME, REMOVE_METHOD_TAG, REMOVE_METHOD_UUID).record(() ->
-                    removeByGuidScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
-                                                             getMessageQueueMetadataKey(destinationUuid, destinationDevice),
-                                                             getQueueIndexKey(destinationUuid, destinationDevice)),
-                                                     List.of(messageGuid.toString().getBytes(StandardCharsets.UTF_8))));
+        return remove(destinationUuid, destinationDevice, List.of(messageGuid)).stream().findFirst();
+    }
 
-            if (serialized != null) {
-                return Optional.of(constructEntityFromEnvelope(0, MessageProtos.Envelope.parseFrom(serialized)));
+    @SuppressWarnings("unchecked")
+    public List<OutgoingMessageEntity> remove(final UUID destinationUuid, final long destinationDevice, final List<UUID> messageGuids) {
+        final List<byte[]> serialized = (List<byte[]>)Metrics.timer(REMOVE_TIMER_NAME, REMOVE_METHOD_TAG, REMOVE_METHOD_UUID).record(() ->
+                removeByGuidScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
+                                                         getMessageQueueMetadataKey(destinationUuid, destinationDevice),
+                                                         getQueueIndexKey(destinationUuid, destinationDevice)),
+                                                 messageGuids.stream().map(guid -> guid.toString().getBytes(StandardCharsets.UTF_8)).collect(Collectors.toList())));
+
+        final List<OutgoingMessageEntity> removedMessages = new ArrayList<>(serialized.size());
+
+        for (final byte[] bytes : serialized) {
+            try {
+                removedMessages.add(constructEntityFromEnvelope(0, MessageProtos.Envelope.parseFrom(bytes)));
+            } catch (final InvalidProtocolBufferException e) {
+                logger.warn("Failed to parse envelope", e);
             }
-        } catch (final InvalidProtocolBufferException e) {
-            logger.warn("Failed to parse envelope", e);
         }
 
-        return Optional.empty();
+        return removedMessages;
     }
 
     @SuppressWarnings("unchecked")
