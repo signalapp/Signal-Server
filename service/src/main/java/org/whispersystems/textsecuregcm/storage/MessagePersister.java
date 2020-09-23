@@ -10,13 +10,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.Util;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
@@ -26,10 +28,10 @@ public class MessagePersister implements Managed {
     private final MessagesManager messagesManager;
     private final AccountsManager accountsManager;
 
-    private final Duration persistDelay;
+    private final Duration        persistDelay;
 
-    private volatile boolean running = false;
-    private          Thread  workerThread;
+    private final ScheduledExecutorService scheduledExecutorService;
+    private       ScheduledFuture<?>       persistQueuesFuture;
 
     private final MetricRegistry metricRegistry         = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
     private final Timer          getQueuesTimer         = metricRegistry.timer(name(MessagePersister.class, "getQueues"));
@@ -44,11 +46,12 @@ public class MessagePersister implements Managed {
 
     private static final Logger logger = LoggerFactory.getLogger(MessagePersister.class);
 
-    public MessagePersister(final MessagesCache messagesCache, final MessagesManager messagesManager, final AccountsManager accountsManager, final Duration persistDelay) {
-        this.messagesCache       = messagesCache;
-        this.messagesManager     = messagesManager;
-        this.accountsManager     = accountsManager;
-        this.persistDelay        = persistDelay;
+    public MessagePersister(final MessagesCache messagesCache, final MessagesManager messagesManager, final AccountsManager accountsManager, final ScheduledExecutorService scheduledExecutorService, final Duration persistDelay) {
+        this.messagesCache            = messagesCache;
+        this.messagesManager          = messagesManager;
+        this.accountsManager          = accountsManager;
+        this.persistDelay             = persistDelay;
+        this.scheduledExecutorService = scheduledExecutorService;
     }
 
     @VisibleForTesting
@@ -58,25 +61,17 @@ public class MessagePersister implements Managed {
 
     @Override
     public void start() {
-        running = true;
+        if (persistQueuesFuture != null) {
+            persistQueuesFuture.cancel(false);
+        }
 
-        workerThread = new Thread(() -> {
-            while (running) {
-                persistNextQueues(Instant.now());
-                Util.sleep(100);
-            }
-        });
-
-        workerThread.start();
+        persistQueuesFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> this.persistNextQueues(Instant.now()), 0, 100, TimeUnit.MILLISECONDS);
     }
 
     @Override
-    public void stop() throws Exception {
-        running = false;
-
-        if (workerThread != null) {
-            workerThread.join();
-            workerThread = null;
+    public void stop() {
+        if (persistQueuesFuture != null) {
+            persistQueuesFuture.cancel(false);
         }
     }
 

@@ -15,6 +15,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -30,11 +31,12 @@ import static org.mockito.Mockito.when;
 
 public class MessagePersisterTest extends AbstractRedisClusterTest {
 
-    private ExecutorService  notificationExecutorService;
-    private MessagesCache    messagesCache;
-    private Messages         messagesDatabase;
-    private MessagePersister messagePersister;
-    private AccountsManager  accountsManager;
+    private ExecutorService          notificationExecutorService;
+    private ScheduledExecutorService scheduledExecutorService;
+    private MessagesCache            messagesCache;
+    private Messages                 messagesDatabase;
+    private MessagePersister         messagePersister;
+    private AccountsManager          accountsManager;
 
     private static final UUID   DESTINATION_ACCOUNT_UUID   = UUID.randomUUID();
     private static final String DESTINATION_ACCOUNT_NUMBER = "+18005551234";
@@ -60,8 +62,9 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
         when(account.getNumber()).thenReturn(DESTINATION_ACCOUNT_NUMBER);
 
         notificationExecutorService = Executors.newSingleThreadExecutor();
+        scheduledExecutorService    = Executors.newSingleThreadScheduledExecutor();
         messagesCache               = new MessagesCache(getRedisCluster(), notificationExecutorService);
-        messagePersister            = new MessagePersister(messagesCache, messagesManager, accountsManager, PERSIST_DELAY);
+        messagePersister            = new MessagePersister(messagesCache, messagesManager, accountsManager, scheduledExecutorService, PERSIST_DELAY);
 
         doAnswer(invocation -> {
             final String destination             = invocation.getArgument(0, String.class);
@@ -83,6 +86,9 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
 
         notificationExecutorService.shutdown();
         notificationExecutorService.awaitTermination(1, TimeUnit.SECONDS);
+
+        scheduledExecutorService.shutdown();
+        scheduledExecutorService.awaitTermination(1, TimeUnit.SECONDS);
     }
 
     @Test
@@ -98,7 +104,7 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
         final int     messageCount = (MessagePersister.MESSAGE_BATCH_LIMIT * 3) + 7;
         final Instant now          = Instant.now();
 
-        insertMessages(DESTINATION_ACCOUNT_UUID, DESTINATION_ACCOUNT_NUMBER, DESTINATION_DEVICE_ID, messageCount, now);
+        insertMessages(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID, messageCount, now);
         setNextSlotToPersist(SlotHash.getSlot(queueName));
 
         messagePersister.persistNextQueues(now.plus(messagePersister.getPersistDelay()));
@@ -112,7 +118,7 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
         final int     messageCount = (MessagePersister.MESSAGE_BATCH_LIMIT * 3) + 7;
         final Instant now          = Instant.now();
 
-        insertMessages(DESTINATION_ACCOUNT_UUID, DESTINATION_ACCOUNT_NUMBER, DESTINATION_DEVICE_ID, messageCount, now);
+        insertMessages(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID, messageCount, now);
         setNextSlotToPersist(SlotHash.getSlot(queueName));
 
         messagePersister.persistNextQueues(now);
@@ -138,7 +144,7 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
             when(accountsManager.get(accountUuid)).thenReturn(Optional.of(account));
             when(account.getNumber()).thenReturn(accountNumber);
 
-            insertMessages(accountUuid, accountNumber, deviceId, messagesPerQueue, now);
+            insertMessages(accountUuid, deviceId, messagesPerQueue, now);
         }
 
         setNextSlotToPersist(slot);
@@ -165,7 +171,7 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
         throw new IllegalStateException("Could not find a queue name for slot " + slot);
     }
 
-    private void insertMessages(final UUID accountUuid, final String accountNumber, final long deviceId, final int messageCount, final Instant firstMessageTimestamp) {
+    private void insertMessages(final UUID accountUuid, final long deviceId, final int messageCount, final Instant firstMessageTimestamp) {
         for (int i = 0; i < messageCount; i++) {
             final UUID messageGuid = UUID.randomUUID();
 
