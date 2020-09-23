@@ -55,7 +55,7 @@ public class MessagesManager {
 
     List<OutgoingMessageEntity> messages = cachedMessagesOnly ? new ArrayList<>() : this.messages.load(destination, destinationDevice);
 
-    if (messages.size() <= Messages.RESULT_SET_CHUNK_SIZE) {
+    if (messages.size() < Messages.RESULT_SET_CHUNK_SIZE) {
       messages.addAll(messagesCache.get(destinationUuid, destinationDevice, Messages.RESULT_SET_CHUNK_SIZE - messages.size()));
     }
 
