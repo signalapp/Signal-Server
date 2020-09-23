@@ -92,7 +92,7 @@ public class MessagePersister implements Managed {
             }
 
             queuesPersisted += queuesToPersist.size();
-        } while (queuesToPersist.size() == QUEUE_BATCH_LIMIT);
+        } while (queuesToPersist.size() >= QUEUE_BATCH_LIMIT);
 
         queueCountHistogram.update(queuesPersisted);
     }
