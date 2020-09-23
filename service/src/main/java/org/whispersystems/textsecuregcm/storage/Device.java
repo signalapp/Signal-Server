@@ -251,6 +251,14 @@ public class Device {
     return this.userAgent;
   }
 
+  public boolean isGroupsV2Supported() {
+    if (this.getGcmId() != null) {
+      return this.capabilities != null && (this.capabilities.isGv2() || this.capabilities.isGv2_2());
+    } else {
+      return this.capabilities != null && this.capabilities.isGv2_2();
+    }
+  }
+
   @Override
   public boolean equals(Object other) {
     if (other == null || !(other instanceof Device)) return false;

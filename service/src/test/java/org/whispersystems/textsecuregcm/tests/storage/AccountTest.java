@@ -51,15 +51,15 @@ public class AccountTest {
     when(oldSecondaryDevice.isEnabled()).thenReturn(false);
     when(oldSecondaryDevice.getId()).thenReturn(2L);
 
-    when(gv2CapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(true, false, true, true));
+    when(gv2CapableDevice.isGroupsV2Supported()).thenReturn(true);
     when(gv2CapableDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1));
     when(gv2CapableDevice.isEnabled()).thenReturn(true);
 
-    when(gv2IncapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(false, false, false, false));
+    when(gv2IncapableDevice.isGroupsV2Supported()).thenReturn(false);
     when(gv2IncapableDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1));
     when(gv2IncapableDevice.isEnabled()).thenReturn(true);
 
-    when(gv2IncapableExpiredDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(false, false, false, false));
+    when(gv2IncapableExpiredDevice.isGroupsV2Supported()).thenReturn(false);
     when(gv2IncapableExpiredDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31));
     when(gv2IncapableExpiredDevice.isEnabled()).thenReturn(false);
   }
@@ -182,64 +182,8 @@ public class AccountTest {
 
   @Test
   public void isGroupsV2Supported() {
-    {
-      final Device                    gv2CapableDevice       = mock(Device.class);
-      final Device                    secondGv2CapableDevice = mock(Device.class);
-      final Device.DeviceCapabilities gv2Capabilities        = mock(Device.DeviceCapabilities.class);
-      final Device.DeviceCapabilities secondGv2Capabilities  = mock(Device.DeviceCapabilities.class);
-
-      when(gv2CapableDevice.isEnabled()).thenReturn(true);
-      when(gv2CapableDevice.getCapabilities()).thenReturn(gv2Capabilities);
-      when(gv2Capabilities.isGv2()).thenReturn(true);
-
-      when(secondGv2CapableDevice.isEnabled()).thenReturn(true);
-      when(secondGv2CapableDevice.getCapabilities()).thenReturn(secondGv2Capabilities);
-      when(secondGv2Capabilities.isGv2()).thenReturn(true);
-
-      final Account account = new Account("+18005551234", UUID.randomUUID(), Set.of(gv2CapableDevice, secondGv2CapableDevice), "1234".getBytes(StandardCharsets.UTF_8));
-
-      assertTrue(account.isGroupsV2Supported());
-    }
-
-    {
-      final Device                    gv2CapableDevice    = mock(Device.class);
-      final Device                    nonGv2CapableDevice = mock(Device.class);
-      final Device.DeviceCapabilities gv2Capabilities     = mock(Device.DeviceCapabilities.class);
-      final Device.DeviceCapabilities nonGv2Capabilities  = mock(Device.DeviceCapabilities.class);
-
-      when(gv2CapableDevice.isEnabled()).thenReturn(true);
-      when(gv2CapableDevice.getCapabilities()).thenReturn(gv2Capabilities);
-      when(gv2Capabilities.isGv2()).thenReturn(true);
-
-      when(nonGv2CapableDevice.isEnabled()).thenReturn(true);
-      when(nonGv2CapableDevice.getCapabilities()).thenReturn(nonGv2Capabilities);
-      when(nonGv2Capabilities.isGv2()).thenReturn(false);
-
-      final Account account = new Account("+18005551234", UUID.randomUUID(), Set.of(gv2CapableDevice, nonGv2CapableDevice), "1234".getBytes(StandardCharsets.UTF_8));
-
-      assertFalse(account.isGroupsV2Supported());
-    }
-
-    {
-      final Device                    iosGv2Device      = mock(Device.class);
-      final Device                    iosGv2_2Device    = mock(Device.class);
-      final Device.DeviceCapabilities gv2Capabilities   = mock(Device.DeviceCapabilities.class);
-      final Device.DeviceCapabilities gv2_2Capabilities = mock(Device.DeviceCapabilities.class);
-
-      when(iosGv2Device.getApnId()).thenReturn("apn-id");
-      when(iosGv2Device.isEnabled()).thenReturn(true);
-      when(iosGv2Device.getCapabilities()).thenReturn(gv2Capabilities);
-      when(gv2Capabilities.isGv2()).thenReturn(true);
-      when(gv2Capabilities.isGv2_2()).thenReturn(false);
-
-      when(iosGv2Device.getApnId()).thenReturn("different-apn-id");
-      when(iosGv2_2Device.isEnabled()).thenReturn(true);
-      when(iosGv2_2Device.getCapabilities()).thenReturn(gv2_2Capabilities);
-      when(gv2_2Capabilities.isGv2()).thenReturn(true);
-      when(gv2_2Capabilities.isGv2_2()).thenReturn(true);
-
-      assertFalse(new Account("+18005551234", UUID.randomUUID(), Set.of(iosGv2Device, iosGv2_2Device), "1234".getBytes(StandardCharsets.UTF_8)).isGroupsV2Supported());
-      assertTrue(new Account("+18005551234", UUID.randomUUID(), Set.of(iosGv2_2Device), "1234".getBytes(StandardCharsets.UTF_8)).isGroupsV2Supported());
-    }
+    assertTrue(new Account("+18005551234", UUID.randomUUID(), Set.of(gv2CapableDevice), "1234".getBytes(StandardCharsets.UTF_8)).isGroupsV2Supported());
+    assertTrue(new Account("+18005551234", UUID.randomUUID(), Set.of(gv2CapableDevice, gv2IncapableExpiredDevice), "1234".getBytes(StandardCharsets.UTF_8)).isGroupsV2Supported());
+    assertFalse(new Account("+18005551234", UUID.randomUUID(), Set.of(gv2CapableDevice, gv2IncapableDevice), "1234".getBytes(StandardCharsets.UTF_8)).isGroupsV2Supported());
   }
 }

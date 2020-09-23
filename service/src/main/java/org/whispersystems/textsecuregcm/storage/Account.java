@@ -140,13 +140,7 @@ public class Account implements Principal  {
   public boolean isGroupsV2Supported() {
     return devices.stream()
                   .filter(Device::isEnabled)
-                  .allMatch(device -> {
-                    if (device.getApnId() != null || device.getVoipApnId() != null) {
-                      return device.getCapabilities() != null && device.getCapabilities().isGv2_2();
-                    } else {
-                      return device.getCapabilities() != null && (device.getCapabilities().isGv2() || device.getCapabilities().isGv2_2());
-                    }
-                  });
+                  .allMatch(Device::isGroupsV2Supported);
   }
 
   public boolean isStorageSupported() {
