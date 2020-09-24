@@ -242,6 +242,8 @@ public class DeviceController {
   }
 
   private boolean isCapabilityDowngrade(Account account, DeviceCapabilities capabilities) {
-    return (!capabilities.isGv2() && account.isGroupsV2Supported());
+    // Only iOS and desktop clients can be linked devices right now, and both require the second-gen GV2 capability to
+    // support GV2.
+    return (!capabilities.isGv2_2() && account.isGroupsV2Supported());
   }
 }
