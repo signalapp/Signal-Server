@@ -1,5 +1,6 @@
 package org.whispersystems.textsecuregcm.storage;
 
+import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
@@ -41,6 +42,7 @@ public class Messages {
   private final Timer          clearDeviceTimer    = metricRegistry.timer(name(Messages.class, "clearDevice"   ));
   private final Timer          clearTimer          = metricRegistry.timer(name(Messages.class, "clear"         ));
   private final Timer          vacuumTimer         = metricRegistry.timer(name(Messages.class, "vacuum"));
+  private final Meter          insertNullGuidMeter = metricRegistry.meter(name(Messages.class, "insertNullGuid"));
 
   private final FaultTolerantDatabase database;
 
@@ -50,6 +52,10 @@ public class Messages {
   }
 
   public void store(UUID guid, Envelope message, String destination, long destinationDevice) {
+    if (guid == null) {
+      insertNullGuidMeter.mark();
+    }
+
     database.use(jdbi ->jdbi.useHandle(handle -> {
       try (Timer.Context ignored = storeTimer.time()) {
         handle.createUpdate("INSERT INTO messages (" + GUID + ", " + TYPE + ", " + RELAY + ", " + TIMESTAMP + ", " + SERVER_TIMESTAMP + ", " + SOURCE + ", " + SOURCE_UUID + ", " + SOURCE_DEVICE + ", " + DESTINATION + ", " + DESTINATION_DEVICE + ", " + MESSAGE + ", " + CONTENT + ") " +
