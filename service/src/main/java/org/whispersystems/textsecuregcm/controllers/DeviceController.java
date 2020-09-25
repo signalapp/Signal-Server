@@ -58,6 +58,10 @@ import java.util.Map;
 import java.util.Optional;
 
 import io.dropwizard.auth.Auth;
+import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
+import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
+import org.whispersystems.textsecuregcm.util.ua.UserAgent;
+import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 
 @Path("/v1/devices")
 public class DeviceController {
@@ -156,6 +160,7 @@ public class DeviceController {
   @Path("/{verification_code}")
   public DeviceResponse verifyDeviceToken(@PathParam("verification_code") String verificationCode,
                                           @HeaderParam("Authorization")   String authorizationHeader,
+                                          @HeaderParam("User-Agent")      String userAgent,
                                           @Valid                          AccountAttributes accountAttributes)
       throws RateLimitExceededException, DeviceLimitExceededException
   {
@@ -191,7 +196,7 @@ public class DeviceController {
       }
 
       final DeviceCapabilities capabilities = accountAttributes.getCapabilities();
-      if (capabilities != null && isCapabilityDowngrade(account.get(), capabilities)) {
+      if (capabilities != null && isCapabilityDowngrade(account.get(), capabilities, userAgent)) {
         throw new WebApplicationException(Response.status(409).build());
       }
 
@@ -241,9 +246,42 @@ public class DeviceController {
     return new VerificationCode(randomInt);
   }
 
-  private boolean isCapabilityDowngrade(Account account, DeviceCapabilities capabilities) {
-    // Only iOS and desktop clients can be linked devices right now, and both require the second-gen GV2 capability to
-    // support GV2.
-    return (!capabilities.isGv2_2() && account.isGroupsV2Supported());
+  private boolean isCapabilityDowngrade(Account account, DeviceCapabilities capabilities, String userAgent) {
+    boolean isDowngrade = false;
+
+    if (account.isGroupsV2Supported()) {
+      try {
+        switch (UserAgentUtil.parseUserAgentString(userAgent).getPlatform()) {
+          case ANDROID: {
+            if (!capabilities.isGv2() && !capabilities.isGv2_2() && !capabilities.isGv2_3()) {
+              isDowngrade = true;
+            }
+
+            break;
+          }
+
+          case IOS: {
+            if (!capabilities.isGv2_2() && !capabilities.isGv2_3()) {
+              isDowngrade = true;
+            }
+
+            break;
+          }
+
+          case DESKTOP: {
+            if (!capabilities.isGv2_3()) {
+              isDowngrade = true;
+            }
+
+            break;
+          }
+        }
+      } catch (final UnrecognizedUserAgentException e) {
+        // If we can't parse the UA string, the client is for sure too old to support groups V2
+        isDowngrade = true;
+      }
+    }
+
+    return isDowngrade;
   }
 }

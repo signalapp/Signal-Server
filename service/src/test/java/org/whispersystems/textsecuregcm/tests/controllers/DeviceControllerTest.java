@@ -17,10 +17,13 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
 import com.google.common.collect.ImmutableSet;
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.controllers.DeviceController;
@@ -53,6 +56,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.*;
 
+@RunWith(JUnitParamsRunner.class)
 public class DeviceControllerTest {
   @Path("/v1/devices")
   static class DumbVerificationDeviceController extends DeviceController {
@@ -222,17 +226,42 @@ public class DeviceControllerTest {
   }
 
   @Test
-  public void deviceDowngradeCapabilitiesTest() throws Exception {
-    Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(false, false, false, true, false);
+  @Parameters(method = "argumentsForDeviceDowngradeCapabilitiesTest")
+  public void deviceDowngradeCapabilitiesTest(final String userAgent, final boolean gv2, final boolean gv2_2, final boolean gv2_3, final int expectedStatus) throws Exception {
+    Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(gv2, gv2_2, gv2_3, true, false);
     AccountAttributes accountAttributes = new AccountAttributes("keykeykeykey", false, 1234, null, null, null, null, true, deviceCapabilities);
     Response response = resources.getJerseyTest()
             .target("/v1/devices/5678901")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+            .header("User-Agent", userAgent)
             .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
 
-    assertThat(response.getStatus()).isEqualTo(409);
+    assertThat(response.getStatus()).isEqualTo(expectedStatus);
 
-    verifyNoMoreInteractions(messagesManager);
+    if (expectedStatus >= 300) {
+      verifyNoMoreInteractions(messagesManager);
+    }
+  }
+
+  private static Object argumentsForDeviceDowngradeCapabilitiesTest() {
+    return new Object[] {
+            new Object[] { "Signal-Android/4.68.3 Android/25", false, false, false, 409 },
+            new Object[] { "Signal-Android/4.68.3 Android/25", true,  false, false, 200 },
+            new Object[] { "Signal-Android/4.68.3 Android/25", false, true,  false, 200 },
+            new Object[] { "Signal-Android/4.68.3 Android/25", false, false, true,  200 },
+            new Object[] { "Signal-iOS/3.9.0",                 false, false, false, 409 },
+            new Object[] { "Signal-iOS/3.9.0",                 true,  false, false, 409 },
+            new Object[] { "Signal-iOS/3.9.0",                 false, true,  false, 200 },
+            new Object[] { "Signal-iOS/3.9.0",                 false, false, true,  200 },
+            new Object[] { "Signal-Desktop/1.32.0-beta.3",     false, false, false, 409 },
+            new Object[] { "Signal-Desktop/1.32.0-beta.3",     true,  false, false, 409 },
+            new Object[] { "Signal-Desktop/1.32.0-beta.3",     false, true,  false, 409 },
+            new Object[] { "Signal-Desktop/1.32.0-beta.3",     false, false, true,  200 },
+            new Object[] { "Old client with unparsable UA",    false, false, false, 409 },
+            new Object[] { "Old client with unparsable UA",    true,  false, false, 409 },
+            new Object[] { "Old client with unparsable UA",    false, true,  false, 409 },
+            new Object[] { "Old client with unparsable UA",    false, false, true,  409 }
+    };
   }
 }
