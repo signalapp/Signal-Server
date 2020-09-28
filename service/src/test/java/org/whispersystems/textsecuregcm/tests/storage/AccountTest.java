@@ -65,37 +65,28 @@ public class AccountTest {
   }
 
   @Test
-  public void testAccountActive() {
-    Account recentAccount = new Account("+14152222222", UUID.randomUUID(), new HashSet<Device>() {{
-      add(recentMasterDevice);
-      add(recentSecondaryDevice);
-    }}, "1234".getBytes());
+  public void testIsEnabled() {
+    final Device enabledMasterDevice  = mock(Device.class);
+    final Device enabledLinkedDevice  = mock(Device.class);
+    final Device disabledMasterDevice = mock(Device.class);
+    final Device disabledLinkedDevice = mock(Device.class);
 
-    assertTrue(recentAccount.isEnabled());
+    when(enabledMasterDevice.isEnabled()).thenReturn(true);
+    when(enabledLinkedDevice.isEnabled()).thenReturn(true);
+    when(disabledMasterDevice.isEnabled()).thenReturn(false);
+    when(disabledLinkedDevice.isEnabled()).thenReturn(false);
 
-    Account oldSecondaryAccount = new Account("+14152222222", UUID.randomUUID(), new HashSet<Device>() {{
-      add(recentMasterDevice);
-      add(agingSecondaryDevice);
-    }}, "1234".getBytes());
+    when(enabledMasterDevice.getId()).thenReturn(1L);
+    when(enabledLinkedDevice.getId()).thenReturn(2L);
+    when(disabledMasterDevice.getId()).thenReturn(1L);
+    when(disabledLinkedDevice.getId()).thenReturn(2L);
 
-    assertTrue(oldSecondaryAccount.isEnabled());
-
-    Account agingPrimaryAccount = new Account("+14152222222", UUID.randomUUID(), new HashSet<Device>() {{
-      add(oldMasterDevice);
-      add(agingSecondaryDevice);
-    }}, "1234".getBytes());
-
-    assertTrue(agingPrimaryAccount.isEnabled());
-  }
-
-  @Test
-  public void testAccountInactive() {
-    Account oldPrimaryAccount = new Account("+14152222222", UUID.randomUUID(), new HashSet<Device>() {{
-      add(oldMasterDevice);
-      add(oldSecondaryDevice);
-    }}, "1234".getBytes());
-
-    assertFalse(oldPrimaryAccount.isEnabled());
+    assertTrue( new Account("+14151234567", UUID.randomUUID(), Set.of(enabledMasterDevice),                        new byte[0]).isEnabled());
+    assertTrue( new Account("+14151234567", UUID.randomUUID(), Set.of(enabledMasterDevice, enabledLinkedDevice),   new byte[0]).isEnabled());
+    assertTrue( new Account("+14151234567", UUID.randomUUID(), Set.of(enabledMasterDevice, disabledLinkedDevice),  new byte[0]).isEnabled());
+    assertFalse(new Account("+14151234567", UUID.randomUUID(), Set.of(disabledMasterDevice),                       new byte[0]).isEnabled());
+    assertFalse(new Account("+14151234567", UUID.randomUUID(), Set.of(disabledMasterDevice, enabledLinkedDevice),  new byte[0]).isEnabled());
+    assertFalse(new Account("+14151234567", UUID.randomUUID(), Set.of(disabledMasterDevice, disabledLinkedDevice), new byte[0]).isEnabled());
   }
 
   @Test
