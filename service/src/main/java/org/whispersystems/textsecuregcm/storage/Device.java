@@ -255,13 +255,13 @@ public class Device {
     final boolean groupsV2Supported;
 
     if (this.capabilities != null) {
-      if (this.getGcmId() != null) {
-        groupsV2Supported = this.capabilities.isGv2() || this.capabilities.isGv2_2() || this.capabilities.isGv2_3();
-      } else if (this.apnId != null || this.voipApnId != null) {
-        groupsV2Supported = this.capabilities.isGv2_2() || this.capabilities.isGv2_3();
-      } else {
-        groupsV2Supported = this.capabilities.isGv2_3();
-      }
+      boolean ios     = this.apnId != null || this.voipApnId != null;
+      boolean android = isMaster() && !ios;
+
+      if      (android) groupsV2Supported = this.capabilities.isGv2()   || this.capabilities.isGv2_2() || this.capabilities.isGv2_3();
+      else if (ios)     groupsV2Supported = this.capabilities.isGv2_2() || this.capabilities.isGv2_3();
+      else              groupsV2Supported = this.capabilities.isGv2_3();
+
     } else {
       groupsV2Supported = false;
     }
