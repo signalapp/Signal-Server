@@ -4,11 +4,62 @@ import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+
+import java.time.Duration;
 
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.mock;
 
 @RunWith(JUnitParamsRunner.class)
 public class DeviceTest {
+
+    @Test
+    @Parameters(method = "argumentsForTestIsEnabled")
+    public void testIsEnabled(final boolean master, final boolean fetchesMessages, final String apnId, final String gcmId, final SignedPreKey signedPreKey, final Duration timeSinceLastSeen, final boolean expectEnabled) {
+        final long lastSeen = System.currentTimeMillis() - timeSinceLastSeen.toMillis();
+        final Device device = new Device(master ? 1 : 2, "test", "auth-token", "salt", "signaling-key", gcmId, apnId, null, fetchesMessages, 1, signedPreKey, lastSeen, lastSeen, "user-agent", 0, null);
+
+        assertEquals(expectEnabled, device.isEnabled());
+    }
+
+    private static Object argumentsForTestIsEnabled() {
+        return new Object[] {
+                //             master fetchesMessages apnId     gcmId     signedPreKey              lastSeen             expectEnabled
+                new Object[] { true,  false,          null,     null,     null,                     Duration.ofDays(60), false },
+                new Object[] { true,  false,          null,     null,     null,                     Duration.ofDays(1),  false },
+                new Object[] { true,  false,          null,     null,     mock(SignedPreKey.class), Duration.ofDays(60), false },
+                new Object[] { true,  false,          null,     null,     mock(SignedPreKey.class), Duration.ofDays(1),  false },
+                new Object[] { true,  false,          null,     "gcm-id", null,                     Duration.ofDays(60), false },
+                new Object[] { true,  false,          null,     "gcm-id", null,                     Duration.ofDays(1),  false },
+                new Object[] { true,  false,          null,     "gcm-id", mock(SignedPreKey.class), Duration.ofDays(60), true  },
+                new Object[] { true,  false,          null,     "gcm-id", mock(SignedPreKey.class), Duration.ofDays(1),  true  },
+                new Object[] { true,  false,          "apn-id", null,     null,                     Duration.ofDays(60), false },
+                new Object[] { true,  false,          "apn-id", null,     null,                     Duration.ofDays(1),  false },
+                new Object[] { true,  false,          "apn-id", null,     mock(SignedPreKey.class), Duration.ofDays(60), true  },
+                new Object[] { true,  false,          "apn-id", null,     mock(SignedPreKey.class), Duration.ofDays(1),  true  },
+                new Object[] { true,  true,           null,     null,     null,                     Duration.ofDays(60), false },
+                new Object[] { true,  true,           null,     null,     null,                     Duration.ofDays(1),  false },
+                new Object[] { true,  true,           null,     null,     mock(SignedPreKey.class), Duration.ofDays(60), true  },
+                new Object[] { true,  true,           null,     null,     mock(SignedPreKey.class), Duration.ofDays(1),  true  },
+                new Object[] { false, false,          null,     null,     null,                     Duration.ofDays(60), false },
+                new Object[] { false, false,          null,     null,     null,                     Duration.ofDays(1),  false },
+                new Object[] { false, false,          null,     null,     mock(SignedPreKey.class), Duration.ofDays(60), false },
+                new Object[] { false, false,          null,     null,     mock(SignedPreKey.class), Duration.ofDays(1),  false },
+                new Object[] { false, false,          null,     "gcm-id", null,                     Duration.ofDays(60), false },
+                new Object[] { false, false,          null,     "gcm-id", null,                     Duration.ofDays(1),  false },
+                new Object[] { false, false,          null,     "gcm-id", mock(SignedPreKey.class), Duration.ofDays(60), false },
+                new Object[] { false, false,          null,     "gcm-id", mock(SignedPreKey.class), Duration.ofDays(1),  true  },
+                new Object[] { false, false,          "apn-id", null,     null,                     Duration.ofDays(60), false },
+                new Object[] { false, false,          "apn-id", null,     null,                     Duration.ofDays(1),  false },
+                new Object[] { false, false,          "apn-id", null,     mock(SignedPreKey.class), Duration.ofDays(60), false },
+                new Object[] { false, false,          "apn-id", null,     mock(SignedPreKey.class), Duration.ofDays(1),  true  },
+                new Object[] { false, true,           null,     null,     null,                     Duration.ofDays(60), false },
+                new Object[] { false, true,           null,     null,     null,                     Duration.ofDays(1),  false },
+                new Object[] { false, true,           null,     null,     mock(SignedPreKey.class), Duration.ofDays(60), false },
+                new Object[] { false, true,           null,     null,     mock(SignedPreKey.class), Duration.ofDays(1),  true  }
+        };
+    }
 
     @Test
     @Parameters(method = "argumentsForTestIsGroupsV2Supported")
