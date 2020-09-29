@@ -65,7 +65,13 @@ public class MessagePersister implements Managed {
             persistQueuesFuture.cancel(false);
         }
 
-        persistQueuesFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> this.persistNextQueues(Instant.now()), 0, 100, TimeUnit.MILLISECONDS);
+        persistQueuesFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
+            try {
+                persistNextQueues(Instant.now());
+            } catch (final Exception e) {
+                logger.warn("Failed to persist queues", e);
+            }
+        }, 0, 100, TimeUnit.MILLISECONDS);
     }
 
     @Override
