@@ -3,6 +3,7 @@ package org.whispersystems.textsecuregcm.storage;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.lifecycle.Managed;
+import io.lettuce.core.ScoredValue;
 import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.cluster.SlotHash;
 import io.lettuce.core.cluster.event.ClusterTopologyChangedEvent;
@@ -248,29 +249,18 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         });
     }
 
-    @SuppressWarnings("unchecked")
     @VisibleForTesting
     List<MessageProtos.Envelope> getMessagesToPersist(final UUID accountUuid, final long destinationDevice, final int limit) {
         return getMessagesTimer.record(() -> {
-            final List<byte[]> queueItems = (List<byte[]>)getItemsScript.executeBinary(List.of(getMessageQueueKey(accountUuid, destinationDevice),
-                                                                                               getPersistInProgressKey(accountUuid, destinationDevice)),
-                                                                                       List.of(String.valueOf(limit).getBytes(StandardCharsets.UTF_8)));
+            final List<ScoredValue<byte[]>>    scoredMessages = redisCluster.withBinaryCluster(connection -> connection.sync().zrangeWithScores(getMessageQueueKey(accountUuid, destinationDevice), 0, limit));
+            final List<MessageProtos.Envelope> envelopes      = new ArrayList<>(scoredMessages.size());
 
-            final List<MessageProtos.Envelope> envelopes;
-
-            if (queueItems.size() % 2 == 0) {
-                envelopes = new ArrayList<>(queueItems.size() / 2);
-
-                for (int i = 0; i < queueItems.size(); i += 2) {
-                    try {
-                        envelopes.add(MessageProtos.Envelope.parseFrom(queueItems.get(i)));
-                    } catch (InvalidProtocolBufferException e) {
-                        logger.warn("Failed to parse envelope", e);
-                    }
+            for (final ScoredValue<byte[]> scoredMessage : scoredMessages) {
+                try {
+                    envelopes.add(MessageProtos.Envelope.parseFrom(scoredMessage.getValue()));
+                } catch (InvalidProtocolBufferException e) {
+                    logger.warn("Failed to parse envelope", e);
                 }
-            } else {
-                logger.error("\"Get messages\" operation returned a list with a non-even number of elements.");
-                envelopes = Collections.emptyList();
             }
 
             return envelopes;
@@ -332,12 +322,12 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
                                                                       String.valueOf(limit)));
     }
 
-    void lockQueueForPersistence(final String queue) {
-        redisCluster.useBinaryCluster(connection -> connection.sync().setex(getPersistInProgressKey(queue), 30, LOCK_VALUE));
+    void lockQueueForPersistence(final UUID accountUuid, final long deviceId) {
+        redisCluster.useBinaryCluster(connection -> connection.sync().setex(getPersistInProgressKey(accountUuid, deviceId), 30, LOCK_VALUE));
     }
 
-    void unlockQueueForPersistence(final String queue) {
-        redisCluster.useBinaryCluster(connection -> connection.sync().del(getPersistInProgressKey(queue)));
+    void unlockQueueForPersistence(final UUID accountUuid, final long deviceId) {
+        redisCluster.useBinaryCluster(connection -> connection.sync().del(getPersistInProgressKey(accountUuid, deviceId)));
     }
 
     public void addMessageAvailabilityListener(final UUID destinationUuid, final long deviceId, final MessageAvailabilityListener listener) {
@@ -459,11 +449,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     }
 
     private static byte[] getPersistInProgressKey(final UUID accountUuid, final long deviceId) {
-        return getPersistInProgressKey(accountUuid + "::" + deviceId);
-    }
-
-    private static byte[] getPersistInProgressKey(final String queueName) {
-        return ("user_queue_persisting::{" + queueName + "}").getBytes(StandardCharsets.UTF_8);
+        return ("user_queue_persisting::{" + accountUuid + "::" + deviceId  + "}").getBytes(StandardCharsets.UTF_8);
     }
 
     static UUID getAccountUuidFromQueueName(final String queueName) {

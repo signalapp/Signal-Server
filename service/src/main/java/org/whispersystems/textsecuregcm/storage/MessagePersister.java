@@ -120,7 +120,7 @@ public class MessagePersister implements Managed {
         }
 
         try (final Timer.Context ignored = persistQueueTimer.time()) {
-            messagesCache.lockQueueForPersistence(queue);
+            messagesCache.lockQueueForPersistence(accountUuid, deviceId);
 
             try {
                 int messageCount = 0;
@@ -135,7 +135,7 @@ public class MessagePersister implements Managed {
 
                 queueSizeHistogram.update(messageCount);
             } finally {
-                messagesCache.unlockQueueForPersistence(queue);
+                messagesCache.unlockQueueForPersistence(accountUuid, deviceId);
             }
         }
     }
