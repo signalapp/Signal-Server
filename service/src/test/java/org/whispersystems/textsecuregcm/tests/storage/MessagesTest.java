@@ -4,10 +4,13 @@ import com.google.protobuf.ByteString;
 import com.opentable.db.postgres.embedded.LiquibasePreparer;
 import com.opentable.db.postgres.junit.EmbeddedPostgresRules;
 import com.opentable.db.postgres.junit.PreparedDbRule;
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.jdbi.v3.core.Jdbi;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
@@ -17,16 +20,21 @@ import org.whispersystems.textsecuregcm.storage.Messages;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
+@RunWith(JUnitParamsRunner.class)
 public class MessagesTest {
 
   @Rule
@@ -66,6 +74,77 @@ public class MessagesTest {
     assertThat(resultSet.getLong("destination_device")).isEqualTo(1);
 
     assertThat(resultSet.next()).isFalse();
+  }
+
+  @Test
+  @Parameters(method = "argumentsForTestStoreSealedSenderBatch")
+  public void testStoreSealedSenderBatch(final List<Boolean> sealedSenderSequence) throws Exception {
+    final String   destinationNumber      = "+14151234567";
+
+    final List<Envelope> envelopes = sealedSenderSequence.stream()
+            .map(sealedSender -> {
+              if (sealedSender) {
+                return generateEnvelope().toBuilder().clearSourceUuid().clearSource().clearSourceDevice().build();
+              } else {
+                return generateEnvelope().toBuilder().setSourceUuid(UUID.randomUUID().toString()).setSource("+18005551234").setSourceDevice(4).build();
+              }
+            }).collect(Collectors.toList());
+
+    messages.store(envelopes, destinationNumber, 1);
+
+    final Queue<Envelope> expectedMessages = new ArrayDeque<>(envelopes);
+
+    try (final PreparedStatement statement = db.getTestDatabase().getConnection().prepareStatement("SELECT * FROM messages WHERE destination = ?")) {
+      statement.setString(1, destinationNumber);
+      
+      try (final ResultSet resultSet = statement.executeQuery()) {
+        while (resultSet.next() && !expectedMessages.isEmpty()) {
+          assertRowEqualsEnvelope(resultSet, destinationNumber, expectedMessages.poll());
+        }
+
+        assertThat(resultSet.next()).isFalse();
+        assertThat(expectedMessages.isEmpty());
+      }
+    }
+  }
+
+  private static Object argumentsForTestStoreSealedSenderBatch() {
+    return new Object[] {
+            List.of(true),
+            List.of(false),
+            List.of(true, false),
+            List.of(false, true)
+    };
+  }
+
+  private void assertRowEqualsEnvelope(final ResultSet resultSet, final String expectedDestination, final Envelope expectedMessage) throws SQLException {
+    assertThat(resultSet.getString("guid")).isEqualTo(expectedMessage.getServerGuid());
+    assertThat(resultSet.getInt("type")).isEqualTo(expectedMessage.getType().getNumber());
+    assertThat(resultSet.getString("relay")).isNullOrEmpty();
+    assertThat(resultSet.getLong("timestamp")).isEqualTo(expectedMessage.getTimestamp());
+    assertThat(resultSet.getLong("server_timestamp")).isEqualTo(expectedMessage.getServerTimestamp());
+    assertThat(resultSet.getBytes("message")).isEqualTo(expectedMessage.getLegacyMessage().toByteArray());
+    assertThat(resultSet.getBytes("content")).isEqualTo(expectedMessage.getContent().toByteArray());
+    assertThat(resultSet.getString("destination")).isEqualTo(expectedDestination);
+    assertThat(resultSet.getLong("destination_device")).isEqualTo(1);
+
+    if (expectedMessage.hasSource()) {
+      assertThat(resultSet.getString("source")).isEqualTo(expectedMessage.getSource());
+    } else {
+      assertThat(resultSet.getString("source")).isNullOrEmpty();
+    }
+
+    if (expectedMessage.hasSourceDevice()) {
+      assertThat(resultSet.getLong("source_device")).isEqualTo(expectedMessage.getSourceDevice());
+    } else {
+      assertThat(resultSet.getLong("source_device")).isEqualTo(0);
+    }
+
+    if (expectedMessage.hasSourceUuid()) {
+      assertThat(resultSet.getString("source_uuid")).isEqualTo(expectedMessage.getSourceUuid());
+    } else {
+      assertThat(resultSet.getString("source_uuid")).isNull();
+    }
   }
 
   @Test
