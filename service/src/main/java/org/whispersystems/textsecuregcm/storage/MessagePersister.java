@@ -102,7 +102,7 @@ public class MessagePersister implements Managed {
                 try {
                     persistQueue(accountUuid, deviceId);
                 } catch (final Exception e) {
-                    logger.warn("Failed to persist queue {}::{}; will schedule for retry", accountUuid, deviceId);
+                    logger.warn("Failed to persist queue {}::{}; will schedule for retry", accountUuid, deviceId, e);
                     messagesCache.addQueueToPersist(accountUuid, deviceId);
                 }
             }
