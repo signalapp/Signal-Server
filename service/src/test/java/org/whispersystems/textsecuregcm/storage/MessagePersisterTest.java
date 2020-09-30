@@ -6,6 +6,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
 
@@ -163,6 +164,25 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
 
         verify(messagesDatabase, atLeastOnce()).store(messagesCaptor.capture(), anyString(), anyLong());
         assertEquals(queueCount * messagesPerQueue, messagesCaptor.getAllValues().stream().mapToInt(List::size).sum());
+    }
+
+    @Test
+    public void testPersistQueueRetry() {
+        final String  queueName    = new String(MessagesCache.getMessageQueueKey(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID), StandardCharsets.UTF_8);
+        final int     messageCount = (MessagePersister.MESSAGE_BATCH_LIMIT * 3) + 7;
+        final Instant now          = Instant.now();
+
+        insertMessages(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID, messageCount, now);
+        setNextSlotToPersist(SlotHash.getSlot(queueName));
+
+        doAnswer((Answer<Void>)invocation -> {
+            throw new RuntimeException("OH NO.");
+        }).when(messagesDatabase).store(any(), eq(DESTINATION_ACCOUNT_NUMBER), eq(DESTINATION_DEVICE_ID));
+
+        messagePersister.persistNextQueues(now.plus(messagePersister.getPersistDelay()));
+
+        assertEquals(List.of(queueName),
+                     messagesCache.getQueuesToPersist(SlotHash.getSlot(queueName), Instant.now().plus(messagePersister.getPersistDelay()), 1));
     }
 
     @SuppressWarnings("SameParameterValue")

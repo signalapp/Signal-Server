@@ -5,6 +5,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.lifecycle.Managed;
 import io.lettuce.core.ScoredValue;
 import io.lettuce.core.ScriptOutputType;
+import io.lettuce.core.ZAddArgs;
 import io.lettuce.core.cluster.SlotHash;
 import io.lettuce.core.cluster.event.ClusterTopologyChangedEvent;
 import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
@@ -320,6 +321,10 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         return (List<String>)getQueuesToPersistScript.execute(List.of(new String(getQueueIndexKey(slot), StandardCharsets.UTF_8)),
                                                               List.of(String.valueOf(maxTime.toEpochMilli()),
                                                                       String.valueOf(limit)));
+    }
+
+    void addQueueToPersist(final UUID accountUuid, final long deviceId) {
+        redisCluster.useBinaryCluster(connection -> connection.sync().zadd(getQueueIndexKey(accountUuid, deviceId), ZAddArgs.Builder.nx(), System.currentTimeMillis(), getMessageQueueKey(accountUuid, deviceId)));
     }
 
     void lockQueueForPersistence(final UUID accountUuid, final long deviceId) {

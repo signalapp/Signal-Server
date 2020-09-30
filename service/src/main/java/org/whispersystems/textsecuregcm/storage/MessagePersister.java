@@ -94,7 +94,15 @@ public class MessagePersister implements Managed {
             }
 
             for (final String queue : queuesToPersist) {
-                persistQueue(queue);
+                final UUID accountUuid = MessagesCache.getAccountUuidFromQueueName(queue);
+                final long deviceId    = MessagesCache.getDeviceIdFromQueueName(queue);
+
+                try {
+                    persistQueue(accountUuid, deviceId);
+                } catch (final Exception e) {
+                    logger.warn("Failed to persist queue {}::{}; will schedule for retry", accountUuid, deviceId);
+                    messagesCache.addQueueToPersist(accountUuid, deviceId);
+                }
             }
 
             queuesPersisted += queuesToPersist.size();
@@ -104,10 +112,7 @@ public class MessagePersister implements Managed {
     }
 
     @VisibleForTesting
-    void persistQueue(final String queue) {
-        final UUID accountUuid = MessagesCache.getAccountUuidFromQueueName(queue);
-        final long deviceId    = MessagesCache.getDeviceIdFromQueueName(queue);
-
+    void persistQueue(final UUID accountUuid, final long deviceId) {
         final Optional<Account> maybeAccount = accountsManager.get(accountUuid);
 
         final String accountNumber;
