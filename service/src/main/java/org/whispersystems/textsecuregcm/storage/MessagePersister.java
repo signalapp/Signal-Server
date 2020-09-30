@@ -1,6 +1,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import com.codahale.metrics.Histogram;
+import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
@@ -36,6 +37,7 @@ public class MessagePersister implements Managed {
     private final MetricRegistry metricRegistry         = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
     private final Timer          getQueuesTimer         = metricRegistry.timer(name(MessagePersister.class, "getQueues"));
     private final Timer          persistQueueTimer      = metricRegistry.timer(name(MessagePersister.class, "persistQueue"));
+    private final Meter          persistMessageMeter    = metricRegistry.meter(name(MessagePersister.class, "persistMessage"));
     private final Histogram      queueCountHistogram    = metricRegistry.histogram(name(MessagePersister.class, "queueCount"));
     private final Histogram      queueSizeHistogram     = metricRegistry.histogram(name(MessagePersister.class, "queueSize"));
 
@@ -136,6 +138,8 @@ public class MessagePersister implements Managed {
 
                     messagesManager.persistMessages(accountNumber, accountUuid, deviceId, messages);
                     messageCount += messages.size();
+
+                    persistMessageMeter.mark(messages.size());
                 } while (!messages.isEmpty());
 
                 queueSizeHistogram.update(messageCount);
