@@ -332,7 +332,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     ActiveUserCounter                    activeUserCounter               = new ActiveUserCounter(config.getMetricsFactory(), cacheCluster);
     DirectoryReconciler                  directoryReconciler             = new DirectoryReconciler(directoryReconciliationClient, directory);
-    AccountCleaner                       accountCleaner                  = new AccountCleaner(accountsManager, directoryQueue);
+    AccountCleaner                       accountCleaner                  = new AccountCleaner(accountsManager);
     PushFeedbackProcessor                pushFeedbackProcessor           = new PushFeedbackProcessor(accountsManager, directoryQueue);
     RegistrationLockVersionCounter       registrationLockVersionCounter  = new RegistrationLockVersionCounter(metricsCluster, config.getMetricsFactory());
     List<AccountDatabaseCrawlerListener> accountDatabaseCrawlerListeners = List.of(pushFeedbackProcessor, activeUserCounter, directoryReconciler, accountCleaner, registrationLockVersionCounter);
