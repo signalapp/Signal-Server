@@ -48,11 +48,13 @@ public class AccountsManager {
   private static final Timer          updateTimer      = metricRegistry.timer(name(AccountsManager.class, "update"     ));
   private static final Timer          getByNumberTimer = metricRegistry.timer(name(AccountsManager.class, "getByNumber"));
   private static final Timer          getByUuidTimer   = metricRegistry.timer(name(AccountsManager.class, "getByUuid"  ));
+  private static final Timer          deleteTimer      = metricRegistry.timer(name(AccountsManager.class, "delete"));
 
   private static final Timer redisSetTimer       = metricRegistry.timer(name(AccountsManager.class, "redisSet"      ));
   private static final Timer redisNumberGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisNumberGet"));
   private static final Timer redisUuidGetTimer   = metricRegistry.timer(name(AccountsManager.class, "redisUuidGet"  ));
   private static final Timer redisDeleteTimer    = metricRegistry.timer(name(AccountsManager.class, "redisDelete"   ));
+
 
   private final Logger logger = LoggerFactory.getLogger(AccountsManager.class);
 
@@ -138,14 +140,16 @@ public class AccountsManager {
   }
 
   public void delete(final Account account) {
-    usernamesManager.delete(account.getUuid());
-    directoryQueue.deleteAccount(account);
-    directory.remove(account.getNumber());
-    profilesManager.deleteAll(account.getUuid());
-    keys.delete(account.getNumber());
-    messagesManager.clear(account.getNumber(), account.getUuid());
-    redisDelete(account);
-    databaseDelete(account);
+    try (final Timer.Context ignored = deleteTimer.time()) {
+      usernamesManager.delete(account.getUuid());
+      directoryQueue.deleteAccount(account);
+      directory.remove(account.getNumber());
+      profilesManager.deleteAll(account.getUuid());
+      keys.delete(account.getNumber());
+      messagesManager.clear(account.getNumber(), account.getUuid());
+      redisDelete(account);
+      databaseDelete(account);
+    }
   }
 
   private void updateDirectory(Account account) {
