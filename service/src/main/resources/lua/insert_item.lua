@@ -1,24 +1,26 @@
--- keys: queue_key [1], queue_metadata_key [2], queue_total_index [3]
--- argv: message [1], current_time [2], sender (possibly null) [3], guid [4], messageId (possibly null) [5]
+local queueKey           = KEYS[1]
+local queueMetadataKey   = KEYS[2]
+local queueTotalIndexKey = KEYS[3]
+local message            = ARGV[1]
+local currentTime        = ARGV[2]
+local sender             = ARGV[3]
+local guid               = ARGV[4]
 
-local messageId = redis.call("HINCRBY", KEYS[2], "counter", 1)
+local messageId = redis.call("HINCRBY", queueMetadataKey, "counter", 1)
 
-redis.call("ZADD", KEYS[1], "NX", messageId, ARGV[1])
+redis.call("ZADD", queueKey, "NX", messageId, message)
 
-if ARGV[3] ~= "nil" then
-    redis.call("HSET", KEYS[2], ARGV[3], messageId)
+if sender ~= "nil" then
+    redis.call("HSET", queueMetadataKey, sender, messageId)
+    redis.call("HSET", queueMetadataKey, messageId, sender)
 end
 
-redis.call("HSET", KEYS[2], ARGV[4], messageId)
+redis.call("HSET", queueMetadataKey, guid, messageId)
 
-if ARGV[3] ~= "nil" then
-    redis.call("HSET", KEYS[2], messageId, ARGV[3])
-end
+redis.call("HSET", queueMetadataKey, messageId .. "guid", guid)
 
-redis.call("HSET", KEYS[2], messageId .. "guid", ARGV[4])
+redis.call("EXPIRE", queueKey, 7776000)         -- 90 days
+redis.call("EXPIRE", queueMetadataKey, 7776000) -- 90 days
 
-redis.call("EXPIRE", KEYS[1], 7776000)
-redis.call("EXPIRE", KEYS[2], 7776000)
-
-redis.call("ZADD", KEYS[3], "NX", ARGV[2], KEYS[1])
+redis.call("ZADD", queueTotalIndexKey, "NX", currentTime, queueKey)
 return messageId

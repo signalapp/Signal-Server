@@ -1,5 +1,7 @@
--- keys: queue_key, queue_metadata_key, queue_index
+local queueKey           = KEYS[1]
+local queueMetadataKey   = KEYS[2]
+local queueTotalIndexKey = KEYS[3]
 
-redis.call("DEL", KEYS[1])
-redis.call("DEL", KEYS[2])
-redis.call("ZREM", KEYS[3], KEYS[1])
+redis.call("DEL", queueKey)
+redis.call("DEL", queueMetadataKey)
+redis.call("ZREM", queueTotalIndexKey, queueKey)
