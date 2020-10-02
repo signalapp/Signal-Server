@@ -32,10 +32,6 @@ public class FaultTolerantPubSubConnection<K, V> {
         this.circuitBreaker   = circuitBreaker;
         this.retry            = retry;
 
-        CircuitBreakerUtil.registerMetrics(SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME),
-                this.circuitBreaker,
-                FaultTolerantRedisCluster.class);
-
         this.pubSubConnection.setNodeMessagePropagation(true);
 
         final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
