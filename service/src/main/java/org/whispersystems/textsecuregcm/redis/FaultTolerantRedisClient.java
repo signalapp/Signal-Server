@@ -45,7 +45,7 @@ public class FaultTolerantRedisClient {
         this.stringConnection = client.connect();
         this.binaryConnection = client.connect(ByteArrayCodec.INSTANCE);
 
-        this.circuitBreaker = CircuitBreaker.of(name, circuitBreakerConfiguration.toCircuitBreakerConfig());
+        this.circuitBreaker = CircuitBreaker.of(name + "-breaker", circuitBreakerConfiguration.toCircuitBreakerConfig());
 
         CircuitBreakerUtil.registerMetrics(SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME),
                 circuitBreaker,
