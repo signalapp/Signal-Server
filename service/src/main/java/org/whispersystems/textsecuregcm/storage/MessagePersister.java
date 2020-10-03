@@ -65,6 +65,8 @@ public class MessagePersister implements Managed {
                 }
             }
         });
+
+        metricRegistry.gauge(name(getClass(), "workerThreadRunning"), () -> () -> workerThread.isAlive() ? 1 : 0);
     }
 
     @VisibleForTesting
