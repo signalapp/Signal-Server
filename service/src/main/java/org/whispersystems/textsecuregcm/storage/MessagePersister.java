@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.Util;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -31,8 +32,8 @@ public class MessagePersister implements Managed {
 
     private final Duration        persistDelay;
 
-    private final ScheduledExecutorService scheduledExecutorService;
-    private       ScheduledFuture<?>       persistQueuesFuture;
+    private final    Thread  workerThread;
+    private volatile boolean running;
 
     private final MetricRegistry metricRegistry         = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
     private final Timer          getQueuesTimer         = metricRegistry.timer(name(MessagePersister.class, "getQueues"));
@@ -48,12 +49,22 @@ public class MessagePersister implements Managed {
 
     private static final Logger logger = LoggerFactory.getLogger(MessagePersister.class);
 
-    public MessagePersister(final MessagesCache messagesCache, final MessagesManager messagesManager, final AccountsManager accountsManager, final ScheduledExecutorService scheduledExecutorService, final Duration persistDelay) {
+    public MessagePersister(final MessagesCache messagesCache, final MessagesManager messagesManager, final AccountsManager accountsManager, final Duration persistDelay) {
         this.messagesCache            = messagesCache;
         this.messagesManager          = messagesManager;
         this.accountsManager          = accountsManager;
         this.persistDelay             = persistDelay;
-        this.scheduledExecutorService = scheduledExecutorService;
+
+        this.workerThread = new Thread(() -> {
+            while (running) {
+                try {
+                    persistNextQueues(Instant.now());
+                    Util.sleep(100);
+                } catch (final Throwable t) {
+                    logger.warn("Failed to persist queues", t);
+                }
+            }
+        });
     }
 
     @VisibleForTesting
@@ -63,23 +74,18 @@ public class MessagePersister implements Managed {
 
     @Override
     public void start() {
-        if (persistQueuesFuture != null) {
-            persistQueuesFuture.cancel(false);
-        }
-
-        persistQueuesFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
-            try {
-                persistNextQueues(Instant.now());
-            } catch (final Exception e) {
-                logger.warn("Failed to persist queues", e);
-            }
-        }, 0, 100, TimeUnit.MILLISECONDS);
+        running = true;
+        workerThread.start();
     }
 
     @Override
     public void stop() {
-        if (persistQueuesFuture != null) {
-            persistQueuesFuture.cancel(false);
+        running = false;
+
+        try {
+            workerThread.join();
+        } catch (final InterruptedException e) {
+            logger.warn("Interrupted while waiting for worker thread to complete current operation");
         }
     }
 

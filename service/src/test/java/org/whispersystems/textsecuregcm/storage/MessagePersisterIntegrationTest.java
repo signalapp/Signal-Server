@@ -24,8 +24,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -38,11 +38,11 @@ public class MessagePersisterIntegrationTest extends AbstractRedisClusterTest {
     @Rule
     public PreparedDbRule db = EmbeddedPostgresRules.preparedDatabase(LiquibasePreparer.forClasspathLocation("messagedb.xml"));
 
-    private ScheduledExecutorService scheduledExecutorService;
-    private MessagesCache            messagesCache;
-    private MessagesManager          messagesManager;
-    private MessagePersister         messagePersister;
-    private Account                  account;
+    private ExecutorService  notificationExecutorService;
+    private MessagesCache    messagesCache;
+    private MessagesManager  messagesManager;
+    private MessagePersister messagePersister;
+    private Account          account;
 
     private static final Duration PERSIST_DELAY = Duration.ofMinutes(10);
 
@@ -59,10 +59,10 @@ public class MessagePersisterIntegrationTest extends AbstractRedisClusterTest {
         final Messages        messages        = new Messages(new FaultTolerantDatabase("messages-test", Jdbi.create(db.getTestDatabase()), new CircuitBreakerConfiguration()));
         final AccountsManager accountsManager = mock(AccountsManager.class);
 
-        scheduledExecutorService = Executors.newScheduledThreadPool(4);
-        messagesCache            = new MessagesCache(getRedisCluster(), scheduledExecutorService);
-        messagesManager          = new MessagesManager(messages, messagesCache, mock(PushLatencyManager.class));
-        messagePersister         = new MessagePersister(messagesCache, messagesManager, accountsManager, scheduledExecutorService, PERSIST_DELAY);
+        notificationExecutorService = Executors.newSingleThreadExecutor();
+        messagesCache               = new MessagesCache(getRedisCluster(), notificationExecutorService);
+        messagesManager             = new MessagesManager(messages, messagesCache, mock(PushLatencyManager.class));
+        messagePersister            = new MessagePersister(messagesCache, messagesManager, accountsManager, PERSIST_DELAY);
 
         account = mock(Account.class);
 
@@ -80,8 +80,8 @@ public class MessagePersisterIntegrationTest extends AbstractRedisClusterTest {
     public void tearDown() throws Exception {
         super.tearDown();
 
-        scheduledExecutorService.shutdown();
-        scheduledExecutorService.awaitTermination(15, TimeUnit.SECONDS);
+        notificationExecutorService.shutdown();
+        notificationExecutorService.awaitTermination(15, TimeUnit.SECONDS);
     }
 
     @Test(timeout = 15_000)

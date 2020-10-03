@@ -326,7 +326,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     TurnTokenGenerator       turnTokenGenerator = new TurnTokenGenerator(config.getTurnConfiguration());
     RecaptchaClient          recaptchaClient    = new RecaptchaClient(config.getRecaptchaConfiguration().getSecret());
 
-    MessagePersister clusterMessagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager, recurringJobExecutor, Duration.ofMinutes(config.getMessageCacheConfiguration().getPersistDelayMinutes()));
+    MessagePersister messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager, Duration.ofMinutes(config.getMessageCacheConfiguration().getPersistDelayMinutes()));
 
     DirectoryReconciliationClient directoryReconciliationClient = new DirectoryReconciliationClient(config.getDirectoryConfiguration().getDirectoryServerConfiguration());
 
@@ -347,7 +347,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(accountDatabaseCrawler);
     environment.lifecycle().manage(remoteConfigsManager);
     environment.lifecycle().manage(messagesCache);
-    environment.lifecycle().manage(clusterMessagePersister);
+    environment.lifecycle().manage(messagePersister);
     environment.lifecycle().manage(clientPresenceManager);
     environment.lifecycle().manage(featureFlagsManager);
 
