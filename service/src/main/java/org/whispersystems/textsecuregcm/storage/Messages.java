@@ -67,30 +67,32 @@ public class Messages {
   public void store(final List<Envelope> messages, final String destination, final long destinationDevice) {
     database.use(jdbi -> jdbi.useHandle(handle -> {
       try (final Timer.Context ignored = storeTimer.time()) {
+        final PreparedBatch batch = handle.prepareBatch("INSERT INTO messages (" + GUID + ", " + TYPE + ", " + RELAY + ", " + TIMESTAMP + ", " + SERVER_TIMESTAMP + ", " + SOURCE + ", " + SOURCE_UUID + ", " + SOURCE_DEVICE + ", " + DESTINATION + ", " + DESTINATION_DEVICE + ", " + MESSAGE + ", " + CONTENT + ") " +
+                                                        "VALUES (:guid, :type, :relay, :timestamp, :server_timestamp, :source, :source_uuid, :source_device, :destination, :destination_device, :message, :content)");
+
         for (final Envelope message : messages) {
           if (message.getServerGuid() == null) {
             insertNullGuidMeter.mark();
           }
 
-          handle.createUpdate("INSERT INTO messages (" + GUID + ", " + TYPE + ", " + RELAY + ", " + TIMESTAMP + ", " + SERVER_TIMESTAMP + ", " + SOURCE + ", " + SOURCE_UUID + ", " + SOURCE_DEVICE + ", " + DESTINATION + ", " + DESTINATION_DEVICE + ", " + MESSAGE + ", " + CONTENT + ") " +
-                              "VALUES (:guid, :type, :relay, :timestamp, :server_timestamp, :source, :source_uuid, :source_device, :destination, :destination_device, :message, :content)")
-                .bind("guid", UUID.fromString(message.getServerGuid()))
-                .bind("destination", destination)
-                .bind("destination_device", destinationDevice)
-                .bind("type", message.getType().getNumber())
-                .bind("relay", message.getRelay())
-                .bind("timestamp", message.getTimestamp())
-                .bind("server_timestamp", message.getServerTimestamp())
-                .bind("source", message.hasSource() ? message.getSource() : null)
-                .bind("source_uuid", message.hasSourceUuid() ? UUID.fromString(message.getSourceUuid()) : null)
-                .bind("source_device", message.hasSourceDevice() ? message.getSourceDevice() : null)
-                .bind("message", message.hasLegacyMessage() ? message.getLegacyMessage().toByteArray() : null)
-                .bind("content", message.hasContent() ? message.getContent().toByteArray() : null)
-                .execute();
+          batch.bind("guid", UUID.fromString(message.getServerGuid()))
+               .bind("destination", destination)
+               .bind("destination_device", destinationDevice)
+               .bind("type", message.getType().getNumber())
+               .bind("relay", message.getRelay())
+               .bind("timestamp", message.getTimestamp())
+               .bind("server_timestamp", message.getServerTimestamp())
+               .bind("source", message.hasSource() ? message.getSource() : null)
+               .bind("source_uuid", message.hasSourceUuid() ? UUID.fromString(message.getSourceUuid()) : null)
+               .bind("source_device", message.hasSourceDevice() ? message.getSourceDevice() : null)
+               .bind("message", message.hasLegacyMessage() ? message.getLegacyMessage().toByteArray() : null)
+               .bind("content", message.hasContent() ? message.getContent().toByteArray() : null)
+               .add();
         }
-      }
 
-      storeSizeHistogram.update(messages.size());
+        batch.execute();
+        storeSizeHistogram.update(messages.size());
+      }
     }));
   }
 
