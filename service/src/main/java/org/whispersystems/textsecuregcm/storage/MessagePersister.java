@@ -58,8 +58,12 @@ public class MessagePersister implements Managed {
         this.workerThread = new Thread(() -> {
             while (running) {
                 try {
-                    persistNextQueues(Instant.now());
-                    Util.sleep(100);
+                    final int queuesPersisted = persistNextQueues(Instant.now());
+                    queueCountHistogram.update(queuesPersisted);
+
+                    if (queuesPersisted == 0) {
+                        Util.sleep(100);
+                    }
                 } catch (final Throwable t) {
                     logger.warn("Failed to persist queues", t);
                 }
@@ -92,7 +96,7 @@ public class MessagePersister implements Managed {
     }
 
     @VisibleForTesting
-    void persistNextQueues(final Instant currentTime) {
+    int persistNextQueues(final Instant currentTime) {
         final int slot = messagesCache.getNextSlotToPersist();
 
         List<String> queuesToPersist;
@@ -118,7 +122,7 @@ public class MessagePersister implements Managed {
             queuesPersisted += queuesToPersist.size();
         } while (queuesToPersist.size() >= QUEUE_BATCH_LIMIT);
 
-        queueCountHistogram.update(queuesPersisted);
+        return queuesPersisted;
     }
 
     @VisibleForTesting
