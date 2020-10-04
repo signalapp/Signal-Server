@@ -6,6 +6,10 @@ local currentTime        = ARGV[2]
 local sender             = ARGV[3]
 local guid               = ARGV[4]
 
+if redis.call("HEXISTS", queueMetadataKey, guid) == 1 then
+    return tonumber(redis.call("HGET", queueMetadataKey, guid))
+end
+
 local messageId = redis.call("HINCRBY", queueMetadataKey, "counter", 1)
 
 redis.call("ZADD", queueKey, "NX", messageId, message)
