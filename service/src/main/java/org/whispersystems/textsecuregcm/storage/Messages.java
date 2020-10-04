@@ -66,7 +66,7 @@ public class Messages {
   }
 
   public void store(final List<Envelope> messages, final String destination, final long destinationDevice) {
-    database.use(jdbi -> jdbi.useHandle(handle -> {
+    database.use(jdbi -> jdbi.useTransaction(handle -> {
       try (final Timer.Context ignored = storeTimer.time()) {
         final PreparedBatch batch = handle.prepareBatch("INSERT INTO messages (" + GUID + ", " + TYPE + ", " + RELAY + ", " + TIMESTAMP + ", " + SERVER_TIMESTAMP + ", " + SOURCE + ", " + SOURCE_UUID + ", " + SOURCE_DEVICE + ", " + DESTINATION + ", " + DESTINATION_DEVICE + ", " + MESSAGE + ", " + CONTENT + ") " +
                                                         "VALUES (:guid, :type, :relay, :timestamp, :server_timestamp, :source, :source_uuid, :source_device, :destination, :destination_device, :message, :content)");
