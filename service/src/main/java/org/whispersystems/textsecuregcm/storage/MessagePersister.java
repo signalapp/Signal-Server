@@ -141,6 +141,7 @@ public class MessagePersister implements Managed {
 
         try (final Timer.Context ignored = persistQueueTimer.time()) {
             messagesCache.lockQueueForPersistence(accountUuid, deviceId);
+            messagesCache.repairMetadata(accountUuid, deviceId);
 
             try {
                 int messageCount = 0;

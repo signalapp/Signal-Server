@@ -55,6 +55,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     private final ClusterLuaScript getItemsScript;
     private final ClusterLuaScript removeQueueScript;
     private final ClusterLuaScript getQueuesToPersistScript;
+    private final ClusterLuaScript repairMetadataScript;
 
     private final Map<String, MessageAvailabilityListener> messageListenersByQueueName = new HashMap<>();
     private final Map<MessageAvailabilityListener, String> queueNamesByMessageListener = new IdentityHashMap<>();
@@ -65,6 +66,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     private final Timer   getQueuesToPersistTimer             = Metrics.timer(name(MessagesCache.class, "getQueuesToPersist"));
     private final Timer   clearQueueTimer                     = Metrics.timer(name(MessagesCache.class, "clear"));
     private final Timer   takeEphemeralMessageTimer           = Metrics.timer(name(MessagesCache.class, "takeEphemeral"));
+    private final Timer   repairMetadataTimer                 = Metrics.timer(name(MessagesCache.class, "repairMetadata"));
     private final Counter pubSubMessageCounter                = Metrics.counter(name(MessagesCache.class, "pubSubMessage"));
     private final Counter newMessageNotificationCounter       = Metrics.counter(name(MessagesCache.class, "newMessageNotification"), "ephemeral", "false");
     private final Counter ephemeralMessageNotificationCounter = Metrics.counter(name(MessagesCache.class, "newMessageNotification"), "ephemeral", "true");
@@ -102,6 +104,8 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         this.getItemsScript           = ClusterLuaScript.fromResource(redisCluster, "lua/get_items.lua",             ScriptOutputType.MULTI);
         this.removeQueueScript        = ClusterLuaScript.fromResource(redisCluster, "lua/remove_queue.lua",          ScriptOutputType.STATUS);
         this.getQueuesToPersistScript = ClusterLuaScript.fromResource(redisCluster, "lua/get_queues_to_persist.lua", ScriptOutputType.MULTI);
+
+        this.repairMetadataScript = ClusterLuaScript.fromResource(redisCluster, "lua/repair_queue_metadata.lua", ScriptOutputType.VALUE);
     }
 
     @Override
@@ -218,6 +222,15 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         }
 
         return removedMessages;
+    }
+
+    @VisibleForTesting
+    void repairMetadata(final UUID destinationUuid, final long destinationDevice) {
+        repairMetadataTimer.record(() -> {
+                    repairMetadataScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
+                                                               getMessageQueueMetadataKey(destinationUuid, destinationDevice)),
+                                                       Collections.emptyList());
+        });
     }
 
     @SuppressWarnings("unchecked")

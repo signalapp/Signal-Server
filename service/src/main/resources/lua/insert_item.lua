@@ -16,7 +16,6 @@ if sender ~= "nil" then
 end
 
 redis.call("HSET", queueMetadataKey, guid, messageId)
-
 redis.call("HSET", queueMetadataKey, messageId .. "guid", guid)
 
 redis.call("EXPIRE", queueKey, 7776000)         -- 90 days
