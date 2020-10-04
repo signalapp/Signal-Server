@@ -68,7 +68,7 @@ public class MessagePersister implements Managed {
                     logger.warn("Failed to persist queues", t);
                 }
             }
-        });
+        }, "MessagePersisterWorker");
 
         metricRegistry.gauge(name(getClass(), "workerThreadRunning"), () -> () -> workerThread.isAlive() ? 1 : 0);
     }
