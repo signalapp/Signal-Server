@@ -73,6 +73,17 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
     }
 
     @Test
+    public void testDoubleInsertGuid() {
+        final UUID                   duplicateGuid    = UUID.randomUUID();
+        final MessageProtos.Envelope duplicateMessage = generateRandomMessage(duplicateGuid, false);
+
+        final long firstId  = messagesCache.insert(duplicateGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, duplicateMessage);
+        final long secondId = messagesCache.insert(duplicateGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, duplicateMessage);
+
+        assertEquals(firstId, secondId);
+    }
+
+    @Test
     public void testRepairMetadata() {
         final int distinctUuidCount = 17;
 
