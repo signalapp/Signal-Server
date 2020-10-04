@@ -1,13 +1,10 @@
-local queueKey           = KEYS[1]
-local queueMetadataKey   = KEYS[2]
+local queueKey         = KEYS[1]
+local queueMetadataKey = KEYS[2]
 
-local firstMessageWithScore = redis.call("ZRANGE", queueKey, 0, 0, "WITHSCORES")
-local lastMessageWithScore  = redis.call("ZRANGE", queueKey, -1, -1, "WITHSCORES")
+local firstMessageId = tonumber(redis.call("ZRANGE", queueKey, 0, 0, "WITHSCORES")[2])
+local lastMessageId  = tonumber(redis.call("ZRANGE", queueKey, -1, -1, "WITHSCORES")[2])
 
-if firstMessageWithScore ~= nil and lastMessageWithScore ~= nil then
-    local firstMessageId = tonumber(firstMessageWithScore[2])
-    local lastMessageId  = tonumber(lastMessageWithScore[2])
-
+if firstMessageId and lastMessageId then
     for messageId = firstMessageId,lastMessageId do
         if redis.call("ZRANGEBYSCORE", queueKey, messageId, messageId) then
             -- This message actually exists, and its GUID may be pointing to the wrong ID

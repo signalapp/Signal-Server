@@ -121,6 +121,12 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
     }
 
     @Test
+    public void testRepairEmptyQueueMetadata() {
+        // We're happy as long as this doesn't throw an exception
+        messagesCache.repairMetadata(DESTINATION_UUID, DESTINATION_DEVICE_ID);
+    }
+
+    @Test
     @Parameters({"true", "false"})
     public void testRemoveById(final boolean sealedSender) {
         final UUID                   messageGuid = UUID.randomUUID();
