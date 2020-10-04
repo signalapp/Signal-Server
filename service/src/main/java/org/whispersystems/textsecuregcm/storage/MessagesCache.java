@@ -62,6 +62,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     private final Timer   insertTimer                         = Metrics.timer(name(MessagesCache.class, "insert"), "ephemeral", "false");
     private final Timer   insertEphemeralTimer                = Metrics.timer(name(MessagesCache.class, "insert"), "ephemeral", "true");
     private final Timer   getMessagesTimer                    = Metrics.timer(name(MessagesCache.class, "get"));
+    private final Timer   getQueuesToPersistTimer             = Metrics.timer(name(MessagesCache.class, "getQueuesToPersist"));
     private final Timer   clearQueueTimer                     = Metrics.timer(name(MessagesCache.class, "clear"));
     private final Timer   takeEphemeralMessageTimer           = Metrics.timer(name(MessagesCache.class, "takeEphemeral"));
     private final Counter pubSubMessageCounter                = Metrics.counter(name(MessagesCache.class, "pubSubMessage"));
@@ -318,9 +319,9 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
     List<String> getQueuesToPersist(final int slot, final Instant maxTime, final int limit) {
         //noinspection unchecked
-        return (List<String>)getQueuesToPersistScript.execute(List.of(new String(getQueueIndexKey(slot), StandardCharsets.UTF_8)),
-                                                              List.of(String.valueOf(maxTime.toEpochMilli()),
-                                                                      String.valueOf(limit)));
+        return getQueuesToPersistTimer.record(() -> (List<String>)getQueuesToPersistScript.execute(List.of(new String(getQueueIndexKey(slot), StandardCharsets.UTF_8)),
+                                                                                                   List.of(String.valueOf(maxTime.toEpochMilli()),
+                                                                                                           String.valueOf(limit))));
     }
 
     void addQueueToPersist(final UUID accountUuid, final long deviceId) {

@@ -35,12 +35,13 @@ public class MessagePersister implements Managed {
     private final    Thread  workerThread;
     private volatile boolean running;
 
-    private final MetricRegistry metricRegistry         = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-    private final Timer          getQueuesTimer         = metricRegistry.timer(name(MessagePersister.class, "getQueues"));
-    private final Timer          persistQueueTimer      = metricRegistry.timer(name(MessagePersister.class, "persistQueue"));
-    private final Meter          persistMessageMeter    = metricRegistry.meter(name(MessagePersister.class, "persistMessage"));
-    private final Histogram      queueCountHistogram    = metricRegistry.histogram(name(MessagePersister.class, "queueCount"));
-    private final Histogram      queueSizeHistogram     = metricRegistry.histogram(name(MessagePersister.class, "queueSize"));
+    private final MetricRegistry metricRegistry             = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+    private final Timer          getQueuesTimer             = metricRegistry.timer(name(MessagePersister.class, "getQueues"));
+    private final Timer          persistQueueTimer          = metricRegistry.timer(name(MessagePersister.class, "persistQueue"));
+    private final Meter          persistMessageMeter        = metricRegistry.meter(name(MessagePersister.class, "persistMessage"));
+    private final Meter          persistQueueExceptionMeter = metricRegistry.meter(name(MessagePersister.class, "persistQueueException"));
+    private final Histogram      queueCountHistogram        = metricRegistry.histogram(name(MessagePersister.class, "queueCount"));
+    private final Histogram      queueSizeHistogram         = metricRegistry.histogram(name(MessagePersister.class, "queueSize"));
 
     static final int QUEUE_BATCH_LIMIT   = 100;
     static final int MESSAGE_BATCH_LIMIT = 100;
@@ -112,7 +113,9 @@ public class MessagePersister implements Managed {
                 try {
                     persistQueue(accountUuid, deviceId);
                 } catch (final Exception e) {
+                    persistQueueExceptionMeter.mark();
                     logger.warn("Failed to persist queue {}::{}; will schedule for retry", accountUuid, deviceId, e);
+
                     messagesCache.addQueueToPersist(accountUuid, deviceId);
                 }
             }
