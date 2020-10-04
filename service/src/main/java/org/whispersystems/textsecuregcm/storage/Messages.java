@@ -7,7 +7,6 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import org.jdbi.v3.core.argument.SetObjectArgumentFactory;
 import org.jdbi.v3.core.statement.PreparedBatch;
-import org.jdbi.v3.core.statement.SqlStatements;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.storage.mappers.OutgoingMessageEntityRowMapper;
@@ -70,8 +69,6 @@ public class Messages {
       try (final Timer.Context ignored = storeTimer.time()) {
         final PreparedBatch batch = handle.prepareBatch("INSERT INTO messages (" + GUID + ", " + TYPE + ", " + RELAY + ", " + TIMESTAMP + ", " + SERVER_TIMESTAMP + ", " + SOURCE + ", " + SOURCE_UUID + ", " + SOURCE_DEVICE + ", " + DESTINATION + ", " + DESTINATION_DEVICE + ", " + MESSAGE + ", " + CONTENT + ") " +
                                                         "VALUES (:guid, :type, :relay, :timestamp, :server_timestamp, :source, :source_uuid, :source_device, :destination, :destination_device, :message, :content)");
-
-        batch.getConfig(SqlStatements.class).setQueryTimeout(5);
 
         for (final Envelope message : messages) {
           if (message.getServerGuid() == null) {
