@@ -45,8 +45,6 @@ public class MessagePersister implements Managed {
     static final int QUEUE_BATCH_LIMIT   = 100;
     static final int MESSAGE_BATCH_LIMIT = 100;
 
-    static final String ENABLE_PERSISTENCE_FLAG = "enable-cluster-persister";
-
     private static final Logger logger = LoggerFactory.getLogger(MessagePersister.class);
 
     public MessagePersister(final MessagesCache messagesCache, final MessagesManager messagesManager, final AccountsManager accountsManager, final Duration persistDelay) {

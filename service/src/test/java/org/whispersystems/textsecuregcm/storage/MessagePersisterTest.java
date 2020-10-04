@@ -52,8 +52,6 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
         super.setUp();
 
         final MessagesManager messagesManager         = mock(MessagesManager.class);
-        final FeatureFlagsManager featureFlagsManager = mock(FeatureFlagsManager.class);
-        when(featureFlagsManager.isFeatureFlagActive(MessagePersister.ENABLE_PERSISTENCE_FLAG)).thenReturn(true);
 
         messagesDatabase = mock(Messages.class);
         accountsManager  = mock(AccountsManager.class);
