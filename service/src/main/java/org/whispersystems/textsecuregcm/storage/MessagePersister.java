@@ -18,9 +18,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
@@ -141,7 +138,6 @@ public class MessagePersister implements Managed {
 
         try (final Timer.Context ignored = persistQueueTimer.time()) {
             messagesCache.lockQueueForPersistence(accountUuid, deviceId);
-            messagesCache.repairMetadata(accountUuid, deviceId);
 
             try {
                 int messageCount = 0;

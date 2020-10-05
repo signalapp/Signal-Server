@@ -85,48 +85,6 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
     }
 
     @Test
-    @Ignore("Depends on incorrect duplicate-insert behavior that has since been fixed")
-    public void testRepairMetadata() {
-        final int distinctUuidCount = 17;
-
-        for (int i = 0; i < distinctUuidCount; i++) {
-            final UUID messageGuid = UUID.randomUUID();
-            messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, generateRandomMessage(messageGuid, false));
-        }
-
-        assertEquals(distinctUuidCount, messagesCache.getMessagesToPersist(DESTINATION_UUID, DESTINATION_DEVICE_ID, 100).size());
-
-        final int duplicateGuidCount = 5;
-
-        final UUID messageGuid = UUID.randomUUID();
-        final MessageProtos.Envelope duplicatedMessage = generateRandomMessage(messageGuid, false);
-
-        for (int i = 0; i < duplicateGuidCount; i++) {
-            messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, duplicatedMessage);
-        }
-
-        assertEquals(distinctUuidCount + 1, messagesCache.getMessagesToPersist(DESTINATION_UUID, DESTINATION_DEVICE_ID, 100).size());
-        assertFalse(messagesCache.remove(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageGuid).isPresent());
-
-        messagesCache.repairMetadata(DESTINATION_UUID, DESTINATION_DEVICE_ID);
-
-        assertTrue(messagesCache.remove(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageGuid).isPresent());
-
-        final List<MessageProtos.Envelope> messagesToPersist = messagesCache.getMessagesToPersist(DESTINATION_UUID, DESTINATION_DEVICE_ID, 100);
-        assertEquals(distinctUuidCount, messagesToPersist.size());
-
-        messagesCache.remove(DESTINATION_UUID, DESTINATION_DEVICE_ID, messagesToPersist.stream().map(message -> UUID.fromString(message.getServerGuid())).collect(Collectors.toList()));
-
-        assertTrue(messagesCache.getMessagesToPersist(DESTINATION_UUID, DESTINATION_DEVICE_ID, 100).isEmpty());
-    }
-
-    @Test
-    public void testRepairEmptyQueueMetadata() {
-        // We're happy as long as this doesn't throw an exception
-        messagesCache.repairMetadata(DESTINATION_UUID, DESTINATION_DEVICE_ID);
-    }
-
-    @Test
     @Parameters({"true", "false"})
     public void testRemoveById(final boolean sealedSender) {
         final UUID                   messageGuid = UUID.randomUUID();
