@@ -6,7 +6,7 @@ local lastMessageId  = tonumber(redis.call("ZRANGE", queueKey, -1, -1, "WITHSCOR
 
 if firstMessageId and lastMessageId then
     for messageId = firstMessageId,lastMessageId do
-        if redis.call("ZRANGEBYSCORE", queueKey, messageId, messageId) then
+        if next(redis.call("ZRANGEBYSCORE", queueKey, messageId, messageId)) then
             -- This message actually exists, and its GUID may be pointing to the wrong ID
             local guid = redis.call("HGET", queueMetadataKey, messageId .. "guid")
             redis.call("HSET", queueMetadataKey, guid, messageId)
