@@ -246,9 +246,10 @@ public class DeviceControllerTest {
 
   private static Object argumentsForDeviceDowngradeCapabilitiesTest() {
     return new Object[] {
+            //             User-Agent                          gv2    gv2-2  gv2-3  expected
             new Object[] { "Signal-Android/4.68.3 Android/25", false, false, false, 409 },
-            new Object[] { "Signal-Android/4.68.3 Android/25", true,  false, false, 200 },
-            new Object[] { "Signal-Android/4.68.3 Android/25", false, true,  false, 200 },
+            new Object[] { "Signal-Android/4.68.3 Android/25", true,  false, false, 409 },
+            new Object[] { "Signal-Android/4.68.3 Android/25", false, true,  false, 409 },
             new Object[] { "Signal-Android/4.68.3 Android/25", false, false, true,  200 },
             new Object[] { "Signal-iOS/3.9.0",                 false, false, false, 409 },
             new Object[] { "Signal-iOS/3.9.0",                 true,  false, false, 409 },

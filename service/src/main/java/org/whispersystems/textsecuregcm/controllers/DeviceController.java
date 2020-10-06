@@ -252,8 +252,9 @@ public class DeviceController {
     if (account.isGroupsV2Supported()) {
       try {
         switch (UserAgentUtil.parseUserAgentString(userAgent).getPlatform()) {
+          case DESKTOP:
           case ANDROID: {
-            if (!capabilities.isGv2() && !capabilities.isGv2_2() && !capabilities.isGv2_3()) {
+            if (!capabilities.isGv2_3()) {
               isDowngrade = true;
             }
 
@@ -262,14 +263,6 @@ public class DeviceController {
 
           case IOS: {
             if (!capabilities.isGv2_2() && !capabilities.isGv2_3()) {
-              isDowngrade = true;
-            }
-
-            break;
-          }
-
-          case DESKTOP: {
-            if (!capabilities.isGv2_3()) {
               isDowngrade = true;
             }
 

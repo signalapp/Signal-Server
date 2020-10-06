@@ -76,9 +76,9 @@ public class DeviceTest {
 
                 // Android master
                 new Object[] { true,  null,     false, false, false, false },
-                new Object[] { true,  null,     true,  false, false, true  },
-                new Object[] { true,  null,     false, true,  false, true  },
-                new Object[] { true,  null,     true,  true,  false, true  },
+                new Object[] { true,  null,     true,  false, false, false },
+                new Object[] { true,  null,     false, true,  false, false },
+                new Object[] { true,  null,     true,  true,  false, false },
                 new Object[] { true,  null,     false, false, true,  true  },
                 new Object[] { true,  null,     true,  false, true,  true  },
                 new Object[] { true,  null,     false, true,  true,  true  },

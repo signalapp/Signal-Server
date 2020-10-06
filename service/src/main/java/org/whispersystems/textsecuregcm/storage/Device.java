@@ -255,13 +255,9 @@ public class Device {
     final boolean groupsV2Supported;
 
     if (this.capabilities != null) {
-      boolean ios     = this.apnId != null || this.voipApnId != null;
-      boolean android = isMaster() && !ios;
+      final boolean ios = this.apnId != null || this.voipApnId != null;
 
-      if      (android) groupsV2Supported = this.capabilities.isGv2()   || this.capabilities.isGv2_2() || this.capabilities.isGv2_3();
-      else if (ios)     groupsV2Supported = this.capabilities.isGv2_2() || this.capabilities.isGv2_3();
-      else              groupsV2Supported = this.capabilities.isGv2_3();
-
+      groupsV2Supported = this.capabilities.isGv2_3() || (ios && this.capabilities.isGv2_2());
     } else {
       groupsV2Supported = false;
     }
