@@ -16,6 +16,7 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
+import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
@@ -32,8 +33,9 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 public class AccountCleaner extends AccountDatabaseCrawlerListener {
 
-  private static final MetricRegistry metricRegistry       = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private static final Meter          expiredAccountsMeter = metricRegistry.meter(name(AccountCleaner.class, "expiredAccounts"));
+  private static final MetricRegistry metricRegistry            = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  private static final Meter          expiredAccountsMeter      = metricRegistry.meter(name(AccountCleaner.class, "expiredAccounts"));
+  private static final Histogram      deletableAccountHistogram = metricRegistry.histogram(name(AccountCleaner.class, "deletableAccountsPerChunk"));
 
   @VisibleForTesting
   public static final int MAX_ACCOUNT_UPDATES_PER_CHUNK = 40;
@@ -54,8 +56,14 @@ public class AccountCleaner extends AccountDatabaseCrawlerListener {
 
   @Override
   protected void onCrawlChunk(Optional<UUID> fromUuid, List<Account> chunkAccounts) {
-    int accountUpdateCount = 0;
+    int accountUpdateCount    = 0;
+    int deletableAccountCount = 0;
+
     for (Account account : chunkAccounts) {
+      if (isExpired(account)) {
+        deletableAccountCount++;
+      }
+
       if (needsExplicitRemoval(account)) {
         expiredAccountsMeter.mark();
 
@@ -65,6 +73,8 @@ public class AccountCleaner extends AccountDatabaseCrawlerListener {
         }
       }
     }
+
+    deletableAccountHistogram.update(deletableAccountCount);
   }
 
   private boolean needsExplicitRemoval(Account account) {
