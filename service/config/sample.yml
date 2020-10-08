@@ -140,3 +140,6 @@ featureFlag:
     - # 2nd authorized token
     - # ...
     - # Nth authorized token
+
+paymentService:
+  userAuthenticationTokenSharedSecret: # hex-encoded 32-byte secret shared with MobileCoin services used to generate auth tokens for Signal users
