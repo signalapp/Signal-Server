@@ -1,6 +1,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.ScheduledReporter;
 import io.dropwizard.metrics.MetricsFactory;
 import io.dropwizard.metrics.ReporterFactory;
 import io.lettuce.core.KeyValue;
@@ -82,7 +83,9 @@ public class RegistrationLockVersionCounter extends AccountDatabaseCrawlerListen
         }
 
         for (final ReporterFactory reporterFactory : metricsFactory.getReporters()) {
-            reporterFactory.build(metricRegistry).report();
+            try (final ScheduledReporter reporter = reporterFactory.build(metricRegistry)) {
+                reporter.report();
+            }
         }
     }
 }

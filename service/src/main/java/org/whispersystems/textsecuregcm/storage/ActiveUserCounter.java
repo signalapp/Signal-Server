@@ -18,6 +18,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.ScheduledReporter;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.dropwizard.metrics.MetricsFactory;
@@ -91,7 +92,9 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
     }
 
     for (ReporterFactory reporterFactory : metricsFactory.getReporters()) {
-      reporterFactory.build(metrics).report();
+      try (final ScheduledReporter reporter = reporterFactory.build(metrics)) {
+        reporter.report();
+      }
     }
   }
 
