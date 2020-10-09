@@ -87,6 +87,8 @@ import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper
 import org.whispersystems.textsecuregcm.metrics.CpuUsageGauge;
 import org.whispersystems.textsecuregcm.metrics.FileDescriptorGauge;
 import org.whispersystems.textsecuregcm.metrics.FreeMemoryGauge;
+import org.whispersystems.textsecuregcm.metrics.GarbageCollectionCountGauge;
+import org.whispersystems.textsecuregcm.metrics.GarbageCollectionTimeGauge;
 import org.whispersystems.textsecuregcm.metrics.MetricsApplicationEventListener;
 import org.whispersystems.textsecuregcm.metrics.NetworkReceivedGauge;
 import org.whispersystems.textsecuregcm.metrics.NetworkSentGauge;
@@ -447,6 +449,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.metrics().register(name(NetworkSentGauge.class, "bytes_sent"), new NetworkSentGauge());
     environment.metrics().register(name(NetworkReceivedGauge.class, "bytes_received"), new NetworkReceivedGauge());
     environment.metrics().register(name(FileDescriptorGauge.class, "fd_count"), new FileDescriptorGauge());
+    environment.metrics().register(name(GarbageCollectionCountGauge.class, "gc_count"), new GarbageCollectionCountGauge());
+    environment.metrics().register(name(GarbageCollectionTimeGauge.class, "gc_time"), new GarbageCollectionTimeGauge());
   }
 
   private void registerExceptionMappers(Environment environment, WebSocketEnvironment<Account> webSocketEnvironment, WebSocketEnvironment<Account> provisioningEnvironment) {
