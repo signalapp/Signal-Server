@@ -328,7 +328,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ApnFallbackManager       apnFallbackManager = new ApnFallbackManager(pushSchedulerClient, apnSender, accountsManager);
     TwilioSmsSender          twilioSmsSender    = new TwilioSmsSender(config.getTwilioConfiguration());
     SmsSender                smsSender          = new SmsSender(twilioSmsSender);
-    MessageSender            messageSender      = new MessageSender(apnFallbackManager, clientPresenceManager, messagesManager, gcmSender, apnSender, config.getPushConfiguration().getQueueSize(), pushLatencyManager);
+    MessageSender            messageSender      = new MessageSender(apnFallbackManager, clientPresenceManager, messagesManager, gcmSender, apnSender, pushLatencyManager);
     ReceiptSender            receiptSender      = new ReceiptSender(accountsManager, messageSender);
     TurnTokenGenerator       turnTokenGenerator = new TurnTokenGenerator(config.getTurnConfiguration());
     RecaptchaClient          recaptchaClient    = new RecaptchaClient(config.getRecaptchaConfiguration().getSecret());

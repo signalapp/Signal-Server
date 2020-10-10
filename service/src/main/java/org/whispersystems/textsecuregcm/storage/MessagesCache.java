@@ -158,8 +158,8 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
                 final byte[] ephemeralQueueKey = getEphemeralMessageQueueKey(destinationUuid, destinationDevice);
 
                 redisCluster.useBinaryCluster(connection -> {
-                    connection.async().rpush(ephemeralQueueKey, message.toByteArray());
-                    connection.async().expire(ephemeralQueueKey, MAX_EPHEMERAL_MESSAGE_DELAY.toSeconds());
+                    connection.sync().rpush(ephemeralQueueKey, message.toByteArray());
+                    connection.sync().expire(ephemeralQueueKey, MAX_EPHEMERAL_MESSAGE_DELAY.toSeconds());
                 });
         });
     }
