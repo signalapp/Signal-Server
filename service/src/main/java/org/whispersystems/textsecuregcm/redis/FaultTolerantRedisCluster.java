@@ -10,6 +10,7 @@ import io.lettuce.core.RedisCommandTimeoutException;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.cluster.RedisClusterClient;
 import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
+import io.lettuce.core.cluster.event.ClusterTopologyChangedEvent;
 import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
 import io.lettuce.core.codec.ByteArrayCodec;
 import io.lettuce.core.event.connection.ConnectionEvent;
@@ -70,6 +71,8 @@ public class FaultTolerantRedisCluster {
         this.clusterClient.getResources().eventBus().get().subscribe(event -> {
             if (event instanceof ConnectionEvent) {
                 log.info("Connection event for {}: {}", this.name, event);
+            } else if (event instanceof ClusterTopologyChangedEvent) {
+                log.info("Cluster topology for {} changed: {}", this.name, event);
             }
         });
 

@@ -7,10 +7,13 @@ import io.lettuce.core.cluster.RedisClusterClient;
 import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
+import io.lettuce.core.event.EventBus;
+import io.lettuce.core.resource.ClientResources;
 import org.junit.Before;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
+import reactor.core.publisher.Flux;
 
 import java.time.Duration;
 
@@ -30,12 +33,17 @@ public class FaultTolerantRedisClusterTest {
         final RedisClusterClient                                   clusterClient     = mock(RedisClusterClient.class);
         final StatefulRedisClusterConnection<String, String>       clusterConnection = mock(StatefulRedisClusterConnection.class);
         final StatefulRedisClusterPubSubConnection<String, String> pubSubConnection  = mock(StatefulRedisClusterPubSubConnection.class);
+        final ClientResources                                      clientResources   = mock(ClientResources.class);
+        final EventBus                                             eventBus          = mock(EventBus.class);
 
         clusterCommands = mock(RedisAdvancedClusterCommands.class);
 
         when(clusterClient.connect()).thenReturn(clusterConnection);
         when(clusterClient.connectPubSub()).thenReturn(pubSubConnection);
+        when(clusterClient.getResources()).thenReturn(clientResources);
         when(clusterConnection.sync()).thenReturn(clusterCommands);
+        when(clientResources.eventBus()).thenReturn(eventBus);
+        when(eventBus.get()).thenReturn(mock(Flux.class));
 
         final CircuitBreakerConfiguration breakerConfiguration = new CircuitBreakerConfiguration();
         breakerConfiguration.setFailureRateThreshold(100);
