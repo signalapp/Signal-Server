@@ -12,7 +12,6 @@ import io.lettuce.core.cluster.RedisClusterClient;
 import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
 import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
 import io.lettuce.core.codec.ByteArrayCodec;
-import io.lettuce.core.resource.ClientResources;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
@@ -52,9 +51,9 @@ public class FaultTolerantRedisCluster {
 
     private static final Logger log = LoggerFactory.getLogger(FaultTolerantRedisCluster.class);
 
-    public FaultTolerantRedisCluster(final String name, final RedisClusterConfiguration clusterConfiguration, final ClientResources clientResources) {
+    public FaultTolerantRedisCluster(final String name, final RedisClusterConfiguration clusterConfiguration) {
         this(name,
-             RedisClusterClient.create(clientResources, clusterConfiguration.getUrls().stream().map(RedisURI::create).collect(Collectors.toList())),
+             RedisClusterClient.create(clusterConfiguration.getUrls().stream().map(RedisURI::create).collect(Collectors.toList())),
              clusterConfiguration.getTimeout(),
              clusterConfiguration.getCircuitBreakerConfiguration(),
              clusterConfiguration.getRetryConfiguration());
