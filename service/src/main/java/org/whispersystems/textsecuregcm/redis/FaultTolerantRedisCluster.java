@@ -12,6 +12,7 @@ import io.lettuce.core.cluster.RedisClusterClient;
 import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
 import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
 import io.lettuce.core.codec.ByteArrayCodec;
+import io.lettuce.core.event.connection.ConnectionEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
@@ -65,6 +66,12 @@ public class FaultTolerantRedisCluster {
 
         this.clusterClient = clusterClient;
         this.clusterClient.setDefaultTimeout(commandTimeout);
+
+        this.clusterClient.getResources().eventBus().get().subscribe(event -> {
+            if (event instanceof ConnectionEvent) {
+                log.info("Connection event for {}: {}", this.name, event);
+            }
+        });
 
         this.stringConnection = clusterClient.connect();
         this.binaryConnection = clusterClient.connect(ByteArrayCodec.INSTANCE);
