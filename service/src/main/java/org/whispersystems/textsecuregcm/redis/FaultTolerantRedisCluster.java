@@ -101,6 +101,10 @@ public class FaultTolerantRedisCluster {
         clusterClient.shutdown();
     }
 
+    public String getName() {
+        return name;
+    }
+
     public void useCluster(final Consumer<StatefulRedisClusterConnection<String, String>> consumer) {
         useConnection(stringConnection, consumer);
     }
