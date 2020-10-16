@@ -24,6 +24,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
+import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
@@ -54,6 +55,9 @@ public class AccountsManager {
   private static final Timer redisNumberGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisNumberGet"));
   private static final Timer redisUuidGetTimer   = metricRegistry.timer(name(AccountsManager.class, "redisUuidGet"  ));
   private static final Timer redisDeleteTimer    = metricRegistry.timer(name(AccountsManager.class, "redisDelete"   ));
+
+  private static final String DELETE_COUNTER_NAME   = name(AccountsManager.class, "deleteCounter");
+  private static final String COUNTRY_CODE_TAG_NAME = "country";
 
 
   private final Logger logger = LoggerFactory.getLogger(AccountsManager.class);
@@ -150,6 +154,8 @@ public class AccountsManager {
       redisDelete(account);
       databaseDelete(account);
     }
+
+    Metrics.counter(DELETE_COUNTER_NAME, COUNTRY_CODE_TAG_NAME, Util.getCountryCode(account.getNumber())).increment();
   }
 
   private void updateDirectory(Account account) {
