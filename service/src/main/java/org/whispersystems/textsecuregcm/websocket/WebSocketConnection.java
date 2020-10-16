@@ -48,6 +48,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private static final Meter          ephemeralMessageAvailableMeter = metricRegistry.meter(name(WebSocketConnection.class, "ephemeralMessagesAvailable"));
   private static final Meter          messagesPersistedMeter         = metricRegistry.meter(name(WebSocketConnection.class, "messagesPersisted"));
   private static final Meter          displacementMeter              = metricRegistry.meter(name(WebSocketConnection.class, "explicitDisplacement"));
+  private static final Meter          bytesSentMeter                 = metricRegistry.meter(name(WebSocketConnection.class, "bytes_sent"));
+  private static final Meter          sendFailuresMeter              = metricRegistry.meter(name(WebSocketConnection.class, "send_failures"));
 
   private static final Logger logger = LoggerFactory.getLogger(WebSocketConnection.class);
 
@@ -103,6 +105,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       }
 
       sendMessageMeter.mark();
+      bytesSentMeter.mark(body.map(bytes -> bytes.length).orElse(0));
 
       return client.sendRequest("PUT", "/api/v1/message", List.of(header, TimestampHeaderUtil.getTimestampHeader()), body).whenComplete((response, throwable) -> {
         if (throwable == null) {
@@ -116,6 +119,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
               sendDeliveryReceiptFor(message);
             }
           }
+        } else {
+          sendFailuresMeter.mark();
         }
       });
     } catch (CryptoEncodingException e) {
