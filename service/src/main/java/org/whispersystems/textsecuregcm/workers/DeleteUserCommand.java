@@ -106,7 +106,7 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
         Optional<Account> account = accountsManager.get(user);
 
         if (account.isPresent()) {
-          accountsManager.delete(account.get());
+          accountsManager.delete(account.get(), AccountsManager.DeletionReason.ADMIN_DELETED);
           logger.warn("Removed " + account.get().getNumber());
         } else {
           logger.warn("Account not found");

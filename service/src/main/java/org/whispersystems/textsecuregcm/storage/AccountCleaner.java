@@ -68,7 +68,7 @@ public class AccountCleaner extends AccountDatabaseCrawlerListener {
         expiredAccountsMeter.mark();
 
         if (accountUpdateCount < MAX_ACCOUNT_UPDATES_PER_CHUNK) {
-          accountsManager.delete(account);
+          accountsManager.delete(account, AccountsManager.DeletionReason.EXPIRED);
           accountUpdateCount++;
         }
       }

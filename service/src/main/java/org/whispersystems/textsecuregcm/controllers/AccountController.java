@@ -604,7 +604,7 @@ public class AccountController {
   @DELETE
   @Path("/me")
   public void deleteAccount(@Auth Account account) {
-    accounts.delete(account);
+    accounts.delete(account, AccountsManager.DeletionReason.USER_REQUEST);
   }
 
   private boolean shouldAutoBlock(String requester) {

@@ -1187,6 +1187,6 @@ public class AccountControllerTest {
                      .delete();
 
     assertThat(response.getStatus()).isEqualTo(204);
-    verify(accountsManager).delete(AuthHelper.VALID_ACCOUNT);
+    verify(accountsManager).delete(AuthHelper.VALID_ACCOUNT, AccountsManager.DeletionReason.USER_REQUEST);
   }
 }

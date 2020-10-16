@@ -56,8 +56,9 @@ public class AccountsManager {
   private static final Timer redisUuidGetTimer   = metricRegistry.timer(name(AccountsManager.class, "redisUuidGet"  ));
   private static final Timer redisDeleteTimer    = metricRegistry.timer(name(AccountsManager.class, "redisDelete"   ));
 
-  private static final String DELETE_COUNTER_NAME   = name(AccountsManager.class, "deleteCounter");
-  private static final String COUNTRY_CODE_TAG_NAME = "country";
+  private static final String DELETE_COUNTER_NAME      = name(AccountsManager.class, "deleteCounter");
+  private static final String COUNTRY_CODE_TAG_NAME    = "country";
+  private static final String DELETION_REASON_TAG_NAME = "reason";
 
 
   private final Logger logger = LoggerFactory.getLogger(AccountsManager.class);
@@ -71,6 +72,18 @@ public class AccountsManager {
   private final UsernamesManager          usernamesManager;
   private final ProfilesManager           profilesManager;
   private final ObjectMapper              mapper;
+
+  public enum DeletionReason {
+    ADMIN_DELETED("admin"),
+    EXPIRED      ("expired"),
+    USER_REQUEST ("userRequest");
+
+    private final String tagValue;
+
+    DeletionReason(final String tagValue) {
+      this.tagValue = tagValue;
+    }
+  }
 
   public AccountsManager(Accounts accounts, DirectoryManager directory, FaultTolerantRedisCluster cacheCluster, final DirectoryQueue directoryQueue, final Keys keys, final MessagesManager messagesManager, final UsernamesManager usernamesManager, final ProfilesManager profilesManager) {
     this.accounts         = accounts;
@@ -143,7 +156,7 @@ public class AccountsManager {
     return accounts.getAllFrom(uuid, length);
   }
 
-  public void delete(final Account account) {
+  public void delete(final Account account, final DeletionReason deletionReason) {
     try (final Timer.Context ignored = deleteTimer.time()) {
       usernamesManager.delete(account.getUuid());
       directoryQueue.deleteAccount(account);
@@ -155,7 +168,10 @@ public class AccountsManager {
       databaseDelete(account);
     }
 
-    Metrics.counter(DELETE_COUNTER_NAME, COUNTRY_CODE_TAG_NAME, Util.getCountryCode(account.getNumber())).increment();
+    Metrics.counter(DELETE_COUNTER_NAME,
+                    COUNTRY_CODE_TAG_NAME,    Util.getCountryCode(account.getNumber()),
+                    DELETION_REASON_TAG_NAME, deletionReason.tagValue)
+           .increment();
   }
 
   private void updateDirectory(Account account) {

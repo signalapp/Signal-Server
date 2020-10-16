@@ -31,6 +31,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -88,9 +90,9 @@ public class AccountCleanerTest {
     accountCleaner.timeAndProcessCrawlChunk(Optional.empty(), Arrays.asList(deletedDisabledAccount, undeletedDisabledAccount, undeletedEnabledAccount));
     accountCleaner.onCrawlEnd(Optional.empty());
 
-    verify(accountsManager, never()).delete(deletedDisabledAccount);
-    verify(accountsManager).delete(undeletedDisabledAccount);
-    verify(accountsManager, never()).delete(undeletedEnabledAccount);
+    verify(accountsManager, never()).delete(eq(deletedDisabledAccount), any());
+    verify(accountsManager).delete(undeletedDisabledAccount, AccountsManager.DeletionReason.EXPIRED);
+    verify(accountsManager, never()).delete(eq(undeletedEnabledAccount), any());
 
     verifyNoMoreInteractions(accountsManager);
   }
@@ -112,7 +114,7 @@ public class AccountCleanerTest {
     accountCleaner.timeAndProcessCrawlChunk(Optional.empty(), accounts);
     accountCleaner.onCrawlEnd(Optional.empty());
 
-    verify(accountsManager, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).delete(undeletedDisabledAccount);
+    verify(accountsManager, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).delete(undeletedDisabledAccount, AccountsManager.DeletionReason.EXPIRED);
     verifyNoMoreInteractions(accountsManager);
   }
 
