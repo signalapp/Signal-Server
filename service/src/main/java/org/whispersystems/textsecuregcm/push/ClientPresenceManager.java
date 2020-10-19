@@ -115,7 +115,13 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
 
         presenceCluster.useCluster(connection -> connection.sync().sadd(MANAGER_SET_KEY, managerId));
 
-        pruneMissingPeersFuture = scheduledExecutorService.scheduleAtFixedRate(this::pruneMissingPeers, new Random().nextInt(PRUNE_PEERS_INTERVAL_SECONDS), PRUNE_PEERS_INTERVAL_SECONDS, TimeUnit.SECONDS);
+        pruneMissingPeersFuture = scheduledExecutorService.scheduleAtFixedRate(() -> {
+            try {
+                pruneMissingPeers();
+            } catch (final Throwable t) {
+                log.warn("Failed to prune missing peers", t);
+            }
+        }, new Random().nextInt(PRUNE_PEERS_INTERVAL_SECONDS), PRUNE_PEERS_INTERVAL_SECONDS, TimeUnit.SECONDS);
     }
 
     @Override
