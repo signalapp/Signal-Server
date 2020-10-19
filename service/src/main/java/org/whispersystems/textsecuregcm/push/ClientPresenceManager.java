@@ -38,6 +38,9 @@ import static com.codahale.metrics.MetricRegistry.name;
  * The client presence manager keeps track of which clients are actively connected and "present" to receive messages.
  * Only one client per account/device may be present at a time; if a second client for the same account/device declares
  * its presence, the previous client is displaced.
+ * <p/>
+ * The client presence manager depends on Redis keyspace notifications and requires that the Redis instance support at
+ * least the following notification types: {@code K$z}.
  */
 public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, String> implements Managed {
 
@@ -146,8 +149,8 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
             presenceCluster.useCluster(connection -> {
                 final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
 
-                commands.set(presenceKey, managerId);
                 commands.sadd(connectedClientSetKey, presenceKey);
+                commands.set(presenceKey, managerId);
             });
 
             subscribeForRemotePresenceChanges(presenceKey);
