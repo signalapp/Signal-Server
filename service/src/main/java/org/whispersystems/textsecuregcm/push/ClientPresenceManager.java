@@ -66,7 +66,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
     private final Meter remoteDisplacementMeter;
     private final Meter pubSubMessageMeter;
 
-    private static final int PRUNE_PEERS_INTERVAL_SECONDS = (int)Duration.ofMinutes(3).toSeconds();
+    private static final int PRUNE_PEERS_INTERVAL_SECONDS = (int)Duration.ofSeconds(30).toSeconds();
 
     static final String MANAGER_SET_KEY = "presence::managers";
 
@@ -115,7 +115,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
 
         presenceCluster.useCluster(connection -> connection.sync().sadd(MANAGER_SET_KEY, managerId));
 
-        pruneMissingPeersFuture = scheduledExecutorService.scheduleAtFixedRate(() -> {
+        pruneMissingPeersFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 pruneMissingPeers();
             } catch (final Throwable t) {
