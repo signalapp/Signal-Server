@@ -4,18 +4,19 @@
  */
 package org.whispersystems.websocket.logging;
 
+import org.glassfish.jersey.server.ContainerRequest;
+import org.glassfish.jersey.server.ContainerResponse;
+
 import ch.qos.logback.core.Appender;
 import ch.qos.logback.core.filter.Filter;
 import ch.qos.logback.core.spi.AppenderAttachableImpl;
 import ch.qos.logback.core.spi.FilterAttachableImpl;
 import ch.qos.logback.core.spi.FilterReply;
-import org.glassfish.jersey.server.ContainerRequest;
-import org.glassfish.jersey.server.ContainerResponse;
 
 public class WebsocketRequestLog {
 
-  private AppenderAttachableImpl<WebsocketEvent> aai = new AppenderAttachableImpl<>();
-  private FilterAttachableImpl<WebsocketEvent>   fai = new FilterAttachableImpl<>();
+  private final AppenderAttachableImpl<WebsocketEvent> aai = new AppenderAttachableImpl<>();
+  private final FilterAttachableImpl<WebsocketEvent>   fai = new FilterAttachableImpl<>();
 
   public WebsocketRequestLog() {
   }

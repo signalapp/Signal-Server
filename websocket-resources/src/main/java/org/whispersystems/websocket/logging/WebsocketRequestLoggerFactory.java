@@ -4,15 +4,7 @@
  */
 package org.whispersystems.websocket.logging;
 
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.LoggerContext;
 import com.google.common.annotations.VisibleForTesting;
-import io.dropwizard.logging.AppenderFactory;
-import io.dropwizard.logging.ConsoleAppenderFactory;
-import io.dropwizard.logging.async.AsyncAppenderFactory;
-import io.dropwizard.logging.filter.LevelFilterFactory;
-import io.dropwizard.logging.filter.NullLevelFilterFactory;
-import io.dropwizard.logging.layout.LayoutFactory;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.websocket.logging.layout.WebsocketEventLayoutFactory;
 
@@ -20,6 +12,15 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import java.util.Collections;
 import java.util.List;
+
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.LoggerContext;
+import io.dropwizard.logging.AppenderFactory;
+import io.dropwizard.logging.ConsoleAppenderFactory;
+import io.dropwizard.logging.async.AsyncAppenderFactory;
+import io.dropwizard.logging.filter.LevelFilterFactory;
+import io.dropwizard.logging.filter.NullLevelFilterFactory;
+import io.dropwizard.logging.layout.LayoutFactory;
 
 public class WebsocketRequestLoggerFactory {
 
