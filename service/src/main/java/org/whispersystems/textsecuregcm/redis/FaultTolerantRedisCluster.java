@@ -1,8 +1,6 @@
 package org.whispersystems.textsecuregcm.redis;
 
-import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
-import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.retry.Retry;
@@ -13,8 +11,8 @@ import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
 import io.lettuce.core.cluster.event.ClusterTopologyChangedEvent;
 import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
 import io.lettuce.core.codec.ByteArrayCodec;
-import io.lettuce.core.resource.ClientResources;
 import io.lettuce.core.event.connection.ConnectionEvent;
+import io.lettuce.core.resource.ClientResources;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
@@ -29,8 +27,6 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
-import static com.codahale.metrics.MetricRegistry.name;
 
 /**
  * A fault-tolerant access manager for a Redis cluster. A fault-tolerant Redis cluster provides managed,
@@ -49,8 +45,6 @@ public class FaultTolerantRedisCluster {
 
     private final CircuitBreaker circuitBreaker;
     private final Retry          retry;
-
-    private final Timer executeTimer;
 
     private static final Logger log = LoggerFactory.getLogger(FaultTolerantRedisCluster.class);
 
@@ -85,10 +79,6 @@ public class FaultTolerantRedisCluster {
 
         CircuitBreakerUtil.registerMetrics(SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME), circuitBreaker, FaultTolerantRedisCluster.class);
         CircuitBreakerUtil.registerMetrics(SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME), retry, FaultTolerantRedisCluster.class);
-
-        final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-
-        this.executeTimer = metricRegistry.timer(name(getClass(), name, "execute"));
     }
 
     void shutdown() {
@@ -124,11 +114,7 @@ public class FaultTolerantRedisCluster {
 
     private <K, V> void useConnection(final StatefulRedisClusterConnection<K, V> connection, final Consumer<StatefulRedisClusterConnection<K, V>> consumer) {
         try {
-            circuitBreaker.executeCheckedRunnable(() -> retry.executeRunnable(() -> {
-                try (final Timer.Context ignored = executeTimer.time()) {
-                    consumer.accept(connection);
-                }
-            }));
+            circuitBreaker.executeCheckedRunnable(() -> retry.executeRunnable(() -> consumer.accept(connection)));
         } catch (final Throwable t) {
             log.warn("Redis operation failure", t);
 
@@ -142,11 +128,7 @@ public class FaultTolerantRedisCluster {
 
     private <T, K, V> T withConnection(final StatefulRedisClusterConnection<K, V> connection, final Function<StatefulRedisClusterConnection<K, V>, T> function) {
         try {
-            return circuitBreaker.executeCheckedSupplier(() -> retry.executeCallable(() -> {
-                try (final Timer.Context ignored = executeTimer.time()) {
-                    return function.apply(connection);
-                }
-            }));
+            return circuitBreaker.executeCheckedSupplier(() -> retry.executeCallable(() -> function.apply(connection)));
         } catch (final Throwable t) {
             log.warn("Redis operation failure", t);
 
