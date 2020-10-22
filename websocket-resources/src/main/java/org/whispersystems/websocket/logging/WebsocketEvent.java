@@ -1,14 +1,15 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
 package org.whispersystems.websocket.logging;
 
-import com.google.common.annotations.VisibleForTesting;
+import ch.qos.logback.core.spi.DeferredProcessingAware;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.ContainerResponse;
 
 import javax.ws.rs.core.MultivaluedMap;
-
 import java.util.List;
-
-import ch.qos.logback.core.spi.DeferredProcessingAware;
 
 public class WebsocketEvent implements DeferredProcessingAware {
 

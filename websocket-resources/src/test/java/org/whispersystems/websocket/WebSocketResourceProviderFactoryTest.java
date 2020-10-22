@@ -1,6 +1,10 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
 package org.whispersystems.websocket;
 
-
+import io.dropwizard.jersey.DropwizardResourceConfig;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
 import org.eclipse.jetty.websocket.servlet.ServletUpgradeRequest;
@@ -10,7 +14,6 @@ import org.glassfish.jersey.server.ResourceConfig;
 import org.junit.Test;
 import org.whispersystems.websocket.auth.AuthenticationException;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
-import org.whispersystems.websocket.setup.WebSocketConnectListener;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
 
 import javax.security.auth.Subject;
@@ -19,10 +22,14 @@ import java.io.IOException;
 import java.security.Principal;
 import java.util.Optional;
 
-import io.dropwizard.jersey.DropwizardResourceConfig;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 public class WebSocketResourceProviderFactoryTest {
 

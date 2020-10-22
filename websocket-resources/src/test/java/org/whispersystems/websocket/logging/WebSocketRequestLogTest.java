@@ -1,5 +1,13 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
 package org.whispersystems.websocket.logging;
 
+import ch.qos.logback.classic.LoggerContext;
+import ch.qos.logback.core.OutputStreamAppender;
+import ch.qos.logback.core.spi.DeferredProcessingAware;
+import io.dropwizard.logging.AbstractOutputStreamAppenderFactory;
 import org.glassfish.jersey.internal.MapPropertiesDelegate;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.ContainerResponse;
@@ -15,10 +23,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import ch.qos.logback.classic.LoggerContext;
-import ch.qos.logback.core.OutputStreamAppender;
-import ch.qos.logback.core.spi.DeferredProcessingAware;
-import io.dropwizard.logging.AbstractOutputStreamAppenderFactory;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 

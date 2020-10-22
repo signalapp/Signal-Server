@@ -1,5 +1,11 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
 package org.whispersystems.websocket.logging.layout;
 
+import ch.qos.logback.core.Context;
+import ch.qos.logback.core.pattern.PatternLayoutBase;
 import org.whispersystems.websocket.logging.WebsocketEvent;
 import org.whispersystems.websocket.logging.layout.converters.ContentLengthConverter;
 import org.whispersystems.websocket.logging.layout.converters.DateConverter;
@@ -12,9 +18,6 @@ import org.whispersystems.websocket.logging.layout.converters.StatusCodeConverte
 
 import java.util.HashMap;
 import java.util.Map;
-
-import ch.qos.logback.core.Context;
-import ch.qos.logback.core.pattern.PatternLayoutBase;
 
 public class WebsocketEventLayout extends PatternLayoutBase<WebsocketEvent> {
 
