@@ -54,17 +54,18 @@ public class APNSender implements Managed {
   private static final Meter unregisteredEventStale  = metricRegistry.meter(name(APNSender.class, "unregistered_event_stale"));
   private static final Meter unregisteredEventFresh  = metricRegistry.meter(name(APNSender.class, "unregistered_event_fresh"));
 
-  private ExecutorService    executor;
   private ApnFallbackManager fallbackManager;
 
+  private final ExecutorService    executor;
   private final AccountsManager    accountsManager;
   private final String             bundleId;
   private final boolean            sandbox;
   private final RetryingApnsClient apnsClient;
 
-  public APNSender(AccountsManager accountsManager, ApnConfiguration configuration)
+  public APNSender(ExecutorService executor, AccountsManager accountsManager, ApnConfiguration configuration)
       throws IOException, NoSuchAlgorithmException, InvalidKeyException
   {
+    this.executor        = executor;
     this.accountsManager = accountsManager;
     this.bundleId        = configuration.getBundleId();
     this.sandbox         = configuration.isSandboxEnabled();
@@ -120,12 +121,10 @@ public class APNSender implements Managed {
 
   @Override
   public void start() {
-    this.executor = Executors.newSingleThreadExecutor();
   }
 
   @Override
   public void stop() {
-    this.executor.shutdown();
     this.apnsClient.disconnect();
   }
 

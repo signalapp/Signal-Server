@@ -191,7 +191,6 @@ public class MessageSender implements Managed {
   @Override
   public void start() {
     apnSender.start();
-    gcmSender.start();
   }
 
   @Override
@@ -200,6 +199,5 @@ public class MessageSender implements Managed {
     executor.awaitTermination(5, TimeUnit.MINUTES);
 
     apnSender.stop();
-    gcmSender.stop();
   }
 }

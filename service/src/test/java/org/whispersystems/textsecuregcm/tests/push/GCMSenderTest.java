@@ -33,7 +33,7 @@ public class GCMSenderTest {
     when(successResult.isSuccess()).thenReturn(true);
 
     GcmMessage message = new GcmMessage("foo", "+12223334444", 1, GcmMessage.Type.NOTIFICATION, Optional.empty());
-    GCMSender gcmSender = new GCMSender(accountsManager, sender, executorService);
+    GCMSender gcmSender = new GCMSender(executorService, accountsManager, sender);
 
     CompletableFuture<Result> successFuture = CompletableFuture.completedFuture(successResult);
 
@@ -67,7 +67,7 @@ public class GCMSenderTest {
     when(invalidResult.isSuccess()).thenReturn(true);
 
     GcmMessage message = new GcmMessage(gcmId, destinationNumber, 1, GcmMessage.Type.NOTIFICATION, Optional.empty());
-    GCMSender gcmSender = new GCMSender(accountsManager, sender, executorService);
+    GCMSender gcmSender = new GCMSender(executorService, accountsManager, sender);
 
     CompletableFuture<Result> invalidFuture = CompletableFuture.completedFuture(invalidResult);
 
@@ -106,7 +106,7 @@ public class GCMSenderTest {
     when(canonicalResult.getCanonicalRegistrationId()).thenReturn(canonicalId);
 
     GcmMessage message = new GcmMessage(gcmId, destinationNumber, 1, GcmMessage.Type.NOTIFICATION, Optional.empty());
-    GCMSender gcmSender = new GCMSender(accountsManager, sender, executorService);
+    GCMSender gcmSender = new GCMSender(executorService, accountsManager, sender);
 
     CompletableFuture<Result> invalidFuture = CompletableFuture.completedFuture(canonicalResult);
 
