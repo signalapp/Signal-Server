@@ -102,7 +102,7 @@ public class MessageController {
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME                     = name(MessageController.class, "messageContentSize");
   private static final String OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME = name(MessageController.class, "outgoingMessageListSizeBytes");
 
-  private static final int MAX_MESSAGE_SIZE = 64 * 1024;
+  private static final int MAX_MESSAGE_SIZE = 1024 * 1024;
 
   public MessageController(RateLimiters rateLimiters,
                            MessageSender messageSender,
