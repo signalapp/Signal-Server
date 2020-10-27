@@ -294,14 +294,18 @@ public class Device {
     @JsonProperty
     private boolean transfer;
 
+    @JsonProperty("gv1-migration")
+    private boolean gv1Migration;
+
     public DeviceCapabilities() {}
 
-    public DeviceCapabilities(boolean gv2, final boolean gv2_2, final boolean gv2_3, boolean storage, boolean transfer) {
-      this.gv2      = gv2;
-      this.gv2_2    = gv2_2;
-      this.gv2_3    = gv2_3;
-      this.storage  = storage;
+    public DeviceCapabilities(boolean gv2, final boolean gv2_2, final boolean gv2_3, boolean storage, boolean transfer, boolean gv1Migration) {
+      this.gv2 = gv2;
+      this.gv2_2 = gv2_2;
+      this.gv2_3 = gv2_3;
+      this.storage = storage;
       this.transfer = transfer;
+      this.gv1Migration = gv1Migration;
     }
 
     public boolean isGv2() {
@@ -323,6 +327,9 @@ public class Device {
     public boolean isTransfer() {
       return transfer;
     }
-  }
 
+    public boolean isGv1Migration() {
+      return gv1Migration;
+    }
+  }
 }
