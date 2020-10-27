@@ -138,21 +138,24 @@ public class MessageSender implements Managed {
       throw new AssertionError();
     }
 
-    final boolean clientPresent = clientPresenceManager.isPresent(account.getUuid(), device.getId());
+    final boolean clientPresent;
 
     if (online) {
+      clientPresent = clientPresenceManager.isPresent(account.getUuid(), device.getId());
+
       if (clientPresent) {
         messagesManager.insertEphemeral(account.getUuid(), device.getId(), message);
       }
     } else {
       messagesManager.insert(account.getUuid(), device.getId(), message);
 
+      // We check for client presence after inserting the message to take a conservative view of notifications. If the
+      // client wasn't present at the time of insertion but is now, they'll retrieve the message. If they were present
+      // but disconnected before the message was delivered, we should send a notification.
+      clientPresent = clientPresenceManager.isPresent(account.getUuid(), device.getId());
+
       if (!clientPresent) {
-        if (!Util.isEmpty(device.getGcmId())) {
-          sendGcmNotification(account, device);
-        } else if (!Util.isEmpty(device.getApnId()) || !Util.isEmpty(device.getVoipApnId())) {
-          sendApnNotification(account, device);
-        }
+        sendNewMessageNotification(account, device);
       }
     }
 
@@ -162,6 +165,14 @@ public class MessageSender implements Managed {
             Tag.of(CLIENT_ONLINE_TAG_NAME, String.valueOf(clientPresent)));
 
     Metrics.counter(SEND_COUNTER_NAME, tags).increment();
+  }
+
+  public void sendNewMessageNotification(final Account account, final Device device) {
+    if (!Util.isEmpty(device.getGcmId())) {
+      sendGcmNotification(account, device);
+    } else if (!Util.isEmpty(device.getApnId()) || !Util.isEmpty(device.getVoipApnId())) {
+      sendApnNotification(account, device);
+    }
   }
 
   private void sendGcmNotification(Account account, Device device) {

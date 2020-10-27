@@ -6,6 +6,7 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
+import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -26,16 +27,18 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
   private final ReceiptSender         receiptSender;
   private final MessagesManager       messagesManager;
+  private final MessageSender         messageSender;
   private final ApnFallbackManager    apnFallbackManager;
   private final ClientPresenceManager clientPresenceManager;
 
   public AuthenticatedConnectListener(ReceiptSender receiptSender,
                                       MessagesManager messagesManager,
-                                      ApnFallbackManager apnFallbackManager,
+                                      final MessageSender messageSender, ApnFallbackManager apnFallbackManager,
                                       ClientPresenceManager clientPresenceManager)
   {
     this.receiptSender         = receiptSender;
     this.messagesManager       = messagesManager;
+    this.messageSender         = messageSender;
     this.apnFallbackManager    = apnFallbackManager;
     this.clientPresenceManager = clientPresenceManager;
   }
@@ -66,6 +69,10 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
           openWebsocketCounter.dec();
           timer.stop();
+
+          if (messagesManager.hasCachedMessages(account.getUuid(), device.getId())) {
+            messageSender.sendNewMessageNotification(account, device);
+          }
         }
       });
     } else {

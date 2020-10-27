@@ -220,6 +220,10 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         return removedMessages;
     }
 
+    public boolean hasMessages(final UUID destinationUuid, final long destinationDevice) {
+        return redisCluster.withBinaryCluster(connection -> connection.sync().zcard(getMessageQueueKey(destinationUuid, destinationDevice)) > 0);
+    }
+
     @SuppressWarnings("unchecked")
     public List<OutgoingMessageEntity> get(final UUID destinationUuid, final long destinationDevice, final int limit) {
         return getMessagesTimer.record(() -> {

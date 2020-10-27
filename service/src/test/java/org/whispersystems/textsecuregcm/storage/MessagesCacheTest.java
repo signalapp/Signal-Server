@@ -161,6 +161,17 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
     }
 
     @Test
+    public void testHasMessages() {
+        assertFalse(messagesCache.hasMessages(DESTINATION_UUID, DESTINATION_DEVICE_ID));
+
+        final UUID                   messageGuid = UUID.randomUUID();
+        final MessageProtos.Envelope message     = generateRandomMessage(messageGuid, true);
+        messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
+
+        assertTrue(messagesCache.hasMessages(DESTINATION_UUID, DESTINATION_DEVICE_ID));
+    }
+
+    @Test
     @Parameters({"true", "false"})
     public void testGetMessages(final boolean sealedSender) {
         final int messageCount = 100;

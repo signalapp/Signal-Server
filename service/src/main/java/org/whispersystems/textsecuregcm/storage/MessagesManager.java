@@ -51,6 +51,10 @@ public class MessagesManager {
     return messagesCache.takeEphemeralMessage(destinationUuid, destinationDevice);
   }
 
+  public boolean hasCachedMessages(final UUID destinationUuid, final long destinationDevice) {
+    return messagesCache.hasMessages(destinationUuid, destinationDevice);
+  }
+
   public OutgoingMessageEntityList getMessagesForDevice(String destination, UUID destinationUuid, long destinationDevice, final String userAgent, final boolean cachedMessagesOnly) {
     RedisOperation.unchecked(() -> pushLatencyManager.recordQueueRead(destinationUuid, destinationDevice, userAgent));
 
