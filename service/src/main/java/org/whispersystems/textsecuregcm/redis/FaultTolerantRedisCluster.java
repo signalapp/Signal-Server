@@ -63,14 +63,6 @@ public class FaultTolerantRedisCluster {
         this.clusterClient = clusterClient;
         this.clusterClient.setDefaultTimeout(commandTimeout);
 
-        this.clusterClient.getResources().eventBus().get().subscribe(event -> {
-            if (event instanceof ConnectionEvent) {
-                log.info("Connection event for {}: {}", this.name, event);
-            } else if (event instanceof ClusterTopologyChangedEvent) {
-                log.info("Cluster topology for {} changed: {}", this.name, event);
-            }
-        });
-
         this.stringConnection = clusterClient.connect();
         this.binaryConnection = clusterClient.connect(ByteArrayCodec.INSTANCE);
 
