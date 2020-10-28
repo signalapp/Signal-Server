@@ -97,6 +97,7 @@ public class ProfileControllerTest {
     when(profileAccount.getUuid()).thenReturn(AuthHelper.VALID_UUID_TWO);
     when(profileAccount.isEnabled()).thenReturn(true);
     when(profileAccount.isGroupsV2Supported()).thenReturn(false);
+    when(profileAccount.isGv1MigrationSupported()).thenReturn(false);
     when(profileAccount.getPayments()).thenReturn(List.of(new PaymentAddress("mc", "12345678901234567890123456789012")));
 
     Account capabilitiesAccount = mock(Account.class);
@@ -106,6 +107,7 @@ public class ProfileControllerTest {
     when(capabilitiesAccount.getAvatar()).thenReturn("profiles/bangz");
     when(capabilitiesAccount.isEnabled()).thenReturn(true);
     when(capabilitiesAccount.isGroupsV2Supported()).thenReturn(true);
+    when(capabilitiesAccount.isGv1MigrationSupported()).thenReturn(true);
 
     when(accountsManager.get(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(profileAccount));
     when(accountsManager.get(AuthHelper.VALID_UUID_TWO)).thenReturn(Optional.of(profileAccount));
@@ -159,6 +161,7 @@ public class ProfileControllerTest {
     assertThat(profile.getAvatar()).isEqualTo("profiles/bang");
     assertThat(profile.getPayments()).isEqualTo(List.of(new PaymentAddress("mc", "12345678901234567890123456789012")));
     assertThat(profile.getCapabilities().isGv2()).isFalse();
+    assertThat(profile.getCapabilities().isGv1Migration()).isFalse();
     assertThat(profile.getUsername()).isNull();
     assertThat(profile.getUuid()).isNull();;
 
@@ -243,6 +246,7 @@ public class ProfileControllerTest {
                               .get(Profile.class);
 
     assertThat(profile.getCapabilities().isGv2()).isTrue();
+    assertThat(profile.getCapabilities().isGv1Migration()).isTrue();
   }
 
   @Test
@@ -386,6 +390,7 @@ public class ProfileControllerTest {
     assertThat(profile.getName()).isEqualTo("validname");
     assertThat(profile.getAvatar()).isEqualTo("profiles/validavatar");
     assertThat(profile.getCapabilities().isGv2()).isFalse();
+    assertThat(profile.getCapabilities().isGv1Migration()).isFalse();
     assertThat(profile.getUsername()).isEqualTo("n00bkiller");
     assertThat(profile.getUuid()).isNull();;
 
