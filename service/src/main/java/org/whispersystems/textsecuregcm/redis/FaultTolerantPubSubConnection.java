@@ -1,10 +1,12 @@
 package org.whispersystems.textsecuregcm.redis;
 
+import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.retry.Retry;
+import io.lettuce.core.RedisCommandTimeoutException;
 import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +26,7 @@ public class FaultTolerantPubSubConnection<K, V> {
     private final Retry          retry;
 
     private final Timer executeTimer;
+    private final Meter commandTimeoutMeter;
 
     private static final Logger log = LoggerFactory.getLogger(FaultTolerantPubSubConnection.class);
 
@@ -37,6 +40,7 @@ public class FaultTolerantPubSubConnection<K, V> {
         final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
 
         this.executeTimer = metricRegistry.timer(name(getClass(), name + "-pubsub", "execute"));
+        this.commandTimeoutMeter = metricRegistry.meter(name(getClass(), name + "-pubsub", "commandTimeout"));
     }
 
     public void usePubSubConnection(final Consumer<StatefulRedisClusterPubSubConnection<K, V>> consumer) {
@@ -44,6 +48,9 @@ public class FaultTolerantPubSubConnection<K, V> {
             circuitBreaker.executeCheckedRunnable(() -> retry.executeRunnable(() -> {
                 try (final Timer.Context ignored = executeTimer.time()) {
                     consumer.accept(pubSubConnection);
+                } catch (final RedisCommandTimeoutException e) {
+                    commandTimeoutMeter.mark();
+                    throw e;
                 }
             }));
         } catch (final Throwable t) {
@@ -62,6 +69,9 @@ public class FaultTolerantPubSubConnection<K, V> {
             return circuitBreaker.executeCheckedSupplier(() -> retry.executeCallable(() -> {
                 try (final Timer.Context ignored = executeTimer.time()) {
                     return function.apply(pubSubConnection);
+                } catch (final RedisCommandTimeoutException e) {
+                    commandTimeoutMeter.mark();
+                    throw e;
                 }
             }));
         } catch (final Throwable t) {
