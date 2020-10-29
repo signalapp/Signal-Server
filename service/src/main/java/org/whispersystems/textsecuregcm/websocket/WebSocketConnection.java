@@ -57,6 +57,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private static final Meter          messagesPersistedMeter         = metricRegistry.meter(name(WebSocketConnection.class, "messagesPersisted"));
   private static final Meter          bytesSentMeter                 = metricRegistry.meter(name(WebSocketConnection.class, "bytes_sent"));
   private static final Meter          sendFailuresMeter              = metricRegistry.meter(name(WebSocketConnection.class, "send_failures"));
+  private static final Meter          clientNonSuccessResponseMeter  = metricRegistry.meter(name(WebSocketConnection.class, "clientNonSuccessResponse"));
 
   private static final String DISPLACEMENT_COUNTER_NAME      = name(WebSocketConnection.class, "displacement");
   private static final String DISPLACEMENT_PLATFORM_TAG_NAME = "platform";
@@ -128,6 +129,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
               messageTime.update(System.currentTimeMillis() - message.getTimestamp());
               sendDeliveryReceiptFor(message);
             }
+          } else {
+            clientNonSuccessResponseMeter.mark();
           }
         } else {
           sendFailuresMeter.mark();
