@@ -118,6 +118,7 @@ public class FaultTolerantRedisCluster {
                     consumer.accept(connection);
                 } catch (final RedisCommandTimeoutException e) {
                     commandTimeoutMeter.mark();
+                    log.warn("Command timeout exception ({})", this.name, e);
                     throw e;
                 }
             }));
@@ -139,6 +140,7 @@ public class FaultTolerantRedisCluster {
                     return function.apply(connection);
                 } catch (final RedisCommandTimeoutException e) {
                     commandTimeoutMeter.mark();
+                    log.warn("Command timeout exception ({})", this.name, e);
                     throw e;
                 }
             }));

@@ -10,7 +10,6 @@ import io.lettuce.core.RedisCommandTimeoutException;
 import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.Constants;
 
 import java.util.function.Consumer;
@@ -19,6 +18,8 @@ import java.util.function.Function;
 import static com.codahale.metrics.MetricRegistry.name;
 
 public class FaultTolerantPubSubConnection<K, V> {
+
+    private final String name;
 
     private final StatefulRedisClusterPubSubConnection<K, V> pubSubConnection;
 
@@ -31,6 +32,7 @@ public class FaultTolerantPubSubConnection<K, V> {
     private static final Logger log = LoggerFactory.getLogger(FaultTolerantPubSubConnection.class);
 
     public FaultTolerantPubSubConnection(final String name, final StatefulRedisClusterPubSubConnection<K, V> pubSubConnection, final CircuitBreaker circuitBreaker, final Retry retry) {
+        this.name             = name;
         this.pubSubConnection = pubSubConnection;
         this.circuitBreaker   = circuitBreaker;
         this.retry            = retry;
@@ -50,6 +52,7 @@ public class FaultTolerantPubSubConnection<K, V> {
                     consumer.accept(pubSubConnection);
                 } catch (final RedisCommandTimeoutException e) {
                     commandTimeoutMeter.mark();
+                    log.warn("Command timeout exception ({}-pubsub)", this.name,  e);
                     throw e;
                 }
             }));
@@ -71,6 +74,7 @@ public class FaultTolerantPubSubConnection<K, V> {
                     return function.apply(pubSubConnection);
                 } catch (final RedisCommandTimeoutException e) {
                     commandTimeoutMeter.mark();
+                    log.warn("Command timeout exception ({}-pubsub)", this.name, e);
                     throw e;
                 }
             }));
