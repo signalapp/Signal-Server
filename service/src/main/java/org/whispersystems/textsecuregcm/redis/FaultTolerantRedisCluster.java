@@ -25,10 +25,12 @@ import org.whispersystems.textsecuregcm.configuration.RedisClusterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.ThreadDumpUtil;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -53,7 +55,8 @@ public class FaultTolerantRedisCluster {
     private final CircuitBreaker circuitBreaker;
     private final Retry          retry;
 
-    private final Meter commandTimeoutMeter;
+    private final Meter         commandTimeoutMeter;
+    private final AtomicBoolean wroteThreadDump = new AtomicBoolean(false);
 
     private static final Logger log = LoggerFactory.getLogger(FaultTolerantRedisCluster.class);
 
@@ -122,8 +125,7 @@ public class FaultTolerantRedisCluster {
                 try {
                     consumer.accept(connection);
                 } catch (final RedisCommandTimeoutException e) {
-                    commandTimeoutMeter.mark();
-                    log.warn("Command timeout exception ({})", this.name, e);
+                    recordCommandTimeout(e);
                     throw e;
                 }
             }));
@@ -144,8 +146,7 @@ public class FaultTolerantRedisCluster {
                 try {
                     return function.apply(connection);
                 } catch (final RedisCommandTimeoutException e) {
-                    commandTimeoutMeter.mark();
-                    log.warn("Command timeout exception ({})", this.name, e);
+                    recordCommandTimeout(e);
                     throw e;
                 }
             }));
@@ -157,6 +158,15 @@ public class FaultTolerantRedisCluster {
             } else {
                 throw new RuntimeException(t);
             }
+        }
+    }
+
+    private void recordCommandTimeout(final RedisCommandTimeoutException e) {
+        commandTimeoutMeter.mark();
+        log.warn("Command timeout exception ({})", this.name, e);
+
+        if (wroteThreadDump.compareAndSet(false, true)) {
+            ThreadDumpUtil.writeThreadDump();
         }
     }
 

@@ -16,7 +16,9 @@ import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.ThreadDumpUtil;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -31,8 +33,9 @@ public class FaultTolerantPubSubConnection<K, V> {
     private final CircuitBreaker circuitBreaker;
     private final Retry          retry;
 
-    private final Timer executeTimer;
-    private final Meter commandTimeoutMeter;
+    private final Timer         executeTimer;
+    private final Meter         commandTimeoutMeter;
+    private final AtomicBoolean wroteThreadDump = new AtomicBoolean(false);
 
     private static final Logger log = LoggerFactory.getLogger(FaultTolerantPubSubConnection.class);
 
@@ -56,8 +59,7 @@ public class FaultTolerantPubSubConnection<K, V> {
                 try (final Timer.Context ignored = executeTimer.time()) {
                     consumer.accept(pubSubConnection);
                 } catch (final RedisCommandTimeoutException e) {
-                    commandTimeoutMeter.mark();
-                    log.warn("Command timeout exception ({}-pubsub)", this.name,  e);
+                    recordCommandTimeout(e);
                     throw e;
                 }
             }));
@@ -78,8 +80,7 @@ public class FaultTolerantPubSubConnection<K, V> {
                 try (final Timer.Context ignored = executeTimer.time()) {
                     return function.apply(pubSubConnection);
                 } catch (final RedisCommandTimeoutException e) {
-                    commandTimeoutMeter.mark();
-                    log.warn("Command timeout exception ({}-pubsub)", this.name, e);
+                    recordCommandTimeout(e);
                     throw e;
                 }
             }));
@@ -91,6 +92,15 @@ public class FaultTolerantPubSubConnection<K, V> {
             } else {
                 throw new RuntimeException(t);
             }
+        }
+    }
+
+    private void recordCommandTimeout(final RedisCommandTimeoutException e) {
+        commandTimeoutMeter.mark();
+        log.warn("Command timeout exception ({}-pubsub)", this.name, e);
+
+        if (wroteThreadDump.compareAndSet(false, true)) {
+            ThreadDumpUtil.writeThreadDump();
         }
     }
 }
