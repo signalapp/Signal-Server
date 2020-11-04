@@ -230,11 +230,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       public String uri() {
         return config.getMicrometerConfiguration().getUri();
       }
-
-      @Override
-      public String apiToken() {
-        return config.getMicrometerConfiguration().getApiKey();
-      }
     }, Clock.SYSTEM) {
       @Override
       protected DistributionStatisticConfig defaultHistogramConfig() {

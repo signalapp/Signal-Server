@@ -14,15 +14,7 @@ public class MicrometerConfiguration {
     @JsonProperty
     private String uri;
 
-    @JsonProperty
-    @NotEmpty
-    private String apiKey;
-
     public String getUri() {
         return uri;
-    }
-
-    public String getApiKey() {
-        return apiKey;
     }
 }
