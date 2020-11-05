@@ -16,6 +16,13 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
+    <repositories>
+        <repository>
+            <id>local-maven-repo</id>
+            <url>file://${project.basedir}/lib</url>
+        </repository>
+    </repositories>
+
     <dependencies>
         <dependency>
             <groupId>org.whispersystems.textsecure</groupId>
@@ -99,10 +106,13 @@
             <scope>compile</scope>
         </dependency>
 
+        <!-- This is a temporary debug build of https://github.com/jon-signal/lettuce-core/tree/debug_timing_logging
+        that includes some more verbose logging around the timing of write operations to help diagnose what we believe
+        is a lettuce bug. Please see https://github.com/lettuce-io/lettuce-core/issues/1494 for more details. -->
         <dependency>
             <groupId>io.lettuce</groupId>
             <artifactId>lettuce-core</artifactId>
-            <version>6.0.0.RELEASE</version>
+            <version>6.0.1.DEBUG</version>
         </dependency>
 
         <dependency>

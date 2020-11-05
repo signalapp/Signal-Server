@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>io.lettuce</groupId>
+  <artifactId>lettuce-core</artifactId>
+  <versioning>
+    <release>6.0.1.DEBUG</release>
+    <versions>
+      <version>6.0.1.DEBUG</version>
+    </versions>
+    <lastUpdated>20201105203315</lastUpdated>
+  </versioning>
+</metadata>
