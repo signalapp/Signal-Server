@@ -11,6 +11,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
+import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
@@ -28,6 +29,8 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.TimestampHeaderUtil;
 import org.whispersystems.textsecuregcm.util.Util;
+import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
+import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 
@@ -52,9 +55,11 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private static final Meter          messageAvailableMeter          = metricRegistry.meter(name(WebSocketConnection.class, "messagesAvailable"));
   private static final Meter          ephemeralMessageAvailableMeter = metricRegistry.meter(name(WebSocketConnection.class, "ephemeralMessagesAvailable"));
   private static final Meter          messagesPersistedMeter         = metricRegistry.meter(name(WebSocketConnection.class, "messagesPersisted"));
-  private static final Meter          displacementMeter              = metricRegistry.meter(name(WebSocketConnection.class, "explicitDisplacement"));
   private static final Meter          bytesSentMeter                 = metricRegistry.meter(name(WebSocketConnection.class, "bytes_sent"));
   private static final Meter          sendFailuresMeter              = metricRegistry.meter(name(WebSocketConnection.class, "send_failures"));
+
+  private static final String DISPLACEMENT_COUNTER_NAME      = name(WebSocketConnection.class, "displacement");
+  private static final String DISPLACEMENT_PLATFORM_TAG_NAME = "platform";
 
   private static final Logger logger = LoggerFactory.getLogger(WebSocketConnection.class);
 
@@ -245,7 +250,16 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
   @Override
   public void handleDisplacement() {
-    displacementMeter.mark();
+    String platform;
+
+    try {
+      platform = UserAgentUtil.parseUserAgentString(client.getUserAgent()).getPlatform().name().toLowerCase();
+    } catch (UnrecognizedUserAgentException e) {
+      platform = "unknown";
+    }
+
+    Metrics.counter(DISPLACEMENT_COUNTER_NAME, DISPLACEMENT_PLATFORM_TAG_NAME, platform).increment();
+
     client.hardDisconnectQuietly();
   }
 
