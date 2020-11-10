@@ -31,6 +31,7 @@ public class WebSocketClient {
   private final RemoteEndpoint                                         remoteEndpoint;
   private final WebSocketMessageFactory                                messageFactory;
   private final Map<Long, CompletableFuture<WebSocketResponseMessage>> pendingRequestMapper;
+  private final long                                                   created;
 
   public WebSocketClient(Session session, RemoteEndpoint remoteEndpoint,
                          WebSocketMessageFactory messageFactory,
@@ -40,6 +41,7 @@ public class WebSocketClient {
     this.remoteEndpoint       = remoteEndpoint;
     this.messageFactory       = messageFactory;
     this.pendingRequestMapper = pendingRequestMapper;
+    this.created              = System.currentTimeMillis();
   }
 
   public CompletableFuture<WebSocketResponseMessage> sendRequest(String verb, String path,
@@ -76,6 +78,10 @@ public class WebSocketClient {
 
   public String getUserAgent() {
     return session.getUpgradeRequest().getHeader("User-Agent");
+  }
+
+  public long getCreatedTimestamp() {
+    return this.created;
   }
 
   public void close(int code, String message) {

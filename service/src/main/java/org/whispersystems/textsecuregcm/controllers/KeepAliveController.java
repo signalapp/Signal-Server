@@ -45,7 +45,11 @@ public class KeepAliveController {
   {
     if (account != null) {
       if (!clientPresenceManager.isLocallyPresent(account.getUuid(), account.getAuthenticatedDevice().get().getId())) {
-        logger.warn("***** No local subscription found for {}::{}", account.getUuid(), account.getAuthenticatedDevice().get().getId());
+        logger.warn("***** No local subscription found for {}::{}; age = {}ms, User-Agent = {}",
+                    account.getUuid(), account.getAuthenticatedDevice().get().getId(),
+                    System.currentTimeMillis() - context.getClient().getCreatedTimestamp(),
+                    context.getClient().getUserAgent());
+
         context.getClient().close(1000, "OK");
 
         String platform;
