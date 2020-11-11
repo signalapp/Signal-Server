@@ -97,7 +97,7 @@ public class FaultTolerantPubSubConnection<K, V> {
 
     private void recordCommandTimeout(final RedisCommandTimeoutException e) {
         commandTimeoutMeter.mark();
-        log.warn("Command timeout exception ({}-pubsub)", this.name, e);
+        log.warn("[{}] Command timeout exception ({}-pubsub)", Thread.currentThread().getName(), this.name, e);
 
         if (wroteThreadDump.compareAndSet(false, true)) {
             ThreadDumpUtil.writeThreadDump();
