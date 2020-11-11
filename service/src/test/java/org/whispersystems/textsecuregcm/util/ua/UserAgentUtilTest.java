@@ -55,6 +55,10 @@ public class UserAgentUtilTest {
                 new Object[] { "This is obviously not a reasonable User-Agent string.", null },
                 new Object[] { "Signal-Android/4.68.3 Android/25",                      new UserAgent(ClientPlatform.ANDROID, new Semver("4.68.3"), "Android/25") },
                 new Object[] { "Signal-Android/4.68.3",                                 new UserAgent(ClientPlatform.ANDROID, new Semver("4.68.3")) },
+                new Object[] { "Signal-Desktop/1.2.3 Linux",                            new UserAgent(ClientPlatform.DESKTOP, new Semver("1.2.3"), "Linux") },
+                new Object[] { "Signal-Desktop/1.2.3 macOS",                            new UserAgent(ClientPlatform.DESKTOP, new Semver("1.2.3"), "macOS") },
+                new Object[] { "Signal-Desktop/1.2.3 Windows",                          new UserAgent(ClientPlatform.DESKTOP, new Semver("1.2.3"), "Windows") },
+                new Object[] { "Signal-Desktop/1.2.3",                                  new UserAgent(ClientPlatform.DESKTOP, new Semver("1.2.3")) },
                 new Object[] { "Signal-Desktop/1.32.0-beta.3",                          new UserAgent(ClientPlatform.DESKTOP, new Semver("1.32.0-beta.3")) },
                 new Object[] { "Signal-iOS/3.9.0 (iPhone; iOS 12.2; Scale/3.00)",       new UserAgent(ClientPlatform.IOS, new Semver("3.9.0"), "(iPhone; iOS 12.2; Scale/3.00)") },
                 new Object[] { "Signal-iOS/3.9.0",                                      new UserAgent(ClientPlatform.IOS, new Semver("3.9.0")) }
