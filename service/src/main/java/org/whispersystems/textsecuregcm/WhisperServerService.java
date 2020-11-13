@@ -231,6 +231,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       public String uri() {
         return config.getMicrometerConfiguration().getUri();
       }
+
+      @Override
+      public int batchSize() {
+        return config.getMicrometerConfiguration().getBatchSize();
+      }
     }, Clock.SYSTEM) {
       @Override
       protected DistributionStatisticConfig defaultHistogramConfig() {
