@@ -11,6 +11,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 
 import javax.validation.constraints.NotNull;
+import java.net.URI;
 import java.net.UnknownHostException;
 
 import io.dropwizard.metrics.BaseReporterFactory;
@@ -20,18 +21,13 @@ public class JsonMetricsReporterFactory extends BaseReporterFactory {
 
   @JsonProperty
   @NotNull
-  private String hostname;
-
-  @JsonProperty
-  @NotNull
-  private String token;
+  private URI uri;
 
   @Override
   public ScheduledReporter build(MetricRegistry metricRegistry) {
     try {
       return JsonMetricsReporter.forRegistry(metricRegistry)
-                                .withHostname(hostname)
-                                .withToken(token)
+                                .withUri(uri)
                                 .convertRatesTo(getRateUnit())
                                 .convertDurationsTo(getDurationUnit())
                                 .filter(getFilter())

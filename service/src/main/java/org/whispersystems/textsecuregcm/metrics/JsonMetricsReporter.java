@@ -21,6 +21,7 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.ws.rs.core.UriBuilder;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -44,13 +45,13 @@ public class JsonMetricsReporter extends ScheduledReporter {
   private final URI        uri;
   private final HttpClient httpClient;
 
-  public JsonMetricsReporter(MetricRegistry registry, String token, String hostname,
+  public JsonMetricsReporter(MetricRegistry registry, URI uri,
                              MetricFilter filter, TimeUnit rateUnit, TimeUnit durationUnit)
       throws UnknownHostException
   {
     super(registry, "json-reporter", filter, rateUnit, durationUnit);
     this.httpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).build();
-    this.uri        = URI.create(String.format("https://%s/report/metrics?t=%s&h=%s", hostname, token, InetAddress.getLocalHost().getHostName()));
+    this.uri        = UriBuilder.fromUri(uri).queryParam("h", InetAddress.getLocalHost().getHostName()).build();
   }
 
   @Override
@@ -210,8 +211,7 @@ public class JsonMetricsReporter extends ScheduledReporter {
     private       MetricFilter   filter       = MetricFilter.ALL;
     private       TimeUnit       rateUnit     = TimeUnit.SECONDS;
     private       TimeUnit       durationUnit = TimeUnit.MILLISECONDS;
-    private       String         token;
-    private       String         hostname;
+    private       URI            uri;
 
     private Builder(MetricRegistry registry) {
       this.registry     = registry;
@@ -235,26 +235,17 @@ public class JsonMetricsReporter extends ScheduledReporter {
       return this;
     }
 
-    public Builder withToken(String token) {
-      this.token = token;
-      return this;
-    }
-
-    public Builder withHostname(String hostname) {
-      this.hostname = hostname;
+    public Builder withUri(URI uri) {
+      this.uri = uri;
       return this;
     }
 
     public JsonMetricsReporter build() throws UnknownHostException {
-      if (hostname == null) {
-        throw new IllegalArgumentException("No hostname specified!");
+      if (uri == null) {
+        throw new IllegalArgumentException("No URI specified!");
       }
 
-      if (token == null) {
-        throw new IllegalArgumentException("No token specified!");
-      }
-
-      return new JsonMetricsReporter(registry, token, hostname, filter, rateUnit, durationUnit);
+      return new JsonMetricsReporter(registry, uri, filter, rateUnit, durationUnit);
     }
   }
 }
