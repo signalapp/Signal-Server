@@ -461,13 +461,18 @@ public class AccountController {
 
     setAccountRegistrationLockFromAttributes(account, attributes);
 
+    final boolean hasDiscoverabilityChange = (account.isDiscoverableByPhoneNumber() != attributes.isDiscoverableByPhoneNumber());
+
     account.setUnidentifiedAccessKey(attributes.getUnidentifiedAccessKey());
     account.setUnrestrictedUnidentifiedAccess(attributes.isUnrestrictedUnidentifiedAccess());
     account.setPayments(attributes.getPayments());
     account.setDiscoverableByPhoneNumber(attributes.isDiscoverableByPhoneNumber());
 
     accounts.update(account);
-    directoryQueue.refreshRegisteredUser(account);
+
+    if (hasDiscoverabilityChange) {
+      directoryQueue.refreshRegisteredUser(account);
+    }
   }
 
   @GET

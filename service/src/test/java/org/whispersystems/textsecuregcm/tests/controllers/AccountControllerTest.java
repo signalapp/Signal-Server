@@ -1170,13 +1170,39 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSetAccountAttributes() {
+  public void testSetAccountAttributesNoDiscoverabilityChange() {
     Response response =
             resources.getJerseyTest()
                     .target("/v1/accounts/attributes/")
                     .request()
                     .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                     .put(Entity.json(new AccountAttributes("keykeykeykey", false, 2222, null, null, null, null, true, null)));
+
+    assertThat(response.getStatus()).isEqualTo(204);
+    verify(directoryQueue, never()).refreshRegisteredUser(any());
+  }
+
+  @Test
+  public void testSetAccountAttributesEnableDiscovery() {
+    Response response =
+            resources.getJerseyTest()
+                    .target("/v1/accounts/attributes/")
+                    .request()
+                    .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.UNDISCOVERABLE_NUMBER, AuthHelper.UNDISCOVERABLE_PASSWORD))
+                    .put(Entity.json(new AccountAttributes("keykeykeykey", false, 2222, null, null, null, null, true, null)));
+
+    assertThat(response.getStatus()).isEqualTo(204);
+    verify(directoryQueue, times(1)).refreshRegisteredUser(AuthHelper.UNDISCOVERABLE_ACCOUNT);
+  }
+
+  @Test
+  public void testSetAccountAttributesDisableDiscovery() {
+    Response response =
+            resources.getJerseyTest()
+                    .target("/v1/accounts/attributes/")
+                    .request()
+                    .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                    .put(Entity.json(new AccountAttributes("keykeykeykey", false, 2222, null, null, null, null, false, null)));
 
     assertThat(response.getStatus()).isEqualTo(204);
     verify(directoryQueue, times(1)).refreshRegisteredUser(AuthHelper.VALID_ACCOUNT);
