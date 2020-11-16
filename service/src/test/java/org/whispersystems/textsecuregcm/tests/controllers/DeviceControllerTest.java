@@ -11,6 +11,7 @@ import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -260,6 +261,7 @@ public class DeviceControllerTest {
   }
 
   @Test
+  @Ignore
   public void deviceDowngradeGv1MigrationTest() {
     Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(true, true, true, true, false, false);
     AccountAttributes accountAttributes = new AccountAttributes("keykeykeykey", false, 1234, null, null, null, null, true, deviceCapabilities);
