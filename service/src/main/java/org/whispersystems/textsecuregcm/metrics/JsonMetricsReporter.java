@@ -10,6 +10,7 @@ import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.Metered;
+import com.codahale.metrics.MetricAttribute;
 import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.ScheduledReporter;
@@ -30,8 +31,11 @@ import java.net.UnknownHostException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
@@ -46,10 +50,11 @@ public class JsonMetricsReporter extends ScheduledReporter {
   private final HttpClient httpClient;
 
   public JsonMetricsReporter(MetricRegistry registry, URI uri,
-                             MetricFilter filter, TimeUnit rateUnit, TimeUnit durationUnit)
+                             MetricFilter filter, TimeUnit rateUnit, TimeUnit durationUnit,
+                             Set<MetricAttribute> disabledMetricAttributes)
       throws UnknownHostException
   {
-    super(registry, "json-reporter", filter, rateUnit, durationUnit);
+    super(registry, "json-reporter", filter, rateUnit, durationUnit, Executors.newSingleThreadScheduledExecutor(), true, disabledMetricAttributes);
     this.httpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).build();
     this.uri        = UriBuilder.fromUri(uri).queryParam("h", InetAddress.getLocalHost().getHostName()).build();
   }
@@ -164,37 +169,109 @@ public class JsonMetricsReporter extends ScheduledReporter {
   }
 
   private void writeTimedSnapshot(JsonGenerator json, Snapshot snapshot) throws IOException {
-    json.writeNumberField("max", convertDuration(snapshot.getMax()));
-    json.writeNumberField("mean", convertDuration(snapshot.getMean()));
-    json.writeNumberField("min", convertDuration(snapshot.getMin()));
-    json.writeNumberField("stddev", convertDuration(snapshot.getStdDev()));
-    json.writeNumberField("median", convertDuration(snapshot.getMedian()));
-    json.writeNumberField("p75", convertDuration(snapshot.get75thPercentile()));
-    json.writeNumberField("p95", convertDuration(snapshot.get95thPercentile()));
-    json.writeNumberField("p98", convertDuration(snapshot.get98thPercentile()));
-    json.writeNumberField("p99", convertDuration(snapshot.get99thPercentile()));
-    json.writeNumberField("p999", convertDuration(snapshot.get999thPercentile()));
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.MAX)) {
+      json.writeNumberField("max", convertDuration(snapshot.getMax()));
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.MEAN)) {
+      json.writeNumberField("mean", convertDuration(snapshot.getMean()));
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.MIN)) {
+      json.writeNumberField("min", convertDuration(snapshot.getMin()));
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.STDDEV)) {
+      json.writeNumberField("stddev", convertDuration(snapshot.getStdDev()));
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.P50)) {
+      json.writeNumberField("median", convertDuration(snapshot.getMedian()));
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.P75)) {
+      json.writeNumberField("p75", convertDuration(snapshot.get75thPercentile()));
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.P95)) {
+      json.writeNumberField("p95", convertDuration(snapshot.get95thPercentile()));
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.P98)) {
+      json.writeNumberField("p98", convertDuration(snapshot.get98thPercentile()));
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.P99)) {
+      json.writeNumberField("p99", convertDuration(snapshot.get99thPercentile()));
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.P999)) {
+      json.writeNumberField("p999", convertDuration(snapshot.get999thPercentile()));
+    }
   }
 
   private void writeSnapshot(JsonGenerator json, Snapshot snapshot) throws IOException {
-    json.writeNumberField("max", snapshot.getMax());
-    json.writeNumberField("mean", snapshot.getMean());
-    json.writeNumberField("min", snapshot.getMin());
-    json.writeNumberField("stddev", snapshot.getStdDev());
-    json.writeNumberField("median", snapshot.getMedian());
-    json.writeNumberField("p75", snapshot.get75thPercentile());
-    json.writeNumberField("p95", snapshot.get95thPercentile());
-    json.writeNumberField("p98", snapshot.get98thPercentile());
-    json.writeNumberField("p99", snapshot.get99thPercentile());
-    json.writeNumberField("p999", snapshot.get999thPercentile());
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.MAX)) {
+      json.writeNumberField("max", snapshot.getMax());
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.MEAN)) {
+      json.writeNumberField("mean", snapshot.getMean());
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.MIN)) {
+      json.writeNumberField("min", snapshot.getMin());
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.STDDEV)) {
+      json.writeNumberField("stddev", snapshot.getStdDev());
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.P50)) {
+      json.writeNumberField("median", snapshot.getMedian());
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.P75)) {
+      json.writeNumberField("p75", snapshot.get75thPercentile());
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.P95)) {
+      json.writeNumberField("p95", snapshot.get95thPercentile());
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.P98)) {
+      json.writeNumberField("p98", snapshot.get98thPercentile());
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.P99)) {
+      json.writeNumberField("p99", snapshot.get99thPercentile());
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.P999)) {
+      json.writeNumberField("p999", snapshot.get999thPercentile());
+    }
   }
 
   private void writeMetered(JsonGenerator json, Metered meter) throws IOException {
-    json.writeNumberField("count", convertRate(meter.getCount()));
-    json.writeNumberField("mean", convertRate(meter.getMeanRate()));
-    json.writeNumberField("m1", convertRate(meter.getOneMinuteRate()));
-    json.writeNumberField("m5", convertRate(meter.getFiveMinuteRate()));
-    json.writeNumberField("m15", convertRate(meter.getFifteenMinuteRate()));
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.COUNT)) {
+      json.writeNumberField("count", convertRate(meter.getCount()));
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.MEAN_RATE)) {
+      json.writeNumberField("mean", convertRate(meter.getMeanRate()));
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.M1_RATE)) {
+      json.writeNumberField("m1", convertRate(meter.getOneMinuteRate()));
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.M5_RATE)) {
+      json.writeNumberField("m5", convertRate(meter.getFiveMinuteRate()));
+    }
+
+    if (!getDisabledMetricAttributes().contains(MetricAttribute.M15_RATE)) {
+      json.writeNumberField("m15", convertRate(meter.getFifteenMinuteRate()));
+    }
   }
 
   private String sanitize(String metricName) {
@@ -207,17 +284,15 @@ public class JsonMetricsReporter extends ScheduledReporter {
 
   public static class Builder {
 
-    private final MetricRegistry registry;
-    private       MetricFilter   filter       = MetricFilter.ALL;
-    private       TimeUnit       rateUnit     = TimeUnit.SECONDS;
-    private       TimeUnit       durationUnit = TimeUnit.MILLISECONDS;
-    private       URI            uri;
+    private final MetricRegistry       registry;
+    private       MetricFilter         filter                   = MetricFilter.ALL;
+    private       Set<MetricAttribute> disabledMetricAttributes = Collections.emptySet();
+    private       TimeUnit             rateUnit                 = TimeUnit.SECONDS;
+    private       TimeUnit             durationUnit             = TimeUnit.MILLISECONDS;
+    private       URI                  uri;
 
     private Builder(MetricRegistry registry) {
-      this.registry     = registry;
-      this.rateUnit     = TimeUnit.SECONDS;
-      this.durationUnit = TimeUnit.MILLISECONDS;
-      this.filter       = MetricFilter.ALL;
+      this.registry = registry;
     }
 
     public Builder convertRatesTo(TimeUnit rateUnit) {
@@ -235,6 +310,11 @@ public class JsonMetricsReporter extends ScheduledReporter {
       return this;
     }
 
+    public Builder disabledMetricAttributes(Set<MetricAttribute> disabledMetricAttributes) {
+      this.disabledMetricAttributes = disabledMetricAttributes;
+      return this;
+    }
+
     public Builder withUri(URI uri) {
       this.uri = uri;
       return this;
@@ -245,7 +325,7 @@ public class JsonMetricsReporter extends ScheduledReporter {
         throw new IllegalArgumentException("No URI specified!");
       }
 
-      return new JsonMetricsReporter(registry, uri, filter, rateUnit, durationUnit);
+      return new JsonMetricsReporter(registry, uri, filter, rateUnit, durationUnit, disabledMetricAttributes);
     }
   }
 }
