@@ -36,7 +36,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
 public class JsonMetricsReporter extends ScheduledReporter {
@@ -49,12 +51,37 @@ public class JsonMetricsReporter extends ScheduledReporter {
   private final URI        uri;
   private final HttpClient httpClient;
 
+  /**
+   * A simple named thread factory, copied shamelessly from ScheduledReporter (where it's private).
+   */
+  private static class NamedThreadFactory implements ThreadFactory {
+    private final ThreadGroup group;
+    private final AtomicInteger threadNumber = new AtomicInteger(1);
+    private final String namePrefix;
+
+    private NamedThreadFactory(String name) {
+      final SecurityManager s = System.getSecurityManager();
+      this.group = (s != null) ? s.getThreadGroup() : Thread.currentThread().getThreadGroup();
+      this.namePrefix = "metrics-" + name + "-thread-";
+    }
+
+    @Override
+    public Thread newThread(Runnable r) {
+      final Thread t = new Thread(group, r, namePrefix + threadNumber.getAndIncrement(), 0);
+      t.setDaemon(true);
+      if (t.getPriority() != Thread.NORM_PRIORITY) {
+        t.setPriority(Thread.NORM_PRIORITY);
+      }
+      return t;
+    }
+  }
+
   public JsonMetricsReporter(MetricRegistry registry, URI uri,
                              MetricFilter filter, TimeUnit rateUnit, TimeUnit durationUnit,
                              Set<MetricAttribute> disabledMetricAttributes)
       throws UnknownHostException
   {
-    super(registry, "json-reporter", filter, rateUnit, durationUnit, Executors.newSingleThreadScheduledExecutor(), true, disabledMetricAttributes);
+    super(registry, "json-reporter", filter, rateUnit, durationUnit, Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("json-reporter")), true, disabledMetricAttributes);
     this.httpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).build();
     this.uri        = UriBuilder.fromUri(uri).queryParam("h", InetAddress.getLocalHost().getHostName()).build();
   }
