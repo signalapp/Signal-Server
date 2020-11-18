@@ -62,6 +62,7 @@ public class DirectoryController {
   private final Logger         logger            = LoggerFactory.getLogger(DirectoryController.class);
   private final MetricRegistry metricRegistry    = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private final Histogram      contactsHistogram = metricRegistry.histogram(name(getClass(), "contacts"));
+  private final Meter          contactsMeter     = metricRegistry.meter(name(getClass(), "contactRate"));
 
   private final Map<String, Meter> iosFeedbackMeters = new HashMap<String, Meter>() {{
     for (String status : FEEDBACK_STATUSES) {
@@ -172,6 +173,7 @@ public class DirectoryController {
 
     rateLimiters.getContactsLimiter().validate(account.getNumber(), contacts.getContacts().size());
     contactsHistogram.update(contacts.getContacts().size());
+    contactsMeter.mark(contacts.getContacts().size());
 
     try {
       List<byte[]> tokens = new LinkedList<>();
