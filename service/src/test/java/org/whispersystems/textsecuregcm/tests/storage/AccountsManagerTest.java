@@ -8,8 +8,8 @@ package org.whispersystems.textsecuregcm.tests.storage;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import org.junit.Test;
-import org.whispersystems.textsecuregcm.entities.Profile;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Accounts;
@@ -40,22 +40,23 @@ public class AccountsManagerTest {
 
   @Test
   public void testGetAccountByNumberInCache() {
-    RedisAdvancedClusterCommands<String, String> commands         = mock(RedisAdvancedClusterCommands.class);
-    FaultTolerantRedisCluster                    cacheCluster     = RedisClusterHelper.buildMockRedisCluster(commands);
-    Accounts                                     accounts         = mock(Accounts.class);
-    DirectoryManager                             directoryManager = mock(DirectoryManager.class);
-    DirectoryQueue                               directoryQueue   = mock(DirectoryQueue.class);
-    Keys                                         keys             = mock(Keys.class);
-    MessagesManager                              messagesManager  = mock(MessagesManager.class);
-    UsernamesManager                             usernamesManager = mock(UsernamesManager.class);
-    ProfilesManager                              profilesManager  = mock(ProfilesManager.class);
+    RedisAdvancedClusterCommands<String, String> commands            = mock(RedisAdvancedClusterCommands.class);
+    FaultTolerantRedisCluster                    cacheCluster        = RedisClusterHelper.buildMockRedisCluster(commands);
+    Accounts                                     accounts            = mock(Accounts.class);
+    DirectoryManager                             directoryManager    = mock(DirectoryManager.class);
+    DirectoryQueue                               directoryQueue      = mock(DirectoryQueue.class);
+    Keys                                         keys                = mock(Keys.class);
+    MessagesManager                              messagesManager     = mock(MessagesManager.class);
+    UsernamesManager                             usernamesManager    = mock(UsernamesManager.class);
+    ProfilesManager                              profilesManager     = mock(ProfilesManager.class);
+    SecureStorageClient                          secureStorageClient = mock(SecureStorageClient.class);
 
     UUID uuid = UUID.randomUUID();
 
     when(commands.get(eq("AccountMap::+14152222222"))).thenReturn(uuid.toString());
     when(commands.get(eq("Account3::" + uuid.toString()))).thenReturn("{\"number\": \"+14152222222\", \"name\": \"test\"}");
 
-    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheCluster, directoryQueue, keys, messagesManager, usernamesManager, profilesManager);
+    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheCluster, directoryQueue, keys, messagesManager, usernamesManager, profilesManager, secureStorageClient);
     Optional<Account> account         = accountsManager.get("+14152222222");
 
     assertTrue(account.isPresent());
@@ -70,21 +71,22 @@ public class AccountsManagerTest {
 
   @Test
   public void testGetAccountByUuidInCache() {
-    RedisAdvancedClusterCommands<String, String> commands         = mock(RedisAdvancedClusterCommands.class);
-    FaultTolerantRedisCluster                    cacheCluster     = RedisClusterHelper.buildMockRedisCluster(commands);
-    Accounts                                     accounts         = mock(Accounts.class);
-    DirectoryManager                             directoryManager = mock(DirectoryManager.class);
-    DirectoryQueue                               directoryQueue   = mock(DirectoryQueue.class);
-    Keys                                         keys             = mock(Keys.class);
-    MessagesManager                              messagesManager  = mock(MessagesManager.class);
-    UsernamesManager                             usernamesManager = mock(UsernamesManager.class);
-    ProfilesManager                              profilesManager  = mock(ProfilesManager.class);
+    RedisAdvancedClusterCommands<String, String> commands            = mock(RedisAdvancedClusterCommands.class);
+    FaultTolerantRedisCluster                    cacheCluster        = RedisClusterHelper.buildMockRedisCluster(commands);
+    Accounts                                     accounts            = mock(Accounts.class);
+    DirectoryManager                             directoryManager    = mock(DirectoryManager.class);
+    DirectoryQueue                               directoryQueue      = mock(DirectoryQueue.class);
+    Keys                                         keys                = mock(Keys.class);
+    MessagesManager                              messagesManager     = mock(MessagesManager.class);
+    UsernamesManager                             usernamesManager    = mock(UsernamesManager.class);
+    ProfilesManager                              profilesManager     = mock(ProfilesManager.class);
+    SecureStorageClient                          secureStorageClient = mock(SecureStorageClient.class);
 
     UUID uuid = UUID.randomUUID();
 
     when(commands.get(eq("Account3::" + uuid.toString()))).thenReturn("{\"number\": \"+14152222222\", \"name\": \"test\"}");
 
-    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheCluster, directoryQueue, keys, messagesManager, usernamesManager, profilesManager);
+    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheCluster, directoryQueue, keys, messagesManager, usernamesManager, profilesManager, secureStorageClient);
     Optional<Account> account         = accountsManager.get(uuid);
 
     assertTrue(account.isPresent());
@@ -100,22 +102,23 @@ public class AccountsManagerTest {
 
   @Test
   public void testGetAccountByNumberNotInCache() {
-    RedisAdvancedClusterCommands<String, String> commands         = mock(RedisAdvancedClusterCommands.class);
-    FaultTolerantRedisCluster                    cacheCluster     = RedisClusterHelper.buildMockRedisCluster(commands);
-    Accounts                                     accounts         = mock(Accounts.class);
-    DirectoryManager                             directoryManager = mock(DirectoryManager.class);
-    DirectoryQueue                               directoryQueue   = mock(DirectoryQueue.class);
-    Keys                                         keys             = mock(Keys.class);
-    MessagesManager                              messagesManager  = mock(MessagesManager.class);
-    UsernamesManager                             usernamesManager = mock(UsernamesManager.class);
-    ProfilesManager                              profilesManager  = mock(ProfilesManager.class);
-    UUID                                         uuid             = UUID.randomUUID();
-    Account                                      account          = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
+    RedisAdvancedClusterCommands<String, String> commands            = mock(RedisAdvancedClusterCommands.class);
+    FaultTolerantRedisCluster                    cacheCluster        = RedisClusterHelper.buildMockRedisCluster(commands);
+    Accounts                                     accounts            = mock(Accounts.class);
+    DirectoryManager                             directoryManager    = mock(DirectoryManager.class);
+    DirectoryQueue                               directoryQueue      = mock(DirectoryQueue.class);
+    Keys                                         keys                = mock(Keys.class);
+    MessagesManager                              messagesManager     = mock(MessagesManager.class);
+    UsernamesManager                             usernamesManager    = mock(UsernamesManager.class);
+    ProfilesManager                              profilesManager     = mock(ProfilesManager.class);
+    UUID                                         uuid                = UUID.randomUUID();
+    Account                                      account             = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
+    SecureStorageClient                          secureStorageClient = mock(SecureStorageClient.class);
 
     when(commands.get(eq("AccountMap::+14152222222"))).thenReturn(null);
     when(accounts.get(eq("+14152222222"))).thenReturn(Optional.of(account));
 
-    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheCluster, directoryQueue, keys, messagesManager, usernamesManager, profilesManager);
+    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheCluster, directoryQueue, keys, messagesManager, usernamesManager, profilesManager, secureStorageClient);
     Optional<Account> retrieved       = accountsManager.get("+14152222222");
 
     assertTrue(retrieved.isPresent());
@@ -132,22 +135,23 @@ public class AccountsManagerTest {
 
   @Test
   public void testGetAccountByUuidNotInCache() {
-    RedisAdvancedClusterCommands<String, String> commands         = mock(RedisAdvancedClusterCommands.class);
-    FaultTolerantRedisCluster                    cacheCluster     = RedisClusterHelper.buildMockRedisCluster(commands);
-    Accounts                                     accounts         = mock(Accounts.class);
-    DirectoryManager                             directoryManager = mock(DirectoryManager.class);
-    DirectoryQueue                               directoryQueue   = mock(DirectoryQueue.class);
-    Keys                                         keys             = mock(Keys.class);
-    MessagesManager                              messagesManager  = mock(MessagesManager.class);
-    UsernamesManager                             usernamesManager = mock(UsernamesManager.class);
-    ProfilesManager                              profilesManager  = mock(ProfilesManager.class);
-    UUID                                         uuid             = UUID.randomUUID();
-    Account                                      account          = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
+    RedisAdvancedClusterCommands<String, String> commands            = mock(RedisAdvancedClusterCommands.class);
+    FaultTolerantRedisCluster                    cacheCluster        = RedisClusterHelper.buildMockRedisCluster(commands);
+    Accounts                                     accounts            = mock(Accounts.class);
+    DirectoryManager                             directoryManager    = mock(DirectoryManager.class);
+    DirectoryQueue                               directoryQueue      = mock(DirectoryQueue.class);
+    Keys                                         keys                = mock(Keys.class);
+    MessagesManager                              messagesManager     = mock(MessagesManager.class);
+    UsernamesManager                             usernamesManager    = mock(UsernamesManager.class);
+    ProfilesManager                              profilesManager     = mock(ProfilesManager.class);
+    UUID                                         uuid                = UUID.randomUUID();
+    Account                                      account             = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
+    SecureStorageClient                          secureStorageClient = mock(SecureStorageClient.class);
 
     when(commands.get(eq("Account3::" + uuid))).thenReturn(null);
     when(accounts.get(eq(uuid))).thenReturn(Optional.of(account));
 
-    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheCluster, directoryQueue, keys, messagesManager, usernamesManager, profilesManager);
+    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheCluster, directoryQueue, keys, messagesManager, usernamesManager, profilesManager, secureStorageClient);
     Optional<Account> retrieved       = accountsManager.get(uuid);
 
     assertTrue(retrieved.isPresent());
@@ -164,22 +168,23 @@ public class AccountsManagerTest {
 
   @Test
   public void testGetAccountByNumberBrokenCache() {
-    RedisAdvancedClusterCommands<String, String> commands         = mock(RedisAdvancedClusterCommands.class);
-    FaultTolerantRedisCluster                    cacheCluster     = RedisClusterHelper.buildMockRedisCluster(commands);
-    Accounts                                     accounts         = mock(Accounts.class);
-    DirectoryManager                             directoryManager = mock(DirectoryManager.class);
-    DirectoryQueue                               directoryQueue   = mock(DirectoryQueue.class);
-    Keys                                         keys             = mock(Keys.class);
-    MessagesManager                              messagesManager  = mock(MessagesManager.class);
-    UsernamesManager                             usernamesManager = mock(UsernamesManager.class);
-    ProfilesManager                              profilesManager  = mock(ProfilesManager.class);
-    UUID                                         uuid             = UUID.randomUUID();
-    Account                                      account          = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
+    RedisAdvancedClusterCommands<String, String> commands            = mock(RedisAdvancedClusterCommands.class);
+    FaultTolerantRedisCluster                    cacheCluster        = RedisClusterHelper.buildMockRedisCluster(commands);
+    Accounts                                     accounts            = mock(Accounts.class);
+    DirectoryManager                             directoryManager    = mock(DirectoryManager.class);
+    DirectoryQueue                               directoryQueue      = mock(DirectoryQueue.class);
+    Keys                                         keys                = mock(Keys.class);
+    MessagesManager                              messagesManager     = mock(MessagesManager.class);
+    UsernamesManager                             usernamesManager    = mock(UsernamesManager.class);
+    ProfilesManager                              profilesManager     = mock(ProfilesManager.class);
+    UUID                                         uuid                = UUID.randomUUID();
+    Account                                      account             = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
+    SecureStorageClient                          secureStorageClient = mock(SecureStorageClient.class);
 
     when(commands.get(eq("AccountMap::+14152222222"))).thenThrow(new RedisException("Connection lost!"));
     when(accounts.get(eq("+14152222222"))).thenReturn(Optional.of(account));
 
-    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheCluster, directoryQueue, keys, messagesManager, usernamesManager, profilesManager);
+    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheCluster, directoryQueue, keys, messagesManager, usernamesManager, profilesManager, secureStorageClient);
     Optional<Account> retrieved       = accountsManager.get("+14152222222");
 
     assertTrue(retrieved.isPresent());
@@ -196,22 +201,23 @@ public class AccountsManagerTest {
 
   @Test
   public void testGetAccountByUuidBrokenCache() {
-    RedisAdvancedClusterCommands<String, String> commands         = mock(RedisAdvancedClusterCommands.class);
-    FaultTolerantRedisCluster                    cacheCluster     = RedisClusterHelper.buildMockRedisCluster(commands);
-    Accounts                                     accounts         = mock(Accounts.class);
-    DirectoryManager                             directoryManager = mock(DirectoryManager.class);
-    DirectoryQueue                               directoryQueue   = mock(DirectoryQueue.class);
-    Keys                                         keys             = mock(Keys.class);
-    MessagesManager                              messagesManager  = mock(MessagesManager.class);
-    UsernamesManager                             usernamesManager = mock(UsernamesManager.class);
-    ProfilesManager                              profilesManager  = mock(ProfilesManager.class);
-    UUID                                         uuid             = UUID.randomUUID();
-    Account                                      account          = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
+    RedisAdvancedClusterCommands<String, String> commands            = mock(RedisAdvancedClusterCommands.class);
+    FaultTolerantRedisCluster                    cacheCluster        = RedisClusterHelper.buildMockRedisCluster(commands);
+    Accounts                                     accounts            = mock(Accounts.class);
+    DirectoryManager                             directoryManager    = mock(DirectoryManager.class);
+    DirectoryQueue                               directoryQueue      = mock(DirectoryQueue.class);
+    Keys                                         keys                = mock(Keys.class);
+    MessagesManager                              messagesManager     = mock(MessagesManager.class);
+    UsernamesManager                             usernamesManager    = mock(UsernamesManager.class);
+    ProfilesManager                              profilesManager     = mock(ProfilesManager.class);
+    UUID                                         uuid                = UUID.randomUUID();
+    Account                                      account             = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
+    SecureStorageClient                          secureStorageClient = mock(SecureStorageClient.class);
 
     when(commands.get(eq("Account3::" + uuid))).thenThrow(new RedisException("Connection lost!"));
     when(accounts.get(eq(uuid))).thenReturn(Optional.of(account));
 
-    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheCluster, directoryQueue, keys, messagesManager, usernamesManager, profilesManager);
+    AccountsManager   accountsManager = new AccountsManager(accounts, directoryManager, cacheCluster, directoryQueue, keys, messagesManager, usernamesManager, profilesManager, secureStorageClient);
     Optional<Account> retrieved       = accountsManager.get(uuid);
 
     assertTrue(retrieved.isPresent());

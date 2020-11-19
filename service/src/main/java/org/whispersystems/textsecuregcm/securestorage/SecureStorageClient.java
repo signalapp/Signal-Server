@@ -62,7 +62,7 @@ public class SecureStorageClient {
                 return null;
             }
 
-            throw new RuntimeException("Failed to delete storage service data: " + response.statusCode());
+            throw new SecureStorageException("Failed to delete storage service data: " + response.statusCode());
         });
     }
 }
