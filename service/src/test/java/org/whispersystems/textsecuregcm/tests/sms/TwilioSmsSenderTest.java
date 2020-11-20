@@ -338,4 +338,18 @@ public class TwilioSmsSenderTest {
             .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
             .withRequestBody(equalTo("MessagingServiceSid=test_messaging_services_id&To=%2B14153333333&Body=%3C%23%3E+Verify+on+AndroidNg%3A+123-456%0A%0Acharacters")));
   }
+
+  @Test
+  public void testSendSmsChina() {
+    setupSuccessStubForSms();
+    TwilioConfiguration configuration = createTwilioConfiguration();
+    TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration);
+    boolean success = sender.deliverSmsVerification("+861065529988", Optional.of("android-ng"), "123-456").join();
+
+    assertThat(success).isTrue();
+
+    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+            .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
+            .withRequestBody(equalTo("MessagingServiceSid=test_messaging_services_id&To=%2B861065529988&Body=%3C%23%3E+Verify+on+AndroidNg%3A+123-456%0A%0Acharacters%E2%80%88")));
+  }
 }

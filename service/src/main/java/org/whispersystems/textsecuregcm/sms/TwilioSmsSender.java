@@ -22,6 +22,7 @@ import org.whispersystems.textsecuregcm.util.ExecutorUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.net.URI;
@@ -113,7 +114,7 @@ public class TwilioSmsSender {
     Map<String, String> requestParameters = new HashMap<>();
     requestParameters.put("To", destination);
     boolean usedSenderId = setOriginationRequestParameter(destination, requestParameters, enableSenderId);
-    requestParameters.put("Body", String.format(Locale.US, getBodyFormatString(clientType.orElse(null)), verificationCode));
+    requestParameters.put("Body", String.format(Locale.US, getBodyFormatString(destination, clientType.orElse(null)), verificationCode));
 
     HttpRequest request = HttpRequest.newBuilder()
                                      .uri(smsUri)
@@ -129,15 +130,23 @@ public class TwilioSmsSender {
                      .thenCompose(twilioResponse -> retrySendSmsVerificationIfApplicable(usedSenderId, twilioResponse, destination, clientType, verificationCode));
   }
 
-  private String getBodyFormatString(@Nullable String clientType) {
+  private String getBodyFormatString(@Nonnull String destination, @Nullable String clientType) {
+    final String result;
     if ("ios".equals(clientType)) {
-      return iosVerificationText;
+      result = iosVerificationText;
     } else if ("android-ng".equals(clientType)) {
-      return androidNgVerificationText;
+      result = androidNgVerificationText;
     } else if ("android-2020-01".equals(clientType)) {
-      return android202001VerificationText;
+      result = android202001VerificationText;
     } else {
-      return genericVerificationText;
+      result = genericVerificationText;
+    }
+    if (destination.startsWith("+86")) {  // is China
+      return result + "\u2008";
+      // Twilio recommends adding this character to the end of strings delivered to China because some carriers in
+      // China are blocking GSM-7 encoding and this will force Twilio to send using UCS-2 instead.
+    } else {
+      return result;
     }
   }
 
