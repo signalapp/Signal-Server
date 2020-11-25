@@ -16,6 +16,7 @@ import com.amazonaws.services.sqs.model.SendMessageRequest;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +37,7 @@ public class DirectoryQueue {
   private final MetricRegistry metricRegistry    = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private final Meter          serviceErrorMeter = metricRegistry.meter(name(DirectoryQueue.class, "serviceError"));
   private final Meter          clientErrorMeter  = metricRegistry.meter(name(DirectoryQueue.class, "clientError"));
+  private final Timer          sendMessageTimer  = metricRegistry.timer(name(DirectoryQueue.class, "sendMessage"));
 
   private final String         queueUrl;
   private final AmazonSQS      sqs;
@@ -73,7 +75,7 @@ public class DirectoryQueue {
             .withMessageDeduplicationId(UUID.randomUUID().toString())
             .withMessageGroupId(number)
             .withMessageAttributes(messageAttributes);
-    try {
+    try (final Timer.Context ignored = sendMessageTimer.time()) {
       sqs.sendMessage(sendMessageRequest);
     } catch (AmazonServiceException ex) {
       serviceErrorMeter.mark();
