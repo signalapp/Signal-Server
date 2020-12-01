@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
+import io.dropwizard.auth.Auth;
 import org.signal.zkgroup.auth.ServerZkAuthOperations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,8 +30,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 
-import io.dropwizard.auth.Auth;
-
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/certificate")
 public class CertificateController {
@@ -52,24 +51,17 @@ public class CertificateController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/delivery")
   public DeliveryCertificate getDeliveryCertificate(@Auth Account account,
-                                                    @QueryParam("includeE164") Optional<Boolean> includeE164,
-                                                    @QueryParam("includeUuid") Optional<Boolean> includeUuid)
+                                                    @QueryParam("includeE164") Optional<Boolean> includeE164)
       throws IOException, InvalidKeyException
   {
-    if (!account.getAuthenticatedDevice().isPresent()) throw new AssertionError();
-
+    if (account.getAuthenticatedDevice().isEmpty()) {
+      throw new AssertionError();
+    }
     if (Util.isEmpty(account.getIdentityKey())) {
       throw new WebApplicationException(Response.Status.BAD_REQUEST);
     }
 
-    final boolean effectiveIncludeE164 = includeE164.orElse(true);
-    final boolean effectiveIncludeUuid = includeUuid.orElse(false);
-
-    if (!effectiveIncludeE164 && !effectiveIncludeUuid) {
-      throw new WebApplicationException(Response.Status.BAD_REQUEST);
-    }
-
-    return new DeliveryCertificate(certificateGenerator.createFor(account, account.getAuthenticatedDevice().get(), effectiveIncludeE164, effectiveIncludeUuid));
+    return new DeliveryCertificate(certificateGenerator.createFor(account, account.getAuthenticatedDevice().get(), includeE164.orElse(true)));
   }
 
   @Timed

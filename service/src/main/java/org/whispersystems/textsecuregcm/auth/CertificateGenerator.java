@@ -33,23 +33,16 @@ public class CertificateGenerator {
     this.serverCertificate = ServerCertificate.parseFrom(serverCertificate);
   }
 
-  public byte[] createFor(Account account, Device device, boolean includeE164, boolean includeUuid) throws IOException, InvalidKeyException {
+  public byte[] createFor(Account account, Device device, boolean includeE164) throws IOException, InvalidKeyException {
     SenderCertificate.Certificate.Builder builder = SenderCertificate.Certificate.newBuilder()
                                                                                  .setSenderDevice(Math.toIntExact(device.getId()))
                                                                                  .setExpires(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(expiresDays))
                                                                                  .setIdentityKey(ByteString.copyFrom(Base64.decode(account.getIdentityKey())))
-                                                                                 .setSigner(serverCertificate);
-
-    if (!includeE164 && !includeUuid) {
-      throw new IllegalArgumentException("Certificates must include one of a sender phone number or UUID");
-    }
+                                                                                 .setSigner(serverCertificate)
+                                                                                 .setSenderUuid(account.getUuid().toString());
 
     if (includeE164) {
       builder.setSender(account.getNumber());
-    }
-
-    if (includeUuid) {
-      builder.setSenderUuid(account.getUuid().toString());
     }
 
     byte[] certificate = builder.build().toByteArray();

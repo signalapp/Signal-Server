@@ -6,6 +6,8 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
 import com.google.common.collect.ImmutableSet;
+import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
+import io.dropwizard.testing.junit.ResourceTestRule;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.ClassRule;
@@ -36,13 +38,9 @@ import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.util.Arrays;
 
-import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
-import io.dropwizard.testing.junit.ResourceTestRule;
 import static junit.framework.TestCase.assertTrue;
 import static org.assertj.core.api.Java6Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
 
 public class CertificateControllerTest {
 
@@ -95,7 +93,8 @@ public class CertificateControllerTest {
 
     assertEquals(certificate.getSender(), AuthHelper.VALID_NUMBER);
     assertEquals(certificate.getSenderDevice(), 1L);
-    assertFalse(certificate.hasSenderUuid());
+    assertTrue(certificate.hasSenderUuid());
+    assertEquals(AuthHelper.VALID_UUID.toString(), certificate.getSenderUuid());
     assertTrue(Arrays.equals(certificate.getIdentityKey().toByteArray(), Base64.decode(AuthHelper.VALID_IDENTITY)));
   }
 
@@ -148,19 +147,6 @@ public class CertificateControllerTest {
     assertEquals(certificate.getSenderDevice(), 1L);
     assertEquals(certificate.getSenderUuid(), AuthHelper.VALID_UUID.toString());
     assertTrue(Arrays.equals(certificate.getIdentityKey().toByteArray(), Base64.decode(AuthHelper.VALID_IDENTITY)));
-  }
-
-  @Test
-  public void testValidCertificateWithNoUuidNoE164() throws Exception {
-    Response response = resources.getJerseyTest()
-                                 .target("/v1/certificate/delivery")
-                                 .queryParam("includeUuid", "false")
-                                 .queryParam("includeE164", "false")
-                                 .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-                                 .get();
-
-    assertEquals(response.getStatus(), 400);
   }
 
   @Test

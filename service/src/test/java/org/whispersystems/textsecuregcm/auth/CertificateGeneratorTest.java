@@ -15,7 +15,6 @@ import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.util.UUID;
 
-import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -37,10 +36,7 @@ public class CertificateGeneratorTest {
         when(account.getNumber()).thenReturn("+18005551234");
         when(device.getId()).thenReturn(4L);
 
-        assertTrue(certificateGenerator.createFor(account, device, true, true).length > 0);
-        assertTrue(certificateGenerator.createFor(account, device, false, true).length > 0);
-        assertTrue(certificateGenerator.createFor(account, device, true, false).length > 0);
-
-        assertThrows(IllegalArgumentException.class, () -> certificateGenerator.createFor(account, device, false, false));
+        assertTrue(certificateGenerator.createFor(account, device, true).length > 0);
+        assertTrue(certificateGenerator.createFor(account, device, false).length > 0);
     }
 }
