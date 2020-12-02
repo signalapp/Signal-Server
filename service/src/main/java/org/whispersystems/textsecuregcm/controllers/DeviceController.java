@@ -194,6 +194,7 @@ public class DeviceController {
       device.setRegistrationId(accountAttributes.getRegistrationId());
       device.setLastSeen(Util.todayInMillis());
       device.setCreated(System.currentTimeMillis());
+      device.setCapabilities(accountAttributes.getCapabilities());
 
       account.get().addDevice(device);
       messages.clear(account.get().getNumber(), account.get().getUuid(), device.getId());
