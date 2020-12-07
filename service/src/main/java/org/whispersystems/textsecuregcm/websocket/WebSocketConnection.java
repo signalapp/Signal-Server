@@ -29,6 +29,7 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.TimestampHeaderUtil;
 import org.whispersystems.textsecuregcm.util.Util;
+import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import org.whispersystems.websocket.WebSocketClient;
@@ -58,9 +59,13 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private static final Meter          bytesSentMeter                 = metricRegistry.meter(name(WebSocketConnection.class, "bytes_sent"));
   private static final Meter          sendFailuresMeter              = metricRegistry.meter(name(WebSocketConnection.class, "send_failures"));
   private static final Meter          clientNonSuccessResponseMeter  = metricRegistry.meter(name(WebSocketConnection.class, "clientNonSuccessResponse"));
+  private static final Meter          discardedMessagesMeter         = metricRegistry.meter(name(WebSocketConnection.class, "discardedMessages"));
 
   private static final String DISPLACEMENT_COUNTER_NAME      = name(WebSocketConnection.class, "displacement");
   private static final String DISPLACEMENT_PLATFORM_TAG_NAME = "platform";
+
+  @VisibleForTesting
+  static final int MAX_DESKTOP_MESSAGE_SIZE = 1024 * 1024;
 
   private static final Logger logger = LoggerFactory.getLogger(WebSocketConnection.class);
 
@@ -70,6 +75,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private final Account          account;
   private final Device           device;
   private final WebSocketClient  client;
+
+  private final boolean          isDesktopClient;
 
   private final Semaphore                           processStoredMessagesSemaphore = new Semaphore(1);
   private final AtomicReference<StoredMessageState> storedMessageState             = new AtomicReference<>(StoredMessageState.PERSISTED_NEW_MESSAGES_AVAILABLE);
@@ -92,6 +99,16 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     this.account         = account;
     this.device          = device;
     this.client          = client;
+
+    Optional<ClientPlatform> maybePlatform;
+
+    try {
+      maybePlatform = Optional.of(UserAgentUtil.parseUserAgentString(client.getUserAgent()).getPlatform());
+    } catch (final UnrecognizedUserAgentException e) {
+      maybePlatform = Optional.empty();
+    }
+
+    this.isDesktopClient = maybePlatform.map(platform -> platform == ClientPlatform.DESKTOP).orElse(false);
   }
 
   public void start() {
@@ -211,7 +228,16 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
         builder.setRelay(message.getRelay());
       }
 
-      sendFutures[i] = sendMessage(builder.build(), Optional.of(new StoredMessageInfo(message.getId(), message.isCached())));
+      final Envelope envelope = builder.build();
+
+      if (envelope.getSerializedSize() > MAX_DESKTOP_MESSAGE_SIZE && isDesktopClient) {
+        messagesManager.delete(account.getNumber(), account.getUuid(), device.getId(), message.getId(), message.isCached());
+        discardedMessagesMeter.mark();
+
+        sendFutures[i] = CompletableFuture.completedFuture(null);
+      } else {
+        sendFutures[i] = sendMessage(builder.build(), Optional.of(new StoredMessageInfo(message.getId(), message.isCached())));
+      }
     }
 
     CompletableFuture.allOf(sendFutures).whenComplete((v, cause) -> {
