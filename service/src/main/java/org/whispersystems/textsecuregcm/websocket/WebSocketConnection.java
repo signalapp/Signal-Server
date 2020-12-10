@@ -12,6 +12,7 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
@@ -20,6 +21,7 @@ import org.whispersystems.textsecuregcm.entities.CryptoEncodingException;
 import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.DisplacedPresenceListener;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -58,11 +60,11 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private static final Meter          messagesPersistedMeter         = metricRegistry.meter(name(WebSocketConnection.class, "messagesPersisted"));
   private static final Meter          bytesSentMeter                 = metricRegistry.meter(name(WebSocketConnection.class, "bytes_sent"));
   private static final Meter          sendFailuresMeter              = metricRegistry.meter(name(WebSocketConnection.class, "send_failures"));
-  private static final Meter          clientNonSuccessResponseMeter  = metricRegistry.meter(name(WebSocketConnection.class, "clientNonSuccessResponse"));
   private static final Meter          discardedMessagesMeter         = metricRegistry.meter(name(WebSocketConnection.class, "discardedMessages"));
 
-  private static final String DISPLACEMENT_COUNTER_NAME      = name(WebSocketConnection.class, "displacement");
-  private static final String DISPLACEMENT_PLATFORM_TAG_NAME = "platform";
+  private static final String DISPLACEMENT_COUNTER_NAME         = name(WebSocketConnection.class, "displacement");
+  private static final String NON_SUCCESS_RESPONSE_COUNTER_NAME = name(WebSocketConnection.class, "clientNonSuccessResponse");
+  private static final String STATUS_CODE_TAG                   = "status";
 
   @VisibleForTesting
   static final int MAX_DESKTOP_MESSAGE_SIZE = 1024 * 1024;
@@ -147,7 +149,10 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
               sendDeliveryReceiptFor(message);
             }
           } else {
-            clientNonSuccessResponseMeter.mark();
+            final List<Tag> tags = List.of(Tag.of(STATUS_CODE_TAG, String.valueOf(response.getStatus())),
+                                           UserAgentTagUtil.getPlatformTag(client.getUserAgent()));
+
+            Metrics.counter(NON_SUCCESS_RESPONSE_COUNTER_NAME, tags).increment();
           }
         } else {
           sendFailuresMeter.mark();
@@ -279,15 +284,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
   @Override
   public void handleDisplacement() {
-    String platform;
-
-    try {
-      platform = UserAgentUtil.parseUserAgentString(client.getUserAgent()).getPlatform().name().toLowerCase();
-    } catch (UnrecognizedUserAgentException e) {
-      platform = "unknown";
-    }
-
-    Metrics.counter(DISPLACEMENT_COUNTER_NAME, DISPLACEMENT_PLATFORM_TAG_NAME, platform).increment();
+    Metrics.counter(DISPLACEMENT_COUNTER_NAME, List.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()))).increment();
 
     client.hardDisconnectQuietly();
   }
