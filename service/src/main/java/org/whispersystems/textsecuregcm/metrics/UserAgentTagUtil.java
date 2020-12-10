@@ -64,6 +64,18 @@ public class UserAgentTagUtil {
         }
     }
 
+    public static Tag getPlatformTag(final String userAgentString) {
+        String platform;
+
+        try {
+            platform = UserAgentUtil.parseUserAgentString(userAgentString).getPlatform().name().toLowerCase();
+        } catch (final UnrecognizedUserAgentException e) {
+            platform = "unrecognized";
+        }
+
+        return Tag.of(PLATFORM_TAG, platform);
+    }
+
     private static boolean allowVersion(final ClientPlatform platform, final Semver version) {
         final Pair<ClientPlatform, Semver> platformAndVersion = new Pair<>(platform, version);
 
