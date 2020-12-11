@@ -7,6 +7,8 @@ package org.whispersystems.textsecuregcm.metrics;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
+import com.vdurmont.semver4j.Semver;
+import com.vdurmont.semver4j.SemverException;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
@@ -21,6 +23,8 @@ import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Gathers and reports request-level metrics.
@@ -34,6 +38,7 @@ class MetricsRequestEventListener implements RequestEventListener {
 
     static final String ANDROID_REQUEST_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "androidRequest");
     static final String DESKTOP_REQUEST_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "desktopRequest");
+    static final String IOS_REQUEST_COUNTER_NAME     = MetricRegistry.name(MetricsRequestEventListener.class, "iosRequest");
     static final String OS_TAG                       = "os";
     static final String SDK_TAG                      = "sdkVersion";
 
@@ -42,6 +47,11 @@ class MetricsRequestEventListener implements RequestEventListener {
     private static final String ANDROID_SDK_PREFIX      = "Android/";
     private static final int    MIN_ANDROID_SDK_VERSION = 19;
     private static final int    MAX_ANDROID_SDK_VERSION = 50;
+
+    private static final String  IOS_VERSION_PREFIX  = "iOS/";
+    private static final Pattern LEGACY_IOS_PATTERN  = Pattern.compile("^\\(.*iOS ([0-9\\.]+).*\\)$");
+    private static final Semver  MIN_IOS_VERSION     = new Semver("8.0", Semver.SemverType.LOOSE);
+    private static final Semver  MAX_IOS_VERSION     = new Semver("20.0", Semver.SemverType.LOOSE);
 
     private final TrafficSource trafficSource;
     private final MeterRegistry meterRegistry;
@@ -75,6 +85,7 @@ class MetricsRequestEventListener implements RequestEventListener {
 
                     recordDesktopOperatingSystem(userAgent);
                     recordAndroidSdkVersion(userAgent);
+                    recordIosVersion(userAgent);
                 } catch (final UnrecognizedUserAgentException ignored) {
                 }
             }
@@ -103,6 +114,35 @@ class MetricsRequestEventListener implements RequestEventListener {
                         }
                     } catch (final NumberFormatException ignored) {
                     }
+                }
+            });
+        }
+    }
+
+    @VisibleForTesting
+    void recordIosVersion(final UserAgent userAgent) {
+        if (userAgent.getPlatform() == ClientPlatform.IOS) {
+            userAgent.getAdditionalSpecifiers().ifPresent(additionalSpecifiers -> {
+                Semver iosVersion = null;
+
+                if (additionalSpecifiers.startsWith(IOS_VERSION_PREFIX)) {
+                    try {
+                        iosVersion = new Semver(additionalSpecifiers.substring(IOS_VERSION_PREFIX.length()), Semver.SemverType.LOOSE);
+                    } catch (final SemverException ignored) {
+                    }
+                } else {
+                    final Matcher matcher = LEGACY_IOS_PATTERN.matcher(additionalSpecifiers);
+
+                    if (matcher.matches()) {
+                        try {
+                            iosVersion = new Semver(matcher.group(1), Semver.SemverType.LOOSE);
+                        } catch (final SemverException ignored) {
+                        }
+                    }
+                }
+
+                if (iosVersion != null && iosVersion.isGreaterThanOrEqualTo(MIN_IOS_VERSION) && iosVersion.isLowerThan(MAX_IOS_VERSION)) {
+                    meterRegistry.counter(IOS_REQUEST_COUNTER_NAME, OS_TAG, iosVersion.toString()).increment();
                 }
             });
         }

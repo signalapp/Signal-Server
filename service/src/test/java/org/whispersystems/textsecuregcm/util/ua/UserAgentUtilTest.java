@@ -61,6 +61,7 @@ public class UserAgentUtilTest {
                 new Object[] { "Signal-Desktop/1.2.3",                                  new UserAgent(ClientPlatform.DESKTOP, new Semver("1.2.3")) },
                 new Object[] { "Signal-Desktop/1.32.0-beta.3",                          new UserAgent(ClientPlatform.DESKTOP, new Semver("1.32.0-beta.3")) },
                 new Object[] { "Signal-iOS/3.9.0 (iPhone; iOS 12.2; Scale/3.00)",       new UserAgent(ClientPlatform.IOS, new Semver("3.9.0"), "(iPhone; iOS 12.2; Scale/3.00)") },
+                new Object[] { "Signal-iOS/3.9.0 iOS/14.2",                             new UserAgent(ClientPlatform.IOS, new Semver("3.9.0"), "iOS/14.2") },
                 new Object[] { "Signal-iOS/3.9.0",                                      new UserAgent(ClientPlatform.IOS, new Semver("3.9.0")) }
         };
     }

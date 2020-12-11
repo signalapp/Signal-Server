@@ -302,6 +302,35 @@ public class MetricsRequestEventListenerTest {
         };
     }
 
+    @Test
+    @Parameters(method = "argumentsForTestRecordIosVersion")
+    public void testRecordIosVersion(final UserAgent userAgent, final String expectedIosVersion) {
+        when(meterRegistry.counter(eq(MetricsRequestEventListener.IOS_REQUEST_COUNTER_NAME), (String)any())).thenReturn(counter);
+        listener.recordIosVersion(userAgent);
+
+        if (expectedIosVersion != null) {
+            final ArgumentCaptor<String> tagCaptor = ArgumentCaptor.forClass(String.class);
+            verify(meterRegistry).counter(eq(MetricsRequestEventListener.IOS_REQUEST_COUNTER_NAME), tagCaptor.capture());
+
+            assertEquals(List.of(MetricsRequestEventListener.OS_TAG, expectedIosVersion), tagCaptor.getAllValues());
+        } else {
+            verify(meterRegistry, never()).counter(eq(MetricsRequestEventListener.IOS_REQUEST_COUNTER_NAME));
+            verify(meterRegistry, never()).counter(eq(MetricsRequestEventListener.IOS_REQUEST_COUNTER_NAME), (String)any());
+        }
+    }
+
+    private static Object argumentsForTestRecordIosVersion() {
+        return new Object[] {
+                new Object[] { new UserAgent(ClientPlatform.IOS,     new Semver("3.9.0"), "iOS/14.2"),                        "14.2" },
+                new Object[] { new UserAgent(ClientPlatform.IOS,     new Semver("3.9.0"), "(iPhone; iOS 12.2; Scale/3.00)"),  "12.2" },
+                new Object[] { new UserAgent(ClientPlatform.IOS,     new Semver("3.9.0")),                                    null },
+                new Object[] { new UserAgent(ClientPlatform.IOS,     new Semver("3.9.0"), "iOS/bogus"),                       null },
+                new Object[] { new UserAgent(ClientPlatform.IOS,     new Semver("3.9.0"), "(iPhone; iOS bogus; Scale/3.00)"), null },
+                new Object[] { new UserAgent(ClientPlatform.ANDROID, new Semver("4.68.3"), "Android/25"),                     null },
+                new Object[] { new UserAgent(ClientPlatform.DESKTOP, new Semver("1.2.3"), "Linux"),                           null }
+        };
+    }
+
     private static SubProtocol.WebSocketResponseMessage getResponse(ArgumentCaptor<ByteBuffer> responseCaptor) throws InvalidProtocolBufferException {
         return SubProtocol.WebSocketMessage.parseFrom(responseCaptor.getValue().array()).getResponse();
     }
