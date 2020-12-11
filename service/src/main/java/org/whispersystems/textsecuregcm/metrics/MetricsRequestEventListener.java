@@ -99,7 +99,7 @@ class MetricsRequestEventListener implements RequestEventListener {
                         final int sdkVersion = Integer.parseInt(additionalSpecifiers, ANDROID_SDK_PREFIX.length(), additionalSpecifiers.length(), 10);
 
                         if (sdkVersion >= MIN_ANDROID_SDK_VERSION && sdkVersion <= MAX_ANDROID_SDK_VERSION) {
-                            meterRegistry.counter(ANDROID_REQUEST_COUNTER_NAME, SDK_TAG, String.valueOf(sdkVersion));
+                            meterRegistry.counter(ANDROID_REQUEST_COUNTER_NAME, SDK_TAG, String.valueOf(sdkVersion)).increment();
                         }
                     } catch (final NumberFormatException ignored) {
                     }
