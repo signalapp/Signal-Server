@@ -13,6 +13,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
@@ -38,6 +39,7 @@ import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 
 import javax.ws.rs.WebApplicationException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -66,6 +68,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private static final String DISPLACEMENT_COUNTER_NAME         = name(WebSocketConnection.class, "displacement");
   private static final String NON_SUCCESS_RESPONSE_COUNTER_NAME = name(WebSocketConnection.class, "clientNonSuccessResponse");
   private static final String STATUS_CODE_TAG                   = "status";
+  private static final String STATUS_MESSAGE_TAG                = "message";
 
   @VisibleForTesting
   static final int MAX_DESKTOP_MESSAGE_SIZE = 1024 * 1024;
@@ -150,8 +153,13 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
               sendDeliveryReceiptFor(message);
             }
           } else {
-            final List<Tag> tags = List.of(Tag.of(STATUS_CODE_TAG, String.valueOf(response.getStatus())),
-                                           UserAgentTagUtil.getPlatformTag(client.getUserAgent()));
+            final List<Tag> tags = new ArrayList<>(List.of(Tag.of(STATUS_CODE_TAG, String.valueOf(response.getStatus())),
+                                                           UserAgentTagUtil.getPlatformTag(client.getUserAgent())));
+
+            // TODO Remove this once we've identified the cause of message rejections from desktop clients
+            if (StringUtils.isNotBlank(response.getMessage())) {
+              tags.add(Tag.of(STATUS_MESSAGE_TAG, response.getMessage()));
+            }
 
             Metrics.counter(NON_SUCCESS_RESPONSE_COUNTER_NAME, tags).increment();
           }
