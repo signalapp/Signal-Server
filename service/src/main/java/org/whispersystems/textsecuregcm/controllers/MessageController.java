@@ -29,8 +29,8 @@ import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
-import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.MessageSender;
+import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -41,7 +41,6 @@ import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
-import org.whispersystems.textsecuregcm.util.ua.UserAgent;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
 
@@ -58,7 +57,6 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -245,8 +243,7 @@ public class MessageController {
                                    @PathParam("timestamp") long timestamp)
   {
     try {
-      WebSocketConnection.messageTime.update(System.currentTimeMillis() - timestamp);
-
+      WebSocketConnection.recordMessageDeliveryDuration(timestamp, account.getAuthenticatedDevice().get());
       Optional<OutgoingMessageEntity> message = messagesManager.delete(account.getNumber(),
                                                                        account.getUuid(),
                                                                        account.getAuthenticatedDevice().get().getId(),
@@ -272,11 +269,13 @@ public class MessageController {
                                                                        account.getAuthenticatedDevice().get().getId(),
                                                                        uuid);
 
-      message.ifPresent(outgoingMessageEntity -> WebSocketConnection.messageTime.update(System.currentTimeMillis() - outgoingMessageEntity.getTimestamp()));
-
-      if (message.isPresent() && !Util.isEmpty(message.get().getSource()) && message.get().getType() != Envelope.Type.RECEIPT_VALUE) {
-        receiptSender.sendReceipt(account, message.get().getSource(), message.get().getTimestamp());
+      if (message.isPresent()) {
+        WebSocketConnection.recordMessageDeliveryDuration(message.get().getTimestamp(), account.getAuthenticatedDevice().get());
+        if (!Util.isEmpty(message.get().getSource()) && message.get().getType() != Envelope.Type.RECEIPT_VALUE) {
+          receiptSender.sendReceipt(account, message.get().getSource(), message.get().getTimestamp());
+        }
       }
+
     } catch (NoSuchUserException e) {
       logger.warn("Sending delivery receipt", e);
     }

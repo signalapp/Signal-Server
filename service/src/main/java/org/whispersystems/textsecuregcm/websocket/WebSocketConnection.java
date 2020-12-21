@@ -53,7 +53,8 @@ import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 public class WebSocketConnection implements MessageAvailabilityListener, DisplacedPresenceListener {
 
   private static final MetricRegistry metricRegistry                 = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  public  static final Histogram      messageTime                    = metricRegistry.histogram(name(MessageController.class, "message_delivery_duration"));
+  private static final Histogram      messageTime                    = metricRegistry.histogram(name(MessageController.class, "message_delivery_duration"));
+  private static final Histogram      primaryDeviceMessageTime       = metricRegistry.histogram(name(MessageController.class, "primary_device_message_delivery_duration"));
   private static final Meter          sendMessageMeter               = metricRegistry.meter(name(WebSocketConnection.class, "send_message"));
   private static final Meter          messageAvailableMeter          = metricRegistry.meter(name(WebSocketConnection.class, "messagesAvailable"));
   private static final Meter          ephemeralMessageAvailableMeter = metricRegistry.meter(name(WebSocketConnection.class, "ephemeralMessagesAvailable"));
@@ -145,7 +146,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
             }
 
             if (message.getType() != Envelope.Type.RECEIPT) {
-              messageTime.update(System.currentTimeMillis() - message.getTimestamp());
+              recordMessageDeliveryDuration(message.getTimestamp(), device);
               sendDeliveryReceiptFor(message);
             }
           } else {
@@ -161,6 +162,14 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     } catch (CryptoEncodingException e) {
       logger.warn("Bad signaling key", e);
       return CompletableFuture.failedFuture(e);
+    }
+  }
+
+  public static void recordMessageDeliveryDuration(long timestamp, Device messageDestinationDevice) {
+    final long messageDeliveryDuration = System.currentTimeMillis() - timestamp;
+    messageTime.update(messageDeliveryDuration);
+    if (messageDestinationDevice.isMaster()) {
+      primaryDeviceMessageTime.update(messageDeliveryDuration);
     }
   }
 
