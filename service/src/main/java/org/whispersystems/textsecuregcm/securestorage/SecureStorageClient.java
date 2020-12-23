@@ -17,6 +17,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.security.cert.CertificateException;
 import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -34,7 +35,7 @@ public class SecureStorageClient {
     @VisibleForTesting
     static final String DELETE_PATH = "/v1/storage";
 
-    public SecureStorageClient(final ExternalServiceCredentialGenerator storageServiceCredentialGenerator, final Executor executor, final SecureStorageServiceConfiguration configuration) {
+    public SecureStorageClient(final ExternalServiceCredentialGenerator storageServiceCredentialGenerator, final Executor executor, final SecureStorageServiceConfiguration configuration) throws CertificateException {
         this.storageServiceCredentialGenerator = storageServiceCredentialGenerator;
         this.deleteUri                         = URI.create(configuration.getUri()).resolve(DELETE_PATH);
         this.httpClient                        = FaultTolerantHttpClient.newBuilder()
@@ -45,6 +46,7 @@ public class SecureStorageClient {
                                                                         .withRedirect(HttpClient.Redirect.NEVER)
                                                                         .withExecutor(executor)
                                                                         .withName("secure-storage")
+                                                                        .withTrustedServerCertificate(configuration.getStorageCaCertificate())
                                                                         .build();
     }
 
