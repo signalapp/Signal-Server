@@ -7,14 +7,21 @@ package org.whispersystems.textsecuregcm.http;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryConfig;
+import org.glassfish.jersey.SslConfigurator;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
+import org.whispersystems.textsecuregcm.util.CertificateUtil;
 import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.Constants;
 
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.security.KeyStore;
+import java.security.cert.CertificateException;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -22,10 +29,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
-
-import io.github.resilience4j.circuitbreaker.CircuitBreaker;
-import io.github.resilience4j.retry.Retry;
-import io.github.resilience4j.retry.RetryConfig;
 
 public class FaultTolerantHttpClient {
 
@@ -82,6 +85,7 @@ public class FaultTolerantHttpClient {
 
     private String                      name;
     private Executor                    executor;
+    private KeyStore                    trustStore;
     private RetryConfiguration          retryConfiguration;
     private CircuitBreakerConfiguration circuitBreakerConfiguration;
 
@@ -122,19 +126,30 @@ public class FaultTolerantHttpClient {
       return this;
     }
 
+    public Builder withTrustedServerCertificate(final String certificatePem) throws CertificateException {
+      this.trustStore = CertificateUtil.buildKeyStoreForPem(certificatePem);
+      return this;
+    }
+
     public FaultTolerantHttpClient build() {
       if (this.circuitBreakerConfiguration == null || this.name == null || this.executor == null) {
         throw new IllegalArgumentException("Must specify circuit breaker config, name, and executor");
       }
 
-      HttpClient client = HttpClient.newBuilder()
-                                    .connectTimeout(connectTimeout)
-                                    .followRedirects(redirect)
-                                    .version(version)
-                                    .executor(executor)
-                                    .build();
+      final HttpClient.Builder builder = HttpClient.newBuilder()
+                                                   .connectTimeout(connectTimeout)
+                                                   .followRedirects(redirect)
+                                                   .version(version)
+                                                   .executor(executor);
 
-      return new FaultTolerantHttpClient(name, client, retryConfiguration, circuitBreakerConfiguration);
+      if (this.trustStore != null) {
+        builder.sslContext(SslConfigurator.newInstance()
+               .securityProtocol("TLSv1.2")
+               .trustStore(trustStore)
+               .createSSLContext());
+      }
+
+      return new FaultTolerantHttpClient(name, builder.build(), retryConfiguration, circuitBreakerConfiguration);
     }
 
   }
