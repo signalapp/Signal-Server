@@ -16,7 +16,6 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.configuration.SecureStorageServiceConfiguration;
 
 import java.util.UUID;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -26,7 +25,6 @@ import static com.github.tomakehurst.wiremock.client.WireMock.delete;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -85,7 +83,6 @@ public class SecureStorageClientTest {
                 .withBasicAuth(username, password)
                 .willReturn(aResponse().withStatus(400)));
 
-        final CompletionException completionException = assertThrows(CompletionException.class, () -> secureStorageClient.deleteStoredData(accountUuid).join());
-        assertTrue(completionException.getCause() instanceof SecureStorageException);
+        assertThrows(RuntimeException.class, () -> secureStorageClient.deleteStoredData(accountUuid).join());
     }
 }

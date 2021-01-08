@@ -18,7 +18,6 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -28,7 +27,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
@@ -61,7 +59,6 @@ public class AccountsManager {
   private final MessagesManager           messagesManager;
   private final UsernamesManager          usernamesManager;
   private final ProfilesManager           profilesManager;
-  private final SecureStorageClient       secureStorageClient;
   private final ObjectMapper              mapper;
 
   public enum DeletionReason {
@@ -76,17 +73,16 @@ public class AccountsManager {
     }
   }
 
-  public AccountsManager(Accounts accounts, DirectoryManager directory, FaultTolerantRedisCluster cacheCluster, final DirectoryQueue directoryQueue, final Keys keys, final MessagesManager messagesManager, final UsernamesManager usernamesManager, final ProfilesManager profilesManager, final SecureStorageClient secureStorageClient) {
-    this.accounts            = accounts;
-    this.directory           = directory;
-    this.cacheCluster        = cacheCluster;
-    this.directoryQueue      = directoryQueue;
-    this.keys                = keys;
-    this.messagesManager     = messagesManager;
-    this.usernamesManager    = usernamesManager;
-    this.profilesManager     = profilesManager;
-    this.secureStorageClient = secureStorageClient;
-    this.mapper              = SystemMapper.getMapper();
+  public AccountsManager(Accounts accounts, DirectoryManager directory, FaultTolerantRedisCluster cacheCluster, final DirectoryQueue directoryQueue, final Keys keys, final MessagesManager messagesManager, final UsernamesManager usernamesManager, final ProfilesManager profilesManager) {
+    this.accounts         = accounts;
+    this.directory        = directory;
+    this.cacheCluster     = cacheCluster;
+    this.directoryQueue   = directoryQueue;
+    this.keys             = keys;
+    this.messagesManager  = messagesManager;
+    this.usernamesManager = usernamesManager;
+    this.profilesManager  = profilesManager;
+    this.mapper           = SystemMapper.getMapper();
   }
 
   public boolean create(Account account) {
@@ -150,17 +146,12 @@ public class AccountsManager {
 
   public void delete(final Account account, final DeletionReason deletionReason) {
     try (final Timer.Context ignored = deleteTimer.time()) {
-      final CompletableFuture<Void> deleteStorageServiceDataFuture = secureStorageClient.deleteStoredData(account.getUuid());
-
       usernamesManager.delete(account.getUuid());
       directoryQueue.deleteAccount(account);
       directory.remove(account.getNumber());
       profilesManager.deleteAll(account.getUuid());
       keys.delete(account.getNumber());
       messagesManager.clear(account.getNumber(), account.getUuid());
-
-      deleteStorageServiceDataFuture.join();
-
       redisDelete(account);
       databaseDelete(account);
     }
