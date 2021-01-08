@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.tests.sms;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
@@ -215,6 +216,7 @@ public class TwilioSmsSenderTest {
   }
 
   @Test
+  @Ignore
   public void testSendAlphaIdByCountryCode() {
     runSenderIdTest("+85278675309", "SIGNAL", () -> {
       TwilioSenderIdConfiguration        senderIdConfiguration              = new TwilioSenderIdConfiguration();
@@ -227,6 +229,7 @@ public class TwilioSmsSenderTest {
   }
 
   @Test
+  @Ignore
   public void testDefaultSenderId() {
     runSenderIdTest("+14098675309", "SIGNALFOO", () -> {
       TwilioSenderIdConfiguration senderIdConfiguration = new TwilioSenderIdConfiguration();
@@ -236,33 +239,7 @@ public class TwilioSmsSenderTest {
   }
 
   @Test
-  public void testDefaultSenderIdWithDisabledCountry() {
-    final Supplier<TwilioSenderIdConfiguration> senderIdConfigurationSupplier = () -> {
-      TwilioSenderIdConfiguration senderIdConfiguration = new TwilioSenderIdConfiguration();
-      senderIdConfiguration.setDefaultSenderId("SIGNALBAR");
-      senderIdConfiguration.setCountryCodesWithoutSenderId(Set.of("1"));
-      return senderIdConfiguration;
-    };
-    runSenderIdTest("+14098675309", null, senderIdConfigurationSupplier);
-    runSenderIdTest("+447911123456", "SIGNALBAR", senderIdConfigurationSupplier);
-  }
-
-  @Test
-  public void testDefaultSenderIdWithOverriddenCountry() {
-    final Supplier<TwilioSenderIdConfiguration> senderIdConfigurationSupplier = () -> {
-      TwilioSenderIdConfiguration        senderIdConfiguration              = new TwilioSenderIdConfiguration();
-      TwilioCountrySenderIdConfiguration twilioCountrySenderIdConfiguration = new TwilioCountrySenderIdConfiguration();
-      twilioCountrySenderIdConfiguration.setCountryCode("1");
-      twilioCountrySenderIdConfiguration.setSenderId("OFCOURSEISTILLLOVEYOU");
-      senderIdConfiguration.setDefaultSenderId("JUSTREADTHEINSTRUCTIONS");
-      senderIdConfiguration.setCountrySpecificSenderIds(List.of(twilioCountrySenderIdConfiguration));
-      return senderIdConfiguration;
-    };
-    runSenderIdTest("+15128675309", "OFCOURSEISTILLLOVEYOU", senderIdConfigurationSupplier);
-    runSenderIdTest("+6433456789", "JUSTREADTHEINSTRUCTIONS", senderIdConfigurationSupplier);
-  }
-
-  @Test
+  @Ignore
   public void testSenderIdWithAllFieldsPopulated() {
     final Supplier<TwilioSenderIdConfiguration> senderIdConfigurationSupplier = () -> {
       TwilioSenderIdConfiguration        senderIdConfiguration               = new TwilioSenderIdConfiguration();
@@ -299,41 +276,6 @@ public class TwilioSmsSenderTest {
 
     assertThat(success).isFalse();
 
-    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
-            .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
-            .withRequestBody(equalTo("MessagingServiceSid=test_messaging_services_id&To=%2B14153333333&Body=%3C%23%3E+Verify+on+AndroidNg%3A+123-456%0A%0Acharacters")));
-  }
-
-  @Test
-  public void testRetrySmsOnUnreachableErrorCodeSkipsSenderIdSecondTime() {
-    wireMockRule.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
-                                 .withBasicAuth(ACCOUNT_ID, ACCOUNT_TOKEN)
-                                 .withRequestBody(equalTo("To=%2B14153333333&From=WHENTHEMUSICPLAYS&Body=%3C%23%3E+Verify+on+AndroidNg%3A+123-456%0A%0Acharacters"))
-                                 .willReturn(aResponse()
-                                                     .withStatus(400)
-                                                     .withHeader("Content-Type", "application/json")
-                                                     .withBody("{\"status\": 400, \"message\": \"is not currently reachable\", \"code\": 21612}")));
-
-    wireMockRule.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
-                                 .withBasicAuth(ACCOUNT_ID, ACCOUNT_TOKEN)
-                                 .withRequestBody(equalTo("MessagingServiceSid=test_messaging_services_id&To=%2B14153333333&Body=%3C%23%3E+Verify+on+AndroidNg%3A+123-456%0A%0Acharacters"))
-                                 .willReturn(aResponse()
-                                                     .withHeader("Content-Type", "application/json")
-                                                     .withBody("{\"price\": -0.00750, \"status\": \"sent\"}")));
-
-    TwilioConfiguration configuration = createTwilioConfiguration();
-    TwilioSenderIdConfiguration twilioSenderIdConfiguration = new TwilioSenderIdConfiguration();
-    twilioSenderIdConfiguration.setDefaultSenderId("WHENTHEMUSICPLAYS");
-    configuration.setSenderId(twilioSenderIdConfiguration);
-
-    TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration);
-    boolean         success = sender.deliverSmsVerification("+14153333333", Optional.of("android-ng"), "123-456").join();
-
-    assertThat(success).isTrue();
-
-    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
-            .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
-            .withRequestBody(equalTo("To=%2B14153333333&From=WHENTHEMUSICPLAYS&Body=%3C%23%3E+Verify+on+AndroidNg%3A+123-456%0A%0Acharacters")));
     verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
             .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
             .withRequestBody(equalTo("MessagingServiceSid=test_messaging_services_id&To=%2B14153333333&Body=%3C%23%3E+Verify+on+AndroidNg%3A+123-456%0A%0Acharacters")));

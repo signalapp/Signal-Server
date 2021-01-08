@@ -38,20 +38,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class TwilioSmsSender {
-  private static final int    TWILIO_UNREACHABLE_ERROR_CODE = 21612;
-
   private static final Logger logger = LoggerFactory.getLogger(TwilioSmsSender.class);
 
   private final MetricRegistry metricRegistry  = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private final Meter          smsMeter        = metricRegistry.meter(name(getClass(), "sms", "delivered"));
-  private final Meter          retriedSmsMeter = metricRegistry.meter(name(getClass(), "sms", "retried"));
   private final Meter          voxMeter        = metricRegistry.meter(name(getClass(), "vox", "delivered"));
   private final Meter          priceMeter      = metricRegistry.meter(name(getClass(), "price"));
 
@@ -61,7 +57,6 @@ public class TwilioSmsSender {
   private final String            messagingServiceSid;
   private final String            nanpaMessagingServiceSid;
   private final String            localDomain;
-  private final SenderIdSupplier  senderIdSupplier;
   private final Random            random;
   private final String            androidNgVerificationText;
   private final String            android202001VerificationText;
@@ -82,7 +77,6 @@ public class TwilioSmsSender {
     this.localDomain                   = twilioConfiguration.getLocalDomain();
     this.messagingServiceSid           = twilioConfiguration.getMessagingServiceSid();
     this.nanpaMessagingServiceSid      = twilioConfiguration.getNanpaMessagingServiceSid();
-    this.senderIdSupplier              = new SenderIdSupplier(twilioConfiguration.getSenderId());
     this.random                        = new Random(System.currentTimeMillis());
     this.androidNgVerificationText     = twilioConfiguration.getAndroidNgVerificationText();
     this.android202001VerificationText = twilioConfiguration.getAndroid202001VerificationText();
@@ -106,14 +100,17 @@ public class TwilioSmsSender {
   }
 
   public CompletableFuture<Boolean> deliverSmsVerification(String destination, Optional<String> clientType, String verificationCode) {
-    return internalSendSmsVerification(destination, clientType, verificationCode, true)
-            .handle(this::processResponse);
-  }
-
-  private CompletableFuture<TwilioResponse> internalSendSmsVerification(String destination, Optional<String> clientType, String verificationCode, boolean enableSenderId) {
     Map<String, String> requestParameters = new HashMap<>();
     requestParameters.put("To", destination);
-    boolean usedSenderId = setOriginationRequestParameter(destination, requestParameters, enableSenderId);
+
+    if (StringUtils.isNotEmpty(nanpaMessagingServiceSid) && "1".equals(Util.getCountryCode(destination))) {
+      requestParameters.put("MessagingServiceSid", nanpaMessagingServiceSid);
+    } else if (StringUtils.isNotEmpty(messagingServiceSid)) {
+      requestParameters.put("MessagingServiceSid", messagingServiceSid);
+    } else {
+      requestParameters.put("From", getRandom(random, numbers));
+    }
+
     requestParameters.put("Body", String.format(Locale.US, getBodyFormatString(destination, clientType.orElse(null)), verificationCode));
 
     HttpRequest request = HttpRequest.newBuilder()
@@ -126,8 +123,7 @@ public class TwilioSmsSender {
     smsMeter.mark();
 
     return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                     .thenApply(this::parseResponse)
-                     .thenCompose(twilioResponse -> retrySendSmsVerificationIfApplicable(usedSenderId, twilioResponse, destination, clientType, verificationCode));
+                     .thenApply(this::parseResponse).handle(this::processResponse);
   }
 
   private String getBodyFormatString(@Nonnull String destination, @Nullable String clientType) {
@@ -176,36 +172,8 @@ public class TwilioSmsSender {
                      .handle(this::processResponse);
   }
 
-  /**
-   * @return true if alphanumeric sender id was used instead of a messaging service or phone number; false otherwise
-   */
-  private boolean setOriginationRequestParameter(String destination, Map<String, String> requestParameters, boolean enableSenderId) {
-    final Optional<String> senderId = senderIdSupplier.get(destination);
-    boolean retval = false;
-    if (senderId.isPresent() && enableSenderId) {
-      requestParameters.put("From", senderId.get());
-      retval = true;
-    } else if (StringUtils.isNotEmpty(nanpaMessagingServiceSid) && "1".equals(Util.getCountryCode(destination))) {
-      requestParameters.put("MessagingServiceSid", nanpaMessagingServiceSid);
-    } else if (StringUtils.isNotEmpty(messagingServiceSid)) {
-      requestParameters.put("MessagingServiceSid", messagingServiceSid);
-    } else {
-      requestParameters.put("From", getRandom(random, numbers));
-    }
-    return retval;
-  }
-
   private String getRandom(Random random, ArrayList<String> elements) {
     return elements.get(random.nextInt(elements.size()));
-  }
-
-  private CompletionStage<TwilioResponse> retrySendSmsVerificationIfApplicable(boolean usedSenderId, TwilioResponse response, String destination, Optional<String> clientType, String verificationCode) {
-    if (response != null && response.isFailure() && response.failureResponse.code == TWILIO_UNREACHABLE_ERROR_CODE && usedSenderId) {
-      retriedSmsMeter.mark();
-      return internalSendSmsVerification(destination, clientType, verificationCode, false);
-    } else {
-      return CompletableFuture.completedFuture(response);
-    }
   }
 
   private boolean processResponse(TwilioResponse response, Throwable throwable) {
