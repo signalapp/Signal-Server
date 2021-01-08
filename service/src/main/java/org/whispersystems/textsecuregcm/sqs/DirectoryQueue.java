@@ -25,6 +25,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.Constants;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -39,21 +40,21 @@ public class DirectoryQueue {
   private final Meter          clientErrorMeter  = metricRegistry.meter(name(DirectoryQueue.class, "clientError"));
   private final Timer          sendMessageTimer  = metricRegistry.timer(name(DirectoryQueue.class, "sendMessage"));
 
-  private final String         queueUrl;
+  private final List<String>   queueUrls;
   private final AmazonSQS      sqs;
 
   public DirectoryQueue(SqsConfiguration sqsConfig) {
     final AWSCredentials               credentials         = new BasicAWSCredentials(sqsConfig.getAccessKey(), sqsConfig.getAccessSecret());
     final AWSStaticCredentialsProvider credentialsProvider = new AWSStaticCredentialsProvider(credentials);
 
-    this.queueUrl = sqsConfig.getQueueUrl();
-    this.sqs      = AmazonSQSClientBuilder.standard().withRegion(sqsConfig.getRegion()).withCredentials(credentialsProvider).build();
+    this.queueUrls = sqsConfig.getQueueUrls();
+    this.sqs       = AmazonSQSClientBuilder.standard().withRegion(sqsConfig.getRegion()).withCredentials(credentialsProvider).build();
   }
 
   @VisibleForTesting
-  DirectoryQueue(final String queueUrl, final AmazonSQS sqs) {
-    this.queueUrl = queueUrl;
-    this.sqs      = sqs;
+  DirectoryQueue(final List<String> queueUrls, final AmazonSQS sqs) {
+    this.queueUrls = queueUrls;
+    this.sqs       = sqs;
   }
 
   public void refreshRegisteredUser(final Account account) {
@@ -69,22 +70,25 @@ public class DirectoryQueue {
     messageAttributes.put("id", new MessageAttributeValue().withDataType("String").withStringValue(number));
     messageAttributes.put("uuid", new MessageAttributeValue().withDataType("String").withStringValue(uuid.toString()));
     messageAttributes.put("action", new MessageAttributeValue().withDataType("String").withStringValue(action));
-    SendMessageRequest sendMessageRequest = new SendMessageRequest()
-            .withQueueUrl(queueUrl)
-            .withMessageBody("-")
-            .withMessageDeduplicationId(UUID.randomUUID().toString())
-            .withMessageGroupId(number)
-            .withMessageAttributes(messageAttributes);
-    try (final Timer.Context ignored = sendMessageTimer.time()) {
-      sqs.sendMessage(sendMessageRequest);
-    } catch (AmazonServiceException ex) {
-      serviceErrorMeter.mark();
-      logger.warn("sqs service error: ", ex);
-    } catch (AmazonClientException ex) {
-      clientErrorMeter.mark();
-      logger.warn("sqs client error: ", ex);
-    } catch (Throwable t) {
-      logger.warn("sqs unexpected error: ", t);
+
+    for (final String queueUrl : queueUrls) {
+      final SendMessageRequest sendMessageRequest = new SendMessageRequest()
+              .withQueueUrl(queueUrl)
+              .withMessageBody("-")
+              .withMessageDeduplicationId(UUID.randomUUID().toString())
+              .withMessageGroupId(number)
+              .withMessageAttributes(messageAttributes);
+      try (final Timer.Context ignored = sendMessageTimer.time()) {
+        sqs.sendMessage(sendMessageRequest);
+      } catch (AmazonServiceException ex) {
+        serviceErrorMeter.mark();
+        logger.warn("sqs service error: ", ex);
+      } catch (AmazonClientException ex) {
+        clientErrorMeter.mark();
+        logger.warn("sqs client error: ", ex);
+      } catch (Throwable t) {
+        logger.warn("sqs unexpected error: ", t);
+      }
     }
   }
 

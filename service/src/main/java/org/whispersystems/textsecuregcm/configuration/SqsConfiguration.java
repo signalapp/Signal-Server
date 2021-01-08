@@ -7,6 +7,8 @@ package org.whispersystems.textsecuregcm.configuration;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.hibernate.validator.constraints.NotEmpty;
 
+import java.util.List;
+
 public class SqsConfiguration {
   @NotEmpty
   @JsonProperty
@@ -18,7 +20,7 @@ public class SqsConfiguration {
 
   @NotEmpty
   @JsonProperty
-  private String queueUrl;
+  private List<String> queueUrls;
 
   @NotEmpty
   @JsonProperty
@@ -32,13 +34,11 @@ public class SqsConfiguration {
     return accessSecret;
   }
 
-  public String getQueueUrl() {
-    return queueUrl;
+  public List<String> getQueueUrls() {
+    return queueUrls;
   }
 
   public String getRegion() {
     return region;
   }
 }
-
-   

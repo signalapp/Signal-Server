@@ -16,29 +16,25 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.storage.Account;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @RunWith(JUnitParamsRunner.class)
 public class DirectoryQueueTest {
 
-    private AmazonSQS      sqs;
-    private DirectoryQueue directoryQueue;
-
-    @Before
-    public void setUp() {
-        sqs            = mock(AmazonSQS.class);
-        directoryQueue = new DirectoryQueue("sqs://test", sqs);
-    }
-
     @Test
     @Parameters(method = "argumentsForTestRefreshRegisteredUser")
     public void testRefreshRegisteredUser(final boolean accountEnabled, final boolean accountDiscoverableByPhoneNumber, final String expectedAction) {
+        final AmazonSQS      sqs            = mock(AmazonSQS.class);
+        final DirectoryQueue directoryQueue = new DirectoryQueue(List.of("sqs://test"), sqs);
+
         final Account account = mock(Account.class);
         when(account.getNumber()).thenReturn("+18005556543");
         when(account.getUuid()).thenReturn(UUID.randomUUID());
@@ -52,6 +48,28 @@ public class DirectoryQueueTest {
 
         final Map<String, MessageAttributeValue> messageAttributes = requestCaptor.getValue().getMessageAttributes();
         assertEquals(new MessageAttributeValue().withDataType("String").withStringValue(expectedAction), messageAttributes.get("action"));
+    }
+
+    @Test
+    public void testSendMessageMultipleQueues() {
+        final AmazonSQS      sqs            = mock(AmazonSQS.class);
+        final DirectoryQueue directoryQueue = new DirectoryQueue(List.of("sqs://first", "sqs://second"), sqs);
+
+        final Account account = mock(Account.class);
+        when(account.getNumber()).thenReturn("+18005556543");
+        when(account.getUuid()).thenReturn(UUID.randomUUID());
+        when(account.isEnabled()).thenReturn(true);
+        when(account.isDiscoverableByPhoneNumber()).thenReturn(true);
+
+        directoryQueue.refreshRegisteredUser(account);
+
+        final ArgumentCaptor<SendMessageRequest> requestCaptor = ArgumentCaptor.forClass(SendMessageRequest.class);
+        verify(sqs, times(2)).sendMessage(requestCaptor.capture());
+
+        for (final SendMessageRequest sendMessageRequest : requestCaptor.getAllValues()) {
+            final Map<String, MessageAttributeValue> messageAttributes = sendMessageRequest.getMessageAttributes();
+            assertEquals(new MessageAttributeValue().withDataType("String").withStringValue("add"), messageAttributes.get("action"));
+        }
     }
 
     @SuppressWarnings("unused")
