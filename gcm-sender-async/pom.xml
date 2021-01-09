@@ -25,7 +25,7 @@
             <groupId>com.squareup.okhttp</groupId>
             <artifactId>mockwebserver</artifactId>
             <version>2.1.0</version>
-            <scope>test</scope>
+            <scope>tests</scope>
             <exclusions>
                 <exclusion>
                     <groupId>org.bouncycastle</groupId>
