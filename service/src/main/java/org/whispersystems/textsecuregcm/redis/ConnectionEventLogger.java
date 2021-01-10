@@ -20,7 +20,7 @@ public class ConnectionEventLogger {
             if (event instanceof ConnectionEvent) {
                 logger.debug("Connection event: {}", event);
             } else if (event instanceof ClusterTopologyChangedEvent) {
-                logger.debug("Cluster topology changed: {}", event);
+                logger.info("Cluster topology changed: {}", event);
             }
         });
     }
