@@ -42,7 +42,7 @@ public class DirectoryReconciliationClient {
     this.client         = initializeClient(directoryServerConfiguration);
 
     SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME)
-                          .register(name(getClass(), "days_until_certificate_expiration"),
+                          .register(name(getClass(), directoryServerConfiguration.getReplicationName(), "days_until_certificate_expiration"),
                                     new CertificateExpirationGauge(getCertificate(directoryServerConfiguration.getReplicationCaCertificate())));
   }
 

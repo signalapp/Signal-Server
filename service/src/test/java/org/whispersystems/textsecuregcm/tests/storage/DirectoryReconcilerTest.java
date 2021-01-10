@@ -42,7 +42,7 @@ public class DirectoryReconcilerTest {
   private final BatchOperationHandle          batchOperationHandle  = mock(BatchOperationHandle.class);
   private final DirectoryManager              directoryManager      = mock(DirectoryManager.class);
   private final DirectoryReconciliationClient reconciliationClient  = mock(DirectoryReconciliationClient.class);
-  private final DirectoryReconciler           directoryReconciler   = new DirectoryReconciler(reconciliationClient, directoryManager);
+  private final DirectoryReconciler           directoryReconciler   = new DirectoryReconciler("test", true, reconciliationClient, directoryManager);
 
   private final DirectoryReconciliationResponse successResponse = new DirectoryReconciliationResponse(DirectoryReconciliationResponse.Status.OK);
 

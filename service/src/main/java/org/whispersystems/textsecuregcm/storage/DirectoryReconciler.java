@@ -30,17 +30,22 @@ import static com.codahale.metrics.MetricRegistry.name;
 public class DirectoryReconciler extends AccountDatabaseCrawlerListener {
 
   private static final Logger logger = LoggerFactory.getLogger(DirectoryReconciler.class);
-
   private static final MetricRegistry metricRegistry      = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private static final Timer          sendChunkTimer      = metricRegistry.timer(name(DirectoryReconciler.class, "sendChunk"));
-  private static final Meter          sendChunkErrorMeter = metricRegistry.meter(name(DirectoryReconciler.class, "sendChunkError"));
 
+  private final String                        name;
+  private final boolean                       primary;
   private final DirectoryManager              directoryManager;
   private final DirectoryReconciliationClient reconciliationClient;
+  private final Timer                         sendChunkTimer;
+  private final Meter                         sendChunkErrorMeter;
 
-  public DirectoryReconciler(DirectoryReconciliationClient reconciliationClient, DirectoryManager directoryManager) {
+  public DirectoryReconciler(String name, boolean primary, DirectoryReconciliationClient reconciliationClient, DirectoryManager directoryManager) {
+    this.name                 = name;
+    this.primary              = primary;
     this.directoryManager     = directoryManager;
     this.reconciliationClient = reconciliationClient;
+    sendChunkTimer            = metricRegistry.timer(name(DirectoryReconciler.class, name, "sendChunk"));
+    sendChunkErrorMeter       = metricRegistry.meter(name(DirectoryReconciler.class, name, "sendChunkError"));
   }
 
   @Override
@@ -49,13 +54,15 @@ public class DirectoryReconciler extends AccountDatabaseCrawlerListener {
   @Override
   public void onCrawlEnd(Optional<UUID> fromUuid) {
     DirectoryReconciliationRequest  request  = new DirectoryReconciliationRequest(fromUuid.orElse(null), null, Collections.emptyList());
-    DirectoryReconciliationResponse response = sendChunk(request);
+    sendChunk(request);
   }
 
   @Override
   protected void onCrawlChunk(Optional<UUID> fromUuid, List<Account> chunkAccounts) throws AccountDatabaseCrawlerRestartException {
 
-    updateDirectoryCache(chunkAccounts);
+    if (primary) {
+      updateDirectoryCache(chunkAccounts);
+    }
 
     DirectoryReconciliationRequest  request  = createChunkRequest(fromUuid, chunkAccounts);
     DirectoryReconciliationResponse response = sendChunk(request);
