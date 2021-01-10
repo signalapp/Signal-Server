@@ -14,6 +14,7 @@ import io.github.resilience4j.retry.Retry;
 import io.lettuce.core.RedisCommandTimeoutException;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.cluster.ClusterClientOptions;
+import io.lettuce.core.cluster.ClusterTopologyRefreshOptions;
 import io.lettuce.core.cluster.RedisClusterClient;
 import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
 import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
@@ -78,7 +79,13 @@ public class FaultTolerantRedisCluster {
 
         this.clusterClient = clusterClient;
         this.clusterClient.setDefaultTimeout(commandTimeout);
-        this.clusterClient.setOptions(ClusterClientOptions.builder().validateClusterNodeMembership(false).build());
+        this.clusterClient.setOptions(ClusterClientOptions.builder()
+                                                          .validateClusterNodeMembership(false)
+                                                          .topologyRefreshOptions(ClusterTopologyRefreshOptions.builder()
+                                                                                                               .enablePeriodicRefresh()
+                                                                                                               .enableAllAdaptiveRefreshTriggers()
+                                                                                                               .build())
+                                                          .build());
 
         this.stringConnection = clusterClient.connect();
         this.binaryConnection = clusterClient.connect(ByteArrayCodec.INSTANCE);
