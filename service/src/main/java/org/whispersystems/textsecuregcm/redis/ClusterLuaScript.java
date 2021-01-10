@@ -64,7 +64,7 @@ public class ClusterLuaScript {
                 try {
                     return clusterCommands.evalsha(sha, scriptOutputType, keys.toArray(STRING_ARRAY), args.toArray(STRING_ARRAY));
                 } catch (final RedisNoScriptException e) {
-                    clusterCommands.scriptLoad(script);
+                    reloadScript();
                     return clusterCommands.evalsha(sha, scriptOutputType, keys.toArray(STRING_ARRAY), args.toArray(STRING_ARRAY));
                 }
             } catch (final Exception e) {
@@ -82,7 +82,7 @@ public class ClusterLuaScript {
                 try {
                     return binaryCommands.evalsha(sha, scriptOutputType, keys.toArray(BYTE_ARRAY_ARRAY), args.toArray(BYTE_ARRAY_ARRAY));
                 } catch (final RedisNoScriptException e) {
-                    binaryCommands.scriptLoad(script.getBytes(StandardCharsets.UTF_8));
+                    reloadScript();
                     return binaryCommands.evalsha(sha, scriptOutputType, keys.toArray(BYTE_ARRAY_ARRAY), args.toArray(BYTE_ARRAY_ARRAY));
                 }
             } catch (final Exception e) {
@@ -90,5 +90,9 @@ public class ClusterLuaScript {
                 throw e;
             }
         });
+    }
+
+    private void reloadScript() {
+        redisCluster.useCluster(connection -> connection.sync().upstream().commands().scriptLoad(script));
     }
 }
