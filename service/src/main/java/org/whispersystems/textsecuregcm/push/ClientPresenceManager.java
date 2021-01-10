@@ -107,10 +107,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
             connection.addListener(this);
             connection.getResources().eventBus().get()
                                                 .filter(event -> event instanceof ClusterTopologyChangedEvent)
-                                                .handle((event, sink) -> {
-                                                    resubscribeAll();
-                                                    sink.next(event);
-                                                });
+                                                .subscribe(event -> resubscribeAll());
 
             final String presenceChannel = getManagerPresenceChannel(managerId);
             final int    slot            = SlotHash.getSlot(presenceChannel);

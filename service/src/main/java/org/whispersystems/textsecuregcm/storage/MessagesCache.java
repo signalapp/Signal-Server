@@ -115,10 +115,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
             connection.addListener(this);
             connection.getResources().eventBus().get()
                     .filter(event -> event instanceof ClusterTopologyChangedEvent)
-                    .handle((event, sink) -> {
-                        resubscribeAll();
-                        sink.next(event);
-                    });
+                    .subscribe(event -> resubscribeAll());
         });
     }
 
