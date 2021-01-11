@@ -36,12 +36,6 @@ public class RateLimitsConfiguration {
   private RateLimitConfiguration attachments = new RateLimitConfiguration(50, 50);
 
   @JsonProperty
-  private RateLimitConfiguration contactQueries = new RateLimitConfiguration(50000, 50000);
-
-  @JsonProperty
-  private RateLimitConfiguration contactIpQueries = new RateLimitConfiguration(200, (100.0 / 60.0));
-
-  @JsonProperty
   private RateLimitConfiguration prekeys = new RateLimitConfiguration(3, 1.0 / 10.0);
 
   @JsonProperty
@@ -86,14 +80,6 @@ public class RateLimitsConfiguration {
 
   public RateLimitConfiguration getPreKeys() {
     return prekeys;
-  }
-
-  public RateLimitConfiguration getContactQueries() {
-    return contactQueries;
-  }
-
-  public RateLimitConfiguration getContactIpQueries() {
-    return contactIpQueries;
   }
 
   public RateLimitConfiguration getAttachments() {

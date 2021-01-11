@@ -50,9 +50,6 @@ cacheCluster: # Redis server configuration for cache cluster
     - redis://redis.example.com:6379/
 
 directory:
-  redis: # Redis server configuration for directory cluster
-    url:
-    replicaUrls:
   client: # Configuration for interfacing with Contact Discovery Service cluster
     userAuthenticationTokenSharedSecret: # hex-encoded secret shared with CDS used to generate auth tokens for Signal users
     userAuthenticationTokenUserIdSecret: # hex-encoded secret shared among Signal-Servers to obscure user phone numbers from CDS

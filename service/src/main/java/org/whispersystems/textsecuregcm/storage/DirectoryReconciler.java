@@ -10,15 +10,11 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.entities.ClientContact;
 import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationRequest;
 import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationResponse;
-import org.whispersystems.textsecuregcm.storage.DirectoryManager.BatchOperationHandle;
 import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.Util;
 
 import javax.ws.rs.ProcessingException;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -32,17 +28,11 @@ public class DirectoryReconciler extends AccountDatabaseCrawlerListener {
   private static final Logger logger = LoggerFactory.getLogger(DirectoryReconciler.class);
   private static final MetricRegistry metricRegistry      = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
 
-  private final String                        name;
-  private final boolean                       primary;
-  private final DirectoryManager              directoryManager;
   private final DirectoryReconciliationClient reconciliationClient;
   private final Timer                         sendChunkTimer;
   private final Meter                         sendChunkErrorMeter;
 
-  public DirectoryReconciler(String name, boolean primary, DirectoryReconciliationClient reconciliationClient, DirectoryManager directoryManager) {
-    this.name                 = name;
-    this.primary              = primary;
-    this.directoryManager     = directoryManager;
+  public DirectoryReconciler(String name, DirectoryReconciliationClient reconciliationClient) {
     this.reconciliationClient = reconciliationClient;
     sendChunkTimer            = metricRegistry.timer(name(DirectoryReconciler.class, name, "sendChunk"));
     sendChunkErrorMeter       = metricRegistry.meter(name(DirectoryReconciler.class, name, "sendChunkError"));
@@ -59,34 +49,10 @@ public class DirectoryReconciler extends AccountDatabaseCrawlerListener {
 
   @Override
   protected void onCrawlChunk(Optional<UUID> fromUuid, List<Account> chunkAccounts) throws AccountDatabaseCrawlerRestartException {
-
-    if (primary) {
-      updateDirectoryCache(chunkAccounts);
-    }
-
     DirectoryReconciliationRequest  request  = createChunkRequest(fromUuid, chunkAccounts);
     DirectoryReconciliationResponse response = sendChunk(request);
     if (response.getStatus() == DirectoryReconciliationResponse.Status.MISSING) {
       throw new AccountDatabaseCrawlerRestartException("directory reconciler missing");
-    }
-  }
-
-  private void updateDirectoryCache(List<Account> accounts) {
-
-    BatchOperationHandle batchOperation = directoryManager.startBatchOperation();
-
-    try {
-      for (Account account : accounts) {
-        if (account.isEnabled() && account.isDiscoverableByPhoneNumber()) {
-          byte[]        token         = Util.getContactToken(account.getNumber());
-          ClientContact clientContact = new ClientContact(token, null, true, true);
-          directoryManager.add(batchOperation, clientContact);
-        } else {
-          directoryManager.remove(batchOperation, account.getNumber());
-        }
-      }
-    } finally {
-      directoryManager.stopBatchOperation(batchOperation);
     }
   }
 
