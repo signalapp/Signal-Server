@@ -119,6 +119,7 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
     List<Account> chunkAccounts = readChunk(fromUuid, chunkSize);
 
     if (chunkAccounts.isEmpty()) {
+      logger.info("Finished crawl");
       listeners.forEach(listener -> listener.onCrawlEnd(fromUuid));
       cache.setLastUuid(Optional.empty());
       cache.clearAccelerate();
