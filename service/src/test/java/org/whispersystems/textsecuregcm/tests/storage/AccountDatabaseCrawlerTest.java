@@ -148,7 +148,7 @@ public class AccountDatabaseCrawlerTest {
     verify(account2, times(0)).getNumber();
     verify(listener, times(1)).timeAndProcessCrawlChunk(eq(Optional.of(ACCOUNT1)), eq(Arrays.asList(account2)));
     verify(cache, times(1)).setLastUuid(eq(Optional.empty()));
-    verify(cache, times(1)).clearAccelerate();
+    verify(cache, times(1)).setAccelerated(false);
     verify(cache, times(1)).isAccelerated();
     verify(cache, times(1)).releaseActiveWork(any(String.class));
 
@@ -175,7 +175,7 @@ public class AccountDatabaseCrawlerTest {
     verify(account2, times(0)).getNumber();
     verify(listener, times(1)).onCrawlEnd(eq(Optional.of(ACCOUNT2)));
     verify(cache, times(1)).setLastUuid(eq(Optional.empty()));
-    verify(cache, times(1)).clearAccelerate();
+    verify(cache, times(1)).setAccelerated(false);
     verify(cache, times(1)).isAccelerated();
     verify(cache, times(1)).releaseActiveWork(any(String.class));
 

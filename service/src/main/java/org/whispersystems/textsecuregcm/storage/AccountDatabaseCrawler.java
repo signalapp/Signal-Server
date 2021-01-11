@@ -122,7 +122,7 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
       logger.info("Finished crawl");
       listeners.forEach(listener -> listener.onCrawlEnd(fromUuid));
       cache.setLastUuid(Optional.empty());
-      cache.clearAccelerate();
+      cache.setAccelerated(false);
     } else {
       try {
         for (AccountDatabaseCrawlerListener listener : listeners) {
@@ -131,7 +131,7 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
         cache.setLastUuid(Optional.of(chunkAccounts.get(chunkAccounts.size() - 1).getUuid()));
       } catch (AccountDatabaseCrawlerRestartException e) {
         cache.setLastUuid(Optional.empty());
-        cache.clearAccelerate();
+        cache.setAccelerated(false);
       }
 
     }

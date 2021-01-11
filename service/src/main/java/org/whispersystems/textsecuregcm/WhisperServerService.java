@@ -150,6 +150,7 @@ import org.whispersystems.textsecuregcm.workers.DisableRequestLoggingTask;
 import org.whispersystems.textsecuregcm.workers.EnableRequestLoggingTask;
 import org.whispersystems.textsecuregcm.workers.GetRedisCommandStatsCommand;
 import org.whispersystems.textsecuregcm.workers.GetRedisSlowlogCommand;
+import org.whispersystems.textsecuregcm.workers.SetCrawlerAccelerationTask;
 import org.whispersystems.textsecuregcm.workers.VacuumCommand;
 import org.whispersystems.textsecuregcm.workers.ZkParamsCommand;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
@@ -448,6 +449,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     environment.admin().addTask(new EnableRequestLoggingTask());
     environment.admin().addTask(new DisableRequestLoggingTask());
+    environment.admin().addTask(new SetCrawlerAccelerationTask(accountDatabaseCrawlerCache));
 
 ///
 

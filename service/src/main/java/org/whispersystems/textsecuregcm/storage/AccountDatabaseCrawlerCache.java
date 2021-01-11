@@ -31,8 +31,12 @@ public class AccountDatabaseCrawlerCache {
     this.unlockClusterScript = ClusterLuaScript.fromResource(cacheCluster, "lua/account_database_crawler/unlock.lua", ScriptOutputType.INTEGER);
   }
 
-  public void clearAccelerate() {
-    cacheCluster.useCluster(connection -> connection.sync().del(ACCELERATE_KEY));
+  public void setAccelerated(final boolean accelerated) {
+    if (accelerated) {
+      cacheCluster.useCluster(connection -> connection.sync().set(ACCELERATE_KEY, "1"));
+    } else {
+      cacheCluster.useCluster(connection -> connection.sync().del(ACCELERATE_KEY));
+    }
   }
 
   public boolean isAccelerated() {
