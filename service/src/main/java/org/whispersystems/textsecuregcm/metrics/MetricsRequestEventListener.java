@@ -76,7 +76,8 @@ class MetricsRequestEventListener implements RequestEventListener {
                 tags.add(Tag.of(TRAFFIC_SOURCE_TAG, trafficSource.name().toLowerCase()));
 
                 final List<String> userAgentValues = event.getContainerRequest().getRequestHeader("User-Agent");
-                tags.addAll(UserAgentTagUtil.getUserAgentTags(userAgentValues != null ? userAgentValues.stream().findFirst().orElse(null) : null));
+                // tags.addAll(UserAgentTagUtil.getUserAgentTags(userAgentValues != null ? userAgentValues.stream().findFirst().orElse(null) : null));
+                tags.add(UserAgentTagUtil.getPlatformTag(userAgentValues != null ? userAgentValues.stream().findFirst().orElse(null) : null));
 
                 meterRegistry.counter(REQUEST_COUNTER_NAME, tags).increment();
 

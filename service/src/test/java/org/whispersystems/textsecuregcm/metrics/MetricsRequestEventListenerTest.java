@@ -113,12 +113,14 @@ public class MetricsRequestEventListenerTest {
             tags.add(tag);
         }
 
-        assertEquals(5, tags.size());
+        // TODO Restore this when we return to detailed metrics and restore the version tag
+        // assertEquals(5, tags.size());
+        assertEquals(4, tags.size());
         assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PATH_TAG, path)));
         assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(statusCode))));
         assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
         assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
-        assertTrue(tags.contains(Tag.of(UserAgentTagUtil.VERSION_TAG, "4.53.7")));
+        // assertTrue(tags.contains(Tag.of(UserAgentTagUtil.VERSION_TAG, "4.53.7")));
     }
 
     @Test
@@ -182,12 +184,14 @@ public class MetricsRequestEventListenerTest {
             tags.add(tag);
         }
 
-        assertEquals(5, tags.size());
+        // TODO Restore this when we return to detailed metrics and restore the version tag
+        // assertEquals(5, tags.size());
+        assertEquals(4, tags.size());
         assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PATH_TAG, "/v1/test/hello")));
         assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(200))));
         assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
         assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
-        assertTrue(tags.contains(Tag.of(UserAgentTagUtil.VERSION_TAG, "4.53.7")));
+        // assertTrue(tags.contains(Tag.of(UserAgentTagUtil.VERSION_TAG, "4.53.7")));
     }
 
     @Test
@@ -238,11 +242,14 @@ public class MetricsRequestEventListenerTest {
             tags.add(tag);
         }
 
-        assertEquals(5, tags.size());
+        // TODO Restore this when we return to detailed metrics and restore the version tag
+        // assertEquals(5, tags.size());
+        assertEquals(4, tags.size());
         assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PATH_TAG, "/v1/test/hello")));
         assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(200))));
         assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
-        assertTrue(tags.containsAll(UserAgentTagUtil.UNRECOGNIZED_TAGS));
+        // assertTrue(tags.containsAll(UserAgentTagUtil.UNRECOGNIZED_TAGS));
+        assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "unrecognized")));
     }
 
     @Test
