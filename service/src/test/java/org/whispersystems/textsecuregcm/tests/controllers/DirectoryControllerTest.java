@@ -190,9 +190,6 @@ public class DirectoryControllerTest {
                  .put(Entity.entity(new ClientContactTokens(tokens), MediaType.APPLICATION_JSON_TYPE));
 
 
-    assertThat(response.getStatus()).isEqualTo(200);
-    assertThat(response.readEntity(ClientContactTokens.class).getContacts()).isEqualTo(expectedResponse);
-
-    verify(ipLimiter).validate("1.1.1.1");
+    assertThat(response.getStatus()).isEqualTo(429);
   }
 }

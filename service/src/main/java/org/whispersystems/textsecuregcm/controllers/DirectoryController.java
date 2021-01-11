@@ -138,18 +138,7 @@ public class DirectoryController {
   public Response getTokenPresence(@Auth Account account, @PathParam("token") String token)
       throws RateLimitExceededException
   {
-    rateLimiters.getContactsLimiter().validate(account.getNumber());
-
-    try {
-      Optional<ClientContact> contact = directory.get(decodeToken(token));
-
-      if (contact.isPresent()) return Response.ok().entity(contact.get()).build();
-      else                     return Response.status(404).build();
-
-    } catch (IOException e) {
-      logger.info("Bad token", e);
-      return Response.status(404).build();
-    }
+    return Response.status(429).build();
   }
 
   @Timed
@@ -157,37 +146,12 @@ public class DirectoryController {
   @Path("/tokens")
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
-  public ClientContacts getContactIntersection(@Auth Account account,
+  public Response getContactIntersection(@Auth Account account,
                                                @HeaderParam("X-Forwarded-For") String forwardedFor,
                                                @Valid ClientContactTokens contacts)
       throws RateLimitExceededException
   {
-    String requester = Arrays.stream(forwardedFor.split(","))
-                             .map(String::trim)
-                             .reduce((a, b) -> b)
-                             .orElseThrow();
-
-    if (Stream.of(FRONTED_REGIONS).noneMatch(region -> account.getNumber().startsWith(region))) {
-      rateLimiters.getContactsIpLimiter().validate(requester);
-    }
-
-    rateLimiters.getContactsLimiter().validate(account.getNumber(), contacts.getContacts().size());
-    contactsHistogram.update(contacts.getContacts().size());
-    contactsMeter.mark(contacts.getContacts().size());
-
-    try {
-      List<byte[]> tokens = new LinkedList<>();
-
-      for (String encodedContact : contacts.getContacts()) {
-        tokens.add(decodeToken(encodedContact));
-      }
-
-      List<ClientContact> intersection = directory.get(tokens);
-      return new ClientContacts(intersection);
-    } catch (IOException e) {
-      logger.info("Bad token", e);
-      throw new WebApplicationException(Response.status(400).build());
-    }
+    return Response.status(429).build();
   }
 
   private byte[] decodeToken(String encoded) throws IOException {
