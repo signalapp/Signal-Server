@@ -9,6 +9,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -51,6 +52,7 @@ import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -91,6 +93,8 @@ public class ProfileControllerTest {
 
   @Before
   public void setup() throws Exception {
+    reset(s3client);
+
     when(rateLimiters.getProfileLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getUsernameLookupLimiter()).thenReturn(usernameRateLimiter);
 
@@ -381,6 +385,30 @@ public class ProfileControllerTest {
     assertThat(profileArgumentCaptor.getValue().getAvatar()).startsWith("profiles/");
     assertThat(profileArgumentCaptor.getValue().getVersion()).isEqualTo("validversion");
     assertThat(profileArgumentCaptor.getValue().getName()).isEqualTo("123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678");
+  }
+
+  @Test
+  public void testSetProfileExtendedName() throws InvalidInputException {
+    ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID_TWO);
+
+    final String name = RandomStringUtils.randomAlphabetic(380);
+
+    resources.getJerseyTest()
+            .target("/v1/profile/")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER_TWO, AuthHelper.VALID_PASSWORD_TWO))
+            .put(Entity.entity(new CreateProfileRequest(commitment, "validversion", name, true), MediaType.APPLICATION_JSON_TYPE), ProfileAvatarUploadAttributes.class);
+
+    ArgumentCaptor<VersionedProfile> profileArgumentCaptor = ArgumentCaptor.forClass(VersionedProfile.class);
+
+    verify(profilesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO), eq("validversion"));
+    verify(profilesManager, times(1)).set(eq(AuthHelper.VALID_UUID_TWO), profileArgumentCaptor.capture());
+    verify(s3client, times(1)).deleteObject(eq("profilesBucket"), eq("profiles/validavatar"));
+
+    assertThat(profileArgumentCaptor.getValue().getCommitment()).isEqualTo(commitment.serialize());
+    assertThat(profileArgumentCaptor.getValue().getAvatar()).startsWith("profiles/");
+    assertThat(profileArgumentCaptor.getValue().getVersion()).isEqualTo("validversion");
+    assertThat(profileArgumentCaptor.getValue().getName()).isEqualTo(name);
   }
 
   @Test
