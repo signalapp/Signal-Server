@@ -32,8 +32,8 @@ public class WebSocketAccountAuthenticator implements WebSocketAuthenticator<Acc
       return new AuthenticationResult<>(Optional.empty(), false);
     }
 
-    BasicCredentials credentials = new BasicCredentials(usernames.get(0).replace(" ", "+"),
-                                                        passwords.get(0).replace(" ", "+"));
+    BasicCredentials credentials = new BasicCredentials(usernames.get(0).replace(' ', '+'),
+                                                        passwords.get(0).replace(' ', '+'));
 
     return new AuthenticationResult<>(accountAuthenticator.authenticate(credentials), true);
   }
