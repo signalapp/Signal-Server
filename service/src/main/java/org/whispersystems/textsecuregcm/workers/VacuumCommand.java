@@ -46,7 +46,7 @@ public class VacuumCommand extends ConfiguredCommand<WhisperServerConfiguration>
     FaultTolerantDatabase messageDatabase = new FaultTolerantDatabase("message_database_vacuum", messageJdbi, messageDbConfig.getCircuitBreakerConfiguration());
 
     Accounts        accounts        = new Accounts(accountDatabase);
-    Keys            keys            = new Keys(accountDatabase);
+    Keys            keys            = new Keys(accountDatabase, config.getAccountsDatabaseConfiguration().getKeyOperationRetryConfiguration());
     PendingAccounts pendingAccounts = new PendingAccounts(accountDatabase);
     Messages        messages        = new Messages(messageDatabase);
     FeatureFlags    featureFlags    = new FeatureFlags(accountDatabase);

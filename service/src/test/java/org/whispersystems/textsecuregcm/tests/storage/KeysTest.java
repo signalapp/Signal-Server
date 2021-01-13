@@ -9,6 +9,7 @@ import com.opentable.db.postgres.embedded.LiquibasePreparer;
 import com.opentable.db.postgres.junit.EmbeddedPostgresRules;
 import com.opentable.db.postgres.junit.PreparedDbRule;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import org.jdbi.v3.core.HandleCallback;
 import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
@@ -19,6 +20,8 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
+import org.whispersystems.textsecuregcm.configuration.AccountsDatabaseConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.KeyRecord;
@@ -27,6 +30,7 @@ import org.whispersystems.textsecuregcm.storage.Keys;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -49,7 +53,7 @@ public class KeysTest {
                                                                             Jdbi.create(db.getTestDatabase()),
                                                                             new CircuitBreakerConfiguration());
 
-    this.keys = new Keys(faultTolerantDatabase);
+    this.keys = new Keys(faultTolerantDatabase, new RetryConfiguration());
   }
 
 
@@ -343,7 +347,10 @@ public class KeysTest {
     configuration.setRingBufferSizeInClosedState(2);
     configuration.setFailureRateThreshold(50);
 
-    Keys keys = new Keys(new FaultTolerantDatabase("testBreaker", jdbi, configuration));
+    RetryConfiguration retryConfiguration = new RetryConfiguration();
+    retryConfiguration.setMaxAttempts(1);
+
+    Keys keys = new Keys(new FaultTolerantDatabase("testBreaker", jdbi, configuration), retryConfiguration);
 
     List<PreKey> deviceOnePreKeys = new LinkedList<>();
 
@@ -383,6 +390,31 @@ public class KeysTest {
 
   }
 
+  @Test
+  public void testRetry() {
+    Jdbi jdbi = mock(Jdbi.class);
+    doThrow(new TransactionException("Database error!")).doNothing().when(jdbi).useTransaction(any(TransactionIsolationLevel.class), any(HandleConsumer.class));
+    when(jdbi.getConfig(any())).thenReturn(mock(SerializableTransactionRunner.Configuration.class));
+
+    Keys keys = new Keys(new FaultTolerantDatabase("testBreaker", jdbi, new CircuitBreakerConfiguration()), new RetryConfiguration());
+
+    // We're happy as long as nothing throws an exception
+    keys.store("+18005551234", 1, Collections.emptyList());
+  }
+
+  @Test
+  public void testGetKeysWithException() {
+    Jdbi jdbi = mock(Jdbi.class);
+    when(jdbi.getConfig(any())).thenReturn(mock(SerializableTransactionRunner.Configuration.class));
+
+    when(jdbi.inTransaction(any(TransactionIsolationLevel.class), any(HandleCallback.class)))
+            .thenThrow(new TransactionException("Database error!"));
+
+    Keys keys = new Keys(new FaultTolerantDatabase("testBreaker", jdbi, new CircuitBreakerConfiguration()), new RetryConfiguration());
+
+    assertThat(keys.get("+18005551234")).isEqualTo(Collections.emptyList());
+    assertThat(keys.get("+18005551234", 1)).isEqualTo(Collections.emptyList());
+  }
 
   private void verifyStoredState(PreparedStatement statement, String number, int deviceId) throws SQLException {
     statement.setString(1, number);
