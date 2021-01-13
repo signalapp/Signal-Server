@@ -130,7 +130,7 @@ public class WebSocketConnection implements DispatchChannel {
                 if (storedMessageInfo.isPresent()) messagesManager.delete(account.getNumber(), device.getId(), storedMessageInfo.get().id, storedMessageInfo.get().cached);
                 if (!isReceipt)                    sendDeliveryReceiptFor(message);
                 if (requery)                       processStoredMessages();
-              } else if (!isSuccessResponse(response) && !storedMessageInfo.isPresent()) {
+              } else if (!storedMessageInfo.isPresent()) {
                 requeueMessage(message);
               }
             })
