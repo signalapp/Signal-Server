@@ -81,7 +81,7 @@ public class WebSocketConnectionIntegrationTest extends AbstractRedisClusterTest
 
         executorService = Executors.newSingleThreadExecutor();
         messages = new Messages(new FaultTolerantDatabase("messages-test", Jdbi.create(db.getTestDatabase()), new CircuitBreakerConfiguration()));
-        messagesCache = new MessagesCache(getRedisCluster(), executorService);
+        messagesCache = new MessagesCache(getRedisCluster(), getRedisCluster(), executorService);
         account = mock(Account.class);
         device = mock(Device.class);
         webSocketClient = mock(WebSocketClient.class);

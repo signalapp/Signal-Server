@@ -56,7 +56,7 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
         getRedisCluster().useCluster(connection -> connection.sync().masters().commands().configSet("notify-keyspace-events", "Klgz"));
 
         notificationExecutorService = Executors.newSingleThreadExecutor();
-        messagesCache               = new MessagesCache(getRedisCluster(), notificationExecutorService);
+        messagesCache               = new MessagesCache(getRedisCluster(), getRedisCluster(), notificationExecutorService);
 
         messagesCache.start();
     }
