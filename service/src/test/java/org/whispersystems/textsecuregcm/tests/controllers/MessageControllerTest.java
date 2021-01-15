@@ -35,6 +35,7 @@ import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.FeatureFlagsManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.Base64;
@@ -86,6 +87,7 @@ public class MessageControllerTest {
   private  final RateLimiters           rateLimiters           = mock(RateLimiters.class);
   private  final RateLimiter            rateLimiter            = mock(RateLimiter.class);
   private  final ApnFallbackManager     apnFallbackManager     = mock(ApnFallbackManager.class);
+  private  final FeatureFlagsManager    featureFlagsManager    = mock(FeatureFlagsManager.class);
 
   private  final ObjectMapper mapper = new ObjectMapper();
 
@@ -95,7 +97,7 @@ public class MessageControllerTest {
                                                             .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new MessageController(rateLimiters, messageSender, receiptSender, accountsManager,
-                                                                                               messagesManager, apnFallbackManager))
+                                                                                               messagesManager, apnFallbackManager, featureFlagsManager))
                                                             .build();
 
 
