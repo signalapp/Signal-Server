@@ -110,13 +110,14 @@ public class MessageController {
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public SendMessageResponse sendMessage(@Auth                                     Optional<Account>   source,
+  public Response sendMessage(@Auth                                     Optional<Account>   source,
                                          @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
                                          @HeaderParam("User-Agent")                String userAgent,
                                          @PathParam("destination")                 AmbiguousIdentifier destinationName,
                                          @Valid                                    IncomingMessageList messages)
       throws RateLimitExceededException
   {
+    return Response.status(503).build();
     /* if (!source.isPresent() && !accessKey.isPresent()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
@@ -187,8 +188,6 @@ public class MessageController {
                                                 .entity(new StaleDevices(e.getStaleDevices()))
                                                 .build());
     } */
-
-    throw new WebApplicationException(Response.status(503).build());
   }
 
   @Timed
