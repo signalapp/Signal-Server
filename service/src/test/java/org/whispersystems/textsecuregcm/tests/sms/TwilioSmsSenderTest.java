@@ -1,4 +1,4 @@
-package org.whispersystems.sms;
+package org.whispersystems.textsecuregcm.tests.sms;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import org.junit.Rule;
