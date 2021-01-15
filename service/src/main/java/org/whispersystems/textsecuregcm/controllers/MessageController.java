@@ -124,7 +124,7 @@ public class MessageController {
                                          @Valid                                    IncomingMessageList messages)
       throws RateLimitExceededException
   {
-    if (random.nextDouble() <= getSuccessPercentage()) {
+    if (shouldSend(destinationName)) {
       if (!source.isPresent() && !accessKey.isPresent()) {
         throw new WebApplicationException(Response.Status.UNAUTHORIZED);
       }
@@ -197,6 +197,12 @@ public class MessageController {
       }    } else {
       return Response.status(503).build();
     }
+  }
+
+  private boolean shouldSend(final AmbiguousIdentifier destination) {
+    final double hash = destination.sendingGateHash();
+
+    return (hash / 255.0) <= getSuccessPercentage();
   }
 
   private double getSuccessPercentage() {

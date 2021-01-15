@@ -37,4 +37,12 @@ public class AmbiguousIdentifier {
   public boolean hasNumber() {
     return number != null;
   }
+
+  public int sendingGateHash() {
+    if (uuid != null) {
+      return (int)(uuid.getLeastSignificantBits() & 0xff);
+    } else {
+      return number.hashCode() & 0xff;
+    }
+  }
 }
