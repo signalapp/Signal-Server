@@ -117,7 +117,7 @@ public class MessageController {
                                          @Valid                                    IncomingMessageList messages)
       throws RateLimitExceededException
   {
-    if (!source.isPresent() && !accessKey.isPresent()) {
+    /* if (!source.isPresent() && !accessKey.isPresent()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
@@ -186,7 +186,9 @@ public class MessageController {
                                                 .type(MediaType.APPLICATION_JSON)
                                                 .entity(new StaleDevices(e.getStaleDevices()))
                                                 .build());
-    }
+    } */
+
+    throw new WebApplicationException(Response.status(503).build());
   }
 
   @Timed
