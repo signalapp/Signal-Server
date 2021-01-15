@@ -88,7 +88,6 @@ public class MessageController {
   private final ApnFallbackManager     apnFallbackManager;
 
   private final FeatureFlagsManager featureFlagsManager;
-  private final Random random = new Random();
 
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME                     = name(MessageController.class, "messageContentSize");
   private static final String OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME = name(MessageController.class, "outgoingMessageListSizeBytes");
@@ -194,15 +193,21 @@ public class MessageController {
                 .type(MediaType.APPLICATION_JSON)
                 .entity(new StaleDevices(e.getStaleDevices()))
                 .build());
-      }    } else {
-      return Response.status(503).build();
+      }
+    } else {
+      if (featureFlagsManager.isFeatureFlagActive("SEND_ALL_200_STATUS")) {
+        // Forgive me for what I must do
+        return Response.ok(new SendMessageResponse(false)).build();
+      } else {
+        return Response.status(503).build();
+      }
     }
   }
 
   private boolean shouldSend(final AmbiguousIdentifier destination) {
     final double hash = destination.sendingGateHash();
 
-    return (hash / 255.0) <= getSuccessPercentage();
+    return (hash / 256.0) < getSuccessPercentage();
   }
 
   private double getSuccessPercentage() {
