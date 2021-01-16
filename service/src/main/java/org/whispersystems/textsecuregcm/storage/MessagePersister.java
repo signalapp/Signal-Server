@@ -28,9 +28,10 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 public class MessagePersister implements Managed {
 
-    private final MessagesCache   messagesCache;
-    private final MessagesManager messagesManager;
-    private final AccountsManager accountsManager;
+    private final MessagesCache       messagesCache;
+    private final MessagesManager     messagesManager;
+    private final AccountsManager     accountsManager;
+    private final FeatureFlagsManager featureFlagsManager;
 
     private final Duration        persistDelay;
 
@@ -52,24 +53,29 @@ public class MessagePersister implements Managed {
 
     private static final Logger logger = LoggerFactory.getLogger(MessagePersister.class);
 
-    public MessagePersister(final MessagesCache messagesCache, final MessagesManager messagesManager, final AccountsManager accountsManager, final Duration persistDelay) {
-        this.messagesCache            = messagesCache;
-        this.messagesManager          = messagesManager;
-        this.accountsManager          = accountsManager;
-        this.persistDelay             = persistDelay;
+    public MessagePersister(final MessagesCache messagesCache, final MessagesManager messagesManager, final AccountsManager accountsManager, final FeatureFlagsManager featureFlagsManager, final Duration persistDelay) {
+        this.messagesCache       = messagesCache;
+        this.messagesManager     = messagesManager;
+        this.accountsManager     = accountsManager;
+        this.featureFlagsManager = featureFlagsManager;
+        this.persistDelay        = persistDelay;
 
         for (int i = 0; i < workerThreads.length; i++) {
             workerThreads[i] = new Thread(() -> {
                 while (running) {
-                    try {
-                        final int queuesPersisted = persistNextQueues(Instant.now());
-                        queueCountHistogram.update(queuesPersisted);
+                    if (featureFlagsManager.isFeatureFlagActive("DISABLE_MESSAGE_PERSISTER")) {
+                        Util.sleep(1000);
+                    } else {
+                        try {
+                            final int queuesPersisted = persistNextQueues(Instant.now());
+                            queueCountHistogram.update(queuesPersisted);
 
-                        if (queuesPersisted == 0) {
-                            Util.sleep(100);
+                            if (queuesPersisted == 0) {
+                                Util.sleep(100);
+                            }
+                        } catch (final Throwable t) {
+                            logger.warn("Failed to persist queues", t);
                         }
-                    } catch (final Throwable t) {
-                        logger.warn("Failed to persist queues", t);
                     }
                 }
             }, "MessagePersisterWorker-" + i);
