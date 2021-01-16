@@ -82,7 +82,6 @@ public class FaultTolerantRedisCluster {
         this.clusterClient.setOptions(ClusterClientOptions.builder()
                                                           .validateClusterNodeMembership(false)
                                                           .topologyRefreshOptions(ClusterTopologyRefreshOptions.builder()
-                                                                                                               .enablePeriodicRefresh()
                                                                                                                .enableAllAdaptiveRefreshTriggers()
                                                                                                                .build())
                                                           .build());
