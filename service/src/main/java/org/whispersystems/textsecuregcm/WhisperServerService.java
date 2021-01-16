@@ -282,7 +282,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ReplicatedJedisPool pushSchedulerClient = pushSchedulerClientFactory.getRedisClientPool();
 
     ClientResources generalCacheClientResources = ClientResources.builder().build();
-    ClientResources messageCacheClientResources = ClientResources.builder().ioThreadPoolSize(256).build();
+    ClientResources messageCacheClientResources = ClientResources.builder().build();
     ClientResources presenceClientResources     = ClientResources.builder().build();
     ClientResources metricsCacheClientResources = ClientResources.builder().build();
 
