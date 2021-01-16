@@ -283,7 +283,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     ClientResources generalCacheClientResources = ClientResources.builder().build();
     ClientResources messageCacheClientResources = ClientResources.builder().ioThreadPoolSize(128).build();
-    ClientResources presenceClientResources     = ClientResources.builder().ioThreadPoolSize(128).build();
+    ClientResources presenceClientResources     = ClientResources.builder().build();
     ClientResources metricsCacheClientResources = ClientResources.builder().build();
 
     ConnectionEventLogger.logConnectionEvents(generalCacheClientResources);
@@ -293,7 +293,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     FaultTolerantRedisCluster cacheCluster             = new FaultTolerantRedisCluster("main_cache_cluster", config.getCacheClusterConfiguration(), generalCacheClientResources);
     FaultTolerantRedisCluster messagesCluster          = new FaultTolerantRedisCluster("message_insert_cluster", config.getMessageCacheConfiguration().getRedisClusterConfiguration(), messageCacheClientResources);
-    FaultTolerantRedisCluster clientPresenceCluster    = new FaultTolerantRedisCluster("client_presence_cluster", config.getMessageCacheConfiguration().getRedisClusterConfiguration(), presenceClientResources);
+    FaultTolerantRedisCluster clientPresenceCluster    = new FaultTolerantRedisCluster("client_presence_cluster", config.getClientPresenceClusterConfiguration(), presenceClientResources);
     FaultTolerantRedisCluster metricsCluster           = new FaultTolerantRedisCluster("metrics_cluster", config.getMetricsClusterConfiguration(), metricsCacheClientResources);
 
     BlockingQueue<Runnable> keyspaceNotificationDispatchQueue = new ArrayBlockingQueue<>(10_000);
