@@ -281,14 +281,21 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ReplicatedJedisPool directoryClient     = directoryClientFactory.getRedisClientPool();
     ReplicatedJedisPool pushSchedulerClient = pushSchedulerClientFactory.getRedisClientPool();
 
-    ClientResources redisClusterClientResources = ClientResources.builder().build();
-    ConnectionEventLogger.logConnectionEvents(redisClusterClientResources);
+    ClientResources generalCacheClientResources = ClientResources.builder().build();
+    ClientResources messageCacheClientResources = ClientResources.builder().ioThreadPoolSize(32).build();
+    ClientResources presenceClientResources     = ClientResources.builder().ioThreadPoolSize(32).build();
+    ClientResources metricsCacheClientResources = ClientResources.builder().build();
 
-    FaultTolerantRedisCluster cacheCluster         = new FaultTolerantRedisCluster("main_cache_cluster", config.getCacheClusterConfiguration(), redisClusterClientResources);
-    FaultTolerantRedisCluster messagesInsertCluster = new FaultTolerantRedisCluster("message_insert_cluster", config.getMessageCacheConfiguration().getRedisClusterConfiguration(), redisClusterClientResources);
-    FaultTolerantRedisCluster messageReadDeleteCluster = new FaultTolerantRedisCluster("message_read_delete_cluster", config.getMessageCacheConfiguration().getRedisClusterConfiguration(), redisClusterClientResources);
-    FaultTolerantRedisCluster clientPresenceCluster = new FaultTolerantRedisCluster("client_presence_cluster", config.getMessageCacheConfiguration().getRedisClusterConfiguration(), redisClusterClientResources);
-    FaultTolerantRedisCluster metricsCluster       = new FaultTolerantRedisCluster("metrics_cluster", config.getMetricsClusterConfiguration(), redisClusterClientResources);
+    ConnectionEventLogger.logConnectionEvents(generalCacheClientResources);
+    ConnectionEventLogger.logConnectionEvents(messageCacheClientResources);
+    ConnectionEventLogger.logConnectionEvents(presenceClientResources);
+    ConnectionEventLogger.logConnectionEvents(metricsCacheClientResources);
+
+    FaultTolerantRedisCluster cacheCluster             = new FaultTolerantRedisCluster("main_cache_cluster", config.getCacheClusterConfiguration(), generalCacheClientResources);
+    FaultTolerantRedisCluster messagesInsertCluster    = new FaultTolerantRedisCluster("message_insert_cluster", config.getMessageCacheConfiguration().getRedisClusterConfiguration(), messageCacheClientResources);
+    FaultTolerantRedisCluster messageReadDeleteCluster = new FaultTolerantRedisCluster("message_read_delete_cluster", config.getMessageCacheConfiguration().getRedisClusterConfiguration(), messageCacheClientResources);
+    FaultTolerantRedisCluster clientPresenceCluster    = new FaultTolerantRedisCluster("client_presence_cluster", config.getMessageCacheConfiguration().getRedisClusterConfiguration(), presenceClientResources);
+    FaultTolerantRedisCluster metricsCluster           = new FaultTolerantRedisCluster("metrics_cluster", config.getMetricsClusterConfiguration(), metricsCacheClientResources);
 
     BlockingQueue<Runnable> keyspaceNotificationDispatchQueue = new ArrayBlockingQueue<>(10_000);
     Metrics.gaugeCollectionSize(name(getClass(), "keyspaceNotificationDispatchQueueSize"), Collections.emptyList(), keyspaceNotificationDispatchQueue);
