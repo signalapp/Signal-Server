@@ -570,7 +570,7 @@ public class AccountController {
     try {
       rateLimiters.getSmsVoicePrefixLimiter().validate(Util.getNumberPrefix(number));
     } catch (RateLimitExceededException e) {
-      logger.info("Prefix rate limit exceeded:{}, {}, ({})", transport, number, forwardedFor);
+      logger.info("Prefix rate limit exceeded: {}, {}, ({})", transport, number, forwardedFor);
       rateLimitedPrefixMeter.mark();
       return new CaptchaRequirement(true, true);
     }

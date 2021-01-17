@@ -41,7 +41,7 @@ public class DeadLetterHandler implements DispatchChannel {
 
   @Override
   public void onDispatchSubscribed(String channel) {
-    logger.warn("DeadLetterHandler subscription notice! {} ", channel);
+    logger.warn("DeadLetterHandler subscription notice! {}", channel);
   }
 
   @Override

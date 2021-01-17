@@ -166,7 +166,7 @@ public class APNSender implements Managed {
 
     if (tokenTimestamp != 0 && System.currentTimeMillis() < tokenTimestamp + TimeUnit.SECONDS.toMillis(10))
     {
-      logger.info("APN Unregister push timestamp is more recent: {},{}", tokenTimestamp, number);
+      logger.info("APN Unregister push timestamp is more recent: {}, {}", tokenTimestamp, number);
       unregisteredEventStale.mark();
       return;
     }
