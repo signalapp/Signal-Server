@@ -18,7 +18,6 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import javax.validation.constraints.NotNull;
 import java.util.List;
 import java.util.UUID;
 

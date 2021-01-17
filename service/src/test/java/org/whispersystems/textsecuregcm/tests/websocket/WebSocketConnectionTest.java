@@ -25,7 +25,6 @@ import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
 import org.whispersystems.textsecuregcm.websocket.WebsocketAddress;
 import org.whispersystems.websocket.WebSocketClient;
-import org.whispersystems.websocket.auth.WebSocketAuthenticator;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator.AuthenticationResult;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
@@ -42,7 +41,6 @@ import java.util.concurrent.CompletableFuture;
 
 import io.dropwizard.auth.basic.BasicCredentials;
 import static org.junit.Assert.*;
-import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.*;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 

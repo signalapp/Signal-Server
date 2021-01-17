@@ -1,6 +1,5 @@
 package org.whispersystems.websocket.logging;
 
-import com.google.common.annotations.VisibleForTesting;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.ContainerResponse;
 

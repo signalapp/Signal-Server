@@ -14,8 +14,6 @@ import static junit.framework.TestCase.assertSame;
 import static junit.framework.TestCase.assertTrue;
 import static org.assertj.core.api.Java6Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.exceptions.JedisException;

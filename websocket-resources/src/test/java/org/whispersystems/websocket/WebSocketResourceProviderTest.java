@@ -48,7 +48,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import io.dropwizard.auth.Auth;
-import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.jersey.DropwizardResourceConfig;
 import io.dropwizard.jersey.jackson.JacksonMessageBodyProvider;
 import static org.assertj.core.api.Assertions.assertThat;

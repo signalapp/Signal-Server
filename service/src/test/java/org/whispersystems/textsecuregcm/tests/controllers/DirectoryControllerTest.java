@@ -32,8 +32,6 @@ import java.util.Optional;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyListOf;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 public class DirectoryControllerTest {

@@ -19,7 +19,6 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import org.hibernate.validator.constraints.Length;
-import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 
 public class AccountAttributes {

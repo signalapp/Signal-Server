@@ -12,7 +12,6 @@ import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.util.Optional;
-import java.util.UUID;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import io.dropwizard.auth.basic.BasicCredentials;

@@ -8,7 +8,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
 
-import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerOpenException;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;

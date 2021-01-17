@@ -2,7 +2,6 @@ package org.whispersystems.textsecuregcm.redis;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.push.PushSender;
 
 public class RedisOperation {
 

@@ -9,7 +9,6 @@ import org.glassfish.jersey.server.ResourceConfig;
 import org.junit.Test;
 import org.whispersystems.websocket.auth.AuthenticationException;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
-import org.whispersystems.websocket.setup.WebSocketConnectListener;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
 
 import javax.security.auth.Subject;
@@ -20,7 +19,6 @@ import java.util.Optional;
 
 import io.dropwizard.jersey.DropwizardResourceConfig;
 import static org.junit.Assert.*;
-import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.*;
 
 public class WebSocketResourceProviderFactoryTest {

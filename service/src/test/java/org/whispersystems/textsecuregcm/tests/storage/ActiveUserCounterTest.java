@@ -22,7 +22,6 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.ActiveUserCounter;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.util.Util;
 
 import com.google.common.collect.ImmutableList;
 import io.dropwizard.metrics.MetricsFactory;
@@ -36,7 +35,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;

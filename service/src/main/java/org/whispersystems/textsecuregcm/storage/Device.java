@@ -19,12 +19,11 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
-import org.whispersystems.textsecuregcm.entities.UserCapabilities;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import javax.annotation.Nullable;
-import javax.validation.constraints.Null;
+
 import java.util.concurrent.TimeUnit;
 
 public class Device {

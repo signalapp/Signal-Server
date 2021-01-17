@@ -1,6 +1,5 @@
 package org.whispersystems.textsecuregcm.storage;
 
-import java.net.InetAddress;
 import java.util.List;
 
 public class AbusiveHostRule {

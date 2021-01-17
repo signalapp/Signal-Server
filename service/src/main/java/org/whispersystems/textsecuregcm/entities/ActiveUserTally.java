@@ -18,7 +18,6 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Map;
-import java.util.HashMap;
 import java.util.UUID;
 
 public class ActiveUserTally {

@@ -48,8 +48,6 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.*;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.*;
 import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.asJson;
 import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixture;

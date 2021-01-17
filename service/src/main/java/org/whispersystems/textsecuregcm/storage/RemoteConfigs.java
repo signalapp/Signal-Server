@@ -3,17 +3,11 @@ package org.whispersystems.textsecuregcm.storage;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
-import org.whispersystems.textsecuregcm.storage.mappers.AccountRowMapper;
+
 import org.whispersystems.textsecuregcm.storage.mappers.RemoteConfigRowMapper;
 import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.SystemMapper;
 
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import static com.codahale.metrics.MetricRegistry.name;

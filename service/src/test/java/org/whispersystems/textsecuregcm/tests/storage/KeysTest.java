@@ -3,7 +3,7 @@ package org.whispersystems.textsecuregcm.tests.storage;
 import com.opentable.db.postgres.embedded.LiquibasePreparer;
 import com.opentable.db.postgres.junit.EmbeddedPostgresRules;
 import com.opentable.db.postgres.junit.PreparedDbRule;
-import org.jdbi.v3.core.HandleCallback;
+
 import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.transaction.SerializableTransactionRunner;
@@ -12,7 +12,6 @@ import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.postgresql.util.PSQLException;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;

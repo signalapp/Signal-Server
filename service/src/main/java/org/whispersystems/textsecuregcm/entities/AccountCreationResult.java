@@ -2,8 +2,6 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
-
 import java.util.UUID;
 
 public class AccountCreationResult {

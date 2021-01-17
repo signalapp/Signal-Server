@@ -15,7 +15,6 @@ import org.whispersystems.textsecuregcm.util.Util;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.*;
 
 public class GCMSenderTest {

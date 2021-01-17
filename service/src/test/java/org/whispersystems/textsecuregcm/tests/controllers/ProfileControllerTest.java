@@ -1,7 +1,7 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3Client;
+
 import com.google.common.collect.ImmutableSet;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
@@ -9,14 +9,12 @@ import org.junit.ClassRule;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
-import org.mockito.Mockito;
 import org.signal.zkgroup.InvalidInputException;
 import org.signal.zkgroup.profiles.ProfileKey;
 import org.signal.zkgroup.profiles.ProfileKeyCommitment;
 import org.signal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
-import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.controllers.ProfileController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.CreateProfileRequest;

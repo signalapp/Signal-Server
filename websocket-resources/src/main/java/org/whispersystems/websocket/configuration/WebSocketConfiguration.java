@@ -7,9 +7,6 @@ import org.whispersystems.websocket.logging.WebsocketRequestLoggerFactory;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 
-import io.dropwizard.request.logging.LogbackAccessRequestLogFactory;
-import io.dropwizard.request.logging.RequestLogFactory;
-
 public class WebSocketConfiguration {
 
   @Valid

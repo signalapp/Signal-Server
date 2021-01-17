@@ -16,7 +16,6 @@
  */
 package org.whispersystems.websocket.auth;
 
-import org.eclipse.jetty.server.Authentication;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
 
 import java.security.Principal;

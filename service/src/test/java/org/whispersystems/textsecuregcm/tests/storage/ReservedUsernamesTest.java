@@ -10,17 +10,10 @@ import org.junit.Test;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.ReservedUsernames;
-import org.whispersystems.textsecuregcm.storage.Usernames;
 
-import java.io.IOException;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.Optional;
 import java.util.UUID;
 
 import static junit.framework.TestCase.assertTrue;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.junit.Assert.assertFalse;
 
 public class ReservedUsernamesTest {

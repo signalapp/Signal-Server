@@ -17,7 +17,6 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import java.util.HashSet;
 import java.util.List;
 
-import io.dropwizard.auth.Auth;
 import static org.assertj.core.api.Java6Assertions.assertThat;
 
 public class RemoteConfigsManagerTest {

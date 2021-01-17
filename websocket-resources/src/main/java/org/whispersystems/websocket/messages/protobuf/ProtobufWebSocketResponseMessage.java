@@ -18,7 +18,6 @@ package org.whispersystems.websocket.messages.protobuf;
 
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 

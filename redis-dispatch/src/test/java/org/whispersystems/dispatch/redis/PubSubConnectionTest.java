@@ -12,8 +12,6 @@ import java.net.Socket;
 import java.security.SecureRandom;
 
 import static org.junit.Assert.*;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyInt;
 import static org.mockito.Mockito.*;
 
 public class PubSubConnectionTest {
