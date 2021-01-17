@@ -21,7 +21,7 @@ public class DeadLetterHandler implements DispatchChannel {
   @Override
   public void onDispatchMessage(String channel, byte[] data) {
     try {
-      logger.info("Handling dead letter to: " + channel);
+      logger.info("Handling dead letter to: {}", channel);
 
       WebsocketAddress address       = new WebsocketAddress(channel);
       PubSubMessage    pubSubMessage = PubSubMessage.parseFrom(data);
@@ -41,11 +41,11 @@ public class DeadLetterHandler implements DispatchChannel {
 
   @Override
   public void onDispatchSubscribed(String channel) {
-    logger.warn("DeadLetterHandler subscription notice! " + channel);
+    logger.warn("DeadLetterHandler subscription notice! {} ", channel);
   }
 
   @Override
   public void onDispatchUnsubscribed(String channel) {
-    logger.warn("DeadLetterHandler unsubscribe notice! " + channel);
+    logger.warn("DeadLetterHandler unsubscribe notice! {}", channel);
   }
 }

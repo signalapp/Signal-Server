@@ -174,6 +174,6 @@ public class GCMSender implements Managed {
     Meter meter = outboundMeters.get(key);
 
     if (meter != null) meter.mark();
-    else               logger.warn("Unknown outbound key: " + key);
+    else logger.warn("Unknown outbound key: {}", key);
   }
 }

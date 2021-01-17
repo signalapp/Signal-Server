@@ -135,7 +135,7 @@ public class APNSender implements Managed {
     Optional<Account> account = accountsManager.get(number);
 
     if (!account.isPresent()) {
-      logger.info("No account found: " + number);
+      logger.info("No account found: {}", number);
       unregisteredEventStale.mark();
       return;
     }
@@ -143,7 +143,7 @@ public class APNSender implements Managed {
     Optional<Device> device = account.get().getDevice(deviceId);
 
     if (!device.isPresent()) {
-      logger.info("No device found: " + number);
+      logger.info("No device found: {}", number);
       unregisteredEventStale.mark();
       return;
     }
@@ -166,7 +166,7 @@ public class APNSender implements Managed {
 
     if (tokenTimestamp != 0 && System.currentTimeMillis() < tokenTimestamp + TimeUnit.SECONDS.toMillis(10))
     {
-      logger.info("APN Unregister push timestamp is more recent: " + tokenTimestamp + ", " + number);
+      logger.info("APN Unregister push timestamp is more recent: {},{}", tokenTimestamp, number);
       unregisteredEventStale.mark();
       return;
     }

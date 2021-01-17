@@ -164,7 +164,7 @@ public class TwilioSmsSender {
       priceMeter.mark((long)(response.successResponse.price * 1000));
       return true;
     } else if (response != null && response.isFailure()) {
-      logger.info("Twilio request failed: " + response.failureResponse.status + ", " + response.failureResponse.message);
+      logger.info("Twilio request failed: {}, {}", response.failureResponse.status, response.failureResponse.message);
       return false;
     } else if (throwable != null) {
       logger.info("Twilio request failed", throwable);

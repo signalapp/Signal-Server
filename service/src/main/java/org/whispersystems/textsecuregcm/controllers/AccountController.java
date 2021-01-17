@@ -192,7 +192,7 @@ public class AccountController {
       throws RateLimitExceededException
   {
     if (!Util.isValidNumber(number)) {
-      logger.info("Invalid number: " + number);
+      logger.info("Invalid number: {}", number);
       throw new WebApplicationException(Response.status(400).build());
     }
 
@@ -206,7 +206,7 @@ public class AccountController {
 
     if (requirement.isCaptchaRequired()) {
       if (requirement.isAutoBlock() && shouldAutoBlock(requester)) {
-        logger.info("Auto-block: " + requester);
+        logger.info("Auto-block: {}", requester);
         abusiveHostRules.setBlockedHost(requester, "Auto-Block");
       }
 
@@ -545,14 +545,14 @@ public class AccountController {
 
     for (AbusiveHostRule abuseRule : abuseRules) {
       if (abuseRule.isBlocked()) {
-        logger.info("Blocked host: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
+        logger.info("Blocked host: {}, {}, {}, ({})", transport, number, requester, forwardedFor);
         blockedHostMeter.mark();
         return new CaptchaRequirement(true, false);
       }
 
       if (!abuseRule.getRegions().isEmpty()) {
         if (abuseRule.getRegions().stream().noneMatch(number::startsWith)) {
-          logger.info("Restricted host: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
+          logger.info("Restricted host: {}, {}, {}, ({})", transport, number, requester, forwardedFor);
           filteredHostMeter.mark();
           return new CaptchaRequirement(true, false);
         }
@@ -562,7 +562,7 @@ public class AccountController {
     try {
       rateLimiters.getSmsVoiceIpLimiter().validate(requester);
     } catch (RateLimitExceededException e) {
-      logger.info("Rate limited exceeded: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
+      logger.info("Rate limited exceeded: {}, {}, {}, ({})", transport, number, requester, forwardedFor);
       rateLimitedHostMeter.mark();
       return new CaptchaRequirement(true, true);
     }
@@ -570,7 +570,7 @@ public class AccountController {
     try {
       rateLimiters.getSmsVoicePrefixLimiter().validate(Util.getNumberPrefix(number));
     } catch (RateLimitExceededException e) {
-      logger.info("Prefix rate limit exceeded: " + transport + ", " + number + ", (" + forwardedFor + ")");
+      logger.info("Prefix rate limit exceeded:{}, {}, ({})", transport, number, forwardedFor);
       rateLimitedPrefixMeter.mark();
       return new CaptchaRequirement(true, true);
     }
