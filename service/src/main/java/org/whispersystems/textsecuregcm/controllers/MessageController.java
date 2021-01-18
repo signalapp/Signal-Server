@@ -12,6 +12,7 @@ import com.codahale.metrics.Timer;
 import com.codahale.metrics.annotation.Timed;
 import com.google.protobuf.ByteString;
 import io.dropwizard.auth.Auth;
+import io.dropwizard.util.DataSize;
 import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,7 +63,6 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 
@@ -77,6 +77,7 @@ public class MessageController {
   private final Meter          unidentifiedMeter                = metricRegistry.meter(name(getClass(), "delivery", "unidentified"));
   private final Meter          identifiedMeter                  = metricRegistry.meter(name(getClass(), "delivery", "identified"  ));
   private final Meter          rejectOversizeMessageMeter       = metricRegistry.meter(name(getClass(), "rejectOversizeMessage"));
+  private final Meter          rejectOver256kibMessageMeter     = metricRegistry.meter(name(getClass(), "rejectOver256kibMessage"));
   private final Timer          sendMessageInternalTimer         = metricRegistry.timer(name(getClass(), "sendMessageInternal"));
   private final Histogram      outgoingMessageListSizeHistogram = metricRegistry.histogram(name(getClass(), "outgoingMessageListSize"));
 
@@ -93,6 +94,7 @@ public class MessageController {
   private static final String OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME = name(MessageController.class, "outgoingMessageListSizeBytes");
 
   private static final int MAX_MESSAGE_SIZE = 1024 * 1024;
+  private static final long SMALLER_MAX_MESSAGE_SIZE = DataSize.kibibytes(256).toBytes();
 
   public MessageController(RateLimiters rateLimiters,
                            MessageSender messageSender,
@@ -154,6 +156,10 @@ public class MessageController {
         if (contentLength > MAX_MESSAGE_SIZE) {
           // TODO Reject the request
           rejectOversizeMessageMeter.mark();
+        }
+
+        if (contentLength > SMALLER_MAX_MESSAGE_SIZE) {
+          rejectOver256kibMessageMeter.mark();
         }
       }
 
