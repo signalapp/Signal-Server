@@ -31,6 +31,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import static java.util.Objects.nonNull;
+
 public class Account implements Principal  {
 
   @JsonIgnore
@@ -136,17 +138,17 @@ public class Account implements Principal  {
   public boolean isUuidAddressingSupported() {
     return devices.stream()
                   .filter(Device::isEnabled)
-                  .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isUuid());
+                  .allMatch(device -> nonNull(device.getCapabilities())  && device.getCapabilities().isUuid());
   }
 
   public boolean isGroupsV2Supported() {
     return devices.stream()
                   .filter(Device::isEnabled)
-                  .anyMatch(device -> device.getCapabilities() != null && device.getCapabilities().isGv2());
+                  .anyMatch(device -> nonNull(device.getCapabilities()) && device.getCapabilities().isGv2());
   }
 
   public boolean isStorageSupported() {
-    return devices.stream().anyMatch(device -> device.getCapabilities() != null && device.getCapabilities().isStorage());
+    return devices.stream().anyMatch(device -> nonNull(device.getCapabilities()) && device.getCapabilities().isStorage());
   }
 
   public boolean isEnabled() {

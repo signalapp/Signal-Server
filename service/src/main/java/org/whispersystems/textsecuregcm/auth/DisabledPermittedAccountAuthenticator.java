@@ -16,7 +16,7 @@ public class DisabledPermittedAccountAuthenticator extends BaseAccountAuthentica
   
   @Override
   public Optional<DisabledPermittedAccount> authenticate(BasicCredentials credentials) {
-    Optional<Account> account = super.authenticate(credentials, false);
-    return account.map(DisabledPermittedAccount::new);
+    return super.authenticate(credentials, false)
+            .map(DisabledPermittedAccount::new);
   }
 }

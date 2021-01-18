@@ -67,7 +67,7 @@ public class SimultaneousSenderTest {
     Sender                         sender   = new Sender("foobarbaz", mapper, 2, "http://localhost:8089/gcm/send");
     List<CompletableFuture<Result>> futures = new LinkedList<>();
 
-    for (int i=0;i<1000;i++) {
+    for (int i=0; i<1000; i++) {
       futures.add(sender.send(Message.newBuilder().withDestination("1").build()));
     }
 

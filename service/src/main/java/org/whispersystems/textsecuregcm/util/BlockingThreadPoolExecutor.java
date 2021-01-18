@@ -10,7 +10,7 @@ public class BlockingThreadPoolExecutor extends ThreadPoolExecutor {
   private final Semaphore semaphore;
 
   public BlockingThreadPoolExecutor(int threads, int bound) {
-    super(threads, threads, 1, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
+    super(threads, threads, 1, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
     this.semaphore = new Semaphore(bound);
   }
 
@@ -32,6 +32,6 @@ public class BlockingThreadPoolExecutor extends ThreadPoolExecutor {
   }
 
   public int getSize() {
-    return ((LinkedBlockingQueue)getQueue()).size();
+    return getQueue().size();
   }
 }

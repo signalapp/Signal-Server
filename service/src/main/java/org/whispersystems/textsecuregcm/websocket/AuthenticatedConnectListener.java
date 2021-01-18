@@ -68,12 +68,9 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       pubSubManager.publish(address, connectMessage);
       pubSubManager.subscribe(address, connection);
 
-      context.addListener(new WebSocketSessionContext.WebSocketEventListener() {
-        @Override
-        public void onWebSocketClose(WebSocketSessionContext context, int statusCode, String reason) {
-          pubSubManager.unsubscribe(address, connection);
-          timer.stop();
-        }
+      context.addListener((context12, statusCode, reason) -> {
+        pubSubManager.unsubscribe(address, connection);
+        timer.stop();
       });
     } else {
       final Timer.Context timer = unauthenticatedDurationTimer.time();

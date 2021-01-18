@@ -32,8 +32,7 @@ public class ByteArrayAdapter {
   public static class Serializing extends JsonSerializer<byte[]> {
     @Override
     public void serialize(byte[] bytes, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
-        throws IOException, JsonProcessingException
-    {
+        throws IOException {
       jsonGenerator.writeString(Base64.encodeBytesWithoutPadding(bytes));
     }
   }
@@ -41,8 +40,7 @@ public class ByteArrayAdapter {
   public static class Deserializing extends JsonDeserializer<byte[]> {
     @Override
     public byte[] deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
-        throws IOException, JsonProcessingException
-    {
+        throws IOException {
       return Base64.decodeWithoutPadding(jsonParser.getValueAsString());
     }
   }

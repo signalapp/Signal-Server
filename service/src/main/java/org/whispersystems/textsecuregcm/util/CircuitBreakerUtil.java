@@ -14,7 +14,7 @@ public class CircuitBreakerUtil {
     Meter failureMeter     = metricRegistry.meter(name(clazz, circuitBreaker.getName(), "failure"    ));
     Meter unpermittedMeter = metricRegistry.meter(name(clazz, circuitBreaker.getName(), "unpermitted"));
 
-    metricRegistry.gauge(name(clazz, circuitBreaker.getName(), "state"), () -> ()-> circuitBreaker.getState().getOrder());
+    metricRegistry.gauge(name(clazz, circuitBreaker.getName(), "state"), () -> () -> circuitBreaker.getState().getOrder());
 
     circuitBreaker.getEventPublisher().onSuccess(event -> successMeter.mark());
     circuitBreaker.getEventPublisher().onError(event -> failureMeter.mark());

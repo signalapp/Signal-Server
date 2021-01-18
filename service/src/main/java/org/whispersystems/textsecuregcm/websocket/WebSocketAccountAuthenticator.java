@@ -11,6 +11,8 @@ import java.util.Optional;
 
 import io.dropwizard.auth.basic.BasicCredentials;
 
+import static org.eclipse.jetty.util.LazyList.isEmpty;
+
 
 public class WebSocketAccountAuthenticator implements WebSocketAuthenticator<Account> {
 
@@ -26,8 +28,7 @@ public class WebSocketAccountAuthenticator implements WebSocketAuthenticator<Acc
     List<String>              usernames  = parameters.get("login");
     List<String>              passwords  = parameters.get("password");
 
-    if (usernames == null || usernames.size() == 0 ||
-        passwords == null || passwords.size() == 0)
+    if (isEmpty(usernames) || isEmpty(passwords))
     {
       return new AuthenticationResult<>(Optional.empty(), false);
     }

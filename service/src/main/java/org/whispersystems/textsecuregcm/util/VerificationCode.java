@@ -59,7 +59,7 @@ public class VerificationCode {
   private String delimit(String code) {
     String delimited = "";
 
-    for (int i=0;i<code.length();i++) {
+    for (int i=0; i < code.length(); i++) {
       delimited += code.charAt(i);
 
       if (i != code.length() - 1)

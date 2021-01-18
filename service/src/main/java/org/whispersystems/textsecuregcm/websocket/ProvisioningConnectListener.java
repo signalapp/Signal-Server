@@ -19,11 +19,6 @@ public class ProvisioningConnectListener implements WebSocketConnectListener {
 
     pubSubManager.subscribe(provisioningAddress, connection);
 
-    context.addListener(new WebSocketSessionContext.WebSocketEventListener() {
-      @Override
-      public void onWebSocketClose(WebSocketSessionContext context, int statusCode, String reason) {
-        pubSubManager.unsubscribe(provisioningAddress, connection);
-      }
-    });
+    context.addListener((context1, statusCode, reason) -> pubSubManager.unsubscribe(provisioningAddress, connection));
   }
 }
