@@ -93,7 +93,7 @@ public class MessageController {
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME                     = name(MessageController.class, "messageContentSize");
   private static final String OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME = name(MessageController.class, "outgoingMessageListSizeBytes");
 
-  private static final int MAX_MESSAGE_SIZE = 1024 * 1024;
+  private static final long MAX_MESSAGE_SIZE = DataSize.mebibytes(1).toBytes();
   private static final long SMALLER_MAX_MESSAGE_SIZE = DataSize.kibibytes(256).toBytes();
 
   public MessageController(RateLimiters rateLimiters,
