@@ -39,13 +39,4 @@ public class ArrayReplyHeaderTest {
   public void testValid() throws IOException {
     assertEquals(4, new ArrayReplyHeader("*4").getElementCount());
   }
-
-
-
-
-
-
-
-
-
 }

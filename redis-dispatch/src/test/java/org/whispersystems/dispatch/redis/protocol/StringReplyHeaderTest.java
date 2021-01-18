@@ -43,5 +43,4 @@ public class StringReplyHeaderTest {
     assertEquals(1000, new StringReplyHeader("$1000").getStringLength());
   }
 
-
 }
