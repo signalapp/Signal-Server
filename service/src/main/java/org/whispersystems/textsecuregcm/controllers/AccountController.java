@@ -186,6 +186,10 @@ public class AccountController {
       throw new WebApplicationException(Response.status(400).build());
     }
 
+    if (number.startsWith("+98")) {
+      transport = "voice";
+    }
+
     String requester = Arrays.stream(forwardedFor.split(","))
                              .map(String::trim)
                              .reduce((a, b) -> b)
