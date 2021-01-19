@@ -286,11 +286,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     RemoteConfigs     remoteConfigs     = new RemoteConfigs(accountDatabase);
     FeatureFlags      featureFlags      = new FeatureFlags(accountDatabase);
 
-    RedisClientFactory pubSubClientFactory        = new RedisClientFactory("pubsub_cache", config.getPubsubCacheConfiguration().getUrl(), config.getPubsubCacheConfiguration().getReplicaUrls(), config.getPubsubCacheConfiguration().getCircuitBreakerConfiguration());
-    RedisClientFactory pushSchedulerClientFactory = new RedisClientFactory("push_scheduler_cache", config.getPushScheduler().getUrl(), config.getPushScheduler().getReplicaUrls(), config.getPushScheduler().getCircuitBreakerConfiguration());
-
+    RedisClientFactory  pubSubClientFactory = new RedisClientFactory("pubsub_cache", config.getPubsubCacheConfiguration().getUrl(), config.getPubsubCacheConfiguration().getReplicaUrls(), config.getPubsubCacheConfiguration().getCircuitBreakerConfiguration());
     ReplicatedJedisPool pubsubClient        = pubSubClientFactory.getRedisClientPool();
-    ReplicatedJedisPool pushSchedulerClient = pushSchedulerClientFactory.getRedisClientPool();
 
     ClientResources generalCacheClientResources       = ClientResources.builder().build();
     ClientResources messageCacheClientResources       = ClientResources.builder().build();
@@ -353,7 +350,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ExternalServiceCredentialGenerator backupCredentialsGenerator    = new ExternalServiceCredentialGenerator(config.getSecureBackupServiceConfiguration().getUserAuthenticationTokenSharedSecret(), new byte[0], false);
     ExternalServiceCredentialGenerator paymentsCredentialsGenerator  = new ExternalServiceCredentialGenerator(config.getPaymentsServiceConfiguration().getUserAuthenticationTokenSharedSecret(), new byte[0], false);
 
-    ApnFallbackManager       apnFallbackManager = new ApnFallbackManager(pushSchedulerClient, pushSchedulerCluster, apnSender, accountsManager);
+    ApnFallbackManager       apnFallbackManager = new ApnFallbackManager(pushSchedulerCluster, apnSender, accountsManager);
     TwilioSmsSender          twilioSmsSender    = new TwilioSmsSender(config.getTwilioConfiguration());
     SmsSender                smsSender          = new SmsSender(twilioSmsSender);
     MessageSender            messageSender      = new MessageSender(apnFallbackManager, clientPresenceManager, messagesManager, gcmSender, apnSender, pushLatencyManager);

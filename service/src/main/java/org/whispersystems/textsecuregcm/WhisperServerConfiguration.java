@@ -107,11 +107,6 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
-  private RedisConfiguration pushScheduler;
-
-  @NotNull
-  @Valid
-  @JsonProperty
   private RedisClusterConfiguration pushSchedulerCluster;
 
   @NotNull
@@ -293,10 +288,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public RedisClusterConfiguration getClientPresenceClusterConfiguration() {
     return clientPresenceCluster;
-  }
-
-  public RedisConfiguration getPushScheduler() {
-    return pushScheduler;
   }
 
   public RedisClusterConfiguration getPushSchedulerCluster() {

@@ -7,23 +7,15 @@ package org.whispersystems.textsecuregcm.push;
 
 import io.lettuce.core.cluster.SlotHash;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.providers.RedisClientFactory;
 import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
 import org.whispersystems.textsecuregcm.redis.RedisException;
-import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Pair;
-import redis.clients.jedis.Jedis;
-import redis.embedded.RedisServer;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,7 +23,6 @@ import java.util.UUID;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeFalse;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -39,46 +30,20 @@ import static org.mockito.Mockito.when;
 public class ApnFallbackManagerTest extends AbstractRedisClusterTest {
 
     private Account account;
-    private Device device;
+    private Device  device;
 
     private APNSender apnSender;
 
     private ApnFallbackManager apnFallbackManager;
 
-    private static RedisServer redisServer;
-
     private static final UUID   ACCOUNT_UUID   = UUID.randomUUID();
     private static final String ACCOUNT_NUMBER = "+18005551234";
     private static final long   DEVICE_ID      = 1L;
-    private static final String VOIP_APN_ID = RandomStringUtils.randomAlphanumeric(32);
-
-    @BeforeClass
-    public static void setUpRedisSingleton() throws Exception {
-        assumeFalse(System.getProperty("os.name").equalsIgnoreCase("windows"));
-
-        redisServer = RedisServer.builder()
-                .setting("appendonly no")
-                .setting("dir " + System.getProperty("java.io.tmpdir"))
-                .port(AbstractRedisClusterTest.getNextRedisClusterPort())
-                .build();
-
-        redisServer.start();
-    }
+    private static final String VOIP_APN_ID    = RandomStringUtils.randomAlphanumeric(32);
 
     @Before
     public void setUp() throws Exception {
         super.setUp();
-
-        final String redisUrl = String.format("redis://127.0.0.1:%d", redisServer.ports().get(0));
-
-        final ReplicatedJedisPool replicatedJedisPool = new RedisClientFactory("test-pool",
-                redisUrl,
-                List.of(redisUrl),
-                new CircuitBreakerConfiguration()).getRedisClientPool();
-
-        try (final Jedis jedis = replicatedJedisPool.getWriteResource()) {
-            jedis.flushAll();
-        }
 
         device = mock(Device.class);
         when(device.getId()).thenReturn(DEVICE_ID);
@@ -96,28 +61,18 @@ public class ApnFallbackManagerTest extends AbstractRedisClusterTest {
 
         apnSender = mock(APNSender.class);
 
-        apnFallbackManager = new ApnFallbackManager(replicatedJedisPool, getRedisCluster(), apnSender, accountsManager);
-    }
-
-    @After
-    public void tearDown() throws Exception {
-        super.tearDown();
-    }
-
-    @AfterClass
-    public static void tearDownRedisSingleton() {
-        redisServer.stop();
+        apnFallbackManager = new ApnFallbackManager(getRedisCluster(), apnSender, accountsManager);
     }
 
     @Test
     public void testClusterInsert() throws RedisException {
-        final String endpoint = apnFallbackManager.getClusterEndpointKey(account, device);
+        final String endpoint = apnFallbackManager.getEndpointKey(account, device);
 
-        assertTrue(apnFallbackManager.getPendingDestinationsFromClusterCache(SlotHash.getSlot(endpoint), 1).isEmpty());
+        assertTrue(apnFallbackManager.getPendingDestinations(SlotHash.getSlot(endpoint), 1).isEmpty());
 
         apnFallbackManager.schedule(account, device, System.currentTimeMillis() - 30_000);
 
-        final List<String> pendingDestinations = apnFallbackManager.getPendingDestinationsFromClusterCache(SlotHash.getSlot(endpoint), 2);
+        final List<String> pendingDestinations = apnFallbackManager.getPendingDestinations(SlotHash.getSlot(endpoint), 2);
         assertEquals(1, pendingDestinations.size());
 
         final Optional<Pair<String, Long>> maybeUuidAndDeviceId = ApnFallbackManager.getSeparated(pendingDestinations.get(0));
@@ -126,16 +81,16 @@ public class ApnFallbackManagerTest extends AbstractRedisClusterTest {
         assertEquals(ACCOUNT_UUID.toString(), maybeUuidAndDeviceId.get().first());
         assertEquals(DEVICE_ID, (long)maybeUuidAndDeviceId.get().second());
 
-        assertTrue(apnFallbackManager.getPendingDestinationsFromClusterCache(SlotHash.getSlot(endpoint), 1).isEmpty());
+        assertTrue(apnFallbackManager.getPendingDestinations(SlotHash.getSlot(endpoint), 1).isEmpty());
     }
 
     @Test
     public void testProcessNextSlot() throws RedisException {
-        final ApnFallbackManager.ClusterCacheWorker worker = apnFallbackManager.new ClusterCacheWorker();
+        final ApnFallbackManager.NotificationWorker worker = apnFallbackManager.new NotificationWorker();
 
         apnFallbackManager.schedule(account, device, System.currentTimeMillis() - 30_000);
 
-        final int slot = SlotHash.getSlot(apnFallbackManager.getClusterEndpointKey(account, device));
+        final int slot = SlotHash.getSlot(apnFallbackManager.getEndpointKey(account, device));
         final int previousSlot = (slot + SlotHash.SLOT_COUNT - 1) % SlotHash.SLOT_COUNT;
 
         getRedisCluster().withCluster(connection -> connection.sync().set(ApnFallbackManager.NEXT_SLOT_TO_PERSIST_KEY, String.valueOf(previousSlot)));
