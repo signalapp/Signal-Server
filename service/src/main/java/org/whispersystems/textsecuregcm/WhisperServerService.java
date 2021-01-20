@@ -55,7 +55,6 @@ import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV3;
 import org.whispersystems.textsecuregcm.controllers.CertificateController;
 import org.whispersystems.textsecuregcm.controllers.DeviceController;
 import org.whispersystems.textsecuregcm.controllers.DirectoryController;
-import org.whispersystems.textsecuregcm.controllers.FeatureFlagsController;
 import org.whispersystems.textsecuregcm.controllers.KeepAliveController;
 import org.whispersystems.textsecuregcm.controllers.KeysController;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
@@ -395,7 +394,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ProfileController      profileController         = new ProfileController(rateLimiters, accountsManager, profilesManager, usernamesManager, cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner, config.getCdnConfiguration().getBucket(), zkProfileOperations, isZkEnabled);
     StickerController      stickerController         = new StickerController(rateLimiters, config.getCdnConfiguration().getAccessKey(), config.getCdnConfiguration().getAccessSecret(), config.getCdnConfiguration().getRegion(), config.getCdnConfiguration().getBucket());
     RemoteConfigController remoteConfigController    = new RemoteConfigController(remoteConfigsManager, config.getRemoteConfigConfiguration().getAuthorizedTokens(), config.getRemoteConfigConfiguration().getGlobalConfig());
-    FeatureFlagsController featureFlagsController    = new FeatureFlagsController(featureFlagsManager, config.getFeatureFlagConfiguration().getAuthorizedTokens());
 
     AuthFilter<BasicCredentials, Account>                  accountAuthFilter                  = new BasicCredentialAuthFilter.Builder<Account>().setAuthenticator(accountAuthenticator).buildAuthFilter                                  ();
     AuthFilter<BasicCredentials, DisabledPermittedAccount> disabledPermittedAccountAuthFilter = new BasicCredentialAuthFilter.Builder<DisabledPermittedAccount>().setAuthenticator(disabledPermittedAccountAuthenticator).buildAuthFilter();
@@ -425,7 +423,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(profileController);
     environment.jersey().register(stickerController);
     environment.jersey().register(remoteConfigController);
-    environment.jersey().register(featureFlagsController);
 
     ///
     WebSocketEnvironment<Account> webSocketEnvironment = new WebSocketEnvironment<>(environment, config.getWebSocketConfiguration(), 90000);
