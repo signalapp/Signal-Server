@@ -110,7 +110,7 @@ public class ProfileController {
     String                                  avatar         = request.isAvatar() ? generateAvatarObjectName() : null;
     Optional<ProfileAvatarUploadAttributes> response       = Optional.empty();
 
-    profilesManager.set(account.getUuid(), new VersionedProfile(request.getVersion(), request.getName(), avatar, request.getCommitment().serialize()));
+    profilesManager.set(account.getUuid(), new VersionedProfile(request.getVersion(), request.getName(), avatar, request.getAboutEmoji(), request.getAbout(), request.getCommitment().serialize()));
 
     if (request.isAvatar()) {
       Optional<String> currentAvatar = Optional.empty();
@@ -189,15 +189,19 @@ public class ProfileController {
 
       assert(accountProfile.isPresent());
 
-      Optional<String>           username = usernamesManager.get(accountProfile.get().getUuid());
-      Optional<VersionedProfile> profile  = profilesManager.get(uuid, version);
+      Optional<String>           username   = usernamesManager.get(accountProfile.get().getUuid());
+      Optional<VersionedProfile> profile    = profilesManager.get(uuid, version);
 
-      String                     name     = profile.map(VersionedProfile::getName).orElse(accountProfile.get().getProfileName());
-      String                     avatar   = profile.map(VersionedProfile::getAvatar).orElse(accountProfile.get().getAvatar());
+      String                     name       = profile.map(VersionedProfile::getName).orElse(accountProfile.get().getProfileName());
+      String                     about      = profile.map(VersionedProfile::getAbout).orElse(null);
+      String                     aboutEmoji = profile.map(VersionedProfile::getAboutEmoji).orElse(null);
+      String                     avatar     = profile.map(VersionedProfile::getAvatar).orElse(accountProfile.get().getAvatar());
       
       Optional<ProfileKeyCredentialResponse> credential = getProfileCredential(credentialRequest, profile, uuid);
 
       return Optional.of(new Profile(name,
+                                     about,
+                                     aboutEmoji,
                                      avatar,
                                      accountProfile.get().getIdentityKey(),
                                      UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
@@ -236,6 +240,8 @@ public class ProfileController {
     }
 
     return new Profile(accountProfile.get().getProfileName(),
+                       null,
+                       null,
                        accountProfile.get().getAvatar(),
                        accountProfile.get().getIdentityKey(),
                        UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
@@ -309,6 +315,8 @@ public class ProfileController {
     }
 
     return new Profile(accountProfile.get().getProfileName(),
+                       null,
+                       null,
                        accountProfile.get().getAvatar(),
                        accountProfile.get().getIdentityKey(),
                        UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),

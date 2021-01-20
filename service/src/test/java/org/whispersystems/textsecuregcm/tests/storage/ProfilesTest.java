@@ -41,7 +41,21 @@ public class ProfilesTest {
   @Test
   public void testSetGet() {
     UUID             uuid    = UUID.randomUUID();
-    VersionedProfile profile = new VersionedProfile("123", "foo", "avatarLocation", "acommitment".getBytes());
+    VersionedProfile profile = new VersionedProfile("123", "foo", "avatarLocation", "emoji", "the very model of a modern major general", "acommitment".getBytes());
+    profiles.set(uuid, profile);
+
+    Optional<VersionedProfile> retrieved = profiles.get(uuid, "123");
+
+    assertThat(retrieved.isPresent()).isTrue();
+    assertThat(retrieved.get().getName()).isEqualTo(profile.getName());
+    assertThat(retrieved.get().getAvatar()).isEqualTo(profile.getAvatar());
+    assertThat(retrieved.get().getCommitment()).isEqualTo(profile.getCommitment());
+  }
+
+  @Test
+  public void testSetGetNullOptionalFields() {
+    UUID             uuid    = UUID.randomUUID();
+    VersionedProfile profile = new VersionedProfile("123", "foo", null, null, null, "acommitment".getBytes());
     profiles.set(uuid, profile);
 
     Optional<VersionedProfile> retrieved = profiles.get(uuid, "123");
@@ -55,7 +69,7 @@ public class ProfilesTest {
   @Test
   public void testSetReplace() {
     UUID             uuid    = UUID.randomUUID();
-    VersionedProfile profile = new VersionedProfile("123", "foo", "avatarLocation", "acommitment".getBytes());
+    VersionedProfile profile = new VersionedProfile("123", "foo", "avatarLocation", null, null, "acommitment".getBytes());
     profiles.set(uuid, profile);
 
     Optional<VersionedProfile> retrieved = profiles.get(uuid, "123");
@@ -65,7 +79,7 @@ public class ProfilesTest {
     assertThat(retrieved.get().getAvatar()).isEqualTo(profile.getAvatar());
     assertThat(retrieved.get().getCommitment()).isEqualTo(profile.getCommitment());
 
-    VersionedProfile updated = new VersionedProfile("123", "bar", "baz", "boof".getBytes());
+    VersionedProfile updated = new VersionedProfile("123", "bar", "baz", "emoji", "bio", "boof".getBytes());
     profiles.set(uuid, updated);
 
     retrieved = profiles.get(uuid, "123");
@@ -79,8 +93,8 @@ public class ProfilesTest {
   @Test
   public void testMultipleVersions() {
     UUID             uuid    = UUID.randomUUID();
-    VersionedProfile profileOne = new VersionedProfile("123", "foo", "avatarLocation", "acommitmnet".getBytes());
-    VersionedProfile profileTwo = new VersionedProfile("345", "bar", "baz", "boof".getBytes());
+    VersionedProfile profileOne = new VersionedProfile("123", "foo", "avatarLocation", null, null, "acommitmnet".getBytes());
+    VersionedProfile profileTwo = new VersionedProfile("345", "bar", "baz", "emoji", "i keep typing emoju for some reason", "boof".getBytes());
 
     profiles.set(uuid, profileOne);
     profiles.set(uuid, profileTwo);
@@ -103,7 +117,7 @@ public class ProfilesTest {
   @Test
   public void testMissing() {
     UUID             uuid    = UUID.randomUUID();
-    VersionedProfile profile = new VersionedProfile("123", "foo", "avatarLocation", "aDigest".getBytes());
+    VersionedProfile profile = new VersionedProfile("123", "foo", "avatarLocation", null, null, "aDigest".getBytes());
     profiles.set(uuid, profile);
 
     Optional<VersionedProfile> retrieved = profiles.get(uuid, "888");
@@ -114,8 +128,8 @@ public class ProfilesTest {
   @Test
   public void testDelete() {
     UUID             uuid    = UUID.randomUUID();
-    VersionedProfile profileOne = new VersionedProfile("123", "foo", "avatarLocation", "aDigest".getBytes());
-    VersionedProfile profileTwo = new VersionedProfile("345", "bar", "baz", "boof".getBytes());
+    VersionedProfile profileOne = new VersionedProfile("123", "foo", "avatarLocation", null, null, "aDigest".getBytes());
+    VersionedProfile profileTwo = new VersionedProfile("345", "bar", "baz", null, null, "boof".getBytes());
 
     profiles.set(uuid, profileOne);
     profiles.set(uuid, profileTwo);

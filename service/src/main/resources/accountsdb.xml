@@ -339,4 +339,16 @@
         </createTable>
     </changeSet>
 
+    <changeSet id="20" author="jon">
+        <addColumn tableName="profiles">
+            <column name="about" type="text">
+                <constraints nullable="true"/>
+            </column>
+
+            <column name="about_emoji" type="text">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>
