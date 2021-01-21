@@ -146,8 +146,7 @@ import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteFeatureFlagTask;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
-import org.whispersystems.textsecuregcm.workers.DisableRequestLoggingTask;
-import org.whispersystems.textsecuregcm.workers.EnableRequestLoggingTask;
+import org.whispersystems.textsecuregcm.workers.SetRequestLoggingEnabledTask;
 import org.whispersystems.textsecuregcm.workers.GetRedisCommandStatsCommand;
 import org.whispersystems.textsecuregcm.workers.GetRedisSlowlogCommand;
 import org.whispersystems.textsecuregcm.workers.ListFeatureFlagsTask;
@@ -457,8 +456,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     provisioning.addMapping("/v1/websocket/provisioning/");
     provisioning.setAsyncSupported(true);
 
-    environment.admin().addTask(new EnableRequestLoggingTask());
-    environment.admin().addTask(new DisableRequestLoggingTask());
+    environment.admin().addTask(new SetRequestLoggingEnabledTask());
     environment.admin().addTask(new SetCrawlerAccelerationTask(accountDatabaseCrawlerCache));
     environment.admin().addTask(new ListFeatureFlagsTask(featureFlagsManager));
     environment.admin().addTask(new SetFeatureFlagTask(featureFlagsManager));
