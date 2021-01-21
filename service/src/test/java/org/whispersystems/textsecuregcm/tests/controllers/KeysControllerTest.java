@@ -46,7 +46,7 @@ import io.dropwizard.testing.junit.ResourceTestRule;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
-public class KeyControllerTest {
+public class KeysControllerTest {
 
   private static final String EXISTS_NUMBER = "+14152222222";
   private static final UUID   EXISTS_UUID   = UUID.randomUUID();
@@ -141,18 +141,16 @@ public class KeyControllerTest {
 
     List<KeyRecord> singleDevice = new LinkedList<>();
     singleDevice.add(SAMPLE_KEY);
-    when(keys.get(eq(EXISTS_NUMBER), eq(1L))).thenReturn(singleDevice);
-
-    when(keys.get(eq(NOT_EXISTS_NUMBER), eq(1L))).thenReturn(new LinkedList<>());
+    when(keys.take(eq(existsAccount), eq(1L))).thenReturn(singleDevice);
 
     List<KeyRecord> multiDevice = new LinkedList<>();
     multiDevice.add(SAMPLE_KEY);
     multiDevice.add(SAMPLE_KEY2);
     multiDevice.add(SAMPLE_KEY3);
     multiDevice.add(SAMPLE_KEY4);
-    when(keys.get(EXISTS_NUMBER)).thenReturn(multiDevice);
+    when(keys.take(existsAccount)).thenReturn(multiDevice);
 
-    when(keys.getCount(eq(AuthHelper.VALID_NUMBER), eq(1L))).thenReturn(5);
+    when(keys.getCount(eq(AuthHelper.VALID_ACCOUNT), eq(1L))).thenReturn(5);
 
     when(AuthHelper.VALID_DEVICE.getSignedPreKey()).thenReturn(VALID_DEVICE_SIGNED_KEY);
     when(AuthHelper.VALID_ACCOUNT.getIdentityKey()).thenReturn(null);
@@ -169,7 +167,7 @@ public class KeyControllerTest {
 
     assertThat(result.getCount()).isEqualTo(4);
 
-    verify(keys).getCount(eq(AuthHelper.VALID_NUMBER), eq(1L));
+    verify(keys).getCount(eq(AuthHelper.VALID_ACCOUNT), eq(1L));
   }
 
   @Test
@@ -183,7 +181,7 @@ public class KeyControllerTest {
 
     assertThat(result.getCount()).isEqualTo(4);
 
-    verify(keys).getCount(eq(AuthHelper.VALID_NUMBER), eq(1L));
+    verify(keys).getCount(eq(AuthHelper.VALID_ACCOUNT), eq(1L));
   }
 
 
@@ -283,7 +281,7 @@ public class KeyControllerTest {
     assertThat(result.getDevice(1).getPreKey().getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
     assertThat(result.getDevice(1).getSignedPreKey()).isEqualTo(existsAccount.getDevice(1).get().getSignedPreKey());
 
-    verify(keys).get(eq(EXISTS_NUMBER), eq(1L));
+    verify(keys).take(eq(existsAccount), eq(1L));
     verifyNoMoreInteractions(keys);
   }
 
@@ -301,7 +299,7 @@ public class KeyControllerTest {
     assertThat(result.getDevice(1).getPreKey().getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
     assertThat(result.getDevice(1).getSignedPreKey()).isEqualTo(existsAccount.getDevice(1).get().getSignedPreKey());
 
-    verify(keys).get(eq(EXISTS_NUMBER), eq(1L));
+    verify(keys).take(eq(existsAccount), eq(1L));
     verifyNoMoreInteractions(keys);
   }
 
@@ -320,7 +318,7 @@ public class KeyControllerTest {
     assertThat(result.getDevice(1).getPreKey().getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
     assertThat(result.getDevice(1).getSignedPreKey()).isEqualTo(existsAccount.getDevice(1).get().getSignedPreKey());
 
-    verify(keys).get(eq(EXISTS_NUMBER), eq(1L));
+    verify(keys).take(eq(existsAccount), eq(1L));
     verifyNoMoreInteractions(keys);
   }
 
@@ -338,7 +336,7 @@ public class KeyControllerTest {
     assertThat(result.getDevice(1).getPreKey().getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
     assertThat(result.getDevice(1).getSignedPreKey()).isEqualTo(existsAccount.getDevice(1).get().getSignedPreKey());
 
-    verify(keys).get(eq(EXISTS_NUMBER), eq(1L));
+    verify(keys).take(eq(existsAccount), eq(1L));
     verifyNoMoreInteractions(keys);
   }
 
@@ -414,7 +412,7 @@ public class KeyControllerTest {
     assertThat(signedPreKey).isNull();
     assertThat(deviceId).isEqualTo(4);
 
-    verify(keys).get(eq(EXISTS_NUMBER));
+    verify(keys).take(eq(existsAccount));
     verifyNoMoreInteractions(keys);
   }
 
@@ -464,7 +462,7 @@ public class KeyControllerTest {
     assertThat(signedPreKey).isNull();
     assertThat(deviceId).isEqualTo(4);
 
-    verify(keys).get(eq(EXISTS_NUMBER));
+    verify(keys).take(eq(existsAccount));
     verifyNoMoreInteractions(keys);
   }
 
@@ -533,7 +531,7 @@ public class KeyControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
 
     ArgumentCaptor<List> listCaptor = ArgumentCaptor.forClass(List.class);
-    verify(keys).store(eq(AuthHelper.VALID_NUMBER), eq(1L), listCaptor.capture());
+    verify(keys).store(eq(AuthHelper.VALID_ACCOUNT), eq(1L), listCaptor.capture());
 
     List<PreKey> capturedList = listCaptor.getValue();
     assertThat(capturedList.size()).isEqualTo(1);
@@ -567,7 +565,7 @@ public class KeyControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
 
     ArgumentCaptor<List> listCaptor = ArgumentCaptor.forClass(List.class);
-    verify(keys).store(eq(AuthHelper.DISABLED_NUMBER), eq(1L), listCaptor.capture());
+    verify(keys).store(eq(AuthHelper.DISABLED_ACCOUNT), eq(1L), listCaptor.capture());
 
     List<PreKey> capturedList = listCaptor.getValue();
     assertThat(capturedList.size()).isEqualTo(1);

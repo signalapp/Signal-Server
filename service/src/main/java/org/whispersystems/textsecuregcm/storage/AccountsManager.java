@@ -56,6 +56,7 @@ public class AccountsManager {
   private final DirectoryManager          directory;
   private final DirectoryQueue            directoryQueue;
   private final Keys                      keys;
+  private final KeysDynamoDb              keysDynamoDb;
   private final MessagesManager           messagesManager;
   private final UsernamesManager          usernamesManager;
   private final ProfilesManager           profilesManager;
@@ -73,12 +74,13 @@ public class AccountsManager {
     }
   }
 
-  public AccountsManager(Accounts accounts, DirectoryManager directory, FaultTolerantRedisCluster cacheCluster, final DirectoryQueue directoryQueue, final Keys keys, final MessagesManager messagesManager, final UsernamesManager usernamesManager, final ProfilesManager profilesManager) {
+  public AccountsManager(Accounts accounts, DirectoryManager directory, FaultTolerantRedisCluster cacheCluster, final DirectoryQueue directoryQueue, final Keys keys, final KeysDynamoDb keysDynamoDb, final MessagesManager messagesManager, final UsernamesManager usernamesManager, final ProfilesManager profilesManager) {
     this.accounts         = accounts;
     this.directory        = directory;
     this.cacheCluster     = cacheCluster;
     this.directoryQueue   = directoryQueue;
     this.keys             = keys;
+    this.keysDynamoDb     = keysDynamoDb;
     this.messagesManager  = messagesManager;
     this.usernamesManager = usernamesManager;
     this.profilesManager  = profilesManager;
@@ -150,7 +152,8 @@ public class AccountsManager {
       directoryQueue.deleteAccount(account);
       directory.remove(account.getNumber());
       profilesManager.deleteAll(account.getUuid());
-      keys.delete(account.getNumber());
+      keys.delete(account);
+      keysDynamoDb.delete(account);
       messagesManager.clear(account.getNumber(), account.getUuid());
       redisDelete(account);
       databaseDelete(account);

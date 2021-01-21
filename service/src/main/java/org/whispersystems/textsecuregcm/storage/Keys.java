@@ -27,7 +27,7 @@ import java.util.function.Supplier;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-public class Keys {
+public class Keys implements PreKeyStore {
 
   private final MetricRegistry metricRegistry  = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private final Meter          fallbackMeter   = metricRegistry.meter(name(Keys.class, "fallback"));
@@ -49,7 +49,10 @@ public class Keys {
     this.retry = Retry.of("keys", retryConfiguration.toRetryConfigBuilder().build());
   }
 
-  public void store(String number, long deviceId, List<PreKey> keys) {
+  @Override
+  public void store(Account account, long deviceId, List<PreKey> keys) {
+    final String number = account.getNumber();
+
     retry.executeRunnable(() -> {
       database.use(jdbi -> jdbi.useTransaction(TransactionIsolationLevel.SERIALIZABLE, handle -> {
         try (Timer.Context ignored = storeTimer.time()) {
@@ -74,8 +77,12 @@ public class Keys {
     });
   }
 
-  public List<KeyRecord> get(String number, long deviceId) {
-    /* try {
+  @Override
+  public List<KeyRecord> take(Account account, long deviceId) {
+    /*
+    final String number = account.getNumber();
+
+    try {
       return database.with(jdbi -> jdbi.inTransaction(TransactionIsolationLevel.SERIALIZABLE, handle -> {
         try (Timer.Context ignored = getDevicetTimer.time()) {
           return handle.createQuery("DELETE FROM keys WHERE id IN (SELECT id FROM keys WHERE number = :number AND device_id = :device_id ORDER BY key_id ASC LIMIT 1) RETURNING *")
@@ -95,8 +102,12 @@ public class Keys {
     return new LinkedList<>();
   }
 
-  public List<KeyRecord> get(String number) {
-    /* try {
+  @Override
+  public List<KeyRecord> take(Account account) {
+    /*
+    final String number = account.getNumber();
+
+    try {
       return database.with(jdbi -> jdbi.inTransaction(TransactionIsolationLevel.SERIALIZABLE, handle -> {
         try (Timer.Context ignored = getTimer.time()) {
           return handle.createQuery("DELETE FROM keys WHERE id IN (SELECT DISTINCT ON (number, device_id) id FROM keys WHERE number = :number ORDER BY number, device_id, key_id ASC) RETURNING *")
@@ -115,7 +126,10 @@ public class Keys {
     return new LinkedList<>();
   }
 
-  public int getCount(String number, long deviceId) {
+  @Override
+  public int getCount(Account account, long deviceId) {
+    final String number = account.getNumber();
+
     return database.with(jdbi -> jdbi.withHandle(handle -> {
       try (Timer.Context ignored = getCountTimer.time()) {
         return handle.createQuery("SELECT COUNT(*) FROM keys WHERE number = :number AND device_id = :device_id")
@@ -127,7 +141,9 @@ public class Keys {
     }));
   }
 
-  public void delete(final String number) {
+  public void delete(final Account account) {
+    final String number = account.getNumber();
+
     database.use(jdbi -> jdbi.useHandle(handle -> {
       try (Timer.Context ignored = getCountTimer.time()) {
         handle.createUpdate("DELETE FROM keys WHERE number = :number")

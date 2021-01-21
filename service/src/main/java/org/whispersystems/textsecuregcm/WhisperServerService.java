@@ -126,6 +126,7 @@ import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.FeatureFlags;
 import org.whispersystems.textsecuregcm.storage.FeatureFlagsManager;
 import org.whispersystems.textsecuregcm.storage.Keys;
+import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagePersister;
 import org.whispersystems.textsecuregcm.storage.Messages;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
@@ -275,7 +276,16 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(((int) config.getMessageDynamoDbConfiguration().getClientExecutionTimeout().toMillis()))
                                                               .withRequestTimeout((int) config.getMessageDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
             .withCredentials(InstanceProfileCredentialsProvider.getInstance());
+
+    AmazonDynamoDBClientBuilder keysDynamoDbClientBuilder = AmazonDynamoDBClientBuilder
+            .standard()
+            .withRegion(config.getKeysDynamoDbConfiguration().getRegion())
+            .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(((int) config.getKeysDynamoDbConfiguration().getClientExecutionTimeout().toMillis()))
+                                                              .withRequestTimeout((int) config.getKeysDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
+            .withCredentials(InstanceProfileCredentialsProvider.getInstance());
+
     DynamoDB messageDynamoDb = new DynamoDB(messageDynamoDbClientBuilder.build());
+    DynamoDB preKeyDynamoDb = new DynamoDB(keysDynamoDbClientBuilder.build());
 
     Accounts          accounts          = new Accounts(accountDatabase);
     PendingAccounts   pendingAccounts   = new PendingAccounts(accountDatabase);
@@ -284,6 +294,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ReservedUsernames reservedUsernames = new ReservedUsernames(accountDatabase);
     Profiles          profiles          = new Profiles(accountDatabase);
     Keys              keys              = new Keys(accountDatabase, config.getAccountsDatabaseConfiguration().getKeyOperationRetryConfiguration());
+    KeysDynamoDb      keysDynamoDb      = new KeysDynamoDb(preKeyDynamoDb, config.getKeysDynamoDbConfiguration().getTableName());
     Messages          messages          = new Messages(messageDatabase);
     MessagesDynamoDb  messagesDynamoDb  = new MessagesDynamoDb(messageDynamoDb, config.getMessageDynamoDbConfiguration().getTableName(), config.getMessageDynamoDbConfiguration().getTimeToLive());
     AbusiveHostRules  abusiveHostRules  = new AbusiveHostRules(abuseDatabase);
@@ -338,7 +349,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     MessagesCache              messagesCache              = new MessagesCache(messagesCluster, messagesCluster, keyspaceNotificationDispatchExecutor);
     PushLatencyManager         pushLatencyManager         = new PushLatencyManager(metricsCluster);
     MessagesManager            messagesManager            = new MessagesManager(messages, messagesDynamoDb, messagesCache, pushLatencyManager, experimentEnrollmentManager);
-    AccountsManager            accountsManager            = new AccountsManager(accounts, directory, cacheCluster, directoryQueue, keys, messagesManager, usernamesManager, profilesManager);
+    AccountsManager            accountsManager            = new AccountsManager(accounts, directory, cacheCluster, directoryQueue, keys, keysDynamoDb, messagesManager, usernamesManager, profilesManager);
     RemoteConfigsManager       remoteConfigsManager       = new RemoteConfigsManager(remoteConfigs);
     FeatureFlagsManager        featureFlagsManager        = new FeatureFlagsManager(featureFlags, recurringJobExecutor);
     DeadLetterHandler          deadLetterHandler          = new DeadLetterHandler(accountsManager, messagesManager);

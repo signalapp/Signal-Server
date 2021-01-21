@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import com.amazonaws.services.dynamodbv2.document.BatchWriteItemOutcome;
 import com.amazonaws.services.dynamodbv2.document.DeleteItemOutcome;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.amazonaws.services.dynamodbv2.document.Index;
@@ -17,11 +16,8 @@ import com.amazonaws.services.dynamodbv2.document.api.QueryApi;
 import com.amazonaws.services.dynamodbv2.document.spec.DeleteItemSpec;
 import com.amazonaws.services.dynamodbv2.document.spec.QuerySpec;
 import com.amazonaws.services.dynamodbv2.model.ReturnValue;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 
@@ -33,17 +29,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 
 import static com.codahale.metrics.MetricRegistry.name;
-import static io.micrometer.core.instrument.Metrics.counter;
 import static io.micrometer.core.instrument.Metrics.timer;
 
-public class MessagesDynamoDb {
-  private static final int MAX_ATTEMPTS_TO_SAVE_BATCH_WRITE = 25;  // This was arbitrarily chosen and may be entirely too high.
-  private static final int DYNAMO_DB_MAX_BATCH_SIZE = 25;  // This limit comes from Amazon Dynamo DB itself. It will reject batch writes larger than this.
-  public static final int RESULT_SET_CHUNK_SIZE = 100;
+public class MessagesDynamoDb extends AbstractDynamoDbStore {
 
   private static final String KEY_PARTITION = "H";
   private static final String KEY_SORT = "S";
@@ -60,10 +50,6 @@ public class MessagesDynamoDb {
   private static final String KEY_CONTENT = "C";
   private static final String KEY_TTL = "E";
 
-  private final Logger logger = LoggerFactory.getLogger(getClass());
-  private final Timer batchWriteItemsFirstPass = timer(name(getClass(), "batchWriteItems"), "firstAttempt", "true");
-  private final Timer batchWriteItemsRetryPass = timer(name(getClass(), "batchWriteItems"), "firstAttempt", "false");
-  private final Counter batchWriteItemsUnprocessed = counter(name(getClass(), "batchWriteItemsUnprocessed"));
   private final Timer storeTimer = timer(name(getClass(), "store"));
   private final Timer loadTimer = timer(name(getClass(), "load"));
   private final Timer deleteBySourceAndTimestamp = timer(name(getClass(), "delete", "sourceAndTimestamp"));
@@ -71,18 +57,18 @@ public class MessagesDynamoDb {
   private final Timer deleteByAccount = timer(name(getClass(), "delete", "account"));
   private final Timer deleteByDevice = timer(name(getClass(), "delete", "device"));
 
-  private final DynamoDB dynamoDb;
   private final String tableName;
   private final Duration timeToLive;
 
   public MessagesDynamoDb(DynamoDB dynamoDb, String tableName, Duration timeToLive) {
-    this.dynamoDb = dynamoDb;
+    super(dynamoDb);
+
     this.tableName = tableName;
     this.timeToLive = timeToLive;
   }
 
   public void store(final List<MessageProtos.Envelope> messages, final UUID destinationAccountUuid, final long destinationDeviceId) {
-    storeTimer.record(() -> doInBatches(messages, (messageBatch) -> storeBatch(messageBatch, destinationAccountUuid, destinationDeviceId), DYNAMO_DB_MAX_BATCH_SIZE));
+    storeTimer.record(() -> writeInBatches(messages, (messageBatch) -> storeBatch(messageBatch, destinationAccountUuid, destinationDeviceId)));
   }
 
   private void storeBatch(final List<MessageProtos.Envelope> messages, final UUID destinationAccountUuid, final long destinationDeviceId) {
@@ -135,7 +121,7 @@ public class MessagesDynamoDb {
                                                  .withValueMap(Map.of(":part", partitionKey,
                                                                       ":sortprefix", convertDestinationDeviceIdToSortKeyPrefix(destinationDeviceId)))
                                                  .withMaxResultSize(numberOfMessagesToFetch);
-      final Table table = dynamoDb.getTable(tableName);
+      final Table table = getDynamoDb().getTable(tableName);
       List<OutgoingMessageEntity> messageEntities = new ArrayList<>(numberOfMessagesToFetch);
       for (Item message : table.query(querySpec)) {
         messageEntities.add(convertItemToOutgoingMessageEntity(message));
@@ -164,7 +150,7 @@ public class MessagesDynamoDb {
                                                                       ":source", source,
                                                                       ":timestamp", timestamp));
 
-      final Table table = dynamoDb.getTable(tableName);
+      final Table table = getDynamoDb().getTable(tableName);
       return deleteItemsMatchingQueryAndReturnFirstOneActuallyDeleted(table, partitionKey, querySpec, table);
     });
   }
@@ -179,7 +165,7 @@ public class MessagesDynamoDb {
                                                                      "#uuid", LOCAL_INDEX_MESSAGE_UUID_KEY_SORT))
                                                  .withValueMap(Map.of(":part", partitionKey,
                                                                       ":uuid", convertLocalIndexMessageUuidSortKey(messageUuid)));
-      final Table table = dynamoDb.getTable(tableName);
+      final Table table = getDynamoDb().getTable(tableName);
       final Index index = table.getIndex(LOCAL_INDEX_MESSAGE_UUID_NAME);
       return deleteItemsMatchingQueryAndReturnFirstOneActuallyDeleted(table, partitionKey, querySpec, index);
     });
@@ -241,60 +227,22 @@ public class MessagesDynamoDb {
   }
 
   private void deleteRowsMatchingQuery(byte[] partitionKey, QuerySpec querySpec) {
-    final Table table = dynamoDb.getTable(tableName);
-    doInBatches(table.query(querySpec), (itemBatch) -> deleteItems(partitionKey, itemBatch), DYNAMO_DB_MAX_BATCH_SIZE);
+    final Table table = getDynamoDb().getTable(tableName);
+    writeInBatches(table.query(querySpec), (itemBatch) -> deleteItems(partitionKey, itemBatch));
   }
 
   private void deleteItems(byte[] partitionKey, List<Item> items) {
     final TableWriteItems tableWriteItems = new TableWriteItems(tableName);
-    items.stream().map((x) -> new PrimaryKey(KEY_PARTITION, partitionKey, KEY_SORT, x.getBinary(KEY_SORT))).forEach(tableWriteItems::addPrimaryKeyToDelete);
+    items.stream().map(item -> new PrimaryKey(KEY_PARTITION, partitionKey, KEY_SORT, item.getBinary(KEY_SORT))).forEach(tableWriteItems::addPrimaryKeyToDelete);
     executeTableWriteItemsUntilComplete(tableWriteItems);
-  }
-
-  private void executeTableWriteItemsUntilComplete(TableWriteItems items) {
-    AtomicReference<BatchWriteItemOutcome> outcome = new AtomicReference<>();
-    batchWriteItemsFirstPass.record(() -> {
-      outcome.set(dynamoDb.batchWriteItem(items));
-    });
-    int attemptCount = 0;
-    while (!outcome.get().getUnprocessedItems().isEmpty() && attemptCount < MAX_ATTEMPTS_TO_SAVE_BATCH_WRITE) {
-      batchWriteItemsRetryPass.record(() -> {
-        outcome.set(dynamoDb.batchWriteItemUnprocessed(outcome.get().getUnprocessedItems()));
-      });
-      ++attemptCount;
-    }
-    if (!outcome.get().getUnprocessedItems().isEmpty()) {
-      logger.error("Attempt count ({}) reached max ({}}) before applying all batch writes to dynamo. {} unprocessed items remain.", attemptCount, MAX_ATTEMPTS_TO_SAVE_BATCH_WRITE, outcome.get().getUnprocessedItems().size());
-      batchWriteItemsUnprocessed.increment(outcome.get().getUnprocessedItems().size());
-    }
   }
 
   private long getTtlForMessage(MessageProtos.Envelope message) {
     return message.getServerTimestamp() / 1000 + timeToLive.getSeconds();
   }
 
-  private static <T> void doInBatches(final Iterable<T> items, final Consumer<List<T>> action, final int batchSize) {
-    List<T> batch = new ArrayList<>(batchSize);
-
-    for (T item : items) {
-      batch.add(item);
-
-      if (batch.size() == batchSize) {
-        action.accept(batch);
-        batch.clear();
-      }
-    }
-    if (!batch.isEmpty()) {
-      action.accept(batch);
-    }
-  }
-
   private static byte[] convertPartitionKey(final UUID destinationAccountUuid) {
     return convertUuidToBytes(destinationAccountUuid);
-  }
-
-  private static UUID convertPartitionKey(final byte[] bytes) {
-    return convertUuidFromBytes(bytes, "partition key");
   }
 
   private static byte[] convertSortKey(final long destinationDeviceId, final long serverTimestamp, final UUID messageUuid) {

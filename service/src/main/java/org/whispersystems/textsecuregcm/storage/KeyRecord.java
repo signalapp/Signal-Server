@@ -5,6 +5,8 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import java.util.Objects;
+
 public class KeyRecord {
 
   private long    id;
@@ -41,4 +43,20 @@ public class KeyRecord {
     return publicKey;
   }
 
+  @Override
+  public boolean equals(final Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    final KeyRecord keyRecord = (KeyRecord)o;
+    return id == keyRecord.id &&
+            deviceId == keyRecord.deviceId &&
+            keyId == keyRecord.keyId &&
+            Objects.equals(number, keyRecord.number) &&
+            Objects.equals(publicKey, keyRecord.publicKey);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(id, number, deviceId, keyId, publicKey);
+  }
 }
