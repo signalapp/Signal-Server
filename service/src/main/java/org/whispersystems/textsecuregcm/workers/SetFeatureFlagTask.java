@@ -34,7 +34,7 @@ public class SetFeatureFlagTask extends AbstractFeatureFlagTask {
             out.println();
             printFeatureFlags(out);
         } else {
-            out.println("Usage: set-feature-flag?flag=FLAG_NAME&value=[true|false]");
+            out.println("Usage: set-feature-flag?flag=FLAG_NAME&active=[true|false]");
         }
     }
 }
