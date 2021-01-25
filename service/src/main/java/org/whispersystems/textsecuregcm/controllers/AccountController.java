@@ -85,6 +85,7 @@ public class AccountController {
   private final Meter          filteredHostMeter      = metricRegistry.meter(name(AccountController.class, "filtered_host"      ));
   private final Meter          rateLimitedHostMeter   = metricRegistry.meter(name(AccountController.class, "rate_limited_host"  ));
   private final Meter          rateLimitedPrefixMeter = metricRegistry.meter(name(AccountController.class, "rate_limited_prefix"));
+  private final Meter          captchaRequiredMeter   = metricRegistry.meter(name(AccountController.class, "captcha_required"   ));
   private final Meter          captchaSuccessMeter    = metricRegistry.meter(name(AccountController.class, "captcha_success"    ));
   private final Meter          captchaFailureMeter    = metricRegistry.meter(name(AccountController.class, "captcha_failure"    ));
 
@@ -199,6 +200,8 @@ public class AccountController {
     CaptchaRequirement               requirement     = requiresCaptcha(number, transport, forwardedFor, requester, captcha, storedChallenge, pushChallenge);
 
     if (requirement.isCaptchaRequired()) {
+      captchaRequiredMeter.mark();
+
       if (requirement.isAutoBlock() && shouldAutoBlock(requester)) {
         logger.info("Auto-block: " + requester);
         abusiveHostRules.setBlockedHost(requester, "Auto-Block");
