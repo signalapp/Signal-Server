@@ -275,7 +275,7 @@ public class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(200);
 
     verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.empty()), anyString());
-//    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
+    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
   }
 
   @Test
@@ -291,24 +291,24 @@ public class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(200);
 
     verify(smsSender).deliverSmsVerification(eq(SENDER_PREAUTH), eq(Optional.empty()), anyString());
-//    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
+    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
   }
 
-//  @Test
-//  public void testSendCodeWithInvalidPreauth() throws Exception {
-//    Response response =
-//        resources.getJerseyTest()
-//                 .target(String.format("/v1/accounts/sms/code/%s", SENDER_PREAUTH))
-//                 .queryParam("challenge", "invalidchallenge")
-//                 .request()
-//                 .header("X-Forwarded-For", NICE_HOST)
-//                 .get();
-//
-//    assertThat(response.getStatus()).isEqualTo(402);
-//
-//    verifyNoMoreInteractions(smsSender);
-//    verifyNoMoreInteractions(abusiveHostRules);
-//  }
+  @Test
+  public void testSendCodeWithInvalidPreauth() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER_PREAUTH))
+                 .queryParam("challenge", "invalidchallenge")
+                 .request()
+                 .header("X-Forwarded-For", NICE_HOST)
+                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(402);
+
+    verifyNoMoreInteractions(smsSender);
+    verifyNoMoreInteractions(abusiveHostRules);
+  }
 
   @Test
   public void testSendCodeWithNoPreauth() throws Exception {
@@ -322,7 +322,7 @@ public class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(200);
 
     verify(smsSender).deliverSmsVerification(eq(SENDER_PREAUTH), eq(Optional.empty()), anyString());
-//    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
+    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
   }
 
 
@@ -356,144 +356,144 @@ public class AccountControllerTest {
     verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.of("android-ng")), anyString());
   }
 
-//  @Test
-//  public void testSendAbusiveHost() {
-//    Response response =
-//        resources.getJerseyTest()
-//                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
-//                 .request()
-//                 .header("X-Forwarded-For", ABUSIVE_HOST)
-//                 .get();
-//
-//    assertThat(response.getStatus()).isEqualTo(402);
-//
-//    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(ABUSIVE_HOST));
-//    verifyNoMoreInteractions(smsSender);
-//  }
+  @Test
+  public void testSendAbusiveHost() {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .request()
+                 .header("X-Forwarded-For", ABUSIVE_HOST)
+                 .get();
 
-//  @Test
-//  public void testSendAbusiveHostWithValidCaptcha() throws IOException {
-//    Response response =
-//        resources.getJerseyTest()
-//                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
-//                 .queryParam("captcha", VALID_CAPTCHA_TOKEN)
-//                 .request()
-//                 .header("X-Forwarded-For", ABUSIVE_HOST)
-//                 .get();
-//
-//    assertThat(response.getStatus()).isEqualTo(200);
-//
-//    verifyNoMoreInteractions(abusiveHostRules);
-//    verify(recaptchaClient).verify(eq(VALID_CAPTCHA_TOKEN), eq(ABUSIVE_HOST));
-//    verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.empty()), anyString());
-//  }
+    assertThat(response.getStatus()).isEqualTo(402);
 
-//  @Test
-//  public void testSendAbusiveHostWithInvalidCaptcha() {
-//    Response response =
-//        resources.getJerseyTest()
-//                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
-//                 .queryParam("captcha", INVALID_CAPTCHA_TOKEN)
-//                 .request()
-//                 .header("X-Forwarded-For", ABUSIVE_HOST)
-//                 .get();
-//
-//    assertThat(response.getStatus()).isEqualTo(402);
-//
-//    verifyNoMoreInteractions(abusiveHostRules);
-//    verify(recaptchaClient).verify(eq(INVALID_CAPTCHA_TOKEN), eq(ABUSIVE_HOST));
-//    verifyNoMoreInteractions(smsSender);
-//  }
+    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(ABUSIVE_HOST));
+    verifyNoMoreInteractions(smsSender);
+  }
 
-//  @Test
-//  public void testSendRateLimitedHostAutoBlock() {
-//    Response response =
-//        resources.getJerseyTest()
-//                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
-//                 .request()
-//                 .header("X-Forwarded-For", RATE_LIMITED_IP_HOST)
-//                 .get();
-//
-//    assertThat(response.getStatus()).isEqualTo(402);
-//
-//    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(RATE_LIMITED_IP_HOST));
-//    verify(abusiveHostRules).setBlockedHost(eq(RATE_LIMITED_IP_HOST), eq("Auto-Block"));
-//    verifyNoMoreInteractions(abusiveHostRules);
-//
-//    verifyNoMoreInteractions(recaptchaClient);
-//    verifyNoMoreInteractions(smsSender);
-//  }
+  @Test
+  public void testSendAbusiveHostWithValidCaptcha() throws IOException {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .queryParam("captcha", VALID_CAPTCHA_TOKEN)
+                 .request()
+                 .header("X-Forwarded-For", ABUSIVE_HOST)
+                 .get();
 
-//  @Test
-//  public void testSendRateLimitedPrefixAutoBlock() {
-//    Response response =
-//        resources.getJerseyTest()
-//                 .target(String.format("/v1/accounts/sms/code/%s", SENDER_OVER_PREFIX))
-//                 .request()
-//                 .header("X-Forwarded-For", RATE_LIMITED_PREFIX_HOST)
-//                 .get();
-//
-//    assertThat(response.getStatus()).isEqualTo(402);
-//
-//    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(RATE_LIMITED_PREFIX_HOST));
-//    verify(abusiveHostRules).setBlockedHost(eq(RATE_LIMITED_PREFIX_HOST), eq("Auto-Block"));
-//    verifyNoMoreInteractions(abusiveHostRules);
-//
-//    verifyNoMoreInteractions(recaptchaClient);
-//    verifyNoMoreInteractions(smsSender);
-//  }
+    assertThat(response.getStatus()).isEqualTo(200);
 
-//  @Test
-//  public void testSendRateLimitedHostNoAutoBlock() {
-//    Response response =
-//        resources.getJerseyTest()
-//                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
-//                 .request()
-//                 .header("X-Forwarded-For", RATE_LIMITED_HOST2)
-//                 .get();
-//
-//    assertThat(response.getStatus()).isEqualTo(402);
-//
-//    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(RATE_LIMITED_HOST2));
-//    verifyNoMoreInteractions(abusiveHostRules);
-//
-//    verifyNoMoreInteractions(recaptchaClient);
-//    verifyNoMoreInteractions(smsSender);
-//  }
+    verifyNoMoreInteractions(abusiveHostRules);
+    verify(recaptchaClient).verify(eq(VALID_CAPTCHA_TOKEN), eq(ABUSIVE_HOST));
+    verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.empty()), anyString());
+  }
 
+  @Test
+  public void testSendAbusiveHostWithInvalidCaptcha() {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .queryParam("captcha", INVALID_CAPTCHA_TOKEN)
+                 .request()
+                 .header("X-Forwarded-For", ABUSIVE_HOST)
+                 .get();
 
-//  @Test
-//  public void testSendMultipleHost() {
-//    Response response =
-//        resources.getJerseyTest()
-//                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
-//                 .request()
-//                 .header("X-Forwarded-For", NICE_HOST + ", " + ABUSIVE_HOST)
-//                 .get();
-//
-//    assertThat(response.getStatus()).isEqualTo(402);
-//
-//    verify(abusiveHostRules, times(1)).getAbusiveHostRulesFor(eq(ABUSIVE_HOST));
-//
-//    verifyNoMoreInteractions(abusiveHostRules);
-//    verifyNoMoreInteractions(smsSender);
-//  }
+    assertThat(response.getStatus()).isEqualTo(402);
+
+    verifyNoMoreInteractions(abusiveHostRules);
+    verify(recaptchaClient).verify(eq(INVALID_CAPTCHA_TOKEN), eq(ABUSIVE_HOST));
+    verifyNoMoreInteractions(smsSender);
+  }
+
+  @Test
+  public void testSendRateLimitedHostAutoBlock() {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .request()
+                 .header("X-Forwarded-For", RATE_LIMITED_IP_HOST)
+                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(402);
+
+    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(RATE_LIMITED_IP_HOST));
+    verify(abusiveHostRules).setBlockedHost(eq(RATE_LIMITED_IP_HOST), eq("Auto-Block"));
+    verifyNoMoreInteractions(abusiveHostRules);
+
+    verifyNoMoreInteractions(recaptchaClient);
+    verifyNoMoreInteractions(smsSender);
+  }
+
+  @Test
+  public void testSendRateLimitedPrefixAutoBlock() {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER_OVER_PREFIX))
+                 .request()
+                 .header("X-Forwarded-For", RATE_LIMITED_PREFIX_HOST)
+                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(402);
+
+    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(RATE_LIMITED_PREFIX_HOST));
+    verify(abusiveHostRules).setBlockedHost(eq(RATE_LIMITED_PREFIX_HOST), eq("Auto-Block"));
+    verifyNoMoreInteractions(abusiveHostRules);
+
+    verifyNoMoreInteractions(recaptchaClient);
+    verifyNoMoreInteractions(smsSender);
+  }
+
+  @Test
+  public void testSendRateLimitedHostNoAutoBlock() {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .request()
+                 .header("X-Forwarded-For", RATE_LIMITED_HOST2)
+                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(402);
+
+    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(RATE_LIMITED_HOST2));
+    verifyNoMoreInteractions(abusiveHostRules);
+
+    verifyNoMoreInteractions(recaptchaClient);
+    verifyNoMoreInteractions(smsSender);
+  }
 
 
-//  @Test
-//  public void testSendRestrictedHostOut() {
-//    Response response =
-//        resources.getJerseyTest()
-//                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
-//                 .request()
-//                 .header("X-Forwarded-For", RESTRICTED_HOST)
-//                 .get();
-//
-//    assertThat(response.getStatus()).isEqualTo(402);
-//
-//    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(RESTRICTED_HOST));
-//    verifyNoMoreInteractions(smsSender);
-//  }
+  @Test
+  public void testSendMultipleHost() {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .request()
+                 .header("X-Forwarded-For", NICE_HOST + ", " + ABUSIVE_HOST)
+                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(402);
+
+    verify(abusiveHostRules, times(1)).getAbusiveHostRulesFor(eq(ABUSIVE_HOST));
+
+    verifyNoMoreInteractions(abusiveHostRules);
+    verifyNoMoreInteractions(smsSender);
+  }
+
+
+  @Test
+  public void testSendRestrictedHostOut() {
+    Response response =
+        resources.getJerseyTest()
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .request()
+                 .header("X-Forwarded-For", RESTRICTED_HOST)
+                 .get();
+
+    assertThat(response.getStatus()).isEqualTo(402);
+
+    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(RESTRICTED_HOST));
+    verifyNoMoreInteractions(smsSender);
+  }
 
   @Test
   public void testSendRestrictedIn() throws Exception {

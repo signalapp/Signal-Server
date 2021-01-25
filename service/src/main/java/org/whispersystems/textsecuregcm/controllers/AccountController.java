@@ -540,62 +540,61 @@ public class AccountController {
                                              Optional<String>                 pushChallenge)
   {
 
+    if (captchaToken.isPresent()) {
+      boolean validToken = recaptchaClient.verify(captchaToken.get(), requester);
+
+      if (validToken) {
+        captchaSuccessMeter.mark();
+        return new CaptchaRequirement(false, false);
+      } else {
+        captchaFailureMeter.mark();
+        return new CaptchaRequirement(true, false);
+      }
+    }
+
+    if (pushChallenge.isPresent()) {
+      Optional<String> storedPushChallenge = storedVerificationCode.map(StoredVerificationCode::getPushCode);
+
+      if (!pushChallenge.get().equals(storedPushChallenge.orElse(null))) {
+        return new CaptchaRequirement(true, false);
+      }
+    }
+
+    List<AbusiveHostRule> abuseRules = abusiveHostRules.getAbusiveHostRulesFor(requester);
+
+    for (AbusiveHostRule abuseRule : abuseRules) {
+      if (abuseRule.isBlocked()) {
+        logger.info("Blocked host: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
+        blockedHostMeter.mark();
+        return new CaptchaRequirement(true, false);
+      }
+
+      if (!abuseRule.getRegions().isEmpty()) {
+        if (abuseRule.getRegions().stream().noneMatch(number::startsWith)) {
+          logger.info("Restricted host: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
+          filteredHostMeter.mark();
+          return new CaptchaRequirement(true, false);
+        }
+      }
+    }
+
+    try {
+      rateLimiters.getSmsVoiceIpLimiter().validate(requester);
+    } catch (RateLimitExceededException e) {
+      logger.info("Rate limited exceeded: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
+      rateLimitedHostMeter.mark();
+      return new CaptchaRequirement(true, true);
+    }
+
+    try {
+      rateLimiters.getSmsVoicePrefixLimiter().validate(Util.getNumberPrefix(number));
+    } catch (RateLimitExceededException e) {
+      logger.info("Prefix rate limit exceeded: " + transport + ", " + number + ", (" + forwardedFor + ")");
+      rateLimitedPrefixMeter.mark();
+      return new CaptchaRequirement(true, true);
+    }
+
     return new CaptchaRequirement(false, false);
-//    if (captchaToken.isPresent()) {
-//      boolean validToken = recaptchaClient.verify(captchaToken.get(), requester);
-//
-//      if (validToken) {
-//        captchaSuccessMeter.mark();
-//        return new CaptchaRequirement(false, false);
-//      } else {
-//        captchaFailureMeter.mark();
-//        return new CaptchaRequirement(true, false);
-//      }
-//    }
-//
-//    if (pushChallenge.isPresent()) {
-//      Optional<String> storedPushChallenge = storedVerificationCode.map(StoredVerificationCode::getPushCode);
-//
-//      if (!pushChallenge.get().equals(storedPushChallenge.orElse(null))) {
-//        return new CaptchaRequirement(true, false);
-//      }
-//    }
-//
-//    List<AbusiveHostRule> abuseRules = abusiveHostRules.getAbusiveHostRulesFor(requester);
-//
-//    for (AbusiveHostRule abuseRule : abuseRules) {
-//      if (abuseRule.isBlocked()) {
-//        logger.info("Blocked host: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
-//        blockedHostMeter.mark();
-//        return new CaptchaRequirement(true, false);
-//      }
-//
-//      if (!abuseRule.getRegions().isEmpty()) {
-//        if (abuseRule.getRegions().stream().noneMatch(number::startsWith)) {
-//          logger.info("Restricted host: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
-//          filteredHostMeter.mark();
-//          return new CaptchaRequirement(true, false);
-//        }
-//      }
-//    }
-//
-//    try {
-//      rateLimiters.getSmsVoiceIpLimiter().validate(requester);
-//    } catch (RateLimitExceededException e) {
-//      logger.info("Rate limited exceeded: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
-//      rateLimitedHostMeter.mark();
-//      return new CaptchaRequirement(true, true);
-//    }
-//
-//    try {
-//      rateLimiters.getSmsVoicePrefixLimiter().validate(Util.getNumberPrefix(number));
-//    } catch (RateLimitExceededException e) {
-//      logger.info("Prefix rate limit exceeded: " + transport + ", " + number + ", (" + forwardedFor + ")");
-//      rateLimitedPrefixMeter.mark();
-//      return new CaptchaRequirement(true, true);
-//    }
-//
-//    return new CaptchaRequirement(false, false);
   }
 
   @Timed
