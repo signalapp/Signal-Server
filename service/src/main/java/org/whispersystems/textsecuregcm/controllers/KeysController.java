@@ -6,8 +6,6 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
@@ -18,6 +16,7 @@ import org.whispersystems.textsecuregcm.entities.PreKeyResponse;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponseItem;
 import org.whispersystems.textsecuregcm.entities.PreKeyState;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -25,6 +24,8 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.KeyRecord;
 import org.whispersystems.textsecuregcm.storage.Keys;
+import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
+import org.whispersystems.textsecuregcm.storage.PreKeyStore;
 
 import javax.validation.Valid;
 import javax.ws.rs.Consumes;
@@ -45,24 +46,29 @@ import java.util.Optional;
 @Path("/v2/keys")
 public class KeysController {
 
-  private static final Logger logger = LoggerFactory.getLogger(KeysController.class);
+  private final RateLimiters                rateLimiters;
+  private final Keys                        keys;
+  private final KeysDynamoDb                keysDynamoDb;
+  private final AccountsManager             accounts;
+  private final DirectoryQueue              directoryQueue;
+  private final ExperimentEnrollmentManager experimentEnrollmentManager;
 
-  private final RateLimiters    rateLimiters;
-  private final Keys            keys;
-  private final AccountsManager accounts;
-  private final DirectoryQueue  directoryQueue;
+  private static final String DYNAMODB_CONSUMER_EXPERIMENT = "keys_dynamodb_consumer";
+  private static final String DYNAMODB_PRODUCER_EXPERIMENT = "keys_dynamodb_producer";
 
-  public KeysController(RateLimiters rateLimiters, Keys keys, AccountsManager accounts, DirectoryQueue directoryQueue) {
-    this.rateLimiters   = rateLimiters;
-    this.keys           = keys;
-    this.accounts       = accounts;
-    this.directoryQueue = directoryQueue;
+  public KeysController(RateLimiters rateLimiters, Keys keys, KeysDynamoDb keysDynamoDb, AccountsManager accounts, DirectoryQueue directoryQueue, final ExperimentEnrollmentManager experimentEnrollmentManager) {
+    this.rateLimiters                = rateLimiters;
+    this.keys                        = keys;
+    this.keysDynamoDb                = keysDynamoDb;
+    this.accounts                    = accounts;
+    this.directoryQueue              = directoryQueue;
+    this.experimentEnrollmentManager = experimentEnrollmentManager;
   }
 
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   public PreKeyCount getStatus(@Auth Account account) {
-    int count = keys.getCount(account, account.getAuthenticatedDevice().get().getId());
+    int count = getPreKeyStoreForProducer(account).getCount(account, account.getAuthenticatedDevice().get().getId());
 
     if (count > 0) {
       count = count - 1;
@@ -98,7 +104,7 @@ public class KeysController {
       }
     }
 
-    keys.store(account, device.getId(), preKeys.getPreKeys());
+    getPreKeyStoreForProducer(account).store(account, device.getId(), preKeys.getPreKeys());
   }
 
   @Timed
@@ -179,14 +185,22 @@ public class KeysController {
   private List<KeyRecord> getLocalKeys(Account destination, String deviceIdSelector) {
     try {
       if (deviceIdSelector.equals("*")) {
-        return keys.take(destination);
+        return getPreKeyStoreForConsumer(destination).take(destination);
       }
 
       long deviceId = Long.parseLong(deviceIdSelector);
 
-      return keys.take(destination, deviceId);
+      return getPreKeyStoreForConsumer(destination).take(destination, deviceId);
     } catch (NumberFormatException e) {
       throw new WebApplicationException(Response.status(422).build());
     }
+  }
+
+  private PreKeyStore getPreKeyStoreForProducer(final Account account) {
+    return experimentEnrollmentManager.isEnrolled(account.getUuid(), DYNAMODB_PRODUCER_EXPERIMENT) ? keysDynamoDb : keys;
+  }
+
+  private PreKeyStore getPreKeyStoreForConsumer(final Account account) {
+    return experimentEnrollmentManager.isEnrolled(account.getUuid(), DYNAMODB_CONSUMER_EXPERIMENT) ? keysDynamoDb : keys;
   }
 }
