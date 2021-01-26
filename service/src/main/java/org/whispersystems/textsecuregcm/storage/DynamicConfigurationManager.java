@@ -31,7 +31,6 @@ public class DynamicConfigurationManager implements Managed {
   private final String          clientId;
   private final AmazonAppConfig appConfigClient;
 
-  private final ObjectMapper                            mapper           = new ObjectMapper(new YAMLFactory()).configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
   private final AtomicReference<DynamicConfiguration>   configuration    = new AtomicReference<>();
   private final AtomicBoolean                           running          = new AtomicBoolean(true);
   private final Logger                                  logger           = LoggerFactory.getLogger(DynamicConfigurationManager.class);
@@ -39,6 +38,8 @@ public class DynamicConfigurationManager implements Managed {
   private GetConfigurationResult lastConfigResult;
 
   private boolean initialized = false;
+
+  public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper(new YAMLFactory()).configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
   public DynamicConfigurationManager(String application, String environment, String configurationName) {
     this(AmazonAppConfigClient.builder()
@@ -104,7 +105,7 @@ public class DynamicConfigurationManager implements Managed {
 
     if (!StringUtils.equals(lastConfigResult.getConfigurationVersion(), previousVersion)) {
       logger.info("Received new config version: {}", lastConfigResult.getConfigurationVersion());
-      maybeDynamicConfiguration = Optional.of(mapper.readValue(StandardCharsets.UTF_8.decode(lastConfigResult.getContent().asReadOnlyBuffer()).toString(), DynamicConfiguration.class));
+      maybeDynamicConfiguration = Optional.of(OBJECT_MAPPER.readValue(StandardCharsets.UTF_8.decode(lastConfigResult.getContent().asReadOnlyBuffer()).toString(), DynamicConfiguration.class));
     } else {
       // No change since last version
       maybeDynamicConfiguration = Optional.empty();
