@@ -50,6 +50,8 @@ public class ProfilesTest {
     assertThat(retrieved.get().getName()).isEqualTo(profile.getName());
     assertThat(retrieved.get().getAvatar()).isEqualTo(profile.getAvatar());
     assertThat(retrieved.get().getCommitment()).isEqualTo(profile.getCommitment());
+    assertThat(retrieved.get().getAbout()).isEqualTo(profile.getAbout());
+    assertThat(retrieved.get().getAboutEmoji()).isEqualTo(profile.getAboutEmoji());
   }
 
   @Test
@@ -64,6 +66,8 @@ public class ProfilesTest {
     assertThat(retrieved.get().getName()).isEqualTo(profile.getName());
     assertThat(retrieved.get().getAvatar()).isEqualTo(profile.getAvatar());
     assertThat(retrieved.get().getCommitment()).isEqualTo(profile.getCommitment());
+    assertThat(retrieved.get().getAbout()).isEqualTo(profile.getAbout());
+    assertThat(retrieved.get().getAboutEmoji()).isEqualTo(profile.getAboutEmoji());
   }
 
   @Test
@@ -78,6 +82,8 @@ public class ProfilesTest {
     assertThat(retrieved.get().getName()).isEqualTo(profile.getName());
     assertThat(retrieved.get().getAvatar()).isEqualTo(profile.getAvatar());
     assertThat(retrieved.get().getCommitment()).isEqualTo(profile.getCommitment());
+    assertThat(retrieved.get().getAbout()).isNull();
+    assertThat(retrieved.get().getAboutEmoji()).isNull();
 
     VersionedProfile updated = new VersionedProfile("123", "bar", "baz", "emoji", "bio", "boof".getBytes());
     profiles.set(uuid, updated);
@@ -86,8 +92,12 @@ public class ProfilesTest {
 
     assertThat(retrieved.isPresent()).isTrue();
     assertThat(retrieved.get().getName()).isEqualTo(updated.getName());
-    assertThat(retrieved.get().getAvatar()).isEqualTo(updated.getAvatar());
     assertThat(retrieved.get().getCommitment()).isEqualTo(profile.getCommitment());
+    assertThat(retrieved.get().getAbout()).isEqualTo(updated.getAbout());
+    assertThat(retrieved.get().getAboutEmoji()).isEqualTo(updated.getAboutEmoji());
+
+    // Commitment should be unchanged after an overwrite
+    assertThat(retrieved.get().getAvatar()).isEqualTo(updated.getAvatar());
   }
 
   @Test
@@ -105,6 +115,8 @@ public class ProfilesTest {
     assertThat(retrieved.get().getName()).isEqualTo(profileOne.getName());
     assertThat(retrieved.get().getAvatar()).isEqualTo(profileOne.getAvatar());
     assertThat(retrieved.get().getCommitment()).isEqualTo(profileOne.getCommitment());
+    assertThat(retrieved.get().getAbout()).isEqualTo(profileOne.getAbout());
+    assertThat(retrieved.get().getAboutEmoji()).isEqualTo(profileOne.getAboutEmoji());
 
     retrieved = profiles.get(uuid, "345");
 
@@ -112,6 +124,8 @@ public class ProfilesTest {
     assertThat(retrieved.get().getName()).isEqualTo(profileTwo.getName());
     assertThat(retrieved.get().getAvatar()).isEqualTo(profileTwo.getAvatar());
     assertThat(retrieved.get().getCommitment()).isEqualTo(profileTwo.getCommitment());
+    assertThat(retrieved.get().getAbout()).isEqualTo(profileTwo.getAbout());
+    assertThat(retrieved.get().getAboutEmoji()).isEqualTo(profileTwo.getAboutEmoji());
   }
 
   @Test
