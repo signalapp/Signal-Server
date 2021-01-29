@@ -60,13 +60,13 @@ public class Curve {
       throw new InvalidKeyException("Public and private keys must be of the same type!");
     }
 
-    if (publicKey.getType() == DJB_TYPE) {
-      return Curve25519.getInstance(BEST)
-                       .calculateAgreement(((DjbECPublicKey) publicKey).getPublicKey(),
-                                           ((DjbECPrivateKey) privateKey).getPrivateKey());
-    } else {
+    if (publicKey.getType() != DJB_TYPE) {
       throw new InvalidKeyException("Unknown type: " + publicKey.getType());
     }
+
+    return Curve25519.getInstance(BEST)
+            .calculateAgreement(((DjbECPublicKey) publicKey).getPublicKey(),
+                    ((DjbECPrivateKey) privateKey).getPrivateKey());
   }
 
   public static byte[] calculateSignature(ECPrivateKey signingKey, byte[] message)
@@ -76,12 +76,12 @@ public class Curve {
       throw new InvalidKeyException("Values must not be null");
     }
 
-    if (signingKey.getType() == DJB_TYPE) {
-      return Curve25519.getInstance(BEST)
-                       .calculateSignature(((DjbECPrivateKey) signingKey).getPrivateKey(), message);
-    } else {
+    if (signingKey.getType() != DJB_TYPE) {
       throw new InvalidKeyException("Unknown type: " + signingKey.getType());
     }
+
+    return Curve25519.getInstance(BEST)
+            .calculateSignature(((DjbECPrivateKey) signingKey).getPrivateKey(), message);
   }
 
   public static boolean verifySignature(ECPublicKey signingKey, byte[] message, byte[] signature)
