@@ -140,15 +140,12 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
 
   private List<Account> readChunk(Optional<UUID> fromUuid, int chunkSize) {
     try (Timer.Context timer = readChunkTimer.time()) {
-      List<Account> chunkAccounts;
 
       if (fromUuid.isPresent()) {
-        chunkAccounts = accounts.getAllFrom(fromUuid.get(), chunkSize);
-      } else {
-        chunkAccounts = accounts.getAllFrom(chunkSize);
+        return accounts.getAllFrom(fromUuid.get(), chunkSize);
       }
 
-      return chunkAccounts;
+      return accounts.getAllFrom(chunkSize);
     }
   }
 
