@@ -73,8 +73,13 @@ public class AccountTest {
     when(gv2IncapableExpiredDevice.isEnabled()).thenReturn(false);
 
     when(gv1MigrationCapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(true, true, true, true, true, true));
+    when(gv1MigrationCapableDevice.isEnabled()).thenReturn(true);
+
     when(gv1MigrationIncapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(true, true, true, true, true, false));
+    when(gv1MigrationIncapableDevice.isEnabled()).thenReturn(true);
+
     when(gv1MigrationIncapableExpiredDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(true, true, true, true, true, false));
+    when(gv1MigrationIncapableExpiredDevice.isEnabled()).thenReturn(false);
   }
 
   @Test
@@ -195,6 +200,6 @@ public class AccountTest {
   public void isGv1MigrationSupported() {
     assertTrue(new Account("+18005551234", UUID.randomUUID(), Set.of(gv1MigrationCapableDevice), "1234".getBytes(StandardCharsets.UTF_8)).isGv1MigrationSupported());
     assertFalse(new Account("+18005551234", UUID.randomUUID(), Set.of(gv1MigrationCapableDevice, gv1MigrationIncapableDevice), "1234".getBytes(StandardCharsets.UTF_8)).isGv1MigrationSupported());
-    assertFalse(new Account("+18005551234", UUID.randomUUID(), Set.of(gv1MigrationCapableDevice, gv1MigrationIncapableExpiredDevice), "1234".getBytes(StandardCharsets.UTF_8)).isGv1MigrationSupported());
+    assertTrue(new Account("+18005551234", UUID.randomUUID(), Set.of(gv1MigrationCapableDevice, gv1MigrationIncapableExpiredDevice), "1234".getBytes(StandardCharsets.UTF_8)).isGv1MigrationSupported());
   }
 }
