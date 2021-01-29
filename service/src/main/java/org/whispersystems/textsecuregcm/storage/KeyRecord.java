@@ -2,11 +2,11 @@ package org.whispersystems.textsecuregcm.storage;
 
 public class KeyRecord {
 
-  private long    id;
-  private String  number;
-  private long    deviceId;
-  private long    keyId;
-  private String  publicKey;
+  private final long    id;
+  private final String  number;
+  private final long    deviceId;
+  private final long    keyId;
+  private final String  publicKey;
 
   public KeyRecord(long id, String number, long deviceId, long keyId, String publicKey) {
     this.id         = id;
