@@ -48,9 +48,9 @@ public class LeakyBucket {
     if (this.spaceRemaining >= amount) {
       this.spaceRemaining -= amount;
       return true;
-    } else {
-      return false;
     }
+
+    return false;
   }
 
   private int getUpdatedSpaceRemaining() {
