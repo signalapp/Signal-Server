@@ -116,6 +116,7 @@ import org.whispersystems.textsecuregcm.storage.ActiveUserCounter;
 import org.whispersystems.textsecuregcm.storage.DirectoryManager;
 import org.whispersystems.textsecuregcm.storage.DirectoryReconciler;
 import org.whispersystems.textsecuregcm.storage.DirectoryReconciliationClient;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.FeatureFlags;
 import org.whispersystems.textsecuregcm.storage.FeatureFlagsManager;
@@ -328,6 +329,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     RateLimiters               rateLimiters               = new RateLimiters(config.getLimitsConfiguration(), cacheCluster);
     ProvisioningManager        provisioningManager        = new ProvisioningManager(pubSubManager);
 
+    DynamicConfigurationManager dynamicConfigurationManager = new DynamicConfigurationManager(config.getAppConfig().getApplication(), config.getAppConfig().getEnvironment(), config.getAppConfig().getConfigurationName());
+
     AccountAuthenticator                  accountAuthenticator                  = new AccountAuthenticator(accountsManager);
     DisabledPermittedAccountAuthenticator disabledPermittedAccountAuthenticator = new DisabledPermittedAccountAuthenticator(accountsManager);
 
@@ -373,6 +376,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(messagePersister);
     environment.lifecycle().manage(clientPresenceManager);
     environment.lifecycle().manage(featureFlagsManager);
+    environment.lifecycle().manage(dynamicConfigurationManager);
 
     AWSCredentials         credentials               = new BasicAWSCredentials(config.getCdnConfiguration().getAccessKey(), config.getCdnConfiguration().getAccessSecret());
     AWSCredentialsProvider credentialsProvider       = new AWSStaticCredentialsProvider(credentials);
