@@ -245,6 +245,25 @@ public class AccountControllerTest {
   }
 
   @Test
+  public void testGetFcmPreauthIvoryCoast() throws Exception {
+    Response response = resources.getJerseyTest()
+            .target("/v1/accounts/fcm/preauth/mytoken/+2250707312345")
+            .request()
+            .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    ArgumentCaptor<GcmMessage> captor = ArgumentCaptor.forClass(GcmMessage.class);
+
+    verify(gcmSender, times(1)).sendMessage(captor.capture());
+    assertThat(captor.getValue().getGcmId()).isEqualTo("mytoken");
+    assertThat(captor.getValue().getData().isPresent()).isTrue();
+    assertThat(captor.getValue().getData().get().length()).isEqualTo(32);
+
+    verifyNoMoreInteractions(apnSender);
+  }
+
+  @Test
   public void testGetApnPreauth() throws Exception {
     Response response = resources.getJerseyTest()
                                  .target("/v1/accounts/apn/preauth/mytoken/+14152222222")
