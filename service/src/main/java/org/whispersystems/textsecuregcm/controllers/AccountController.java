@@ -561,6 +561,8 @@ public class AccountController {
       if (!pushChallenge.get().equals(storedPushChallenge.orElse(null))) {
         return new CaptchaRequirement(true, false);
       }
+    } else {
+      return new CaptchaRequirement(true, false);
     }
 
     List<AbusiveHostRule> abuseRules = abusiveHostRules.getAbusiveHostRulesFor(requester);

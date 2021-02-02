@@ -186,11 +186,12 @@ public class AccountControllerTest {
     when(senderRegLockAccount.getLastSeen()).thenReturn(System.currentTimeMillis());
     when(senderRegLockAccount.getUuid()).thenReturn(SENDER_REG_LOCK_UUID);
 
-    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), "1234-push")));
     when(pendingAccountsManager.getCodeForNumber(SENDER_OLD)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(31), null)));
     when(pendingAccountsManager.getCodeForNumber(SENDER_PIN)).thenReturn(Optional.of(new StoredVerificationCode("333333", System.currentTimeMillis(), null)));
     when(pendingAccountsManager.getCodeForNumber(SENDER_REG_LOCK)).thenReturn(Optional.of(new StoredVerificationCode("666666", System.currentTimeMillis(), null)));
     when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PIN)).thenReturn(Optional.of(new StoredVerificationCode("444444", System.currentTimeMillis(), null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER_OVER_PREFIX)).thenReturn(Optional.of(new StoredVerificationCode("777777", System.currentTimeMillis(), "1234-push")));
     when(pendingAccountsManager.getCodeForNumber(SENDER_PREAUTH)).thenReturn(Optional.of(new StoredVerificationCode("555555", System.currentTimeMillis(), "validchallenge")));
     when(pendingAccountsManager.getCodeForNumber(SENDER_HAS_STORAGE)).thenReturn(Optional.of(new StoredVerificationCode("666666", System.currentTimeMillis(), null)));
     when(pendingAccountsManager.getCodeForNumber(SENDER_TRANSFER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), null)));
@@ -268,6 +269,7 @@ public class AccountControllerTest {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .queryParam("challenge", "1234-push")
                  .request()
                  .header("X-Forwarded-For", NICE_HOST)
                  .get();
@@ -319,10 +321,9 @@ public class AccountControllerTest {
                  .header("X-Forwarded-For", NICE_HOST)
                  .get();
 
-    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.getStatus()).isEqualTo(402);
 
-    verify(smsSender).deliverSmsVerification(eq(SENDER_PREAUTH), eq(Optional.empty()), anyString());
-    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
+    verify(smsSender, never()).deliverSmsVerification(eq(SENDER_PREAUTH), eq(Optional.empty()), anyString());
   }
 
 
@@ -332,6 +333,7 @@ public class AccountControllerTest {
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
                  .queryParam("client", "ios")
+                 .queryParam("challenge", "1234-push")
                  .request()
                  .header("X-Forwarded-For", NICE_HOST)
                  .get();
@@ -347,6 +349,7 @@ public class AccountControllerTest {
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
                  .queryParam("client", "android-ng")
+                 .queryParam("challenge", "1234-push")
                  .request()
                  .header("X-Forwarded-For", NICE_HOST)
                  .get();
@@ -361,6 +364,7 @@ public class AccountControllerTest {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .queryParam("challenge", "1234-push")
                  .request()
                  .header("X-Forwarded-For", ABUSIVE_HOST)
                  .get();
@@ -410,6 +414,7 @@ public class AccountControllerTest {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .queryParam("challenge", "1234-push")
                  .request()
                  .header("X-Forwarded-For", RATE_LIMITED_IP_HOST)
                  .get();
@@ -429,6 +434,7 @@ public class AccountControllerTest {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER_OVER_PREFIX))
+                 .queryParam("challenge", "1234-push")
                  .request()
                  .header("X-Forwarded-For", RATE_LIMITED_PREFIX_HOST)
                  .get();
@@ -448,6 +454,7 @@ public class AccountControllerTest {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .queryParam("challenge", "1234-push")
                  .request()
                  .header("X-Forwarded-For", RATE_LIMITED_HOST2)
                  .get();
@@ -467,6 +474,7 @@ public class AccountControllerTest {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .queryParam("challenge", "1234-push")
                  .request()
                  .header("X-Forwarded-For", NICE_HOST + ", " + ABUSIVE_HOST)
                  .get();
@@ -485,6 +493,7 @@ public class AccountControllerTest {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+                 .queryParam("challenge", "1234-push")
                  .request()
                  .header("X-Forwarded-For", RESTRICTED_HOST)
                  .get();
@@ -497,16 +506,22 @@ public class AccountControllerTest {
 
   @Test
   public void testSendRestrictedIn() throws Exception {
+    final String number = "+12345678901";
+    final String challenge = "challenge";
+
+    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge)));
+
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/accounts/sms/code/%s", "+12345678901"))
+                 .target(String.format("/v1/accounts/sms/code/%s", number))
+                 .queryParam("challenge", challenge)
                  .request()
                  .header("X-Forwarded-For", RESTRICTED_HOST)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    verify(smsSender).deliverSmsVerification(eq("+12345678901"), eq(Optional.empty()), anyString());
+    verify(smsSender).deliverSmsVerification(eq(number), eq(Optional.empty()), anyString());
   }
 
   @Test
