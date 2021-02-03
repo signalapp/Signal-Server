@@ -37,7 +37,6 @@ import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.FeatureFlagsManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -88,8 +87,6 @@ public class MessageController {
   private final MessagesManager        messagesManager;
   private final ApnFallbackManager     apnFallbackManager;
 
-  private final FeatureFlagsManager featureFlagsManager;
-
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME                     = name(MessageController.class, "messageContentSize");
   private static final String OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME = name(MessageController.class, "outgoingMessageListSizeBytes");
 
@@ -100,8 +97,7 @@ public class MessageController {
                            ReceiptSender receiptSender,
                            AccountsManager accountsManager,
                            MessagesManager messagesManager,
-                           ApnFallbackManager apnFallbackManager,
-                           FeatureFlagsManager featureFlagsManager)
+                           ApnFallbackManager apnFallbackManager)
   {
     this.rateLimiters           = rateLimiters;
     this.messageSender          = messageSender;
@@ -109,7 +105,6 @@ public class MessageController {
     this.accountsManager        = accountsManager;
     this.messagesManager        = messagesManager;
     this.apnFallbackManager     = apnFallbackManager;
-    this.featureFlagsManager    = featureFlagsManager;
   }
 
   @Timed
@@ -124,124 +119,83 @@ public class MessageController {
                               @Valid                                    IncomingMessageList messages)
       throws RateLimitExceededException
   {
-    if (shouldSend(destinationName)) {
-      if (source.isEmpty() && accessKey.isEmpty()) {
-        throw new WebApplicationException(Response.Status.UNAUTHORIZED);
-      }
+    if (source.isEmpty() && accessKey.isEmpty()) {
+      throw new WebApplicationException(Response.Status.UNAUTHORIZED);
+    }
 
-      if (source.isPresent() && !source.get().isFor(destinationName)) {
-        rateLimiters.getMessagesLimiter().validate(source.get().getNumber() + "__" + destinationName);
+    if (source.isPresent() && !source.get().isFor(destinationName)) {
+      rateLimiters.getMessagesLimiter().validate(source.get().getNumber() + "__" + destinationName);
 
         try {
           rateLimiters.getUnsealedSenderLimiter().validate(source.get().getUuid().toString());
         } catch (RateLimitExceededException e) {
           rejectUnsealedSenderLimit.mark();
-          logger.debug("Rejected unsealed sender limit from: " + source.get().getNumber());
+          logger.debug("Rejected unsealed sender limit from: {}", source.get().getNumber());
         }
       }
 
-      if (source.isPresent() && !source.get().isFor(destinationName)) {
-        identifiedMeter.mark();
-      } else if (source.isEmpty()) {
-        unidentifiedMeter.mark();
-      }
-
-      for (final IncomingMessage message : messages.getMessages()) {
-        int contentLength = 0;
-
-        if (!Util.isEmpty(message.getContent())) {
-          contentLength += message.getContent().length();
-        }
-
-        if (!Util.isEmpty(message.getBody())) {
-          contentLength += message.getBody().length();
-        }
-
-        Metrics.summary(CONTENT_SIZE_DISTRIBUTION_NAME, UserAgentTagUtil.getUserAgentTags(userAgent)).record(contentLength);
-
-        if (contentLength > MAX_MESSAGE_SIZE) {
-          rejectOver256kibMessageMeter.mark();
-          return Response.status(Response.Status.REQUEST_ENTITY_TOO_LARGE).build();
-        }
-      }
-
-      try {
-        boolean isSyncMessage = source.isPresent() && source.get().isFor(destinationName);
-
-        Optional<Account> destination;
-
-        if (!isSyncMessage) destination = accountsManager.get(destinationName);
-        else                destination = source;
-
-        OptionalAccess.verify(source, accessKey, destination);
-        assert(destination.isPresent());
-
-        validateCompleteDeviceList(destination.get(), messages.getMessages(), isSyncMessage);
-        validateRegistrationIds(destination.get(), messages.getMessages());
-
-        for (IncomingMessage incomingMessage : messages.getMessages()) {
-          Optional<Device> destinationDevice = destination.get().getDevice(incomingMessage.getDestinationDeviceId());
-
-          if (destinationDevice.isPresent()) {
-            sendMessage(source, destination.get(), destinationDevice.get(), messages.getTimestamp(), messages.isOnline(), incomingMessage);
-          }
-        }
-
-        return Response.ok(new SendMessageResponse(!isSyncMessage && source.isPresent() && source.get().getEnabledDeviceCount() > 1)).build();
-      } catch (NoSuchUserException e) {
-        throw new WebApplicationException(Response.status(404).build());
-      } catch (MismatchedDevicesException e) {
-        throw new WebApplicationException(Response.status(409)
-                .type(MediaType.APPLICATION_JSON_TYPE)
-                .entity(new MismatchedDevices(e.getMissingDevices(),
-                        e.getExtraDevices()))
-                .build());
-      } catch (StaleDevicesException e) {
-        throw new WebApplicationException(Response.status(410)
-                .type(MediaType.APPLICATION_JSON)
-                .entity(new StaleDevices(e.getStaleDevices()))
-                .build());
-      }
-    } else {
-      if (featureFlagsManager.isFeatureFlagActive("SEND_ALL_200_STATUS")) {
-        // Forgive me for what I must do
-        return Response.ok(new SendMessageResponse(false)).build();
-      } else {
-        return Response.status(503).build();
-      }
-    }
-  }
-
-  private boolean shouldSend(final AmbiguousIdentifier destination) {
-    final double hash = destination.sendingGateHash();
-
-    return (hash / 256.0) < getSuccessPercentage();
-  }
-
-  private double getSuccessPercentage() {
-    if (featureFlagsManager.isFeatureFlagActive("SEND_MESSAGE_1_PERCENT")) {
-      return 0.01;
-    } else if (featureFlagsManager.isFeatureFlagActive("SEND_MESSAGE_2_PERCENT")) {
-      return 0.02;
-    } else if (featureFlagsManager.isFeatureFlagActive("SEND_MESSAGE_4_PERCENT")) {
-      return 0.04;
-    } else if (featureFlagsManager.isFeatureFlagActive("SEND_MESSAGE_8_PERCENT")) {
-      return 0.08;
-    } else if (featureFlagsManager.isFeatureFlagActive("SEND_MESSAGE_16_PERCENT")) {
-      return 0.16;
-    } else if (featureFlagsManager.isFeatureFlagActive("SEND_MESSAGE_32_PERCENT")) {
-      return 0.32;
-    } else if (featureFlagsManager.isFeatureFlagActive("SEND_MESSAGE_48_PERCENT")) {
-      return 0.48;
-    } else if (featureFlagsManager.isFeatureFlagActive("SEND_MESSAGE_64_PERCENT")) {
-      return 0.64;
-    } else if (featureFlagsManager.isFeatureFlagActive("SEND_MESSAGE_80_PERCENT")) {
-      return 0.80;
-    } else if (featureFlagsManager.isFeatureFlagActive("SEND_MESSAGE_100_PERCENT")) {
-      return 1.0d;
+    if (source.isPresent() && !source.get().isFor(destinationName)) {
+      identifiedMeter.mark();
+    } else if (source.isEmpty()) {
+      unidentifiedMeter.mark();
     }
 
-    return 0;
+    for (final IncomingMessage message : messages.getMessages()) {
+      int contentLength = 0;
+
+      if (!Util.isEmpty(message.getContent())) {
+        contentLength += message.getContent().length();
+      }
+
+      if (!Util.isEmpty(message.getBody())) {
+        contentLength += message.getBody().length();
+      }
+
+      Metrics.summary(CONTENT_SIZE_DISTRIBUTION_NAME, UserAgentTagUtil.getUserAgentTags(userAgent)).record(contentLength);
+
+      if (contentLength > MAX_MESSAGE_SIZE) {
+        rejectOver256kibMessageMeter.mark();
+        return Response.status(Response.Status.REQUEST_ENTITY_TOO_LARGE).build();
+      }
+    }
+
+    try {
+      boolean isSyncMessage = source.isPresent() && source.get().isFor(destinationName);
+
+      Optional<Account> destination;
+
+      if (!isSyncMessage) destination = accountsManager.get(destinationName);
+      else                destination = source;
+
+      OptionalAccess.verify(source, accessKey, destination);
+      assert(destination.isPresent());
+
+      validateCompleteDeviceList(destination.get(), messages.getMessages(), isSyncMessage);
+      validateRegistrationIds(destination.get(), messages.getMessages());
+
+      for (IncomingMessage incomingMessage : messages.getMessages()) {
+        Optional<Device> destinationDevice = destination.get().getDevice(incomingMessage.getDestinationDeviceId());
+
+        if (destinationDevice.isPresent()) {
+          sendMessage(source, destination.get(), destinationDevice.get(), messages.getTimestamp(), messages.isOnline(), incomingMessage);
+        }
+      }
+
+      return Response.ok(new SendMessageResponse(!isSyncMessage && source.isPresent() && source.get().getEnabledDeviceCount() > 1)).build();
+    } catch (NoSuchUserException e) {
+      throw new WebApplicationException(Response.status(404).build());
+    } catch (MismatchedDevicesException e) {
+      throw new WebApplicationException(Response.status(409)
+              .type(MediaType.APPLICATION_JSON_TYPE)
+              .entity(new MismatchedDevices(e.getMissingDevices(),
+                      e.getExtraDevices()))
+              .build());
+    } catch (StaleDevicesException e) {
+      throw new WebApplicationException(Response.status(410)
+              .type(MediaType.APPLICATION_JSON)
+              .entity(new StaleDevices(e.getStaleDevices()))
+              .build());
+    }
   }
 
   @Timed

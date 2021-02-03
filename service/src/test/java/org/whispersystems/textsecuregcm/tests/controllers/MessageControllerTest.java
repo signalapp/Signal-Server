@@ -96,7 +96,7 @@ public class MessageControllerTest {
                                                             .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new MessageController(rateLimiters, messageSender, receiptSender, accountsManager,
-                                                                                               messagesManager, apnFallbackManager, featureFlagsManager))
+                                                                                               messagesManager, apnFallbackManager))
                                                             .build();
 
 
