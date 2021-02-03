@@ -77,6 +77,7 @@ public class MessageController {
   private final Meter          unidentifiedMeter                = metricRegistry.meter(name(getClass(), "delivery", "unidentified"));
   private final Meter          identifiedMeter                  = metricRegistry.meter(name(getClass(), "delivery", "identified"  ));
   private final Meter          rejectOver256kibMessageMeter     = metricRegistry.meter(name(getClass(), "rejectOver256kibMessage"));
+  private final Meter          rejectUnsealedSenderLimit        = metricRegistry.meter(name(getClass(), "rejectUnsealedSenderLimit"));
   private final Timer          sendMessageInternalTimer         = metricRegistry.timer(name(getClass(), "sendMessageInternal"));
   private final Histogram      outgoingMessageListSizeHistogram = metricRegistry.histogram(name(getClass(), "outgoingMessageListSize"));
 
@@ -117,24 +118,31 @@ public class MessageController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendMessage(@Auth                                     Optional<Account>   source,
-                                         @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
-                                         @HeaderParam("User-Agent")                String userAgent,
-                                         @PathParam("destination")                 AmbiguousIdentifier destinationName,
-                                         @Valid                                    IncomingMessageList messages)
+                              @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
+                              @HeaderParam("User-Agent")                String userAgent,
+                              @PathParam("destination")                 AmbiguousIdentifier destinationName,
+                              @Valid                                    IncomingMessageList messages)
       throws RateLimitExceededException
   {
     if (shouldSend(destinationName)) {
-      if (!source.isPresent() && !accessKey.isPresent()) {
+      if (source.isEmpty() && accessKey.isEmpty()) {
         throw new WebApplicationException(Response.Status.UNAUTHORIZED);
       }
 
       if (source.isPresent() && !source.get().isFor(destinationName)) {
         rateLimiters.getMessagesLimiter().validate(source.get().getNumber() + "__" + destinationName);
+
+        try {
+          rateLimiters.getUnsealedSenderLimiter().validate(source.get().getUuid().toString());
+        } catch (RateLimitExceededException e) {
+          rejectUnsealedSenderLimit.mark();
+          logger.info("Rejected unsealed sender limit from: " + source.get().getNumber());
+        }
       }
 
       if (source.isPresent() && !source.get().isFor(destinationName)) {
         identifiedMeter.mark();
-      } else if (!source.isPresent()) {
+      } else if (source.isEmpty()) {
         unidentifiedMeter.mark();
       }
 

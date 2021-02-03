@@ -6,7 +6,12 @@ package org.whispersystems.textsecuregcm.limits;
 
 
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration.RateLimitConfiguration;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.UnaryOperator;
 
 public class RateLimiters {
 
@@ -35,7 +40,16 @@ public class RateLimiters {
   private final RateLimiter usernameLookupLimiter;
   private final RateLimiter usernameSetLimiter;
 
-  public RateLimiters(RateLimitsConfiguration config, FaultTolerantRedisCluster cacheCluster) {
+  private final AtomicReference<RateLimiter> unsealedSenderLimiter;
+  private final AtomicReference<RateLimiter> unsealedIpLimiter;
+
+  private final FaultTolerantRedisCluster   cacheCluster;
+  private final DynamicConfigurationManager dynamicConfig;
+
+  public RateLimiters(RateLimitsConfiguration config, DynamicConfigurationManager dynamicConfig, FaultTolerantRedisCluster cacheCluster) {
+    this.cacheCluster  = cacheCluster;
+    this.dynamicConfig = dynamicConfig;
+
     this.smsDestinationLimiter = new RateLimiter(cacheCluster, "smsDestination",
                                                  config.getSmsDestination().getBucketSize(),
                                                  config.getSmsDestination().getLeakRatePerMinute());
@@ -115,6 +129,33 @@ public class RateLimiters {
     this.usernameSetLimiter = new RateLimiter(cacheCluster, "usernameSet",
                                               config.getUsernameSet().getBucketSize(),
                                               config.getUsernameSet().getLeakRatePerMinute());
+
+    this.unsealedSenderLimiter = new AtomicReference<>(createUnsealedSenderLimiter(cacheCluster, dynamicConfig.getConfiguration().getLimits().getUnsealedSenderNumber()));
+    this.unsealedIpLimiter     = new AtomicReference<>(createUnsealedIpLimiter(cacheCluster, dynamicConfig.getConfiguration().getLimits().getUnsealedSenderIp()));
+  }
+
+  public RateLimiter getUnsealedSenderLimiter() {
+    RateLimitConfiguration currentConfiguration = dynamicConfig.getConfiguration().getLimits().getUnsealedSenderNumber();
+
+    return this.unsealedSenderLimiter.updateAndGet(rateLimiter -> {
+      if (isLimiterConfigurationCurrent(rateLimiter, currentConfiguration)) {
+        return rateLimiter;
+      } else {
+        return createUnsealedSenderLimiter(cacheCluster, currentConfiguration);
+      }
+    });
+  }
+
+  public RateLimiter getUnsealedIpLimiter() {
+    RateLimitConfiguration currentConfiguration = dynamicConfig.getConfiguration().getLimits().getUnsealedSenderIp();
+
+    return this.unsealedIpLimiter.updateAndGet(rateLimiter -> {
+      if (isLimiterConfigurationCurrent(rateLimiter, currentConfiguration)) {
+        return rateLimiter;
+      } else {
+        return createUnsealedIpLimiter(cacheCluster, currentConfiguration);
+      }
+    });
   }
 
   public RateLimiter getAllocateDeviceLimiter() {
@@ -197,4 +238,25 @@ public class RateLimiters {
     return usernameSetLimiter;
   }
 
+  private RateLimiter createUnsealedSenderLimiter(FaultTolerantRedisCluster cacheCluster,
+                                                  RateLimitConfiguration configuration)
+  {
+    return createLimiter(cacheCluster, configuration, "unsealedSender");
+  }
+
+  private RateLimiter createUnsealedIpLimiter(FaultTolerantRedisCluster cacheCluster,
+                                              RateLimitConfiguration configuration)
+  {
+    return createLimiter(cacheCluster, configuration, "unsealedIp");
+  }
+
+  private RateLimiter createLimiter(FaultTolerantRedisCluster cacheCluster, RateLimitConfiguration configuration, String name) {
+    return new RateLimiter(cacheCluster, name,
+                           configuration.getBucketSize(),
+                           configuration.getLeakRatePerMinute());
+  }
+
+  private boolean isLimiterConfigurationCurrent(RateLimiter limiter, RateLimitConfiguration configuration) {
+    return limiter.getBucketSize() == configuration.getBucketSize() && limiter.getLeakRatePerMinute() == configuration.getLeakRatePerMinute();
+  }
 }

@@ -13,7 +13,15 @@ public class DynamicConfiguration {
   @Valid
   private Map<String, DynamicExperimentEnrollmentConfiguration> experiments = Collections.emptyMap();
 
+  @JsonProperty
+  @Valid
+  private DynamicRateLimitsConfiguration limits = new DynamicRateLimitsConfiguration();
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
+  }
+
+  public DynamicRateLimitsConfiguration getLimits() {
+    return limits;
   }
 }

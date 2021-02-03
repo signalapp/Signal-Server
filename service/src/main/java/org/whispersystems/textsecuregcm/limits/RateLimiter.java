@@ -31,6 +31,7 @@ public class RateLimiter {
   protected final FaultTolerantRedisCluster cacheCluster;
   protected final String                    name;
   private   final int                       bucketSize;
+  private   final double                    leakRatePerMinute;
   private   final double                    leakRatePerMillis;
   private   final boolean                   reportLimits;
 
@@ -51,6 +52,7 @@ public class RateLimiter {
     this.cacheCluster           = cacheCluster;
     this.name                   = name;
     this.bucketSize             = bucketSize;
+    this.leakRatePerMinute      = leakRatePerMinute;
     this.leakRatePerMillis      = leakRatePerMinute / (60.0 * 1000.0);
     this.reportLimits           = reportLimits;
   }
@@ -74,6 +76,14 @@ public class RateLimiter {
 
   public void clear(String key) {
     cacheCluster.useCluster(connection -> connection.sync().del(getBucketName(key)));
+  }
+
+  public int getBucketSize() {
+    return bucketSize;
+  }
+
+  public double getLeakRatePerMinute() {
+    return leakRatePerMinute;
   }
 
   private void setBucket(String key, LeakyBucket bucket) {
