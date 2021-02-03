@@ -13,7 +13,6 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
 import java.util.Collections;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -50,18 +49,18 @@ public class ExperimentEnrollmentManagerTest {
 
     @Test
     public void testIsEnrolled() {
-        assertFalse(experimentEnrollmentManager.isEnrolled(account, EXPERIMENT_NAME));
-        assertFalse(experimentEnrollmentManager.isEnrolled(account, EXPERIMENT_NAME + "-unrelated-experiment"));
+        assertFalse(experimentEnrollmentManager.isEnrolled(account.getUuid(), EXPERIMENT_NAME));
+        assertFalse(experimentEnrollmentManager.isEnrolled(account.getUuid(), EXPERIMENT_NAME + "-unrelated-experiment"));
 
         when(experimentEnrollmentConfiguration.getEnrolledUuids()).thenReturn(Set.of(ACCOUNT_UUID));
-        assertTrue(experimentEnrollmentManager.isEnrolled(account, EXPERIMENT_NAME));
+        assertTrue(experimentEnrollmentManager.isEnrolled(account.getUuid(), EXPERIMENT_NAME));
 
         when(experimentEnrollmentConfiguration.getEnrolledUuids()).thenReturn(Collections.emptySet());
         when(experimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(0);
 
-        assertFalse(experimentEnrollmentManager.isEnrolled(account, EXPERIMENT_NAME));
+        assertFalse(experimentEnrollmentManager.isEnrolled(account.getUuid(), EXPERIMENT_NAME));
 
         when(experimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(100);
-        assertTrue(experimentEnrollmentManager.isEnrolled(account, EXPERIMENT_NAME));
+        assertTrue(experimentEnrollmentManager.isEnrolled(account.getUuid(), EXPERIMENT_NAME));
     }
 }

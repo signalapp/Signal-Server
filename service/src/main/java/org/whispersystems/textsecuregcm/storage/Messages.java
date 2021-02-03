@@ -46,7 +46,6 @@ public class Messages {
   private final MetricRegistry metricRegistry      = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private final Timer          storeTimer          = metricRegistry.timer(name(Messages.class, "store"         ));
   private final Timer          loadTimer           = metricRegistry.timer(name(Messages.class, "load"          ));
-  private final Timer          hasMessagesTimer    = metricRegistry.timer(name(Messages.class, "hasMessages"   ));
   private final Timer          removeBySourceTimer = metricRegistry.timer(name(Messages.class, "removeBySource"));
   private final Timer          removeByGuidTimer   = metricRegistry.timer(name(Messages.class, "removeByGuid"  ));
   private final Timer          removeByIdTimer     = metricRegistry.timer(name(Messages.class, "removeById"    ));

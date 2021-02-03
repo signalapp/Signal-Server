@@ -10,6 +10,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 
@@ -61,6 +62,7 @@ public class SimultaneousSenderTest {
   }
 
   @Test
+  @Ignore
   public void testSimultaneousFailure() throws TimeoutException, InterruptedException {
     stubFor(post(urlPathEqualTo("/gcm/send"))
                 .willReturn(aResponse()

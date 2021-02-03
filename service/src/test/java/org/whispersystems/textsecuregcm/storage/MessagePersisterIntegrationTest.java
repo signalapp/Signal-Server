@@ -5,6 +5,12 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import com.amazonaws.services.dynamodbv2.document.DynamoDB;
+import com.amazonaws.services.dynamodbv2.document.Item;
+import com.amazonaws.services.dynamodbv2.document.ItemCollection;
+import com.amazonaws.services.dynamodbv2.document.ScanOutcome;
+import com.amazonaws.services.dynamodbv2.document.Table;
+import com.amazonaws.services.dynamodbv2.document.spec.ScanSpec;
 import com.google.protobuf.ByteString;
 import com.opentable.db.postgres.embedded.LiquibasePreparer;
 import com.opentable.db.postgres.junit.EmbeddedPostgresRules;
@@ -18,11 +24,12 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
 import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
+import org.whispersystems.textsecuregcm.tests.util.MessagesDynamoDbRule;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
+import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -35,6 +42,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -43,11 +52,15 @@ public class MessagePersisterIntegrationTest extends AbstractRedisClusterTest {
     @Rule
     public PreparedDbRule db = EmbeddedPostgresRules.preparedDatabase(LiquibasePreparer.forClasspathLocation("messagedb.xml"));
 
+    @Rule
+    public MessagesDynamoDbRule messagesDynamoDbRule = new MessagesDynamoDbRule();
+
     private ExecutorService  notificationExecutorService;
     private MessagesCache    messagesCache;
     private MessagesManager  messagesManager;
     private MessagePersister messagePersister;
     private Account          account;
+    private ExperimentEnrollmentManager experimentEnrollmentManager;
 
     private static final Duration PERSIST_DELAY = Duration.ofMinutes(10);
 
@@ -62,11 +75,15 @@ public class MessagePersisterIntegrationTest extends AbstractRedisClusterTest {
         });
 
         final Messages        messages        = new Messages(new FaultTolerantDatabase("messages-test", Jdbi.create(db.getTestDatabase()), new CircuitBreakerConfiguration()));
+        final MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(messagesDynamoDbRule.getDynamoDB(), MessagesDynamoDbRule.TABLE_NAME, Duration.ofDays(7));
         final AccountsManager accountsManager = mock(AccountsManager.class);
+
+        experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
+        when(experimentEnrollmentManager.isEnrolled(any(UUID.class), anyString())).thenReturn(Boolean.TRUE);
 
         notificationExecutorService = Executors.newSingleThreadExecutor();
         messagesCache               = new MessagesCache(getRedisCluster(), getRedisCluster(), notificationExecutorService);
-        messagesManager             = new MessagesManager(messages, messagesCache, mock(PushLatencyManager.class));
+        messagesManager             = new MessagesManager(messages, messagesDynamoDb, messagesCache, mock(PushLatencyManager.class), experimentEnrollmentManager);
         messagePersister            = new MessagePersister(messagesCache, messagesManager, accountsManager, mock(FeatureFlagsManager.class), PERSIST_DELAY);
 
         account = mock(Account.class);
@@ -139,23 +156,33 @@ public class MessagePersisterIntegrationTest extends AbstractRedisClusterTest {
 
         final List<MessageProtos.Envelope> persistedMessages = new ArrayList<>(messageCount);
 
-        try (final PreparedStatement statement = db.getTestDatabase().getConnection().prepareStatement("SELECT * FROM messages WHERE destination = ? ORDER BY timestamp ASC")) {
-            statement.setString(1, account.getNumber());
-
-            try (final ResultSet resultSet = statement.executeQuery()) {
-                while (resultSet.next()) {
-                    persistedMessages.add(MessageProtos.Envelope.newBuilder()
-                            .setServerGuid(resultSet.getString("guid"))
-                            .setType(MessageProtos.Envelope.Type.valueOf(resultSet.getInt("type")))
-                            .setTimestamp(resultSet.getLong("timestamp"))
-                            .setServerTimestamp(resultSet.getLong("server_timestamp"))
-                            .setContent(ByteString.copyFrom(resultSet.getBytes("content")))
-                            .build());
-                }
-            }
+        DynamoDB dynamoDB = messagesDynamoDbRule.getDynamoDB();
+        Table table = dynamoDB.getTable(MessagesDynamoDbRule.TABLE_NAME);
+        final ItemCollection<ScanOutcome> scan = table.scan(new ScanSpec());
+        for (Item item : scan) {
+            persistedMessages.add(MessageProtos.Envelope.newBuilder()
+                                                        .setServerGuid(convertBinaryToUuid(item.getBinary("U")).toString())
+                                                        .setType(MessageProtos.Envelope.Type.valueOf(item.getInt("T")))
+                                                        .setTimestamp(item.getLong("TS"))
+                                                        .setServerTimestamp(extractServerTimestamp(item.getBinary("S")))
+                                                        .setContent(ByteString.copyFrom(item.getBinary("C")))
+                                                        .build());
         }
 
         assertEquals(expectedMessages, persistedMessages);
+    }
+
+    private static UUID convertBinaryToUuid(byte[] bytes) {
+        ByteBuffer bb = ByteBuffer.wrap(bytes);
+        long msb = bb.getLong();
+        long lsb = bb.getLong();
+        return new UUID(msb, lsb);
+    }
+
+    private static long extractServerTimestamp(byte[] bytes) {
+        ByteBuffer bb = ByteBuffer.wrap(bytes);
+        bb.getLong();
+        return bb.getLong();
     }
 
     private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid, final long timestamp) {

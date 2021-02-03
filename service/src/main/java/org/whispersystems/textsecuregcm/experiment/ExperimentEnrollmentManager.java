@@ -6,7 +6,6 @@
 package org.whispersystems.textsecuregcm.experiment;
 
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicExperimentEnrollmentConfiguration;
-import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
 import java.util.Collections;
@@ -22,7 +21,7 @@ public class ExperimentEnrollmentManager {
         this.dynamicConfigurationManager = dynamicConfigurationManager;
     }
 
-    public boolean isEnrolled(final Account account, final String experimentName) {
+    public boolean isEnrolled(final UUID accountUuid, final String experimentName) {
         final Optional<DynamicExperimentEnrollmentConfiguration> maybeConfiguration = dynamicConfigurationManager.getConfiguration().getExperimentEnrollmentConfiguration(experimentName);
 
         final Set<UUID> enrolledUuids = maybeConfiguration.map(DynamicExperimentEnrollmentConfiguration::getEnrolledUuids)
@@ -30,11 +29,11 @@ public class ExperimentEnrollmentManager {
 
         final boolean enrolled;
 
-        if (enrolledUuids.contains(account.getUuid())) {
+        if (enrolledUuids.contains(accountUuid)) {
             enrolled = true;
         } else {
             final int threshold = maybeConfiguration.map(DynamicExperimentEnrollmentConfiguration::getEnrollmentPercentage).orElse(0);
-            final int enrollmentHash = ((account.getUuid().hashCode() ^ experimentName.hashCode()) & Integer.MAX_VALUE) % 100;
+            final int enrollmentHash = ((accountUuid.hashCode() ^ experimentName.hashCode()) & Integer.MAX_VALUE) % 100;
 
             enrolled = enrollmentHash < threshold;
         }

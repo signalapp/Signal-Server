@@ -1,6 +1,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import com.amazonaws.ClientConfiguration;
+import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.services.appconfig.AmazonAppConfig;
 import com.amazonaws.services.appconfig.AmazonAppConfigClient;
 import com.amazonaws.services.appconfig.model.GetConfigurationRequest;
@@ -44,6 +45,7 @@ public class DynamicConfigurationManager implements Managed {
   public DynamicConfigurationManager(String application, String environment, String configurationName) {
     this(AmazonAppConfigClient.builder()
                               .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(10000).withRequestTimeout(10000))
+                              .withCredentials(InstanceProfileCredentialsProvider.getInstance())
                               .build(),
          application, environment, configurationName, UUID.randomUUID().toString());
   }
