@@ -11,7 +11,6 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.annotations.VisibleForTesting;
-import io.dropwizard.lifecycle.Managed;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,10 +20,9 @@ import org.whispersystems.textsecuregcm.util.Util;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class DynamicConfigurationManager implements Managed {
+public class DynamicConfigurationManager {
 
   private final String          application;
   private final String          environment;
@@ -33,7 +31,6 @@ public class DynamicConfigurationManager implements Managed {
   private final AmazonAppConfig appConfigClient;
 
   private final AtomicReference<DynamicConfiguration>   configuration    = new AtomicReference<>();
-  private final AtomicBoolean                           running          = new AtomicBoolean(true);
   private final Logger                                  logger           = LoggerFactory.getLogger(DynamicConfigurationManager.class);
 
   private GetConfigurationResult lastConfigResult;
@@ -67,7 +64,6 @@ public class DynamicConfigurationManager implements Managed {
     return configuration.get();
   }
 
-  @Override
   public void start() {
     configuration.set(retrieveInitialDynamicConfiguration());
 
@@ -77,21 +73,14 @@ public class DynamicConfigurationManager implements Managed {
     }
 
     new Thread(() -> {
-      while (running.get()) {
-        try {
-          retrieveDynamicConfiguration().ifPresent(configuration::set);
-        } catch (Throwable t) {
-          logger.warn("Error retrieving dynamic configuration", t);
-        }
-
-        Util.sleep(5000);
+      try {
+        retrieveDynamicConfiguration().ifPresent(configuration::set);
+      } catch (Throwable t) {
+        logger.warn("Error retrieving dynamic configuration", t);
       }
-    }).start();
-  }
 
-  @Override
-  public void stop() {
-    running.set(false);
+      Util.sleep(5000);
+    }).start();
   }
 
   private Optional<DynamicConfiguration> retrieveDynamicConfiguration() throws JsonProcessingException {
