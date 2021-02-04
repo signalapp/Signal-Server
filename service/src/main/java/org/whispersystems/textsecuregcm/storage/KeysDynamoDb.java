@@ -128,11 +128,7 @@ public class KeysDynamoDb extends AbstractDynamoDbStore implements PreKeyStore {
                                                        .withSelect(Select.COUNT)
                                                        .withConsistentRead(false);
 
-            // This is very confusing, but does appear to be the intended behavior. See:
-            //
-            // - https://github.com/aws/aws-sdk-java/issues/693
-            // - https://github.com/aws/aws-sdk-java/issues/915
-            return table.query(querySpec).firstPage().getLowLevelResult().getQueryResult().getCount();
+            return (int)countItemsMatchingQuery(table, querySpec);
         });
     }
 

@@ -7,7 +7,13 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.amazonaws.services.dynamodbv2.document.BatchWriteItemOutcome;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
+import com.amazonaws.services.dynamodbv2.document.Item;
+import com.amazonaws.services.dynamodbv2.document.ItemCollection;
+import com.amazonaws.services.dynamodbv2.document.Page;
+import com.amazonaws.services.dynamodbv2.document.QueryOutcome;
+import com.amazonaws.services.dynamodbv2.document.Table;
 import com.amazonaws.services.dynamodbv2.document.TableWriteItems;
+import com.amazonaws.services.dynamodbv2.document.spec.QuerySpec;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
@@ -56,6 +62,22 @@ public class AbstractDynamoDbStore {
             logger.error("Attempt count ({}) reached max ({}}) before applying all batch writes to dynamo. {} unprocessed items remain.", attemptCount, MAX_ATTEMPTS_TO_SAVE_BATCH_WRITE, outcome.get().getUnprocessedItems().size());
             batchWriteItemsUnprocessed.increment(outcome.get().getUnprocessedItems().size());
         }
+    }
+
+    protected long countItemsMatchingQuery(final Table table, final QuerySpec querySpec) {
+        // This is very confusing, but does appear to be the intended behavior. See:
+        //
+        // - https://github.com/aws/aws-sdk-java/issues/693
+        // - https://github.com/aws/aws-sdk-java/issues/915
+        // - https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html#Query.Count
+
+        long matchingItems = 0;
+
+        for (final Page<Item, QueryOutcome> page : table.query(querySpec).pages()) {
+            matchingItems += page.getLowLevelResult().getQueryResult().getCount();
+        }
+
+        return matchingItems;
     }
 
     static <T> void writeInBatches(final Iterable<T> items, final Consumer<List<T>> action) {
