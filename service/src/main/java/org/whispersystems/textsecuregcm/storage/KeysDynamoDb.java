@@ -20,6 +20,7 @@ import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import org.whispersystems.textsecuregcm.entities.PreKey;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -174,10 +175,7 @@ public class KeysDynamoDb extends AbstractDynamoDbStore implements PreKeyStore {
     }
 
     private static byte[] getPartitionKey(final UUID accountUuid) {
-        final ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[16]);
-        byteBuffer.putLong(accountUuid.getMostSignificantBits());
-        byteBuffer.putLong(accountUuid.getLeastSignificantBits());
-        return byteBuffer.array();
+        return UUIDUtil.toBytes(accountUuid);
     }
 
     private static byte[] getSortKey(final long deviceId, final long keyId) {

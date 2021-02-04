@@ -20,6 +20,7 @@ import io.micrometer.core.instrument.Timer;
 import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 import javax.annotation.Nonnull;
 import java.nio.ByteBuffer;
@@ -93,7 +94,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
         item.withString(KEY_SOURCE, message.getSource());
       }
       if (message.hasSourceUuid()) {
-        item.withBinary(KEY_SOURCE_UUID, convertUuidToBytes(UUID.fromString(message.getSourceUuid())));
+        item.withBinary(KEY_SOURCE_UUID, UUIDUtil.toBytes(UUID.fromString(message.getSourceUuid())));
       }
       if (message.hasSourceDevice()) {
         item.withInt(KEY_SOURCE_DEVICE, message.getSourceDevice());
@@ -242,7 +243,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   }
 
   private static byte[] convertPartitionKey(final UUID destinationAccountUuid) {
-    return convertUuidToBytes(destinationAccountUuid);
+    return UUIDUtil.toBytes(destinationAccountUuid);
   }
 
   private static byte[] convertSortKey(final long destinationDeviceId, final long serverTimestamp, final UUID messageUuid) {
@@ -274,29 +275,19 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   }
 
   private static byte[] convertLocalIndexMessageUuidSortKey(final UUID messageUuid) {
-    return convertUuidToBytes(messageUuid);
+    return UUIDUtil.toBytes(messageUuid);
   }
 
   private static UUID convertLocalIndexMessageUuidSortKey(final byte[] bytes) {
     return convertUuidFromBytes(bytes, "local index message uuid sort key");
   }
 
-  private static byte[] convertUuidToBytes(final UUID uuid) {
-    ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[16]);
-    byteBuffer.putLong(uuid.getMostSignificantBits());
-    byteBuffer.putLong(uuid.getLeastSignificantBits());
-    return byteBuffer.array();
-  }
-
   private static UUID convertUuidFromBytes(final byte[] bytes, final String name) {
-    if (bytes.length != 16) {
+    try {
+      return UUIDUtil.fromBytes(bytes);
+    } catch (final IllegalArgumentException e) {
       throw new IllegalArgumentException("unexpected " + name + " byte length; was " + bytes.length + " but expected 16");
     }
-
-    ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
-    final long mostSigBits = byteBuffer.getLong();
-    final long leastSigBits = byteBuffer.getLong();
-    return new UUID(mostSigBits, leastSigBits);
   }
 
   private static final class SortKey {
