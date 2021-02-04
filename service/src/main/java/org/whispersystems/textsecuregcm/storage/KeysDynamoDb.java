@@ -138,10 +138,10 @@ public class KeysDynamoDb extends AbstractDynamoDbStore implements PreKeyStore {
             final QuerySpec querySpec = new QuerySpec().withKeyConditionExpression("#uuid = :uuid")
                                                        .withNameMap(Map.of("#uuid", KEY_ACCOUNT_UUID))
                                                        .withValueMap(Map.of(":uuid", getPartitionKey(account.getUuid())))
-                                                       .withProjectionExpression(KEY_ACCOUNT_UUID + ", " + KEY_DEVICE_ID_KEY_ID)
+                                                       .withProjectionExpression(KEY_DEVICE_ID_KEY_ID)
                                                        .withConsistentRead(true);
 
-            deleteItemsMatchingQuery(querySpec);
+            deleteItemsForAccountMatchingQuery(account, querySpec);
         });
     }
 
@@ -152,19 +152,21 @@ public class KeysDynamoDb extends AbstractDynamoDbStore implements PreKeyStore {
                                                        .withNameMap(Map.of("#uuid", KEY_ACCOUNT_UUID, "#sort", KEY_DEVICE_ID_KEY_ID))
                                                        .withValueMap(Map.of(":uuid", getPartitionKey(account.getUuid()),
                                                                             ":sortprefix", getSortKeyPrefix(deviceId)))
-                                                       .withProjectionExpression(KEY_ACCOUNT_UUID + ", " + KEY_DEVICE_ID_KEY_ID)
+                                                       .withProjectionExpression(KEY_DEVICE_ID_KEY_ID)
                                                        .withConsistentRead(true);
 
-            deleteItemsMatchingQuery(querySpec);
+            deleteItemsForAccountMatchingQuery(account, querySpec);
         });
     }
 
-    private void deleteItemsMatchingQuery(final QuerySpec querySpec) {
+    private void deleteItemsForAccountMatchingQuery(final Account account, final QuerySpec querySpec) {
+        final byte[] partitionKey = getPartitionKey(account.getUuid());
+
         writeInBatches(table.query(querySpec), batch -> {
             final TableWriteItems writeItems = new TableWriteItems(table.getTableName());
 
             for (final Item item : batch) {
-                writeItems.addPrimaryKeyToDelete(new PrimaryKey(KEY_ACCOUNT_UUID, item.getBinary(KEY_ACCOUNT_UUID), KEY_DEVICE_ID_KEY_ID, item.getBinary(KEY_DEVICE_ID_KEY_ID)));
+                writeItems.addPrimaryKeyToDelete(new PrimaryKey(KEY_ACCOUNT_UUID, partitionKey, KEY_DEVICE_ID_KEY_ID, item.getBinary(KEY_DEVICE_ID_KEY_ID)));
             }
 
             executeTableWriteItemsUntilComplete(writeItems);
