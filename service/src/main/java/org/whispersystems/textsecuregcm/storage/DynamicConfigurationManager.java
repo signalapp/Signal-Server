@@ -73,13 +73,15 @@ public class DynamicConfigurationManager {
     }
 
     new Thread(() -> {
-      try {
-        retrieveDynamicConfiguration().ifPresent(configuration::set);
-      } catch (Throwable t) {
-        logger.warn("Error retrieving dynamic configuration", t);
-      }
+      while (true) {
+        try {
+          retrieveDynamicConfiguration().ifPresent(configuration::set);
+        } catch (Throwable t) {
+          logger.warn("Error retrieving dynamic configuration", t);
+        }
 
-      Util.sleep(5000);
+        Util.sleep(5000);
+      }
     }).start();
   }
 
