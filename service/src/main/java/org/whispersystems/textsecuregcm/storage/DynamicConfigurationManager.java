@@ -72,7 +72,7 @@ public class DynamicConfigurationManager {
       this.notifyAll();
     }
 
-    new Thread(() -> {
+    final Thread workerThread = new Thread(() -> {
       while (true) {
         try {
           retrieveDynamicConfiguration().ifPresent(configuration::set);
@@ -82,7 +82,10 @@ public class DynamicConfigurationManager {
 
         Util.sleep(5000);
       }
-    }).start();
+    }, "DynamicConfigurationManagerWorker");
+
+    workerThread.setDaemon(true);
+    workerThread.start();
   }
 
   private Optional<DynamicConfiguration> retrieveDynamicConfiguration() throws JsonProcessingException {
