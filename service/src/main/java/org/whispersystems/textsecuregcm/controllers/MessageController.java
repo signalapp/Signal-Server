@@ -136,7 +136,7 @@ public class MessageController {
           rateLimiters.getUnsealedSenderLimiter().validate(source.get().getUuid().toString());
         } catch (RateLimitExceededException e) {
           rejectUnsealedSenderLimit.mark();
-          logger.info("Rejected unsealed sender limit from: " + source.get().getNumber());
+          logger.debug("Rejected unsealed sender limit from: " + source.get().getNumber());
         }
       }
 
