@@ -31,7 +31,7 @@ import java.util.UUID;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-public class KeysDynamoDb extends AbstractDynamoDbStore implements PreKeyStore {
+public class KeysDynamoDb extends AbstractDynamoDbStore {
 
     private final Table table;
 
@@ -53,7 +53,6 @@ public class KeysDynamoDb extends AbstractDynamoDbStore implements PreKeyStore {
         this.table = dynamoDB.getTable(tableName);
     }
 
-    @Override
     public void store(final Account account, final long deviceId, final List<PreKey> keys) {
         STORE_KEYS_TIMER.record(() -> {
             delete(account, deviceId);
@@ -70,7 +69,6 @@ public class KeysDynamoDb extends AbstractDynamoDbStore implements PreKeyStore {
         });
     }
 
-    @Override
     public List<KeyRecord> take(final Account account, final long deviceId) {
         return TAKE_KEY_FOR_DEVICE_TIMER.record(() -> {
             final byte[] partitionKey = getPartitionKey(account.getUuid());
@@ -106,7 +104,6 @@ public class KeysDynamoDb extends AbstractDynamoDbStore implements PreKeyStore {
         });
     }
 
-    @Override
     public List<KeyRecord> take(final Account account) {
         return TAKE_KEYS_FOR_ACCOUNT_TIMER.record(() -> {
             final List<KeyRecord> keyRecords = new ArrayList<>();
@@ -119,7 +116,6 @@ public class KeysDynamoDb extends AbstractDynamoDbStore implements PreKeyStore {
         });
     }
 
-    @Override
     public int getCount(final Account account, final long deviceId) {
         return GET_KEY_COUNT_TIMER.record(() -> {
             final QuerySpec querySpec = new QuerySpec().withKeyConditionExpression("#uuid = :uuid AND begins_with (#sort, :sortprefix)")
@@ -133,7 +129,6 @@ public class KeysDynamoDb extends AbstractDynamoDbStore implements PreKeyStore {
         });
     }
 
-    @Override
     public void delete(final Account account) {
         DELETE_KEYS_FOR_ACCOUNT_TIMER.record(() -> {
             final QuerySpec querySpec = new QuerySpec().withKeyConditionExpression("#uuid = :uuid")
