@@ -68,9 +68,9 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends WebSo
         if (authenticationResult.getUser().isEmpty() && authenticationResult.isRequired()) {
           response.sendForbidden("Unauthorized");
           return null;
-        } else {
-          authenticated = authenticationResult.getUser().orElse(null);
         }
+
+        authenticated = authenticationResult.getUser().orElse(null);
       }
 
       return new WebSocketResourceProvider<T>(getRemoteAddress(request),
