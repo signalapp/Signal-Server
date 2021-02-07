@@ -18,8 +18,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.controllers.NoSuchUserException;
-import org.whispersystems.textsecuregcm.entities.CryptoEncodingException;
-import org.whispersystems.textsecuregcm.entities.EncryptedOutgoingMessage;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -127,51 +125,38 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   }
 
   private CompletableFuture<WebSocketResponseMessage> sendMessage(final Envelope message, final Optional<StoredMessageInfo> storedMessageInfo) {
-    try {
-      String           header;
-      Optional<byte[]> body;
+    final Optional<byte[]> body = Optional.ofNullable(message.toByteArray());
 
-      if (Util.isEmpty(device.getSignalingKey())) {
-        header = "X-Signal-Key: false";
-        body   = Optional.ofNullable(message.toByteArray());
-      } else {
-        header = "X-Signal-Key: true";
-        body   = Optional.ofNullable(new EncryptedOutgoingMessage(message, device.getSignalingKey()).toByteArray());
-      }
+    sendMessageMeter.mark();
+    bytesSentMeter.mark(body.map(bytes -> bytes.length).orElse(0));
 
-      sendMessageMeter.mark();
-      bytesSentMeter.mark(body.map(bytes -> bytes.length).orElse(0));
+    // X-Signal-Key: false must be sent until Android stops assuming it missing means true
+    return client.sendRequest("PUT", "/api/v1/message", List.of("X-Signal-Key: false", TimestampHeaderUtil.getTimestampHeader()), body).whenComplete((response, throwable) -> {
+      if (throwable == null) {
+        if (isSuccessResponse(response)) {
+          if (storedMessageInfo.isPresent()) {
+            messagesManager.delete(account.getNumber(), account.getUuid(), device.getId(), storedMessageInfo.get().getGuid());
+          }
 
-      return client.sendRequest("PUT", "/api/v1/message", List.of(header, TimestampHeaderUtil.getTimestampHeader()), body).whenComplete((response, throwable) -> {
-        if (throwable == null) {
-          if (isSuccessResponse(response)) {
-            if (storedMessageInfo.isPresent()) {
-              messagesManager.delete(account.getNumber(), account.getUuid(), device.getId(), storedMessageInfo.get().getGuid());
-            }
-
-            if (message.getType() != Envelope.Type.RECEIPT) {
-              recordMessageDeliveryDuration(message.getTimestamp(), device);
-              sendDeliveryReceiptFor(message);
-            }
-          } else {
-            final List<Tag> tags = new ArrayList<>(List.of(Tag.of(STATUS_CODE_TAG, String.valueOf(response.getStatus())),
-                                                           UserAgentTagUtil.getPlatformTag(client.getUserAgent())));
-
-            // TODO Remove this once we've identified the cause of message rejections from desktop clients
-            if (StringUtils.isNotBlank(response.getMessage())) {
-              tags.add(Tag.of(STATUS_MESSAGE_TAG, response.getMessage()));
-            }
-
-            Metrics.counter(NON_SUCCESS_RESPONSE_COUNTER_NAME, tags).increment();
+          if (message.getType() != Envelope.Type.RECEIPT) {
+            recordMessageDeliveryDuration(message.getTimestamp(), device);
+            sendDeliveryReceiptFor(message);
           }
         } else {
-          sendFailuresMeter.mark();
+          final List<Tag> tags = new ArrayList<>(List.of(Tag.of(STATUS_CODE_TAG, String.valueOf(response.getStatus())),
+                                                         UserAgentTagUtil.getPlatformTag(client.getUserAgent())));
+
+          // TODO Remove this once we've identified the cause of message rejections from desktop clients
+          if (StringUtils.isNotBlank(response.getMessage())) {
+            tags.add(Tag.of(STATUS_MESSAGE_TAG, response.getMessage()));
+          }
+
+          Metrics.counter(NON_SUCCESS_RESPONSE_COUNTER_NAME, tags).increment();
         }
-      });
-    } catch (CryptoEncodingException e) {
-      logger.warn("Bad signaling key", e);
-      return CompletableFuture.failedFuture(e);
-    }
+      } else {
+        sendFailuresMeter.mark();
+      }
+    });
   }
 
   public static void recordMessageDeliveryDuration(long timestamp, Device messageDestinationDevice) {
