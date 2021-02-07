@@ -6,28 +6,26 @@
 package org.whispersystems.textsecuregcm.metrics;
 
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonTypeName;
-import org.hibernate.validator.constraints.NotEmpty;
-import org.productivity.java.syslog4j.SyslogConfigIF;
-import org.productivity.java.syslog4j.SyslogIF;
-import org.productivity.java.syslog4j.SyslogRuntimeException;
-import org.productivity.java.syslog4j.impl.net.tcp.ssl.SSLTCPNetSyslogConfig;
-
-import javax.validation.constraints.NotNull;
-import java.util.TimeZone;
-
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.util.LevelToSyslogSeverity;
 import ch.qos.logback.core.Appender;
 import ch.qos.logback.core.AppenderBase;
 import ch.qos.logback.core.Layout;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonTypeName;
 import io.dropwizard.logging.AbstractAppenderFactory;
 import io.dropwizard.logging.async.AsyncAppenderFactory;
 import io.dropwizard.logging.filter.LevelFilterFactory;
 import io.dropwizard.logging.layout.LayoutFactory;
 import io.dropwizard.validation.PortRange;
+import java.util.TimeZone;
+import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
+import org.productivity.java.syslog4j.SyslogConfigIF;
+import org.productivity.java.syslog4j.SyslogIF;
+import org.productivity.java.syslog4j.SyslogRuntimeException;
+import org.productivity.java.syslog4j.impl.net.tcp.ssl.SSLTCPNetSyslogConfig;
 
 @JsonTypeName("papertrail")
 public class LoggingNetworkAppenderFactory extends AbstractAppenderFactory<ILoggingEvent> {

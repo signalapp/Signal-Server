@@ -6,13 +6,11 @@ package org.whispersystems.textsecuregcm.configuration;
 
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.hibernate.validator.constraints.NotEmpty;
-import org.hibernate.validator.constraints.URL;
-
-import javax.validation.Valid;
-import javax.validation.constraints.NotNull;
 import java.time.Duration;
 import java.util.List;
+import javax.validation.Valid;
+import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
 
 public class RedisConfiguration {
 

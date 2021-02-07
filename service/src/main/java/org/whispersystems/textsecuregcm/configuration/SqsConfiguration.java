@@ -5,9 +5,8 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.hibernate.validator.constraints.NotEmpty;
-
 import java.util.List;
+import javax.validation.constraints.NotEmpty;
 
 public class SqsConfiguration {
   @NotEmpty

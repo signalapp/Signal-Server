@@ -7,7 +7,7 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.List;
-import org.hibernate.validator.constraints.Length;
+import javax.validation.constraints.Size;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.storage.PaymentAddress;
 
@@ -20,7 +20,7 @@ public class AccountAttributes {
   private int registrationId;
 
   @JsonProperty
-  @Length(max = 204, message = "This field must be less than 50 characters")
+  @Size(max = 204, message = "This field must be less than 50 characters")
   private String name;
 
   @JsonProperty

@@ -8,12 +8,11 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
 import org.apache.commons.lang3.StringUtils;
-import org.hibernate.validator.constraints.NotEmpty;
 import org.signal.zkgroup.profiles.ProfileKeyCommitment;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
-
-import javax.validation.constraints.NotNull;
 
 public class CreateProfileRequest {
 
