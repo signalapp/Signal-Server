@@ -4,7 +4,21 @@
  */
 package org.whispersystems.websocket;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+
 import io.dropwizard.jersey.DropwizardResourceConfig;
+import java.io.IOException;
+import java.security.Principal;
+import java.util.Optional;
+import javax.security.auth.Subject;
+import javax.servlet.ServletException;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
 import org.eclipse.jetty.websocket.servlet.ServletUpgradeRequest;
@@ -15,21 +29,6 @@ import org.junit.Test;
 import org.whispersystems.websocket.auth.AuthenticationException;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
-
-import javax.security.auth.Subject;
-import javax.servlet.ServletException;
-import java.io.IOException;
-import java.security.Principal;
-import java.util.Optional;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
 
 public class WebSocketResourceProviderFactoryTest {
 

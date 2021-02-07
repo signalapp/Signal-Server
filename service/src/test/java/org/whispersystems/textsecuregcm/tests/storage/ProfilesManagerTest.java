@@ -5,22 +5,9 @@
 
 package org.whispersystems.textsecuregcm.tests.storage;
 
-import io.lettuce.core.RedisException;
-import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
-import org.junit.Test;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.storage.Profiles;
-import org.whispersystems.textsecuregcm.storage.ProfilesManager;
-import org.whispersystems.textsecuregcm.storage.VersionedProfile;
-import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
-import org.whispersystems.textsecuregcm.util.Base64;
-
-import java.util.Optional;
-import java.util.UUID;
-
 import static junit.framework.TestCase.assertSame;
 import static junit.framework.TestCase.assertTrue;
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -29,6 +16,18 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+
+import io.lettuce.core.RedisException;
+import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
+import java.util.Optional;
+import java.util.UUID;
+import org.junit.Test;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.storage.Profiles;
+import org.whispersystems.textsecuregcm.storage.ProfilesManager;
+import org.whispersystems.textsecuregcm.storage.VersionedProfile;
+import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
+import org.whispersystems.textsecuregcm.util.Base64;
 
 public class ProfilesManagerTest {
 

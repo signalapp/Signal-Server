@@ -5,6 +5,15 @@
 
 package org.whispersystems.textsecuregcm.tests.push;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import org.junit.Test;
 import org.whispersystems.gcm.server.Message;
 import org.whispersystems.gcm.server.Result;
@@ -16,12 +25,6 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.SynchronousExecutorService;
 import org.whispersystems.textsecuregcm.util.Util;
-
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-
-import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.*;
 
 public class GCMSenderTest {
 
