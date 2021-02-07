@@ -23,7 +23,7 @@ public class DeviceTest {
     @Parameters(method = "argumentsForTestIsEnabled")
     public void testIsEnabled(final boolean master, final boolean fetchesMessages, final String apnId, final String gcmId, final SignedPreKey signedPreKey, final Duration timeSinceLastSeen, final boolean expectEnabled) {
         final long lastSeen = System.currentTimeMillis() - timeSinceLastSeen.toMillis();
-        final Device device = new Device(master ? 1 : 2, "test", "auth-token", "salt", "signaling-key", gcmId, apnId, null, fetchesMessages, 1, signedPreKey, lastSeen, lastSeen, "user-agent", 0, null);
+        final Device device = new Device(master ? 1 : 2, "test", "auth-token", "salt", gcmId, apnId, null, fetchesMessages, 1, signedPreKey, lastSeen, lastSeen, "user-agent", 0, null);
 
         assertEquals(expectEnabled, device.isEnabled());
     }
@@ -70,7 +70,8 @@ public class DeviceTest {
     @Parameters(method = "argumentsForTestIsGroupsV2Supported")
     public void testIsGroupsV2Supported(final boolean master, final String apnId, final boolean gv2Capability, final boolean gv2_2Capability, final boolean gv2_3Capability, final boolean expectGv2Supported) {
         final Device.DeviceCapabilities capabilities = new Device.DeviceCapabilities(gv2Capability, gv2_2Capability, gv2_3Capability, false, false, false);
-        final Device                    device       = new Device(master ? 1 : 2, "test", "auth-token", "salt", "signaling-key", null, apnId, null, false, 1, null, 0, 0, "user-agent", 0, capabilities);
+        final Device                    device       = new Device(master ? 1 : 2, "test", "auth-token", "salt",
+            null, apnId, null, false, 1, null, 0, 0, "user-agent", 0, capabilities);
 
         assertEquals(expectGv2Supported, device.isGroupsV2Supported());
     }

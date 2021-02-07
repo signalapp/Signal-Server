@@ -136,7 +136,7 @@ public class DeviceControllerTest {
                                        .target("/v1/devices/5678901")
                                        .request()
                                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-                                       .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 1234, null),
+                                       .put(Entity.entity(new AccountAttributes(false, 1234, null),
                                                           MediaType.APPLICATION_JSON_TYPE),
                                             DeviceResponse.class);
 
@@ -171,7 +171,7 @@ public class DeviceControllerTest {
                                  .target("/v1/devices/5678902")
                                  .request()
                                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-                                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 1234, null),
+                                 .put(Entity.entity(new AccountAttributes(false, 1234, null),
                                                     MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(403);
@@ -185,7 +185,7 @@ public class DeviceControllerTest {
                                  .target("/v1/devices/1112223")
                                  .request()
                                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER_TWO, AuthHelper.VALID_PASSWORD_TWO))
-                                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 1234, null),
+                                 .put(Entity.entity(new AccountAttributes(false, 1234, null),
                                                     MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(403);
@@ -211,7 +211,7 @@ public class DeviceControllerTest {
                                  .target("/v1/devices/5678901")
                                  .request()
                                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-                                 .put(Entity.entity(new AccountAttributes("keykeykeykey", false, 1234, "this is a really long name that is longer than 80 characters it's so long that it's even longer than 204 characters. that's a lot of characters. we're talking lots and lots and lots of characters. 12345678", null, null, null, true, null),
+                                 .put(Entity.entity(new AccountAttributes(false, 1234, "this is a really long name that is longer than 80 characters it's so long that it's even longer than 204 characters. that's a lot of characters. we're talking lots and lots and lots of characters. 12345678", null, null, null, true, null),
                                                     MediaType.APPLICATION_JSON_TYPE));
 
     assertEquals(response.getStatus(), 422);
@@ -222,7 +222,7 @@ public class DeviceControllerTest {
   @Parameters(method = "argumentsForDeviceDowngradeCapabilitiesTest")
   public void deviceDowngradeCapabilitiesTest(final String userAgent, final boolean gv2, final boolean gv2_2, final boolean gv2_3, final int expectedStatus) throws Exception {
     Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(gv2, gv2_2, gv2_3, true, false, true);
-    AccountAttributes accountAttributes = new AccountAttributes("keykeykeykey", false, 1234, null, null, null, null, true, deviceCapabilities);
+    AccountAttributes accountAttributes = new AccountAttributes(false, 1234, null, null, null, null, true, deviceCapabilities);
     Response response = resources.getJerseyTest()
             .target("/v1/devices/5678901")
             .request()
@@ -262,7 +262,7 @@ public class DeviceControllerTest {
   @Test
   public void deviceDowngradeGv1MigrationTest() {
     Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(true, true, true, true, false, false);
-    AccountAttributes accountAttributes = new AccountAttributes("keykeykeykey", false, 1234, null, null, null, null, true, deviceCapabilities);
+    AccountAttributes accountAttributes = new AccountAttributes(false, 1234, null, null, null, null, true, deviceCapabilities);
     Response response = resources.getJerseyTest()
                                  .target("/v1/devices/5678901")
                                  .request()
@@ -273,7 +273,7 @@ public class DeviceControllerTest {
     assertThat(response.getStatus()).isEqualTo(409);
 
     deviceCapabilities = new Device.DeviceCapabilities(true, true, true, true, false, true);
-    accountAttributes = new AccountAttributes("keykeykeykey", false, 1234, null, null, null, null, true, deviceCapabilities);
+    accountAttributes = new AccountAttributes(false, 1234, null, null, null, null, true, deviceCapabilities);
     response = resources.getJerseyTest()
                         .target("/v1/devices/5678901")
                         .request()

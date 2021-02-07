@@ -30,9 +30,6 @@ public class Device {
   private String  salt;
 
   @JsonProperty
-  private String  signalingKey;
-
-  @JsonProperty
   private String  gcmId;
 
   @JsonProperty
@@ -71,7 +68,7 @@ public class Device {
   public Device() {}
 
   public Device(long id, String name, String authToken, String salt,
-                String signalingKey, String gcmId, String apnId,
+                String gcmId, String apnId,
                 String voipApnId, boolean fetchesMessages,
                 int registrationId, SignedPreKey signedPreKey,
                 long lastSeen, long created, String userAgent,
@@ -81,7 +78,6 @@ public class Device {
     this.name                    = name;
     this.authToken               = authToken;
     this.salt                    = salt;
-    this.signalingKey            = signalingKey;
     this.gcmId                   = gcmId;
     this.apnId                   = apnId;
     this.voipApnId               = voipApnId;
@@ -182,14 +178,6 @@ public class Device {
 
   public void setCapabilities(DeviceCapabilities capabilities) {
     this.capabilities = capabilities;
-  }
-
-  public String getSignalingKey() {
-    return signalingKey;
-  }
-
-  public void setSignalingKey(String signalingKey) {
-    this.signalingKey = signalingKey;
   }
 
   public boolean isEnabled() {

@@ -188,7 +188,6 @@ public class DeviceController {
       Device device = new Device();
       device.setName(accountAttributes.getName());
       device.setAuthenticationCredentials(new AuthenticationCredentials(password));
-      device.setSignalingKey(accountAttributes.getSignalingKey());
       device.setFetchesMessages(accountAttributes.getFetchesMessages());
       device.setId(account.get().getNextDeviceId());
       device.setRegistrationId(accountAttributes.getRegistrationId());
