@@ -28,7 +28,6 @@ import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.KeyRecord;
 import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
@@ -38,6 +37,7 @@ import javax.ws.rs.core.Response;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -59,10 +59,10 @@ public class KeysControllerTest {
   private static int SAMPLE_REGISTRATION_ID2 = 1002;
   private static int SAMPLE_REGISTRATION_ID4 = 1555;
 
-  private final KeyRecord SAMPLE_KEY    = new KeyRecord(1, EXISTS_NUMBER, Device.MASTER_ID, 1234, "test1");
-  private final KeyRecord SAMPLE_KEY2   = new KeyRecord(2, EXISTS_NUMBER, 2, 5667, "test3");
-  private final KeyRecord SAMPLE_KEY3   = new KeyRecord(3, EXISTS_NUMBER, 3, 334, "test5");
-  private final KeyRecord SAMPLE_KEY4   = new KeyRecord(4, EXISTS_NUMBER, 4, 336, "test6");
+  private final PreKey SAMPLE_KEY    = new PreKey(1234, "test1");
+  private final PreKey SAMPLE_KEY2   = new PreKey(5667, "test3");
+  private final PreKey SAMPLE_KEY3   = new PreKey(334, "test5");
+  private final PreKey SAMPLE_KEY4   = new PreKey(336, "test6");
 
 
   private final SignedPreKey SAMPLE_SIGNED_KEY       = new SignedPreKey( 1111, "foofoo", "sig11"    );
@@ -140,16 +140,12 @@ public class KeysControllerTest {
 
     when(rateLimiters.getPreKeysLimiter()).thenReturn(rateLimiter);
 
-    List<KeyRecord> singleDevice = new LinkedList<>();
-    singleDevice.add(SAMPLE_KEY);
-    when(keysDynamoDb.take(eq(existsAccount), eq(1L))).thenReturn(singleDevice);
+    when(keysDynamoDb.take(eq(existsAccount), eq(1L))).thenReturn(Optional.of(SAMPLE_KEY));
 
-    List<KeyRecord> multiDevice = new LinkedList<>();
-    multiDevice.add(SAMPLE_KEY);
-    multiDevice.add(SAMPLE_KEY2);
-    multiDevice.add(SAMPLE_KEY3);
-    multiDevice.add(SAMPLE_KEY4);
-    when(keysDynamoDb.take(existsAccount)).thenReturn(multiDevice);
+    when(keysDynamoDb.take(existsAccount)).thenReturn(Map.of(1L, SAMPLE_KEY,
+                                                             2L, SAMPLE_KEY2,
+                                                             3L, SAMPLE_KEY3,
+                                                             4L, SAMPLE_KEY4));
 
     when(keysDynamoDb.getCount(eq(AuthHelper.VALID_ACCOUNT), eq(1L))).thenReturn(5);
 

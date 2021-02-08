@@ -25,8 +25,10 @@ import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -69,7 +71,7 @@ public class KeysDynamoDb extends AbstractDynamoDbStore {
         });
     }
 
-    public List<KeyRecord> take(final Account account, final long deviceId) {
+    public Optional<PreKey> take(final Account account, final long deviceId) {
         return TAKE_KEY_FOR_DEVICE_TIMER.record(() -> {
             final byte[] partitionKey = getPartitionKey(account.getUuid());
 
@@ -90,29 +92,28 @@ public class KeysDynamoDb extends AbstractDynamoDbStore {
                     final DeleteItemOutcome outcome = table.deleteItem(deleteItemSpec);
 
                     if (outcome.getItem() != null) {
-                        final PreKey preKey = getPreKeyFromItem(outcome.getItem());
-                        return List.of(new KeyRecord(-1, account.getNumber(), deviceId, preKey.getKeyId(), preKey.getPublicKey()));
+                        return Optional.of(getPreKeyFromItem(outcome.getItem()));
                     }
 
                     contestedKeys++;
                 }
 
-                return Collections.emptyList();
+                return Optional.empty();
             } finally {
                 CONTESTED_KEY_DISTRIBUTION.record(contestedKeys);
             }
         });
     }
 
-    public List<KeyRecord> take(final Account account) {
+    public Map<Long, PreKey> take(final Account account) {
         return TAKE_KEYS_FOR_ACCOUNT_TIMER.record(() -> {
-            final List<KeyRecord> keyRecords = new ArrayList<>();
+            final Map<Long, PreKey> preKeysByDeviceId = new HashMap<>();
 
             for (final Device device : account.getDevices()) {
-                keyRecords.addAll(take(account, device.getId()));
+                take(account, device.getId()).ifPresent(preKey -> preKeysByDeviceId.put(device.getId(), preKey));
             }
 
-            return keyRecords;
+            return preKeysByDeviceId;
         });
     }
 

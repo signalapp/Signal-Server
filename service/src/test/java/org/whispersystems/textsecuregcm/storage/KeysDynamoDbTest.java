@@ -11,8 +11,9 @@ import org.junit.Test;
 import org.whispersystems.textsecuregcm.entities.PreKey;
 
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -70,7 +71,7 @@ public class KeysDynamoDbTest {
         when(secondDevice.getId()).thenReturn(DEVICE_ID + 1);
         when(account.getDevices()).thenReturn(Set.of(firstDevice, secondDevice));
 
-        assertEquals(Collections.emptyList(), keysDynamoDb.take(account));
+        assertEquals(Collections.emptyMap(), keysDynamoDb.take(account));
 
         final PreKey firstDevicePreKey = new PreKey(1, "public-key");
         final PreKey secondDevicePreKey = new PreKey(2, "second-key");
@@ -78,23 +79,22 @@ public class KeysDynamoDbTest {
         keysDynamoDb.store(account, DEVICE_ID, List.of(firstDevicePreKey));
         keysDynamoDb.store(account, DEVICE_ID + 1, List.of(secondDevicePreKey));
 
-        final Set<KeyRecord> expectedKeys = Set.of(
-                new KeyRecord(-1, ACCOUNT_NUMBER, DEVICE_ID, firstDevicePreKey.getKeyId(), firstDevicePreKey.getPublicKey()),
-                new KeyRecord(-1, ACCOUNT_NUMBER, DEVICE_ID + 1, secondDevicePreKey.getKeyId(), secondDevicePreKey.getPublicKey()));
+        final Map<Long, PreKey> expectedKeys = Map.of(DEVICE_ID, firstDevicePreKey,
+                                                      DEVICE_ID + 1, secondDevicePreKey);
 
-        assertEquals(expectedKeys, new HashSet<>(keysDynamoDb.take(account)));
+        assertEquals(expectedKeys, keysDynamoDb.take(account));
         assertEquals(0, keysDynamoDb.getCount(account, DEVICE_ID));
         assertEquals(0, keysDynamoDb.getCount(account, DEVICE_ID + 1));
     }
 
     @Test
     public void testTakeAccountAndDeviceId() {
-        assertEquals(Collections.emptyList(), keysDynamoDb.take(account, DEVICE_ID));
+        assertEquals(Optional.empty(), keysDynamoDb.take(account, DEVICE_ID));
 
         final PreKey preKey = new PreKey(1, "public-key");
 
         keysDynamoDb.store(account, DEVICE_ID, List.of(preKey, new PreKey(2, "different-pre-key")));
-        assertEquals(List.of(new KeyRecord(-1, ACCOUNT_NUMBER, DEVICE_ID, preKey.getKeyId(), preKey.getPublicKey())), keysDynamoDb.take(account, DEVICE_ID));
+        assertEquals(Optional.of(preKey), keysDynamoDb.take(account, DEVICE_ID));
         assertEquals(1, keysDynamoDb.getCount(account, DEVICE_ID));
     }
 

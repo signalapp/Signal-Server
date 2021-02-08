@@ -21,7 +21,6 @@ import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.KeyRecord;
 import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
 
 import javax.validation.Valid;
@@ -35,8 +34,10 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -120,28 +121,22 @@ public class KeysController {
       rateLimiters.getPreKeysLimiter().validate(account.get().getNumber() + "." + account.get().getAuthenticatedDevice().get().getId() +  "__" + target.get().getNumber() + "." + deviceId);
     }
 
-    List<KeyRecord>          targetKeys = getLocalKeys(target.get(), deviceId);
-    List<PreKeyResponseItem> devices    = new LinkedList<>();
+    Map<Long, PreKey>        preKeysByDeviceId = getLocalKeys(target.get(), deviceId);
+    List<PreKeyResponseItem> responseItems     = new LinkedList<>();
 
     for (Device device : target.get().getDevices()) {
       if (device.isEnabled() && (deviceId.equals("*") || device.getId() == Long.parseLong(deviceId))) {
         SignedPreKey signedPreKey = device.getSignedPreKey();
-        PreKey preKey       = null;
-
-        for (KeyRecord keyRecord : targetKeys) {
-          if (keyRecord.getDeviceId() == device.getId()) {
-              preKey = new PreKey(keyRecord.getKeyId(), keyRecord.getPublicKey());
-          }
-        }
+        PreKey       preKey       = preKeysByDeviceId.get(device.getId());
 
         if (signedPreKey != null || preKey != null) {
-          devices.add(new PreKeyResponseItem(device.getId(), device.getRegistrationId(), signedPreKey, preKey));
+          responseItems.add(new PreKeyResponseItem(device.getId(), device.getRegistrationId(), signedPreKey, preKey));
         }
       }
     }
 
-    if (devices.isEmpty()) return Optional.empty();
-    else                   return Optional.of(new PreKeyResponse(target.get().getIdentityKey(), devices));
+    if (responseItems.isEmpty()) return Optional.empty();
+    else                         return Optional.of(new PreKeyResponse(target.get().getIdentityKey(), responseItems));
   }
 
   @Timed
@@ -172,7 +167,7 @@ public class KeysController {
     else                      return Optional.empty();
   }
 
-  private List<KeyRecord> getLocalKeys(Account destination, String deviceIdSelector) {
+  private Map<Long, PreKey> getLocalKeys(Account destination, String deviceIdSelector) {
     try {
       if (deviceIdSelector.equals("*")) {
         return keysDynamoDb.take(destination);
@@ -180,7 +175,9 @@ public class KeysController {
 
       long deviceId = Long.parseLong(deviceIdSelector);
 
-      return keysDynamoDb.take(destination, deviceId);
+      return keysDynamoDb.take(destination, deviceId)
+              .map(preKey -> Map.of(deviceId, preKey))
+              .orElse(Collections.emptyMap());
     } catch (NumberFormatException e) {
       throw new WebApplicationException(Response.status(422).build());
     }
