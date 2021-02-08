@@ -46,6 +46,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.LongAdder;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
@@ -64,10 +65,11 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private static final Meter          sendFailuresMeter              = metricRegistry.meter(name(WebSocketConnection.class, "send_failures"));
   private static final Meter          discardedMessagesMeter         = metricRegistry.meter(name(WebSocketConnection.class, "discardedMessages"));
 
-  private static final String DISPLACEMENT_COUNTER_NAME         = name(WebSocketConnection.class, "displacement");
-  private static final String NON_SUCCESS_RESPONSE_COUNTER_NAME = name(WebSocketConnection.class, "clientNonSuccessResponse");
-  private static final String STATUS_CODE_TAG                   = "status";
-  private static final String STATUS_MESSAGE_TAG                = "message";
+  private static final String INITIAL_QUEUE_LENGTH_DISTRIBUTION_NAME = name(WebSocketConnection.class, "initialQueueLength");
+  private static final String DISPLACEMENT_COUNTER_NAME              = name(WebSocketConnection.class, "displacement");
+  private static final String NON_SUCCESS_RESPONSE_COUNTER_NAME      = name(WebSocketConnection.class, "clientNonSuccessResponse");
+  private static final String STATUS_CODE_TAG                        = "status";
+  private static final String STATUS_MESSAGE_TAG                     = "message";
 
   @VisibleForTesting
   static final int MAX_DESKTOP_MESSAGE_SIZE = 1024 * 1024;
@@ -86,6 +88,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private final Semaphore                           processStoredMessagesSemaphore = new Semaphore(1);
   private final AtomicReference<StoredMessageState> storedMessageState             = new AtomicReference<>(StoredMessageState.PERSISTED_NEW_MESSAGES_AVAILABLE);
   private final AtomicBoolean                       sentInitialQueueEmptyMessage   = new AtomicBoolean(false);
+  private final LongAdder                           sentMessageCounter             = new LongAdder();
 
   private enum StoredMessageState {
     EMPTY,
@@ -128,6 +131,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     final Optional<byte[]> body = Optional.ofNullable(message.toByteArray());
 
     sendMessageMeter.mark();
+    sentMessageCounter.increment();
     bytesSentMeter.mark(body.map(bytes -> bytes.length).orElse(0));
 
     // X-Signal-Key: false must be sent until Android stops assuming it missing means true
@@ -193,6 +197,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
       queueClearedFuture.whenComplete((v, cause) -> {
         if (cause == null && sentInitialQueueEmptyMessage.compareAndSet(false, true)) {
+          Metrics.summary(INITIAL_QUEUE_LENGTH_DISTRIBUTION_NAME, List.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()))).record(sentMessageCounter.sum());
           client.sendRequest("PUT", "/api/v1/queue/empty", Collections.singletonList(TimestampHeaderUtil.getTimestampHeader()), Optional.empty());
         }
 
