@@ -5,6 +5,8 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.amazonaws.services.dynamodbv2.document.DeleteItemOutcome;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.amazonaws.services.dynamodbv2.document.Item;
@@ -19,19 +21,14 @@ import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
-import org.whispersystems.textsecuregcm.entities.PreKey;
-import org.whispersystems.textsecuregcm.util.UUIDUtil;
-
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-
-import static com.codahale.metrics.MetricRegistry.name;
+import org.whispersystems.textsecuregcm.entities.PreKey;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 public class KeysDynamoDb extends AbstractDynamoDbStore {
 
@@ -48,6 +45,7 @@ public class KeysDynamoDb extends AbstractDynamoDbStore {
     private static final Timer               DELETE_KEYS_FOR_DEVICE_TIMER  = Metrics.timer(name(KeysDynamoDb.class, "deleteKeysForDevice"));
     private static final Timer               DELETE_KEYS_FOR_ACCOUNT_TIMER = Metrics.timer(name(KeysDynamoDb.class, "deleteKeysForAccount"));
     private static final DistributionSummary CONTESTED_KEY_DISTRIBUTION    = Metrics.summary(name(KeysDynamoDb.class, "contestedKeys"));
+    private static final DistributionSummary KEY_COUNT_DISTRIBUTION        = Metrics.summary(name(KeysDynamoDb.class, "keyCount"));
 
     public KeysDynamoDb(final DynamoDB dynamoDB, final String tableName) {
         super(dynamoDB);
@@ -126,7 +124,10 @@ public class KeysDynamoDb extends AbstractDynamoDbStore {
                                                        .withSelect(Select.COUNT)
                                                        .withConsistentRead(false);
 
-            return (int)countItemsMatchingQuery(table, querySpec);
+            final int keyCount = (int)countItemsMatchingQuery(table, querySpec);
+
+            KEY_COUNT_DISTRIBUTION.record(keyCount);
+            return keyCount;
         });
     }
 
