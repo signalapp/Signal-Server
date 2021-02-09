@@ -6,10 +6,13 @@
 package org.whispersystems.textsecuregcm.configuration.dynamic;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.vdurmont.semver4j.Semver;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 import java.util.Collections;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -57,6 +60,39 @@ public class DynamicConfigurationTest {
             assertEquals(0, config.getExperimentEnrollmentConfiguration("uuidsOnly").get().getEnrollmentPercentage());
             assertEquals(Set.of(UUID.fromString("71618739-114c-4b1f-bb0d-6478a44eb600")),
                          config.getExperimentEnrollmentConfiguration("uuidsOnly").get().getEnrolledUuids());
+        }
+    }
+
+    @Test
+    public void testParseRemoteDeprecationConfig() throws JsonProcessingException {
+        {
+            final String emptyConfigYaml = "test: true";
+            final DynamicConfiguration emptyConfig = DynamicConfigurationManager.OBJECT_MAPPER.readValue(emptyConfigYaml, DynamicConfiguration.class);
+
+            assertNotNull(emptyConfig.getRemoteDeprecationConfiguration());
+        }
+
+        {
+            final String experimentConfigYaml =
+                    "remoteDeprecation:\n" +
+                    "  minimumVersions:\n" +
+                    "    IOS: 1.2.3\n" +
+                    "    ANDROID: 4.5.6\n" +
+
+                    "  versionsPendingDeprecation:\n" +
+                    "    DESKTOP: 7.8.9\n" +
+
+                    "  blockedVersions:\n" +
+                    "    DESKTOP:\n" +
+                    "      - 1.4.0-beta.2";
+
+            final DynamicConfiguration config = DynamicConfigurationManager.OBJECT_MAPPER.readValue(experimentConfigYaml, DynamicConfiguration.class);
+            final DynamicRemoteDeprecationConfiguration remoteDeprecationConfiguration = config.getRemoteDeprecationConfiguration();
+
+            assertEquals(Map.of(ClientPlatform.IOS, new Semver("1.2.3"), ClientPlatform.ANDROID, new Semver("4.5.6")), remoteDeprecationConfiguration.getMinimumVersions());
+            assertEquals(Map.of(ClientPlatform.DESKTOP, new Semver("7.8.9")), remoteDeprecationConfiguration.getVersionsPendingDeprecation());
+            assertEquals(Map.of(ClientPlatform.DESKTOP, Set.of(new Semver("1.4.0-beta.2"))), remoteDeprecationConfiguration.getBlockedVersions());
+            assertTrue(remoteDeprecationConfiguration.getVersionsPendingBlock().isEmpty());
         }
     }
 }

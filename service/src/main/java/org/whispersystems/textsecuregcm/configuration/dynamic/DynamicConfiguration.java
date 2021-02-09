@@ -17,11 +17,19 @@ public class DynamicConfiguration {
   @Valid
   private DynamicRateLimitsConfiguration limits = new DynamicRateLimitsConfiguration();
 
+  @JsonProperty
+  @Valid
+  private DynamicRemoteDeprecationConfiguration remoteDeprecation = new DynamicRemoteDeprecationConfiguration();
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
   }
 
   public DynamicRateLimitsConfiguration getLimits() {
     return limits;
+  }
+
+  public DynamicRemoteDeprecationConfiguration getRemoteDeprecationConfiguration() {
+    return remoteDeprecation;
   }
 }
