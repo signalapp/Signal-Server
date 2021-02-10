@@ -70,7 +70,6 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.Base64;
 
-@Ignore
 public class MessageControllerTest {
 
   private static final String SINGLE_DEVICE_RECIPIENT = "+14151111111";
@@ -85,6 +84,7 @@ public class MessageControllerTest {
   private  final MessagesManager        messagesManager        = mock(MessagesManager.class);
   private  final RateLimiters           rateLimiters           = mock(RateLimiters.class);
   private  final RateLimiter            rateLimiter            = mock(RateLimiter.class);
+  private  final RateLimiter            unsealedSenderLimiter  = mock(RateLimiter.class);
   private  final ApnFallbackManager     apnFallbackManager     = mock(ApnFallbackManager.class);
   private  final FeatureFlagsManager    featureFlagsManager    = mock(FeatureFlagsManager.class);
 
@@ -125,6 +125,7 @@ public class MessageControllerTest {
     when(accountsManager.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(MULTI_DEVICE_RECIPIENT)))).thenReturn(Optional.of(multiDeviceAccount));
 
     when(rateLimiters.getMessagesLimiter()).thenReturn(rateLimiter);
+    when(rateLimiters.getUnsealedSenderLimiter()).thenReturn(unsealedSenderLimiter);
   }
 
   @Test
