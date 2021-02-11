@@ -186,7 +186,7 @@ public class ApnFallbackManager implements Managed {
 
     long deviceLastSeen = device.getLastSeen();
 
-    if (deviceLastSeen < System.currentTimeMillis() - TimeUnit.DAYS.toMillis(90)) {
+    if (deviceLastSeen < System.currentTimeMillis() - TimeUnit.DAYS.toMillis(7)) {
       evicted.mark();
       remove(account, device);
       return;
