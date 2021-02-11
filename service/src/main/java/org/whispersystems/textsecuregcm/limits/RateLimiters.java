@@ -5,13 +5,12 @@
 package org.whispersystems.textsecuregcm.limits;
 
 
+import java.util.concurrent.atomic.AtomicReference;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration.CardinalityRateLimitConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration.RateLimitConfiguration;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
-
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.UnaryOperator;
 
 public class RateLimiters {
 
@@ -38,7 +37,7 @@ public class RateLimiters {
   private final RateLimiter usernameLookupLimiter;
   private final RateLimiter usernameSetLimiter;
 
-  private final AtomicReference<RateLimiter> unsealedSenderLimiter;
+  private final AtomicReference<CardinalityRateLimiter> unsealedSenderLimiter;
   private final AtomicReference<RateLimiter> unsealedIpLimiter;
 
   private final FaultTolerantRedisCluster   cacheCluster;
@@ -124,11 +123,11 @@ public class RateLimiters {
     this.unsealedIpLimiter     = new AtomicReference<>(createUnsealedIpLimiter(cacheCluster, dynamicConfig.getConfiguration().getLimits().getUnsealedSenderIp()));
   }
 
-  public RateLimiter getUnsealedSenderLimiter() {
-    RateLimitConfiguration currentConfiguration = dynamicConfig.getConfiguration().getLimits().getUnsealedSenderNumber();
+  public CardinalityRateLimiter getUnsealedSenderLimiter() {
+    CardinalityRateLimitConfiguration currentConfiguration = dynamicConfig.getConfiguration().getLimits().getUnsealedSenderNumber();
 
     return this.unsealedSenderLimiter.updateAndGet(rateLimiter -> {
-      if (isLimiterConfigurationCurrent(rateLimiter, currentConfiguration)) {
+      if (rateLimiter.hasConfiguration(currentConfiguration)) {
         return rateLimiter;
       } else {
         return createUnsealedSenderLimiter(cacheCluster, currentConfiguration);
@@ -140,7 +139,7 @@ public class RateLimiters {
     RateLimitConfiguration currentConfiguration = dynamicConfig.getConfiguration().getLimits().getUnsealedSenderIp();
 
     return this.unsealedIpLimiter.updateAndGet(rateLimiter -> {
-      if (isLimiterConfigurationCurrent(rateLimiter, currentConfiguration)) {
+      if (rateLimiter.hasConfiguration(currentConfiguration)) {
         return rateLimiter;
       } else {
         return createUnsealedIpLimiter(cacheCluster, currentConfiguration);
@@ -220,10 +219,8 @@ public class RateLimiters {
     return usernameSetLimiter;
   }
 
-  private RateLimiter createUnsealedSenderLimiter(FaultTolerantRedisCluster cacheCluster,
-                                                  RateLimitConfiguration configuration)
-  {
-    return createLimiter(cacheCluster, configuration, "unsealedSender");
+  private CardinalityRateLimiter createUnsealedSenderLimiter(FaultTolerantRedisCluster cacheCluster, CardinalityRateLimitConfiguration configuration) {
+    return new CardinalityRateLimiter(cacheCluster, "unsealedSender", configuration.getTtl(), configuration.getTtlJitter(), configuration.getMaxCardinality());
   }
 
   private RateLimiter createUnsealedIpLimiter(FaultTolerantRedisCluster cacheCluster,
@@ -236,9 +233,5 @@ public class RateLimiters {
     return new RateLimiter(cacheCluster, name,
                            configuration.getBucketSize(),
                            configuration.getLeakRatePerMinute());
-  }
-
-  private boolean isLimiterConfigurationCurrent(RateLimiter limiter, RateLimitConfiguration configuration) {
-    return limiter.getBucketSize() == configuration.getBucketSize() && limiter.getLeakRatePerMinute() == configuration.getLeakRatePerMinute();
   }
 }

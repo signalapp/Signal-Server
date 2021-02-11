@@ -129,15 +129,13 @@ public class MessageController {
     }
 
     if (source.isPresent() && !source.get().isFor(destinationName)) {
-      rateLimiters.getMessagesLimiter().validate(source.get().getNumber() + "__" + destinationName);
-
-        try {
-          rateLimiters.getUnsealedSenderLimiter().validate(source.get().getUuid().toString());
-        } catch (RateLimitExceededException e) {
-          rejectUnsealedSenderLimit.mark();
-          logger.debug("Rejected unsealed sender limit from: {}", source.get().getNumber());
-        }
+      try {
+        rateLimiters.getUnsealedSenderLimiter().validate(source.get().getUuid().toString(), destinationName.toString());
+      } catch (RateLimitExceededException e) {
+        rejectUnsealedSenderLimit.mark();
+        logger.debug("Rejected unsealed sender limit from: {}", source.get().getNumber());
       }
+    }
 
     final String senderType;
 
@@ -180,6 +178,10 @@ public class MessageController {
 
       OptionalAccess.verify(source, accessKey, destination);
       assert(destination.isPresent());
+
+      if (source.isPresent() && !source.get().isFor(destinationName)) {
+        rateLimiters.getMessagesLimiter().validate(source.get().getUuid() + "__" + destination.get().getUuid());
+      }
 
       validateCompleteDeviceList(destination.get(), messages.getMessages(), isSyncMessage);
       validateRegistrationIds(destination.get(), messages.getMessages());

@@ -5,6 +5,7 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.time.Duration;
 
 public class RateLimitsConfiguration {
 
@@ -154,6 +155,38 @@ public class RateLimitsConfiguration {
 
     public double getLeakRatePerMinute() {
       return leakRatePerMinute;
+    }
+  }
+
+  public static class CardinalityRateLimitConfiguration {
+    @JsonProperty
+    private int maxCardinality;
+
+    @JsonProperty
+    private Duration ttl;
+
+    @JsonProperty
+    private Duration ttlJitter;
+
+    public CardinalityRateLimitConfiguration() {
+    }
+
+    public CardinalityRateLimitConfiguration(int maxCardinality, Duration ttl, Duration ttlJitter) {
+      this.maxCardinality = maxCardinality;
+      this.ttl = ttl;
+      this.ttlJitter = ttlJitter;
+    }
+
+    public int getMaxCardinality() {
+      return maxCardinality;
+    }
+
+    public Duration getTtl() {
+      return ttl;
+    }
+
+    public Duration getTtlJitter() {
+      return ttlJitter;
     }
   }
 }

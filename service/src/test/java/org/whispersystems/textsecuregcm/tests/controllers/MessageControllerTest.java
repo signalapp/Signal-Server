@@ -57,6 +57,7 @@ import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
+import org.whispersystems.textsecuregcm.limits.CardinalityRateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
@@ -84,7 +85,7 @@ public class MessageControllerTest {
   private  final MessagesManager        messagesManager        = mock(MessagesManager.class);
   private  final RateLimiters           rateLimiters           = mock(RateLimiters.class);
   private  final RateLimiter            rateLimiter            = mock(RateLimiter.class);
-  private  final RateLimiter            unsealedSenderLimiter  = mock(RateLimiter.class);
+  private  final CardinalityRateLimiter unsealedSenderLimiter  = mock(CardinalityRateLimiter.class);
   private  final ApnFallbackManager     apnFallbackManager     = mock(ApnFallbackManager.class);
   private  final FeatureFlagsManager    featureFlagsManager    = mock(FeatureFlagsManager.class);
 

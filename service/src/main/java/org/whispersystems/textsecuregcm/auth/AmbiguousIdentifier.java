@@ -37,4 +37,9 @@ public class AmbiguousIdentifier {
   public boolean hasNumber() {
     return number != null;
   }
+
+  @Override
+  public String toString() {
+    return hasUuid() ? uuid.toString() : number;
+  }
 }

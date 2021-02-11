@@ -5,6 +5,10 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 public class RateLimitExceededException extends Exception {
+  public RateLimitExceededException() {
+    super();
+  }
+
   public RateLimitExceededException(String number) {
     super(number);
   }
