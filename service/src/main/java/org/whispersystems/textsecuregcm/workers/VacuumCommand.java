@@ -14,7 +14,6 @@ import org.whispersystems.textsecuregcm.configuration.DatabaseConfiguration;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.FeatureFlags;
-import org.whispersystems.textsecuregcm.storage.Messages;
 import org.whispersystems.textsecuregcm.storage.PendingAccounts;
 
 import io.dropwizard.cli.ConfiguredCommand;
@@ -36,17 +35,11 @@ public class VacuumCommand extends ConfiguredCommand<WhisperServerConfiguration>
       throws Exception
   {
     DatabaseConfiguration accountDbConfig = config.getAbuseDatabaseConfiguration();
-    DatabaseConfiguration messageDbConfig = config.getMessageStoreConfiguration();
-
     Jdbi accountJdbi = Jdbi.create(accountDbConfig.getUrl(), accountDbConfig.getUser(), accountDbConfig.getPassword());
-    Jdbi messageJdbi = Jdbi.create(messageDbConfig.getUrl(), messageDbConfig.getUser(), messageDbConfig.getPassword());
-
     FaultTolerantDatabase accountDatabase = new FaultTolerantDatabase("account_database_vacuum", accountJdbi, accountDbConfig.getCircuitBreakerConfiguration());
-    FaultTolerantDatabase messageDatabase = new FaultTolerantDatabase("message_database_vacuum", messageJdbi, messageDbConfig.getCircuitBreakerConfiguration());
 
     Accounts        accounts        = new Accounts(accountDatabase);
     PendingAccounts pendingAccounts = new PendingAccounts(accountDatabase);
-    Messages        messages        = new Messages(messageDatabase);
     FeatureFlags    featureFlags    = new FeatureFlags(accountDatabase);
 
     logger.info("Vacuuming accounts...");
@@ -54,9 +47,6 @@ public class VacuumCommand extends ConfiguredCommand<WhisperServerConfiguration>
 
     logger.info("Vacuuming pending_accounts...");
     pendingAccounts.vacuum();
-
-    logger.info("Vacuuming messages...");
-    messages.vacuum();
 
     logger.info("Vacuuming feature flags...");
     featureFlags.vacuum();

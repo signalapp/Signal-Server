@@ -164,7 +164,7 @@ public class MessagePersister implements Managed {
                 do {
                     messages = messagesCache.getMessagesToPersist(accountUuid, deviceId, MESSAGE_BATCH_LIMIT);
 
-                    messagesManager.persistMessages(accountNumber, accountUuid, deviceId, messages);
+                    messagesManager.persistMessages(accountUuid, deviceId, messages);
                     messageCount += messages.size();
 
                     persistMessageMeter.mark(messages.size());

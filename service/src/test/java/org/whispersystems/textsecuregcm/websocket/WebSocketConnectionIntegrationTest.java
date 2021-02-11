@@ -5,36 +5,20 @@
 
 package org.whispersystems.textsecuregcm.websocket;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atMost;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.opentable.db.postgres.embedded.LiquibasePreparer;
-import com.opentable.db.postgres.junit.EmbeddedPostgresRules;
-import com.opentable.db.postgres.junit.PreparedDbRule;
-import org.apache.commons.lang3.RandomStringUtils;
-import org.jdbi.v3.core.Jdbi;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.stubbing.Answer;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
-import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
-import org.whispersystems.textsecuregcm.push.ReceiptSender;
-import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
-import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
-import org.whispersystems.textsecuregcm.storage.Messages;
-import org.whispersystems.textsecuregcm.storage.MessagesCache;
-import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
-import org.whispersystems.textsecuregcm.storage.MessagesManager;
-import org.whispersystems.textsecuregcm.tests.util.MessagesDynamoDbRule;
-import org.whispersystems.websocket.WebSocketClient;
-import org.whispersystems.websocket.messages.WebSocketResponseMessage;
-
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -46,39 +30,40 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.atMost;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.stubbing.Answer;
+import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
+import org.whispersystems.textsecuregcm.push.ReceiptSender;
+import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
+import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.MessagesCache;
+import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
+import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import org.whispersystems.textsecuregcm.tests.util.MessagesDynamoDbRule;
+import org.whispersystems.websocket.WebSocketClient;
+import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 
 public class WebSocketConnectionIntegrationTest extends AbstractRedisClusterTest {
-
-    @Rule
-    public PreparedDbRule db = EmbeddedPostgresRules.preparedDatabase(LiquibasePreparer.forClasspathLocation("messagedb.xml"));
 
     @Rule
     public MessagesDynamoDbRule messagesDynamoDbRule = new MessagesDynamoDbRule();
 
     private ExecutorService executorService;
-    private Messages messages;
     private MessagesDynamoDb messagesDynamoDb;
     private MessagesCache messagesCache;
     private Account account;
     private Device device;
     private WebSocketClient webSocketClient;
     private WebSocketConnection webSocketConnection;
-    private ExperimentEnrollmentManager experimentEnrollmentManager;
 
-    private long serialTimestamp = System.currentTimeMillis();
+  private long serialTimestamp = System.currentTimeMillis();
 
     @Before
     public void setupAccountsDao() {
@@ -90,22 +75,19 @@ public class WebSocketConnectionIntegrationTest extends AbstractRedisClusterTest
         super.setUp();
 
         executorService = Executors.newSingleThreadExecutor();
-        messages = new Messages(new FaultTolerantDatabase("messages-test", Jdbi.create(db.getTestDatabase()), new CircuitBreakerConfiguration()));
         messagesCache = new MessagesCache(getRedisCluster(), getRedisCluster(), executorService);
         messagesDynamoDb = new MessagesDynamoDb(messagesDynamoDbRule.getDynamoDB(), MessagesDynamoDbRule.TABLE_NAME, Duration.ofDays(7));
         account = mock(Account.class);
         device = mock(Device.class);
         webSocketClient = mock(WebSocketClient.class);
-        experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
 
         when(account.getNumber()).thenReturn("+18005551234");
         when(account.getUuid()).thenReturn(UUID.randomUUID());
         when(device.getId()).thenReturn(1L);
-        when(experimentEnrollmentManager.isEnrolled(any(UUID.class), anyString())).thenReturn(Boolean.FALSE);
 
         webSocketConnection = new WebSocketConnection(
                 mock(ReceiptSender.class),
-                new MessagesManager(messages, messagesDynamoDb, messagesCache, mock(PushLatencyManager.class), experimentEnrollmentManager),
+                new MessagesManager(messagesDynamoDb, messagesCache, mock(PushLatencyManager.class)),
                 account,
                 device,
                 webSocketClient);
@@ -137,7 +119,7 @@ public class WebSocketConnectionIntegrationTest extends AbstractRedisClusterTest
                 expectedMessages.add(envelope.toBuilder().clearServerGuid().build());
             }
 
-            messages.store(persistedMessages, account.getNumber(), device.getId());
+            messagesDynamoDb.store(persistedMessages, account.getUuid(), device.getId());
         }
 
         for (int i = 0; i < cachedMessageCount; i++) {
@@ -171,6 +153,7 @@ public class WebSocketConnectionIntegrationTest extends AbstractRedisClusterTest
             }
         }
 
+        @SuppressWarnings("unchecked")
         final ArgumentCaptor<Optional<byte[]>> messageBodyCaptor = ArgumentCaptor.forClass(Optional.class);
 
         verify(webSocketClient, times(persistedMessageCount + cachedMessageCount)).sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), messageBodyCaptor.capture());
@@ -203,7 +186,7 @@ public class WebSocketConnectionIntegrationTest extends AbstractRedisClusterTest
                 persistedMessages.add(generateRandomMessage(UUID.randomUUID()));
             }
 
-            messages.store(persistedMessages, account.getNumber(), device.getId());
+            messagesDynamoDb.store(persistedMessages, account.getUuid(), device.getId());
         }
 
         for (int i = 0; i < cachedMessageCount; i++) {

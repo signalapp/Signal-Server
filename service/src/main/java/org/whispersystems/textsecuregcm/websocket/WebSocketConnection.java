@@ -5,6 +5,9 @@
 
 package org.whispersystems.textsecuregcm.websocket;
 
+import static com.codahale.metrics.MetricRegistry.name;
+import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
+
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
@@ -13,6 +16,19 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.LongAdder;
+import javax.ws.rs.WebApplicationException;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,23 +51,6 @@ import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
-
-import javax.ws.rs.WebApplicationException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.atomic.LongAdder;
-
-import static com.codahale.metrics.MetricRegistry.name;
-import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class WebSocketConnection implements MessageAvailabilityListener, DisplacedPresenceListener {
@@ -144,7 +143,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       if (throwable == null) {
         if (isSuccessResponse(response)) {
           if (storedMessageInfo.isPresent()) {
-            messagesManager.delete(account.getNumber(), account.getUuid(), device.getId(), storedMessageInfo.get().getGuid());
+            messagesManager.delete(account.getUuid(), device.getId(), storedMessageInfo.get().getGuid());
           }
 
           if (message.getType() != Envelope.Type.RECEIPT) {
@@ -218,7 +217,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   }
 
   private void sendNextMessagePage(final boolean cachedMessagesOnly, final CompletableFuture<Void> queueClearedFuture) {
-    final OutgoingMessageEntityList messages    = messagesManager.getMessagesForDevice(account.getNumber(), account.getUuid(), device.getId(), client.getUserAgent(), cachedMessagesOnly);
+    final OutgoingMessageEntityList messages    = messagesManager.getMessagesForDevice(account.getUuid(), device.getId(), client.getUserAgent(), cachedMessagesOnly);
     final CompletableFuture<?>[]    sendFutures = new CompletableFuture[messages.getMessages().size()];
 
     for (int i = 0; i < messages.getMessages().size(); i++) {
@@ -250,12 +249,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
       final Envelope envelope = builder.build();
 
-      if (message.getGuid() == null || (envelope.getSerializedSize() > MAX_DESKTOP_MESSAGE_SIZE && isDesktopClient)) {
-        if (message.getGuid() == null) {
-          messagesManager.delete(account.getNumber(), message.getId());  // TODO(ehren): Remove once the message DB is gone.
-        } else {
-          messagesManager.delete(account.getNumber(), account.getUuid(), device.getId(), message.getGuid());
-        }
+      if (envelope.getSerializedSize() > MAX_DESKTOP_MESSAGE_SIZE && isDesktopClient) {
+        messagesManager.delete(account.getUuid(), device.getId(), message.getGuid());
         discardedMessagesMeter.mark();
 
         sendFutures[i] = CompletableFuture.completedFuture(null);

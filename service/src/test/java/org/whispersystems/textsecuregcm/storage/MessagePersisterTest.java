@@ -5,16 +5,19 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.google.protobuf.ByteString;
 import io.lettuce.core.cluster.SlotHash;
-import org.apache.commons.lang3.RandomStringUtils;
-import org.junit.Before;
-import org.junit.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.stubbing.Answer;
-import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
-
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -24,24 +27,19 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.Assert.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.stubbing.Answer;
+import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
 
 public class MessagePersisterTest extends AbstractRedisClusterTest {
 
     private ExecutorService          notificationExecutorService;
     private MessagesCache            messagesCache;
-    private Messages                 messagesDatabase;
+    private MessagesDynamoDb         messagesDynamoDb;
     private MessagePersister         messagePersister;
     private AccountsManager          accountsManager;
 
@@ -58,7 +56,7 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
 
         final MessagesManager messagesManager         = mock(MessagesManager.class);
 
-        messagesDatabase = mock(Messages.class);
+        messagesDynamoDb = mock(MessagesDynamoDb.class);
         accountsManager  = mock(AccountsManager.class);
 
         final Account account = mock(Account.class);
@@ -71,19 +69,18 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
         messagePersister            = new MessagePersister(messagesCache, messagesManager, accountsManager, mock(FeatureFlagsManager.class), PERSIST_DELAY);
 
         doAnswer(invocation -> {
-            final String destination                    = invocation.getArgument(0, String.class);
-            final UUID destinationUuid                  = invocation.getArgument(1, UUID.class);
-            final long deviceId                         = invocation.getArgument(2, Long.class);
-            final List<MessageProtos.Envelope> messages = invocation.getArgument(3, List.class);
+          final UUID destinationUuid = invocation.getArgument(0);
+          final long destinationDeviceId = invocation.getArgument(1);
+          final List<MessageProtos.Envelope> messages = invocation.getArgument(2);
 
-            messagesDatabase.store(messages, destination, deviceId);
+            messagesDynamoDb.store(messages, destinationUuid, destinationDeviceId);
 
             for (final MessageProtos.Envelope message : messages) {
-                messagesCache.remove(destinationUuid, deviceId, UUID.fromString(message.getServerGuid()));
+                messagesCache.remove(destinationUuid, destinationDeviceId, UUID.fromString(message.getServerGuid()));
             }
 
             return null;
-        }).when(messagesManager).persistMessages(anyString(), any(UUID.class), anyLong(), any());
+        }).when(messagesManager).persistMessages(any(UUID.class), anyLong(), any());
     }
 
     @Override
@@ -114,7 +111,7 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
 
         final ArgumentCaptor<List<MessageProtos.Envelope>> messagesCaptor = ArgumentCaptor.forClass(List.class);
 
-        verify(messagesDatabase, atLeastOnce()).store(messagesCaptor.capture(), eq(DESTINATION_ACCOUNT_NUMBER), eq(DESTINATION_DEVICE_ID));
+        verify(messagesDynamoDb, atLeastOnce()).store(messagesCaptor.capture(), eq(DESTINATION_ACCOUNT_UUID), eq(DESTINATION_DEVICE_ID));
         assertEquals(messageCount, messagesCaptor.getAllValues().stream().mapToInt(List::size).sum());
     }
 
@@ -129,7 +126,7 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
 
         messagePersister.persistNextQueues(now);
 
-        verify(messagesDatabase, never()).store(any(), anyString(), anyLong());
+        verify(messagesDynamoDb, never()).store(any(), any(), anyLong());
     }
 
     @Test
@@ -159,7 +156,7 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
 
         final ArgumentCaptor<List<MessageProtos.Envelope>> messagesCaptor = ArgumentCaptor.forClass(List.class);
 
-        verify(messagesDatabase, atLeastOnce()).store(messagesCaptor.capture(), anyString(), anyLong());
+        verify(messagesDynamoDb, atLeastOnce()).store(messagesCaptor.capture(), any(UUID.class), anyLong());
         assertEquals(queueCount * messagesPerQueue, messagesCaptor.getAllValues().stream().mapToInt(List::size).sum());
     }
 
@@ -174,7 +171,7 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
 
         doAnswer((Answer<Void>)invocation -> {
             throw new RuntimeException("OH NO.");
-        }).when(messagesDatabase).store(any(), eq(DESTINATION_ACCOUNT_NUMBER), eq(DESTINATION_DEVICE_ID));
+        }).when(messagesDynamoDb).store(any(), eq(DESTINATION_ACCOUNT_UUID), eq(DESTINATION_DEVICE_ID));
 
         messagePersister.persistNextQueues(now.plus(messagePersister.getPersistDelay()));
 

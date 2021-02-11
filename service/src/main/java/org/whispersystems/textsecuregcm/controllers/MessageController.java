@@ -4,6 +4,8 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
@@ -15,6 +17,25 @@ import io.dropwizard.auth.Auth;
 import io.dropwizard.util.DataSize;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import javax.validation.Valid;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
+import javax.ws.rs.GET;
+import javax.ws.rs.HeaderParam;
+import javax.ws.rs.PUT;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
@@ -45,28 +66,6 @@ import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
-
-import javax.validation.Valid;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
-import javax.ws.rs.PUT;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import java.io.IOException;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
-
-import static com.codahale.metrics.MetricRegistry.name;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/messages")
@@ -226,11 +225,11 @@ public class MessageController {
       RedisOperation.unchecked(() -> apnFallbackManager.cancel(account, account.getAuthenticatedDevice().get()));
     }
 
-    final OutgoingMessageEntityList outgoingMessages = messagesManager.getMessagesForDevice(account.getNumber(),
-                                                                                            account.getUuid(),
-                                                                                            account.getAuthenticatedDevice().get().getId(),
-                                                                                            userAgent,
-                                                                                            false);
+    final OutgoingMessageEntityList outgoingMessages = messagesManager.getMessagesForDevice(
+        account.getUuid(),
+        account.getAuthenticatedDevice().get().getId(),
+        userAgent,
+        false);
 
     outgoingMessageListSizeHistogram.update(outgoingMessages.getMessages().size());
 
@@ -271,8 +270,8 @@ public class MessageController {
   {
     try {
       WebSocketConnection.recordMessageDeliveryDuration(timestamp, account.getAuthenticatedDevice().get());
-      Optional<OutgoingMessageEntity> message = messagesManager.delete(account.getNumber(),
-                                                                       account.getUuid(),
+      Optional<OutgoingMessageEntity> message = messagesManager.delete(
+          account.getUuid(),
                                                                        account.getAuthenticatedDevice().get().getId(),
                                                                        source, timestamp);
 
@@ -291,8 +290,8 @@ public class MessageController {
   @Path("/uuid/{uuid}")
   public void removePendingMessage(@Auth Account account, @PathParam("uuid") UUID uuid) {
     try {
-      Optional<OutgoingMessageEntity> message = messagesManager.delete(account.getNumber(),
-                                                                       account.getUuid(),
+      Optional<OutgoingMessageEntity> message = messagesManager.delete(
+          account.getUuid(),
                                                                        account.getAuthenticatedDevice().get().getId(),
                                                                        uuid);
 

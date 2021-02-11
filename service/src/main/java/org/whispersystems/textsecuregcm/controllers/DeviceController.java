@@ -102,7 +102,7 @@ public class DeviceController {
     account.removeDevice(deviceId);
     accounts.update(account);
     directoryQueue.refreshRegisteredUser(account);
-    messages.clear(account.getNumber(), account.getUuid(), deviceId);
+    messages.clear(account.getUuid(), deviceId);
   }
 
   @Timed
@@ -196,7 +196,7 @@ public class DeviceController {
       device.setCapabilities(accountAttributes.getCapabilities());
 
       account.get().addDevice(device);
-      messages.clear(account.get().getNumber(), account.get().getUuid(), device.getId());
+      messages.clear(account.get().getUuid(), device.getId());
       accounts.update(account.get());
 
       pendingDevices.remove(number);

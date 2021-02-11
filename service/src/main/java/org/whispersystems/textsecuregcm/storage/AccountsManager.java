@@ -5,6 +5,8 @@
 package org.whispersystems.textsecuregcm.storage;
 
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
@@ -13,6 +15,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import io.micrometer.core.instrument.Metrics;
+import java.io.IOException;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
@@ -21,13 +27,6 @@ import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
-
-import java.io.IOException;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import static com.codahale.metrics.MetricRegistry.name;
 
 public class AccountsManager {
 
@@ -145,7 +144,7 @@ public class AccountsManager {
       directoryQueue.deleteAccount(account);
       profilesManager.deleteAll(account.getUuid());
       keysDynamoDb.delete(account);
-      messagesManager.clear(account.getNumber(), account.getUuid());
+      messagesManager.clear(account.getUuid());
       redisDelete(account);
       databaseDelete(account);
     }
