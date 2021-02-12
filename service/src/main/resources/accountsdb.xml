@@ -355,4 +355,8 @@
         <dropTable tableName="messages"/>
     </changeSet>
 
+    <changeSet id="22" author="jon">
+        <dropTable tableName="feature_flags" />
+    </changeSet>
+
 </databaseChangeLog>
