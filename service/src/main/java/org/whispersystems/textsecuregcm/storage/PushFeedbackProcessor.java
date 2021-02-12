@@ -49,19 +49,15 @@ public class PushFeedbackProcessor extends AccountDatabaseCrawlerListener {
             device.getUninstalledFeedbackTimestamp() + TimeUnit.DAYS.toMillis(2) <= Util.todayInMillis())
         {
           if (device.getLastSeen() + TimeUnit.DAYS.toMillis(2) <= Util.todayInMillis()) {
-            String type = "unknown";
-            if (!Util.isEmpty(device.getApnId()) && device.getId() == 1) {
-              type = "iPhone";
-            } else if (!Util.isEmpty(device.getApnId()) && device.getId() != 1) {
-              type = "iPad";
+            if (!Util.isEmpty(device.getApnId())) {
+              if (device.getId() == 1) {
+                device.setUserAgent("OWI");
+              } else {
+                device.setUserAgent("OWP");
+              }
             } else if (!Util.isEmpty(device.getGcmId())) {
-              type = "Android";
-            } else if (device.getFetchesMessages() && "OWA".equals(device.getUserAgent())) {
-              type = "Android Tweaker";
-            } else if (device.getFetchesMessages()) {
-              type = "Desktop";
+              device.setUserAgent("OWA");
             }
-            device.setUserAgent(type);
             device.setGcmId(null);
             device.setApnId(null);
             device.setVoipApnId(null);
