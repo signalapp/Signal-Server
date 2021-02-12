@@ -139,8 +139,6 @@ import org.whispersystems.textsecuregcm.storage.DirectoryReconciler;
 import org.whispersystems.textsecuregcm.storage.DirectoryReconciliationClient;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
-import org.whispersystems.textsecuregcm.storage.FeatureFlags;
-import org.whispersystems.textsecuregcm.storage.FeatureFlagsManager;
 import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagePersister;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
@@ -166,13 +164,10 @@ import org.whispersystems.textsecuregcm.websocket.DeadLetterHandler;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningConnectListener;
 import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.workers.CertificateCommand;
-import org.whispersystems.textsecuregcm.workers.DeleteFeatureFlagTask;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
 import org.whispersystems.textsecuregcm.workers.GetRedisCommandStatsCommand;
 import org.whispersystems.textsecuregcm.workers.GetRedisSlowlogCommand;
-import org.whispersystems.textsecuregcm.workers.ListFeatureFlagsTask;
 import org.whispersystems.textsecuregcm.workers.SetCrawlerAccelerationTask;
-import org.whispersystems.textsecuregcm.workers.SetFeatureFlagTask;
 import org.whispersystems.textsecuregcm.workers.SetRequestLoggingEnabledTask;
 import org.whispersystems.textsecuregcm.workers.VacuumCommand;
 import org.whispersystems.textsecuregcm.workers.ZkParamsCommand;
@@ -284,7 +279,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     MessagesDynamoDb  messagesDynamoDb  = new MessagesDynamoDb(messageDynamoDb, config.getMessageDynamoDbConfiguration().getTableName(), config.getMessageDynamoDbConfiguration().getTimeToLive());
     AbusiveHostRules  abusiveHostRules  = new AbusiveHostRules(abuseDatabase);
     RemoteConfigs     remoteConfigs     = new RemoteConfigs(accountDatabase);
-    FeatureFlags      featureFlags      = new FeatureFlags(accountDatabase);
 
     RedisClientFactory  pubSubClientFactory = new RedisClientFactory("pubsub_cache", config.getPubsubCacheConfiguration().getUrl(), config.getPubsubCacheConfiguration().getReplicaUrls(), config.getPubsubCacheConfiguration().getCircuitBreakerConfiguration());
     ReplicatedJedisPool pubsubClient        = pubSubClientFactory.getRedisClientPool();
@@ -330,7 +324,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     MessagesManager            messagesManager            = new MessagesManager(messagesDynamoDb, messagesCache, pushLatencyManager);
     AccountsManager            accountsManager            = new AccountsManager(accounts, cacheCluster, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager);
     RemoteConfigsManager       remoteConfigsManager       = new RemoteConfigsManager(remoteConfigs);
-    FeatureFlagsManager        featureFlagsManager        = new FeatureFlagsManager(featureFlags, recurringJobExecutor);
     DeadLetterHandler          deadLetterHandler          = new DeadLetterHandler(accountsManager, messagesManager);
     DispatchManager            dispatchManager            = new DispatchManager(pubSubClientFactory, Optional.of(deadLetterHandler));
     PubSubManager              pubSubManager              = new PubSubManager(pubsubClient, dispatchManager);
@@ -358,7 +351,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     TurnTokenGenerator       turnTokenGenerator = new TurnTokenGenerator(config.getTurnConfiguration());
     RecaptchaClient          recaptchaClient    = new RecaptchaClient(config.getRecaptchaConfiguration().getSecret());
 
-    MessagePersister messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager, featureFlagsManager, Duration.ofMinutes(config.getMessageCacheConfiguration().getPersistDelayMinutes()));
+    MessagePersister messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager, dynamicConfigurationManager, Duration.ofMinutes(config.getMessageCacheConfiguration().getPersistDelayMinutes()));
 
     final List<AccountDatabaseCrawlerListener> accountDatabaseCrawlerListeners = new ArrayList<>();
     accountDatabaseCrawlerListeners.add(new PushFeedbackProcessor(accountsManager, directoryQueue));
@@ -383,7 +376,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(messagesCache);
     environment.lifecycle().manage(messagePersister);
     environment.lifecycle().manage(clientPresenceManager);
-    environment.lifecycle().manage(featureFlagsManager);
 
     AWSCredentials         credentials               = new BasicAWSCredentials(config.getCdnConfiguration().getAccessKey(), config.getCdnConfiguration().getAccessSecret());
     AWSCredentialsProvider credentialsProvider       = new AWSStaticCredentialsProvider(credentials);
@@ -472,9 +464,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     environment.admin().addTask(new SetRequestLoggingEnabledTask());
     environment.admin().addTask(new SetCrawlerAccelerationTask(accountDatabaseCrawlerCache));
-    environment.admin().addTask(new ListFeatureFlagsTask(featureFlagsManager));
-    environment.admin().addTask(new SetFeatureFlagTask(featureFlagsManager));
-    environment.admin().addTask(new DeleteFeatureFlagTask(featureFlagsManager));
 
 ///
 

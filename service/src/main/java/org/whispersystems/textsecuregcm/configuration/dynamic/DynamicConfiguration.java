@@ -6,6 +6,7 @@ import javax.validation.Valid;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public class DynamicConfiguration {
 
@@ -21,6 +22,9 @@ public class DynamicConfiguration {
   @Valid
   private DynamicRemoteDeprecationConfiguration remoteDeprecation = new DynamicRemoteDeprecationConfiguration();
 
+  @JsonProperty
+  private Set<String> featureFlags = Collections.emptySet();
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
   }
@@ -31,5 +35,9 @@ public class DynamicConfiguration {
 
   public DynamicRemoteDeprecationConfiguration getRemoteDeprecationConfiguration() {
     return remoteDeprecation;
+  }
+
+  public Set<String> getActiveFeatureFlags() {
+    return featureFlags;
   }
 }

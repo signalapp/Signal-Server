@@ -28,10 +28,9 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 public class MessagePersister implements Managed {
 
-    private final MessagesCache       messagesCache;
-    private final MessagesManager     messagesManager;
-    private final AccountsManager     accountsManager;
-    private final FeatureFlagsManager featureFlagsManager;
+    private final MessagesCache               messagesCache;
+    private final MessagesManager             messagesManager;
+    private final AccountsManager             accountsManager;
 
     private final Duration        persistDelay;
 
@@ -49,21 +48,21 @@ public class MessagePersister implements Managed {
     static final int QUEUE_BATCH_LIMIT   = 100;
     static final int MESSAGE_BATCH_LIMIT = 100;
 
+    private static final String DISABLE_PERSISTER_FEATURE_FLAG = "DISABLE_MESSAGE_PERSISTER";
     private static final int WORKER_THREAD_COUNT = 4;
 
     private static final Logger logger = LoggerFactory.getLogger(MessagePersister.class);
 
-    public MessagePersister(final MessagesCache messagesCache, final MessagesManager messagesManager, final AccountsManager accountsManager, final FeatureFlagsManager featureFlagsManager, final Duration persistDelay) {
-        this.messagesCache       = messagesCache;
-        this.messagesManager     = messagesManager;
-        this.accountsManager     = accountsManager;
-        this.featureFlagsManager = featureFlagsManager;
-        this.persistDelay        = persistDelay;
+    public MessagePersister(final MessagesCache messagesCache, final MessagesManager messagesManager, final AccountsManager accountsManager, final DynamicConfigurationManager dynamicConfigurationManager, final Duration persistDelay) {
+        this.messagesCache               = messagesCache;
+        this.messagesManager             = messagesManager;
+        this.accountsManager             = accountsManager;
+        this.persistDelay                = persistDelay;
 
         for (int i = 0; i < workerThreads.length; i++) {
             workerThreads[i] = new Thread(() -> {
                 while (running) {
-                    if (featureFlagsManager.isFeatureFlagActive("DISABLE_MESSAGE_PERSISTER")) {
+                    if (dynamicConfigurationManager.getConfiguration().getActiveFeatureFlags().contains(DISABLE_PERSISTER_FEATURE_FLAG)) {
                         Util.sleep(1000);
                     } else {
                         try {
