@@ -76,7 +76,6 @@ public class MessageController {
   private final Meter          unidentifiedMeter                = metricRegistry.meter(name(getClass(), "delivery", "unidentified"));
   private final Meter          identifiedMeter                  = metricRegistry.meter(name(getClass(), "delivery", "identified"  ));
   private final Meter          rejectOver256kibMessageMeter     = metricRegistry.meter(name(getClass(), "rejectOver256kibMessage"));
-  private final Meter          rejectUnsealedSenderLimit        = metricRegistry.meter(name(getClass(), "rejectUnsealedSenderLimit"));
   private final Timer          sendMessageInternalTimer         = metricRegistry.timer(name(getClass(), "sendMessageInternal"));
   private final Histogram      outgoingMessageListSizeHistogram = metricRegistry.histogram(name(getClass(), "outgoingMessageListSize"));
 
@@ -88,11 +87,13 @@ public class MessageController {
   private final ApnFallbackManager     apnFallbackManager;
 
   private static final String SENT_MESSAGE_COUNTER_NAME                          = name(MessageController.class, "sentMessages");
+  private static final String REJECT_UNSEALED_SENDER_COUNTER_NAME                = name(MessageController.class, "rejectUnsealedSenderLimit");
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME                     = name(MessageController.class, "messageContentSize");
   private static final String OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME = name(MessageController.class, "outgoingMessageListSizeBytes");
 
-  private static final String EPHEMERAL_TAG_NAME   = "ephemeral";
-  private static final String SENDER_TYPE_TAG_NAME = "senderType";
+  private static final String EPHEMERAL_TAG_NAME      = "ephemeral";
+  private static final String SENDER_TYPE_TAG_NAME    = "senderType";
+  private static final String SENDER_COUNTRY_TAG_NAME = "senderCountry";
 
   private static final long MAX_MESSAGE_SIZE = DataSize.kibibytes(256).toBytes();
 
@@ -131,7 +132,7 @@ public class MessageController {
       try {
         rateLimiters.getUnsealedSenderLimiter().validate(source.get().getUuid().toString(), destinationName.toString());
       } catch (RateLimitExceededException e) {
-        rejectUnsealedSenderLimit.mark();
+        Metrics.counter(REJECT_UNSEALED_SENDER_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, Util.getCountryCode(source.get().getNumber())).increment();
         logger.debug("Rejected unsealed sender limit from: {}", source.get().getNumber());
       }
     }
