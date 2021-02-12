@@ -28,18 +28,24 @@ public class VersionedProfile {
   private String about;
 
   @JsonProperty
+  private String paymentAddress;
+
+  @JsonProperty
   @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
   @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
   private byte[] commitment;
 
   public VersionedProfile() {}
 
-  public VersionedProfile(String version, String name, String avatar, String aboutEmoji, String about, byte[] commitment) {
-    this.version    = version;
-    this.name       = name;
-    this.avatar     = avatar;
+  public VersionedProfile(
+      String version, String name, String avatar, String aboutEmoji, String about, String paymentAddress,
+      byte[] commitment) {
+    this.version = version;
+    this.name = name;
+    this.avatar = avatar;
     this.aboutEmoji = aboutEmoji;
-    this.about      = about;
+    this.about = about;
+    this.paymentAddress = paymentAddress;
     this.commitment = commitment;
   }
 
@@ -61,6 +67,10 @@ public class VersionedProfile {
 
   public String getAbout() {
     return about;
+  }
+
+  public String getPaymentAddress() {
+    return paymentAddress;
   }
 
   public byte[] getCommitment() {

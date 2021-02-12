@@ -359,4 +359,12 @@
         <dropTable tableName="feature_flags" />
     </changeSet>
 
+    <changeSet id="23" author="ehren">
+        <addColumn tableName="profiles">
+            <column name="payment_address" type="text">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>

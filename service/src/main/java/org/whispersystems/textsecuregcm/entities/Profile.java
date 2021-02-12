@@ -9,12 +9,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
-
-import org.signal.zkgroup.profiles.ProfileKeyCredentialResponse;
-import org.whispersystems.textsecuregcm.storage.PaymentAddress;
-
 import java.util.List;
 import java.util.UUID;
+import org.signal.zkgroup.profiles.ProfileKeyCredentialResponse;
+import org.whispersystems.textsecuregcm.storage.PaymentAddress;
 
 public class Profile {
 
@@ -32,6 +30,9 @@ public class Profile {
 
   @JsonProperty
   private String avatar;
+
+  @JsonProperty
+  private String paymentAddress;
 
   @JsonProperty
   private String unidentifiedAccess;
@@ -58,24 +59,24 @@ public class Profile {
 
   public Profile() {}
 
-  public Profile(String name, String about, String aboutEmoji, String avatar, String identityKey,
-                 String unidentifiedAccess, boolean unrestrictedUnidentifiedAccess,
-                 UserCapabilities capabilities, String username, UUID uuid,
-                 ProfileKeyCredentialResponse credential,
-                 List<PaymentAddress> payments)
+  public Profile(
+      String name, String about, String aboutEmoji, String avatar, String paymentAddress, String identityKey,
+      String unidentifiedAccess, boolean unrestrictedUnidentifiedAccess, UserCapabilities capabilities, String username,
+      UUID uuid, ProfileKeyCredentialResponse credential, List<PaymentAddress> payments)
   {
-    this.name                           = name;
-    this.about                          = about;
-    this.aboutEmoji                     = aboutEmoji;
-    this.avatar                         = avatar;
-    this.identityKey                    = identityKey;
-    this.unidentifiedAccess             = unidentifiedAccess;
+    this.name = name;
+    this.about = about;
+    this.aboutEmoji = aboutEmoji;
+    this.avatar = avatar;
+    this.paymentAddress = paymentAddress;
+    this.identityKey = identityKey;
+    this.unidentifiedAccess = unidentifiedAccess;
     this.unrestrictedUnidentifiedAccess = unrestrictedUnidentifiedAccess;
-    this.capabilities                   = capabilities;
-    this.username                       = username;
-    this.uuid                           = uuid;
-    this.payments                       = payments;
-    this.credential                     = credential;
+    this.capabilities = capabilities;
+    this.username = username;
+    this.uuid = uuid;
+    this.payments = payments;
+    this.credential = credential;
   }
 
   @VisibleForTesting
@@ -99,6 +100,10 @@ public class Profile {
   @VisibleForTesting
   public String getAvatar() {
     return avatar;
+  }
+
+  public String getPaymentAddress() {
+    return paymentAddress;
   }
 
   @VisibleForTesting
