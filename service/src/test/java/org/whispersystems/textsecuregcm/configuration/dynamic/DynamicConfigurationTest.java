@@ -108,6 +108,28 @@ public class DynamicConfigurationTest {
   }
 
   @Test
+  public void testParseMessageRateConfiguration() throws JsonProcessingException {
+    {
+      final String emptyConfigYaml = "test: true";
+      final DynamicConfiguration emptyConfig = DynamicConfigurationManager.OBJECT_MAPPER
+          .readValue(emptyConfigYaml, DynamicConfiguration.class);
+
+      assertFalse(emptyConfig.getMessageRateConfiguration().isEnforceUnsealedSenderRateLimit());
+    }
+
+    {
+      final String messageRateConfigYaml =
+          "messageRate:\n" +
+              "  enforceUnsealedSenderRateLimit: true";
+
+      final DynamicConfiguration emptyConfig = DynamicConfigurationManager.OBJECT_MAPPER
+          .readValue(messageRateConfigYaml, DynamicConfiguration.class);
+
+      assertTrue(emptyConfig.getMessageRateConfiguration().isEnforceUnsealedSenderRateLimit());
+    }
+  }
+
+  @Test
   public void testParseFeatureFlags() throws JsonProcessingException {
     {
       final String emptyConfigYaml = "test: true";

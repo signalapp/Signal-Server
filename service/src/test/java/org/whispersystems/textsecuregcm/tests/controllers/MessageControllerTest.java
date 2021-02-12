@@ -66,6 +66,7 @@ import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.Base64;
@@ -78,16 +79,17 @@ public class MessageControllerTest {
   private static final String MULTI_DEVICE_RECIPIENT  = "+14152222222";
   private static final UUID   MULTI_DEVICE_UUID       = UUID.randomUUID();
 
-  private  final MessageSender          messageSender          = mock(MessageSender.class);
-  private  final ReceiptSender          receiptSender          = mock(ReceiptSender.class);
-  private  final AccountsManager        accountsManager        = mock(AccountsManager.class);
-  private  final MessagesManager        messagesManager        = mock(MessagesManager.class);
-  private  final RateLimiters           rateLimiters           = mock(RateLimiters.class);
-  private  final RateLimiter            rateLimiter            = mock(RateLimiter.class);
-  private  final CardinalityRateLimiter unsealedSenderLimiter  = mock(CardinalityRateLimiter.class);
-  private  final ApnFallbackManager     apnFallbackManager     = mock(ApnFallbackManager.class);
+  private final MessageSender               messageSender               = mock(MessageSender.class);
+  private final ReceiptSender               receiptSender               = mock(ReceiptSender.class);
+  private final AccountsManager             accountsManager             = mock(AccountsManager.class);
+  private final MessagesManager             messagesManager             = mock(MessagesManager.class);
+  private final RateLimiters                rateLimiters                = mock(RateLimiters.class);
+  private final RateLimiter                 rateLimiter                 = mock(RateLimiter.class);
+  private final CardinalityRateLimiter      unsealedSenderLimiter       = mock(CardinalityRateLimiter.class);
+  private final ApnFallbackManager          apnFallbackManager          = mock(ApnFallbackManager.class);
+  private final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
 
-  private  final ObjectMapper mapper = new ObjectMapper();
+  private final ObjectMapper mapper = new ObjectMapper();
 
   @Rule
   public final ResourceTestRule resources = ResourceTestRule.builder()
@@ -95,7 +97,7 @@ public class MessageControllerTest {
                                                             .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new MessageController(rateLimiters, messageSender, receiptSender, accountsManager,
-                                                                                               messagesManager, apnFallbackManager))
+                                                                                               messagesManager, apnFallbackManager, dynamicConfigurationManager))
                                                             .build();
 
 

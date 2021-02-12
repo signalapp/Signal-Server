@@ -59,6 +59,7 @@ import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -79,12 +80,13 @@ public class MessageController {
   private final Timer          sendMessageInternalTimer         = metricRegistry.timer(name(getClass(), "sendMessageInternal"));
   private final Histogram      outgoingMessageListSizeHistogram = metricRegistry.histogram(name(getClass(), "outgoingMessageListSize"));
 
-  private final RateLimiters           rateLimiters;
-  private final MessageSender          messageSender;
-  private final ReceiptSender          receiptSender;
-  private final AccountsManager        accountsManager;
-  private final MessagesManager        messagesManager;
-  private final ApnFallbackManager     apnFallbackManager;
+  private final RateLimiters                rateLimiters;
+  private final MessageSender               messageSender;
+  private final ReceiptSender               receiptSender;
+  private final AccountsManager             accountsManager;
+  private final MessagesManager             messagesManager;
+  private final ApnFallbackManager          apnFallbackManager;
+  private final DynamicConfigurationManager dynamicConfigurationManager;
 
   private static final String SENT_MESSAGE_COUNTER_NAME                          = name(MessageController.class, "sentMessages");
   private static final String REJECT_UNSEALED_SENDER_COUNTER_NAME                = name(MessageController.class, "rejectUnsealedSenderLimit");
@@ -102,14 +104,16 @@ public class MessageController {
                            ReceiptSender receiptSender,
                            AccountsManager accountsManager,
                            MessagesManager messagesManager,
-                           ApnFallbackManager apnFallbackManager)
+                           ApnFallbackManager apnFallbackManager,
+                           DynamicConfigurationManager dynamicConfigurationManager)
   {
-    this.rateLimiters           = rateLimiters;
-    this.messageSender          = messageSender;
-    this.receiptSender          = receiptSender;
-    this.accountsManager        = accountsManager;
-    this.messagesManager        = messagesManager;
-    this.apnFallbackManager     = apnFallbackManager;
+    this.rateLimiters                = rateLimiters;
+    this.messageSender               = messageSender;
+    this.receiptSender               = receiptSender;
+    this.accountsManager             = accountsManager;
+    this.messagesManager             = messagesManager;
+    this.apnFallbackManager          = apnFallbackManager;
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
   @Timed
@@ -134,6 +138,10 @@ public class MessageController {
       } catch (RateLimitExceededException e) {
         Metrics.counter(REJECT_UNSEALED_SENDER_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, Util.getCountryCode(source.get().getNumber())).increment();
         logger.debug("Rejected unsealed sender limit from: {}", source.get().getNumber());
+
+        if (dynamicConfigurationManager.getConfiguration().getMessageRateConfiguration().isEnforceUnsealedSenderRateLimit()) {
+          throw e;
+        }
       }
     }
 

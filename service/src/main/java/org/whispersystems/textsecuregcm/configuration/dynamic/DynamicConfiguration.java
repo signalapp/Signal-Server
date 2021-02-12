@@ -23,6 +23,10 @@ public class DynamicConfiguration {
   private DynamicRemoteDeprecationConfiguration remoteDeprecation = new DynamicRemoteDeprecationConfiguration();
 
   @JsonProperty
+  @Valid
+  private DynamicMessageRateConfiguration messageRate = new DynamicMessageRateConfiguration();
+
+  @JsonProperty
   private Set<String> featureFlags = Collections.emptySet();
 
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(final String experimentName) {
@@ -35,6 +39,10 @@ public class DynamicConfiguration {
 
   public DynamicRemoteDeprecationConfiguration getRemoteDeprecationConfiguration() {
     return remoteDeprecation;
+  }
+
+  public DynamicMessageRateConfiguration getMessageRateConfiguration() {
+    return messageRate;
   }
 
   public Set<String> getActiveFeatureFlags() {
