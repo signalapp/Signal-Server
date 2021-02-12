@@ -68,10 +68,13 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
   private static final String INITIAL_QUEUE_LENGTH_DISTRIBUTION_NAME = name(WebSocketConnection.class, "initialQueueLength");
   private static final String INITIAL_QUEUE_DRAIN_TIMER_NAME         = name(WebSocketConnection.class, "drainInitialQueue");
+  private static final String SLOW_QUEUE_DRAIN_COUNTER_NAME          = name(WebSocketConnection.class, "slowQueueDrain");
   private static final String DISPLACEMENT_COUNTER_NAME              = name(WebSocketConnection.class, "displacement");
   private static final String NON_SUCCESS_RESPONSE_COUNTER_NAME      = name(WebSocketConnection.class, "clientNonSuccessResponse");
   private static final String STATUS_CODE_TAG                        = "status";
   private static final String STATUS_MESSAGE_TAG                     = "message";
+
+  private static final long SLOW_DRAIN_THRESHOLD = 10_000;
 
   @VisibleForTesting
   static final int MAX_DESKTOP_MESSAGE_SIZE = 1024 * 1024;
@@ -201,8 +204,15 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
       queueClearedFuture.whenComplete((v, cause) -> {
         if (cause == null && sentInitialQueueEmptyMessage.compareAndSet(false, true)) {
-          Metrics.summary(INITIAL_QUEUE_LENGTH_DISTRIBUTION_NAME, List.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()))).record(sentMessageCounter.sum());
-          Metrics.timer(INITIAL_QUEUE_DRAIN_TIMER_NAME, List.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()))).record(System.currentTimeMillis() - queueDrainStartTime.get(), TimeUnit.MILLISECONDS);
+          final List<Tag> tags = List.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()));
+          final long drainDuration = System.currentTimeMillis() - queueDrainStartTime.get();
+
+          Metrics.summary(INITIAL_QUEUE_LENGTH_DISTRIBUTION_NAME, tags).record(sentMessageCounter.sum());
+          Metrics.timer(INITIAL_QUEUE_DRAIN_TIMER_NAME, tags).record(drainDuration, TimeUnit.MILLISECONDS);
+
+          if (drainDuration > SLOW_DRAIN_THRESHOLD) {
+            Metrics.counter(SLOW_QUEUE_DRAIN_COUNTER_NAME, tags).increment();
+          }
 
           client.sendRequest("PUT", "/api/v1/queue/empty", Collections.singletonList(TimestampHeaderUtil.getTimestampHeader()), Optional.empty());
         }
