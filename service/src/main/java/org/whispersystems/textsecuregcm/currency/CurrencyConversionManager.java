@@ -101,7 +101,7 @@ public class CurrencyConversionManager implements Managed {
     }
 
 
-    this.cached.set(new CurrencyConversionEntityList(entities,  Math.min(fixerUpdatedTimestamp, ftxUpdatedTimestamp)));
+    this.cached.set(new CurrencyConversionEntityList(entities,  ftxUpdatedTimestamp));
   }
 
   @VisibleForTesting
