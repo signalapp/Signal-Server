@@ -5,21 +5,21 @@
 
 package org.whispersystems.textsecuregcm.util;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class CertificateExpirationGaugeTest {
+class CertificateExpirationGaugeTest {
 
     @Test
-    public void loadValue() {
+    void loadValue() {
         final X509Certificate            certificate         = mock(X509Certificate.class);
 
         final long                       daysUntilExpiration = 17;
