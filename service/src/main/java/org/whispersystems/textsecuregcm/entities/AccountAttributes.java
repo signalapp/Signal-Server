@@ -6,10 +6,8 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
-import java.util.List;
 import javax.validation.constraints.Size;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
-import org.whispersystems.textsecuregcm.storage.PaymentAddress;
 
 public class AccountAttributes {
 
@@ -36,9 +34,6 @@ public class AccountAttributes {
   private boolean unrestrictedUnidentifiedAccess;
 
   @JsonProperty
-  private List<PaymentAddress> payments;
-
-  @JsonProperty
   private DeviceCapabilities capabilities;
 
   @JsonProperty
@@ -47,20 +42,14 @@ public class AccountAttributes {
   public AccountAttributes() {}
 
   @VisibleForTesting
-  public AccountAttributes(boolean fetchesMessages, int registrationId, String pin) {
-    this(fetchesMessages, registrationId, null, pin, null, null, true, null);
-  }
-
-  @VisibleForTesting
-  public AccountAttributes(boolean fetchesMessages, int registrationId, String name, String pin, String registrationLock, List<PaymentAddress> payments, boolean discoverableByPhoneNumber, final DeviceCapabilities capabilities) {
-    this.fetchesMessages           = fetchesMessages;
-    this.registrationId            = registrationId;
-    this.name                      = name;
-    this.pin                       = pin;
-    this.registrationLock          = registrationLock;
-    this.payments                  = payments;
+  public AccountAttributes(boolean fetchesMessages, int registrationId, String name, String pin, String registrationLock, boolean discoverableByPhoneNumber, final DeviceCapabilities capabilities) {
+    this.fetchesMessages = fetchesMessages;
+    this.registrationId = registrationId;
+    this.name = name;
+    this.pin = pin;
+    this.registrationLock = registrationLock;
     this.discoverableByPhoneNumber = discoverableByPhoneNumber;
-    this.capabilities              = capabilities;
+    this.capabilities = capabilities;
   }
 
   public boolean getFetchesMessages() {
@@ -93,10 +82,6 @@ public class AccountAttributes {
 
   public DeviceCapabilities getCapabilities() {
     return capabilities;
-  }
-
-  public List<PaymentAddress> getPayments() {
-    return payments;
   }
 
   public boolean isDiscoverableByPhoneNumber() {

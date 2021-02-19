@@ -21,7 +21,6 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
-import java.util.List;
 import java.util.Optional;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
@@ -50,7 +49,6 @@ import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.PaymentAddress;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
@@ -106,7 +104,6 @@ public class ProfileControllerTest {
     when(profileAccount.isEnabled()).thenReturn(true);
     when(profileAccount.isGroupsV2Supported()).thenReturn(false);
     when(profileAccount.isGv1MigrationSupported()).thenReturn(false);
-    when(profileAccount.getPayments()).thenReturn(List.of(new PaymentAddress("mc", "12345678901234567890123456789012")));
 
     Account capabilitiesAccount = mock(Account.class);
 
@@ -150,7 +147,6 @@ public class ProfileControllerTest {
     assertThat(profile.getName()).isEqualTo("baz");
     assertThat(profile.getAvatar()).isEqualTo("profiles/bang");
     assertThat(profile.getUsername()).isEqualTo("n00bkiller");
-    assertThat(profile.getPayments()).isEqualTo(List.of(new PaymentAddress("mc", "12345678901234567890123456789012")));
 
     verify(accountsManager, times(1)).get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasUuid() && identifier.getUuid().equals(AuthHelper.VALID_UUID_TWO)));
     verify(usernamesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO));
@@ -168,11 +164,10 @@ public class ProfileControllerTest {
     assertThat(profile.getIdentityKey()).isEqualTo("bar");
     assertThat(profile.getName()).isEqualTo("baz");
     assertThat(profile.getAvatar()).isEqualTo("profiles/bang");
-    assertThat(profile.getPayments()).isEqualTo(List.of(new PaymentAddress("mc", "12345678901234567890123456789012")));
     assertThat(profile.getCapabilities().isGv2()).isFalse();
     assertThat(profile.getCapabilities().isGv1Migration()).isFalse();
     assertThat(profile.getUsername()).isNull();
-    assertThat(profile.getUuid()).isNull();;
+    assertThat(profile.getUuid()).isNull();
 
     verify(accountsManager, times(1)).get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(AuthHelper.VALID_NUMBER_TWO)));
     verifyNoMoreInteractions(usernamesManager);
@@ -191,7 +186,6 @@ public class ProfileControllerTest {
     assertThat(profile.getName()).isEqualTo("baz");
     assertThat(profile.getAvatar()).isEqualTo("profiles/bang");
     assertThat(profile.getUsername()).isEqualTo("n00bkiller");
-    assertThat(profile.getPayments()).isEqualTo(List.of(new PaymentAddress("mc", "12345678901234567890123456789012")));
     assertThat(profile.getUuid()).isEqualTo(AuthHelper.VALID_UUID_TWO);
 
     verify(accountsManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO));
@@ -513,7 +507,7 @@ public class ProfileControllerTest {
     assertThat(profile.getCapabilities().isGv2()).isFalse();
     assertThat(profile.getCapabilities().isGv1Migration()).isFalse();
     assertThat(profile.getUsername()).isEqualTo("n00bkiller");
-    assertThat(profile.getUuid()).isNull();;
+    assertThat(profile.getUuid()).isNull();
 
     verify(accountsManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO));
     verify(usernamesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO));

@@ -217,8 +217,7 @@ public class ProfileController {
                                      new UserCapabilities(accountProfile.get().isGroupsV2Supported(), accountProfile.get().isGv1MigrationSupported()),
                                      username.orElse(null),
                                      null,
-                                     credential.orElse(null),
-                                     accountProfile.get().getPayments()));
+                                     credential.orElse(null)));
     } catch (InvalidInputException e) {
       logger.info("Bad profile request", e);
       throw new WebApplicationException(Response.Status.BAD_REQUEST);
@@ -258,8 +257,7 @@ public class ProfileController {
                        new UserCapabilities(accountProfile.get().isGroupsV2Supported(), accountProfile.get().isGv1MigrationSupported()),
                        username,
                        accountProfile.get().getUuid(),
-                       null,
-                       accountProfile.get().getPayments());
+                       null);
   }
 
   private Optional<ProfileKeyCredentialResponse> getProfileCredential(Optional<String>           encodedProfileCredentialRequest,
@@ -334,8 +332,7 @@ public class ProfileController {
                        new UserCapabilities(accountProfile.get().isGroupsV2Supported(), accountProfile.get().isGv1MigrationSupported()),
                        username.orElse(null),
                        null,
-                       null,
-                       accountProfile.get().getPayments());
+                       null);
   }
 
 

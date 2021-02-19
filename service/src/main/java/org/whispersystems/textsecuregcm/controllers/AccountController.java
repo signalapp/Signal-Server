@@ -65,7 +65,6 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
-import org.whispersystems.textsecuregcm.storage.PaymentAddressList;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -473,7 +472,6 @@ public class AccountController {
 
     account.setUnidentifiedAccessKey(attributes.getUnidentifiedAccessKey());
     account.setUnrestrictedUnidentifiedAccess(attributes.isUnrestrictedUnidentifiedAccess());
-    account.setPayments(attributes.getPayments());
     account.setDiscoverableByPhoneNumber(attributes.isDiscoverableByPhoneNumber());
 
     accounts.update(account);
@@ -525,16 +523,6 @@ public class AccountController {
     }
 
     return Response.ok().build();
-  }
-
-  @Timed
-  @PUT
-  @Path("/payments")
-  @Produces(MediaType.APPLICATION_JSON)
-  @Consumes(MediaType.APPLICATION_JSON)
-  public void setPayments(@Auth Account account, @Valid PaymentAddressList payments) {
-    account.setPayments(payments.getPayments());
-    accounts.update(account);
   }
 
   private CaptchaRequirement requiresCaptcha(String number, String transport, String forwardedFor,
@@ -641,7 +629,6 @@ public class AccountController {
     setAccountRegistrationLockFromAttributes(account, accountAttributes);
     account.setUnidentifiedAccessKey(accountAttributes.getUnidentifiedAccessKey());
     account.setUnrestrictedUnidentifiedAccess(accountAttributes.isUnrestrictedUnidentifiedAccess());
-    account.setPayments(accountAttributes.getPayments());
     account.setDiscoverableByPhoneNumber(accountAttributes.isDiscoverableByPhoneNumber());
 
     if (accounts.create(account)) {
