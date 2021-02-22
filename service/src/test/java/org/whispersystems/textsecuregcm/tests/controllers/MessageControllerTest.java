@@ -29,7 +29,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
-import java.io.IOException;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -44,7 +43,6 @@ import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -67,6 +65,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -93,6 +92,7 @@ public class MessageControllerTest {
   private final CardinalityRateLimiter      unsealedSenderLimiter       = mock(CardinalityRateLimiter.class);
   private final ApnFallbackManager          apnFallbackManager          = mock(ApnFallbackManager.class);
   private final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
+  private final FaultTolerantRedisCluster   metricsCluster              = mock(FaultTolerantRedisCluster.class);
 
   private final ObjectMapper mapper = new ObjectMapper();
 
@@ -102,7 +102,7 @@ public class MessageControllerTest {
                                                             .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new MessageController(rateLimiters, messageSender, receiptSender, accountsManager,
-                                                                                               messagesManager, apnFallbackManager, dynamicConfigurationManager))
+                                                                                               messagesManager, apnFallbackManager, dynamicConfigurationManager, metricsCluster))
                                                             .build();
 
 

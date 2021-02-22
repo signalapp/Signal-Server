@@ -101,9 +101,13 @@ public class AuthHelper {
     when(UNDISCOVERABLE_DEVICE.isMaster()).thenReturn(true);
 
     when(VALID_ACCOUNT.getDevice(1L)).thenReturn(Optional.of(VALID_DEVICE));
+    when(VALID_ACCOUNT.getMasterDevice()).thenReturn(Optional.of(VALID_DEVICE));
     when(VALID_ACCOUNT_TWO.getDevice(eq(1L))).thenReturn(Optional.of(VALID_DEVICE_TWO));
+    when(VALID_ACCOUNT_TWO.getMasterDevice()).thenReturn(Optional.of(VALID_DEVICE_TWO));
     when(DISABLED_ACCOUNT.getDevice(eq(1L))).thenReturn(Optional.of(DISABLED_DEVICE));
+    when(DISABLED_ACCOUNT.getMasterDevice()).thenReturn(Optional.of(DISABLED_DEVICE));
     when(UNDISCOVERABLE_ACCOUNT.getDevice(eq(1L))).thenReturn(Optional.of(UNDISCOVERABLE_DEVICE));
+    when(UNDISCOVERABLE_ACCOUNT.getMasterDevice()).thenReturn(Optional.of(UNDISCOVERABLE_DEVICE));
 
     when(VALID_ACCOUNT_TWO.getEnabledDeviceCount()).thenReturn(6);
 
@@ -211,6 +215,7 @@ public class AuthHelper {
       when(device.getId()).thenReturn(1L);
       when(device.isEnabled()).thenReturn(true);
       when(account.getDevice(1L)).thenReturn(Optional.of(device));
+      when(account.getMasterDevice()).thenReturn(Optional.of(device));
       when(account.getNumber()).thenReturn(number);
       when(account.getUuid()).thenReturn(uuid);
       when(account.getAuthenticatedDevice()).thenReturn(Optional.of(device));
