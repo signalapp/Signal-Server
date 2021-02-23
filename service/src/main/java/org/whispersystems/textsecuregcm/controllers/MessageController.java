@@ -233,7 +233,7 @@ public class MessageController {
         rateLimiters.getMessagesLimiter().validate(source.get().getUuid() + "__" + destination.get().getUuid());
 
         if (!Util.getCountryCode(source.get().getNumber()).equals(destination.get().getNumber())) {
-          Metrics.counter(INTERNATIONAL_UNSEALED_SENDER_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, Util.getCountryCode(source.get().getNumber()));
+          Metrics.counter(INTERNATIONAL_UNSEALED_SENDER_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, Util.getCountryCode(source.get().getNumber())).increment();
         }
       }
 
