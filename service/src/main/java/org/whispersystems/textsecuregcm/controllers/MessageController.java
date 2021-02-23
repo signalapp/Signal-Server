@@ -38,6 +38,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
@@ -96,6 +97,7 @@ public class MessageController {
   private static final String REJECT_UNSEALED_SENDER_COUNTER_NAME                = name(MessageController.class, "rejectUnsealedSenderLimit");
   private static final String INTERNATIONAL_UNSEALED_SENDER_COUNTER_NAME         = name(MessageController.class, "internationalUnsealedSender");
   private static final String UNSEALED_SENDER_ACCOUNT_AGE_DISTRIBUTION_NAME      = name(MessageController.class, "unsealedSenderAccountAge");
+  private static final String UNSEALED_SENDER_WITHOUT_PUSH_TOKEN_COUNTER_NAME    = name(MessageController.class, "unsealedSenderWithoutPushToken");
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME                     = name(MessageController.class, "messageContentSize");
   private static final String OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME = name(MessageController.class, "outgoingMessageListSizeBytes");
 
@@ -143,16 +145,23 @@ public class MessageController {
     }
 
     if (source.isPresent() && !source.get().isFor(destinationName)) {
+      assert source.get().getMasterDevice().isPresent();
+
+      final Device masterDevice = source.get().getMasterDevice().get();
+      final String senderCountryCode = Util.getCountryCode(source.get().getNumber());
+
+      if (StringUtils.isAllBlank(masterDevice.getApnId(), masterDevice.getVoipApnId(), masterDevice.getGcmId()) || masterDevice.getUninstalledFeedbackTimestamp() > 0) {
+        Metrics.counter(UNSEALED_SENDER_WITHOUT_PUSH_TOKEN_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, senderCountryCode).increment();
+      }
+
       RedisOperation.unchecked(() -> {
         metricsCluster.useCluster(connection -> {
           if (connection.sync().pfadd(SENT_FIRST_UNSEALED_SENDER_MESSAGE_KEY, source.get().getUuid().toString()) == 1) {
             final List<Tag> tags = List.of(
                 UserAgentTagUtil.getPlatformTag(userAgent),
-                Tag.of(SENDER_COUNTRY_TAG_NAME, Util.getCountryCode(source.get().getNumber())));
+                Tag.of(SENDER_COUNTRY_TAG_NAME, senderCountryCode));
 
-            assert source.get().getMasterDevice().isPresent();
-
-            final long accountAge = System.currentTimeMillis() - source.get().getMasterDevice().get().getCreated();
+            final long accountAge = System.currentTimeMillis() - masterDevice.getCreated();
 
             DistributionSummary.builder(UNSEALED_SENDER_ACCOUNT_AGE_DISTRIBUTION_NAME)
                 .tags(tags)
