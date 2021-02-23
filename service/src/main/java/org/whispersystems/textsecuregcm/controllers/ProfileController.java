@@ -137,6 +137,7 @@ public class ProfileController {
 
     account.setProfileName(request.getName());
     account.setAvatar(avatar);
+    account.setCurrentProfileVersion(request.getVersion());
     accountsManager.update(account);
 
     if (response.isPresent()) return Response.ok(response).build();
@@ -202,7 +203,14 @@ public class ProfileController {
       String about = profile.map(VersionedProfile::getAbout).orElse(null);
       String aboutEmoji = profile.map(VersionedProfile::getAboutEmoji).orElse(null);
       String avatar = profile.map(VersionedProfile::getAvatar).orElse(accountProfile.get().getAvatar());
-      String paymentAddress = profile.map(VersionedProfile::getPaymentAddress).orElse(null);
+      Optional<String> currentProfileVersion = accountProfile.get().getCurrentProfileVersion();
+
+      // Allow requests where either the version matches the latest version on Account or the latest version on Account
+      // is empty to read the payment address.
+      final String paymentAddress = profile
+          .filter(p -> currentProfileVersion.map(v -> v.equals(version)).orElse(true))
+          .map(VersionedProfile::getPaymentAddress)
+          .orElse(null);
 
       Optional<ProfileKeyCredentialResponse> credential = getProfileCredential(credentialRequest, profile, uuid);
 

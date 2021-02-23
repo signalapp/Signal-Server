@@ -69,6 +69,8 @@ public class ProfileControllerTest {
   private static PolicySigner              policySigner        = new PolicySigner("accessSecret", "us-west-1");
   private static ServerZkProfileOperations zkProfileOperations = mock(ServerZkProfileOperations.class);
 
+  private Account profileAccount;
+
 
   @ClassRule
   public static final ResourceTestRule resources = ResourceTestRule.builder()
@@ -95,7 +97,7 @@ public class ProfileControllerTest {
     when(rateLimiters.getProfileLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getUsernameLookupLimiter()).thenReturn(usernameRateLimiter);
 
-    Account profileAccount = mock(Account.class);
+    profileAccount = mock(Account.class);
 
     when(profileAccount.getIdentityKey()).thenReturn("bar");
     when(profileAccount.getProfileName()).thenReturn("baz");
@@ -104,6 +106,7 @@ public class ProfileControllerTest {
     when(profileAccount.isEnabled()).thenReturn(true);
     when(profileAccount.isGroupsV2Supported()).thenReturn(false);
     when(profileAccount.isGv1MigrationSupported()).thenReturn(false);
+    when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.empty());
 
     Account capabilitiesAccount = mock(Account.class);
 
@@ -125,8 +128,8 @@ public class ProfileControllerTest {
     when(accountsManager.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(AuthHelper.VALID_NUMBER)))).thenReturn(Optional.of(capabilitiesAccount));
 
     when(profilesManager.get(eq(AuthHelper.VALID_UUID), eq("someversion"))).thenReturn(Optional.empty());
-    when(profilesManager.get(eq(AuthHelper.VALID_UUID_TWO), eq("validversion"))).thenReturn(Optional.of(new VersionedProfile("validversion", "validname", "profiles/validavatar", "emoji", "about",
-        null, "validcommitmnet".getBytes())));
+    when(profilesManager.get(eq(AuthHelper.VALID_UUID_TWO), eq("validversion"))).thenReturn(Optional.of(new VersionedProfile(
+        "validversion", "validname", "profiles/validavatar", "emoji", "about", null, "validcommitmnet".getBytes())));
 
     clearInvocations(rateLimiter);
     clearInvocations(accountsManager);
@@ -194,7 +197,7 @@ public class ProfileControllerTest {
   }
 
   @Test
-  public void testProfileGetUnauthorized() throws Exception {
+  public void testProfileGetUnauthorized() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/profile/" + AuthHelper.VALID_NUMBER_TWO)
                                  .request()
@@ -204,7 +207,7 @@ public class ProfileControllerTest {
   }
 
   @Test
-  public void testProfileGetByUsernameUnauthorized() throws Exception {
+  public void testProfileGetByUsernameUnauthorized() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/profile/username/n00bkiller")
                                  .request()
@@ -230,7 +233,7 @@ public class ProfileControllerTest {
 
 
   @Test
-  public void testProfileGetDisabled() throws Exception {
+  public void testProfileGetDisabled() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/profile/" + AuthHelper.VALID_NUMBER_TWO)
                                  .request()
@@ -241,7 +244,7 @@ public class ProfileControllerTest {
   }
 
   @Test
-  public void testProfileCapabilities() throws Exception {
+  public void testProfileCapabilities() {
     Profile profile= resources.getJerseyTest()
                               .target("/v1/profile/" + AuthHelper.VALID_NUMBER)
                               .request()
@@ -514,5 +517,54 @@ public class ProfileControllerTest {
     verify(profilesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO), eq("validversion"));
 
     verify(rateLimiter, times(1)).validate(eq(AuthHelper.VALID_NUMBER));
+  }
+
+  @Test
+  public void testSetProfileUpdatesAccountCurrentVersion() throws InvalidInputException {
+    ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID_TWO);
+
+    clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
+
+    final String name = RandomStringUtils.randomAlphabetic(380);
+    final String paymentAddress = RandomStringUtils.randomAlphanumeric(684);
+
+    Response response = resources.getJerseyTest()
+        .target("/v1/profile")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER_TWO, AuthHelper.VALID_PASSWORD_TWO))
+        .put(Entity.entity(new CreateProfileRequest(commitment, "someversion", name, null, null, paymentAddress, false), MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.hasEntity()).isFalse();
+
+    verify(AuthHelper.VALID_ACCOUNT_TWO).setCurrentProfileVersion("someversion");
+  }
+
+  @Test
+  public void testGetProfileReturnsNoPaymentAddressIfCurrentVersionMismatch() {
+    when(profilesManager.get(AuthHelper.VALID_UUID_TWO, "validversion")).thenReturn(
+        Optional.of(new VersionedProfile(null, null, null, null, null, "paymentaddress", null)));
+    Profile profile = resources.getJerseyTest()
+        .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO + "/validversion")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+        .get(Profile.class);
+    assertThat(profile.getPaymentAddress()).isEqualTo("paymentaddress");
+
+    when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.of("validversion"));
+    profile = resources.getJerseyTest()
+        .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO + "/validversion")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+        .get(Profile.class);
+    assertThat(profile.getPaymentAddress()).isEqualTo("paymentaddress");
+
+    when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.of("someotherversion"));
+    profile = resources.getJerseyTest()
+        .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO + "/validversion")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+        .get(Profile.class);
+    assertThat(profile.getPaymentAddress()).isNull();
   }
 }

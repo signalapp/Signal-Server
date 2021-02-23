@@ -31,6 +31,9 @@ public class Account implements Principal  {
   @JsonProperty
   private String identityKey;
 
+  @JsonProperty("cpv")
+  private String currentProfileVersion;
+
   @JsonProperty
   private String name;
 
@@ -195,6 +198,14 @@ public class Account implements Principal  {
     return lastSeen;
   }
 
+  public Optional<String> getCurrentProfileVersion() {
+    return Optional.ofNullable(currentProfileVersion);
+  }
+
+  public void setCurrentProfileVersion(String currentProfileVersion) {
+    this.currentProfileVersion = currentProfileVersion;
+  }
+
   public String getProfileName() {
     return name;
   }
@@ -267,5 +278,4 @@ public class Account implements Principal  {
   public boolean implies(Subject subject) {
     return false;
   }
-
 }
