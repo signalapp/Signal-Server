@@ -232,7 +232,10 @@ public class MessageController {
       if (source.isPresent() && !source.get().isFor(destinationName)) {
         rateLimiters.getMessagesLimiter().validate(source.get().getUuid() + "__" + destination.get().getUuid());
 
-        if (!Util.getCountryCode(source.get().getNumber()).equals(destination.get().getNumber())) {
+        final String senderCountryCode = Util.getCountryCode(source.get().getNumber());
+        final String destinationCountryCode = Util.getCountryCode(destination.get().getNumber());
+
+        if (!senderCountryCode.equals(destinationCountryCode)) {
           Metrics.counter(INTERNATIONAL_UNSEALED_SENDER_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, Util.getCountryCode(source.get().getNumber())).increment();
         }
       }
