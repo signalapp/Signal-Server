@@ -13,6 +13,7 @@ import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.auth.Auth;
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,8 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
@@ -86,6 +89,12 @@ public class AccountController {
   private final Meter          captchaRequiredMeter   = metricRegistry.meter(name(AccountController.class, "captcha_required"   ));
   private final Meter          captchaSuccessMeter    = metricRegistry.meter(name(AccountController.class, "captcha_success"    ));
   private final Meter          captchaFailureMeter    = metricRegistry.meter(name(AccountController.class, "captcha_failure"    ));
+
+  private static final String PUSH_CHALLENGE_COUNTER_NAME = name(AccountController.class, "pushChallenge");
+
+  private static final String CHALLENGE_PRESENT_TAG_NAME = "present";
+  private static final String CHALLENGE_MATCH_TAG_NAME = "matches";
+  private static final String COUNTRY_CODE_TAG_NAME = "countryCode";
 
 
   private final PendingAccountsManager             pendingAccounts;
@@ -544,14 +553,30 @@ public class AccountController {
       }
     }
 
-    if (pushChallenge.isPresent()) {
-      Optional<String> storedPushChallenge = storedVerificationCode.map(StoredVerificationCode::getPushCode);
+    {
+      final List<Tag> tags = new ArrayList<>();
+      tags.add(Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)));
 
-      if (!pushChallenge.get().equals(storedPushChallenge.orElse(null))) {
-        return new CaptchaRequirement(true, false);
+      try {
+        if (pushChallenge.isPresent()) {
+          tags.add(Tag.of(CHALLENGE_PRESENT_TAG_NAME, "true"));
+
+          Optional<String> storedPushChallenge = storedVerificationCode.map(StoredVerificationCode::getPushCode);
+
+          if (!pushChallenge.get().equals(storedPushChallenge.orElse(null))) {
+            tags.add(Tag.of(CHALLENGE_MATCH_TAG_NAME, "false"));
+            return new CaptchaRequirement(true, false);
+          } else {
+            tags.add(Tag.of(CHALLENGE_MATCH_TAG_NAME, "true"));
+          }
+        } else {
+          tags.add(Tag.of(CHALLENGE_PRESENT_TAG_NAME, "false"));
+
+          return new CaptchaRequirement(true, false);
+        }
+      } finally {
+        Metrics.counter(PUSH_CHALLENGE_COUNTER_NAME, tags).increment();
       }
-    } else {
-      return new CaptchaRequirement(true, false);
     }
 
     List<AbusiveHostRule> abuseRules = abusiveHostRules.getAbusiveHostRulesFor(requester);
