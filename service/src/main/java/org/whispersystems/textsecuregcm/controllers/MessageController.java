@@ -12,7 +12,6 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.codahale.metrics.annotation.Timed;
-import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.protobuf.ByteString;
 import io.dropwizard.auth.Auth;
 import io.dropwizard.util.DataSize;
@@ -172,16 +171,18 @@ public class MessageController {
         });
       });
 
-      try {
-        rateLimiters.getUnsealedSenderLimiter().validate(source.get().getUuid().toString(), destinationName.toString());
-      } catch (RateLimitExceededException e) {
-        Metrics.counter(REJECT_UNSEALED_SENDER_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, Util.getCountryCode(source.get().getNumber())).increment();
+      if (dynamicConfigurationManager.getConfiguration().getMessageRateConfiguration().getRateLimitedCountryCodes().contains(senderCountryCode)) {
+        try {
+          rateLimiters.getUnsealedSenderLimiter().validate(source.get().getUuid().toString(), destinationName.toString());
+        } catch (RateLimitExceededException e) {
+          Metrics.counter(REJECT_UNSEALED_SENDER_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, senderCountryCode).increment();
 
-        if (dynamicConfigurationManager.getConfiguration().getMessageRateConfiguration().isEnforceUnsealedSenderRateLimit()) {
-          logger.debug("Rejected unsealed sender limit from: {}", source.get().getNumber());
-          throw e;
-        } else {
-          logger.debug("Would reject unsealed sender limit from: {}", source.get().getNumber());
+          if (dynamicConfigurationManager.getConfiguration().getMessageRateConfiguration().isEnforceUnsealedSenderRateLimit()) {
+            logger.debug("Rejected unsealed sender limit from: {}", source.get().getNumber());
+            throw e;
+          } else {
+            logger.debug("Would reject unsealed sender limit from: {}", source.get().getNumber());
+          }
         }
       }
     }
