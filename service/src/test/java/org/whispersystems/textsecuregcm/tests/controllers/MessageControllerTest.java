@@ -13,11 +13,13 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -29,12 +31,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
@@ -48,10 +53,13 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessageRateConfiguration;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
@@ -84,6 +92,9 @@ public class MessageControllerTest {
   private static final String MULTI_DEVICE_RECIPIENT  = "+14152222222";
   private static final UUID   MULTI_DEVICE_UUID       = UUID.randomUUID();
 
+  private static final String INTERNATIONAL_RECIPIENT = "+61123456789";
+  private static final UUID   INTERNATIONAL_UUID      = UUID.randomUUID();
+
   private final MessageSender               messageSender               = mock(MessageSender.class);
   private final ReceiptSender               receiptSender               = mock(ReceiptSender.class);
   private final AccountsManager             accountsManager             = mock(AccountsManager.class);
@@ -94,6 +105,7 @@ public class MessageControllerTest {
   private final ApnFallbackManager          apnFallbackManager          = mock(ApnFallbackManager.class);
   private final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
   private final FaultTolerantRedisCluster   metricsCluster              = mock(FaultTolerantRedisCluster.class);
+  private final ScheduledExecutorService    receiptExecutor             = mock(ScheduledExecutorService.class);
 
   private final ObjectMapper mapper = new ObjectMapper();
 
@@ -103,7 +115,7 @@ public class MessageControllerTest {
                                                             .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new MessageController(rateLimiters, messageSender, receiptSender, accountsManager,
-                                                                                               messagesManager, apnFallbackManager, dynamicConfigurationManager, metricsCluster))
+                                                                                               messagesManager, apnFallbackManager, dynamicConfigurationManager, metricsCluster, receiptExecutor))
                                                             .build();
 
 
@@ -123,18 +135,27 @@ public class MessageControllerTest {
           "isgcm", null, null, false, 444, null, System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31), System.currentTimeMillis(), "Test", 0, new Device.DeviceCapabilities(false, false, false, false, false, false)));
     }};
 
-    Account singleDeviceAccount = new Account(SINGLE_DEVICE_RECIPIENT, SINGLE_DEVICE_UUID, singleDeviceList, "1234".getBytes());
-    Account multiDeviceAccount  = new Account(MULTI_DEVICE_RECIPIENT, MULTI_DEVICE_UUID, multiDeviceList, "1234".getBytes());
+    Account singleDeviceAccount  = new Account(SINGLE_DEVICE_RECIPIENT, SINGLE_DEVICE_UUID, singleDeviceList, "1234".getBytes());
+    Account multiDeviceAccount   = new Account(MULTI_DEVICE_RECIPIENT, MULTI_DEVICE_UUID, multiDeviceList, "1234".getBytes());
+    Account internationalAccount = new Account(INTERNATIONAL_RECIPIENT, INTERNATIONAL_UUID, singleDeviceList, "1234".getBytes());
 
     when(accountsManager.get(eq(SINGLE_DEVICE_RECIPIENT))).thenReturn(Optional.of(singleDeviceAccount));
     when(accountsManager.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(SINGLE_DEVICE_RECIPIENT)))).thenReturn(Optional.of(singleDeviceAccount));
     when(accountsManager.get(eq(MULTI_DEVICE_RECIPIENT))).thenReturn(Optional.of(multiDeviceAccount));
     when(accountsManager.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(MULTI_DEVICE_RECIPIENT)))).thenReturn(Optional.of(multiDeviceAccount));
+    when(accountsManager.get(INTERNATIONAL_RECIPIENT)).thenReturn(Optional.of(internationalAccount));
+    when(accountsManager.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(INTERNATIONAL_RECIPIENT)))).thenReturn(Optional.of(internationalAccount));
 
     when(rateLimiters.getMessagesLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getUnsealedSenderLimiter()).thenReturn(unsealedSenderLimiter);
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
+
+    when(receiptExecutor.schedule(any(Runnable.class), anyLong(), any())).thenAnswer(
+        (Answer<ScheduledFuture<?>>) invocation -> {
+          invocation.getArgument(0, Runnable.class).run();
+          return mock(ScheduledFuture.class);
+        });
   }
 
   @Test
@@ -167,6 +188,38 @@ public class MessageControllerTest {
 
     assertTrue(captor.getValue().hasSource());
     assertTrue(captor.getValue().hasSourceDevice());
+  }
+
+  @Test
+  public synchronized void testInternationalUnsealedSenderFromRateLimitedHost() throws Exception {
+    final String senderHost = "10.0.0.1";
+
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+    final DynamicMessageRateConfiguration messageRateConfiguration = mock(DynamicMessageRateConfiguration.class);
+
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+    when(dynamicConfiguration.getMessageRateConfiguration()).thenReturn(messageRateConfiguration);
+    when(messageRateConfiguration.getRateLimitedCountryCodes()).thenReturn(Set.of("1"));
+    when(messageRateConfiguration.getRateLimitedHosts()).thenReturn(Set.of(senderHost));
+    when(messageRateConfiguration.getResponseDelay()).thenReturn(Duration.ofMillis(1));
+    when(messageRateConfiguration.getResponseDelayJitter()).thenReturn(Duration.ofMillis(1));
+    when(messageRateConfiguration.getReceiptDelay()).thenReturn(Duration.ofMillis(1));
+    when(messageRateConfiguration.getReceiptDelayJitter()).thenReturn(Duration.ofMillis(1));
+    when(messageRateConfiguration.getReceiptProbability()).thenReturn(1.0);
+
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/messages/%s", INTERNATIONAL_RECIPIENT))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+            .header("X-Forwarded-For", senderHost)
+            .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat("Good Response", response.getStatus(), is(equalTo(200)));
+
+    verify(messageSender, never()).sendMessage(any(), any(), any(), anyBoolean());
+    verify(receiptSender).sendReceipt(any(), eq(AuthHelper.VALID_NUMBER), anyLong());
   }
 
   @Test
