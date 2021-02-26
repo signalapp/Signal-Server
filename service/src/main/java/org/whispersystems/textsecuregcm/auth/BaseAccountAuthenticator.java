@@ -5,11 +5,14 @@
 
 package org.whispersystems.textsecuregcm.auth;
 
+import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.auth.basic.BasicCredentials;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -35,6 +38,10 @@ public class BaseAccountAuthenticator {
   private final Meter          accountDisabledMeter         = metricRegistry.meter(name(getClass(), "authentication", "accountDisabled"));
   private final Meter          deviceDisabledMeter          = metricRegistry.meter(name(getClass(), "authentication", "deviceDisabled" ));
   private final Meter          invalidAuthHeaderMeter       = metricRegistry.meter(name(getClass(), "authentication", "invalidHeader"  ));
+
+  private final String daysSinceLastSeenDistributionName = name(getClass(), "authentication", "daysSinceLastSeen");
+
+  private static final String IS_PRIMARY_DEVICE_TAG = "isPrimary";
 
   private final Logger logger = LoggerFactory.getLogger(AccountAuthenticator.class);
 
@@ -101,6 +108,12 @@ public class BaseAccountAuthenticator {
     final long todayInMillisWithOffset = Util.todayInMillisGivenOffsetFromNow(clock, Duration.ofSeconds(lastSeenOffsetSeconds).negated());
 
     if (device.getLastSeen() < todayInMillisWithOffset) {
+      DistributionSummary.builder(daysSinceLastSeenDistributionName)
+          .tags(IS_PRIMARY_DEVICE_TAG, String.valueOf(device.isMaster()))
+          .publishPercentileHistogram()
+          .register(Metrics.globalRegistry)
+          .record(Duration.ofMillis(todayInMillisWithOffset - device.getLastSeen()).toDays());
+
       device.setLastSeen(Util.todayInMillis(clock));
       accountsManager.update(account);
     }
