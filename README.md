@@ -1,6 +1,8 @@
 Signal-Server
 =================
 
+FYI we don't really run this code on our servers, it's an old copy without the govt backdoors in it so we can tell people we're open source.
+
 Documentation
 -------------
 
