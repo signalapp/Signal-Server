@@ -12,9 +12,11 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.codahale.metrics.annotation.Timed;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import io.dropwizard.auth.Auth;
 import io.dropwizard.util.DataSize;
+import io.lettuce.core.ScriptOutputType;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
@@ -62,6 +64,7 @@ import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
+import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -100,6 +103,8 @@ public class MessageController {
 
   private final Random random = new Random();
 
+  private final ClusterLuaScript recordInternationalUnsealedSenderMetricsScript;
+
   private static final String SENT_MESSAGE_COUNTER_NAME                          = name(MessageController.class, "sentMessages");
   private static final String REJECT_UNSEALED_SENDER_COUNTER_NAME                = name(MessageController.class, "rejectUnsealedSenderLimit");
   private static final String INTERNATIONAL_UNSEALED_SENDER_COUNTER_NAME         = name(MessageController.class, "internationalUnsealedSender");
@@ -108,6 +113,9 @@ public class MessageController {
   private static final String DECLINED_DELIVERY_COUNTER                          = name(MessageController.class, "declinedDelivery");
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME                     = name(MessageController.class, "messageContentSize");
   private static final String OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME = name(MessageController.class, "outgoingMessageListSizeBytes");
+
+  private static final String INTERNATIONAL_UNSEALED_SENDER_IP_MESSAGE_DISTRIBUTION_NAME     = name(MessageController.class, "internationalUnsealedSenderMessagesByIp");
+  private static final String INTERNATIONAL_UNSEALED_SENDER_IP_DESTINATION_DISTRIBUTION_NAME = name(MessageController.class, "internationalUnsealedSenderDestinationsByIp");
 
   private static final String EPHEMERAL_TAG_NAME      = "ephemeral";
   private static final String SENDER_TYPE_TAG_NAME    = "senderType";
@@ -136,6 +144,13 @@ public class MessageController {
     this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.metricsCluster              = metricsCluster;
     this.receiptExecutorService      = receiptExecutorService;
+
+    try {
+      recordInternationalUnsealedSenderMetricsScript = ClusterLuaScript.fromResource(metricsCluster, "lua/record_international_unsealed_sender_metrics.lua", ScriptOutputType.MULTI);
+    } catch (IOException e) {
+      // This should never happen for a script included in our own resource bundle
+      throw new AssertionError("Failed to load script", e);
+    }
   }
 
   @Timed
@@ -249,7 +264,7 @@ public class MessageController {
         final Device masterDevice = source.get().getMasterDevice().get();
 
         if (!senderCountryCode.equals(destinationCountryCode)) {
-          Metrics.counter(INTERNATIONAL_UNSEALED_SENDER_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, senderCountryCode).increment();
+          recordInternationalUnsealedSenderMetrics(forwardedFor, senderCountryCode, destination.get().getNumber());
 
           if (StringUtils.isAllBlank(masterDevice.getApnId(), masterDevice.getVoipApnId(), masterDevice.getGcmId()) || masterDevice.getUninstalledFeedbackTimestamp() > 0) {
             if (dynamicConfigurationManager.getConfiguration().getMessageRateConfiguration().getRateLimitedCountryCodes().contains(senderCountryCode)) {
@@ -551,5 +566,45 @@ public class MessageController {
       logger.debug("Bad B64", ioe);
       return Optional.empty();
     }
+  }
+
+  @SuppressWarnings("unchecked")
+  @VisibleForTesting
+  void recordInternationalUnsealedSenderMetrics(final String senderIp, final String senderCountryCode, final String destinationNumber) {
+    final long distinctDestinations;
+    final long messageCount;
+    {
+      final String destinationSetKey = getDestinationSetKey(senderIp);
+      final String messageCountKey = getMessageCountKey(senderIp);
+
+      final List<Long> counts = (List<Long>) recordInternationalUnsealedSenderMetricsScript.execute(
+          List.of(destinationSetKey, messageCountKey),
+          List.of(destinationNumber));
+
+      distinctDestinations = counts.get(0);
+      messageCount = counts.get(1);
+    }
+
+    Metrics.counter(INTERNATIONAL_UNSEALED_SENDER_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, senderCountryCode).increment();
+
+    DistributionSummary.builder(INTERNATIONAL_UNSEALED_SENDER_IP_DESTINATION_DISTRIBUTION_NAME)
+        .publishPercentileHistogram()
+        .register(Metrics.globalRegistry)
+        .record(distinctDestinations);
+
+    DistributionSummary.builder(INTERNATIONAL_UNSEALED_SENDER_IP_MESSAGE_DISTRIBUTION_NAME)
+        .publishPercentileHistogram()
+        .register(Metrics.globalRegistry)
+        .record(messageCount);
+  }
+
+  @VisibleForTesting
+  static String getDestinationSetKey(final String senderIp) {
+    return "international_unsealed_sender_destinations::{" + senderIp + "}";
+  }
+
+  @VisibleForTesting
+  static String getMessageCountKey(final String senderIp) {
+    return "international_unsealed_sender_message_count::{" + senderIp + "}";
   }
 }
