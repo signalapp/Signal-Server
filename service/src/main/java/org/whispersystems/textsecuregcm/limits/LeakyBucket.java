@@ -9,6 +9,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
+import java.time.Duration;
 
 public class LeakyBucket {
 
@@ -48,15 +49,15 @@ public class LeakyBucket {
                     (int)Math.floor(this.spaceRemaining + (elapsedTime * this.leakRatePerMillis)));
   }
 
-  public long getMillisUntilSpace(double amount) {
+  public Duration getTimeUntilSpaceAvailable(int amount) {
     int currentSpaceRemaining = getUpdatedSpaceRemaining();
     if (currentSpaceRemaining >= amount) {
-      return 0;
+      return Duration.ZERO;
     } else if (amount > this.bucketSize) {
       // This shouldn't happen today but if so we should bubble this to the clients somehow
-      return -1;
+      throw new IllegalArgumentException("Requested permits exceed maximum bucket size");
     } else {
-      return (long)Math.ceil(amount - currentSpaceRemaining / this.leakRatePerMillis);
+      return Duration.ofMillis((long)Math.ceil((double)(amount - currentSpaceRemaining) / this.leakRatePerMillis));
     }
   }
 

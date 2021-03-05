@@ -10,9 +10,12 @@ import org.junit.Test;
 import org.whispersystems.textsecuregcm.limits.LeakyBucket;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 public class LeakyBucketTest {
@@ -53,5 +56,31 @@ public class LeakyBucketTest {
 
     LeakyBucket leakyBucket = LeakyBucket.fromSerialized(mapper, serialized);
     assertFalse(leakyBucket.add(1));
+  }
+
+  @Test
+  public void testGetTimeUntilSpaceAvailable() throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+
+    {
+      String serialized = "{\"bucketSize\":2,\"leakRatePerMillis\":8.333333333333334E-6,\"spaceRemaining\":2,\"lastUpdateTimeMillis\":" + (System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(1)) + "}";
+
+      LeakyBucket leakyBucket = LeakyBucket.fromSerialized(mapper, serialized);
+
+      assertEquals(Duration.ZERO, leakyBucket.getTimeUntilSpaceAvailable(1));
+      assertThrows(IllegalArgumentException.class, () -> leakyBucket.getTimeUntilSpaceAvailable(5000));
+    }
+
+    {
+      String serialized = "{\"bucketSize\":2,\"leakRatePerMillis\":8.333333333333334E-6,\"spaceRemaining\":0,\"lastUpdateTimeMillis\":" + (System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(1)) + "}";
+
+      LeakyBucket leakyBucket = LeakyBucket.fromSerialized(mapper, serialized);
+
+      Duration timeUntilSpaceAvailable = leakyBucket.getTimeUntilSpaceAvailable(1);
+
+      // TODO Refactor LeakyBucket to be more test-friendly and accept a Clock
+      assertTrue(timeUntilSpaceAvailable.compareTo(Duration.ofMillis(119_000)) > 0);
+      assertTrue(timeUntilSpaceAvailable.compareTo(Duration.ofMinutes(2)) <= 0);
+    }
   }
 }

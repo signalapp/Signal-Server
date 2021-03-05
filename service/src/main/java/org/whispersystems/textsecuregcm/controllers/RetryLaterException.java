@@ -10,14 +10,8 @@ import java.time.Duration;
 public class RetryLaterException extends Exception {
   private final Duration backoffDuration;
 
-  public RetryLaterException() {
-    backoffDuration = Duration.ZERO;
-  }
-  public RetryLaterException(int retryLaterMillis) {
-    backoffDuration = Duration.ofMillis(retryLaterMillis);
-  }
-
   public RetryLaterException(RateLimitExceededException e) {
+    super(e);
     this.backoffDuration = e.getRetryDuration();
   }
 

@@ -59,7 +59,8 @@ public class CardinalityRateLimiter {
     });
 
     if (rateLimitExceeded) {
-      throw new RateLimitExceededException();
+      // Using the TTL as the "retry after" time isn't EXACTLY right, but it's a reasonable approximation
+      throw new RateLimitExceededException(ttl);
     }
   }
 

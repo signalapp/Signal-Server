@@ -13,6 +13,8 @@ import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.util.Constants;
 
+import java.time.Duration;
+
 import static com.codahale.metrics.MetricRegistry.name;
 
 public class LockingRateLimiter extends RateLimiter {
@@ -30,7 +32,7 @@ public class LockingRateLimiter extends RateLimiter {
   public void validate(String key, int amount) throws RateLimitExceededException {
     if (!acquireLock(key)) {
       meter.mark();
-      throw new RateLimitExceededException("Locked");
+      throw new RateLimitExceededException("Locked", Duration.ZERO);
     }
 
     try {

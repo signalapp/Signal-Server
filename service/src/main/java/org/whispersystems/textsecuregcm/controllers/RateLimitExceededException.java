@@ -10,19 +10,14 @@ public class RateLimitExceededException extends Exception {
 
   private final Duration retryDuration;
 
-  public RateLimitExceededException() {
+  public RateLimitExceededException(final Duration retryDuration) {
     super();
-    retryDuration = Duration.ZERO;
+    this.retryDuration = retryDuration;
   }
 
-  public RateLimitExceededException(String message) {
+  public RateLimitExceededException(final String message, final Duration retryDuration) {
     super(message);
-    retryDuration = Duration.ZERO;
-  }
-
-  public RateLimitExceededException(String message, long retryAfterMillis) {
-    super(message);
-    retryDuration = Duration.ofMillis(retryAfterMillis);
+    this.retryDuration = retryDuration;
   }
 
   public Duration getRetryDuration() { return retryDuration; }
