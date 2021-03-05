@@ -100,6 +100,7 @@ import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapp
 import org.whispersystems.textsecuregcm.mappers.IOExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.InvalidWebsocketAddressExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.RetryLaterExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.BufferPoolGauges;
 import org.whispersystems.textsecuregcm.metrics.CpuUsageGauge;
 import org.whispersystems.textsecuregcm.metrics.FileDescriptorGauge;
@@ -498,16 +499,19 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(new RateLimitExceededExceptionMapper());
     environment.jersey().register(new InvalidWebsocketAddressExceptionMapper());
     environment.jersey().register(new DeviceLimitExceededExceptionMapper());
+    environment.jersey().register(new RetryLaterExceptionMapper());
 
     webSocketEnvironment.jersey().register(new IOExceptionMapper());
     webSocketEnvironment.jersey().register(new RateLimitExceededExceptionMapper());
     webSocketEnvironment.jersey().register(new InvalidWebsocketAddressExceptionMapper());
     webSocketEnvironment.jersey().register(new DeviceLimitExceededExceptionMapper());
+    webSocketEnvironment.jersey().register(new RetryLaterExceptionMapper());
 
     provisioningEnvironment.jersey().register(new IOExceptionMapper());
     provisioningEnvironment.jersey().register(new RateLimitExceededExceptionMapper());
     provisioningEnvironment.jersey().register(new InvalidWebsocketAddressExceptionMapper());
     provisioningEnvironment.jersey().register(new DeviceLimitExceededExceptionMapper());
+    provisioningEnvironment.jersey().register(new RetryLaterExceptionMapper());
   }
 
   private void registerCorsFilter(Environment environment) {

@@ -187,7 +187,7 @@ public class AccountController {
                                 @QueryParam("client")           Optional<String> client,
                                 @QueryParam("captcha")          Optional<String> captcha,
                                 @QueryParam("challenge")        Optional<String> pushChallenge)
-      throws RateLimitExceededException
+      throws RateLimitExceededException, RetryLaterException
   {
     if (!Util.isValidNumber(number)) {
       logger.info("Invalid number: " + number);
@@ -217,16 +217,24 @@ public class AccountController {
       return Response.status(402).build();
     }
 
-    switch (transport) {
-      case "sms":
-        rateLimiters.getSmsDestinationLimiter().validate(number);
-        break;
-      case "voice":
-        rateLimiters.getVoiceDestinationLimiter().validate(number);
-        rateLimiters.getVoiceDestinationDailyLimiter().validate(number);
-        break;
-      default:
-        throw new WebApplicationException(Response.status(422).build());
+    try {
+      switch (transport) {
+        case "sms":
+          rateLimiters.getSmsDestinationLimiter().validate(number);
+          break;
+        case "voice":
+          rateLimiters.getVoiceDestinationLimiter().validate(number);
+          rateLimiters.getVoiceDestinationDailyLimiter().validate(number);
+          break;
+        default:
+          throw new WebApplicationException(Response.status(422).build());
+      }
+    } catch (RateLimitExceededException e) {
+      if (!e.getRetryDuration().isNegative()) {
+        throw new RetryLaterException(e);
+      } else {
+        throw e;
+      }
     }
 
     VerificationCode       verificationCode       = generateVerificationCode(number);

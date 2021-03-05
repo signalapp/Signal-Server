@@ -48,6 +48,18 @@ public class LeakyBucket {
                     (int)Math.floor(this.spaceRemaining + (elapsedTime * this.leakRatePerMillis)));
   }
 
+  public long getMillisUntilSpace(double amount) {
+    int currentSpaceRemaining = getUpdatedSpaceRemaining();
+    if (currentSpaceRemaining >= amount) {
+      return 0;
+    } else if (amount > this.bucketSize) {
+      // This shouldn't happen today but if so we should bubble this to the clients somehow
+      return -1;
+    } else {
+      return (long)Math.ceil(amount - currentSpaceRemaining / this.leakRatePerMillis);
+    }
+  }
+
   public String serialize(ObjectMapper mapper) throws JsonProcessingException {
     return mapper.writeValueAsString(new LeakyBucketEntity(bucketSize, leakRatePerMillis, spaceRemaining, lastUpdateTimeMillis));
   }
