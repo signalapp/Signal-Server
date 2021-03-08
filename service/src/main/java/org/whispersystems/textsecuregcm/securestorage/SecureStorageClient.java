@@ -46,6 +46,7 @@ public class SecureStorageClient {
                                                                         .withRedirect(HttpClient.Redirect.NEVER)
                                                                         .withExecutor(executor)
                                                                         .withName("secure-storage")
+                                                                        .withSecurityProtocol(FaultTolerantHttpClient.SECURITY_PROTOCOL_TLS_1_3)
                                                                         .withTrustedServerCertificate(configuration.getStorageCaCertificate())
                                                                         .build();
     }
