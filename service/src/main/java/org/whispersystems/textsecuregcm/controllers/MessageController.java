@@ -114,9 +114,6 @@ public class MessageController {
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME                     = name(MessageController.class, "messageContentSize");
   private static final String OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME = name(MessageController.class, "outgoingMessageListSizeBytes");
 
-  private static final String INTERNATIONAL_UNSEALED_SENDER_IP_MESSAGE_DISTRIBUTION_NAME     = name(MessageController.class, "internationalUnsealedSenderMessagesByIp");
-  private static final String INTERNATIONAL_UNSEALED_SENDER_IP_DESTINATION_DISTRIBUTION_NAME = name(MessageController.class, "internationalUnsealedSenderDestinationsByIp");
-
   private static final String EPHEMERAL_TAG_NAME      = "ephemeral";
   private static final String SENDER_TYPE_TAG_NAME    = "senderType";
   private static final String SENDER_COUNTRY_TAG_NAME = "senderCountry";
@@ -568,34 +565,18 @@ public class MessageController {
     }
   }
 
-  @SuppressWarnings("unchecked")
   @VisibleForTesting
   void recordInternationalUnsealedSenderMetrics(final String senderIp, final String senderCountryCode, final String destinationNumber) {
-    final long distinctDestinations;
-    final long messageCount;
     {
       final String destinationSetKey = getDestinationSetKey(senderIp);
       final String messageCountKey = getMessageCountKey(senderIp);
 
-      final List<Long> counts = (List<Long>) recordInternationalUnsealedSenderMetricsScript.execute(
+      recordInternationalUnsealedSenderMetricsScript.execute(
           List.of(destinationSetKey, messageCountKey),
           List.of(destinationNumber));
-
-      distinctDestinations = counts.get(0);
-      messageCount = counts.get(1);
     }
 
     Metrics.counter(INTERNATIONAL_UNSEALED_SENDER_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, senderCountryCode).increment();
-
-    DistributionSummary.builder(INTERNATIONAL_UNSEALED_SENDER_IP_DESTINATION_DISTRIBUTION_NAME)
-        .publishPercentileHistogram()
-        .register(Metrics.globalRegistry)
-        .record(distinctDestinations);
-
-    DistributionSummary.builder(INTERNATIONAL_UNSEALED_SENDER_IP_MESSAGE_DISTRIBUTION_NAME)
-        .publishPercentileHistogram()
-        .register(Metrics.globalRegistry)
-        .record(messageCount);
   }
 
   @VisibleForTesting
