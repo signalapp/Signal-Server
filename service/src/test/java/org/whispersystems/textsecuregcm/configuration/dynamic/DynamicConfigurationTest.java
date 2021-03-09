@@ -5,10 +5,10 @@
 
 package org.whispersystems.textsecuregcm.configuration.dynamic;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.vdurmont.semver4j.Semver;
@@ -17,14 +17,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
-public class DynamicConfigurationTest {
+class DynamicConfigurationTest {
 
   @Test
-  public void testParseExperimentConfig() throws JsonProcessingException {
+  void testParseExperimentConfig() throws JsonProcessingException {
     {
       final String emptyConfigYaml = "test: true";
       final DynamicConfiguration emptyConfig = DynamicConfigurationManager.OBJECT_MAPPER
@@ -72,7 +72,7 @@ public class DynamicConfigurationTest {
   }
 
   @Test
-  public void testParseRemoteDeprecationConfig() throws JsonProcessingException {
+  void testParseRemoteDeprecationConfig() throws JsonProcessingException {
     {
       final String emptyConfigYaml = "test: true";
       final DynamicConfiguration emptyConfig = DynamicConfigurationManager.OBJECT_MAPPER
@@ -111,7 +111,7 @@ public class DynamicConfigurationTest {
   }
 
   @Test
-  public void testParseMessageRateConfiguration() throws JsonProcessingException {
+  void testParseMessageRateConfiguration() throws JsonProcessingException {
     {
       final String emptyConfigYaml = "test: true";
       final DynamicConfiguration emptyConfig = DynamicConfigurationManager.OBJECT_MAPPER
@@ -133,7 +133,7 @@ public class DynamicConfigurationTest {
   }
 
   @Test
-  public void testParseFeatureFlags() throws JsonProcessingException {
+  void testParseFeatureFlags() throws JsonProcessingException {
     {
       final String emptyConfigYaml = "test: true";
       final DynamicConfiguration emptyConfig = DynamicConfigurationManager.OBJECT_MAPPER
