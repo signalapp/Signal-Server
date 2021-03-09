@@ -74,6 +74,7 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.ForwardedIpUtil;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
@@ -265,7 +266,12 @@ public class MessageController {
 
           if (StringUtils.isAllBlank(masterDevice.getApnId(), masterDevice.getVoipApnId(), masterDevice.getGcmId()) || masterDevice.getUninstalledFeedbackTimestamp() > 0) {
             if (dynamicConfigurationManager.getConfiguration().getMessageRateConfiguration().getRateLimitedCountryCodes().contains(senderCountryCode)) {
-              if (dynamicConfigurationManager.getConfiguration().getMessageRateConfiguration().getRateLimitedHosts().contains(forwardedFor)) {
+
+              final boolean isRateLimitedHost = ForwardedIpUtil.getMostRecentProxy(forwardedFor)
+                  .map(proxy -> dynamicConfigurationManager.getConfiguration().getMessageRateConfiguration().getRateLimitedHosts().contains(proxy))
+                  .orElse(false);
+
+              if (isRateLimitedHost) {
                 return declineDelivery(messages, source.get(), destination.get());
               }
             }
@@ -566,15 +572,15 @@ public class MessageController {
   }
 
   @VisibleForTesting
-  void recordInternationalUnsealedSenderMetrics(final String senderIp, final String senderCountryCode, final String destinationNumber) {
-    {
+  void recordInternationalUnsealedSenderMetrics(final String forwardedFor, final String senderCountryCode, final String destinationNumber) {
+    ForwardedIpUtil.getMostRecentProxy(forwardedFor).ifPresent(senderIp -> {
       final String destinationSetKey = getDestinationSetKey(senderIp);
       final String messageCountKey = getMessageCountKey(senderIp);
 
       recordInternationalUnsealedSenderMetricsScript.execute(
           List.of(destinationSetKey, messageCountKey),
           List.of(destinationNumber));
-    }
+    });
 
     Metrics.counter(INTERNATIONAL_UNSEALED_SENDER_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, senderCountryCode).increment();
   }
