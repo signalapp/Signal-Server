@@ -54,6 +54,7 @@ import java.security.Principal;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -611,6 +612,45 @@ public class WebSocketResourceProviderTest {
       assertThat(headerStrings).hasSize(1);
       assertThat(headerStrings).contains("test:a");
     }
+  }
+
+  @Test
+  public void testShouldIncludeUpgradeRequestHeader() {
+    assertThat(WebSocketResourceProvider.shouldIncludeUpgradeRequestHeader("Upgrade")).isFalse();
+    assertThat(WebSocketResourceProvider.shouldIncludeUpgradeRequestHeader("Connection")).isFalse();
+    assertThat(WebSocketResourceProvider.shouldIncludeUpgradeRequestHeader("Sec-WebSocket-Key")).isFalse();
+    assertThat(WebSocketResourceProvider.shouldIncludeUpgradeRequestHeader("User-Agent")).isTrue();
+    assertThat(WebSocketResourceProvider.shouldIncludeUpgradeRequestHeader("X-Forwarded-For")).isTrue();
+  }
+
+  @Test
+  public void testShouldIncludeRequestMessageHeader() {
+    assertThat(WebSocketResourceProvider.shouldIncludeRequestMessageHeader("X-Forwarded-For")).isFalse();
+    assertThat(WebSocketResourceProvider.shouldIncludeRequestMessageHeader("User-Agent")).isTrue();
+  }
+
+  @Test
+  public void testGetCombinedHeaders() {
+    final Map<String, List<String>> upgradeRequestHeaders = Map.of(
+        "Host", List.of("server.example.com"),
+        "Upgrade", List.of("websocket"),
+        "Connection", List.of("Upgrade"),
+        "Sec-WebSocket-Key", List.of("dGhlIHNhbXBsZSBub25jZQ=="),
+        "Sec-WebSocket-Protocol", List.of("chat, superchat"),
+        "Sec-WebSocket-Version", List.of("13"),
+        "X-Forwarded-For", List.of("127.0.0.1"),
+        "User-Agent", List.of("Upgrade request user agent"));
+
+    final Map<String, String> requestMessageHeaders = Map.of(
+        "X-Forwarded-For", "192.168.0.1",
+        "User-Agent", "Request message user agent");
+
+    final Map<String, List<String>> expectedHeaders = Map.of(
+        "Host", List.of("server.example.com"),
+        "X-Forwarded-For", List.of("127.0.0.1"),
+        "User-Agent", List.of("Request message user agent"));
+
+    assertThat(WebSocketResourceProvider.getCombinedHeaders(upgradeRequestHeaders, requestMessageHeaders)).isEqualTo(expectedHeaders);
   }
 
   private SubProtocol.WebSocketResponseMessage getResponse(ArgumentCaptor<ByteBuffer> responseCaptor) throws InvalidProtocolBufferException {
