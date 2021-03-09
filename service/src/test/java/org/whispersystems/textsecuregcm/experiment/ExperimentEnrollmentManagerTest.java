@@ -5,62 +5,62 @@
 
 package org.whispersystems.textsecuregcm.experiment;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicExperimentEnrollmentConfiguration;
-import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
-
-import java.util.Collections;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
-
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class ExperimentEnrollmentManagerTest {
+import java.util.Collections;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicExperimentEnrollmentConfiguration;
+import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
-    private DynamicExperimentEnrollmentConfiguration experimentEnrollmentConfiguration;
+class ExperimentEnrollmentManagerTest {
 
-    private ExperimentEnrollmentManager experimentEnrollmentManager;
+  private DynamicExperimentEnrollmentConfiguration experimentEnrollmentConfiguration;
 
-    private Account account;
+  private ExperimentEnrollmentManager experimentEnrollmentManager;
 
-    private static final UUID ACCOUNT_UUID = UUID.randomUUID();
-    private static final String EXPERIMENT_NAME = "test";
+  private Account account;
 
-    @Before
-    public void setUp() {
-        final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
-        final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+  private static final UUID ACCOUNT_UUID = UUID.randomUUID();
+  private static final String EXPERIMENT_NAME = "test";
 
-        experimentEnrollmentConfiguration = mock(DynamicExperimentEnrollmentConfiguration.class);
-        experimentEnrollmentManager = new ExperimentEnrollmentManager(dynamicConfigurationManager);
-        account = mock(Account.class);
+  @BeforeEach
+  void setUp() {
+    final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
 
-        when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
-        when(dynamicConfiguration.getExperimentEnrollmentConfiguration(EXPERIMENT_NAME)).thenReturn(Optional.of(experimentEnrollmentConfiguration));
-        when(account.getUuid()).thenReturn(ACCOUNT_UUID);
-    }
+    experimentEnrollmentConfiguration = mock(DynamicExperimentEnrollmentConfiguration.class);
+    experimentEnrollmentManager = new ExperimentEnrollmentManager(dynamicConfigurationManager);
+    account = mock(Account.class);
 
-    @Test
-    public void testIsEnrolled() {
-        assertFalse(experimentEnrollmentManager.isEnrolled(account.getUuid(), EXPERIMENT_NAME));
-        assertFalse(experimentEnrollmentManager.isEnrolled(account.getUuid(), EXPERIMENT_NAME + "-unrelated-experiment"));
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+    when(dynamicConfiguration.getExperimentEnrollmentConfiguration(EXPERIMENT_NAME))
+        .thenReturn(Optional.of(experimentEnrollmentConfiguration));
+    when(account.getUuid()).thenReturn(ACCOUNT_UUID);
+  }
 
-        when(experimentEnrollmentConfiguration.getEnrolledUuids()).thenReturn(Set.of(ACCOUNT_UUID));
-        assertTrue(experimentEnrollmentManager.isEnrolled(account.getUuid(), EXPERIMENT_NAME));
+  @Test
+  void testIsEnrolled() {
+    assertFalse(experimentEnrollmentManager.isEnrolled(account.getUuid(), EXPERIMENT_NAME));
+    assertFalse(experimentEnrollmentManager.isEnrolled(account.getUuid(), EXPERIMENT_NAME + "-unrelated-experiment"));
 
-        when(experimentEnrollmentConfiguration.getEnrolledUuids()).thenReturn(Collections.emptySet());
-        when(experimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(0);
+    when(experimentEnrollmentConfiguration.getEnrolledUuids()).thenReturn(Set.of(ACCOUNT_UUID));
+    assertTrue(experimentEnrollmentManager.isEnrolled(account.getUuid(), EXPERIMENT_NAME));
 
-        assertFalse(experimentEnrollmentManager.isEnrolled(account.getUuid(), EXPERIMENT_NAME));
+    when(experimentEnrollmentConfiguration.getEnrolledUuids()).thenReturn(Collections.emptySet());
+    when(experimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(0);
 
-        when(experimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(100);
-        assertTrue(experimentEnrollmentManager.isEnrolled(account.getUuid(), EXPERIMENT_NAME));
-    }
+    assertFalse(experimentEnrollmentManager.isEnrolled(account.getUuid(), EXPERIMENT_NAME));
+
+    when(experimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(100);
+    assertTrue(experimentEnrollmentManager.isEnrolled(account.getUuid(), EXPERIMENT_NAME));
+  }
 }
