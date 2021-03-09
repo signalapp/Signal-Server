@@ -15,6 +15,7 @@ import com.vdurmont.semver4j.Semver;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -68,6 +69,79 @@ class DynamicConfigurationTest {
       assertEquals(0, config.getExperimentEnrollmentConfiguration("uuidsOnly").get().getEnrollmentPercentage());
       assertEquals(Set.of(UUID.fromString("71618739-114c-4b1f-bb0d-6478a44eb600")),
           config.getExperimentEnrollmentConfiguration("uuidsOnly").get().getEnrolledUuids());
+    }
+  }
+
+  @Test
+  void testParsePreRegistrationExperiments() throws JsonProcessingException {
+    {
+      final String emptyConfigYaml = "test: true";
+      final DynamicConfiguration emptyConfig = DynamicConfigurationManager.OBJECT_MAPPER
+          .readValue(emptyConfigYaml, DynamicConfiguration.class);
+
+      assertFalse(emptyConfig.getPreRegistrationEnrollmentConfiguration("test").isPresent());
+    }
+
+    {
+      final String experimentConfigYaml =
+          "preRegistrationExperiments:\n" +
+              "  percentageOnly:\n" +
+              "    enrollmentPercentage: 17\n" +
+              "  e164sCountryCodesAndPercentage:\n" +
+              "    enrolledE164s:\n" +
+              "      - +120255551212\n" +
+              "      - +3655323174\n" +
+              "    enrollmentPercentage: 46\n" +
+              "    excludedCountryCodes:\n" +
+              "      - 47\n" +
+              "    includedCountryCodes:\n" +
+              "      - 56\n" +
+              "  e164sAndExcludedCodes:\n" +
+              "    enrolledE164s:\n" +
+              "      - +120255551212\n" +
+              "    excludedCountryCodes:\n" +
+              "      - 47";
+
+      final DynamicConfiguration config = DynamicConfigurationManager.OBJECT_MAPPER
+          .readValue(experimentConfigYaml, DynamicConfiguration.class);
+
+      assertFalse(config.getPreRegistrationEnrollmentConfiguration("unconfigured").isPresent());
+
+      {
+        final Optional<DynamicPreRegistrationExperimentEnrollmentConfiguration> percentageOnly = config
+            .getPreRegistrationEnrollmentConfiguration("percentageOnly");
+        assertTrue(percentageOnly.isPresent());
+        assertEquals(17,
+            percentageOnly.get().getEnrollmentPercentage());
+        assertEquals(Collections.emptySet(),
+            percentageOnly.get().getEnrolledE164s());
+      }
+
+      {
+        final Optional<DynamicPreRegistrationExperimentEnrollmentConfiguration> e164sCountryCodesAndPercentage = config
+            .getPreRegistrationEnrollmentConfiguration("e164sCountryCodesAndPercentage");
+
+        assertTrue(e164sCountryCodesAndPercentage.isPresent());
+        assertEquals(46,
+            e164sCountryCodesAndPercentage.get().getEnrollmentPercentage());
+        assertEquals(Set.of("+120255551212", "+3655323174"),
+            e164sCountryCodesAndPercentage.get().getEnrolledE164s());
+        assertEquals(Set.of("47"),
+            e164sCountryCodesAndPercentage.get().getExcludedCountryCodes());
+        assertEquals(Set.of("56"),
+            e164sCountryCodesAndPercentage.get().getIncludedCountryCodes());
+      }
+
+      {
+        final Optional<DynamicPreRegistrationExperimentEnrollmentConfiguration> e164sAndExcludedCodes = config
+            .getPreRegistrationEnrollmentConfiguration("e164sAndExcludedCodes");
+        assertTrue(e164sAndExcludedCodes.isPresent());
+        assertEquals(0, e164sAndExcludedCodes.get().getEnrollmentPercentage());
+        assertEquals(Set.of("+120255551212"),
+            e164sAndExcludedCodes.get().getEnrolledE164s());
+        assertEquals(Set.of("47"),
+            e164sAndExcludedCodes.get().getExcludedCountryCodes());
+      }
     }
   }
 

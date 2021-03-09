@@ -16,6 +16,10 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
+  private Map<String, DynamicPreRegistrationExperimentEnrollmentConfiguration> preRegistrationExperiments = Collections.emptyMap();
+
+  @JsonProperty
+  @Valid
   private DynamicRateLimitsConfiguration limits = new DynamicRateLimitsConfiguration();
 
   @JsonProperty
@@ -36,6 +40,11 @@ public class DynamicConfiguration {
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
+  }
+
+  public Optional<DynamicPreRegistrationExperimentEnrollmentConfiguration> getPreRegistrationEnrollmentConfiguration(
+      final String experimentName) {
+    return Optional.ofNullable(preRegistrationExperiments.get(experimentName));
   }
 
   public DynamicRateLimitsConfiguration getLimits() {
