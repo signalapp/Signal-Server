@@ -102,15 +102,7 @@ public class TwilioSmsSender {
   public CompletableFuture<Boolean> deliverSmsVerification(String destination, Optional<String> clientType, String verificationCode) {
     Map<String, String> requestParameters = new HashMap<>();
     requestParameters.put("To", destination);
-
-    if (StringUtils.isNotEmpty(nanpaMessagingServiceSid) && "1".equals(Util.getCountryCode(destination))) {
-      requestParameters.put("MessagingServiceSid", nanpaMessagingServiceSid);
-    } else if (StringUtils.isNotEmpty(messagingServiceSid)) {
-      requestParameters.put("MessagingServiceSid", messagingServiceSid);
-    } else {
-      requestParameters.put("From", getRandom(random, numbers));
-    }
-
+    requestParameters.put("MessagingServiceSid", "1".equals(Util.getCountryCode(destination)) ? nanpaMessagingServiceSid : messagingServiceSid);
     requestParameters.put("Body", String.format(Locale.US, getBodyFormatString(destination, clientType.orElse(null)), verificationCode));
 
     HttpRequest request = HttpRequest.newBuilder()

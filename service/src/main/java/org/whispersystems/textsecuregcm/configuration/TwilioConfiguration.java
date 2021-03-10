@@ -25,7 +25,10 @@ public class TwilioConfiguration {
   @NotEmpty
   private String localDomain;
 
+  @NotEmpty
   private String messagingServiceSid;
+
+  @NotEmpty
   private String nanpaMessagingServiceSid;
 
   @NotNull
