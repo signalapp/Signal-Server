@@ -78,6 +78,20 @@ public class VoiceVerificationControllerTest {
   }
 
   @Test
+  public void testTwimlMultipleLocales() {
+    Response response =
+        resources.getJerseyTest()
+            .target("/v1/voice/description/123456")
+            .queryParam("l", "es-MX")
+            .queryParam("l", "ru-RU")
+            .request()
+            .post(null);
+
+    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.readEntity(String.class)).isXmlEqualTo(FixtureHelpers.fixture("fixtures/voice_verification_ru.xml"));
+  }
+
+  @Test
   public void testTwimlMissingLocale() {
     Response response =
         resources.getJerseyTest()

@@ -308,7 +308,7 @@ public class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    verify(smsSender).deliverVoxVerification(eq(SENDER), anyString(), eq(Optional.empty()));
+    verify(smsSender).deliverVoxVerification(eq(SENDER), anyString(), eq(Collections.emptyList()));
     verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
   }
 
@@ -325,7 +325,7 @@ public class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    verify(smsSender).deliverVoxVerification(eq(SENDER), anyString(), eq(Optional.of(Locale.forLanguageTag("pt-BR"))));
+    verify(smsSender).deliverVoxVerification(eq(SENDER), anyString(), eq(Locale.LanguageRange.parse("pt-BR")));
     verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
   }
 
@@ -342,7 +342,24 @@ public class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    verify(smsSender).deliverVoxVerification(eq(SENDER), anyString(), eq(Optional.of(Locale.forLanguageTag("en-US"))));
+    verify(smsSender).deliverVoxVerification(eq(SENDER), anyString(), eq(Locale.LanguageRange.parse("en-US;q=1, ar-US;q=0.9, fa-US;q=0.8, zh-Hans-US;q=0.7, ru-RU;q=0.6, zh-Hant-US;q=0.5")));
+    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
+  }
+
+  @Test
+  public void testSendCodeVoiceInvalidLocale() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/accounts/voice/code/%s", SENDER))
+            .queryParam("challenge", "1234-push")
+            .request()
+            .header("Accept-Language", "This is not a reasonable Accept-Language value")
+            .header("X-Forwarded-For", NICE_HOST)
+            .get();
+
+    assertThat(response.getStatus()).isEqualTo(400);
+
+    verify(smsSender, never()).deliverVoxVerification(eq(SENDER), anyString(), any());
     verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
   }
 

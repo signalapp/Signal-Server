@@ -18,7 +18,7 @@ import static org.mockito.Mockito.*;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import java.util.List;
-import java.util.Locale;
+import java.util.Locale.LanguageRange;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import org.junit.Before;
@@ -136,13 +136,34 @@ public class TwilioSmsSenderTest {
     TwilioConfiguration configuration = createTwilioConfiguration();
 
     TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration, dynamicConfigurationManager);
-    boolean         success = sender.deliverVoxVerification("+14153333333", "123-456", Optional.of(Locale.US)).join();
+    boolean         success = sender.deliverVoxVerification("+14153333333", "123-456", LanguageRange.parse("en-US")).join();
 
     assertThat(success).isTrue();
 
     verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Calls.json"))
         .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
         .withRequestBody(matching("To=%2B14153333333&From=%2B1415(1111111|2222222)&Url=https%3A%2F%2Ftest.com%2Fv1%2Fvoice%2Fdescription%2F123-456%3Fl%3Den-US")));
+  }
+
+  @Test
+  public void testSendVoxMultipleLocales() {
+    wireMockRule.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Calls.json"))
+        .withBasicAuth(ACCOUNT_ID, ACCOUNT_TOKEN)
+        .willReturn(aResponse()
+            .withHeader("Content-Type", "application/json")
+            .withBody("{\"price\": -0.00750, \"status\": \"completed\"}")));
+
+
+    TwilioConfiguration configuration = createTwilioConfiguration();
+
+    TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration, dynamicConfigurationManager);
+    boolean         success = sender.deliverVoxVerification("+14153333333", "123-456", LanguageRange.parse("en-US;q=1, ar-US;q=0.9, fa-US;q=0.8, zh-Hans-US;q=0.7, ru-RU;q=0.6, zh-Hant-US;q=0.5")).join();
+
+    assertThat(success).isTrue();
+
+    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Calls.json"))
+        .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
+        .withRequestBody(matching("To=%2B14153333333&From=%2B1415(1111111|2222222)&Url=https%3A%2F%2Ftest.com%2Fv1%2Fvoice%2Fdescription%2F123-456%3Fl%3Den-US%26l%3Dar-US%26l%3Dfa-US%26l%3Dzh-US%26l%3Dru-RU%26l%3Dzh-US")));
   }
 
   @Test
@@ -179,7 +200,7 @@ public class TwilioSmsSenderTest {
     TwilioConfiguration configuration = createTwilioConfiguration();
 
     TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration, dynamicConfigurationManager);
-    boolean         success = sender.deliverVoxVerification("+14153333333", "123-456", Optional.of(Locale.US)).join();
+    boolean         success = sender.deliverVoxVerification("+14153333333", "123-456", LanguageRange.parse("en-US")).join();
 
     assertThat(success).isFalse();
 

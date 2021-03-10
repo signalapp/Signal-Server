@@ -13,6 +13,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -59,19 +60,23 @@ public class VoiceVerificationController {
   @POST
   @Path("/description/{code}")
   @Produces(MediaType.APPLICATION_XML)
-  public Response getDescription(@PathParam("code") String code, @QueryParam("l") String locale) {
+  public Response getDescription(@PathParam("code") String code, @QueryParam("l") List<String> locales) {
     code = code.replaceAll("[^0-9]", "");
 
     if (code.length() != 6) {
       return Response.status(400).build();
     }
 
-    if (locale != null && supportedLocales.contains(locale)) {
-      return getLocalizedDescription(code, locale);
+    for (final String locale : locales) {
+      if (locale != null && supportedLocales.contains(locale)) {
+        return getLocalizedDescription(code, locale);
+      }
     }
 
-    if (locale != null && locale.split("-").length >= 1 && supportedLocales.contains(locale.split("-")[0])) {
-      return getLocalizedDescription(code, locale.split("-")[0]);
+    for (final String locale : locales) {
+      if (locale != null && locale.split("-").length >= 1 && supportedLocales.contains(locale.split("-")[0])) {
+        return getLocalizedDescription(code, locale.split("-")[0]);
+      }
     }
 
     return getLocalizedDescription(code, "en-US");

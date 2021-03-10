@@ -15,6 +15,7 @@ import io.dropwizard.auth.Auth;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -248,11 +249,15 @@ public class AccountController {
     } else if (transport.equals("sms")) {
       smsSender.deliverSmsVerification(number, client, verificationCode.getVerificationCodeDisplay());
     } else if (transport.equals("voice")) {
-      final Optional<Locale> maybeLocale = acceptLanguage.map(Locale.LanguageRange::parse)
-          .flatMap(ranges -> ranges.stream().findFirst())
-          .map(range -> Locale.forLanguageTag(range.getRange()));
+      final List<Locale.LanguageRange> languageRanges;
 
-      smsSender.deliverVoxVerification(number, verificationCode.getVerificationCode(), maybeLocale);
+      try {
+        languageRanges = acceptLanguage.map(Locale.LanguageRange::parse).orElse(Collections.emptyList());
+      } catch (final IllegalArgumentException e) {
+        return Response.status(400).build();
+      }
+
+      smsSender.deliverVoxVerification(number, verificationCode.getVerificationCode(), languageRanges);
     }
 
     metricRegistry.meter(name(AccountController.class, "create", Util.getCountryCode(number))).mark();

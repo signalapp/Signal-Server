@@ -23,11 +23,13 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Locale.LanguageRange;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
@@ -144,19 +146,23 @@ public class TwilioSmsSender {
     }
   }
 
-  public CompletableFuture<Boolean> deliverVoxVerification(String destination, String verificationCode, Optional<Locale> maybeLocale) {
+  public CompletableFuture<Boolean> deliverVoxVerification(String destination, String verificationCode, List<LanguageRange> languageRanges) {
     String url = "https://" + localDomain + "/v1/voice/description/" + verificationCode;
 
-    if (maybeLocale.isPresent()) {
-      final String localeString = maybeLocale.map(locale -> {
-        if (StringUtils.isNotBlank(locale.getCountry())) {
-          return locale.getLanguage().toLowerCase() + "-" + locale.getCountry().toUpperCase();
-        } else {
-          return locale.getLanguage().toLowerCase();
-        }
-      }).get();
+    final String languageQueryParams = languageRanges.stream()
+        .map(range -> Locale.forLanguageTag(range.getRange()))
+        .map(locale -> {
+          if (StringUtils.isNotBlank(locale.getCountry())) {
+            return locale.getLanguage().toLowerCase() + "-" + locale.getCountry().toUpperCase();
+          } else {
+            return locale.getLanguage().toLowerCase();
+          }
+        })
+        .map(languageTag -> "l=" + languageTag)
+        .collect(Collectors.joining("&"));
 
-      url += "?l=" + localeString;
+    if (StringUtils.isNotBlank(languageQueryParams)) {
+      url += "?" + languageQueryParams;
     }
 
     Map<String, String> requestParameters = new HashMap<>();
