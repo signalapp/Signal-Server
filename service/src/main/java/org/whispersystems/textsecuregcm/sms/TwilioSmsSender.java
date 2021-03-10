@@ -12,6 +12,7 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
+import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -49,6 +50,10 @@ public class TwilioSmsSender {
   private final Meter          smsMeter        = metricRegistry.meter(name(getClass(), "sms", "delivered"));
   private final Meter          voxMeter        = metricRegistry.meter(name(getClass(), "vox", "delivered"));
   private final Meter          priceMeter      = metricRegistry.meter(name(getClass(), "price"));
+
+  private static final String FAILED_REQUEST_COUNTER_NAME = name(TwilioSmsSender.class, "failedRequest");
+  private static final String STATUS_CODE_TAG_NAME = "statusCode";
+  private static final String ERROR_CODE_TAG_NAME = "errorCode";
 
   private final String            accountId;
   private final String            accountToken;
@@ -173,7 +178,8 @@ public class TwilioSmsSender {
       priceMeter.mark((long) (response.successResponse.price * 1000));
       return true;
     } else if (response != null && response.isFailure()) {
-      logger.info("Twilio request failed: " + response.failureResponse.status + "(code " + response.failureResponse.code + "), " + response.failureResponse.message);
+      logger.debug("Twilio request failed: " + response.failureResponse.status + "(code " + response.failureResponse.code + "), " + response.failureResponse.message);
+      Metrics.counter(FAILED_REQUEST_COUNTER_NAME, STATUS_CODE_TAG_NAME, String.valueOf(response.failureResponse.status), ERROR_CODE_TAG_NAME, String.valueOf(response.failureResponse.code)).increment();
       return false;
     } else if (throwable != null) {
       logger.info("Twilio request failed", throwable);
