@@ -28,6 +28,7 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -163,6 +164,7 @@ public class AccountControllerTest {
 
     when(rateLimiters.getSmsDestinationLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getVoiceDestinationLimiter()).thenReturn(rateLimiter);
+    when(rateLimiters.getVoiceDestinationDailyLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getVerifyLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getPinLimiter()).thenReturn(pinLimiter);
     when(rateLimiters.getSmsVoiceIpLimiter()).thenReturn(smsVoiceIpLimiter);
@@ -291,6 +293,56 @@ public class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(200);
 
     verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.empty()), anyString());
+    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
+  }
+
+  @Test
+  public void testSendCodeVoiceNoLocale() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/accounts/voice/code/%s", SENDER))
+            .queryParam("challenge", "1234-push")
+            .request()
+            .header("X-Forwarded-For", NICE_HOST)
+            .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    verify(smsSender).deliverVoxVerification(eq(SENDER), anyString(), eq(Optional.empty()));
+    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
+  }
+
+  @Test
+  public void testSendCodeVoiceSingleLocale() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/accounts/voice/code/%s", SENDER))
+            .queryParam("challenge", "1234-push")
+            .request()
+            .header("Accept-Language", "pt-BR")
+            .header("X-Forwarded-For", NICE_HOST)
+            .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    verify(smsSender).deliverVoxVerification(eq(SENDER), anyString(), eq(Optional.of(Locale.forLanguageTag("pt-BR"))));
+    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
+  }
+
+  @Test
+  public void testSendCodeVoiceMultipleLocales() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/accounts/voice/code/%s", SENDER))
+            .queryParam("challenge", "1234-push")
+            .request()
+            .header("Accept-Language", "en-US;q=1, ar-US;q=0.9, fa-US;q=0.8, zh-Hans-US;q=0.7, ru-RU;q=0.6, zh-Hant-US;q=0.5")
+            .header("X-Forwarded-For", NICE_HOST)
+            .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    verify(smsSender).deliverVoxVerification(eq(SENDER), anyString(), eq(Optional.of(Locale.forLanguageTag("en-US"))));
     verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
   }
 

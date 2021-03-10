@@ -16,6 +16,7 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -184,7 +185,7 @@ public class AccountController {
                                 @PathParam("number")            String number,
                                 @HeaderParam("X-Forwarded-For") String forwardedFor,
                                 @HeaderParam("User-Agent")      List<String> userAgent,
-                                @HeaderParam("Accept-Language") Optional<String> locale,
+                                @HeaderParam("Accept-Language") Optional<String> acceptLanguage,
                                 @QueryParam("client")           Optional<String> client,
                                 @QueryParam("captcha")          Optional<String> captcha,
                                 @QueryParam("challenge")        Optional<String> pushChallenge)
@@ -247,7 +248,11 @@ public class AccountController {
     } else if (transport.equals("sms")) {
       smsSender.deliverSmsVerification(number, client, verificationCode.getVerificationCodeDisplay());
     } else if (transport.equals("voice")) {
-      smsSender.deliverVoxVerification(number, verificationCode.getVerificationCode(), locale);
+      final Optional<Locale> maybeLocale = acceptLanguage.map(Locale.LanguageRange::parse)
+          .flatMap(ranges -> ranges.stream().findFirst())
+          .map(range -> Locale.forLanguageTag(range.getRange()));
+
+      smsSender.deliverVoxVerification(number, verificationCode.getVerificationCode(), maybeLocale);
     }
 
     metricRegistry.meter(name(AccountController.class, "create", Util.getCountryCode(number))).mark();

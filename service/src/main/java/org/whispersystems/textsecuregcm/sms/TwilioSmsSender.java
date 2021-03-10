@@ -30,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
@@ -143,11 +144,19 @@ public class TwilioSmsSender {
     }
   }
 
-  public CompletableFuture<Boolean> deliverVoxVerification(String destination, String verificationCode, Optional<String> locale) {
+  public CompletableFuture<Boolean> deliverVoxVerification(String destination, String verificationCode, Optional<Locale> maybeLocale) {
     String url = "https://" + localDomain + "/v1/voice/description/" + verificationCode;
 
-    if (locale.isPresent()) {
-      url += "?l=" + locale.get();
+    if (maybeLocale.isPresent()) {
+      final String localeString = maybeLocale.map(locale -> {
+        if (StringUtils.isNotBlank(locale.getCountry())) {
+          return locale.getLanguage().toLowerCase() + "-" + locale.getCountry().toUpperCase();
+        } else {
+          return locale.getLanguage().toLowerCase();
+        }
+      }).get();
+
+      url += "?l=" + localeString;
     }
 
     Map<String, String> requestParameters = new HashMap<>();

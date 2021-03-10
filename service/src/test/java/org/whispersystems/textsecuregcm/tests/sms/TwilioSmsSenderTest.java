@@ -18,6 +18,7 @@ import static org.mockito.Mockito.*;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import org.junit.Before;
@@ -135,13 +136,13 @@ public class TwilioSmsSenderTest {
     TwilioConfiguration configuration = createTwilioConfiguration();
 
     TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration, dynamicConfigurationManager);
-    boolean         success = sender.deliverVoxVerification("+14153333333", "123-456", Optional.of("en_US")).join();
+    boolean         success = sender.deliverVoxVerification("+14153333333", "123-456", Optional.of(Locale.US)).join();
 
     assertThat(success).isTrue();
 
     verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Calls.json"))
         .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
-        .withRequestBody(matching("To=%2B14153333333&From=%2B1415(1111111|2222222)&Url=https%3A%2F%2Ftest.com%2Fv1%2Fvoice%2Fdescription%2F123-456%3Fl%3Den_US")));
+        .withRequestBody(matching("To=%2B14153333333&From=%2B1415(1111111|2222222)&Url=https%3A%2F%2Ftest.com%2Fv1%2Fvoice%2Fdescription%2F123-456%3Fl%3Den-US")));
   }
 
   @Test
@@ -178,13 +179,13 @@ public class TwilioSmsSenderTest {
     TwilioConfiguration configuration = createTwilioConfiguration();
 
     TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration, dynamicConfigurationManager);
-    boolean         success = sender.deliverVoxVerification("+14153333333", "123-456", Optional.of("en_US")).join();
+    boolean         success = sender.deliverVoxVerification("+14153333333", "123-456", Optional.of(Locale.US)).join();
 
     assertThat(success).isFalse();
 
     verify(3, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Calls.json"))
         .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
-        .withRequestBody(matching("To=%2B14153333333&From=%2B1415(1111111|2222222)&Url=https%3A%2F%2Ftest.com%2Fv1%2Fvoice%2Fdescription%2F123-456%3Fl%3Den_US")));
+        .withRequestBody(matching("To=%2B14153333333&From=%2B1415(1111111|2222222)&Url=https%3A%2F%2Ftest.com%2Fv1%2Fvoice%2Fdescription%2F123-456%3Fl%3Den-US")));
 
   }
 
