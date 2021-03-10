@@ -39,10 +39,6 @@ public class TwilioConfiguration {
   @Valid
   private RetryConfiguration retry = new RetryConfiguration();
 
-  @NotNull
-  @Valid
-  private TwilioSenderIdConfiguration senderId = new TwilioSenderIdConfiguration();
-
   @NotEmpty
   private String iosVerificationText;
 
@@ -125,15 +121,6 @@ public class TwilioConfiguration {
   @VisibleForTesting
   public void setRetry(RetryConfiguration retry) {
     this.retry = retry;
-  }
-
-  public TwilioSenderIdConfiguration getSenderId() {
-    return senderId;
-  }
-
-  @VisibleForTesting
-  public void setSenderId(TwilioSenderIdConfiguration senderId) {
-    this.senderId = senderId;
   }
 
   public String getIosVerificationText() {

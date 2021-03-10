@@ -5,23 +5,6 @@
 
 package org.whispersystems.textsecuregcm.tests.sms;
 
-import com.github.tomakehurst.wiremock.junit.WireMockRule;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
-import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
-import org.whispersystems.textsecuregcm.configuration.TwilioCountrySenderIdConfiguration;
-import org.whispersystems.textsecuregcm.configuration.TwilioSenderIdConfiguration;
-import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
-
-import javax.annotation.Nonnull;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.function.Supplier;
-
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.matching;
@@ -31,6 +14,15 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+
+import com.github.tomakehurst.wiremock.junit.WireMockRule;
+import java.util.List;
+import java.util.Optional;
+import javax.annotation.Nonnull;
+import org.junit.Rule;
+import org.junit.Test;
+import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
+import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
 
 public class TwilioSmsSenderTest {
 
@@ -188,67 +180,6 @@ public class TwilioSmsSenderTest {
     boolean         success = sender.deliverSmsVerification("+14153333333", Optional.of("android-ng"), "123-456").join();
 
     assertThat(success).isFalse();
-  }
-
-  private void runSenderIdTest(String destination,
-                               String expectedSenderId,
-                               Supplier<TwilioSenderIdConfiguration> senderIdConfigurationSupplier) {
-    setupSuccessStubForSms();
-
-    TwilioConfiguration configuration = createTwilioConfiguration();
-    configuration.setSenderId(senderIdConfigurationSupplier.get());
-
-    TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration);
-    boolean         success = sender.deliverSmsVerification(destination, Optional.of("android-ng"), "987-654").join();
-
-    assertThat(success).isTrue();
-
-    final String requestBodyToParam = "To=" + URLEncoder.encode(destination, StandardCharsets.UTF_8);
-    final String requestBodySuffix  = "&Body=%3C%23%3E+Verify+on+AndroidNg%3A+987-654%0A%0Acharacters";
-    final String expectedRequestBody;
-    if (expectedSenderId != null) {
-      expectedRequestBody = requestBodyToParam + "&From=" + expectedSenderId + requestBodySuffix;
-    } else {
-      expectedRequestBody = "MessagingServiceSid=" + MESSAGING_SERVICE_SID + "&" + requestBodyToParam + requestBodySuffix;
-    }
-    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
-            .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
-            .withRequestBody(equalTo(expectedRequestBody)));
-  }
-
-  @Test
-  @Ignore
-  public void testSendAlphaIdByCountryCode() {
-    runSenderIdTest("+85278675309", "SIGNAL", () -> {
-      TwilioSenderIdConfiguration        senderIdConfiguration              = new TwilioSenderIdConfiguration();
-      TwilioCountrySenderIdConfiguration twilioCountrySenderIdConfiguration = new TwilioCountrySenderIdConfiguration();
-      twilioCountrySenderIdConfiguration.setCountryCode("852");
-      twilioCountrySenderIdConfiguration.setSenderId("SIGNAL");
-      senderIdConfiguration.setCountrySpecificSenderIds(List.of(twilioCountrySenderIdConfiguration));
-      return senderIdConfiguration;
-    });
-  }
-
-  @Test
-  @Ignore
-  public void testSenderIdWithAllFieldsPopulated() {
-    final Supplier<TwilioSenderIdConfiguration> senderIdConfigurationSupplier = () -> {
-      TwilioSenderIdConfiguration        senderIdConfiguration               = new TwilioSenderIdConfiguration();
-      TwilioCountrySenderIdConfiguration twilioCountrySenderIdConfiguration1 = new TwilioCountrySenderIdConfiguration();
-      TwilioCountrySenderIdConfiguration twilioCountrySenderIdConfiguration2 = new TwilioCountrySenderIdConfiguration();
-      twilioCountrySenderIdConfiguration1.setCountryCode("1");
-      twilioCountrySenderIdConfiguration1.setSenderId("KNOWYOUREOUTTHERE");
-      twilioCountrySenderIdConfiguration2.setCountryCode("61");
-      twilioCountrySenderIdConfiguration2.setSenderId("SOMEWHERE");
-      senderIdConfiguration.setDefaultSenderId("SOMEHOW");
-      senderIdConfiguration.setCountrySpecificSenderIds(List.of(twilioCountrySenderIdConfiguration1, twilioCountrySenderIdConfiguration2));
-      senderIdConfiguration.setCountryCodesWithoutSenderId(Set.of("7"));
-      return senderIdConfiguration;
-    };
-    runSenderIdTest("+15128675309", "KNOWYOUREOUTTHERE", senderIdConfigurationSupplier);
-    runSenderIdTest("+610998765432", "SOMEWHERE", senderIdConfigurationSupplier);
-    runSenderIdTest("+74991234567", null, senderIdConfigurationSupplier);
-    runSenderIdTest("+85278675309", "SOMEHOW", senderIdConfigurationSupplier);
   }
 
   @Test

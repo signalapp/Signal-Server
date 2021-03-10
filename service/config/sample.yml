@@ -14,22 +14,6 @@ twilio: # Twilio gateway configuration
   androidNgVerificationText: # Text to use for the verification message on android-ng client types. Will be passed to String.format with the verification code as argument 1.
   android202001VerificationText: # Text to use for the verification message on android-2020-01 client types. Will be passed to String.format with the verification code as argument 1.
   genericVerificationText: # Text to use when the client type is unrecognized. Will be passed to String.format with the verification code as argument 1.
-  senderId:
-    defaultSenderId: # Sender ID to use for country codes not found in either the overrides or omitted lists.
-    countryCodesWithoutSenderId:
-      - # First country code
-      - # Second country code
-      - # ...
-      - # Nth country code
-    countrySpecificSenderIds:
-      - countryCode: # First country code
-        senderId: # Sender ID to use for this country
-      - countryCode: # Second country code
-        senderId: # Sender ID to use for this country
-      - countryCode: # ...
-        senderId: # ...
-      - countryCode: # Nth country code
-        senderId: # Sender ID to use for this country
 
 push:
   queueSize: # Size of push pending queue
