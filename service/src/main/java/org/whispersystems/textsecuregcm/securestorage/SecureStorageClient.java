@@ -30,14 +30,19 @@ public class SecureStorageClient {
 
     private final ExternalServiceCredentialGenerator storageServiceCredentialGenerator;
     private final URI                                deleteUri;
+    private final URI                                getManifestUri;
     private final FaultTolerantHttpClient            httpClient;
 
     @VisibleForTesting
     static final String DELETE_PATH = "/v1/storage";
 
+    @VisibleForTesting
+    static final String GET_MANIFEST_PATH = "/v1/storage/manifest";
+
     public SecureStorageClient(final ExternalServiceCredentialGenerator storageServiceCredentialGenerator, final Executor executor, final SecureStorageServiceConfiguration configuration) throws CertificateException {
         this.storageServiceCredentialGenerator = storageServiceCredentialGenerator;
         this.deleteUri                         = URI.create(configuration.getUri()).resolve(DELETE_PATH);
+        this.getManifestUri                    = URI.create(configuration.getUri()).resolve(GET_MANIFEST_PATH);
         this.httpClient                        = FaultTolerantHttpClient.newBuilder()
                                                                         .withCircuitBreaker(configuration.getCircuitBreakerConfiguration())
                                                                         .withRetry(configuration.getRetryConfiguration())
@@ -67,5 +72,25 @@ public class SecureStorageClient {
 
             throw new RuntimeException("Failed to delete storage service data: " + response.statusCode());
         });
+    }
+
+    public CompletableFuture<Boolean> hasStoredData(final UUID accountUuid) {
+      final ExternalServiceCredentials credentials = storageServiceCredentialGenerator.generateFor(accountUuid.toString());
+
+      final HttpRequest request = HttpRequest.newBuilder()
+          .uri(getManifestUri)
+          .GET()
+          .header("Authorization", "Basic " + Base64.encodeBytes((credentials.getUsername() + ":" + credentials.getPassword()).getBytes(StandardCharsets.UTF_8)))
+          .build();
+
+      return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenApply(response -> {
+        if (response.statusCode() >= 200 && response.statusCode() < 300) {
+          return true;
+        } else if (response.statusCode() == 404) {
+          return false;
+        }
+
+        throw new RuntimeException("Failed to check for presence of manifest: " + response.statusCode());
+      });
     }
 }
