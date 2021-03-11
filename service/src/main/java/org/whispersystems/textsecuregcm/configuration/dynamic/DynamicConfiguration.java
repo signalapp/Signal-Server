@@ -33,7 +33,8 @@ public class DynamicConfiguration {
   @Valid
   private DynamicTwilioConfiguration twilio = new DynamicTwilioConfiguration();
 
-  public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(final String experimentName) {
+  public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
+      final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
   }
 

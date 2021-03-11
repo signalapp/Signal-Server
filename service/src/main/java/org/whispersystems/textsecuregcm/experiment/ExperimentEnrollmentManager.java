@@ -15,29 +15,31 @@ import java.util.UUID;
 
 public class ExperimentEnrollmentManager {
 
-    private final DynamicConfigurationManager dynamicConfigurationManager;
+  private final DynamicConfigurationManager dynamicConfigurationManager;
 
-    public ExperimentEnrollmentManager(final DynamicConfigurationManager dynamicConfigurationManager) {
-        this.dynamicConfigurationManager = dynamicConfigurationManager;
+  public ExperimentEnrollmentManager(final DynamicConfigurationManager dynamicConfigurationManager) {
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
+  }
+
+  public boolean isEnrolled(final UUID accountUuid, final String experimentName) {
+    final Optional<DynamicExperimentEnrollmentConfiguration> maybeConfiguration = dynamicConfigurationManager
+        .getConfiguration().getExperimentEnrollmentConfiguration(experimentName);
+
+    final Set<UUID> enrolledUuids = maybeConfiguration.map(DynamicExperimentEnrollmentConfiguration::getEnrolledUuids)
+        .orElse(Collections.emptySet());
+
+    final boolean enrolled;
+
+    if (enrolledUuids.contains(accountUuid)) {
+      enrolled = true;
+    } else {
+      final int threshold = maybeConfiguration.map(DynamicExperimentEnrollmentConfiguration::getEnrollmentPercentage)
+          .orElse(0);
+      final int enrollmentHash = ((accountUuid.hashCode() ^ experimentName.hashCode()) & Integer.MAX_VALUE) % 100;
+
+      enrolled = enrollmentHash < threshold;
     }
 
-    public boolean isEnrolled(final UUID accountUuid, final String experimentName) {
-        final Optional<DynamicExperimentEnrollmentConfiguration> maybeConfiguration = dynamicConfigurationManager.getConfiguration().getExperimentEnrollmentConfiguration(experimentName);
-
-        final Set<UUID> enrolledUuids = maybeConfiguration.map(DynamicExperimentEnrollmentConfiguration::getEnrolledUuids)
-                                                          .orElse(Collections.emptySet());
-
-        final boolean enrolled;
-
-        if (enrolledUuids.contains(accountUuid)) {
-            enrolled = true;
-        } else {
-            final int threshold = maybeConfiguration.map(DynamicExperimentEnrollmentConfiguration::getEnrollmentPercentage).orElse(0);
-            final int enrollmentHash = ((accountUuid.hashCode() ^ experimentName.hashCode()) & Integer.MAX_VALUE) % 100;
-
-            enrolled = enrollmentHash < threshold;
-        }
-
-        return enrolled;
-    }
+    return enrolled;
+  }
 }
