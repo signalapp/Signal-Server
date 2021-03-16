@@ -34,7 +34,8 @@ public class PendingAccountsManager {
 
   public void store(String number, StoredVerificationCode code) {
     memcacheSet(number, code);
-    pendingAccounts.insert(number, code.getCode(), code.getTimestamp(), code.getPushCode());
+    pendingAccounts.insert(number, code.getCode(), code.getTimestamp(), code.getPushCode(),
+        code.getTwilioVerificationSid().orElse(null));
   }
 
   public void remove(String number) {

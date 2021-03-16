@@ -17,7 +17,8 @@ public class StoredVerificationCodeRowMapper implements RowMapper<StoredVerifica
   @Override
   public StoredVerificationCode map(ResultSet resultSet, StatementContext ctx) throws SQLException {
     return new StoredVerificationCode(resultSet.getString("verification_code"),
-                                      resultSet.getLong("timestamp"),
-                                      resultSet.getString("push_code"));
+        resultSet.getLong("timestamp"),
+        resultSet.getString("push_code"),
+        resultSet.getString("twilio_verification_sid"));
   }
 }

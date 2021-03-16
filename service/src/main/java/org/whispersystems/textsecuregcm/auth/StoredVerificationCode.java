@@ -10,6 +10,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.security.MessageDigest;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 public class StoredVerificationCode {
@@ -18,17 +19,26 @@ public class StoredVerificationCode {
   private String code;
 
   @JsonProperty
-  private long   timestamp;
+  private long timestamp;
 
   @JsonProperty
   private String pushCode;
 
-  public StoredVerificationCode() {}
+  @JsonProperty
+  private String twilioVerificationSid;
+
+  public StoredVerificationCode() {
+  }
 
   public StoredVerificationCode(String code, long timestamp, String pushCode) {
-    this.code      = code;
+    this(code, timestamp, pushCode, null);
+  }
+
+  public StoredVerificationCode(String code, long timestamp, String pushCode, String twilioVerificationSid) {
+    this.code = code;
     this.timestamp = timestamp;
-    this.pushCode  = pushCode;
+    this.pushCode = pushCode;
+    this.twilioVerificationSid = twilioVerificationSid;
   }
 
   public String getCode() {
@@ -43,6 +53,10 @@ public class StoredVerificationCode {
     return pushCode;
   }
 
+  public Optional<String> getTwilioVerificationSid() {
+    return Optional.ofNullable(twilioVerificationSid);
+  }
+
   public boolean isValid(String theirCodeString) {
     if (timestamp + TimeUnit.MINUTES.toMillis(10) < System.currentTimeMillis()) {
       return false;
@@ -52,10 +66,9 @@ public class StoredVerificationCode {
       return false;
     }
 
-    byte[] ourCode   = code.getBytes();
+    byte[] ourCode = code.getBytes();
     byte[] theirCode = theirCodeString.getBytes();
 
     return MessageDigest.isEqual(ourCode, theirCode);
   }
-
 }

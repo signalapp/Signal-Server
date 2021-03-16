@@ -4,16 +4,15 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
+import java.util.Optional;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.storage.mappers.StoredVerificationCodeRowMapper;
 import org.whispersystems.textsecuregcm.util.Constants;
-
-import java.util.Optional;
-
-import static com.codahale.metrics.MetricRegistry.name;
 
 public class PendingDevices {
 
@@ -45,7 +44,7 @@ public class PendingDevices {
   public Optional<StoredVerificationCode> getCodeForNumber(String number) {
     return database.with(jdbi -> jdbi.withHandle(handle -> {
       try (Timer.Context timer = getCodeForNumberTimer.time()) {
-        return handle.createQuery("SELECT verification_code, timestamp, NULL as push_code FROM pending_devices WHERE number = :number")
+        return handle.createQuery("SELECT verification_code, timestamp, NULL as push_code, NULL as twilio_verification_sid FROM pending_devices WHERE number = :number")
                      .bind("number", number)
                      .mapTo(StoredVerificationCode.class)
                      .findFirst();

@@ -367,4 +367,12 @@
         </addColumn>
     </changeSet>
 
+  <changeSet id="24" author="chris">
+    <addColumn tableName="pending_accounts">
+      <column name="twilio_verification_sid" type="text">
+        <constraints nullable="true" />
+      </column>
+    </addColumn>
+  </changeSet>
+
 </databaseChangeLog>
