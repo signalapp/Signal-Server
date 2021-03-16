@@ -4,26 +4,14 @@
  */
 package org.whispersystems.textsecuregcm.sms;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
-import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
-import org.whispersystems.textsecuregcm.http.FormDataBodyPublisher;
-import org.whispersystems.textsecuregcm.util.Base64;
-import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.ExecutorUtils;
-import org.whispersystems.textsecuregcm.util.SystemMapper;
-import org.whispersystems.textsecuregcm.util.Util;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -31,16 +19,27 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-
-import static com.codahale.metrics.MetricRegistry.name;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
+import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
+import org.whispersystems.textsecuregcm.http.FormDataBodyPublisher;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.util.Base64;
+import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.ExecutorUtils;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.Util;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class TwilioSmsSender {
@@ -53,7 +52,6 @@ public class TwilioSmsSender {
 
   private final String            accountId;
   private final String            accountToken;
-  private final ArrayList<String> numbers;
   private final String            messagingServiceSid;
   private final String            nanpaMessagingServiceSid;
   private final String            localDomain;
@@ -67,13 +65,14 @@ public class TwilioSmsSender {
   private final URI                     smsUri;
   private final URI                     voxUri;
 
+  private final DynamicConfigurationManager dynamicConfigurationManager;
+
   @VisibleForTesting
-  public TwilioSmsSender(String baseUri, TwilioConfiguration twilioConfiguration) {
+  public TwilioSmsSender(String baseUri, TwilioConfiguration twilioConfiguration, DynamicConfigurationManager dynamicConfigurationManager) {
     Executor executor = ExecutorUtils.newFixedThreadBoundedQueueExecutor(10, 100);
 
     this.accountId                     = twilioConfiguration.getAccountId();
     this.accountToken                  = twilioConfiguration.getAccountToken();
-    this.numbers                       = new ArrayList<>(twilioConfiguration.getNumbers());
     this.localDomain                   = twilioConfiguration.getLocalDomain();
     this.messagingServiceSid           = twilioConfiguration.getMessagingServiceSid();
     this.nanpaMessagingServiceSid      = twilioConfiguration.getNanpaMessagingServiceSid();
@@ -93,10 +92,11 @@ public class TwilioSmsSender {
                                                                 .withExecutor(executor)
                                                                 .withName("twilio")
                                                                 .build();
+    this.dynamicConfigurationManager   = dynamicConfigurationManager;
   }
 
-  public TwilioSmsSender(TwilioConfiguration twilioConfiguration) {
-      this("https://api.twilio.com", twilioConfiguration);
+  public TwilioSmsSender(TwilioConfiguration twilioConfiguration, DynamicConfigurationManager dynamicConfigurationManager) {
+      this("https://api.twilio.com", twilioConfiguration, dynamicConfigurationManager);
   }
 
   public CompletableFuture<Boolean> deliverSmsVerification(String destination, Optional<String> clientType, String verificationCode) {
@@ -148,7 +148,7 @@ public class TwilioSmsSender {
     Map<String, String> requestParameters = new HashMap<>();
     requestParameters.put("Url", url);
     requestParameters.put("To", destination);
-    requestParameters.put("From", getRandom(random, numbers));
+    requestParameters.put("From", getRandom(random, dynamicConfigurationManager.getConfiguration().getTwilioConfiguration().getNumbers()));
 
     HttpRequest request = HttpRequest.newBuilder()
                                      .uri(voxUri)
@@ -164,7 +164,7 @@ public class TwilioSmsSender {
                      .handle(this::processResponse);
   }
 
-  private String getRandom(Random random, ArrayList<String> elements) {
+  private String getRandom(Random random, List<String> elements) {
     return elements.get(random.nextInt(elements.size()));
   }
 

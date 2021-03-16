@@ -1,12 +1,6 @@
 twilio: # Twilio gateway configuration
   accountId: 
   accountToken: 
-  numbers: # Numbers allocated in Twilio
-    - # First number
-    - # Second number
-    - # Third number
-    - # ...
-    - # Nth number
   nanpaMessagingServiceSid: # Twilio SID for the messaging service to use for NANPA.
   messagingServiceSid: # Twilio SID for the message service to use for non-NANPA.
   localDomain: # Domain Twilio can connect back to for calls. Should be domain of your service.

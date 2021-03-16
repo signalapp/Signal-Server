@@ -14,21 +14,25 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.mockito.Mockito.*;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicTwilioConfiguration;
 import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
 public class TwilioSmsSenderTest {
 
   private static final String       ACCOUNT_ID                  = "test_account_id";
   private static final String       ACCOUNT_TOKEN               = "test_account_token";
-  private static final List<String> NUMBERS                     = List.of("+14151111111", "+14152222222");
   private static final String       MESSAGING_SERVICE_SID       = "test_messaging_services_id";
   private static final String       NANPA_MESSAGING_SERVICE_SID = "nanpa_test_messaging_service_id";
   private static final String       LOCAL_DOMAIN                = "test.com";
@@ -36,12 +40,24 @@ public class TwilioSmsSenderTest {
   @Rule
   public WireMockRule wireMockRule = new WireMockRule(options().dynamicPort().dynamicHttpsPort());
 
+  private DynamicConfigurationManager dynamicConfigurationManager;
+
+  @Before
+  public void setup() {
+
+    dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
+    DynamicConfiguration dynamicConfiguration = new DynamicConfiguration();
+    DynamicTwilioConfiguration dynamicTwilioConfiguration = new DynamicTwilioConfiguration();
+    dynamicConfiguration.setTwilioConfiguration(dynamicTwilioConfiguration);
+    dynamicTwilioConfiguration.setNumbers(List.of("+14151111111", "+14152222222"));
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+  }
+
   @Nonnull
   private TwilioConfiguration createTwilioConfiguration() {
     TwilioConfiguration configuration = new TwilioConfiguration();
     configuration.setAccountId(ACCOUNT_ID);
     configuration.setAccountToken(ACCOUNT_TOKEN);
-    configuration.setNumbers(NUMBERS);
     configuration.setMessagingServiceSid(MESSAGING_SERVICE_SID);
     configuration.setNanpaMessagingServiceSid(NANPA_MESSAGING_SERVICE_SID);
     configuration.setLocalDomain(LOCAL_DOMAIN);
@@ -64,7 +80,7 @@ public class TwilioSmsSenderTest {
   public void testSendSms() {
     setupSuccessStubForSms();
     TwilioConfiguration configuration = createTwilioConfiguration();
-    TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration);
+    TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration, dynamicConfigurationManager);
     boolean         success = sender.deliverSmsVerification("+14153333333", Optional.of("android-ng"), "123-456").join();
 
     assertThat(success).isTrue();
@@ -78,7 +94,7 @@ public class TwilioSmsSenderTest {
   public void testSendSmsAndroid202001() {
     setupSuccessStubForSms();
     TwilioConfiguration configuration = createTwilioConfiguration();
-    TwilioSmsSender sender = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration);
+    TwilioSmsSender sender = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration, dynamicConfigurationManager);
     boolean success = sender.deliverSmsVerification("+14153333333", Optional.of("android-2020-01"), "123-456").join();
 
     assertThat(success).isTrue();
@@ -93,7 +109,7 @@ public class TwilioSmsSenderTest {
     setupSuccessStubForSms();
     TwilioConfiguration configuration = createTwilioConfiguration();
     configuration.setNanpaMessagingServiceSid(NANPA_MESSAGING_SERVICE_SID);
-    TwilioSmsSender sender = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration);
+    TwilioSmsSender sender = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration, dynamicConfigurationManager);
 
     assertThat(sender.deliverSmsVerification("+14153333333", Optional.of("ios"), "654-321").join()).isTrue();
     verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
@@ -118,7 +134,7 @@ public class TwilioSmsSenderTest {
 
     TwilioConfiguration configuration = createTwilioConfiguration();
 
-    TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration);
+    TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration, dynamicConfigurationManager);
     boolean         success = sender.deliverVoxVerification("+14153333333", "123-456", Optional.of("en_US")).join();
 
     assertThat(success).isTrue();
@@ -140,7 +156,7 @@ public class TwilioSmsSenderTest {
 
     TwilioConfiguration configuration = createTwilioConfiguration();
 
-    TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration);
+    TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration, dynamicConfigurationManager);
     boolean         success = sender.deliverSmsVerification("+14153333333", Optional.of("android-ng"), "123-456").join();
 
     assertThat(success).isFalse();
@@ -161,7 +177,7 @@ public class TwilioSmsSenderTest {
 
     TwilioConfiguration configuration = createTwilioConfiguration();
 
-    TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration);
+    TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration, dynamicConfigurationManager);
     boolean         success = sender.deliverVoxVerification("+14153333333", "123-456", Optional.of("en_US")).join();
 
     assertThat(success).isFalse();
@@ -176,7 +192,7 @@ public class TwilioSmsSenderTest {
   public void testSendSmsNetworkFailure() {
     TwilioConfiguration configuration = createTwilioConfiguration();
 
-    TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + 39873, configuration);
+    TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + 39873, configuration, dynamicConfigurationManager);
     boolean         success = sender.deliverSmsVerification("+14153333333", Optional.of("android-ng"), "123-456").join();
 
     assertThat(success).isFalse();
@@ -193,7 +209,7 @@ public class TwilioSmsSenderTest {
 
     TwilioConfiguration configuration = createTwilioConfiguration();
 
-    TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration);
+    TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration, dynamicConfigurationManager);
     boolean         success = sender.deliverSmsVerification("+14153333333", Optional.of("android-ng"), "123-456").join();
 
     assertThat(success).isFalse();
@@ -207,7 +223,7 @@ public class TwilioSmsSenderTest {
   public void testSendSmsChina() {
     setupSuccessStubForSms();
     TwilioConfiguration configuration = createTwilioConfiguration();
-    TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration);
+    TwilioSmsSender sender  = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration, dynamicConfigurationManager);
     boolean success = sender.deliverSmsVerification("+861065529988", Optional.of("android-ng"), "123-456").join();
 
     assertThat(success).isTrue();

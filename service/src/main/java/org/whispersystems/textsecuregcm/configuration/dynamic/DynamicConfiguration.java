@@ -1,12 +1,12 @@
 package org.whispersystems.textsecuregcm.configuration.dynamic;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-
-import javax.validation.Valid;
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import javax.validation.Valid;
 
 public class DynamicConfiguration {
 
@@ -29,6 +29,10 @@ public class DynamicConfiguration {
   @JsonProperty
   private Set<String> featureFlags = Collections.emptySet();
 
+  @JsonProperty
+  @Valid
+  private DynamicTwilioConfiguration twilio = new DynamicTwilioConfiguration();
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
   }
@@ -48,4 +52,14 @@ public class DynamicConfiguration {
   public Set<String> getActiveFeatureFlags() {
     return featureFlags;
   }
+
+  public DynamicTwilioConfiguration getTwilioConfiguration() {
+    return twilio;
+  }
+
+  @VisibleForTesting
+  public void setTwilioConfiguration(DynamicTwilioConfiguration twilioConfiguration) {
+    this.twilio = twilioConfiguration;
+  }
+
 }

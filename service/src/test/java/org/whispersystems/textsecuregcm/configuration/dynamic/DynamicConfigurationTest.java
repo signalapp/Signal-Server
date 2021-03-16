@@ -5,18 +5,21 @@
 
 package org.whispersystems.textsecuregcm.configuration.dynamic;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.vdurmont.semver4j.Semver;
-import org.junit.Test;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
-import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
-
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-
-import static org.junit.Assert.*;
+import org.junit.Test;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 public class DynamicConfigurationTest {
 
@@ -148,6 +151,31 @@ public class DynamicConfigurationTest {
           .readValue(emptyConfigYaml, DynamicConfiguration.class);
 
       assertTrue(emptyConfig.getActiveFeatureFlags().contains("testFlag"));
+    }
+  }
+
+  @Test
+  public void testParseTwilioConfiguration() throws JsonProcessingException {
+    {
+      final String emptyConfigYaml = "test: true";
+      final DynamicConfiguration emptyConfig = DynamicConfigurationManager.OBJECT_MAPPER
+          .readValue(emptyConfigYaml, DynamicConfiguration.class);
+
+      assertTrue(emptyConfig.getTwilioConfiguration().getNumbers().isEmpty());
+    }
+
+    {
+      final String emptyConfigYaml =
+          "twilio:\n"
+              + "  numbers:\n"
+              + "    - 2135551212\n"
+              + "    - 2135551313";
+
+      final DynamicTwilioConfiguration config = DynamicConfigurationManager.OBJECT_MAPPER
+          .readValue(emptyConfigYaml, DynamicConfiguration.class)
+          .getTwilioConfiguration();
+
+      assertEquals(List.of("2135551212", "2135551313"), config.getNumbers());
     }
   }
 }
