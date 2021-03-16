@@ -76,8 +76,10 @@ public class TwilioSmsSender {
 
   private final DynamicConfigurationManager dynamicConfigurationManager;
 
+  private final TwilioVerifySender twilioVerifySender;
+
   @VisibleForTesting
-  public TwilioSmsSender(String baseUri, TwilioConfiguration twilioConfiguration, DynamicConfigurationManager dynamicConfigurationManager) {
+  public TwilioSmsSender(String baseUri, String baseVerifyUri, TwilioConfiguration twilioConfiguration, DynamicConfigurationManager dynamicConfigurationManager) {
     Executor executor = ExecutorUtils.newFixedThreadBoundedQueueExecutor(10, 100);
 
     this.accountId                     = twilioConfiguration.getAccountId();
@@ -102,14 +104,17 @@ public class TwilioSmsSender {
                                                                 .withExecutor(executor)
                                                                 .withName("twilio")
                                                                 .build();
+
     this.dynamicConfigurationManager   = dynamicConfigurationManager;
+    this.twilioVerifySender = new TwilioVerifySender(baseVerifyUri, httpClient, twilioConfiguration);
   }
 
   public TwilioSmsSender(TwilioConfiguration twilioConfiguration, DynamicConfigurationManager dynamicConfigurationManager) {
-      this("https://api.twilio.com", twilioConfiguration, dynamicConfigurationManager);
+      this("https://api.twilio.com", "https://verify.twilio.com", twilioConfiguration, dynamicConfigurationManager);
   }
 
   public CompletableFuture<Boolean> deliverSmsVerification(String destination, Optional<String> clientType, String verificationCode) {
+
     Map<String, String> requestParameters = new HashMap<>();
     requestParameters.put("To", destination);
     requestParameters.put("MessagingServiceSid", "1".equals(Util.getCountryCode(destination)) ? nanpaMessagingServiceSid : messagingServiceSid);
@@ -225,6 +230,25 @@ public class TwilioSmsSender {
     } else {
       return new TwilioResponse(new TwilioResponse.TwilioFailureResponse());
     }
+  }
+
+  public CompletableFuture<Optional<String>> deliverSmsVerificationWithVerify(String destination, Optional<String> clientType, String verificationCode, List<LanguageRange> languageRanges) {
+
+    smsMeter.mark();
+
+    return twilioVerifySender.deliverSmsVerificationWithVerify(destination, clientType, verificationCode, languageRanges);
+  }
+
+  public CompletableFuture<Optional<String>> deliverVoxVerificationWithVerify(String destination, String verificationCode, List<LanguageRange> languageRanges) {
+
+    voxMeter.mark();
+
+    return twilioVerifySender.deliverVoxVerificationWithVerify(destination, verificationCode, languageRanges);
+  }
+
+  public CompletableFuture<Boolean> reportVerificationSucceeded(String verificationSid) {
+
+    return twilioVerifySender.reportVerificationSucceeded(verificationSid);
   }
 
   public static class TwilioResponse {
