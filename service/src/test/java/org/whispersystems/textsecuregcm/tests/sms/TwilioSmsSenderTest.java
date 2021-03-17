@@ -65,6 +65,7 @@ public class TwilioSmsSenderTest {
     configuration.setIosVerificationText("Verify on iOS: %1$s\n\nsomelink://verify/%1$s");
     configuration.setAndroidNgVerificationText("<#> Verify on AndroidNg: %1$s\n\ncharacters");
     configuration.setAndroid202001VerificationText("Verify on Android202001: %1$s\n\nsomelink://verify/%1$s\n\ncharacters");
+    configuration.setAndroid202103VerificationText("Verify on Android202103: %1$s\n\ncharacters");
     configuration.setGenericVerificationText("Verify on whatever: %1$s");
     return configuration;
   }
@@ -103,6 +104,20 @@ public class TwilioSmsSenderTest {
     verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
             .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
             .withRequestBody(equalTo("MessagingServiceSid=nanpa_test_messaging_service_id&To=%2B14153333333&Body=Verify+on+Android202001%3A+123-456%0A%0Asomelink%3A%2F%2Fverify%2F123-456%0A%0Acharacters")));
+  }
+
+  @Test
+  public void testSendSmsAndroid202103() {
+    setupSuccessStubForSms();
+    TwilioConfiguration configuration = createTwilioConfiguration();
+    TwilioSmsSender sender = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), configuration, dynamicConfigurationManager);
+    boolean success = sender.deliverSmsVerification("+14153333333", Optional.of("android-2021-03"), "123456").join();
+
+    assertThat(success).isTrue();
+
+    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+        .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
+        .withRequestBody(equalTo("MessagingServiceSid=nanpa_test_messaging_service_id&To=%2B14153333333&Body=Verify+on+Android202103%3A+123456%0A%0Acharacters")));
   }
 
   @Test

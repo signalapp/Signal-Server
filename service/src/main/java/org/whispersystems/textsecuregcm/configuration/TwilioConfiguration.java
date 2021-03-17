@@ -44,6 +44,9 @@ public class TwilioConfiguration {
   private String android202001VerificationText;
 
   @NotEmpty
+  private String android202103VerificationText;
+
+  @NotEmpty
   private String genericVerificationText;
 
   public String getAccountId() {
@@ -133,6 +136,15 @@ public class TwilioConfiguration {
   @VisibleForTesting
   public void setAndroid202001VerificationText(String android202001VerificationText) {
     this.android202001VerificationText = android202001VerificationText;
+  }
+
+  public String getAndroid202103VerificationText() {
+    return android202103VerificationText;
+  }
+
+  @VisibleForTesting
+  public void setAndroid202103VerificationText(String android202103VerificationText) {
+    this.android202103VerificationText = android202103VerificationText;
   }
 
   public String getGenericVerificationText() {

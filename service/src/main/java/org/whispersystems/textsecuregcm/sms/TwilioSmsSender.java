@@ -66,6 +66,7 @@ public class TwilioSmsSender {
   private final Random            random;
   private final String            androidNgVerificationText;
   private final String            android202001VerificationText;
+  private final String            android202103VerificationText;
   private final String            iosVerificationText;
   private final String            genericVerificationText;
 
@@ -87,6 +88,7 @@ public class TwilioSmsSender {
     this.random                        = new Random(System.currentTimeMillis());
     this.androidNgVerificationText     = twilioConfiguration.getAndroidNgVerificationText();
     this.android202001VerificationText = twilioConfiguration.getAndroid202001VerificationText();
+    this.android202103VerificationText = twilioConfiguration.getAndroid202103VerificationText();
     this.iosVerificationText           = twilioConfiguration.getIosVerificationText();
     this.genericVerificationText       = twilioConfiguration.getGenericVerificationText();
     this.smsUri                        = URI.create(baseUri + "/2010-04-01/Accounts/" + accountId + "/Messages.json");
@@ -134,6 +136,8 @@ public class TwilioSmsSender {
       result = androidNgVerificationText;
     } else if ("android-2020-01".equals(clientType)) {
       result = android202001VerificationText;
+    } else if ("android-2021-03".equals(clientType)) {
+      result = android202103VerificationText;
     } else {
       result = genericVerificationText;
     }
