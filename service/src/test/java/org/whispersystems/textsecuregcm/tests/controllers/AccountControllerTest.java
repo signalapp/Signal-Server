@@ -15,6 +15,7 @@ import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.isA;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -22,7 +23,8 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
-import io.dropwizard.testing.junit.ResourceTestRule;
+import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
+import io.dropwizard.testing.junit5.ResourceExtension;
 import java.io.IOException;
 import java.security.SecureRandom;
 import java.time.Duration;
@@ -35,13 +37,13 @@ import java.util.concurrent.TimeUnit;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
@@ -80,8 +82,8 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
-@RunWith(JUnitParamsRunner.class)
-public class AccountControllerTest {
+@ExtendWith(DropwizardExtensionsSupport.class)
+class AccountControllerTest {
 
   private static final String SENDER             = "+14152222222";
   private static final String SENDER_OLD         = "+14151111111";
@@ -105,36 +107,36 @@ public class AccountControllerTest {
   private static final String VALID_CAPTCHA_TOKEN   = "valid_token";
   private static final String INVALID_CAPTCHA_TOKEN = "invalid_token";
 
-  private        PendingAccountsManager pendingAccountsManager = mock(PendingAccountsManager.class);
-  private        AccountsManager        accountsManager        = mock(AccountsManager.class       );
-  private        AbusiveHostRules       abusiveHostRules       = mock(AbusiveHostRules.class      );
-  private        RateLimiters           rateLimiters           = mock(RateLimiters.class          );
-  private        RateLimiter            rateLimiter            = mock(RateLimiter.class           );
-  private        RateLimiter            pinLimiter             = mock(RateLimiter.class           );
-  private        RateLimiter            smsVoiceIpLimiter      = mock(RateLimiter.class           );
-  private        RateLimiter            smsVoicePrefixLimiter  = mock(RateLimiter.class);
-  private        RateLimiter            autoBlockLimiter       = mock(RateLimiter.class);
-  private        RateLimiter            usernameSetLimiter     = mock(RateLimiter.class);
-  private        SmsSender              smsSender              = mock(SmsSender.class             );
-  private        DirectoryQueue         directoryQueue         = mock(DirectoryQueue.class);
-  private        MessagesManager        storedMessages         = mock(MessagesManager.class       );
-  private        TurnTokenGenerator     turnTokenGenerator     = mock(TurnTokenGenerator.class);
-  private        Account                senderPinAccount       = mock(Account.class);
-  private        Account                senderRegLockAccount   = mock(Account.class);
-  private        Account                senderHasStorage       = mock(Account.class);
-  private        Account                senderTransfer         = mock(Account.class);
-  private        RecaptchaClient        recaptchaClient        = mock(RecaptchaClient.class);
-  private        GCMSender              gcmSender              = mock(GCMSender.class);
-  private        APNSender              apnSender              = mock(APNSender.class);
-  private UsernamesManager              usernamesManager       = mock(UsernamesManager.class);
+  private static PendingAccountsManager pendingAccountsManager = mock(PendingAccountsManager.class);
+  private static AccountsManager        accountsManager        = mock(AccountsManager.class);
+  private static AbusiveHostRules       abusiveHostRules       = mock(AbusiveHostRules.class);
+  private static RateLimiters           rateLimiters           = mock(RateLimiters.class);
+  private static RateLimiter            rateLimiter            = mock(RateLimiter.class);
+  private static RateLimiter            pinLimiter             = mock(RateLimiter.class);
+  private static RateLimiter            smsVoiceIpLimiter      = mock(RateLimiter.class);
+  private static RateLimiter            smsVoicePrefixLimiter  = mock(RateLimiter.class);
+  private static RateLimiter            autoBlockLimiter       = mock(RateLimiter.class);
+  private static RateLimiter            usernameSetLimiter     = mock(RateLimiter.class);
+  private static SmsSender              smsSender              = mock(SmsSender.class);
+  private static DirectoryQueue         directoryQueue         = mock(DirectoryQueue.class);
+  private static MessagesManager        storedMessages         = mock(MessagesManager.class);
+  private static TurnTokenGenerator     turnTokenGenerator     = mock(TurnTokenGenerator.class);
+  private static Account                senderPinAccount       = mock(Account.class);
+  private static Account                senderRegLockAccount   = mock(Account.class);
+  private static Account                senderHasStorage       = mock(Account.class);
+  private static Account                senderTransfer         = mock(Account.class);
+  private static RecaptchaClient        recaptchaClient        = mock(RecaptchaClient.class);
+  private static GCMSender              gcmSender              = mock(GCMSender.class);
+  private static APNSender              apnSender              = mock(APNSender.class);
+  private static UsernamesManager       usernamesManager       = mock(UsernamesManager.class);
 
   private byte[] registration_lock_key = new byte[32];
-  private ExternalServiceCredentialGenerator storageCredentialGenerator = new ExternalServiceCredentialGenerator(new byte[32], new byte[32], false);
+  private static ExternalServiceCredentialGenerator storageCredentialGenerator = new ExternalServiceCredentialGenerator(new byte[32], new byte[32], false);
 
-  @Rule
-  public final ResourceTestRule resources = ResourceTestRule.builder()
+  private static final ResourceExtension resources = ResourceExtension.builder()
                                                             .addProvider(AuthHelper.getAuthFilter())
-                                                            .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
+                                                            .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
+                                                                ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
                                                             .addProvider(new RateLimitExceededExceptionMapper())
                                                             .setMapper(SystemMapper.getMapper())
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
@@ -155,8 +157,8 @@ public class AccountControllerTest {
                                                             .build();
 
 
-  @Before
-  public void setup() throws Exception {
+  @BeforeEach
+  void setup() throws Exception {
     clearInvocations(AuthHelper.VALID_ACCOUNT, AuthHelper.UNDISCOVERABLE_ACCOUNT);
 
     new SecureRandom().nextBytes(registration_lock_key);
@@ -222,8 +224,35 @@ public class AccountControllerTest {
     doThrow(new RateLimitExceededException(RATE_LIMITED_HOST2, Duration.ZERO)).when(smsVoiceIpLimiter).validate(RATE_LIMITED_HOST2);
   }
 
+  @AfterEach
+  void teardown() {
+    reset(
+        pendingAccountsManager,
+        accountsManager,
+        abusiveHostRules,
+        rateLimiters,
+        rateLimiter,
+        pinLimiter,
+        smsVoiceIpLimiter,
+        smsVoicePrefixLimiter,
+        autoBlockLimiter,
+        usernameSetLimiter,
+        smsSender,
+        directoryQueue,
+        storedMessages,
+        turnTokenGenerator,
+        senderPinAccount,
+        senderRegLockAccount,
+        senderHasStorage,
+        senderTransfer,
+        recaptchaClient,
+        gcmSender,
+        apnSender,
+        usernamesManager);
+  }
+
   @Test
-  public void testGetFcmPreauth() throws Exception {
+  void testGetFcmPreauth() throws Exception {
     Response response = resources.getJerseyTest()
                                  .target("/v1/accounts/fcm/preauth/mytoken/+14152222222")
                                  .request()
@@ -242,7 +271,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testGetFcmPreauthIvoryCoast() throws Exception {
+  void testGetFcmPreauthIvoryCoast() throws Exception {
     Response response = resources.getJerseyTest()
             .target("/v1/accounts/fcm/preauth/mytoken/+2250707312345")
             .request()
@@ -261,7 +290,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testGetApnPreauth() throws Exception {
+  void testGetApnPreauth() throws Exception {
     Response response = resources.getJerseyTest()
                                  .target("/v1/accounts/apn/preauth/mytoken/+14152222222")
                                  .request()
@@ -281,7 +310,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSendCode() throws Exception {
+  void testSendCode() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
@@ -347,7 +376,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSendCodeVoiceInvalidLocale() throws Exception {
+  void testSendCodeVoiceInvalidLocale() throws Exception {
     Response response =
         resources.getJerseyTest()
             .target(String.format("/v1/accounts/voice/code/%s", SENDER))
@@ -364,7 +393,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSendCodeWithValidPreauth() throws Exception {
+  void testSendCodeWithValidPreauth() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER_PREAUTH))
@@ -380,7 +409,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSendCodeWithInvalidPreauth() throws Exception {
+  void testSendCodeWithInvalidPreauth() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER_PREAUTH))
@@ -396,7 +425,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSendCodeWithNoPreauth() throws Exception {
+  void testSendCodeWithNoPreauth() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER_PREAUTH))
@@ -411,7 +440,7 @@ public class AccountControllerTest {
 
 
   @Test
-  public void testSendiOSCode() throws Exception {
+  void testSendiOSCode() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
@@ -427,7 +456,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSendAndroidNgCode() throws Exception {
+  void testSendAndroidNgCode() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
@@ -443,7 +472,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSendAbusiveHost() {
+  void testSendAbusiveHost() {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
@@ -459,7 +488,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSendAbusiveHostWithValidCaptcha() throws IOException {
+  void testSendAbusiveHostWithValidCaptcha() throws IOException {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
@@ -476,7 +505,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSendAbusiveHostWithInvalidCaptcha() {
+  void testSendAbusiveHostWithInvalidCaptcha() {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
@@ -493,7 +522,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSendRateLimitedHostAutoBlock() {
+  void testSendRateLimitedHostAutoBlock() {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
@@ -513,7 +542,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSendRateLimitedPrefixAutoBlock() {
+  void testSendRateLimitedPrefixAutoBlock() {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER_OVER_PREFIX))
@@ -533,7 +562,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSendRateLimitedHostNoAutoBlock() {
+  void testSendRateLimitedHostNoAutoBlock() {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
@@ -553,7 +582,7 @@ public class AccountControllerTest {
 
 
   @Test
-  public void testSendMultipleHost() {
+  void testSendMultipleHost() {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
@@ -572,7 +601,7 @@ public class AccountControllerTest {
 
 
   @Test
-  public void testSendRestrictedHostOut() {
+  void testSendRestrictedHostOut() {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/sms/code/%s", SENDER))
@@ -588,7 +617,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSendRestrictedIn() throws Exception {
+  void testSendRestrictedIn() throws Exception {
     final String number = "+12345678901";
     final String challenge = "challenge";
 
@@ -608,7 +637,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testVerifyCode() throws Exception {
+  void testVerifyCode() throws Exception {
     AccountCreationResult result =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/code/%s", "1234"))
@@ -629,7 +658,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testVerifyCodeUndiscoverable() throws Exception {
+  void testVerifyCodeUndiscoverable() throws Exception {
     AccountCreationResult result =
             resources.getJerseyTest()
                     .target(String.format("/v1/accounts/code/%s", "1234"))
@@ -650,7 +679,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testVerifySupportsStorage() throws Exception {
+  void testVerifySupportsStorage() throws Exception {
     AccountCreationResult result =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/code/%s", "666666"))
@@ -667,7 +696,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testVerifyCodeOld() throws Exception {
+  void testVerifyCodeOld() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/code/%s", "1234"))
@@ -682,7 +711,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testVerifyBadCode() throws Exception {
+  void testVerifyBadCode() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/code/%s", "1111"))
@@ -697,7 +726,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testVerifyPin() throws Exception {
+  void testVerifyPin() throws Exception {
     AccountCreationResult result =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/code/%s", "333333"))
@@ -712,7 +741,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testVerifyRegistrationLock() throws Exception {
+  void testVerifyRegistrationLock() throws Exception {
     AccountCreationResult result =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/code/%s", "666666"))
@@ -727,7 +756,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testVerifyRegistrationLockSetsRegistrationLockOnNewAccount() throws Exception {
+  void testVerifyRegistrationLockSetsRegistrationLockOnNewAccount() throws Exception {
 
     AccountCreationResult result =
         resources.getJerseyTest()
@@ -757,7 +786,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testVerifyRegistrationLockOld() throws Exception {
+  void testVerifyRegistrationLockOld() throws Exception {
     StoredRegistrationLock lock = senderRegLockAccount.getRegistrationLock();
 
     try {
@@ -780,7 +809,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testVerifyWrongPin() throws Exception {
+  void testVerifyWrongPin() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/code/%s", "333333"))
@@ -795,7 +824,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testVerifyWrongRegistrationLock() throws Exception {
+  void testVerifyWrongRegistrationLock() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/code/%s", "666666"))
@@ -811,7 +840,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testVerifyNoPin() throws Exception {
+  void testVerifyNoPin() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/code/%s", "333333"))
@@ -829,7 +858,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testVerifyNoRegistrationLock() throws Exception {
+  void testVerifyNoRegistrationLock() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/code/%s", "666666"))
@@ -852,7 +881,7 @@ public class AccountControllerTest {
 
 
   @Test
-  public void testVerifyLimitPin() throws Exception {
+  void testVerifyLimitPin() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/accounts/code/%s", "444444"))
@@ -867,7 +896,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testVerifyOldPin() throws Exception {
+  void testVerifyOldPin() throws Exception {
     try {
       when(senderPinAccount.getRegistrationLock()).thenReturn(new StoredRegistrationLock(Optional.empty(), Optional.empty(), Optional.of("31337"), System.currentTimeMillis() - TimeUnit.DAYS.toMillis(7)));
 
@@ -887,7 +916,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testVerifyTransferSupported() {
+  void testVerifyTransferSupported() {
     when(senderTransfer.isTransferSupported()).thenReturn(true);
 
     final Response response =
@@ -903,7 +932,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testVerifyTransferNotSupported() {
+  void testVerifyTransferNotSupported() {
     when(senderTransfer.isTransferSupported()).thenReturn(false);
 
     final Response response =
@@ -919,7 +948,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testVerifyTransferSupportedNotRequested() {
+  void testVerifyTransferSupportedNotRequested() {
     when(senderTransfer.isTransferSupported()).thenReturn(true);
 
     final Response response =
@@ -934,7 +963,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSetPin() throws Exception {
+  void testSetPin() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/accounts/pin/")
@@ -949,7 +978,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSetRegistrationLock() throws Exception {
+  void testSetRegistrationLock() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/accounts/registration_lock/")
@@ -972,7 +1001,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSetPinUnauthorized() throws Exception {
+  void testSetPinUnauthorized() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/accounts/pin/")
@@ -983,7 +1012,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSetShortPin() throws Exception {
+  void testSetShortPin() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/accounts/pin/")
@@ -995,7 +1024,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSetShortRegistrationLock() throws Exception {
+  void testSetShortRegistrationLock() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/accounts/registration_lock/")
@@ -1008,7 +1037,7 @@ public class AccountControllerTest {
 
 
   @Test
-  public void testSetPinDisabled() throws Exception {
+  void testSetPinDisabled() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/accounts/pin/")
@@ -1020,7 +1049,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSetRegistrationLockDisabled() throws Exception {
+  void testSetRegistrationLockDisabled() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/accounts/registration_lock/")
@@ -1032,7 +1061,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSetGcmId() throws Exception {
+  void testSetGcmId() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/accounts/gcm/")
@@ -1048,7 +1077,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSetGcmIdByUuid() throws Exception {
+  void testSetGcmIdByUuid() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/accounts/gcm/")
@@ -1064,7 +1093,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSetApnId() throws Exception {
+  void testSetApnId() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/accounts/apn/")
@@ -1081,7 +1110,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSetApnIdByUuid() throws Exception {
+  void testSetApnIdByUuid() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/accounts/apn/")
@@ -1097,8 +1126,8 @@ public class AccountControllerTest {
     verify(directoryQueue, never()).refreshRegisteredUser(any(Account.class));
   }
 
-  @Test
-  @Parameters({"/v1/accounts/whoami/", "/v1/accounts/me/"})
+  @ParameterizedTest
+  @CsvSource("/v1/accounts/whoami/, /v1/accounts/me/")
   public void testWhoAmI(final String path) {
     AccountCreationResult response =
         resources.getJerseyTest()
@@ -1111,7 +1140,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSetUsername() {
+  void testSetUsername() {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/accounts/username/n00bkiller")
@@ -1123,7 +1152,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSetTakenUsername() {
+  void testSetTakenUsername() {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/accounts/username/takenusername")
@@ -1135,7 +1164,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSetInvalidUsername() {
+  void testSetInvalidUsername() {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/accounts/username/pаypal")
@@ -1147,7 +1176,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSetInvalidPrefixUsername() {
+  void testSetInvalidPrefixUsername() {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/accounts/username/0n00bkiller")
@@ -1159,7 +1188,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSetUsernameBadAuth() {
+  void testSetUsernameBadAuth() {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/accounts/username/n00bkiller")
@@ -1171,7 +1200,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testDeleteUsername() {
+  void testDeleteUsername() {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/accounts/username/")
@@ -1184,7 +1213,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testDeleteUsernameBadAuth() {
+  void testDeleteUsernameBadAuth() {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/accounts/username/")
@@ -1196,7 +1225,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSetAccountAttributesNoDiscoverabilityChange() {
+  void testSetAccountAttributesNoDiscoverabilityChange() {
     Response response =
             resources.getJerseyTest()
                     .target("/v1/accounts/attributes/")
@@ -1209,7 +1238,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSetAccountAttributesEnableDiscovery() {
+  void testSetAccountAttributesEnableDiscovery() {
     Response response =
             resources.getJerseyTest()
                     .target("/v1/accounts/attributes/")
@@ -1222,7 +1251,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testSetAccountAttributesDisableDiscovery() {
+  void testSetAccountAttributesDisableDiscovery() {
     Response response =
             resources.getJerseyTest()
                     .target("/v1/accounts/attributes/")
@@ -1235,7 +1264,7 @@ public class AccountControllerTest {
   }
 
   @Test
-  public void testDeleteAccount() {
+  void testDeleteAccount() {
     Response response =
             resources.getJerseyTest()
                      .target("/v1/accounts/me")
