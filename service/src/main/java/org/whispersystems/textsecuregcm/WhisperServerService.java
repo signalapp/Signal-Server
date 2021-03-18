@@ -171,7 +171,6 @@ import org.whispersystems.textsecuregcm.websocket.ProvisioningConnectListener;
 import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
-import org.whispersystems.textsecuregcm.workers.DescribeUserCommand;
 import org.whispersystems.textsecuregcm.workers.GetRedisCommandStatsCommand;
 import org.whispersystems.textsecuregcm.workers.GetRedisSlowlogCommand;
 import org.whispersystems.textsecuregcm.workers.SetCrawlerAccelerationTask;
@@ -195,7 +194,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new ZkParamsCommand());
     bootstrap.addCommand(new GetRedisSlowlogCommand());
     bootstrap.addCommand(new GetRedisCommandStatsCommand());
-    bootstrap.addCommand(new DescribeUserCommand());
 
     bootstrap.addBundle(new NameableMigrationsBundle<WhisperServerConfiguration>("accountdb", "accountsdb.xml") {
       @Override
