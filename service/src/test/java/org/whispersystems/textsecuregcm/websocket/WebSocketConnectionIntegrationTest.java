@@ -28,6 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -62,12 +63,9 @@ public class WebSocketConnectionIntegrationTest extends AbstractRedisClusterTest
     private Device device;
     private WebSocketClient webSocketClient;
     private WebSocketConnection webSocketConnection;
+    private ScheduledExecutorService retrySchedulingExecutor;
 
-  private long serialTimestamp = System.currentTimeMillis();
-
-    @Before
-    public void setupAccountsDao() {
-    }
+    private long serialTimestamp = System.currentTimeMillis();
 
     @Before
     @Override
@@ -80,6 +78,7 @@ public class WebSocketConnectionIntegrationTest extends AbstractRedisClusterTest
         account = mock(Account.class);
         device = mock(Device.class);
         webSocketClient = mock(WebSocketClient.class);
+        retrySchedulingExecutor = Executors.newSingleThreadScheduledExecutor();
 
         when(account.getNumber()).thenReturn("+18005551234");
         when(account.getUuid()).thenReturn(UUID.randomUUID());
@@ -90,7 +89,8 @@ public class WebSocketConnectionIntegrationTest extends AbstractRedisClusterTest
                 new MessagesManager(messagesDynamoDb, messagesCache, mock(PushLatencyManager.class)),
                 account,
                 device,
-                webSocketClient);
+                webSocketClient,
+                retrySchedulingExecutor);
     }
 
     @After
@@ -98,6 +98,9 @@ public class WebSocketConnectionIntegrationTest extends AbstractRedisClusterTest
     public void tearDown() throws Exception {
         executorService.shutdown();
         executorService.awaitTermination(2, TimeUnit.SECONDS);
+
+        retrySchedulingExecutor.shutdown();
+        retrySchedulingExecutor.awaitTermination(2, TimeUnit.SECONDS);
 
         super.tearDown();
     }

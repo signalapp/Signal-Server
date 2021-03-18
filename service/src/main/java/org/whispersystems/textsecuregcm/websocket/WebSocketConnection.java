@@ -20,11 +20,15 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
@@ -79,6 +83,11 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   @VisibleForTesting
   static final int MAX_DESKTOP_MESSAGE_SIZE = 1024 * 1024;
 
+  @VisibleForTesting
+  static final int MAX_CONSECUTIVE_RETRIES = 5;
+  private static final long RETRY_DELAY_MILLIS = 1_000;
+  private static final int RETRY_DELAY_JITTER_MILLIS = 500;
+
   private static final Logger logger = LoggerFactory.getLogger(WebSocketConnection.class);
 
   private final ReceiptSender    receiptSender;
@@ -87,6 +96,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private final Account          account;
   private final Device           device;
   private final WebSocketClient  client;
+  private final ScheduledExecutorService retrySchedulingExecutor;
 
   private final boolean          isDesktopClient;
 
@@ -95,6 +105,10 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private final AtomicBoolean                       sentInitialQueueEmptyMessage   = new AtomicBoolean(false);
   private final LongAdder                           sentMessageCounter             = new LongAdder();
   private final AtomicLong                          queueDrainStartTime            = new AtomicLong();
+  private final AtomicInteger                       consecutiveRetries             = new AtomicInteger();
+  private final AtomicReference<ScheduledFuture<?>> retryFuture                    = new AtomicReference<>();
+
+  private final Random random = new Random();
 
   private enum StoredMessageState {
     EMPTY,
@@ -103,16 +117,18 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   }
 
   public WebSocketConnection(ReceiptSender receiptSender,
-                             MessagesManager messagesManager,
-                             Account account,
-                             Device device,
-                             WebSocketClient client)
+      MessagesManager messagesManager,
+      Account account,
+      Device device,
+      WebSocketClient client,
+      ScheduledExecutorService retrySchedulingExecutor)
   {
     this.receiptSender   = receiptSender;
     this.messagesManager = messagesManager;
     this.account         = account;
     this.device          = device;
     this.client          = client;
+    this.retrySchedulingExecutor = retrySchedulingExecutor;
 
     Optional<ClientPlatform> maybePlatform;
 
@@ -131,6 +147,12 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   }
 
   public void stop() {
+    final ScheduledFuture<?> future = retryFuture.get();
+
+    if (future != null) {
+      future.cancel(false);
+    }
+
     client.close(1000, "OK");
   }
 
@@ -203,24 +225,40 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       sendNextMessagePage(state != StoredMessageState.PERSISTED_NEW_MESSAGES_AVAILABLE, queueClearedFuture);
 
       queueClearedFuture.whenComplete((v, cause) -> {
-        if (cause == null && sentInitialQueueEmptyMessage.compareAndSet(false, true)) {
-          final List<Tag> tags = List.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()));
-          final long drainDuration = System.currentTimeMillis() - queueDrainStartTime.get();
+        if (cause == null) {
+          consecutiveRetries.set(0);
 
-          Metrics.summary(INITIAL_QUEUE_LENGTH_DISTRIBUTION_NAME, tags).record(sentMessageCounter.sum());
-          Metrics.timer(INITIAL_QUEUE_DRAIN_TIMER_NAME, tags).record(drainDuration, TimeUnit.MILLISECONDS);
+          if (sentInitialQueueEmptyMessage.compareAndSet(false, true)) {
+            final List<Tag> tags = List.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()));
+            final long drainDuration = System.currentTimeMillis() - queueDrainStartTime.get();
 
-          if (drainDuration > SLOW_DRAIN_THRESHOLD) {
-            Metrics.counter(SLOW_QUEUE_DRAIN_COUNTER_NAME, tags).increment();
+            Metrics.summary(INITIAL_QUEUE_LENGTH_DISTRIBUTION_NAME, tags).record(sentMessageCounter.sum());
+            Metrics.timer(INITIAL_QUEUE_DRAIN_TIMER_NAME, tags).record(drainDuration, TimeUnit.MILLISECONDS);
+
+            if (drainDuration > SLOW_DRAIN_THRESHOLD) {
+              Metrics.counter(SLOW_QUEUE_DRAIN_COUNTER_NAME, tags).increment();
+            }
+
+            client.sendRequest("PUT", "/api/v1/queue/empty",
+                Collections.singletonList(TimestampHeaderUtil.getTimestampHeader()), Optional.empty());
           }
-
-          client.sendRequest("PUT", "/api/v1/queue/empty", Collections.singletonList(TimestampHeaderUtil.getTimestampHeader()), Optional.empty());
+        } else {
+          storedMessageState.compareAndSet(StoredMessageState.EMPTY, state);
         }
 
         processStoredMessagesSemaphore.release();
 
-        if (cause == null && storedMessageState.get() != StoredMessageState.EMPTY) {
-          processStoredMessages();
+        if (cause == null) {
+          if (storedMessageState.get() != StoredMessageState.EMPTY) {
+            processStoredMessages();
+          }
+        } else {
+          if (consecutiveRetries.incrementAndGet() > MAX_CONSECUTIVE_RETRIES) {
+            client.close(1011, "Failed to retrieve messages");
+          } else {
+            final long delay = RETRY_DELAY_MILLIS + random.nextInt(RETRY_DELAY_JITTER_MILLIS);
+            retryFuture.set(retrySchedulingExecutor.schedule(this::processStoredMessages, delay, TimeUnit.MILLISECONDS));
+          }
         }
       });
     }
