@@ -27,12 +27,9 @@ import java.util.concurrent.TimeUnit;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.delete;
-import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -121,46 +118,4 @@ public class SecureStorageClientTest {
 
         assertThrows(RuntimeException.class, () -> secureStorageClient.deleteStoredData(accountUuid).join());
     }
-
-  @Test
-  public void hasManifest() {
-    final String username = RandomStringUtils.randomAlphabetic(16);
-    final String password = RandomStringUtils.randomAlphanumeric(32);
-
-    when(credentialGenerator.generateFor(accountUuid.toString())).thenReturn(new ExternalServiceCredentials(username, password));
-
-    wireMockRule.stubFor(get(urlEqualTo(SecureStorageClient.GET_MANIFEST_PATH))
-        .withBasicAuth(username, password)
-        .willReturn(aResponse().withStatus(200)));
-
-    assertTrue(secureStorageClient.hasStoredData(accountUuid).join());
-  }
-
-  @Test
-  public void hasManifesNotFound() {
-    final String username = RandomStringUtils.randomAlphabetic(16);
-    final String password = RandomStringUtils.randomAlphanumeric(32);
-
-    when(credentialGenerator.generateFor(accountUuid.toString())).thenReturn(new ExternalServiceCredentials(username, password));
-
-    wireMockRule.stubFor(get(urlEqualTo(SecureStorageClient.GET_MANIFEST_PATH))
-        .withBasicAuth(username, password)
-        .willReturn(aResponse().withStatus(404)));
-
-    assertFalse(secureStorageClient.hasStoredData(accountUuid).join());
-  }
-
-  @Test
-  public void hasManifestFailure() {
-    final String username = RandomStringUtils.randomAlphabetic(16);
-    final String password = RandomStringUtils.randomAlphanumeric(32);
-
-    when(credentialGenerator.generateFor(accountUuid.toString())).thenReturn(new ExternalServiceCredentials(username, password));
-
-    wireMockRule.stubFor(get(urlEqualTo(SecureStorageClient.GET_MANIFEST_PATH))
-        .withBasicAuth(username, password)
-        .willReturn(aResponse().withStatus(400)));
-
-    assertThrows(RuntimeException.class, () -> secureStorageClient.hasStoredData(accountUuid).join());
-  }
 }
