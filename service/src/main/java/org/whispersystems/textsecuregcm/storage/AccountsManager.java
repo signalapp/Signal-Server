@@ -44,9 +44,10 @@ public class AccountsManager {
   private static final Timer redisUuidGetTimer   = metricRegistry.timer(name(AccountsManager.class, "redisUuidGet"  ));
   private static final Timer redisDeleteTimer    = metricRegistry.timer(name(AccountsManager.class, "redisDelete"   ));
 
-  private static final String DELETE_COUNTER_NAME      = name(AccountsManager.class, "deleteCounter");
-  private static final String COUNTRY_CODE_TAG_NAME    = "country";
-  private static final String DELETION_REASON_TAG_NAME = "reason";
+  private static final String DELETE_COUNTER_NAME       = name(AccountsManager.class, "deleteCounter");
+  private static final String DELETE_ERROR_COUNTER_NAME = name(AccountsManager.class, "deleteError");
+  private static final String COUNTRY_CODE_TAG_NAME     = "country";
+  private static final String DELETION_REASON_TAG_NAME  = "reason";
 
 
   private final Logger logger = LoggerFactory.getLogger(AccountsManager.class);
@@ -156,6 +157,14 @@ public class AccountsManager {
 
       redisDelete(account);
       databaseDelete(account);
+    } catch (final Exception e) {
+      logger.warn("Failed to delete account", e);
+
+      Metrics.counter(DELETE_ERROR_COUNTER_NAME,
+          COUNTRY_CODE_TAG_NAME, Util.getCountryCode(account.getNumber()),
+          DELETION_REASON_TAG_NAME, deletionReason.tagValue).increment();
+
+      throw e;
     }
 
     Metrics.counter(DELETE_COUNTER_NAME,
