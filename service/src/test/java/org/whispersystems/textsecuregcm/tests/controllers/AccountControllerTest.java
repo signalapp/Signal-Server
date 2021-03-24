@@ -38,7 +38,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
@@ -1361,7 +1360,7 @@ class AccountControllerTest {
   }
 
   @ParameterizedTest
-  @CsvSource("/v1/accounts/whoami/, /v1/accounts/me/")
+  @ValueSource(strings = {"/v1/accounts/whoami/", "/v1/accounts/me/"})
   public void testWhoAmI(final String path) {
     AccountCreationResult response =
         resources.getJerseyTest()
