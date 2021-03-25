@@ -10,13 +10,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.FixtureHelpers;
-import io.dropwizard.testing.junit.ResourceTestRule;
+import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
+import io.dropwizard.testing.junit5.ResourceExtension;
 import java.util.Arrays;
 import java.util.HashSet;
 import javax.ws.rs.core.Response;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.controllers.VoiceVerificationController;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
@@ -24,10 +25,10 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
+@ExtendWith(DropwizardExtensionsSupport.class)
 public class VoiceVerificationControllerTest {
 
-  @Rule
-  public final ResourceTestRule resources = ResourceTestRule.builder()
+  private static final ResourceExtension resources = ResourceExtension.builder()
                                                             .addProvider(AuthHelper.getAuthFilter())
                                                             .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
                                                             .addProvider(new RateLimitExceededExceptionMapper())
@@ -38,7 +39,7 @@ public class VoiceVerificationControllerTest {
                                                             .build();
 
   @Test
-  public void testTwimlLocale() {
+  void testTwimlLocale() {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/voice/description/123456")
@@ -51,7 +52,7 @@ public class VoiceVerificationControllerTest {
   }
 
   @Test
-  public void testTwimlSplitLocale() {
+  void testTwimlSplitLocale() {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/voice/description/123456")
@@ -64,7 +65,7 @@ public class VoiceVerificationControllerTest {
   }
 
   @Test
-  public void testTwimlUnsupportedLocale() {
+  void testTwimlUnsupportedLocale() {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/voice/description/123456")
@@ -77,7 +78,7 @@ public class VoiceVerificationControllerTest {
   }
 
   @Test
-  public void testTwimlMultipleLocales() {
+  void testTwimlMultipleLocales() {
     Response response =
         resources.getJerseyTest()
             .target("/v1/voice/description/123456")
@@ -91,7 +92,7 @@ public class VoiceVerificationControllerTest {
   }
 
   @Test
-  public void testTwimlMissingLocale() {
+  void testTwimlMissingLocale() {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/voice/description/123456")
@@ -104,7 +105,7 @@ public class VoiceVerificationControllerTest {
 
 
   @Test
-  public void testTwimlMalformedCode() {
+  void testTwimlMalformedCode() {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/voice/description/1234...56")
@@ -116,7 +117,7 @@ public class VoiceVerificationControllerTest {
   }
 
   @Test
-  public void testTwimlBadCodeLength() {
+  void testTwimlBadCodeLength() {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/voice/description/1234567")
@@ -128,7 +129,7 @@ public class VoiceVerificationControllerTest {
   }
 
   @Test
-  public void testTwimlMalformedLocale() {
+  void testTwimlMalformedLocale() {
     Response response =
         resources.getJerseyTest()
             .target("/v1/voice/description/123456")
