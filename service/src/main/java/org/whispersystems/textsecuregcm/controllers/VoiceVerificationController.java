@@ -5,6 +5,11 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale.LanguageRange;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -12,8 +17,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import java.util.List;
-import java.util.Set;
+import org.whispersystems.textsecuregcm.util.Util;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/voice/")
@@ -46,6 +50,8 @@ public class VoiceVerificationController {
       "    <Play>%s</Play>\n" +
       "</Response>";
 
+  private static final String DEFAULT_LOCALE = "en-US";
+
 
   private final String      baseUrl;
   private final Set<String> supportedLocales;
@@ -65,19 +71,22 @@ public class VoiceVerificationController {
       return Response.status(400).build();
     }
 
-    for (final String locale : locales) {
-      if (locale != null && supportedLocales.contains(locale)) {
-        return getLocalizedDescription(code, locale);
-      }
+    if (locales == null) {
+      locales = Collections.emptyList();
     }
 
-    for (final String locale : locales) {
-      if (locale != null && locale.split("-").length >= 1 && supportedLocales.contains(locale.split("-")[0])) {
-        return getLocalizedDescription(code, locale.split("-")[0]);
-      }
+    final List<LanguageRange> priorityList;
+    try {
+      priorityList = locales.stream()
+          .map(LanguageRange::new)
+          .collect(Collectors.toList());
+    } catch (final IllegalArgumentException e) {
+      return Response.status(400).build();
     }
 
-    return getLocalizedDescription(code, "en-US");
+    final String localeMatch = Util.findBestLocale(priorityList, supportedLocales).orElse(DEFAULT_LOCALE);
+
+    return getLocalizedDescription(code, localeMatch);
   }
 
   private Response getLocalizedDescription(String code, String locale) {
