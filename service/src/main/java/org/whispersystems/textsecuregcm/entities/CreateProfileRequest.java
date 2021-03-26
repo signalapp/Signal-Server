@@ -36,7 +36,7 @@ public class CreateProfileRequest {
   private String about;
 
   @JsonProperty
-  @ExactlySize({0, 684})
+  @ExactlySize({0, 776})
   private String paymentAddress;
 
   @JsonProperty

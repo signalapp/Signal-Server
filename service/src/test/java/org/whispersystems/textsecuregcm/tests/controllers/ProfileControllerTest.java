@@ -485,7 +485,7 @@ public class ProfileControllerTest {
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
 
     final String name = RandomStringUtils.randomAlphabetic(380);
-    final String paymentAddress = RandomStringUtils.randomAlphanumeric(684);
+    final String paymentAddress = RandomStringUtils.randomAlphanumeric(776);
 
     Response response = resources.getJerseyTest()
         .target("/v1/profile")
@@ -523,7 +523,7 @@ public class ProfileControllerTest {
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
 
     final String name = RandomStringUtils.randomAlphabetic(380);
-    final String paymentAddress = RandomStringUtils.randomAlphanumeric(684);
+    final String paymentAddress = RandomStringUtils.randomAlphanumeric(776);
 
     Response response = resources.getJerseyTest()
         .target("/v1/profile")
@@ -572,7 +572,7 @@ public class ProfileControllerTest {
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
 
     final String name = RandomStringUtils.randomAlphabetic(380);
-    final String paymentAddress = RandomStringUtils.randomAlphanumeric(684);
+    final String paymentAddress = RandomStringUtils.randomAlphanumeric(776);
 
     Response response = resources.getJerseyTest()
         .target("/v1/profile")
