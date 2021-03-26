@@ -20,11 +20,16 @@ import org.whispersystems.textsecuregcm.util.Base64;
 
 import java.io.IOException;
 import java.security.InvalidKeyException;
+import java.util.Set;
 
 import io.dropwizard.cli.Command;
 import io.dropwizard.setup.Bootstrap;
 
 public class CertificateCommand extends Command {
+
+  private static final Set<Integer> RESERVED_CERTIFICATE_IDS = Set.of(
+      0xdeadc357 // Reserved for testing; see https://github.com/signalapp/libsignal-client/pull/118
+  );
 
   public CertificateCommand() {
     super("certificate", "Generates server certificates for unidentified delivery");
@@ -74,6 +79,11 @@ public class CertificateCommand extends Command {
 
     ECPrivateKey key   = Curve.decodePrivatePoint(Base64.decode(namespace.getString("key")));
     int          keyId = namespace.getInt("keyId");
+
+    if (RESERVED_CERTIFICATE_IDS.contains(keyId)) {
+      throw new IllegalArgumentException(
+          String.format("Key ID %08x has been reserved or revoked and may not be used in new certificates.", keyId));
+    }
 
     ECKeyPair keyPair = Curve.generateKeyPair();
 
