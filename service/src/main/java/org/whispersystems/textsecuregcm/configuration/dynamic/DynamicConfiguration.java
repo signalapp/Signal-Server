@@ -31,6 +31,10 @@ public class DynamicConfiguration {
   private DynamicMessageRateConfiguration messageRate = new DynamicMessageRateConfiguration();
 
   @JsonProperty
+  @Valid
+  private DynamicPaymentsConfiguration payments = new DynamicPaymentsConfiguration();
+
+  @JsonProperty
   private Set<String> featureFlags = Collections.emptySet();
 
   @JsonProperty
@@ -57,6 +61,10 @@ public class DynamicConfiguration {
 
   public DynamicMessageRateConfiguration getMessageRateConfiguration() {
     return messageRate;
+  }
+
+  public DynamicPaymentsConfiguration getPaymentsConfiguration() {
+    return payments;
   }
 
   public Set<String> getActiveFeatureFlags() {

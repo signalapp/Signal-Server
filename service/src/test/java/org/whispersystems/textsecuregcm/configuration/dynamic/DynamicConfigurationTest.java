@@ -252,4 +252,28 @@ class DynamicConfigurationTest {
       assertEquals(List.of("2135551212", "2135551313"), config.getNumbers());
     }
   }
+
+  @Test
+  public void testParsePaymentsConfiguration() throws JsonProcessingException {
+    {
+      final String emptyConfigYaml = "test: true";
+      final DynamicConfiguration emptyConfig = DynamicConfigurationManager.OBJECT_MAPPER
+          .readValue(emptyConfigYaml, DynamicConfiguration.class);
+
+      assertTrue(emptyConfig.getPaymentsConfiguration().getAllowedCountryCodes().isEmpty());
+    }
+
+    {
+      final String paymentsConfigYaml =
+          "payments:\n"
+              + "  allowedCountryCodes:\n"
+              + "    - 44";
+
+      final DynamicPaymentsConfiguration config = DynamicConfigurationManager.OBJECT_MAPPER
+          .readValue(paymentsConfigYaml, DynamicConfiguration.class)
+          .getPaymentsConfiguration();
+
+      assertEquals(Set.of("44"), config.getAllowedCountryCodes());
+    }
+  }
 }
