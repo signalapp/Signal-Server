@@ -12,6 +12,7 @@ import java.security.SecureRandom;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import javax.validation.Valid;
 import javax.validation.valueextraction.Unwrapping;
@@ -26,9 +27,11 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.lang3.StringUtils;
 import org.signal.zkgroup.InvalidInputException;
 import org.signal.zkgroup.VerificationFailedException;
 import org.signal.zkgroup.profiles.ProfileKeyCommitment;
@@ -50,11 +53,13 @@ import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.textsecuregcm.util.Util;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/profile")
@@ -66,6 +71,7 @@ public class ProfileController {
   private final ProfilesManager  profilesManager;
   private final AccountsManager  accountsManager;
   private final UsernamesManager usernamesManager;
+  private final DynamicConfigurationManager dynamicConfigurationManager;
 
   private final PolicySigner              policySigner;
   private final PostPolicyGenerator       policyGenerator;
@@ -76,20 +82,22 @@ public class ProfileController {
   private final String              bucket;
 
   public ProfileController(RateLimiters rateLimiters,
-                           AccountsManager accountsManager,
-                           ProfilesManager profilesManager,
-                           UsernamesManager usernamesManager,
-                           AmazonS3 s3client,
-                           PostPolicyGenerator policyGenerator,
-                           PolicySigner policySigner,
-                           String bucket,
-                           ServerZkProfileOperations zkProfileOperations,
-                           boolean isZkEnabled)
+      AccountsManager accountsManager,
+      ProfilesManager profilesManager,
+      UsernamesManager usernamesManager,
+      DynamicConfigurationManager dynamicConfigurationManager,
+      AmazonS3 s3client,
+      PostPolicyGenerator policyGenerator,
+      PolicySigner policySigner,
+      String bucket,
+      ServerZkProfileOperations zkProfileOperations,
+      boolean isZkEnabled)
   {
     this.rateLimiters        = rateLimiters;
     this.accountsManager     = accountsManager;
     this.profilesManager     = profilesManager;
     this.usernamesManager    = usernamesManager;
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.zkProfileOperations = zkProfileOperations;
     this.bucket              = bucket;
     this.s3client            = s3client;
@@ -104,6 +112,15 @@ public class ProfileController {
   @Consumes(MediaType.APPLICATION_JSON)
   public Response setProfile(@Auth Account account, @Valid CreateProfileRequest request) {
     if (!isZkEnabled) throw new WebApplicationException(Response.Status.NOT_FOUND);
+
+    final Set<String> allowedPaymentsCountryCodes =
+        dynamicConfigurationManager.getConfiguration().getPaymentsConfiguration().getAllowedCountryCodes();
+
+    if (StringUtils.isNotBlank(request.getPaymentAddress()) &&
+        !allowedPaymentsCountryCodes.contains(Util.getCountryCode(account.getNumber()))) {
+
+      return Response.status(Status.FORBIDDEN).build();
+    }
 
     Optional<VersionedProfile>              currentProfile = profilesManager.get(account.getUuid(), request.getVersion());
     String                                  avatar         = request.isAvatar() ? generateAvatarObjectName() : null;

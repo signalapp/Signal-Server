@@ -11,6 +11,7 @@ import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -21,7 +22,9 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
+import java.util.Collections;
 import java.util.Optional;
+import java.util.Set;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -38,6 +41,8 @@ import org.signal.zkgroup.profiles.ProfileKeyCommitment;
 import org.signal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicPaymentsConfiguration;
 import org.whispersystems.textsecuregcm.controllers.ProfileController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.CreateProfileRequest;
@@ -49,11 +54,13 @@ import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.Util;
 
 public class ProfileControllerTest {
 
@@ -69,6 +76,9 @@ public class ProfileControllerTest {
   private static PolicySigner              policySigner        = new PolicySigner("accessSecret", "us-west-1");
   private static ServerZkProfileOperations zkProfileOperations = mock(ServerZkProfileOperations.class);
 
+  private static DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
+  private DynamicPaymentsConfiguration dynamicPaymentsConfiguration;
+
   private Account profileAccount;
 
 
@@ -82,6 +92,7 @@ public class ProfileControllerTest {
                                                                                                       accountsManager,
                                                                                                       profilesManager,
                                                                                                       usernamesManager,
+                                                                                                      dynamicConfigurationManager,
                                                                                                       s3client,
                                                                                                       postPolicyGenerator,
                                                                                                       policySigner,
@@ -93,6 +104,13 @@ public class ProfileControllerTest {
   @Before
   public void setup() throws Exception {
     reset(s3client);
+
+    dynamicPaymentsConfiguration = mock(DynamicPaymentsConfiguration.class);
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+    when(dynamicConfiguration.getPaymentsConfiguration()).thenReturn(dynamicPaymentsConfiguration);
+    when(dynamicPaymentsConfiguration.getAllowedCountryCodes()).thenReturn(Collections.emptySet());
 
     when(rateLimiters.getProfileLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getUsernameLookupLimiter()).thenReturn(usernameRateLimiter);
@@ -365,7 +383,8 @@ public class ProfileControllerTest {
     assertThat(profileArgumentCaptor.getValue().getVersion()).isEqualTo("anotherversion");
     assertThat(profileArgumentCaptor.getValue().getName()).isEqualTo("123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678");
     assertThat(profileArgumentCaptor.getValue().getAboutEmoji()).isNull();
-    assertThat(profileArgumentCaptor.getValue().getAbout()).isNull();  }
+    assertThat(profileArgumentCaptor.getValue().getAbout()).isNull();
+  }
 
   @Test
   public void testSetProfileWithAvatarUploadAndPreviousAvatar() throws InvalidInputException {
@@ -458,6 +477,9 @@ public class ProfileControllerTest {
 
   @Test
   public void testSetProfilePaymentAddress() throws InvalidInputException {
+    when(dynamicPaymentsConfiguration.getAllowedCountryCodes())
+        .thenReturn(Set.of(Util.getCountryCode(AuthHelper.VALID_NUMBER_TWO)));
+
     ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
@@ -495,6 +517,27 @@ public class ProfileControllerTest {
   }
 
   @Test
+  public void testSetProfilePaymentAddressCountryNotAllowed() throws InvalidInputException {
+    ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
+
+    clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
+
+    final String name = RandomStringUtils.randomAlphabetic(380);
+    final String paymentAddress = RandomStringUtils.randomAlphanumeric(684);
+
+    Response response = resources.getJerseyTest()
+        .target("/v1/profile")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER_TWO, AuthHelper.VALID_PASSWORD_TWO))
+        .put(Entity.entity(new CreateProfileRequest(commitment, "yetanotherversion", name, null, null, paymentAddress, false), MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(403);
+    assertThat(response.hasEntity()).isFalse();
+
+    verify(profilesManager, never()).set(any(), any());
+  }
+
+  @Test
   public void testGetProfileByVersion() throws RateLimitExceededException {
     Profile profile = resources.getJerseyTest()
                                .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO + "/validversion")
@@ -521,6 +564,9 @@ public class ProfileControllerTest {
 
   @Test
   public void testSetProfileUpdatesAccountCurrentVersion() throws InvalidInputException {
+    when(dynamicPaymentsConfiguration.getAllowedCountryCodes())
+        .thenReturn(Set.of(Util.getCountryCode(AuthHelper.VALID_NUMBER_TWO)));
+
     ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID_TWO);
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
