@@ -41,6 +41,9 @@ public class DynamicConfiguration {
   @Valid
   private DynamicTwilioConfiguration twilio = new DynamicTwilioConfiguration();
 
+  @JsonProperty
+  private DynamicSignupCaptchaConfiguration signupCaptcha = new DynamicSignupCaptchaConfiguration();
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -80,4 +83,7 @@ public class DynamicConfiguration {
     this.twilio = twilioConfiguration;
   }
 
+  public DynamicSignupCaptchaConfiguration getSignupCaptchaConfiguration() {
+    return signupCaptcha;
+  }
 }

@@ -16,7 +16,6 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import java.security.SecureRandom;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -48,6 +47,7 @@ import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicSignupCaptchaConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.AccountCreationResult;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
@@ -70,6 +70,7 @@ import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
@@ -111,6 +112,7 @@ public class AccountController {
   private final SmsSender                          smsSender;
   private final DirectoryQueue                     directoryQueue;
   private final MessagesManager                    messagesManager;
+  private final DynamicConfigurationManager        dynamicConfigurationManager;
   private final TurnTokenGenerator                 turnTokenGenerator;
   private final Map<String, Integer>               testDevices;
   private final RecaptchaClient                    recaptchaClient;
@@ -126,6 +128,7 @@ public class AccountController {
                            SmsSender smsSenderFactory,
                            DirectoryQueue directoryQueue,
                            MessagesManager messagesManager,
+                           DynamicConfigurationManager dynamicConfigurationManager,
                            TurnTokenGenerator turnTokenGenerator,
                            Map<String, Integer> testDevices,
                            RecaptchaClient recaptchaClient,
@@ -141,6 +144,7 @@ public class AccountController {
     this.smsSender                         = smsSenderFactory;
     this.directoryQueue                    = directoryQueue;
     this.messagesManager                   = messagesManager;
+    this.dynamicConfigurationManager       = dynamicConfigurationManager;
     this.testDevices                       = testDevices;
     this.turnTokenGenerator                = turnTokenGenerator;
     this.recaptchaClient                   = recaptchaClient;
@@ -590,9 +594,10 @@ public class AccountController {
       }
     }
 
+    final String countryCode = Util.getCountryCode(number);
     {
       final List<Tag> tags = new ArrayList<>();
-      tags.add(Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)));
+      tags.add(Tag.of(COUNTRY_CODE_TAG_NAME, countryCode));
 
       try {
         if (pushChallenge.isPresent()) {
@@ -648,6 +653,11 @@ public class AccountController {
       logger.info("Prefix rate limit exceeded: " + transport + ", " + number + ", (" + forwardedFor + ")");
       rateLimitedPrefixMeter.mark();
       return new CaptchaRequirement(true, true);
+    }
+
+    DynamicSignupCaptchaConfiguration signupCaptchaConfig = dynamicConfigurationManager.getConfiguration().getSignupCaptchaConfiguration();
+    if (signupCaptchaConfig.getCountryCodes().contains(countryCode)) {
+      return new CaptchaRequirement(true, false);
     }
 
     return new CaptchaRequirement(false, false);

@@ -32,8 +32,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -43,7 +45,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
@@ -52,6 +56,8 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicSignupCaptchaConfiguration;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -75,6 +81,7 @@ import org.whispersystems.textsecuregcm.storage.AbusiveHostRule;
 import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
@@ -130,6 +137,8 @@ class AccountControllerTest {
   private static APNSender              apnSender              = mock(APNSender.class);
   private static UsernamesManager       usernamesManager       = mock(UsernamesManager.class);
 
+  private static DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
+
   private byte[] registration_lock_key = new byte[32];
   private static ExternalServiceCredentialGenerator storageCredentialGenerator = new ExternalServiceCredentialGenerator(new byte[32], new byte[32], false);
 
@@ -148,6 +157,7 @@ class AccountControllerTest {
                                                                                                smsSender,
                                                                                                directoryQueue,
                                                                                                storedMessages,
+                                                                                               dynamicConfigurationManager,
                                                                                                turnTokenGenerator,
                                                                                                new HashMap<>(),
                                                                                                recaptchaClient,
@@ -207,6 +217,15 @@ class AccountControllerTest {
     when(usernamesManager.put(eq(AuthHelper.VALID_UUID), eq("n00bkiller"))).thenReturn(true);
     when(usernamesManager.put(eq(AuthHelper.VALID_UUID), eq("takenusername"))).thenReturn(false);
 
+    {
+      DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+      when(dynamicConfigurationManager.getConfiguration())
+          .thenReturn(dynamicConfiguration);
+
+      DynamicSignupCaptchaConfiguration signupCaptchaConfig = new DynamicSignupCaptchaConfiguration();
+
+      when(dynamicConfiguration.getSignupCaptchaConfiguration()).thenReturn(signupCaptchaConfig);
+    }
     when(abusiveHostRules.getAbusiveHostRulesFor(eq(ABUSIVE_HOST))).thenReturn(Collections.singletonList(new AbusiveHostRule(ABUSIVE_HOST, true, Collections.emptyList())));
     when(abusiveHostRules.getAbusiveHostRulesFor(eq(RESTRICTED_HOST))).thenReturn(Collections.singletonList(new AbusiveHostRule(RESTRICTED_HOST, false, Collections.singletonList("+123"))));
     when(abusiveHostRules.getAbusiveHostRulesFor(eq(NICE_HOST))).thenReturn(Collections.emptyList());
@@ -1274,5 +1293,39 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(204);
     verify(accountsManager).delete(AuthHelper.VALID_ACCOUNT, AccountsManager.DeletionReason.USER_REQUEST);
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void testSignupCaptcha(final String message, final boolean enforced, final Set<String> countryCodes, final int expectedResponseStatusCode) {
+    DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+    when(dynamicConfigurationManager.getConfiguration())
+        .thenReturn(dynamicConfiguration);
+
+    DynamicSignupCaptchaConfiguration signupCaptchaConfig = new DynamicSignupCaptchaConfiguration();
+    signupCaptchaConfig.setCountryCodes(countryCodes);
+    when(dynamicConfiguration.getSignupCaptchaConfiguration())
+        .thenReturn(signupCaptchaConfig);
+
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/accounts/sms/code/%s", SENDER))
+            .queryParam("challenge", "1234-push")
+            .request()
+            .header("X-Forwarded-For", NICE_HOST)
+            .get();
+
+    assertThat(response.getStatus()).isEqualTo(expectedResponseStatusCode);
+
+    verify(smsSender, 200 == expectedResponseStatusCode ? times(1) : never())
+        .deliverSmsVerification(eq(SENDER), eq(Optional.empty()), anyString());
+  }
+
+  static Stream<Arguments> testSignupCaptcha() {
+    return Stream.of(
+        Arguments.of("captcha not enforced", false, Collections.emptySet(), 200),
+        Arguments.of("no enforced country codes", true, Collections.emptySet(), 200),
+        Arguments.of("captcha enforced", true, Set.of("1"), 402)
+    );
   }
 }

@@ -276,4 +276,28 @@ class DynamicConfigurationTest {
       assertEquals(Set.of("44"), config.getAllowedCountryCodes());
     }
   }
+
+  @Test
+  public void testParseSignupCaptchaConfiguration() throws JsonProcessingException {
+    {
+      final String emptyConfigYaml = "test: true";
+      final DynamicConfiguration emptyConfig = DynamicConfigurationManager.OBJECT_MAPPER
+          .readValue(emptyConfigYaml, DynamicConfiguration.class);
+
+      assertTrue(emptyConfig.getSignupCaptchaConfiguration().getCountryCodes().isEmpty());
+    }
+
+    {
+      final String signupCaptchaConfig =
+          "signupCaptcha:\n"
+              + "  countryCodes:\n"
+              + "    - 1";
+
+      final DynamicSignupCaptchaConfiguration config = DynamicConfigurationManager.OBJECT_MAPPER
+          .readValue(signupCaptchaConfig, DynamicConfiguration.class)
+          .getSignupCaptchaConfiguration();
+
+      assertEquals(Set.of("1"), config.getCountryCodes());
+    }
+  }
 }
