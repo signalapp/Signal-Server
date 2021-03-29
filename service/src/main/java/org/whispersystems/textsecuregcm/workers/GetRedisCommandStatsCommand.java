@@ -30,7 +30,7 @@ public class GetRedisCommandStatsCommand extends ConfiguredCommand<WhisperServer
 
         for (final FaultTolerantRedisCluster cluster : List.of(cacheCluster, messagesCacheCluster, metricsCluster)) {
             cluster.useCluster(connection -> connection.sync()
-                    .masters()
+                    .upstream()
                     .commands()
                     .info("commandstats")
                     .asMap()

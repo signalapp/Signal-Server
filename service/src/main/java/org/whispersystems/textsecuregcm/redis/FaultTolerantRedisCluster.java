@@ -5,6 +5,8 @@
 
 package org.whispersystems.textsecuregcm.redis;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
@@ -20,6 +22,13 @@ import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
 import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
 import io.lettuce.core.codec.ByteArrayCodec;
 import io.lettuce.core.resource.ClientResources;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
@@ -28,16 +37,6 @@ import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.ThreadDumpUtil;
-
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
-import static com.codahale.metrics.MetricRegistry.name;
 
 /**
  * A fault-tolerant access manager for a Redis cluster. A fault-tolerant Redis cluster provides managed,

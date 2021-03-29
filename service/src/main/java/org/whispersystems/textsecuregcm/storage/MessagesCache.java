@@ -5,6 +5,8 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.lifecycle.Managed;
@@ -18,15 +20,6 @@ import io.lettuce.core.cluster.pubsub.RedisClusterPubSubAdapter;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
-import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -43,8 +36,14 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
-
-import static com.codahale.metrics.MetricRegistry.name;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
+import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 
 public class MessagesCache extends RedisClusterPubSubAdapter<String, String> implements Managed {
 
@@ -123,7 +122,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
     @Override
     public void stop() {
-        pubSubConnection.usePubSubConnection(connection -> connection.sync().masters().commands().unsubscribe());
+        pubSubConnection.usePubSubConnection(connection -> connection.sync().upstream().commands().unsubscribe());
     }
 
     private void resubscribeAll() {
@@ -372,13 +371,13 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     private void subscribeForKeyspaceNotifications(final String queueName) {
         final int slot = SlotHash.getSlot(queueName);
 
-        pubSubConnection.usePubSubConnection(connection -> connection.sync().nodes(node -> node.is(RedisClusterNode.NodeFlag.MASTER) && node.hasSlot(slot))
+        pubSubConnection.usePubSubConnection(connection -> connection.sync().nodes(node -> node.is(RedisClusterNode.NodeFlag.UPSTREAM) && node.hasSlot(slot))
                                                                      .commands()
                                                                      .subscribe(getKeyspaceChannels(queueName)));
     }
 
     private void unsubscribeFromKeyspaceNotifications(final String queueName) {
-        pubSubConnection.usePubSubConnection(connection -> connection.sync().masters()
+        pubSubConnection.usePubSubConnection(connection -> connection.sync().upstream()
                                                                      .commands()
                                                                      .unsubscribe(getKeyspaceChannels(queueName)));
     }

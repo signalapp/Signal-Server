@@ -5,25 +5,22 @@
 
 package org.whispersystems.textsecuregcm.redis;
 
-import io.lettuce.core.RedisNoScriptException;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.api.sync.RedisCommands;
 import io.lettuce.core.cluster.SlotHash;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
-import org.junit.Test;
-import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
-
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import org.junit.Test;
+import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 
 public class ClusterLuaScriptTest extends AbstractRedisClusterTest {
 
@@ -41,9 +38,9 @@ public class ClusterLuaScriptTest extends AbstractRedisClusterTest {
 
         final int    slot            = SlotHash.getSlot(key);
 
-        final int                           sourcePort          = redisCluster.withCluster(connection -> connection.sync().nodes(node -> node.hasSlot(slot) && node.is(RedisClusterNode.NodeFlag.MASTER)).node(0).getUri().getPort());
-        final RedisCommands<String, String> sourceCommands      = redisCluster.withCluster(connection -> connection.sync().nodes(node -> node.hasSlot(slot) && node.is(RedisClusterNode.NodeFlag.MASTER)).commands(0));
-        final RedisCommands<String, String> destinationCommands = redisCluster.withCluster(connection -> connection.sync().nodes(node -> !node.hasSlot(slot) && node.is(RedisClusterNode.NodeFlag.MASTER)).commands(0));
+        final int                           sourcePort          = redisCluster.withCluster(connection -> connection.sync().nodes(node -> node.hasSlot(slot) && node.is(RedisClusterNode.NodeFlag.UPSTREAM)).node(0).getUri().getPort());
+        final RedisCommands<String, String> sourceCommands      = redisCluster.withCluster(connection -> connection.sync().nodes(node -> node.hasSlot(slot) && node.is(RedisClusterNode.NodeFlag.UPSTREAM)).commands(0));
+        final RedisCommands<String, String> destinationCommands = redisCluster.withCluster(connection -> connection.sync().nodes(node -> !node.hasSlot(slot) && node.is(RedisClusterNode.NodeFlag.UPSTREAM)).commands(0));
 
         destinationCommands.clusterSetSlotImporting(slot, sourceCommands.clusterMyId());
 

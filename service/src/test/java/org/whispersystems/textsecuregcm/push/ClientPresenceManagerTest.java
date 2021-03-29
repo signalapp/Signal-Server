@@ -5,12 +5,11 @@
 
 package org.whispersystems.textsecuregcm.push;
 
-import io.lettuce.core.cluster.event.ClusterTopologyChangedEvent;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
+import io.lettuce.core.cluster.event.ClusterTopologyChangedEvent;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -18,10 +17,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
 
 public class ClientPresenceManagerTest extends AbstractRedisClusterTest {
 
@@ -37,7 +36,7 @@ public class ClientPresenceManagerTest extends AbstractRedisClusterTest {
 
         getRedisCluster().useCluster(connection -> {
             connection.sync().flushall();
-            connection.sync().masters().commands().configSet("notify-keyspace-events", "K$z");
+            connection.sync().upstream().commands().configSet("notify-keyspace-events", "K$z");
         });
 
         presenceRenewalExecutorService = Executors.newSingleThreadScheduledExecutor();
@@ -188,7 +187,7 @@ public class ClientPresenceManagerTest extends AbstractRedisClusterTest {
             addClientPresence(missingPeerId);
         }
 
-        clientPresenceManager.getPubSubConnection().usePubSubConnection(connection -> connection.sync().masters().commands().subscribe(ClientPresenceManager.getManagerPresenceChannel(presentPeerId)));
+        clientPresenceManager.getPubSubConnection().usePubSubConnection(connection -> connection.sync().upstream().commands().subscribe(ClientPresenceManager.getManagerPresenceChannel(presentPeerId)));
         clientPresenceManager.pruneMissingPeers();
 
         assertEquals(1, (long)getRedisCluster().withCluster(connection -> connection.sync().exists(ClientPresenceManager.getConnectedClientSetKey(presentPeerId))));

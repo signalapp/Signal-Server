@@ -5,19 +5,12 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import com.google.protobuf.ByteString;
 import io.lettuce.core.cluster.SlotHash;
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
-import org.apache.commons.lang3.RandomStringUtils;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
-import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
-
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -31,10 +24,15 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
+import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
 
 @RunWith(JUnitParamsRunner.class)
 public class MessagesCacheTest extends AbstractRedisClusterTest {
@@ -53,7 +51,7 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
     public void setUp() throws Exception {
         super.setUp();
 
-        getRedisCluster().useCluster(connection -> connection.sync().masters().commands().configSet("notify-keyspace-events", "Klgz"));
+        getRedisCluster().useCluster(connection -> connection.sync().upstream().commands().configSet("notify-keyspace-events", "Klgz"));
 
         notificationExecutorService = Executors.newSingleThreadExecutor();
         messagesCache               = new MessagesCache(getRedisCluster(), getRedisCluster(), notificationExecutorService);
