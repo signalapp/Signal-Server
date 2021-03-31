@@ -35,7 +35,7 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 public class RetryingApnsClient {
 
-  private static final String APNS_CA_FILENAME = "AAACertificateServices.crt";
+  private static final String APNS_CA_FILENAME = "apns-certificates.pem";
   private static final Logger logger = LoggerFactory.getLogger(RetryingApnsClient.class);
 
   private final ApnsClient apnsClient;
