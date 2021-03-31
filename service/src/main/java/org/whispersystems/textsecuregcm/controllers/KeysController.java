@@ -8,6 +8,8 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -24,7 +26,6 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import io.micrometer.core.instrument.Metrics;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
@@ -56,6 +57,7 @@ public class KeysController {
       name(KeysController.class, "internationalPreKeyGet");
 
   private static final String SOURCE_COUNTRY_TAG_NAME = "sourceCountry";
+  private static final String PREKEY_TARGET_IDENTIFIER_TAG_NAME =  "identifierType";
 
   public KeysController(RateLimiters rateLimiters, KeysDynamoDb keysDynamoDb, AccountsManager accounts, DirectoryQueue directoryQueue) {
     this.rateLimiters                = rateLimiters;
@@ -132,7 +134,9 @@ public class KeysController {
       final String targetCountryCode = Util.getCountryCode(target.get().getNumber());
 
       if (!accountCountryCode.equals(targetCountryCode)) {
-        Metrics.counter(INTERNATIONAL_PREKEY_REQUEST_COUNTER_NAME, SOURCE_COUNTRY_TAG_NAME, accountCountryCode)
+        final Tags tags = Tags.of(SOURCE_COUNTRY_TAG_NAME, accountCountryCode)
+            .and(PREKEY_TARGET_IDENTIFIER_TAG_NAME, targetName.hasNumber() ? "number" : "uuid");
+        Metrics.counter(INTERNATIONAL_PREKEY_REQUEST_COUNTER_NAME, tags)
             .increment();
       }
     }
