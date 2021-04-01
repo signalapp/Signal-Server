@@ -17,7 +17,6 @@ import com.google.protobuf.ByteString;
 import io.dropwizard.auth.Auth;
 import io.dropwizard.util.DataSize;
 import io.lettuce.core.ScriptOutputType;
-import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import java.io.IOException;
@@ -99,7 +98,6 @@ public class MessageController {
   private final MessagesManager             messagesManager;
   private final ApnFallbackManager          apnFallbackManager;
   private final DynamicConfigurationManager dynamicConfigurationManager;
-  private final FaultTolerantRedisCluster   metricsCluster;
   private final ScheduledExecutorService    receiptExecutorService;
 
   private final Random random = new Random();
@@ -109,7 +107,6 @@ public class MessageController {
   private static final String SENT_MESSAGE_COUNTER_NAME                          = name(MessageController.class, "sentMessages");
   private static final String REJECT_UNSEALED_SENDER_COUNTER_NAME                = name(MessageController.class, "rejectUnsealedSenderLimit");
   private static final String INTERNATIONAL_UNSEALED_SENDER_COUNTER_NAME         = name(MessageController.class, "internationalUnsealedSender");
-  private static final String UNSEALED_SENDER_ACCOUNT_AGE_DISTRIBUTION_NAME      = name(MessageController.class, "unsealedSenderAccountAge");
   private static final String UNSEALED_SENDER_WITHOUT_PUSH_TOKEN_COUNTER_NAME    = name(MessageController.class, "unsealedSenderWithoutPushToken");
   private static final String DECLINED_DELIVERY_COUNTER                          = name(MessageController.class, "declinedDelivery");
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME                     = name(MessageController.class, "messageContentSize");
@@ -120,8 +117,6 @@ public class MessageController {
   private static final String SENDER_COUNTRY_TAG_NAME = "senderCountry";
 
   private static final long MAX_MESSAGE_SIZE = DataSize.kibibytes(256).toBytes();
-
-  private static final String SENT_FIRST_UNSEALED_SENDER_MESSAGE_KEY = "sent_first_unsealed_sender_message";
 
   public MessageController(RateLimiters rateLimiters,
                            MessageSender messageSender,
@@ -140,7 +135,6 @@ public class MessageController {
     this.messagesManager             = messagesManager;
     this.apnFallbackManager          = apnFallbackManager;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
-    this.metricsCluster              = metricsCluster;
     this.receiptExecutorService      = receiptExecutorService;
 
     try {
@@ -177,24 +171,6 @@ public class MessageController {
       if (StringUtils.isAllBlank(masterDevice.getApnId(), masterDevice.getVoipApnId(), masterDevice.getGcmId()) || masterDevice.getUninstalledFeedbackTimestamp() > 0) {
         Metrics.counter(UNSEALED_SENDER_WITHOUT_PUSH_TOKEN_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, senderCountryCode).increment();
       }
-
-      RedisOperation.unchecked(() -> {
-        metricsCluster.useCluster(connection -> {
-          if (connection.sync().pfadd(SENT_FIRST_UNSEALED_SENDER_MESSAGE_KEY, source.get().getUuid().toString()) == 1) {
-            final List<Tag> tags = List.of(
-                UserAgentTagUtil.getPlatformTag(userAgent),
-                Tag.of(SENDER_COUNTRY_TAG_NAME, senderCountryCode));
-
-            final long accountAge = System.currentTimeMillis() - masterDevice.getCreated();
-
-            DistributionSummary.builder(UNSEALED_SENDER_ACCOUNT_AGE_DISTRIBUTION_NAME)
-                .tags(tags)
-                .publishPercentileHistogram()
-                .register(Metrics.globalRegistry)
-                .record(accountAge);
-          }
-        });
-      });
 
       if (dynamicConfigurationManager.getConfiguration().getMessageRateConfiguration().getRateLimitedCountryCodes().contains(senderCountryCode)) {
         try {
