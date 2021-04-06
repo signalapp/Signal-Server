@@ -5,16 +5,15 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import org.whispersystems.textsecuregcm.storage.mappers.RemoteConfigRowMapper;
-import org.whispersystems.textsecuregcm.util.Constants;
-
 import java.util.List;
 import java.util.UUID;
-
-import static com.codahale.metrics.MetricRegistry.name;
+import org.whispersystems.textsecuregcm.storage.mappers.RemoteConfigRowMapper;
+import org.whispersystems.textsecuregcm.util.Constants;
 
 public class RemoteConfigs {
 
@@ -27,9 +26,9 @@ public class RemoteConfigs {
   public static final String HASH_KEY      = "hash_key";
 
   private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private final Timer          setTimer       = metricRegistry.timer(name(Accounts.class, "set"   ));
-  private final Timer          getAllTimer    = metricRegistry.timer(name(Accounts.class, "getAll"));
-  private final Timer          deleteTimer    = metricRegistry.timer(name(Accounts.class, "delete"));
+  private final Timer          setTimer       = metricRegistry.timer(name(RemoteConfigs.class, "set"   ));
+  private final Timer          getAllTimer    = metricRegistry.timer(name(RemoteConfigs.class, "getAll"));
+  private final Timer          deleteTimer    = metricRegistry.timer(name(RemoteConfigs.class, "delete"));
 
   private final FaultTolerantDatabase database;
 
