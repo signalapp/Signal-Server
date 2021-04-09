@@ -1,3 +1,8 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.storage.mappers;
 
 import org.jdbi.v3.core.mapper.RowMapper;
@@ -16,6 +21,11 @@ public class RemoteConfigRowMapper implements RowMapper<RemoteConfig> {
 
   @Override
   public RemoteConfig map(ResultSet rs, StatementContext ctx) throws SQLException {
-    return new RemoteConfig(rs.getString(RemoteConfigs.NAME), rs.getInt(RemoteConfigs.PERCENTAGE), new HashSet<>(Arrays.asList((UUID[])rs.getArray(RemoteConfigs.UUIDS).getArray())));
+    return new RemoteConfig(rs.getString(RemoteConfigs.NAME),
+                            rs.getInt(RemoteConfigs.PERCENTAGE),
+                            new HashSet<>(Arrays.asList((UUID[])rs.getArray(RemoteConfigs.UUIDS).getArray())),
+                            rs.getString(RemoteConfigs.DEFAULT_VALUE),
+                            rs.getString(RemoteConfigs.VALUE),
+                            rs.getString(RemoteConfigs.HASH_KEY));
   }
 }

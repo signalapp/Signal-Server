@@ -1,67 +1,27 @@
 /*
- * Copyright (C) 2013 Open WhisperSystems
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.controllers;
+
+import static com.codahale.metrics.MetricRegistry.name;
 
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
-import org.whispersystems.textsecuregcm.auth.AuthorizationHeader;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
-import org.whispersystems.textsecuregcm.auth.InvalidAuthorizationHeaderException;
-import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
-import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
-import org.whispersystems.textsecuregcm.auth.TurnToken;
-import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
-import org.whispersystems.textsecuregcm.entities.AccountAttributes;
-import org.whispersystems.textsecuregcm.entities.AccountCreationResult;
-import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
-import org.whispersystems.textsecuregcm.entities.DeprecatedPin;
-import org.whispersystems.textsecuregcm.entities.DeviceName;
-import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
-import org.whispersystems.textsecuregcm.entities.RegistrationLock;
-import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
-import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.push.APNSender;
-import org.whispersystems.textsecuregcm.push.ApnMessage;
-import org.whispersystems.textsecuregcm.push.GCMSender;
-import org.whispersystems.textsecuregcm.push.GcmMessage;
-import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
-import org.whispersystems.textsecuregcm.sms.SmsSender;
-import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
-import org.whispersystems.textsecuregcm.storage.AbusiveHostRule;
-import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
-import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.MessagesManager;
-import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
-import org.whispersystems.textsecuregcm.storage.UsernamesManager;
-import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.Hex;
-import org.whispersystems.textsecuregcm.util.Util;
-import org.whispersystems.textsecuregcm.util.VerificationCode;
-
+import io.dropwizard.auth.Auth;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import javax.validation.Valid;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -75,15 +35,50 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import java.security.SecureRandom;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-
-import static com.codahale.metrics.MetricRegistry.name;
-import io.dropwizard.auth.Auth;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
+import org.whispersystems.textsecuregcm.auth.AuthorizationHeader;
+import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
+import org.whispersystems.textsecuregcm.auth.InvalidAuthorizationHeaderException;
+import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
+import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
+import org.whispersystems.textsecuregcm.auth.TurnToken;
+import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicSignupCaptchaConfiguration;
+import org.whispersystems.textsecuregcm.entities.AccountAttributes;
+import org.whispersystems.textsecuregcm.entities.AccountCreationResult;
+import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
+import org.whispersystems.textsecuregcm.entities.DeprecatedPin;
+import org.whispersystems.textsecuregcm.entities.DeviceName;
+import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
+import org.whispersystems.textsecuregcm.entities.RegistrationLock;
+import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
+import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
+import org.whispersystems.textsecuregcm.push.APNSender;
+import org.whispersystems.textsecuregcm.push.ApnMessage;
+import org.whispersystems.textsecuregcm.push.GCMSender;
+import org.whispersystems.textsecuregcm.push.GcmMessage;
+import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
+import org.whispersystems.textsecuregcm.sms.SmsSender;
+import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
+import org.whispersystems.textsecuregcm.storage.AbusiveHostRule;
+import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
+import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
+import org.whispersystems.textsecuregcm.storage.UsernamesManager;
+import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.ForwardedIpUtil;
+import org.whispersystems.textsecuregcm.util.Hex;
+import org.whispersystems.textsecuregcm.util.Util;
+import org.whispersystems.textsecuregcm.util.VerificationCode;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/accounts")
@@ -96,9 +91,18 @@ public class AccountController {
   private final Meter          filteredHostMeter      = metricRegistry.meter(name(AccountController.class, "filtered_host"      ));
   private final Meter          rateLimitedHostMeter   = metricRegistry.meter(name(AccountController.class, "rate_limited_host"  ));
   private final Meter          rateLimitedPrefixMeter = metricRegistry.meter(name(AccountController.class, "rate_limited_prefix"));
+  private final Meter          captchaRequiredMeter   = metricRegistry.meter(name(AccountController.class, "captcha_required"   ));
   private final Meter          captchaSuccessMeter    = metricRegistry.meter(name(AccountController.class, "captcha_success"    ));
   private final Meter          captchaFailureMeter    = metricRegistry.meter(name(AccountController.class, "captcha_failure"    ));
 
+  private static final String PUSH_CHALLENGE_COUNTER_NAME = name(AccountController.class, "pushChallenge");
+  private static final String ACCOUNT_CREATE_COUNTER_NAME = name(AccountController.class, "create");
+  private static final String ACCOUNT_VERIFY_COUNTER_NAME = name(AccountController.class, "verify");
+
+  private static final String CHALLENGE_PRESENT_TAG_NAME = "present";
+  private static final String CHALLENGE_MATCH_TAG_NAME = "matches";
+  private static final String COUNTRY_CODE_TAG_NAME = "countryCode";
+  private static final String VERFICATION_TRANSPORT_TAG_NAME = "transport";
 
   private final PendingAccountsManager             pendingAccounts;
   private final AccountsManager                    accounts;
@@ -108,6 +112,7 @@ public class AccountController {
   private final SmsSender                          smsSender;
   private final DirectoryQueue                     directoryQueue;
   private final MessagesManager                    messagesManager;
+  private final DynamicConfigurationManager        dynamicConfigurationManager;
   private final TurnTokenGenerator                 turnTokenGenerator;
   private final Map<String, Integer>               testDevices;
   private final RecaptchaClient                    recaptchaClient;
@@ -123,6 +128,7 @@ public class AccountController {
                            SmsSender smsSenderFactory,
                            DirectoryQueue directoryQueue,
                            MessagesManager messagesManager,
+                           DynamicConfigurationManager dynamicConfigurationManager,
                            TurnTokenGenerator turnTokenGenerator,
                            Map<String, Integer> testDevices,
                            RecaptchaClient recaptchaClient,
@@ -138,6 +144,7 @@ public class AccountController {
     this.smsSender                         = smsSenderFactory;
     this.directoryQueue                    = directoryQueue;
     this.messagesManager                   = messagesManager;
+    this.dynamicConfigurationManager       = dynamicConfigurationManager;
     this.testDevices                       = testDevices;
     this.turnTokenGenerator                = turnTokenGenerator;
     this.recaptchaClient                   = recaptchaClient;
@@ -185,26 +192,30 @@ public class AccountController {
   public Response createAccount(@PathParam("transport")         String transport,
                                 @PathParam("number")            String number,
                                 @HeaderParam("X-Forwarded-For") String forwardedFor,
-                                @HeaderParam("Accept-Language") Optional<String> locale,
+                                @HeaderParam("User-Agent")      String userAgent,
+                                @HeaderParam("Accept-Language") Optional<String> acceptLanguage,
                                 @QueryParam("client")           Optional<String> client,
                                 @QueryParam("captcha")          Optional<String> captcha,
                                 @QueryParam("challenge")        Optional<String> pushChallenge)
-      throws RateLimitExceededException
+      throws RateLimitExceededException, RetryLaterException
   {
     if (!Util.isValidNumber(number)) {
       logger.info("Invalid number: " + number);
       throw new WebApplicationException(Response.status(400).build());
     }
 
-    String requester = Arrays.stream(forwardedFor.split(","))
-                             .map(String::trim)
-                             .reduce((a, b) -> b)
-                             .orElseThrow();
+    if (number.startsWith("+98")) {
+      transport = "voice";
+    }
+
+    String requester = ForwardedIpUtil.getMostRecentProxy(forwardedFor).orElseThrow();
 
     Optional<StoredVerificationCode> storedChallenge = pendingAccounts.getCodeForNumber(number);
     CaptchaRequirement               requirement     = requiresCaptcha(number, transport, forwardedFor, requester, captcha, storedChallenge, pushChallenge);
 
     if (requirement.isCaptchaRequired()) {
+      captchaRequiredMeter.mark();
+
       if (requirement.isAutoBlock() && shouldAutoBlock(requester)) {
         logger.info("Auto-block: " + requester);
         abusiveHostRules.setBlockedHost(requester, "Auto-Block");
@@ -213,16 +224,24 @@ public class AccountController {
       return Response.status(402).build();
     }
 
-    switch (transport) {
-      case "sms":
-        rateLimiters.getSmsDestinationLimiter().validate(number);
-        break;
-      case "voice":
-        rateLimiters.getVoiceDestinationLimiter().validate(number);
-        rateLimiters.getVoiceDestinationDailyLimiter().validate(number);
-        break;
-      default:
-        throw new WebApplicationException(Response.status(422).build());
+    try {
+      switch (transport) {
+        case "sms":
+          rateLimiters.getSmsDestinationLimiter().validate(number);
+          break;
+        case "voice":
+          rateLimiters.getVoiceDestinationLimiter().validate(number);
+          rateLimiters.getVoiceDestinationDailyLimiter().validate(number);
+          break;
+        default:
+          throw new WebApplicationException(Response.status(422).build());
+      }
+    } catch (RateLimitExceededException e) {
+      if (!e.getRetryDuration().isNegative()) {
+        throw new RetryLaterException(e);
+      } else {
+        throw e;
+      }
     }
 
     VerificationCode       verificationCode       = generateVerificationCode(number);
@@ -237,10 +256,27 @@ public class AccountController {
     } else if (transport.equals("sms")) {
       smsSender.deliverSmsVerification(number, client, verificationCode.getVerificationCodeDisplay());
     } else if (transport.equals("voice")) {
-      smsSender.deliverVoxVerification(number, verificationCode.getVerificationCode(), locale);
+      final List<Locale.LanguageRange> languageRanges;
+
+      try {
+        languageRanges = acceptLanguage.map(Locale.LanguageRange::parse).orElse(Collections.emptyList());
+      } catch (final IllegalArgumentException e) {
+        return Response.status(400).build();
+      }
+
+      smsSender.deliverVoxVerification(number, verificationCode.getVerificationCode(), languageRanges);
     }
 
     metricRegistry.meter(name(AccountController.class, "create", Util.getCountryCode(number))).mark();
+
+    {
+      final List<Tag> tags = new ArrayList<>();
+      tags.add(Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)));
+      tags.add(Tag.of(VERFICATION_TRANSPORT_TAG_NAME, transport));
+      tags.add(UserAgentTagUtil.getPlatformTag(userAgent));
+
+      Metrics.counter(ACCOUNT_CREATE_COUNTER_NAME, tags).increment();
+    }
 
     return Response.ok().build();
   }
@@ -252,7 +288,9 @@ public class AccountController {
   @Path("/code/{verification_code}")
   public AccountCreationResult verifyAccount(@PathParam("verification_code") String verificationCode,
                                              @HeaderParam("Authorization")   String authorizationHeader,
-                                             @HeaderParam("X-Signal-Agent")  String userAgent,
+                                             @HeaderParam("X-Signal-Agent")  String signalAgent,
+                                             @HeaderParam("User-Agent")      String userAgent,
+                                             @QueryParam("transfer")         Optional<Boolean> availableForTransfer,
                                              @Valid                          AccountAttributes accountAttributes)
       throws RateLimitExceededException
   {
@@ -295,9 +333,21 @@ public class AccountController {
         rateLimiters.getPinLimiter().clear(number);
       }
 
-      Account account = createAccount(number, password, userAgent, accountAttributes);
+      if (availableForTransfer.orElse(false) && existingAccount.map(Account::isTransferSupported).orElse(false)) {
+        throw new WebApplicationException(Response.status(409).build());
+      }
 
-      metricRegistry.meter(name(AccountController.class, "verify", Util.getCountryCode(number))).mark();
+      Account account = createAccount(number, password, signalAgent, accountAttributes);
+
+      {
+        metricRegistry.meter(name(AccountController.class, "verify", Util.getCountryCode(number))).mark();
+
+        final List<Tag> tags = new ArrayList<>();
+        tags.add(Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)));
+        tags.add(UserAgentTagUtil.getPlatformTag(userAgent));
+
+        Metrics.counter(ACCOUNT_VERIFY_COUNTER_NAME, tags).increment();
+      }
 
       return new AccountCreationResult(account.getUuid(), existingAccount.map(Account::isStorageSupported).orElse(false));
     } catch (InvalidAuthorizationHeaderException e) {
@@ -338,7 +388,7 @@ public class AccountController {
     accounts.update(account);
 
     if (!wasAccountEnabled && account.isEnabled()) {
-      directoryQueue.addRegisteredUser(account.getUuid(), account.getNumber());
+      directoryQueue.refreshRegisteredUser(account);
     }
   }
 
@@ -350,12 +400,10 @@ public class AccountController {
     Device  device  = account.getAuthenticatedDevice().get();
     device.setGcmId(null);
     device.setFetchesMessages(false);
+    device.setUserAgent("OWA");
 
     accounts.update(account);
-
-    if (!account.isEnabled()) {
-      directoryQueue.deleteRegisteredUser(account.getUuid(), account.getNumber());
-    }
+    directoryQueue.refreshRegisteredUser(account);
   }
 
   @Timed
@@ -374,7 +422,7 @@ public class AccountController {
     accounts.update(account);
 
     if (!wasAccountEnabled && account.isEnabled()) {
-      directoryQueue.addRegisteredUser(account.getUuid(), account.getNumber());
+      directoryQueue.refreshRegisteredUser(account);
     }
   }
 
@@ -386,12 +434,14 @@ public class AccountController {
     Device  device  = account.getAuthenticatedDevice().get();
     device.setApnId(null);
     device.setFetchesMessages(false);
+    if (device.getId() == 1) {
+      device.setUserAgent("OWI");
+    } else {
+      device.setUserAgent("OWP");
+    }
 
     accounts.update(account);
-
-    if (!account.isEnabled()) {
-      directoryQueue.deleteRegisteredUser(account.getUuid(), account.getNumber());
-    }
+    directoryQueue.refreshRegisteredUser(account);
   }
 
   @Timed
@@ -446,9 +496,6 @@ public class AccountController {
   @DELETE
   @Path("/signaling_key")
   public void removeSignalingKey(@Auth DisabledPermittedAccount disabledPermittedAccount) {
-    Account account = disabledPermittedAccount.getAccount();
-    account.getAuthenticatedDevice().get().setSignalingKey(null);
-    accounts.update(account);
   }
 
   @Timed
@@ -467,16 +514,30 @@ public class AccountController {
     device.setLastSeen(Util.todayInMillis());
     device.setCapabilities(attributes.getCapabilities());
     device.setRegistrationId(attributes.getRegistrationId());
-    device.setSignalingKey(attributes.getSignalingKey());
     device.setUserAgent(userAgent);
 
     setAccountRegistrationLockFromAttributes(account, attributes);
 
+    final boolean hasDiscoverabilityChange = (account.isDiscoverableByPhoneNumber() != attributes.isDiscoverableByPhoneNumber());
+
     account.setUnidentifiedAccessKey(attributes.getUnidentifiedAccessKey());
     account.setUnrestrictedUnidentifiedAccess(attributes.isUnrestrictedUnidentifiedAccess());
+    account.setDiscoverableByPhoneNumber(attributes.isDiscoverableByPhoneNumber());
 
     accounts.update(account);
+
+    if (hasDiscoverabilityChange) {
+      directoryQueue.refreshRegisteredUser(account);
+    }
   }
+
+  @GET
+  @Path("/me")
+  @Produces(MediaType.APPLICATION_JSON)
+  public AccountCreationResult getMe(@Auth Account account) {
+    return whoAmI(account);
+  }
+
   @GET
   @Path("/whoami")
   @Produces(MediaType.APPLICATION_JSON)
@@ -533,11 +594,30 @@ public class AccountController {
       }
     }
 
-    if (pushChallenge.isPresent()) {
-      Optional<String> storedPushChallenge = storedVerificationCode.map(StoredVerificationCode::getPushCode);
+    final String countryCode = Util.getCountryCode(number);
+    {
+      final List<Tag> tags = new ArrayList<>();
+      tags.add(Tag.of(COUNTRY_CODE_TAG_NAME, countryCode));
 
-      if (!pushChallenge.get().equals(storedPushChallenge.orElse(null))) {
-        return new CaptchaRequirement(true, false);
+      try {
+        if (pushChallenge.isPresent()) {
+          tags.add(Tag.of(CHALLENGE_PRESENT_TAG_NAME, "true"));
+
+          Optional<String> storedPushChallenge = storedVerificationCode.map(StoredVerificationCode::getPushCode);
+
+          if (!pushChallenge.get().equals(storedPushChallenge.orElse(null))) {
+            tags.add(Tag.of(CHALLENGE_MATCH_TAG_NAME, "false"));
+            return new CaptchaRequirement(true, false);
+          } else {
+            tags.add(Tag.of(CHALLENGE_MATCH_TAG_NAME, "true"));
+          }
+        } else {
+          tags.add(Tag.of(CHALLENGE_PRESENT_TAG_NAME, "false"));
+
+          return new CaptchaRequirement(true, false);
+        }
+      } finally {
+        Metrics.counter(PUSH_CHALLENGE_COUNTER_NAME, tags).increment();
       }
     }
 
@@ -575,7 +655,19 @@ public class AccountController {
       return new CaptchaRequirement(true, true);
     }
 
+    DynamicSignupCaptchaConfiguration signupCaptchaConfig = dynamicConfigurationManager.getConfiguration().getSignupCaptchaConfiguration();
+    if (signupCaptchaConfig.getCountryCodes().contains(countryCode)) {
+      return new CaptchaRequirement(true, false);
+    }
+
     return new CaptchaRequirement(false, false);
+  }
+
+  @Timed
+  @DELETE
+  @Path("/me")
+  public void deleteAccount(@Auth Account account) {
+    accounts.delete(account, AccountsManager.DeletionReason.USER_REQUEST);
   }
 
   private boolean shouldAutoBlock(String requester) {
@@ -588,18 +680,19 @@ public class AccountController {
     return false;
   }
 
-  private Account createAccount(String number, String password, String userAgent, AccountAttributes accountAttributes) {
+  private Account createAccount(String number, String password, String signalAgent, AccountAttributes accountAttributes) {
+    Optional<Account> maybeExistingAccount = accounts.get(number);
+
     Device device = new Device();
     device.setId(Device.MASTER_ID);
     device.setAuthenticationCredentials(new AuthenticationCredentials(password));
-    device.setSignalingKey(accountAttributes.getSignalingKey());
     device.setFetchesMessages(accountAttributes.getFetchesMessages());
     device.setRegistrationId(accountAttributes.getRegistrationId());
     device.setName(accountAttributes.getName());
     device.setCapabilities(accountAttributes.getCapabilities());
     device.setCreated(System.currentTimeMillis());
     device.setLastSeen(Util.todayInMillis());
-    device.setUserAgent(userAgent);
+    device.setUserAgent(signalAgent);
 
     Account account = new Account();
     account.setNumber(number);
@@ -608,18 +701,14 @@ public class AccountController {
     setAccountRegistrationLockFromAttributes(account, accountAttributes);
     account.setUnidentifiedAccessKey(accountAttributes.getUnidentifiedAccessKey());
     account.setUnrestrictedUnidentifiedAccess(accountAttributes.isUnrestrictedUnidentifiedAccess());
+    account.setDiscoverableByPhoneNumber(accountAttributes.isDiscoverableByPhoneNumber());
 
     if (accounts.create(account)) {
       newUserMeter.mark();
     }
 
-    if (account.isEnabled()) {
-      directoryQueue.addRegisteredUser(account.getUuid(), number);
-    } else {
-      directoryQueue.deleteRegisteredUser(account.getUuid(), number);
-    }
-
-    messagesManager.clear(number);
+    directoryQueue.refreshRegisteredUser(account);
+    maybeExistingAccount.ifPresent(definitelyExistingAccount -> messagesManager.clear(definitelyExistingAccount.getUuid()));
     pendingAccounts.remove(number);
 
     return account;

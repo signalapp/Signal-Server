@@ -1,3 +1,7 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
 package org.whispersystems.gcm.server;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
@@ -7,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.squareup.okhttp.mockwebserver.MockResponse;
 import com.squareup.okhttp.mockwebserver.RecordedRequest;
 import com.squareup.okhttp.mockwebserver.rule.MockWebServerRule;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 
@@ -143,6 +148,7 @@ public class SenderTest {
   }
 
   @Test
+  @Ignore
   public void testNetworkError() throws TimeoutException, InterruptedException, IOException {
     MockResponse response = new MockResponse().setResponseCode(200)
                                               .setBody(fixture("fixtures/response-success.json"));

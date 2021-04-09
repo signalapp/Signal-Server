@@ -1,34 +1,26 @@
-/**
- * Copyright (C) 2013 Open WhisperSystems
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.hibernate.validator.constraints.NotEmpty;
+import javax.validation.constraints.NotEmpty;
 
 
 public class ApnConfiguration {
 
   @NotEmpty
   @JsonProperty
-  private String pushCertificate;
+  private String teamId;
 
   @NotEmpty
   @JsonProperty
-  private String pushKey;
+  private String keyId;
+
+  @NotEmpty
+  @JsonProperty
+  private String signingKey;
 
   @NotEmpty
   @JsonProperty
@@ -37,12 +29,16 @@ public class ApnConfiguration {
   @JsonProperty
   private boolean sandbox = false;
 
-  public String getPushCertificate() {
-    return pushCertificate;
+  public String getTeamId() {
+    return teamId;
   }
 
-  public String getPushKey() {
-    return pushKey;
+  public String getKeyId() {
+    return keyId;
+  }
+
+  public String getSigningKey() {
+    return signingKey;
   }
 
   public String getBundleId() {

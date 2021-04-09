@@ -1,14 +1,14 @@
 twilio: # Twilio gateway configuration
   accountId: 
   accountToken: 
-  numbers: # Numbers allocated in Twilio
-    - # First number
-    - # Second number
-    - # Third number
-    - # ...
-    - # Nth number
-  messagingServicesId: 
+  nanpaMessagingServiceSid: # Twilio SID for the messaging service to use for NANPA.
+  messagingServiceSid: # Twilio SID for the message service to use for non-NANPA.
   localDomain: # Domain Twilio can connect back to for calls. Should be domain of your service.
+  iosVerificationText: # Text to use for the verification message on iOS. Will be passed to String.format with the verification code as argument 1.
+  androidNgVerificationText: # Text to use for the verification message on android-ng client types. Will be passed to String.format with the verification code as argument 1.
+  android202001VerificationText: # Text to use for the verification message on android-2020-01 client types. Will be passed to String.format with the verification code as argument 1.
+  android202103VerificationText: # Text to use for the verification message on android-2021-03 client types. Will be passed to String.format with the verification code as argument 1.
+  genericVerificationText: # Text to use when the client type is unrecognized. Will be passed to String.format with the verification code as argument 1.
 
 push:
   queueSize: # Size of push pending queue
@@ -24,14 +24,11 @@ turn: # TURN server configuration
     - turn:yourdomain:443?transport=udp
     - turn:etc.com:80?transport=udp
 
-cache: # Redis server configuration for cache cluster
-  url:
-  replicaUrls:
+cacheCluster: # Redis server configuration for cache cluster
+  urls:
+    - redis://redis.example.com:6379/
 
 directory:
-  redis: # Redis server configuration for directory cluster
-    url:
-    replicaUrls:
   client: # Configuration for interfacing with Contact Discovery Service cluster
     userAuthenticationTokenSharedSecret: # hex-encoded secret shared with CDS used to generate auth tokens for Signal users
     userAuthenticationTokenUserIdSecret: # hex-encoded secret shared among Signal-Servers to obscure user phone numbers from CDS
@@ -47,14 +44,21 @@ directory:
     reconciliationChunkIntervalMs: # CDS reconciliation chunk interval, in milliseconds
 
 messageCache: # Redis server configuration for message store cache
-  url:
-  replicaUrls:
+  persistDelayMinutes:
+
+  cluster:
+    urls:
+      - redis://redis.example.com:6379/
 
 messageStore: # Postgresql database configuration for message store
   driverClass: org.postgresql.Driver
   user:
   password:
   url:
+
+metricsCluster:
+  urls:
+    - redis://redis.example.com:6379/
 
 awsAttachments: # AWS S3 configuration
   accessKey:
@@ -82,10 +86,29 @@ database: # Postgresql database configuration
   url:
 
 apn: # Apple Push Notifications configuration
+  sandbox: true
   bundleId:
-  pushCertificate:
-  pushKey:
+  keyId:
+  teamId:
+  signingKey:
 
 gcm: # GCM Configuration
   senderId:
   apiKey:
+
+micrometer: # Micrometer metrics config
+  - name: "example"
+  - uri: "https://metrics.example.com/"
+  - apiKey:
+  - accountId:
+
+remoteConfig:
+  authorizedTokens:
+    - # 1st authorized token
+    - # 2nd authorized token
+    - # ...
+    - # Nth authorized token
+  globalConfig: # keys and values that are given to clients on GET /v1/config
+
+paymentService:
+  userAuthenticationTokenSharedSecret: # hex-encoded 32-byte secret shared with MobileCoin services used to generate auth tokens for Signal users

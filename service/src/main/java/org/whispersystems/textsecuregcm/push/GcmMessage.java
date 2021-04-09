@@ -1,3 +1,8 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.push;
 
 
@@ -7,7 +12,7 @@ import java.util.Optional;
 public class GcmMessage {
 
   public enum Type {
-    RECEIPT, NOTIFICATION, CHALLENGE
+    NOTIFICATION, CHALLENGE
   }
 
   private final String           gcmId;

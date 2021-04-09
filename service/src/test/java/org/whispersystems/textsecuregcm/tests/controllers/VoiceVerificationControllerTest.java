@@ -1,3 +1,8 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.tests.controllers;
 
 import com.google.common.collect.ImmutableSet;
@@ -70,6 +75,20 @@ public class VoiceVerificationControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.readEntity(String.class)).isXmlEqualTo(FixtureHelpers.fixture("fixtures/voice_verification_en_us.xml"));
+  }
+
+  @Test
+  public void testTwimlMultipleLocales() {
+    Response response =
+        resources.getJerseyTest()
+            .target("/v1/voice/description/123456")
+            .queryParam("l", "es-MX")
+            .queryParam("l", "ru-RU")
+            .request()
+            .post(null);
+
+    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.readEntity(String.class)).isXmlEqualTo(FixtureHelpers.fixture("fixtures/voice_verification_ru.xml"));
   }
 
   @Test

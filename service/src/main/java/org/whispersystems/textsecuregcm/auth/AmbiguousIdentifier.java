@@ -1,3 +1,8 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.auth;
 
 import java.util.UUID;
@@ -31,5 +36,10 @@ public class AmbiguousIdentifier {
 
   public boolean hasNumber() {
     return number != null;
+  }
+
+  @Override
+  public String toString() {
+    return hasUuid() ? uuid.toString() : number;
   }
 }

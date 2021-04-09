@@ -1,23 +1,42 @@
 /*
- * Copyright (C) 2013 Open WhisperSystems
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.whispersystems.textsecuregcm.configuration.*;
+import io.dropwizard.Configuration;
+import io.dropwizard.client.JerseyClientConfiguration;
+import org.whispersystems.textsecuregcm.configuration.AccountDatabaseCrawlerConfiguration;
+import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
+import org.whispersystems.textsecuregcm.configuration.AppConfigConfiguration;
+import org.whispersystems.textsecuregcm.configuration.AwsAttachmentsConfiguration;
+import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
+import org.whispersystems.textsecuregcm.configuration.DatabaseConfiguration;
+import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
+import org.whispersystems.textsecuregcm.configuration.DynamoDbConfiguration;
+import org.whispersystems.textsecuregcm.configuration.GcmConfiguration;
+import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguration;
+import org.whispersystems.textsecuregcm.configuration.AccountsDatabaseConfiguration;
+import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
+import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
+import org.whispersystems.textsecuregcm.configuration.MessageDynamoDbConfiguration;
+import org.whispersystems.textsecuregcm.configuration.MicrometerConfiguration;
+import org.whispersystems.textsecuregcm.configuration.PaymentsServiceConfiguration;
+import org.whispersystems.textsecuregcm.configuration.PushConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RecaptchaConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RedisClusterConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RedisConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RemoteConfigConfiguration;
+import org.whispersystems.textsecuregcm.configuration.SecureBackupServiceConfiguration;
+import org.whispersystems.textsecuregcm.configuration.SecureStorageServiceConfiguration;
+import org.whispersystems.textsecuregcm.configuration.TestDeviceConfiguration;
+import org.whispersystems.textsecuregcm.configuration.TurnConfiguration;
+import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
+import org.whispersystems.textsecuregcm.configuration.UnidentifiedDeliveryConfiguration;
+import org.whispersystems.textsecuregcm.configuration.VoiceVerificationConfiguration;
+import org.whispersystems.textsecuregcm.configuration.ZkConfig;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 
 import javax.validation.Valid;
@@ -26,9 +45,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-
-import io.dropwizard.Configuration;
-import io.dropwizard.client.JerseyClientConfiguration;
 
 /** @noinspection MismatchedQueryAndUpdateOfCollection, WeakerAccess */
 public class WhisperServerConfiguration extends Configuration {
@@ -61,12 +77,22 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
-  private RedisConfiguration cache;
+  private MicrometerConfiguration micrometer;
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private RedisClusterConfiguration cacheCluster;
 
   @NotNull
   @Valid
   @JsonProperty
   private RedisConfiguration pubsub;
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private RedisClusterConfiguration metricsCluster;
 
   @NotNull
   @Valid
@@ -81,17 +107,27 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
-  private RedisConfiguration pushScheduler;
+  private RedisClusterConfiguration pushSchedulerCluster;
 
   @NotNull
   @Valid
   @JsonProperty
   private MessageCacheConfiguration messageCache;
 
+  @NotNull
+  @Valid
+  @JsonProperty
+  private RedisClusterConfiguration clientPresenceCluster;
+
   @Valid
   @NotNull
   @JsonProperty
-  private DatabaseConfiguration messageStore;
+  private MessageDynamoDbConfiguration messageDynamoDb;
+
+  @Valid
+  @NotNull
+  @JsonProperty
+  private DynamoDbConfiguration keysDynamoDb;
 
   @Valid
   @NotNull
@@ -111,7 +147,7 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private DatabaseConfiguration accountsDatabase;
+  private AccountsDatabaseConfiguration accountsDatabase;
 
   @Valid
   @NotNull
@@ -171,12 +207,22 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
+  private PaymentsServiceConfiguration paymentsService;
+
+  @Valid
+  @NotNull
+  @JsonProperty
   private ZkConfig zkConfig;
 
   @Valid
   @NotNull
   @JsonProperty
   private RemoteConfigConfiguration remoteConfig;
+
+  @Valid
+  @NotNull
+  @JsonProperty
+  private AppConfigConfiguration appConfig;
 
   private Map<String, String> transparentDataIndex = new HashMap<>();
 
@@ -212,12 +258,16 @@ public class WhisperServerConfiguration extends Configuration {
     return gcpAttachments;
   }
 
-  public RedisConfiguration getCacheConfiguration() {
-    return cache;
+  public RedisClusterConfiguration getCacheClusterConfiguration() {
+    return cacheCluster;
   }
 
   public RedisConfiguration getPubsubCacheConfiguration() {
     return pubsub;
+  }
+
+  public RedisClusterConfiguration getMetricsClusterConfiguration() {
+    return metricsCluster;
   }
 
   public DirectoryConfiguration getDirectoryConfiguration() {
@@ -236,19 +286,27 @@ public class WhisperServerConfiguration extends Configuration {
     return messageCache;
   }
 
-  public RedisConfiguration getPushScheduler() {
-    return pushScheduler;
+  public RedisClusterConfiguration getClientPresenceClusterConfiguration() {
+    return clientPresenceCluster;
   }
 
-  public DatabaseConfiguration getMessageStoreConfiguration() {
-    return messageStore;
+  public RedisClusterConfiguration getPushSchedulerCluster() {
+    return pushSchedulerCluster;
+  }
+
+  public MessageDynamoDbConfiguration getMessageDynamoDbConfiguration() {
+    return messageDynamoDb;
+  }
+
+  public DynamoDbConfiguration getKeysDynamoDbConfiguration() {
+    return keysDynamoDb;
   }
 
   public DatabaseConfiguration getAbuseDatabaseConfiguration() {
     return abuseDatabase;
   }
 
-  public DatabaseConfiguration getAccountsDatabaseConfiguration() {
+  public AccountsDatabaseConfiguration getAccountsDatabaseConfiguration() {
     return accountsDatabase;
   }
 
@@ -270,6 +328,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public CdnConfiguration getCdnConfiguration() {
     return cdn;
+  }
+
+  public MicrometerConfiguration getMicrometerConfiguration() {
+    return micrometer;
   }
 
   public UnidentifiedDeliveryConfiguration getDeliveryCertificate() {
@@ -306,11 +368,19 @@ public class WhisperServerConfiguration extends Configuration {
     return backupService;
   }
 
+  public PaymentsServiceConfiguration getPaymentsServiceConfiguration() {
+    return paymentsService;
+  }
+
   public ZkConfig getZkConfig() {
     return zkConfig;
   }
 
   public RemoteConfigConfiguration getRemoteConfigConfiguration() {
     return remoteConfig;
+  }
+
+  public AppConfigConfiguration getAppConfig() {
+    return appConfig;
   }
 }

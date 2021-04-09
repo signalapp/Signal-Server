@@ -1,50 +1,36 @@
 /*
- * Copyright (C) 2019 Open WhisperSystems
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.tests.storage;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountCleaner;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 public class AccountCleanerTest {
 
   private final AccountsManager accountsManager = mock(AccountsManager.class);
-  private final DirectoryQueue  directoryQueue  = mock(DirectoryQueue.class);
 
   private final Account deletedDisabledAccount   = mock(Account.class);
   private final Account undeletedDisabledAccount = mock(Account.class);
@@ -87,38 +73,16 @@ public class AccountCleanerTest {
 
   @Test
   public void testAccounts() throws AccountDatabaseCrawlerRestartException {
-    AccountCleaner accountCleaner = new AccountCleaner(accountsManager, directoryQueue);
+    AccountCleaner accountCleaner = new AccountCleaner(accountsManager);
     accountCleaner.onCrawlStart();
     accountCleaner.timeAndProcessCrawlChunk(Optional.empty(), Arrays.asList(deletedDisabledAccount, undeletedDisabledAccount, undeletedEnabledAccount));
     accountCleaner.onCrawlEnd(Optional.empty());
 
-    verify(deletedDisabledDevice, never()).setGcmId(any());
-    verify(deletedDisabledDevice, never()).setApnId(any());
-    verify(deletedDisabledDevice, never()).setVoipApnId(any());
-    verify(deletedDisabledDevice, never()).setFetchesMessages(anyBoolean());
-
-    verify(accountsManager, never()).update(eq(deletedDisabledAccount));
-    verify(directoryQueue, never()).deleteRegisteredUser(notNull(), eq("+14151231234"));
-
-
-    verify(undeletedDisabledDevice, times(1)).setGcmId(isNull());
-    verify(undeletedDisabledDevice, times(1)).setApnId(isNull());
-    verify(undeletedDisabledDevice, times(1)).setVoipApnId(isNull());
-    verify(undeletedDisabledDevice, times(1)).setFetchesMessages(eq(false));
-
-    verify(accountsManager, times(1)).update(eq(undeletedDisabledAccount));
-    verify(directoryQueue, times(1)).deleteRegisteredUser(notNull(), eq("+14152222222"));
-
-    verify(undeletedEnabledDevice, never()).setGcmId(any());
-    verify(undeletedEnabledDevice, never()).setApnId(any());
-    verify(undeletedEnabledDevice, never()).setVoipApnId(any());
-    verify(undeletedEnabledDevice, never()).setFetchesMessages(anyBoolean());
-
-    verify(accountsManager, never()).update(eq(undeletedEnabledAccount));
-    verify(directoryQueue, never()).deleteRegisteredUser(notNull(), eq("+14153333333"));
+    verify(accountsManager, never()).delete(eq(deletedDisabledAccount), any());
+    verify(accountsManager).delete(undeletedDisabledAccount, AccountsManager.DeletionReason.EXPIRED);
+    verify(accountsManager, never()).delete(eq(undeletedEnabledAccount), any());
 
     verifyNoMoreInteractions(accountsManager);
-    verifyNoMoreInteractions(directoryQueue);
   }
 
   @Test
@@ -133,30 +97,13 @@ public class AccountCleanerTest {
 
     accounts.add(deletedDisabledAccount);
 
-    AccountCleaner accountCleaner = new AccountCleaner(accountsManager, directoryQueue);
+    AccountCleaner accountCleaner = new AccountCleaner(accountsManager);
     accountCleaner.onCrawlStart();
     accountCleaner.timeAndProcessCrawlChunk(Optional.empty(), accounts);
     accountCleaner.onCrawlEnd(Optional.empty());
 
-    verify(undeletedDisabledDevice, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).setGcmId(isNull());
-    verify(undeletedDisabledDevice, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).setApnId(isNull());
-    verify(undeletedDisabledDevice, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).setVoipApnId(isNull());
-    verify(undeletedDisabledDevice, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).setFetchesMessages(eq(false));
-
-    verify(accountsManager, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).update(eq(undeletedDisabledAccount));
-    verify(directoryQueue, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).deleteRegisteredUser(notNull(), eq("+14152222222"));
-
-    verify(deletedDisabledDevice, never()).setGcmId(any());
-    verify(deletedDisabledDevice, never()).setApnId(any());
-    verify(deletedDisabledDevice, never()).setFetchesMessages(anyBoolean());
-
-    verify(undeletedEnabledDevice, never()).setGcmId(any());
-    verify(undeletedEnabledDevice, never()).setApnId(any());
-    verify(undeletedEnabledDevice, never()).setVoipApnId(any());
-    verify(undeletedEnabledDevice, never()).setFetchesMessages(anyBoolean());
-
+    verify(accountsManager, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).delete(undeletedDisabledAccount, AccountsManager.DeletionReason.EXPIRED);
     verifyNoMoreInteractions(accountsManager);
-    verifyNoMoreInteractions(directoryQueue);
   }
 
 }

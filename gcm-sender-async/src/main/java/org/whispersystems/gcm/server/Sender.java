@@ -1,24 +1,15 @@
 /*
- * Copyright (C) 2015 Open Whisper Systems
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.gcm.server;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
+import io.github.resilience4j.retry.IntervalFunction;
+import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryConfig;
 import org.whispersystems.gcm.server.internal.GcmResponseEntity;
 import org.whispersystems.gcm.server.internal.GcmResponseListEntity;
 
@@ -35,10 +26,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
-
-import io.github.resilience4j.retry.IntervalFunction;
-import io.github.resilience4j.retry.Retry;
-import io.github.resilience4j.retry.RetryConfig;
 
 /**
  * The main interface to sending GCM messages.  Thread safe.

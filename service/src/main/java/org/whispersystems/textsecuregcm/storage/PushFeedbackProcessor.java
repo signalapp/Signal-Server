@@ -1,3 +1,8 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.storage;
 
 import com.codahale.metrics.Meter;
@@ -44,6 +49,15 @@ public class PushFeedbackProcessor extends AccountDatabaseCrawlerListener {
             device.getUninstalledFeedbackTimestamp() + TimeUnit.DAYS.toMillis(2) <= Util.todayInMillis())
         {
           if (device.getLastSeen() + TimeUnit.DAYS.toMillis(2) <= Util.todayInMillis()) {
+            if (!Util.isEmpty(device.getApnId())) {
+              if (device.getId() == 1) {
+                device.setUserAgent("OWI");
+              } else {
+                device.setUserAgent("OWP");
+              }
+            } else if (!Util.isEmpty(device.getGcmId())) {
+              device.setUserAgent("OWA");
+            }
             device.setGcmId(null);
             device.setApnId(null);
             device.setVoipApnId(null);
@@ -60,10 +74,7 @@ public class PushFeedbackProcessor extends AccountDatabaseCrawlerListener {
 
       if (update) {
         accountsManager.update(account);
-
-        if (!account.isEnabled()) {
-          directoryQueue.deleteRegisteredUser(account.getUuid(), account.getNumber());
-        }
+        directoryQueue.refreshRegisteredUser(account);
       }
     }
   }

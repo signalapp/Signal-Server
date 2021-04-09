@@ -1,5 +1,10 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
 package org.whispersystems.websocket.auth;
 
+import io.dropwizard.auth.Auth;
 import org.glassfish.jersey.internal.inject.AbstractBinder;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.internal.inject.AbstractValueParamProvider;
@@ -15,8 +20,6 @@ import java.lang.reflect.ParameterizedType;
 import java.security.Principal;
 import java.util.Optional;
 import java.util.function.Function;
-
-import io.dropwizard.auth.Auth;
 
 @Singleton
 public class WebsocketAuthValueFactoryProvider<T extends Principal> extends AbstractValueParamProvider  {

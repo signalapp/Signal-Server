@@ -1,5 +1,12 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.push;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.NoSuchUserException;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -7,30 +14,31 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 
 import java.util.Optional;
-import java.util.Set;
 
 public class ReceiptSender {
 
-  private final PushSender      pushSender;
+  private final MessageSender   messageSender;
   private final AccountsManager accountManager;
 
+  private static final Logger logger = LoggerFactory.getLogger(ReceiptSender.class);
+
   public ReceiptSender(AccountsManager accountManager,
-                       PushSender      pushSender)
+                       MessageSender   messageSender)
   {
     this.accountManager = accountManager;
-    this.pushSender     = pushSender;
+    this.messageSender  = messageSender;
   }
 
   public void sendReceipt(Account source, String destination, long messageId)
-      throws NoSuchUserException, NotPushRegisteredException
+      throws NoSuchUserException
   {
     if (source.getNumber().equals(destination)) {
       return;
     }
 
     Account          destinationAccount = getDestinationAccount(destination);
-    Set<Device>      destinationDevices = destinationAccount.getDevices();
     Envelope.Builder message            = Envelope.newBuilder()
+                                                  .setServerTimestamp(System.currentTimeMillis())
                                                   .setSource(source.getNumber())
                                                   .setSourceUuid(source.getUuid().toString())
                                                   .setSourceDevice((int) source.getAuthenticatedDevice().get().getId())
@@ -41,8 +49,12 @@ public class ReceiptSender {
       message.setRelay(source.getRelay().get());
     }
 
-    for (Device destinationDevice : destinationDevices) {
-      pushSender.sendMessage(destinationAccount, destinationDevice, message.build(), false);
+    for (final Device destinationDevice : destinationAccount.getDevices()) {
+      try {
+        messageSender.sendMessage(destinationAccount, destinationDevice, message.build(), false);
+      } catch (NotPushRegisteredException e) {
+        logger.info("User no longer push registered for delivery receipt: " + e.getMessage());
+      }
     }
   }
 

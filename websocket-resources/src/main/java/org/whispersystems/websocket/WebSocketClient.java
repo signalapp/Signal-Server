@@ -1,18 +1,6 @@
 /*
- * Copyright (C) 2014 Open WhisperSystems
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.websocket;
 
@@ -43,6 +31,7 @@ public class WebSocketClient {
   private final RemoteEndpoint                                         remoteEndpoint;
   private final WebSocketMessageFactory                                messageFactory;
   private final Map<Long, CompletableFuture<WebSocketResponseMessage>> pendingRequestMapper;
+  private final long                                                   created;
 
   public WebSocketClient(Session session, RemoteEndpoint remoteEndpoint,
                          WebSocketMessageFactory messageFactory,
@@ -52,6 +41,7 @@ public class WebSocketClient {
     this.remoteEndpoint       = remoteEndpoint;
     this.messageFactory       = messageFactory;
     this.pendingRequestMapper = pendingRequestMapper;
+    this.created              = System.currentTimeMillis();
   }
 
   public CompletableFuture<WebSocketResponseMessage> sendRequest(String verb, String path,
@@ -84,6 +74,14 @@ public class WebSocketClient {
     }
 
     return future;
+  }
+
+  public String getUserAgent() {
+    return session.getUpgradeRequest().getHeader("User-Agent");
+  }
+
+  public long getCreatedTimestamp() {
+    return this.created;
   }
 
   public void close(int code, String message) {

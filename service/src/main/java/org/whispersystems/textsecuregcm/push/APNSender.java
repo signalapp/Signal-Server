@@ -1,18 +1,6 @@
 /*
- * Copyright (C) 2013 Open WhisperSystems
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.push;
 
@@ -35,7 +23,9 @@ import org.whispersystems.textsecuregcm.util.Constants;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
-import java.util.Date;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -52,22 +42,24 @@ public class APNSender implements Managed {
   private static final Meter unregisteredEventStale  = metricRegistry.meter(name(APNSender.class, "unregistered_event_stale"));
   private static final Meter unregisteredEventFresh  = metricRegistry.meter(name(APNSender.class, "unregistered_event_fresh"));
 
-  private ExecutorService    executor;
   private ApnFallbackManager fallbackManager;
 
+  private final ExecutorService    executor;
   private final AccountsManager    accountsManager;
   private final String             bundleId;
   private final boolean            sandbox;
   private final RetryingApnsClient apnsClient;
 
-  public APNSender(AccountsManager accountsManager, ApnConfiguration configuration)
-      throws IOException
+  public APNSender(ExecutorService executor, AccountsManager accountsManager, ApnConfiguration configuration)
+      throws IOException, NoSuchAlgorithmException, InvalidKeyException
   {
+    this.executor        = executor;
     this.accountsManager = accountsManager;
     this.bundleId        = configuration.getBundleId();
     this.sandbox         = configuration.isSandboxEnabled();
-    this.apnsClient      = new RetryingApnsClient(configuration.getPushCertificate(),
-                                                  configuration.getPushKey(),
+    this.apnsClient      = new RetryingApnsClient(configuration.getSigningKey(),
+                                                  configuration.getTeamId(),
+                                                  configuration.getKeyId(),
                                                   sandbox);
   }
 
@@ -89,7 +81,8 @@ public class APNSender implements Managed {
     
     ListenableFuture<ApnResult> future = apnsClient.send(message.getApnId(), topic,
                                                          message.getMessage(),
-                                                         new Date(message.getExpirationTime()));
+                                                         Instant.ofEpochMilli(message.getExpirationTime()),
+                                                         message.isVoip());
 
     Futures.addCallback(future, new FutureCallback<ApnResult>() {
       @Override
@@ -116,12 +109,10 @@ public class APNSender implements Managed {
 
   @Override
   public void start() {
-    this.executor = Executors.newSingleThreadExecutor();
   }
 
   @Override
   public void stop() {
-    this.executor.shutdown();
     this.apnsClient.disconnect();
   }
 

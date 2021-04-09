@@ -1,3 +1,8 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.push;
 
 import com.codahale.metrics.Meter;
@@ -22,13 +27,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static com.codahale.metrics.MetricRegistry.name;
-import io.dropwizard.lifecycle.Managed;
 
-public class GCMSender implements Managed {
+public class GCMSender {
 
   private final Logger logger = LoggerFactory.getLogger(GCMSender.class);
 
@@ -46,17 +49,16 @@ public class GCMSender implements Managed {
 
   private final AccountsManager   accountsManager;
   private final Sender            signalSender;
-  private       ExecutorService   executor;
+  private final ExecutorService   executor;
 
-  public GCMSender(AccountsManager accountsManager, String signalKey) {
-    this.accountsManager = accountsManager;
-    this.signalSender    = new Sender(signalKey, SystemMapper.getMapper(), 6);
+  public GCMSender(ExecutorService executor, AccountsManager accountsManager, String signalKey) {
+    this(executor, accountsManager, new Sender(signalKey, SystemMapper.getMapper(), 6));
 
     CircuitBreakerUtil.registerMetrics(metricRegistry, signalSender.getRetry(), Sender.class);
   }
 
   @VisibleForTesting
-  public GCMSender(AccountsManager accountsManager, Sender sender, ExecutorService executor) {
+  public GCMSender(ExecutorService executor, AccountsManager accountsManager, Sender sender) {
     this.accountsManager = accountsManager;
     this.signalSender    = sender;
     this.executor        = executor;
@@ -70,7 +72,6 @@ public class GCMSender implements Managed {
     String key;
 
     switch (message.getType()) {
-      case RECEIPT:      key = "receipt";      break;
       case NOTIFICATION: key = "notification"; break;
       case CHALLENGE:    key = "challenge";    break;
       default:           throw new AssertionError();
@@ -98,16 +99,6 @@ public class GCMSender implements Managed {
 
       return null;
     });
-  }
-
-  @Override
-  public void start() {
-    executor = Executors.newSingleThreadExecutor();
-  }
-
-  @Override
-  public void stop() {
-    this.executor.shutdown();
   }
 
   private void handleBadRegistration(GcmMessage message) {

@@ -1,23 +1,12 @@
 /*
- * Copyright (C) 2013-2018 Open WhisperSystems
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
+import io.dropwizard.auth.Auth;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
@@ -38,6 +27,8 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PendingDevicesManager;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
+import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
+import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 
 import javax.validation.Valid;
 import javax.ws.rs.Consumes;
@@ -56,8 +47,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
-import io.dropwizard.auth.Auth;
 
 @Path("/v1/devices")
 public class DeviceController {
@@ -112,12 +101,8 @@ public class DeviceController {
 
     account.removeDevice(deviceId);
     accounts.update(account);
-
-    if (!account.isEnabled()) {
-      directoryQueue.deleteRegisteredUser(account.getUuid(), account.getNumber());
-    }
-
-    messages.clear(account.getNumber(), deviceId);
+    directoryQueue.refreshRegisteredUser(account);
+    messages.clear(account.getUuid(), deviceId);
   }
 
   @Timed
@@ -160,6 +145,7 @@ public class DeviceController {
   @Path("/{verification_code}")
   public DeviceResponse verifyDeviceToken(@PathParam("verification_code") String verificationCode,
                                           @HeaderParam("Authorization")   String authorizationHeader,
+                                          @HeaderParam("User-Agent")      String userAgent,
                                           @Valid                          AccountAttributes accountAttributes)
       throws RateLimitExceededException, DeviceLimitExceededException
   {
@@ -194,18 +180,23 @@ public class DeviceController {
         throw new DeviceLimitExceededException(account.get().getDevices().size(), MAX_DEVICES);
       }
 
+      final DeviceCapabilities capabilities = accountAttributes.getCapabilities();
+      if (capabilities != null && isCapabilityDowngrade(account.get(), capabilities, userAgent)) {
+        throw new WebApplicationException(Response.status(409).build());
+      }
+
       Device device = new Device();
       device.setName(accountAttributes.getName());
       device.setAuthenticationCredentials(new AuthenticationCredentials(password));
-      device.setSignalingKey(accountAttributes.getSignalingKey());
       device.setFetchesMessages(accountAttributes.getFetchesMessages());
       device.setId(account.get().getNextDeviceId());
       device.setRegistrationId(accountAttributes.getRegistrationId());
       device.setLastSeen(Util.todayInMillis());
       device.setCreated(System.currentTimeMillis());
+      device.setCapabilities(accountAttributes.getCapabilities());
 
       account.get().addDevice(device);
-      messages.clear(account.get().getNumber(), device.getId());
+      messages.clear(account.get().getUuid(), device.getId());
       accounts.update(account.get());
 
       pendingDevices.remove(number);
@@ -238,5 +229,41 @@ public class DeviceController {
     SecureRandom random = new SecureRandom();
     int randomInt       = 100000 + random.nextInt(900000);
     return new VerificationCode(randomInt);
+  }
+
+  private boolean isCapabilityDowngrade(Account account, DeviceCapabilities capabilities, String userAgent) {
+    boolean isDowngrade = false;
+
+    if (account.isGv1MigrationSupported() && !capabilities.isGv1Migration()) {
+      isDowngrade = true;
+    }
+
+    if (account.isGroupsV2Supported()) {
+      try {
+        switch (UserAgentUtil.parseUserAgentString(userAgent).getPlatform()) {
+          case DESKTOP:
+          case ANDROID: {
+            if (!capabilities.isGv2_3()) {
+              isDowngrade = true;
+            }
+
+            break;
+          }
+
+          case IOS: {
+            if (!capabilities.isGv2_2() && !capabilities.isGv2_3()) {
+              isDowngrade = true;
+            }
+
+            break;
+          }
+        }
+      } catch (final UnrecognizedUserAgentException e) {
+        // If we can't parse the UA string, the client is for sure too old to support groups V2
+        isDowngrade = true;
+      }
+    }
+
+    return isDowngrade;
   }
 }

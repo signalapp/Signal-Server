@@ -1,6 +1,9 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
 package org.whispersystems.websocket.logging;
 
-import com.google.common.annotations.VisibleForTesting;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.ContainerResponse;
 
@@ -12,8 +15,8 @@ import ch.qos.logback.core.spi.FilterReply;
 
 public class WebsocketRequestLog {
 
-  private AppenderAttachableImpl<WebsocketEvent> aai = new AppenderAttachableImpl<>();
-  private FilterAttachableImpl<WebsocketEvent>   fai = new FilterAttachableImpl<>();
+  private final AppenderAttachableImpl<WebsocketEvent> aai = new AppenderAttachableImpl<>();
+  private final FilterAttachableImpl<WebsocketEvent>   fai = new FilterAttachableImpl<>();
 
   public WebsocketRequestLog() {
   }

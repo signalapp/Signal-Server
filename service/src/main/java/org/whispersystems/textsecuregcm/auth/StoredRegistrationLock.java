@@ -1,3 +1,8 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.auth;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -32,6 +37,10 @@ public class StoredRegistrationLock {
 
   public boolean needsFailureCredentials() {
     return registrationLock.isPresent() && registrationLockSalt.isPresent();
+  }
+
+  public boolean hasDeprecatedPin() {
+    return deprecatedPin.isPresent();
   }
 
   public long getTimeRemaining() {

@@ -1,22 +1,11 @@
 /*
- * Copyright (C) 2013 Open WhisperSystems
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.time.Duration;
 
 public class RateLimitsConfiguration {
 
@@ -46,12 +35,6 @@ public class RateLimitsConfiguration {
 
   @JsonProperty
   private RateLimitConfiguration attachments = new RateLimitConfiguration(50, 50);
-
-  @JsonProperty
-  private RateLimitConfiguration contactQueries = new RateLimitConfiguration(50000, 50000);
-
-  @JsonProperty
-  private RateLimitConfiguration contactIpQueries = new RateLimitConfiguration(200, (100.0 / 60.0));
 
   @JsonProperty
   private RateLimitConfiguration prekeys = new RateLimitConfiguration(3, 1.0 / 10.0);
@@ -98,14 +81,6 @@ public class RateLimitsConfiguration {
 
   public RateLimitConfiguration getPreKeys() {
     return prekeys;
-  }
-
-  public RateLimitConfiguration getContactQueries() {
-    return contactQueries;
-  }
-
-  public RateLimitConfiguration getContactIpQueries() {
-    return contactIpQueries;
   }
 
   public RateLimitConfiguration getAttachments() {
@@ -180,6 +155,38 @@ public class RateLimitsConfiguration {
 
     public double getLeakRatePerMinute() {
       return leakRatePerMinute;
+    }
+  }
+
+  public static class CardinalityRateLimitConfiguration {
+    @JsonProperty
+    private int maxCardinality;
+
+    @JsonProperty
+    private Duration ttl;
+
+    @JsonProperty
+    private Duration ttlJitter;
+
+    public CardinalityRateLimitConfiguration() {
+    }
+
+    public CardinalityRateLimitConfiguration(int maxCardinality, Duration ttl, Duration ttlJitter) {
+      this.maxCardinality = maxCardinality;
+      this.ttl = ttl;
+      this.ttlJitter = ttlJitter;
+    }
+
+    public int getMaxCardinality() {
+      return maxCardinality;
+    }
+
+    public Duration getTtl() {
+      return ttl;
+    }
+
+    public Duration getTtlJitter() {
+      return ttlJitter;
     }
   }
 }

@@ -1,28 +1,33 @@
--- keys: queue_key, queue_metadata_key, queue_index
--- argv: guid_to_remove
+local queueKey           = KEYS[1]
+local queueMetadataKey   = KEYS[2]
+local queueTotalIndexKey = KEYS[3]
 
-local messageId = redis.call("HGET", KEYS[2], ARGV[1])
+local removedMessages = {}
 
-if messageId then
-    local envelope = redis.call("ZRANGEBYSCORE", KEYS[1], messageId, messageId, "LIMIT", 0, 1)
-    local sender   = redis.call("HGET", KEYS[2], messageId)
+for _, guid in ipairs(ARGV) do
+    local messageId = redis.call("HGET", queueMetadataKey, guid)
 
-    redis.call("ZREMRANGEBYSCORE", KEYS[1], messageId, messageId)
-    redis.call("HDEL", KEYS[2], ARGV[1])
-    redis.call("HDEL", KEYS[2], messageId .. "guid")
+    if messageId then
+        local envelope = redis.call("ZRANGEBYSCORE", queueKey, messageId, messageId, "LIMIT", 0, 1)
+        local sender   = redis.call("HGET", queueMetadataKey, messageId)
 
-    if sender then
-        redis.call("HDEL", KEYS[2], sender)
-        redis.call("HDEL", KEYS[2], messageId)
-    end
+        redis.call("ZREMRANGEBYSCORE", queueKey, messageId, messageId)
+        redis.call("HDEL", queueMetadataKey, guid)
+        redis.call("HDEL", queueMetadataKey, messageId .. "guid")
 
-    if (redis.call("ZCARD", KEYS[1]) == 0) then
-        redis.call("ZREM", KEYS[3], KEYS[1])
-    end
+        if sender then
+            redis.call("HDEL", queueMetadataKey, sender)
+            redis.call("HDEL", queueMetadataKey, messageId)
+        end
 
-    if envelope and next(envelope) then
-        return envelope[1]
+        if (redis.call("ZCARD", queueKey) == 0) then
+            redis.call("ZREM", queueTotalIndexKey, queueKey)
+        end
+
+        if envelope and next(envelope) then
+            removedMessages[#removedMessages + 1] = envelope[1]
+        end
     end
 end
 
-return nil
+return removedMessages

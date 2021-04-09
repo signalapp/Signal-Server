@@ -1,3 +1,7 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
 package org.whispersystems.websocket;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -5,6 +9,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import io.dropwizard.auth.Auth;
+import io.dropwizard.jersey.DropwizardResourceConfig;
+import io.dropwizard.jersey.jackson.JacksonMessageBodyProvider;
 import org.eclipse.jetty.websocket.api.CloseStatus;
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
@@ -36,23 +43,30 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.MultivaluedHashMap;
+import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.ExceptionMapper;
 import javax.ws.rs.ext.Provider;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.security.Principal;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import io.dropwizard.auth.Auth;
-import io.dropwizard.auth.AuthValueFactoryProvider;
-import io.dropwizard.jersey.DropwizardResourceConfig;
-import io.dropwizard.jersey.jackson.JacksonMessageBodyProvider;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class WebSocketResourceProviderTest {
 
@@ -583,6 +597,60 @@ public class WebSocketResourceProviderTest {
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.getMessage()).isEqualTo("OK");
     assertThat(response.getBody().toStringUtf8()).isEqualTo("my response");
+  }
+
+  @Test
+  public void testGetHeaderList() {
+    assertThat(WebSocketResourceProvider.getHeaderList(new MultivaluedHashMap<>())).isEmpty();
+
+    {
+      final MultivaluedMap<String, String> headers = new MultivaluedHashMap<>();
+      headers.put("test", Arrays.asList("a", "b", "c"));
+
+      final List<String> headerStrings = WebSocketResourceProvider.getHeaderList(headers);
+
+      assertThat(headerStrings).hasSize(1);
+      assertThat(headerStrings).contains("test:a");
+    }
+  }
+
+  @Test
+  public void testShouldIncludeUpgradeRequestHeader() {
+    assertThat(WebSocketResourceProvider.shouldIncludeUpgradeRequestHeader("Upgrade")).isFalse();
+    assertThat(WebSocketResourceProvider.shouldIncludeUpgradeRequestHeader("Connection")).isFalse();
+    assertThat(WebSocketResourceProvider.shouldIncludeUpgradeRequestHeader("Sec-WebSocket-Key")).isFalse();
+    assertThat(WebSocketResourceProvider.shouldIncludeUpgradeRequestHeader("User-Agent")).isTrue();
+    assertThat(WebSocketResourceProvider.shouldIncludeUpgradeRequestHeader("X-Forwarded-For")).isTrue();
+  }
+
+  @Test
+  public void testShouldIncludeRequestMessageHeader() {
+    assertThat(WebSocketResourceProvider.shouldIncludeRequestMessageHeader("X-Forwarded-For")).isFalse();
+    assertThat(WebSocketResourceProvider.shouldIncludeRequestMessageHeader("User-Agent")).isTrue();
+  }
+
+  @Test
+  public void testGetCombinedHeaders() {
+    final Map<String, List<String>> upgradeRequestHeaders = Map.of(
+        "Host", List.of("server.example.com"),
+        "Upgrade", List.of("websocket"),
+        "Connection", List.of("Upgrade"),
+        "Sec-WebSocket-Key", List.of("dGhlIHNhbXBsZSBub25jZQ=="),
+        "Sec-WebSocket-Protocol", List.of("chat, superchat"),
+        "Sec-WebSocket-Version", List.of("13"),
+        "X-Forwarded-For", List.of("127.0.0.1"),
+        "User-Agent", List.of("Upgrade request user agent"));
+
+    final Map<String, String> requestMessageHeaders = Map.of(
+        "X-Forwarded-For", "192.168.0.1",
+        "User-Agent", "Request message user agent");
+
+    final Map<String, List<String>> expectedHeaders = Map.of(
+        "Host", List.of("server.example.com"),
+        "X-Forwarded-For", List.of("127.0.0.1"),
+        "User-Agent", List.of("Request message user agent"));
+
+    assertThat(WebSocketResourceProvider.getCombinedHeaders(upgradeRequestHeaders, requestMessageHeaders)).isEqualTo(expectedHeaders);
   }
 
   private SubProtocol.WebSocketResponseMessage getResponse(ArgumentCaptor<ByteBuffer> responseCaptor) throws InvalidProtocolBufferException {

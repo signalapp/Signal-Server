@@ -1,18 +1,6 @@
-/**
- * Copyright (C) 2013 Open WhisperSystems
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.limits;
 
@@ -21,6 +9,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
+import java.time.Duration;
 
 public class LeakyBucket {
 
@@ -58,6 +47,18 @@ public class LeakyBucket {
 
     return Math.min(this.bucketSize,
                     (int)Math.floor(this.spaceRemaining + (elapsedTime * this.leakRatePerMillis)));
+  }
+
+  public Duration getTimeUntilSpaceAvailable(int amount) {
+    int currentSpaceRemaining = getUpdatedSpaceRemaining();
+    if (currentSpaceRemaining >= amount) {
+      return Duration.ZERO;
+    } else if (amount > this.bucketSize) {
+      // This shouldn't happen today but if so we should bubble this to the clients somehow
+      throw new IllegalArgumentException("Requested permits exceed maximum bucket size");
+    } else {
+      return Duration.ofMillis((long)Math.ceil((double)(amount - currentSpaceRemaining) / this.leakRatePerMillis));
+    }
   }
 
   public String serialize(ObjectMapper mapper) throws JsonProcessingException {

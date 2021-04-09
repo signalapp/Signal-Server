@@ -15,3 +15,6 @@ service/config/staging.yml
 service/config/testing.yml
 .opsmanage
 put.sh
+deployer-staging.properties
+deployer-production.properties
+deployer.log

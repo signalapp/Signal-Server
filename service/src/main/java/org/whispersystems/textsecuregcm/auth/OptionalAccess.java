@@ -1,3 +1,8 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.auth;
 
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -50,7 +55,7 @@ public class OptionalAccess {
     }
 
     //noinspection ConstantConditions
-    if (requestAccount.isPresent() && (!targetAccount.isPresent() || (targetAccount.isPresent() && !targetAccount.get().isEnabled()))) {
+    if (requestAccount.isPresent() && (targetAccount.isEmpty() || (targetAccount.isPresent() && !targetAccount.get().isEnabled()))) {
       throw new WebApplicationException(Response.Status.NOT_FOUND);
     }
 

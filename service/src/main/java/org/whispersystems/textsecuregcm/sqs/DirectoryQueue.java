@@ -1,18 +1,6 @@
-/**
- * Copyright (C) 2018 Open WhisperSystems
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.sqs;
 
@@ -28,12 +16,16 @@ import com.amazonaws.services.sqs.model.SendMessageRequest;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.Timer;
+import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.SqsConfiguration;
+import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.Constants;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -46,24 +38,31 @@ public class DirectoryQueue {
   private final MetricRegistry metricRegistry    = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private final Meter          serviceErrorMeter = metricRegistry.meter(name(DirectoryQueue.class, "serviceError"));
   private final Meter          clientErrorMeter  = metricRegistry.meter(name(DirectoryQueue.class, "clientError"));
+  private final Timer          sendMessageTimer  = metricRegistry.timer(name(DirectoryQueue.class, "sendMessage"));
 
-  private final String         queueUrl;
+  private final List<String>   queueUrls;
   private final AmazonSQS      sqs;
 
   public DirectoryQueue(SqsConfiguration sqsConfig) {
     final AWSCredentials               credentials         = new BasicAWSCredentials(sqsConfig.getAccessKey(), sqsConfig.getAccessSecret());
     final AWSStaticCredentialsProvider credentialsProvider = new AWSStaticCredentialsProvider(credentials);
 
-    this.queueUrl = sqsConfig.getQueueUrl();
-    this.sqs      = AmazonSQSClientBuilder.standard().withRegion(sqsConfig.getRegion()).withCredentials(credentialsProvider).build();
+    this.queueUrls = sqsConfig.getQueueUrls();
+    this.sqs       = AmazonSQSClientBuilder.standard().withRegion(sqsConfig.getRegion()).withCredentials(credentialsProvider).build();
   }
 
-  public void addRegisteredUser(UUID uuid, String number) {
-    sendMessage("add", uuid, number);
+  @VisibleForTesting
+  DirectoryQueue(final List<String> queueUrls, final AmazonSQS sqs) {
+    this.queueUrls = queueUrls;
+    this.sqs       = sqs;
   }
 
-  public void deleteRegisteredUser(UUID uuid, String number) {
-    sendMessage("delete", uuid, number);
+  public void refreshRegisteredUser(final Account account) {
+    sendMessage(account.isEnabled() && account.isDiscoverableByPhoneNumber() ? "add" : "delete", account.getUuid(), account.getNumber());
+  }
+
+  public void deleteAccount(final Account account) {
+    sendMessage("delete", account.getUuid(), account.getNumber());
   }
 
   private void sendMessage(String action, UUID uuid, String number) {
@@ -71,22 +70,25 @@ public class DirectoryQueue {
     messageAttributes.put("id", new MessageAttributeValue().withDataType("String").withStringValue(number));
     messageAttributes.put("uuid", new MessageAttributeValue().withDataType("String").withStringValue(uuid.toString()));
     messageAttributes.put("action", new MessageAttributeValue().withDataType("String").withStringValue(action));
-    SendMessageRequest sendMessageRequest = new SendMessageRequest()
-            .withQueueUrl(queueUrl)
-            .withMessageBody("-")
-            .withMessageDeduplicationId(UUID.randomUUID().toString())
-            .withMessageGroupId(number)
-            .withMessageAttributes(messageAttributes);
-    try {
-      sqs.sendMessage(sendMessageRequest);
-    } catch (AmazonServiceException ex) {
-      serviceErrorMeter.mark();
-      logger.warn("sqs service error: ", ex);
-    } catch (AmazonClientException ex) {
-      clientErrorMeter.mark();
-      logger.warn("sqs client error: ", ex);
-    } catch (Throwable t) {
-      logger.warn("sqs unexpected error: ", t);
+
+    for (final String queueUrl : queueUrls) {
+      final SendMessageRequest sendMessageRequest = new SendMessageRequest()
+              .withQueueUrl(queueUrl)
+              .withMessageBody("-")
+              .withMessageDeduplicationId(UUID.randomUUID().toString())
+              .withMessageGroupId(number)
+              .withMessageAttributes(messageAttributes);
+      try (final Timer.Context ignored = sendMessageTimer.time()) {
+        sqs.sendMessage(sendMessageRequest);
+      } catch (AmazonServiceException ex) {
+        serviceErrorMeter.mark();
+        logger.warn("sqs service error: ", ex);
+      } catch (AmazonClientException ex) {
+        clientErrorMeter.mark();
+        logger.warn("sqs client error: ", ex);
+      } catch (Throwable t) {
+        logger.warn("sqs unexpected error: ", t);
+      }
     }
   }
 

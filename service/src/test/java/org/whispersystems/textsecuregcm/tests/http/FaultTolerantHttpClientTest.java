@@ -1,6 +1,12 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.tests.http;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import org.junit.Rule;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
@@ -15,9 +21,12 @@ import java.net.http.HttpResponse;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executors;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
-import io.github.resilience4j.circuitbreaker.CircuitBreakerOpenException;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 public class FaultTolerantHttpClientTest {
@@ -124,7 +133,7 @@ public class FaultTolerantHttpClientTest {
       client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
       throw new AssertionError("Should have failed!");
     } catch (CompletionException e) {
-      assertThat(e.getCause()).isInstanceOf(CircuitBreakerOpenException.class);
+      assertThat(e.getCause()).isInstanceOf(CallNotPermittedException.class);
       // good
     }
 
@@ -142,7 +151,7 @@ public class FaultTolerantHttpClientTest {
       client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
       throw new AssertionError("Should have failed!");
     } catch (CompletionException e) {
-      assertThat(e.getCause()).isInstanceOf(CircuitBreakerOpenException.class);
+      assertThat(e.getCause()).isInstanceOf(CallNotPermittedException.class);
       // good
     }
 

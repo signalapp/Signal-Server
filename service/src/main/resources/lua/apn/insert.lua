@@ -1,9 +1,14 @@
--- keys: pending (KEYS[1]), user (KEYS[2])
--- args: timestamp (ARGV[1]), interval (ARGV[2]), account (ARGV[3]), device (ARGV[4])
+local pendingNotificationQueue = KEYS[1]
+local endpoint = KEYS[2]
 
-redis.call("HSET", KEYS[2], "created", ARGV[1])
-redis.call("HSET", KEYS[2], "interval", ARGV[2])
-redis.call("HSET", KEYS[2], "account", ARGV[3])
-redis.call("HSET", KEYS[2], "device", ARGV[4])
+local timestamp = ARGV[1]
+local interval = ARGV[2]
+local account = ARGV[3]
+local deviceId = ARGV[4]
 
-redis.call("ZADD", KEYS[1], ARGV[1], KEYS[2])
+redis.call("HSET", endpoint, "created", timestamp)
+redis.call("HSET", endpoint, "interval", interval)
+redis.call("HSET", endpoint, "account", account)
+redis.call("HSET", endpoint, "device", deviceId)
+
+redis.call("ZADD", pendingNotificationQueue, timestamp, endpoint)

@@ -1,7 +1,26 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
 package org.whispersystems.websocket;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
+import io.dropwizard.jersey.DropwizardResourceConfig;
+import java.io.IOException;
+import java.security.Principal;
+import java.util.Optional;
+import javax.security.auth.Subject;
+import javax.servlet.ServletException;
 import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.UpgradeRequest;
 import org.eclipse.jetty.websocket.servlet.ServletUpgradeRequest;
 import org.eclipse.jetty.websocket.servlet.ServletUpgradeResponse;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
@@ -9,19 +28,7 @@ import org.glassfish.jersey.server.ResourceConfig;
 import org.junit.Test;
 import org.whispersystems.websocket.auth.AuthenticationException;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
-import org.whispersystems.websocket.setup.WebSocketConnectListener;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
-
-import javax.security.auth.Subject;
-import javax.servlet.ServletException;
-import java.io.IOException;
-import java.security.Principal;
-import java.util.Optional;
-
-import io.dropwizard.jersey.DropwizardResourceConfig;
-import static org.junit.Assert.*;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.*;
 
 public class WebSocketResourceProviderFactoryTest {
 
@@ -58,6 +65,7 @@ public class WebSocketResourceProviderFactoryTest {
     when(environment.getAuthenticator()).thenReturn(authenticator);
     when(authenticator.authenticate(eq(request))).thenReturn(new WebSocketAuthenticator.AuthenticationResult<>(Optional.of(account), true));
     when(environment.jersey()).thenReturn(jerseyEnvironment);
+    when(session.getUpgradeRequest()).thenReturn(mock(UpgradeRequest.class));
 
     WebSocketResourceProviderFactory factory    = new WebSocketResourceProviderFactory(environment, Account.class);
     Object                           connection = factory.createWebSocket(request, response);

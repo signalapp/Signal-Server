@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<!--
+  ~ Copyright 2013-2020 Signal Messenger, LLC
+  ~ SPDX-License-Identifier: AGPL-3.0-only
+  -->
+
 <databaseChangeLog
         xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -309,6 +314,57 @@
 
     <changeSet id="16" author="moxie">
         <dropColumn tableName="keys" columnName="deleted"/>
+    </changeSet>
+    
+    <changeSet id="17" author="ehren">
+        <addColumn tableName="remote_config">
+            <column name="default_value" type="text"/>
+            <column name="value" type="text"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="18" author="ehren">
+        <addColumn tableName="remote_config">
+            <column name="hash_key" type="text"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="19" author="jon">
+        <createTable tableName="feature_flags">
+            <column name="flag" type="text">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="active" type="boolean"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="20" author="jon">
+        <addColumn tableName="profiles">
+            <column name="about" type="text">
+                <constraints nullable="true"/>
+            </column>
+
+            <column name="about_emoji" type="text">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="21" author="ehren">
+        <dropTable tableName="messages"/>
+    </changeSet>
+
+    <changeSet id="22" author="jon">
+        <dropTable tableName="feature_flags" />
+    </changeSet>
+
+    <changeSet id="23" author="ehren">
+        <addColumn tableName="profiles">
+            <column name="payment_address" type="text">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
     </changeSet>
 
 </databaseChangeLog>

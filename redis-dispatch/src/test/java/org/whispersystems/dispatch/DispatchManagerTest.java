@@ -1,6 +1,9 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
 package org.whispersystems.dispatch;
 
-import java.util.Optional;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExternalResource;
@@ -14,10 +17,14 @@ import org.whispersystems.dispatch.redis.PubSubReply;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class DispatchManagerTest {
 

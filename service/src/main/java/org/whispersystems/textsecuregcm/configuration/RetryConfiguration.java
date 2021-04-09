@@ -1,3 +1,8 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -12,7 +17,7 @@ public class RetryConfiguration {
 
   @JsonProperty
   @Min(1)
-  private int maxAttempts = RetryConfig.DEFAULT_MAX_ATTEMPTS;
+  private int maxAttempts = 3;
 
   @JsonProperty
   @Min(1)
@@ -22,8 +27,16 @@ public class RetryConfiguration {
     return maxAttempts;
   }
 
+  public void setMaxAttempts(final int maxAttempts) {
+    this.maxAttempts = maxAttempts;
+  }
+
   public long getWaitDuration() {
     return waitDuration;
+  }
+
+  public void setWaitDuration(final long waitDuration) {
+    this.waitDuration = waitDuration;
   }
 
   public RetryConfig toRetryConfig() {

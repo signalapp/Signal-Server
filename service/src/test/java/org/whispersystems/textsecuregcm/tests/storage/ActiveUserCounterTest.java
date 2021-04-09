@@ -1,34 +1,22 @@
-/**
- * Copyright (C) 2018 Open WhisperSystems
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 package org.whispersystems.textsecuregcm.tests.storage;
 
-import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
+import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.ActiveUserCounter;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.util.Util;
+import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 
 import com.google.common.collect.ImmutableList;
 import io.dropwizard.metrics.MetricsFactory;
 import org.junit.Before;
 import org.junit.Test;
-import redis.clients.jedis.Jedis;
 
 import java.util.Arrays;
 import java.util.UUID;
@@ -36,7 +24,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -64,11 +51,11 @@ public class ActiveUserCounterTest {
   private final Account iosAccount     = mock(Account.class);
   private final Account noDeviceAccount = mock(Account.class);
 
-  private final Jedis               jedis          = mock(Jedis.class);
-  private final ReplicatedJedisPool jedisPool      = mock(ReplicatedJedisPool.class);
-  private final MetricsFactory      metricsFactory = mock(MetricsFactory.class);
+  private final RedisAdvancedClusterCommands<String, String> commands       = mock(RedisAdvancedClusterCommands.class);
+  private final FaultTolerantRedisCluster                    cacheCluster   = RedisClusterHelper.buildMockRedisCluster(commands);
+  private final MetricsFactory                               metricsFactory = mock(MetricsFactory.class);
 
-  private final ActiveUserCounter activeUserCounter = new ActiveUserCounter(metricsFactory, jedisPool);
+  private final ActiveUserCounter activeUserCounter = new ActiveUserCounter(metricsFactory, cacheCluster);
 
   @Before
   public void setup() {
@@ -96,20 +83,16 @@ public class ActiveUserCounterTest {
     when(noDeviceAccount.getMasterDevice()).thenReturn(Optional.ofNullable(null));
     when(noDeviceAccount.getNumber()).thenReturn(ACCOUNT_NUMBER_NODEVICE);
 
-    when(jedis.get(any(String.class))).thenReturn("{\"fromNumber\":\"+\",\"platforms\":{},\"countries\":{}}");
-    when(jedisPool.getWriteResource()).thenReturn(jedis);
-    when(jedisPool.getReadResource()).thenReturn(jedis);
+    when(commands.get(any(String.class))).thenReturn("{\"fromNumber\":\"+\",\"platforms\":{},\"countries\":{}}");
     when(metricsFactory.getReporters()).thenReturn(ImmutableList.of());
-
   }
 
   @Test
   public void testCrawlStart() {
     activeUserCounter.onCrawlStart();
 
-    verify(jedisPool, times(1)).getWriteResource();
-    verify(jedis, times(1)).del(any(String.class));
-    verify(jedis, times(1)).close();
+    verify(cacheCluster, times(1)).useCluster(any());
+    verify(commands, times(1)).del(any(String.class));
 
     verifyZeroInteractions(iosDevice);
     verifyZeroInteractions(iosAccount);
@@ -117,17 +100,16 @@ public class ActiveUserCounterTest {
     verifyZeroInteractions(androidAccount);
     verifyZeroInteractions(noDeviceAccount);
     verifyZeroInteractions(metricsFactory);
-    verifyNoMoreInteractions(jedis);
-    verifyNoMoreInteractions(jedisPool);
+    verifyNoMoreInteractions(commands);
+    verifyNoMoreInteractions(cacheCluster);
   }
 
   @Test
   public void testCrawlEnd() {
     activeUserCounter.onCrawlEnd(Optional.empty());
 
-    verify(jedisPool, times(1)).getReadResource();
-    verify(jedis, times(1)).get(any(String.class));
-    verify(jedis, times(1)).close();
+    verify(cacheCluster, times(1)).withCluster(any());
+    verify(commands, times(1)).get(any(String.class));
 
     verify(metricsFactory, times(1)).getReporters();
 
@@ -138,8 +120,8 @@ public class ActiveUserCounterTest {
     verifyZeroInteractions(noDeviceAccount);
 
     verifyNoMoreInteractions(metricsFactory);
-    verifyNoMoreInteractions(jedis);
-    verifyNoMoreInteractions(jedisPool);
+    verifyNoMoreInteractions(commands);
+    verifyNoMoreInteractions(cacheCluster);
 
   }
 
@@ -154,10 +136,10 @@ public class ActiveUserCounterTest {
     verify(iosDevice, times(1)).getApnId();
     verify(iosDevice, times(0)).getGcmId();
 
-    verify(jedisPool, times(1)).getWriteResource();
-    verify(jedis, times(1)).get(any(String.class));
-    verify(jedis, times(1)).set(any(String.class), eq("{\"fromUuid\":\""+UUID_IOS.toString()+"\",\"platforms\":{\"ios\":[1,1,1,1,1]},\"countries\":{\"1\":[1,1,1,1,1]}}"));
-    verify(jedis, times(1)).close();
+    verify(cacheCluster, times(1)).withCluster(any());
+    verify(cacheCluster, times(1)).useCluster(any());
+    verify(commands, times(1)).get(any(String.class));
+    verify(commands, times(1)).set(any(String.class), eq("{\"fromUuid\":\""+UUID_IOS.toString()+"\",\"platforms\":{\"ios\":[1,1,1,1,1]},\"countries\":{\"1\":[1,1,1,1,1]}}"));
 
     verify(metricsFactory, times(0)).getReporters();
 
@@ -168,8 +150,8 @@ public class ActiveUserCounterTest {
 
     verifyNoMoreInteractions(iosDevice);
     verifyNoMoreInteractions(iosAccount);
-    verifyNoMoreInteractions(jedis);
-    verifyNoMoreInteractions(jedisPool);
+    verifyNoMoreInteractions(commands);
+    verifyNoMoreInteractions(cacheCluster);
   }
 
   @Test
@@ -178,10 +160,10 @@ public class ActiveUserCounterTest {
 
     verify(noDeviceAccount, times(1)).getMasterDevice();
 
-    verify(jedisPool, times(1)).getWriteResource();
-    verify(jedis, times(1)).get(eq(TALLY_KEY));
-    verify(jedis, times(1)).set(any(String.class), eq("{\"fromUuid\":\""+UUID_NODEVICE+"\",\"platforms\":{},\"countries\":{}}"));
-    verify(jedis, times(1)).close();
+    verify(cacheCluster, times(1)).withCluster(any());
+    verify(cacheCluster, times(1)).useCluster(any());
+    verify(commands, times(1)).get(eq(TALLY_KEY));
+    verify(commands, times(1)).set(any(String.class), eq("{\"fromUuid\":\""+UUID_NODEVICE+"\",\"platforms\":{},\"countries\":{}}"));
 
     verify(metricsFactory, times(0)).getReporters();
 
@@ -192,8 +174,8 @@ public class ActiveUserCounterTest {
     verifyZeroInteractions(noDeviceAccount);
     verifyZeroInteractions(metricsFactory);
 
-    verifyNoMoreInteractions(jedis);
-    verifyNoMoreInteractions(jedisPool);
+    verifyNoMoreInteractions(commands);
+    verifyNoMoreInteractions(cacheCluster);
   }
 
   @Test
@@ -214,10 +196,10 @@ public class ActiveUserCounterTest {
     verify(androidDevice, times(1)).getApnId();
     verify(androidDevice, times(1)).getGcmId();
 
-    verify(jedisPool, times(1)).getWriteResource();
-    verify(jedis, times(1)).get(eq(TALLY_KEY));
-    verify(jedis, times(1)).set(any(String.class), eq("{\"fromUuid\":\""+UUID_IOS+"\",\"platforms\":{\"android\":[0,0,0,1,1],\"ios\":[1,1,1,1,1]},\"countries\":{\"55\":[0,0,0,1,1],\"1\":[1,1,1,1,1]}}"));
-    verify(jedis, times(1)).close();
+    verify(cacheCluster, times(1)).withCluster(any());
+    verify(cacheCluster, times(1)).useCluster(any());
+    verify(commands, times(1)).get(eq(TALLY_KEY));
+    verify(commands, times(1)).set(any(String.class), eq("{\"fromUuid\":\""+UUID_IOS+"\",\"platforms\":{\"android\":[0,0,0,1,1],\"ios\":[1,1,1,1,1]},\"countries\":{\"55\":[0,0,0,1,1],\"1\":[1,1,1,1,1]}}"));
 
     verify(metricsFactory, times(0)).getReporters();
 
@@ -228,8 +210,8 @@ public class ActiveUserCounterTest {
     verifyNoMoreInteractions(androidDevice);
     verifyNoMoreInteractions(androidAccount);
     verifyNoMoreInteractions(noDeviceAccount);
-    verifyNoMoreInteractions(jedis);
-    verifyNoMoreInteractions(jedisPool);
+    verifyNoMoreInteractions(commands);
+    verifyNoMoreInteractions(cacheCluster);
   }
 
 }

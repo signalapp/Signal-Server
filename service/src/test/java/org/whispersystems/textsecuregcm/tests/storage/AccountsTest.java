@@ -1,10 +1,15 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.tests.storage;
 
 import com.fasterxml.uuid.UUIDComparator;
 import com.opentable.db.postgres.embedded.LiquibasePreparer;
 import com.opentable.db.postgres.junit.EmbeddedPostgresRules;
 import com.opentable.db.postgres.junit.PreparedDbRule;
-import org.jdbi.v3.core.HandleCallback;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.transaction.TransactionException;
@@ -18,8 +23,6 @@ import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.mappers.AccountRowMapper;
-import org.whispersystems.textsecuregcm.util.Conversions;
-import org.whispersystems.textsecuregcm.util.Util;
 
 import java.io.IOException;
 import java.sql.PreparedStatement;
@@ -28,7 +31,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -36,7 +38,6 @@ import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 
-import io.github.resilience4j.circuitbreaker.CircuitBreakerOpenException;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
@@ -193,6 +194,26 @@ public class AccountsTest {
   }
 
   @Test
+  public void testDelete() {
+    final Device  deletedDevice   = generateDevice (1);
+    final Account deletedAccount  = generateAccount("+14151112222", UUID.randomUUID(), Collections.singleton(deletedDevice));
+    final Device  retainedDevice  = generateDevice (1);
+    final Account retainedAccount = generateAccount("+14151112345", UUID.randomUUID(), Collections.singleton(retainedDevice));
+
+    accounts.create(deletedAccount);
+    accounts.create(retainedAccount);
+
+    assertThat(accounts.get(deletedAccount.getUuid())).isPresent();
+    assertThat(accounts.get(retainedAccount.getUuid())).isPresent();
+
+    accounts.delete(deletedAccount.getUuid());
+
+    assertThat(accounts.get(deletedAccount.getUuid())).isNotPresent();
+
+    verifyStoredState(retainedAccount.getNumber(), retainedAccount.getUuid(), accounts.get(retainedAccount.getUuid()).get(), retainedAccount);
+  }
+
+  @Test
   public void testVacuum() {
     Device  device  = generateDevice (1                                            );
     Account account = generateAccount("+14151112222", UUID.randomUUID(), Collections.singleton(device));
@@ -251,7 +272,7 @@ public class AccountsTest {
     try {
       accounts.update(account);
       throw new AssertionError();
-    } catch (CircuitBreakerOpenException e) {
+    } catch (CallNotPermittedException e) {
       // good
     }
 
@@ -270,7 +291,8 @@ public class AccountsTest {
   private Device generateDevice(long id) {
     Random       random       = new Random(System.currentTimeMillis());
     SignedPreKey signedPreKey = new SignedPreKey(random.nextInt(), "testPublicKey-" + random.nextInt(), "testSignature-" + random.nextInt());
-    return new Device(id, "testName-" + random.nextInt(), "testAuthToken-" + random.nextInt(), "testSalt-" + random.nextInt(), null, "testGcmId-" + random.nextInt(), "testApnId-" + random.nextInt(), "testVoipApnId-" + random.nextInt(), random.nextBoolean(), random.nextInt(), signedPreKey, random.nextInt(), random.nextInt(), "testUserAgent-" + random.nextInt() , 0, new Device.DeviceCapabilities(random.nextBoolean(), random.nextBoolean(), random.nextBoolean()));
+    return new Device(id, "testName-" + random.nextInt(), "testAuthToken-" + random.nextInt(), "testSalt-" + random.nextInt(),
+        "testGcmId-" + random.nextInt(), "testApnId-" + random.nextInt(), "testVoipApnId-" + random.nextInt(), random.nextBoolean(), random.nextInt(), signedPreKey, random.nextInt(), random.nextInt(), "testUserAgent-" + random.nextInt() , 0, new Device.DeviceCapabilities(random.nextBoolean(), random.nextBoolean(), random.nextBoolean(), random.nextBoolean(), random.nextBoolean(), random.nextBoolean()));
   }
 
   private Account generateAccount(String number, UUID uuid) {

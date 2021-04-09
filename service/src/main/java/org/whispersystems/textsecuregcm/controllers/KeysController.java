@@ -1,24 +1,31 @@
 /*
- * Copyright (C) 2014 Open Whisper Systems
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.controllers;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.codahale.metrics.annotation.Timed;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import io.dropwizard.auth.Auth;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import javax.validation.Valid;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.GET;
+import javax.ws.rs.HeaderParam;
+import javax.ws.rs.PUT;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
@@ -34,48 +41,35 @@ import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.KeyRecord;
-import org.whispersystems.textsecuregcm.storage.Keys;
-
-import javax.validation.Valid;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
-import javax.ws.rs.PUT;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Optional;
-
-import io.dropwizard.auth.Auth;
+import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
+import org.whispersystems.textsecuregcm.util.Util;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v2/keys")
 public class KeysController {
 
-  private static final Logger logger = LoggerFactory.getLogger(KeysController.class);
+  private final RateLimiters                rateLimiters;
+  private final KeysDynamoDb                keysDynamoDb;
+  private final AccountsManager             accounts;
+  private final DirectoryQueue              directoryQueue;
 
-  private final RateLimiters    rateLimiters;
-  private final Keys            keys;
-  private final AccountsManager accounts;
-  private final DirectoryQueue  directoryQueue;
+  private static final String INTERNATIONAL_PREKEY_REQUEST_COUNTER_NAME =
+      name(KeysController.class, "internationalPreKeyGet");
 
-  public KeysController(RateLimiters rateLimiters, Keys keys, AccountsManager accounts, DirectoryQueue directoryQueue) {
-    this.rateLimiters   = rateLimiters;
-    this.keys           = keys;
-    this.accounts       = accounts;
-    this.directoryQueue = directoryQueue;
+  private static final String SOURCE_COUNTRY_TAG_NAME = "sourceCountry";
+  private static final String PREKEY_TARGET_IDENTIFIER_TAG_NAME =  "identifierType";
+
+  public KeysController(RateLimiters rateLimiters, KeysDynamoDb keysDynamoDb, AccountsManager accounts, DirectoryQueue directoryQueue) {
+    this.rateLimiters                = rateLimiters;
+    this.keysDynamoDb                = keysDynamoDb;
+    this.accounts                    = accounts;
+    this.directoryQueue              = directoryQueue;
   }
 
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   public PreKeyCount getStatus(@Auth Account account) {
-    int count = keys.getCount(account.getNumber(), account.getAuthenticatedDevice().get().getId());
+    int count = keysDynamoDb.getCount(account, account.getAuthenticatedDevice().get().getId());
 
     if (count > 0) {
       count = count - 1;
@@ -107,11 +101,11 @@ public class KeysController {
       accounts.update(account);
 
       if (!wasAccountEnabled && account.isEnabled()) {
-        directoryQueue.addRegisteredUser(account.getUuid(), account.getNumber());
+        directoryQueue.refreshRegisteredUser(account);
       }
     }
 
-    keys.store(account.getNumber(), device.getId(), preKeys.getPreKeys());
+    keysDynamoDb.store(account, device.getId(), preKeys.getPreKeys());
   }
 
   @Timed
@@ -134,31 +128,35 @@ public class KeysController {
     assert(target.isPresent());
 
     if (account.isPresent()) {
-      rateLimiters.getPreKeysLimiter().validate(account.get().getNumber() +  "__" + target.get().getNumber() + "." + deviceId);
+      rateLimiters.getPreKeysLimiter().validate(account.get().getNumber() + "." + account.get().getAuthenticatedDevice().get().getId() +  "__" + target.get().getNumber() + "." + deviceId);
+
+      final String accountCountryCode = Util.getCountryCode(account.get().getNumber());
+      final String targetCountryCode = Util.getCountryCode(target.get().getNumber());
+
+      if (!accountCountryCode.equals(targetCountryCode)) {
+        final Tags tags = Tags.of(SOURCE_COUNTRY_TAG_NAME, accountCountryCode)
+            .and(PREKEY_TARGET_IDENTIFIER_TAG_NAME, targetName.hasNumber() ? "number" : "uuid");
+        Metrics.counter(INTERNATIONAL_PREKEY_REQUEST_COUNTER_NAME, tags)
+            .increment();
+      }
     }
 
-    List<KeyRecord>          targetKeys = getLocalKeys(target.get(), deviceId);
-    List<PreKeyResponseItem> devices    = new LinkedList<>();
+    Map<Long, PreKey>        preKeysByDeviceId = getLocalKeys(target.get(), deviceId);
+    List<PreKeyResponseItem> responseItems     = new LinkedList<>();
 
     for (Device device : target.get().getDevices()) {
       if (device.isEnabled() && (deviceId.equals("*") || device.getId() == Long.parseLong(deviceId))) {
         SignedPreKey signedPreKey = device.getSignedPreKey();
-        PreKey preKey       = null;
-
-        for (KeyRecord keyRecord : targetKeys) {
-          if (keyRecord.getDeviceId() == device.getId()) {
-              preKey = new PreKey(keyRecord.getKeyId(), keyRecord.getPublicKey());
-          }
-        }
+        PreKey       preKey       = preKeysByDeviceId.get(device.getId());
 
         if (signedPreKey != null || preKey != null) {
-          devices.add(new PreKeyResponseItem(device.getId(), device.getRegistrationId(), signedPreKey, preKey));
+          responseItems.add(new PreKeyResponseItem(device.getId(), device.getRegistrationId(), signedPreKey, preKey));
         }
       }
     }
 
-    if (devices.isEmpty()) return Optional.empty();
-    else                   return Optional.of(new PreKeyResponse(target.get().getIdentityKey(), devices));
+    if (responseItems.isEmpty()) return Optional.empty();
+    else                         return Optional.of(new PreKeyResponse(target.get().getIdentityKey(), responseItems));
   }
 
   @Timed
@@ -173,7 +171,7 @@ public class KeysController {
     accounts.update(account);
 
     if (!wasAccountEnabled && account.isEnabled()) {
-      directoryQueue.addRegisteredUser(account.getUuid(), account.getNumber());
+      directoryQueue.refreshRegisteredUser(account);
     }
   }
 
@@ -189,15 +187,17 @@ public class KeysController {
     else                      return Optional.empty();
   }
 
-  private List<KeyRecord> getLocalKeys(Account destination, String deviceIdSelector) {
+  private Map<Long, PreKey> getLocalKeys(Account destination, String deviceIdSelector) {
     try {
       if (deviceIdSelector.equals("*")) {
-        return keys.get(destination.getNumber());
+        return keysDynamoDb.take(destination);
       }
 
       long deviceId = Long.parseLong(deviceIdSelector);
 
-      return keys.get(destination.getNumber(), deviceId);
+      return keysDynamoDb.take(destination, deviceId)
+              .map(preKey -> Map.of(deviceId, preKey))
+              .orElse(Collections.emptyMap());
     } catch (NumberFormatException e) {
       throw new WebApplicationException(Response.status(422).build());
     }

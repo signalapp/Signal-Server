@@ -1,6 +1,12 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.storage;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.dropwizard.lifecycle.Managed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -10,8 +16,6 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import io.dropwizard.lifecycle.Managed;
-
 public class RemoteConfigsManager implements Managed {
 
   private final Logger logger = LoggerFactory.getLogger(RemoteConfigsManager.class);
@@ -19,7 +23,7 @@ public class RemoteConfigsManager implements Managed {
   private final RemoteConfigs remoteConfigs;
   private final long          sleepInterval;
 
-  private AtomicReference<List<RemoteConfig>> cachedConfigs = new AtomicReference<>(new LinkedList<>());
+  private final AtomicReference<List<RemoteConfig>> cachedConfigs = new AtomicReference<>(new LinkedList<>());
 
   public RemoteConfigsManager(RemoteConfigs remoteConfigs) {
     this(remoteConfigs, TimeUnit.SECONDS.toMillis(10));
@@ -33,12 +37,12 @@ public class RemoteConfigsManager implements Managed {
 
   @Override
   public void start() {
-    this.cachedConfigs.set(remoteConfigs.getAll());
+    refreshCache();
 
     new Thread(() -> {
       while (true) {
         try {
-          this.cachedConfigs.set(remoteConfigs.getAll());
+          refreshCache();
         } catch (Throwable t) {
           logger.warn("Error updating remote configs cache", t);
         }
@@ -46,6 +50,21 @@ public class RemoteConfigsManager implements Managed {
         Util.sleep(sleepInterval);
       }
     }).start();
+  }
+
+  private void refreshCache() {
+    this.cachedConfigs.set(remoteConfigs.getAll());
+
+    synchronized (this.cachedConfigs) {
+      this.cachedConfigs.notifyAll();
+    }
+  }
+
+  @VisibleForTesting
+  void waitForCacheRefresh() throws InterruptedException {
+    synchronized (this.cachedConfigs) {
+      this.cachedConfigs.wait();
+    }
   }
 
   public List<RemoteConfig> getAll() {

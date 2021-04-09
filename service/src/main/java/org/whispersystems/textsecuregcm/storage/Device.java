@@ -1,30 +1,16 @@
 /*
- * Copyright (C) 2013 Open WhisperSystems
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.storage;
 
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
-import org.whispersystems.textsecuregcm.entities.UserCapabilities;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import javax.annotation.Nullable;
-import javax.validation.constraints.Null;
 import java.util.concurrent.TimeUnit;
 
 public class Device {
@@ -42,9 +28,6 @@ public class Device {
 
   @JsonProperty
   private String  salt;
-
-  @JsonProperty
-  private String  signalingKey;
 
   @JsonProperty
   private String  gcmId;
@@ -85,7 +68,7 @@ public class Device {
   public Device() {}
 
   public Device(long id, String name, String authToken, String salt,
-                String signalingKey, String gcmId, String apnId,
+                String gcmId, String apnId,
                 String voipApnId, boolean fetchesMessages,
                 int registrationId, SignedPreKey signedPreKey,
                 long lastSeen, long created, String userAgent,
@@ -95,7 +78,6 @@ public class Device {
     this.name                    = name;
     this.authToken               = authToken;
     this.salt                    = salt;
-    this.signalingKey            = signalingKey;
     this.gcmId                   = gcmId;
     this.apnId                   = apnId;
     this.voipApnId               = voipApnId;
@@ -198,14 +180,6 @@ public class Device {
     this.capabilities = capabilities;
   }
 
-  public String getSignalingKey() {
-    return signalingKey;
-  }
-
-  public void setSignalingKey(String signalingKey) {
-    this.signalingKey = signalingKey;
-  }
-
   public boolean isEnabled() {
     boolean hasChannel = fetchesMessages || !Util.isEmpty(getApnId()) || !Util.isEmpty(getGcmId());
 
@@ -253,6 +227,20 @@ public class Device {
     return this.userAgent;
   }
 
+  public boolean isGroupsV2Supported() {
+    final boolean groupsV2Supported;
+
+    if (this.capabilities != null) {
+      final boolean ios = this.apnId != null || this.voipApnId != null;
+
+      groupsV2Supported = this.capabilities.isGv2_3() || (ios && this.capabilities.isGv2_2());
+    } else {
+      groupsV2Supported = false;
+    }
+
+    return groupsV2Supported;
+  }
+
   @Override
   public boolean equals(Object other) {
     if (other == null || !(other instanceof Device)) return false;
@@ -268,33 +256,56 @@ public class Device {
 
   public static class DeviceCapabilities {
     @JsonProperty
-    private boolean uuid;
-
-    @JsonProperty
     private boolean gv2;
+
+    @JsonProperty("gv2-2")
+    private boolean gv2_2;
+
+    @JsonProperty("gv2-3")
+    private boolean gv2_3;
 
     @JsonProperty
     private boolean storage;
 
+    @JsonProperty
+    private boolean transfer;
+
+    @JsonProperty("gv1-migration")
+    private boolean gv1Migration;
+
     public DeviceCapabilities() {}
 
-    public DeviceCapabilities(boolean uuid, boolean gv2, boolean storage) {
-      this.uuid    = uuid;
-      this.gv2     = gv2;
+    public DeviceCapabilities(boolean gv2, final boolean gv2_2, final boolean gv2_3, boolean storage, boolean transfer, boolean gv1Migration) {
+      this.gv2 = gv2;
+      this.gv2_2 = gv2_2;
+      this.gv2_3 = gv2_3;
       this.storage = storage;
-    }
-
-    public boolean isUuid() {
-      return uuid;
+      this.transfer = transfer;
+      this.gv1Migration = gv1Migration;
     }
 
     public boolean isGv2() {
       return gv2;
     }
 
+    public boolean isGv2_2() {
+      return gv2_2;
+    }
+
+    public boolean isGv2_3() {
+      return gv2_3;
+    }
+
     public boolean isStorage() {
       return storage;
     }
-  }
 
+    public boolean isTransfer() {
+      return transfer;
+    }
+
+    public boolean isGv1Migration() {
+      return gv1Migration;
+    }
+  }
 }

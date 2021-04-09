@@ -1,27 +1,18 @@
 /*
- * Copyright (C) 2018 Open WhisperSystems
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.storage;
 
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.ScheduledReporter;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.dropwizard.metrics.MetricsFactory;
+import io.dropwizard.metrics.ReporterFactory;
 import org.whispersystems.textsecuregcm.entities.ActiveUserTally;
-import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -33,10 +24,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import io.dropwizard.metrics.MetricsFactory;
-import io.dropwizard.metrics.ReporterFactory;
-import redis.clients.jedis.Jedis;
-
 public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
 
   private static final String TALLY_KEY         = "active_user_tally";
@@ -46,21 +33,19 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
 
   private static final String INTERVALS[] = {"daily", "weekly", "monthly", "quarterly", "yearly"};
 
-  private final MetricsFactory      metricsFactory;
-  private final ReplicatedJedisPool jedisPool;
-  private final ObjectMapper        mapper;
+  private final MetricsFactory            metricsFactory;
+  private final FaultTolerantRedisCluster cacheCluster;
+  private final ObjectMapper              mapper;
 
-  public ActiveUserCounter(MetricsFactory metricsFactory, ReplicatedJedisPool jedisPool) {
-    this.metricsFactory  = metricsFactory;
-    this.jedisPool       = jedisPool;
-    this.mapper          = SystemMapper.getMapper();
+  public ActiveUserCounter(MetricsFactory metricsFactory, FaultTolerantRedisCluster cacheCluster) {
+    this.metricsFactory         = metricsFactory;
+    this.cacheCluster           = cacheCluster;
+    this.mapper                 = SystemMapper.getMapper();
   }
 
   @Override
   public void onCrawlStart() {
-    try (Jedis jedis = jedisPool.getWriteResource()) {
-      jedis.del(TALLY_KEY);
-    }
+    cacheCluster.useCluster(connection -> connection.sync().del(TALLY_KEY));
   }
 
   @Override
@@ -95,18 +80,20 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
     }
 
     for (ReporterFactory reporterFactory : metricsFactory.getReporters()) {
-      reporterFactory.build(metrics).report();
+      try (final ScheduledReporter reporter = reporterFactory.build(metrics)) {
+        reporter.report();
+      }
     }
   }
 
   @Override
   protected void onCrawlChunk(Optional<UUID> fromNumber, List<Account> chunkAccounts) {
-    long nowDays  = TimeUnit.MILLISECONDS.toDays(System.currentTimeMillis());
-    long agoMs[]  = {TimeUnit.DAYS.toMillis(nowDays - 1),
-                     TimeUnit.DAYS.toMillis(nowDays - 7),
-                     TimeUnit.DAYS.toMillis(nowDays - 30),
-                     TimeUnit.DAYS.toMillis(nowDays - 90),
-                     TimeUnit.DAYS.toMillis(nowDays - 365)};
+    long nowHours  = TimeUnit.MILLISECONDS.toHours(System.currentTimeMillis());
+    long agoMs[]  = {TimeUnit.HOURS.toMillis(nowHours - 1   * 24 - 8),
+                     TimeUnit.HOURS.toMillis(nowHours - 7   * 24),
+                     TimeUnit.HOURS.toMillis(nowHours - 30  * 24),
+                     TimeUnit.HOURS.toMillis(nowHours - 90  * 24),
+                     TimeUnit.HOURS.toMillis(nowHours - 365 * 24)};
 
     Map<String, long[]> platformIncrements = new HashMap<>();
     Map<String, long[]> countryIncrements  = new HashMap<>();
@@ -156,8 +143,9 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
   }
 
   private void incrementTallies(UUID fromUuid, Map<String, long[]> platformIncrements, Map<String, long[]> countryIncrements) {
-    try (Jedis jedis = jedisPool.getWriteResource()) {
-      String tallyValue = jedis.get(TALLY_KEY);
+    try {
+      final String tallyValue = cacheCluster.withCluster(connection -> connection.sync().get(TALLY_KEY));
+
       ActiveUserTally activeUserTally;
 
       if (tallyValue == null) {
@@ -174,11 +162,11 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
         }
       }
 
-      jedis.set(TALLY_KEY, mapper.writeValueAsString(activeUserTally));
+      final String tallyJson = mapper.writeValueAsString(activeUserTally);
+
+      cacheCluster.useCluster(connection -> connection.sync().set(TALLY_KEY, tallyJson));
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException(e);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
     }
   }
 
@@ -196,8 +184,10 @@ public class ActiveUserCounter extends AccountDatabaseCrawlerListener {
   }
 
   private ActiveUserTally getFinalTallies() {
-    try (Jedis jedis = jedisPool.getReadResource()) {
-      return mapper.readValue(jedis.get(TALLY_KEY), ActiveUserTally.class);
+    try {
+      final String tallyJson = cacheCluster.withCluster(connection -> connection.sync().get(TALLY_KEY));
+
+      return mapper.readValue(tallyJson, ActiveUserTally.class);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

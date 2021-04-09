@@ -1,11 +1,15 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.dropwizard.util.Strings;
 import io.dropwizard.validation.ValidationMethod;
-import org.hibernate.validator.constraints.NotEmpty;
-
 import javax.validation.constraints.Min;
+import javax.validation.constraints.NotEmpty;
 
 public class GcpAttachmentsConfiguration {
 

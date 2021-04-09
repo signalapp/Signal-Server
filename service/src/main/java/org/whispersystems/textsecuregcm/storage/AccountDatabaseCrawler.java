@@ -1,18 +1,6 @@
 /*
- * Copyright (C) 2018 Open WhisperSystems
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.storage;
 
@@ -91,7 +79,7 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
         accelerated = doPeriodicWork();
         sleepWhileRunning(accelerated ? ACCELERATED_CHUNK_INTERVAL : chunkIntervalMs);
       } catch (Throwable t) {
-        logger.warn("error in database crawl: ", t);
+        logger.warn("error in database crawl: {}: {}", t.getClass().getSimpleName(), t.getMessage(), t);
         Util.sleep(10000);
       }
     }
@@ -131,9 +119,10 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
     List<Account> chunkAccounts = readChunk(fromUuid, chunkSize);
 
     if (chunkAccounts.isEmpty()) {
+      logger.info("Finished crawl");
       listeners.forEach(listener -> listener.onCrawlEnd(fromUuid));
       cache.setLastUuid(Optional.empty());
-      cache.clearAccelerate();
+      cache.setAccelerated(false);
     } else {
       try {
         for (AccountDatabaseCrawlerListener listener : listeners) {
@@ -142,7 +131,7 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
         cache.setLastUuid(Optional.of(chunkAccounts.get(chunkAccounts.size() - 1).getUuid()));
       } catch (AccountDatabaseCrawlerRestartException e) {
         cache.setLastUuid(Optional.empty());
-        cache.clearAccelerate();
+        cache.setAccelerated(false);
       }
 
     }
@@ -151,15 +140,12 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
 
   private List<Account> readChunk(Optional<UUID> fromUuid, int chunkSize) {
     try (Timer.Context timer = readChunkTimer.time()) {
-      List<Account> chunkAccounts;
 
       if (fromUuid.isPresent()) {
-        chunkAccounts = accounts.getAllFrom(fromUuid.get(), chunkSize);
-      } else {
-        chunkAccounts = accounts.getAllFrom(chunkSize);
+        return accounts.getAllFrom(fromUuid.get(), chunkSize);
       }
 
-      return chunkAccounts;
+      return accounts.getAllFrom(chunkSize);
     }
   }
 

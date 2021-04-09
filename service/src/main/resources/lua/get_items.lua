@@ -1,10 +1,11 @@
--- keys: queue_key, queue_locked_key
--- argv: limit
+local queueKey     = KEYS[1]
+local queueLockKey = KEYS[2]
+local limit        = ARGV[1]
 
-local locked = redis.call("GET", KEYS[2])
+local locked = redis.call("GET", queueLockKey)
 
 if locked then
     return {}
 end
 
-return redis.call("ZRANGE", KEYS[1], 0, ARGV[1], "WITHSCORES")
+return redis.call("ZRANGE", queueKey, 0, limit, "WITHSCORES")

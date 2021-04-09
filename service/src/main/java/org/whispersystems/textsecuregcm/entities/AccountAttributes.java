@@ -1,31 +1,15 @@
 /*
- * Copyright (C) 2013 Open WhisperSystems
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
-import org.hibernate.validator.constraints.Length;
-import org.whispersystems.textsecuregcm.storage.Device;
+import javax.validation.constraints.Size;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 
 public class AccountAttributes {
-
-  @JsonProperty
-  private String signalingKey;
 
   @JsonProperty
   private boolean fetchesMessages;
@@ -34,7 +18,7 @@ public class AccountAttributes {
   private int registrationId;
 
   @JsonProperty
-  @Length(max = 204, message = "This field must be less than 50 characters")
+  @Size(max = 204, message = "This field must be less than 50 characters")
   private String name;
 
   @JsonProperty
@@ -52,25 +36,20 @@ public class AccountAttributes {
   @JsonProperty
   private DeviceCapabilities capabilities;
 
+  @JsonProperty
+  private boolean discoverableByPhoneNumber = true;
+
   public AccountAttributes() {}
 
   @VisibleForTesting
-  public AccountAttributes(String signalingKey, boolean fetchesMessages, int registrationId, String pin) {
-    this(signalingKey, fetchesMessages, registrationId, null, pin, null);
-  }
-
-  @VisibleForTesting
-  public AccountAttributes(String signalingKey, boolean fetchesMessages, int registrationId, String name, String pin, String registrationLock) {
-    this.signalingKey     = signalingKey;
-    this.fetchesMessages  = fetchesMessages;
-    this.registrationId   = registrationId;
-    this.name             = name;
-    this.pin              = pin;
+  public AccountAttributes(boolean fetchesMessages, int registrationId, String name, String pin, String registrationLock, boolean discoverableByPhoneNumber, final DeviceCapabilities capabilities) {
+    this.fetchesMessages = fetchesMessages;
+    this.registrationId = registrationId;
+    this.name = name;
+    this.pin = pin;
     this.registrationLock = registrationLock;
-  }
-
-  public String getSignalingKey() {
-    return signalingKey;
+    this.discoverableByPhoneNumber = discoverableByPhoneNumber;
+    this.capabilities = capabilities;
   }
 
   public boolean getFetchesMessages() {
@@ -103,5 +82,9 @@ public class AccountAttributes {
 
   public DeviceCapabilities getCapabilities() {
     return capabilities;
+  }
+
+  public boolean isDiscoverableByPhoneNumber() {
+    return discoverableByPhoneNumber;
   }
 }

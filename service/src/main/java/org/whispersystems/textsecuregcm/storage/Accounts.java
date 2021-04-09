@@ -1,18 +1,6 @@
 /*
- * Copyright (C) 2013 Open WhisperSystems
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.storage;
 
@@ -48,6 +36,7 @@ public class Accounts {
   private final Timer          getByUuidTimer        = metricRegistry.timer(name(Accounts.class, "getByUuid"       ));
   private final Timer          getAllFromTimer       = metricRegistry.timer(name(Accounts.class, "getAllFrom"      ));
   private final Timer          getAllFromOffsetTimer = metricRegistry.timer(name(Accounts.class, "getAllFromOffset"));
+  private final Timer          deleteTimer           = metricRegistry.timer(name(Accounts.class, "delete"          ));
   private final Timer          vacuumTimer           = metricRegistry.timer(name(Accounts.class, "vacuum"          ));
 
   private final FaultTolerantDatabase database;
@@ -130,6 +119,16 @@ public class Accounts {
                      .bind("limit", length)
                      .mapTo(Account.class)
                      .list();
+      }
+    }));
+  }
+
+  public void delete(final UUID uuid) {
+    database.use(jdbi -> jdbi.useHandle(handle -> {
+      try (Timer.Context ignored = deleteTimer.time()) {
+        handle.createUpdate("DELETE FROM accounts WHERE " + UID + " = :uuid")
+                .bind("uuid", uuid)
+                .execute();
       }
     }));
   }

@@ -1,6 +1,21 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.tests.controllers;
 
+import static junit.framework.TestCase.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.Assert.assertEquals;
+
 import com.google.common.collect.ImmutableSet;
+import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
+import io.dropwizard.testing.junit.ResourceTestRule;
+import java.io.IOException;
+import java.util.Arrays;
+import javax.ws.rs.core.Response;
+import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -25,17 +40,6 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
-
-import javax.ws.rs.core.Response;
-import java.io.IOException;
-import java.util.Arrays;
-
-import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
-import io.dropwizard.testing.junit.ResourceTestRule;
-import static junit.framework.TestCase.assertTrue;
-import static org.assertj.core.api.Java6Assertions.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 
 public class CertificateControllerTest {
 
@@ -88,7 +92,8 @@ public class CertificateControllerTest {
 
     assertEquals(certificate.getSender(), AuthHelper.VALID_NUMBER);
     assertEquals(certificate.getSenderDevice(), 1L);
-    assertFalse(certificate.hasSenderUuid());
+    assertTrue(certificate.hasSenderUuid());
+    assertEquals(AuthHelper.VALID_UUID.toString(), certificate.getSenderUuid());
     assertTrue(Arrays.equals(certificate.getIdentityKey().toByteArray(), Base64.decode(AuthHelper.VALID_IDENTITY)));
   }
 
@@ -112,6 +117,32 @@ public class CertificateControllerTest {
     assertTrue(Curve.verifySignature(Curve.decodePoint(Base64.decode(caPublicKey), 0), serverCertificateHolder.getCertificate().toByteArray(), serverCertificateHolder.getSignature().toByteArray()));
 
     assertEquals(certificate.getSender(), AuthHelper.VALID_NUMBER);
+    assertEquals(certificate.getSenderDevice(), 1L);
+    assertEquals(certificate.getSenderUuid(), AuthHelper.VALID_UUID.toString());
+    assertTrue(Arrays.equals(certificate.getIdentityKey().toByteArray(), Base64.decode(AuthHelper.VALID_IDENTITY)));
+  }
+
+  @Test
+  public void testValidCertificateWithUuidNoE164() throws Exception {
+    DeliveryCertificate certificateObject = resources.getJerseyTest()
+            .target("/v1/certificate/delivery")
+            .queryParam("includeUuid", "true")
+            .queryParam("includeE164", "false")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+            .get(DeliveryCertificate.class);
+
+
+    SenderCertificate             certificateHolder = SenderCertificate.parseFrom(certificateObject.getCertificate());
+    SenderCertificate.Certificate certificate       = SenderCertificate.Certificate.parseFrom(certificateHolder.getCertificate());
+
+    ServerCertificate             serverCertificateHolder = certificate.getSigner();
+    ServerCertificate.Certificate serverCertificate       = ServerCertificate.Certificate.parseFrom(serverCertificateHolder.getCertificate());
+
+    assertTrue(Curve.verifySignature(Curve.decodePoint(serverCertificate.getKey().toByteArray(), 0), certificateHolder.getCertificate().toByteArray(), certificateHolder.getSignature().toByteArray()));
+    assertTrue(Curve.verifySignature(Curve.decodePoint(Base64.decode(caPublicKey), 0), serverCertificateHolder.getCertificate().toByteArray(), serverCertificateHolder.getSignature().toByteArray()));
+
+    assertTrue(StringUtils.isBlank(certificate.getSender()));
     assertEquals(certificate.getSenderDevice(), 1L);
     assertEquals(certificate.getSenderUuid(), AuthHelper.VALID_UUID.toString());
     assertTrue(Arrays.equals(certificate.getIdentityKey().toByteArray(), Base64.decode(AuthHelper.VALID_IDENTITY)));

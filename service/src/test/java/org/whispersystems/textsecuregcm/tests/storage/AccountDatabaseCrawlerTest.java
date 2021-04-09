@@ -1,18 +1,6 @@
 /*
- * Copyright (C) 2018 Open WhisperSystems
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 package org.whispersystems.textsecuregcm.tests.storage;
@@ -160,7 +148,7 @@ public class AccountDatabaseCrawlerTest {
     verify(account2, times(0)).getNumber();
     verify(listener, times(1)).timeAndProcessCrawlChunk(eq(Optional.of(ACCOUNT1)), eq(Arrays.asList(account2)));
     verify(cache, times(1)).setLastUuid(eq(Optional.empty()));
-    verify(cache, times(1)).clearAccelerate();
+    verify(cache, times(1)).setAccelerated(false);
     verify(cache, times(1)).isAccelerated();
     verify(cache, times(1)).releaseActiveWork(any(String.class));
 
@@ -187,7 +175,7 @@ public class AccountDatabaseCrawlerTest {
     verify(account2, times(0)).getNumber();
     verify(listener, times(1)).onCrawlEnd(eq(Optional.of(ACCOUNT2)));
     verify(cache, times(1)).setLastUuid(eq(Optional.empty()));
-    verify(cache, times(1)).clearAccelerate();
+    verify(cache, times(1)).setAccelerated(false);
     verify(cache, times(1)).isAccelerated();
     verify(cache, times(1)).releaseActiveWork(any(String.class));
 

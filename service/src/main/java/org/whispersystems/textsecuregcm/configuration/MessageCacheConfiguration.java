@@ -1,3 +1,8 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -10,13 +15,13 @@ public class MessageCacheConfiguration {
   @JsonProperty
   @NotNull
   @Valid
-  private RedisConfiguration redis;
+  private RedisClusterConfiguration cluster;
 
   @JsonProperty
   private int persistDelayMinutes = 10;
 
-  public RedisConfiguration getRedisConfiguration() {
-    return redis;
+  public RedisClusterConfiguration getRedisClusterConfiguration() {
+    return cluster;
   }
 
   public int getPersistDelayMinutes() {

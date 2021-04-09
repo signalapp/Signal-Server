@@ -1,15 +1,27 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.http;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryConfig;
+import org.glassfish.jersey.SslConfigurator;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
+import org.whispersystems.textsecuregcm.util.CertificateUtil;
 import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.Constants;
 
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.security.KeyStore;
+import java.security.cert.CertificateException;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -18,16 +30,15 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 
-import io.github.resilience4j.circuitbreaker.CircuitBreaker;
-import io.github.resilience4j.retry.Retry;
-import io.github.resilience4j.retry.RetryConfig;
-
 public class FaultTolerantHttpClient {
 
   private final HttpClient               httpClient;
   private final ScheduledExecutorService retryExecutor;
   private final Retry                    retry;
   private final CircuitBreaker           breaker;
+
+  public static final String SECURITY_PROTOCOL_TLS_1_2 = "TLSv1.2";
+  public static final String SECURITY_PROTOCOL_TLS_1_3 = "TLSv1.3";
 
   public static Builder newBuilder() {
     return new Builder();
@@ -77,6 +88,8 @@ public class FaultTolerantHttpClient {
 
     private String                      name;
     private Executor                    executor;
+    private KeyStore                    trustStore;
+    private String                      securityProtocol = SECURITY_PROTOCOL_TLS_1_2;
     private RetryConfiguration          retryConfiguration;
     private CircuitBreakerConfiguration circuitBreakerConfiguration;
 
@@ -117,19 +130,36 @@ public class FaultTolerantHttpClient {
       return this;
     }
 
+    public Builder withSecurityProtocol(final String securityProtocol) {
+      this.securityProtocol = securityProtocol;
+      return this;
+    }
+
+    public Builder withTrustedServerCertificate(final String certificatePem) throws CertificateException {
+      this.trustStore = CertificateUtil.buildKeyStoreForPem(certificatePem);
+      return this;
+    }
+
     public FaultTolerantHttpClient build() {
       if (this.circuitBreakerConfiguration == null || this.name == null || this.executor == null) {
         throw new IllegalArgumentException("Must specify circuit breaker config, name, and executor");
       }
 
-      HttpClient client = HttpClient.newBuilder()
-                                    .connectTimeout(connectTimeout)
-                                    .followRedirects(redirect)
-                                    .version(version)
-                                    .executor(executor)
-                                    .build();
+      final HttpClient.Builder builder = HttpClient.newBuilder()
+                                                   .connectTimeout(connectTimeout)
+                                                   .followRedirects(redirect)
+                                                   .version(version)
+                                                   .executor(executor);
 
-      return new FaultTolerantHttpClient(name, client, retryConfiguration, circuitBreakerConfiguration);
+      final SslConfigurator sslConfigurator = SslConfigurator.newInstance().securityProtocol(securityProtocol);
+
+      if (this.trustStore != null) {
+        sslConfigurator.trustStore(trustStore);
+      }
+
+      builder.sslContext(sslConfigurator.createSSLContext());
+
+      return new FaultTolerantHttpClient(name, builder.build(), retryConfiguration, circuitBreakerConfiguration);
     }
 
   }

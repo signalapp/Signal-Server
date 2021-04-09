@@ -1,5 +1,7 @@
--- keys: pending (KEYS[1])
--- argv: max_time (ARGV[1]), limit (ARGV[2])
+local pendingNotificationQueue = KEYS[1]
+
+local maxTime = ARGV[1]
+local limit = ARGV[2]
 
 local hgetall = function (key)
     local bulk = redis.call('HGETALL', key)
@@ -44,7 +46,7 @@ local getNextInterval = function(interval)
 end
 
 
-local results  = redis.call("ZRANGEBYSCORE", KEYS[1], 0, ARGV[1], "LIMIT", 0, ARGV[2])
+local results  = redis.call("ZRANGEBYSCORE", pendingNotificationQueue, 0, maxTime, "LIMIT", 0, limit)
 local collated = {}
 
 if results and next(results) then
@@ -59,12 +61,10 @@ if results and next(results) then
         local nextInterval = getNextInterval(tonumber(lastInterval))
 
         redis.call("HSET", name, "interval", nextInterval)
-        redis.call("ZADD", KEYS[1], tonumber(ARGV[1]) + nextInterval, name)
+        redis.call("ZADD", pendingNotificationQueue, tonumber(maxTime) + nextInterval, name)
 
         collated[i] = pending["account"] .. ":" .. pending["device"]
     end
 end
 
 return collated
-
-

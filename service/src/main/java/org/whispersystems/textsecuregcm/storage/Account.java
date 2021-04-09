@@ -1,18 +1,6 @@
 /*
- * Copyright (C) 2013 Open WhisperSystems
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.storage;
 
@@ -20,16 +8,14 @@ package org.whispersystems.textsecuregcm.storage;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
-import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
-import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
-
-import javax.security.auth.Subject;
 import java.security.Principal;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
+import javax.security.auth.Subject;
+import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
+import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 
 public class Account implements Principal  {
 
@@ -45,14 +31,14 @@ public class Account implements Principal  {
   @JsonProperty
   private String identityKey;
 
+  @JsonProperty("cpv")
+  private String currentProfileVersion;
+
   @JsonProperty
   private String name;
 
   @JsonProperty
   private String avatar;
-
-  @JsonProperty
-  private String avatarDigest;
 
   @JsonProperty
   private String pin;
@@ -68,6 +54,9 @@ public class Account implements Principal  {
 
   @JsonProperty("uua")
   private boolean unrestrictedUnidentifiedAccess;
+
+  @JsonProperty("inCds")
+  private boolean discoverableByPhoneNumber = true;
 
   @JsonIgnore
   private Device authenticatedDevice;
@@ -112,7 +101,7 @@ public class Account implements Principal  {
   }
 
   public void removeDevice(long deviceId) {
-    this.devices.remove(new Device(deviceId, null, null, null, null, null, null, null, false, 0, null, 0, 0, "NA", 0, null));
+    this.devices.remove(new Device(deviceId, null, null, null, null, null, null, false, 0, null, 0, 0, "NA", 0, null));
   }
 
   public Set<Device> getDevices() {
@@ -133,27 +122,28 @@ public class Account implements Principal  {
     return Optional.empty();
   }
 
-  public boolean isUuidAddressingSupported() {
-    return devices.stream()
-                  .filter(Device::isEnabled)
-                  .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isUuid());
-  }
-
   public boolean isGroupsV2Supported() {
     return devices.stream()
                   .filter(Device::isEnabled)
-                  .anyMatch(device -> device.getCapabilities() != null && device.getCapabilities().isGv2());
+                  .allMatch(Device::isGroupsV2Supported);
   }
 
   public boolean isStorageSupported() {
     return devices.stream().anyMatch(device -> device.getCapabilities() != null && device.getCapabilities().isStorage());
   }
 
+  public boolean isTransferSupported() {
+    return getMasterDevice().map(Device::getCapabilities).map(Device.DeviceCapabilities::isTransfer).orElse(false);
+  }
+
+  public boolean isGv1MigrationSupported() {
+    return devices.stream()
+                  .filter(Device::isEnabled)
+                  .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isGv1Migration());
+  }
+
   public boolean isEnabled() {
-    return
-        getMasterDevice().isPresent()       &&
-        getMasterDevice().get().isEnabled() &&
-        getLastSeen() > (System.currentTimeMillis() - TimeUnit.DAYS.toMillis(365));
+    return getMasterDevice().map(Device::isEnabled).orElse(false);
   }
 
   public long getNextDeviceId() {
@@ -208,6 +198,14 @@ public class Account implements Principal  {
     return lastSeen;
   }
 
+  public Optional<String> getCurrentProfileVersion() {
+    return Optional.ofNullable(currentProfileVersion);
+  }
+
+  public void setCurrentProfileVersion(String currentProfileVersion) {
+    this.currentProfileVersion = currentProfileVersion;
+  }
+
   public String getProfileName() {
     return name;
   }
@@ -222,14 +220,6 @@ public class Account implements Principal  {
 
   public void setAvatar(String avatar) {
     this.avatar = avatar;
-  }
-
-  public String getAvatarDigest() {
-    return avatarDigest;
-  }
-
-  public void setAvatarDigest(String avatarDigest) {
-    this.avatarDigest = avatarDigest;
   }
 
   public void setPin(String pin) {
@@ -267,6 +257,14 @@ public class Account implements Principal  {
     else                             throw new AssertionError();
   }
 
+  public boolean isDiscoverableByPhoneNumber() {
+    return this.discoverableByPhoneNumber;
+  }
+
+  public void setDiscoverableByPhoneNumber(final boolean discoverableByPhoneNumber) {
+    this.discoverableByPhoneNumber = discoverableByPhoneNumber;
+  }
+
   // Principal implementation
 
   @Override
@@ -280,5 +278,4 @@ public class Account implements Principal  {
   public boolean implies(Subject subject) {
     return false;
   }
-
 }

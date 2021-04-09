@@ -1,5 +1,19 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.tests.push;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import org.junit.Test;
 import org.whispersystems.gcm.server.Message;
 import org.whispersystems.gcm.server.Result;
@@ -11,12 +25,6 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.SynchronousExecutorService;
 import org.whispersystems.textsecuregcm.util.Util;
-
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-
-import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.*;
 
 public class GCMSenderTest {
 
@@ -33,7 +41,7 @@ public class GCMSenderTest {
     when(successResult.isSuccess()).thenReturn(true);
 
     GcmMessage message = new GcmMessage("foo", "+12223334444", 1, GcmMessage.Type.NOTIFICATION, Optional.empty());
-    GCMSender gcmSender = new GCMSender(accountsManager, sender, executorService);
+    GCMSender gcmSender = new GCMSender(executorService, accountsManager, sender);
 
     CompletableFuture<Result> successFuture = CompletableFuture.completedFuture(successResult);
 
@@ -67,7 +75,7 @@ public class GCMSenderTest {
     when(invalidResult.isSuccess()).thenReturn(true);
 
     GcmMessage message = new GcmMessage(gcmId, destinationNumber, 1, GcmMessage.Type.NOTIFICATION, Optional.empty());
-    GCMSender gcmSender = new GCMSender(accountsManager, sender, executorService);
+    GCMSender gcmSender = new GCMSender(executorService, accountsManager, sender);
 
     CompletableFuture<Result> invalidFuture = CompletableFuture.completedFuture(invalidResult);
 
@@ -106,7 +114,7 @@ public class GCMSenderTest {
     when(canonicalResult.getCanonicalRegistrationId()).thenReturn(canonicalId);
 
     GcmMessage message = new GcmMessage(gcmId, destinationNumber, 1, GcmMessage.Type.NOTIFICATION, Optional.empty());
-    GCMSender gcmSender = new GCMSender(accountsManager, sender, executorService);
+    GCMSender gcmSender = new GCMSender(executorService, accountsManager, sender);
 
     CompletableFuture<Result> invalidFuture = CompletableFuture.completedFuture(canonicalResult);
 

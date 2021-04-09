@@ -1,42 +1,47 @@
+/*
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.storage;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
+import io.lettuce.core.RedisException;
+import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.util.Constants;
 
 import java.util.Optional;
 import java.util.UUID;
 
 import static com.codahale.metrics.MetricRegistry.name;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.exceptions.JedisException;
 
 public class UsernamesManager {
 
   private static final MetricRegistry metricRegistry        = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private static final Timer          createTimer           = metricRegistry.timer(name(AccountsManager.class, "create"          ));
-  private static final Timer          deleteTimer           = metricRegistry.timer(name(AccountsManager.class, "delete"          ));
-  private static final Timer          getByUuidTimer        = metricRegistry.timer(name(AccountsManager.class, "getByUuid"       ));
-  private static final Timer          getByUsernameTimer    = metricRegistry.timer(name(AccountsManager.class, "getByUsername"   ));
+  private static final Timer          createTimer           = metricRegistry.timer(name(UsernamesManager.class, "create"          ));
+  private static final Timer          deleteTimer           = metricRegistry.timer(name(UsernamesManager.class, "delete"          ));
+  private static final Timer          getByUuidTimer        = metricRegistry.timer(name(UsernamesManager.class, "getByUuid"       ));
+  private static final Timer          getByUsernameTimer    = metricRegistry.timer(name(UsernamesManager.class, "getByUsername"   ));
 
-  private static final Timer          redisSetTimer         = metricRegistry.timer(name(AccountsManager.class, "redisSet"        ));
-  private static final Timer          redisUuidGetTimer     = metricRegistry.timer(name(AccountsManager.class, "redisUuidGet"    ));
-  private static final Timer          redisUsernameGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisUsernameGet"));
+  private static final Timer          redisSetTimer         = metricRegistry.timer(name(UsernamesManager.class, "redisSet"        ));
+  private static final Timer          redisUuidGetTimer     = metricRegistry.timer(name(UsernamesManager.class, "redisUuidGet"    ));
+  private static final Timer          redisUsernameGetTimer = metricRegistry.timer(name(UsernamesManager.class, "redisUsernameGet"));
 
-  private final Logger logger = LoggerFactory.getLogger(AccountsManager.class);
+  private final Logger logger = LoggerFactory.getLogger(UsernamesManager.class);
 
-  private final Usernames           usernames;
-  private final ReservedUsernames   reservedUsernames;
-  private final ReplicatedJedisPool cacheClient;
+  private final Usernames                 usernames;
+  private final ReservedUsernames         reservedUsernames;
+  private final FaultTolerantRedisCluster cacheCluster;
 
-  public UsernamesManager(Usernames usernames, ReservedUsernames reservedUsernames, ReplicatedJedisPool cacheClient) {
-    this.usernames         = usernames;
-    this.reservedUsernames = reservedUsernames;
-    this.cacheClient       = cacheClient;
+  public UsernamesManager(Usernames usernames, ReservedUsernames reservedUsernames, FaultTolerantRedisCluster cacheCluster) {
+    this.usernames              = usernames;
+    this.reservedUsernames      = reservedUsernames;
+    this.cacheCluster           = cacheCluster;
   }
 
   public boolean put(UUID uuid, String username) {
@@ -109,54 +114,59 @@ public class UsernamesManager {
   }
 
   private void redisSet(UUID uuid, String username, boolean required) {
-    try (Jedis         jedis   = cacheClient.getWriteResource();
-         Timer.Context ignored = redisSetTimer.time())
-    {
-      Optional.ofNullable(jedis.get(getUuidMapKey(uuid))).ifPresent(oldUsername -> jedis.del(getUsernameMapKey(oldUsername)));
+    final String uuidMapKey = getUuidMapKey(uuid);
+    final String usernameMapKey = getUsernameMapKey(username);
 
-      jedis.set(getUuidMapKey(uuid), username);
-      jedis.set(getUsernameMapKey(username), uuid.toString());
-    } catch (JedisException e) {
+    try (Timer.Context ignored = redisSetTimer.time()) {
+      cacheCluster.useCluster(connection -> {
+        final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
+
+        final Optional<String> maybeOldUsername = Optional.ofNullable(commands.get(uuidMapKey));
+
+        maybeOldUsername.ifPresent(oldUsername -> commands.del(getUsernameMapKey(oldUsername)));
+        commands.set(uuidMapKey, username);
+        commands.set(usernameMapKey, uuid.toString());
+      });
+    } catch (RedisException e) {
       if (required) throw e;
-      else          logger.warn("Ignoring jedis failure", e);
+      else          logger.warn("Ignoring Redis failure", e);
     }
   }
 
   private Optional<UUID> redisGet(String username) {
-    try (Jedis         jedis   = cacheClient.getReadResource();
-         Timer.Context ignored = redisUsernameGetTimer.time())
-    {
-      String result = jedis.get(getUsernameMapKey(username));
+    try (Timer.Context ignored = redisUsernameGetTimer.time()) {
+      final String result = cacheCluster.withCluster(connection -> connection.sync().get(getUsernameMapKey(username)));
 
       if (result == null) return Optional.empty();
       else                return Optional.of(UUID.fromString(result));
-    } catch (JedisException e) {
+    } catch (RedisException e) {
       logger.warn("Redis get failure", e);
       return Optional.empty();
     }
   }
 
   private Optional<String> redisGet(UUID uuid) {
-    try (Jedis         jedis   = cacheClient.getReadResource();
-         Timer.Context ignored = redisUuidGetTimer.time())
-    {
-      return Optional.ofNullable(jedis.get(getUuidMapKey(uuid)));
-    } catch (JedisException e) {
+    try (Timer.Context ignored = redisUuidGetTimer.time()) {
+      final String result = cacheCluster.withCluster(connection -> connection.sync().get(getUuidMapKey(uuid)));
+
+      return Optional.ofNullable(result);
+    } catch (RedisException e) {
       logger.warn("Redis get failure", e);
       return Optional.empty();
     }
   }
 
   private void redisDelete(UUID uuid) {
-    try (Jedis         jedis   = cacheClient.getWriteResource();
-         Timer.Context ignored = redisUuidGetTimer.time())
-    {
-      Optional<String> username = redisGet(uuid);
+    try (Timer.Context ignored = redisUuidGetTimer.time()) {
+      cacheCluster.useCluster(connection -> {
+        final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
 
-      if (username.isPresent()) {
-        jedis.del(getUsernameMapKey(username.get()));
-        jedis.del(getUuidMapKey(uuid));
-      }
+        commands.del(getUuidMapKey(uuid));
+
+        redisGet(uuid).ifPresent(username -> {
+          commands.del(getUsernameMapKey(username));
+        });
+      });
     }
   }
 

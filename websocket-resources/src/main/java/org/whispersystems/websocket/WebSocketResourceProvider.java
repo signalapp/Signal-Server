@@ -1,18 +1,6 @@
 /*
- * Copyright (C) 2014 Open WhisperSystems
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright 2013-2020 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.websocket;
 
@@ -36,6 +24,7 @@ import org.whispersystems.websocket.session.ContextPrincipal;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 import org.whispersystems.websocket.setup.WebSocketConnectListener;
 
+import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -48,6 +37,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -70,6 +60,8 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
   private Session                 session;
   private RemoteEndpoint          remoteEndpoint;
   private WebSocketSessionContext context;
+
+  private static final Set<String> EXCLUDED_UPGRADE_REQUEST_HEADERS = Set.of("connection", "upgrade");
 
   public WebSocketResourceProvider(String                             remoteAddress,
                                    ApplicationHandler                 jerseyHandler,
@@ -96,9 +88,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
     this.context.setAuthenticated(authenticated);
     this.session.setIdleTimeout(idleTimeoutMillis);
 
-    if (connectListener.isPresent()) {
-      connectListener.get().onWebSocketConnect(this.context);
-    }
+    connectListener.ifPresent(listener -> listener.onWebSocketConnect(this.context));
   }
 
   @Override
@@ -151,10 +141,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
 
   private void handleRequest(WebSocketRequestMessage requestMessage) {
     ContainerRequest containerRequest = new ContainerRequest(null, URI.create(requestMessage.getPath()), requestMessage.getVerb(), new WebSocketSecurityContext(new ContextPrincipal(context)), new MapPropertiesDelegate(new HashMap<>()), null);
-
-    for (Map.Entry<String, String> entry : requestMessage.getHeaders().entrySet()) {
-      containerRequest.header(entry.getKey(), entry.getValue());
-    }
+    containerRequest.headers(getCombinedHeaders(session.getUpgradeRequest().getHeaders(), requestMessage.getHeaders()));
 
     if (requestMessage.getBody().isPresent()) {
       containerRequest.setEntityStream(new ByteArrayInputStream(requestMessage.getBody().get()));
@@ -172,6 +159,31 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
       requestLog.log(remoteAddress, containerRequest, new ContainerResponse(containerRequest, Response.status(500).build()));
       return null;
     });
+  }
+
+  @VisibleForTesting
+  static Map<String, List<String>> getCombinedHeaders(final Map<String, List<String>> upgradeRequestHeaders, final Map<String, String> requestMessageHeaders) {
+    final Map<String, List<String>> combinedHeaders = new HashMap<>();
+
+    upgradeRequestHeaders.entrySet().stream()
+        .filter(entry -> shouldIncludeUpgradeRequestHeader(entry.getKey()))
+        .forEach(entry -> combinedHeaders.put(entry.getKey(), entry.getValue()));
+
+    requestMessageHeaders.entrySet().stream()
+        .filter(entry -> shouldIncludeRequestMessageHeader(entry.getKey()))
+        .forEach(entry -> combinedHeaders.put(entry.getKey(), List.of(entry.getValue())));
+
+    return combinedHeaders;
+  }
+
+  @VisibleForTesting
+  static boolean shouldIncludeUpgradeRequestHeader(final String header) {
+    return !EXCLUDED_UPGRADE_REQUEST_HEADERS.contains(header.toLowerCase()) && !header.toLowerCase().contains("websocket-");
+  }
+
+  @VisibleForTesting
+  static boolean shouldIncludeRequestMessageHeader(final String header) {
+    return !"X-Forwarded-For".equalsIgnoreCase(header.trim());
   }
 
   private void handleResponse(WebSocketResponseMessage responseMessage) {
@@ -197,7 +209,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
       byte[] responseBytes = messageFactory.createResponse(requestMessage.getRequestId(),
                                                            response.getStatus(),
                                                            response.getStatusInfo().getReasonPhrase(),
-                                                           new LinkedList<>(),
+                                                           getHeaderList(response.getStringHeaders()),
                                                            Optional.ofNullable(body))
                                            .toByteArray();
 
@@ -207,16 +219,10 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
 
   private void sendErrorResponse(WebSocketRequestMessage requestMessage, Response error) {
     if (requestMessage.hasRequestId()) {
-      List<String> headers = new LinkedList<>();
-
-      for (String key : error.getStringHeaders().keySet()) {
-        headers.add(key + ":" + error.getStringHeaders().getFirst(key));
-      }
-
       WebSocketMessage response = messageFactory.createResponse(requestMessage.getRequestId(),
                                                                 error.getStatus(),
                                                                 "Error response",
-                                                                headers,
+                                                                getHeaderList(error.getStringHeaders()),
                                                                 Optional.empty());
 
       remoteEndpoint.sendBytesByFuture(ByteBuffer.wrap(response.toByteArray()));
@@ -229,4 +235,16 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
     return context;
   }
 
+  @VisibleForTesting
+  static List<String> getHeaderList(final MultivaluedMap<String, String> headerMap) {
+    final List<String> headers = new LinkedList<>();
+
+    if (headerMap != null) {
+      for (String key : headerMap.keySet()) {
+        headers.add(key + ":" + headerMap.getFirst(key));
+      }
+    }
+
+    return headers;
+  }
 }
