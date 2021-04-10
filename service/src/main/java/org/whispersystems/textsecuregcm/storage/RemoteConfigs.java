@@ -42,12 +42,12 @@ public class RemoteConfigs {
     database.use(jdbi -> jdbi.useHandle(handle -> {
       try (Timer.Context ignored = setTimer.time()) {
         handle.createUpdate("INSERT INTO remote_config (" + NAME + ", " + PERCENTAGE + ", " + UUIDS + ", " + DEFAULT_VALUE + ", " + VALUE + ", " + HASH_KEY + ") VALUES (:name, :percentage, :uuids, :default_value, :value, :hash_key) ON CONFLICT(" + NAME + ") DO UPDATE SET " + PERCENTAGE + " = EXCLUDED." + PERCENTAGE + ", " + UUIDS + " = EXCLUDED." + UUIDS + ", " + DEFAULT_VALUE + " = EXCLUDED." + DEFAULT_VALUE + ", " + VALUE + " = EXCLUDED." + VALUE + ", " + HASH_KEY + " = EXCLUDED." + HASH_KEY)
-            .bind("name", remoteConfig.getName())
-            .bind("percentage", remoteConfig.getPercentage())
-            .bind("uuids", remoteConfig.getUuids().toArray(new UUID[0]))
-            .bind("default_value", remoteConfig.getDefaultValue())
-            .bind("value", remoteConfig.getValue())
-            .bind("hash_key", remoteConfig.getHashKey())
+            .bind(NAME, remoteConfig.getName())
+            .bind(PERCENTAGE, remoteConfig.getPercentage())
+            .bind(UUIDS, remoteConfig.getUuids().toArray(new UUID[0]))
+            .bind(DEFAULT_VALUE, remoteConfig.getDefaultValue())
+            .bind(VALUE, remoteConfig.getValue())
+            .bind(HASH_KEY, remoteConfig.getHashKey())
             .execute();
       }
     }));

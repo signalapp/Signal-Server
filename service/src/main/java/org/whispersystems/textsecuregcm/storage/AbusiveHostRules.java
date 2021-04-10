@@ -38,7 +38,7 @@ public class AbusiveHostRules {
     return database.with(jdbi -> jdbi.withHandle(handle -> {
       try (Timer.Context timer = getTimer.time()) {
         return handle.createQuery("SELECT * FROM abusive_host_rules WHERE :host::inet <<= " + HOST)
-                     .bind("host", host)
+                     .bind(HOST, host)
                      .mapTo(AbusiveHostRule.class)
                      .list();
       }
@@ -49,9 +49,9 @@ public class AbusiveHostRules {
     database.use(jdbi -> jdbi.useHandle(handle -> {
       try (Timer.Context timer = insertTimer.time()) {
         handle.createUpdate("INSERT INTO abusive_host_rules(host, blocked, notes) VALUES(:host::inet, :blocked, :notes) ON CONFLICT DO NOTHING")
-              .bind("host", host)
-              .bind("blocked", 1)
-              .bind("notes", notes)
+              .bind(HOST, host)
+              .bind(BLOCKED, 1)
+              .bind(NOTES, notes)
               .execute();
       }
     }));

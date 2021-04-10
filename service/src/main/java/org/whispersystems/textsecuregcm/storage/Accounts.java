@@ -54,7 +54,7 @@ public class Accounts {
                           .bind("uuid", account.getUuid())
                           .bind("data", mapper.writeValueAsString(account))
                           .mapTo(UUID.class)
-                          .findOnly();
+                          .one();
 
         boolean isNew = uuid.equals(account.getUuid());
         account.setUuid(uuid);

@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.auth;
 
-import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
@@ -27,6 +26,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 
 import static com.codahale.metrics.MetricRegistry.name;
+import static java.util.Objects.isNull;
 
 public class BaseAccountAuthenticator {
 
@@ -43,7 +43,7 @@ public class BaseAccountAuthenticator {
 
   private static final String IS_PRIMARY_DEVICE_TAG = "isPrimary";
 
-  private final Logger logger = LoggerFactory.getLogger(AccountAuthenticator.class);
+  private final Logger logger = LoggerFactory.getLogger(BaseAccountAuthenticator.class);
 
   private final AccountsManager accountsManager;
   private final Clock           clock;
@@ -63,14 +63,14 @@ public class BaseAccountAuthenticator {
       AuthorizationHeader authorizationHeader = AuthorizationHeader.fromUserAndPassword(basicCredentials.getUsername(), basicCredentials.getPassword());
       Optional<Account>   account             = accountsManager.get(authorizationHeader.getIdentifier());
 
-      if (!account.isPresent()) {
+      if (isNull(account)) {
         noSuchAccountMeter.mark();
         return Optional.empty();
       }
 
       Optional<Device> device = account.get().getDevice(authorizationHeader.getDeviceId());
 
-      if (!device.isPresent()) {
+      if (isNull(device)) {
         noSuchDeviceMeter.mark();
         return Optional.empty();
       }

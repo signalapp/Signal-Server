@@ -9,10 +9,8 @@ import io.dropwizard.servlets.tasks.Task;
 import org.whispersystems.textsecuregcm.util.logging.RequestLogManager;
 
 import java.io.PrintWriter;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 public class SetRequestLoggingEnabledTask extends Task {
 

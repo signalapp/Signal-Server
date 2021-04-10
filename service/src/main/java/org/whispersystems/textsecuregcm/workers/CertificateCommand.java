@@ -10,8 +10,6 @@ import com.google.protobuf.ByteString;
 import net.sourceforge.argparse4j.impl.Arguments;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
-import org.whispersystems.curve25519.Curve25519;
-import org.whispersystems.curve25519.Curve25519KeyPair;
 import org.whispersystems.textsecuregcm.crypto.Curve;
 import org.whispersystems.textsecuregcm.crypto.ECKeyPair;
 import org.whispersystems.textsecuregcm.crypto.ECPrivateKey;

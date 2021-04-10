@@ -41,16 +41,14 @@ public class Usernames {
     return database.with(jdbi -> jdbi.withHandle(handle -> {
       try (Timer.Context ignored = createTimer.time()) {
         int modified = handle.createUpdate("INSERT INTO usernames (" + UID + ", " + USERNAME + ") VALUES (:uuid, :username) ON CONFLICT (" + UID + ") DO UPDATE SET " + USERNAME + " = EXCLUDED.username")
-                             .bind("uuid", uuid)
-                             .bind("username", username)
+                             .bind(UID, uuid)
+                             .bind(USERNAME, username)
                              .execute();
 
         return modified > 0;
       } catch (JdbiException e) {
-        if (e.getCause() instanceof SQLException) {
-          if (((SQLException)e.getCause()).getSQLState().equals("23505")) {
-            return false;
-          }
+        if (e.getCause() instanceof SQLException && ((SQLException)e.getCause()).getSQLState().equals("23505")) {
+          return false;
         }
 
         throw e;
@@ -62,7 +60,7 @@ public class Usernames {
     database.use(jdbi -> jdbi.useHandle(handle -> {
       try (Timer.Context ignored = deleteTimer.time()) {
         handle.createUpdate("DELETE FROM usernames WHERE " + UID + " = :uuid")
-              .bind("uuid", uuid)
+              .bind(UID, uuid)
               .execute();
       }
     }));
@@ -72,7 +70,7 @@ public class Usernames {
     return database.with(jdbi -> jdbi.withHandle(handle -> {
       try (Timer.Context ignored = getByUsernameTimer.time()) {
         return handle.createQuery("SELECT " + UID + " FROM usernames WHERE " + USERNAME + " = :username")
-                     .bind("username", username)
+                     .bind(USERNAME, username)
                      .mapTo(UUID.class)
                      .findFirst();
       }
@@ -83,7 +81,7 @@ public class Usernames {
     return database.with(jdbi -> jdbi.withHandle(handle -> {
       try (Timer.Context ignored = getByUuidTimer.time()) {
         return handle.createQuery("SELECT " + USERNAME + " FROM usernames WHERE " + UID + " = :uuid")
-                     .bind("uuid", uuid)
+                     .bind(UID, uuid)
                      .mapTo(String.class)
                      .findFirst();
       }

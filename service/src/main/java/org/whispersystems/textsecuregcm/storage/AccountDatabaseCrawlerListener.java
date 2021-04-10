@@ -4,7 +4,6 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
-import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 
