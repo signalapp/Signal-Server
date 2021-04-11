@@ -195,16 +195,6 @@
                             <outputDirectory>${project.build.directory}/lib</outputDirectory>
                         </configuration>
                     </execution>
-                    <execution>
-                        <id>analyze</id>
-                        <goals>
-                            <goal>analyze-only</goal>
-                        </goals>
-                        <configuration>
-                            <ignoredUnusedDeclaredDependencies>*</ignoredUnusedDeclaredDependencies>
-                            <ignoredUsedUndeclaredDependencies>*</ignoredUsedUndeclaredDependencies>
-                        </configuration>
-                    </execution>
                 </executions>
             </plugin>
 
