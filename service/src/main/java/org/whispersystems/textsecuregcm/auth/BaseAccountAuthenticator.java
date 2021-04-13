@@ -42,7 +42,7 @@ public class BaseAccountAuthenticator {
 
   private static final String IS_PRIMARY_DEVICE_TAG = "isPrimary";
 
-  private final Logger logger = LoggerFactory.getLogger(AccountAuthenticator.class);
+  private final Logger logger = LoggerFactory.getLogger(BaseAccountAuthenticator.class);
 
   private final AccountsManager accountsManager;
   private final Clock           clock;
