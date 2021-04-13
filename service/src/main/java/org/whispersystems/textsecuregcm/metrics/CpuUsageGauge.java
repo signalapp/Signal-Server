@@ -6,7 +6,6 @@
 package org.whispersystems.textsecuregcm.metrics;
 
 import com.codahale.metrics.CachedGauge;
-import com.codahale.metrics.Gauge;
 import com.sun.management.OperatingSystemMXBean;
 
 import java.lang.management.ManagementFactory;

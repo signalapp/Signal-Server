@@ -6,12 +6,6 @@
 package org.whispersystems.textsecuregcm.util;
 
 import com.codahale.metrics.CachedGauge;
-import org.bouncycastle.openssl.PEMReader;
-
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.time.Instant;

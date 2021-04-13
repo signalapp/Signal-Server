@@ -10,7 +10,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.vdurmont.semver4j.Semver;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
-import javax.validation.constraints.NotNull;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;

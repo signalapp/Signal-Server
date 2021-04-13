@@ -5,17 +5,11 @@
 
 package org.whispersystems.textsecuregcm.mappers;
 
-import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.ext.ExceptionMapper;
-import javax.ws.rs.ext.Provider;
-
 import org.whispersystems.textsecuregcm.controllers.RetryLaterException;
 
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.ExceptionMapper;
 import javax.ws.rs.ext.Provider;
-import java.time.Duration;
 
 @Provider
 public class RetryLaterExceptionMapper implements ExceptionMapper<RetryLaterException> {

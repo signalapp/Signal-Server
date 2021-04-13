@@ -19,7 +19,6 @@ import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 import java.io.IOException;
-import java.time.Duration;
 
 import static com.codahale.metrics.MetricRegistry.name;
 

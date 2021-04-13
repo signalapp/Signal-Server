@@ -5,12 +5,9 @@
 package org.whispersystems.textsecuregcm.auth;
 
 import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tag;
-import org.apache.http.auth.AUTH;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 
-import java.util.List;
 import java.util.Optional;
 
 import io.dropwizard.auth.Authenticator;
