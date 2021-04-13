@@ -6,7 +6,6 @@ package org.whispersystems.textsecuregcm.sms;
 
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Locale.LanguageRange;
 import java.util.Optional;
 

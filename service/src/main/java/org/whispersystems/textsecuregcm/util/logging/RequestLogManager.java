@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.util.logging;
 
 import ch.qos.logback.access.spi.IAccessEvent;
 import ch.qos.logback.core.filter.Filter;
-import org.whispersystems.websocket.logging.WebsocketEvent;
 
 public class RequestLogManager {
     private static final RequestLogEnabledFilter<IAccessEvent> HTTP_REQUEST_LOG_FILTER = new RequestLogEnabledFilter<>();

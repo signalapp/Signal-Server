@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.websocket;
 
 import org.whispersystems.textsecuregcm.util.Base64;
 
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 
 public class ProvisioningAddress extends WebsocketAddress {

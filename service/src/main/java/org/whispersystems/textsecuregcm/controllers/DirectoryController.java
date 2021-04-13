@@ -5,7 +5,6 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.dropwizard.auth.Auth;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -17,8 +16,6 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import java.util.Collections;
-import java.util.List;
 
 @Path("/v1/directory")
 public class DirectoryController {

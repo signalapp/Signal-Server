@@ -11,7 +11,6 @@ import com.google.common.annotations.VisibleForTesting;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
-import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
 import io.lettuce.core.codec.ByteArrayCodec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -8,17 +8,13 @@ package org.whispersystems.textsecuregcm.redis;
 import com.google.common.annotations.VisibleForTesting;
 import io.lettuce.core.RedisNoScriptException;
 import io.lettuce.core.ScriptOutputType;
-import io.lettuce.core.api.sync.RedisCommands;
-import io.lettuce.core.cluster.SlotHash;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
-import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 public class ClusterLuaScript {
