@@ -4,31 +4,34 @@
  */
 package org.whispersystems.gcm.server;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
+import static junit.framework.TestCase.assertTrue;
+import static org.whispersystems.gcm.server.util.FixtureHelpers.fixture;
+
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
-
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
-import static junit.framework.TestCase.assertTrue;
-import static org.whispersystems.gcm.server.util.FixtureHelpers.fixture;
+import org.junit.Ignore;
+import org.junit.Rule;
+import org.junit.Test;
 
 public class SimultaneousSenderTest {
 
   @Rule
-  public WireMockRule wireMock = new WireMockRule(8089);
+  public WireMockRule wireMock = new WireMockRule(WireMockConfiguration.options().dynamicPort().dynamicHttpsPort());
 
   private static final ObjectMapper mapper = new ObjectMapper();
 
@@ -45,7 +48,7 @@ public class SimultaneousSenderTest {
                                 .withStatus(200)
                                 .withBody(fixture("fixtures/response-success.json"))));
 
-    Sender                          sender  = new Sender("foobarbaz", mapper, 2, "http://localhost:8089/gcm/send");
+    Sender                          sender  = new Sender("foobarbaz", mapper, 2, "http://localhost:" + wireMock.port() + "/gcm/send");
     List<CompletableFuture<Result>> results = new LinkedList<>();
 
     for (int i=0;i<1000;i++) {
@@ -68,7 +71,7 @@ public class SimultaneousSenderTest {
                 .willReturn(aResponse()
                                 .withStatus(503)));
 
-    Sender                         sender   = new Sender("foobarbaz", mapper, 2, "http://localhost:8089/gcm/send");
+    Sender                         sender   = new Sender("foobarbaz", mapper, 2, "http://localhost:" + wireMock.port() + "/gcm/send");
     List<CompletableFuture<Result>> futures = new LinkedList<>();
 
     for (int i=0;i<1000;i++) {

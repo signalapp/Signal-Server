@@ -20,20 +20,6 @@
             <version>${resilience4j.version}</version>
         </dependency>
 
-
-        <dependency>
-            <groupId>com.squareup.okhttp</groupId>
-            <artifactId>mockwebserver</artifactId>
-            <version>2.1.0</version>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.bouncycastle</groupId>
-                    <artifactId>bcprov-jdk15on</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk16</artifactId>
