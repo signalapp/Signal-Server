@@ -3,89 +3,95 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-package org.whispersystems.textsecuregcm.tests.storage;
+package org.whispersystems.textsecuregcm.storage;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
-import com.fasterxml.uuid.UUIDComparator;
-import com.opentable.db.postgres.embedded.LiquibasePreparer;
-import com.opentable.db.postgres.junit.EmbeddedPostgresRules;
-import com.opentable.db.postgres.junit.PreparedDbRule;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.document.DynamoDB;
+import com.amazonaws.services.dynamodbv2.document.Item;
+import com.amazonaws.services.dynamodbv2.document.Table;
+import com.amazonaws.services.dynamodbv2.document.spec.GetItemSpec;
+import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
+import com.amazonaws.services.dynamodbv2.model.CreateTableRequest;
+import com.amazonaws.services.dynamodbv2.model.KeySchemaElement;
+import com.amazonaws.services.dynamodbv2.model.KeyType;
+import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
-import java.io.IOException;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
-import org.jdbi.v3.core.HandleConsumer;
-import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.transaction.TransactionException;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
-import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.Accounts;
-import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
-import org.whispersystems.textsecuregcm.storage.mappers.AccountRowMapper;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
-public class AccountsTest {
+class AccountsDynamoDbTest {
 
-  @Rule
-  public PreparedDbRule db = EmbeddedPostgresRules.preparedDatabase(LiquibasePreparer.forClasspathLocation("accountsdb.xml"));
+  private static final String ACCOUNTS_TABLE_NAME = "accounts_test";
+  private static final String NUMBERS_TABLE_NAME = "numbers_test";
 
-  private Accounts accounts;
+  @RegisterExtension
+  static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
+      .tableName(ACCOUNTS_TABLE_NAME)
+      .hashKey(AccountsDynamoDb.KEY_ACCOUNT_UUID)
+      .attributeDefinition(new AttributeDefinition(AccountsDynamoDb.KEY_ACCOUNT_UUID, ScalarAttributeType.B))
+      .build();
 
-  @Before
-  public void setupAccountsDao() {
-    FaultTolerantDatabase faultTolerantDatabase = new FaultTolerantDatabase("accountsTest",
-                                                                            Jdbi.create(db.getTestDatabase()),
-                                                                            new CircuitBreakerConfiguration());
+  private AccountsDynamoDb accountsDynamoDb;
 
-    this.accounts = new Accounts(faultTolerantDatabase);
+  @BeforeEach
+  void setupAccountsDao() {
+
+    CreateTableRequest createNumbersTableRequest = new CreateTableRequest()
+        .withTableName(NUMBERS_TABLE_NAME)
+        .withKeySchema(new KeySchemaElement(AccountsDynamoDb.ATTR_ACCOUNT_E164, KeyType.HASH))
+        .withAttributeDefinitions(new AttributeDefinition(AccountsDynamoDb.ATTR_ACCOUNT_E164, ScalarAttributeType.S))
+        .withProvisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT);
+
+    final Table numbersTable = dynamoDbExtension.getDynamoDB().createTable(createNumbersTableRequest);
+
+    this.accountsDynamoDb = new AccountsDynamoDb(dynamoDbExtension.getClient(), dynamoDbExtension.getDynamoDB(), dynamoDbExtension.getTableName(), numbersTable.getTableName());
   }
 
   @Test
-  public void testStore() throws SQLException, IOException {
+  void testStore() {
     Device  device  = generateDevice (1                                            );
     Account account = generateAccount("+14151112222", UUID.randomUUID(), Collections.singleton(device));
 
-    accounts.create(account);
+    accountsDynamoDb.create(account);
 
-    PreparedStatement statement = db.getTestDatabase().getConnection().prepareStatement("SELECT * FROM accounts WHERE number = ?");
-    verifyStoredState(statement, "+14151112222", account.getUuid(), account);
+    verifyStoredState("+14151112222", account.getUuid(), account);
   }
 
   @Test
-  public void testStoreMulti() throws SQLException, IOException {
+  void testStoreMulti() {
     Set<Device> devices = new HashSet<>();
     devices.add(generateDevice(1));
     devices.add(generateDevice(2));
 
     Account account = generateAccount("+14151112222", UUID.randomUUID(), devices);
 
-    accounts.create(account);
+    accountsDynamoDb.create(account);
 
-    PreparedStatement statement = db.getTestDatabase().getConnection().prepareStatement("SELECT * FROM accounts WHERE number = ?");
-    verifyStoredState(statement, "+14151112222", account.getUuid(), account);
+    verifyStoredState("+14151112222", account.getUuid(), account);
   }
 
   @Test
-  public void testRetrieve() {
+  void testRetrieve() {
     Set<Device> devicesFirst = new HashSet<>();
     devicesFirst.add(generateDevice(1));
     devicesFirst.add(generateDevice(2));
@@ -100,11 +106,11 @@ public class AccountsTest {
     UUID uuidSecond = UUID.randomUUID();
     Account accountSecond = generateAccount("+14152221111", uuidSecond, devicesSecond);
 
-    accounts.create(accountFirst);
-    accounts.create(accountSecond);
+    accountsDynamoDb.create(accountFirst);
+    accountsDynamoDb.create(accountSecond);
 
-    Optional<Account> retrievedFirst = accounts.get("+14151112222");
-    Optional<Account> retrievedSecond = accounts.get("+14152221111");
+    Optional<Account> retrievedFirst = accountsDynamoDb.get("+14151112222");
+    Optional<Account> retrievedSecond = accountsDynamoDb.get("+14152221111");
 
     assertThat(retrievedFirst.isPresent()).isTrue();
     assertThat(retrievedSecond.isPresent()).isTrue();
@@ -112,8 +118,8 @@ public class AccountsTest {
     verifyStoredState("+14151112222", uuidFirst, retrievedFirst.get(), accountFirst);
     verifyStoredState("+14152221111", uuidSecond, retrievedSecond.get(), accountSecond);
 
-    retrievedFirst = accounts.get(uuidFirst);
-    retrievedSecond = accounts.get(uuidSecond);
+    retrievedFirst = accountsDynamoDb.get(uuidFirst);
+    retrievedSecond = accountsDynamoDb.get(uuidSecond);
 
     assertThat(retrievedFirst.isPresent()).isTrue();
     assertThat(retrievedSecond.isPresent()).isTrue();
@@ -123,144 +129,99 @@ public class AccountsTest {
   }
 
   @Test
-  public void testOverwrite() throws Exception {
+  void testOverwrite() {
     Device  device  = generateDevice (1                                            );
     UUID    firstUuid = UUID.randomUUID();
     Account account   = generateAccount("+14151112222", firstUuid, Collections.singleton(device));
 
-    accounts.create(account);
+    accountsDynamoDb.create(account);
 
-    PreparedStatement statement = db.getTestDatabase().getConnection().prepareStatement("SELECT * FROM accounts WHERE number = ?");
-    verifyStoredState(statement, "+14151112222", account.getUuid(), account);
+    verifyStoredState("+14151112222", account.getUuid(), account);
 
     UUID secondUuid = UUID.randomUUID();
 
     device = generateDevice(1);
     account = generateAccount("+14151112222", secondUuid, Collections.singleton(device));
 
-    accounts.create(account);
-    verifyStoredState(statement, "+14151112222", firstUuid, account);
+    accountsDynamoDb.create(account);
+    verifyStoredState("+14151112222", firstUuid, account);
 
     device = generateDevice(1);
     Account invalidAccount = generateAccount("+14151113333", firstUuid, Collections.singleton(device));
 
-    assertThatThrownBy(() -> accounts.create(invalidAccount));
+    assertThatThrownBy(() -> accountsDynamoDb.create(invalidAccount));
   }
 
   @Test
-  public void testUpdate() {
+  void testUpdate() {
     Device  device  = generateDevice (1                                            );
     Account account = generateAccount("+14151112222", UUID.randomUUID(), Collections.singleton(device));
 
-    accounts.create(account);
+    accountsDynamoDb.create(account);
 
     device.setName("foobar");
 
-    accounts.update(account);
+    accountsDynamoDb.update(account);
 
-    Optional<Account> retrieved = accounts.get("+14151112222");
+    Optional<Account> retrieved = accountsDynamoDb.get("+14151112222");
 
     assertThat(retrieved.isPresent()).isTrue();
     verifyStoredState("+14151112222", account.getUuid(), retrieved.get(), account);
 
-    retrieved = accounts.get(account.getUuid());
+    retrieved = accountsDynamoDb.get(account.getUuid());
 
     assertThat(retrieved.isPresent()).isTrue();
     verifyStoredState("+14151112222", account.getUuid(), retrieved.get(), account);
   }
 
   @Test
-  public void testRetrieveFrom() {
-    List<Account> users = new ArrayList<>();
-
-    for (int i=1;i<=100;i++) {
-      Account account = generateAccount("+1" + String.format("%03d", i), UUID.randomUUID());
-      users.add(account);
-      accounts.create(account);
-    }
-
-    users.sort((account, t1) -> UUIDComparator.staticCompare(account.getUuid(), t1.getUuid()));
-
-    List<Account> retrieved = accounts.getAllFrom(10);
-    assertThat(retrieved.size()).isEqualTo(10);
-
-    for (int i=0;i<retrieved.size();i++) {
-      verifyStoredState(users.get(i).getNumber(), users.get(i).getUuid(), retrieved.get(i), users.get(i));
-    }
-
-    for (int j=0;j<9;j++) {
-      retrieved = accounts.getAllFrom(retrieved.get(9).getUuid(), 10);
-      assertThat(retrieved.size()).isEqualTo(10);
-
-      for (int i=0;i<retrieved.size();i++) {
-        verifyStoredState(users.get(10 + (j * 10) + i).getNumber(), users.get(10 + (j * 10) + i).getUuid(), retrieved.get(i), users.get(10 + (j * 10) + i));
-      }
-    }
-  }
-
-  @Test
-  public void testDelete() {
+  void testDelete() {
     final Device  deletedDevice   = generateDevice (1);
     final Account deletedAccount  = generateAccount("+14151112222", UUID.randomUUID(), Collections.singleton(deletedDevice));
     final Device  retainedDevice  = generateDevice (1);
     final Account retainedAccount = generateAccount("+14151112345", UUID.randomUUID(), Collections.singleton(retainedDevice));
 
-    accounts.create(deletedAccount);
-    accounts.create(retainedAccount);
+    accountsDynamoDb.create(deletedAccount);
+    accountsDynamoDb.create(retainedAccount);
 
-    assertThat(accounts.get(deletedAccount.getUuid())).isPresent();
-    assertThat(accounts.get(retainedAccount.getUuid())).isPresent();
+    assertThat(accountsDynamoDb.get(deletedAccount.getUuid())).isPresent();
+    assertThat(accountsDynamoDb.get(retainedAccount.getUuid())).isPresent();
 
-    accounts.delete(deletedAccount.getUuid());
+    accountsDynamoDb.delete(deletedAccount.getUuid());
 
-    assertThat(accounts.get(deletedAccount.getUuid())).isNotPresent();
+    assertThat(accountsDynamoDb.get(deletedAccount.getUuid())).isNotPresent();
 
-    verifyStoredState(retainedAccount.getNumber(), retainedAccount.getUuid(), accounts.get(retainedAccount.getUuid()).get(), retainedAccount);
+    verifyStoredState(retainedAccount.getNumber(), retainedAccount.getUuid(), accountsDynamoDb.get(retainedAccount.getUuid()).get(), retainedAccount);
 
     {
       final Account recreatedAccount = generateAccount(deletedAccount.getNumber(), UUID.randomUUID(),
           Collections.singleton(generateDevice(1)));
 
-      accounts.create(recreatedAccount);
+      accountsDynamoDb.create(recreatedAccount);
 
-      assertThat(accounts.get(recreatedAccount.getUuid())).isPresent();
+      assertThat(accountsDynamoDb.get(recreatedAccount.getUuid())).isPresent();
       verifyStoredState(recreatedAccount.getNumber(), recreatedAccount.getUuid(),
-          accounts.get(recreatedAccount.getUuid()).get(), recreatedAccount);
+          accountsDynamoDb.get(recreatedAccount.getUuid()).get(), recreatedAccount);
     }
   }
 
   @Test
-  public void testVacuum() {
+  void testMissing() {
     Device  device  = generateDevice (1                                            );
     Account account = generateAccount("+14151112222", UUID.randomUUID(), Collections.singleton(device));
 
-    accounts.create(account);
-    accounts.vacuum();
+    accountsDynamoDb.create(account);
 
-    Optional<Account> retrieved = accounts.get("+14151112222");
-    assertThat(retrieved.isPresent()).isTrue();
-
-    verifyStoredState("+14151112222", account.getUuid(), retrieved.get(), account);
-  }
-
-  @Test
-  public void testMissing() {
-    Device  device  = generateDevice (1                                            );
-    Account account = generateAccount("+14151112222", UUID.randomUUID(), Collections.singleton(device));
-
-    accounts.create(account);
-
-    Optional<Account> retrieved = accounts.get("+11111111");
+    Optional<Account> retrieved = accountsDynamoDb.get("+11111111");
     assertThat(retrieved.isPresent()).isFalse();
 
-    retrieved = accounts.get(UUID.randomUUID());
+    retrieved = accountsDynamoDb.get(UUID.randomUUID());
     assertThat(retrieved.isPresent()).isFalse();
   }
 
   @Test
-  public void testBreaker() throws InterruptedException {
-    Jdbi jdbi = mock(Jdbi.class);
-    doThrow(new TransactionException("Database error!")).when(jdbi).useHandle(any(HandleConsumer.class));
+  @Disabled("Need fault tolerant dynamodb")
+  void testBreaker() throws InterruptedException {
 
     CircuitBreakerConfiguration configuration = new CircuitBreakerConfiguration();
     configuration.setWaitDurationInOpenStateInSeconds(1);
@@ -268,7 +229,16 @@ public class AccountsTest {
     configuration.setRingBufferSizeInClosedState(2);
     configuration.setFailureRateThreshold(50);
 
-    Accounts accounts = new Accounts(new FaultTolerantDatabase("testAccountBreaker", jdbi, configuration));
+    final AmazonDynamoDB client = mock(AmazonDynamoDB.class);
+    final DynamoDB dynamoDB = new DynamoDB(client);
+
+    when(client.transactWriteItems(any()))
+        .thenThrow(RuntimeException.class);
+
+    when(client.updateItem(any()))
+        .thenThrow(RuntimeException.class);
+
+    AccountsDynamoDb accounts = new AccountsDynamoDb(client, dynamoDB, ACCOUNTS_TABLE_NAME, NUMBERS_TABLE_NAME);
     Account  account  = generateAccount("+14151112222", UUID.randomUUID());
 
     try {
@@ -300,9 +270,44 @@ public class AccountsTest {
     } catch (TransactionException e) {
       // good
     }
-
   }
 
+  @Test
+  void testMigrate() {
+
+    Device  device  = generateDevice (1                                            );
+    UUID    firstUuid = UUID.randomUUID();
+    Account account   = generateAccount("+14151112222", firstUuid, Collections.singleton(device));
+
+    boolean migrated = accountsDynamoDb.migrate(account);
+
+    assertThat(migrated).isTrue();
+
+    verifyStoredState("+14151112222", account.getUuid(), account);
+
+    migrated = accountsDynamoDb.migrate(account);
+
+    assertThat(migrated).isFalse();
+
+    verifyStoredState("+14151112222", account.getUuid(), account);
+
+    UUID secondUuid = UUID.randomUUID();
+
+    device = generateDevice(1);
+    Account accountRemigrationWithDifferentUuid = generateAccount("+14151112222", secondUuid, Collections.singleton(device));
+
+    migrated = accountsDynamoDb.migrate(account);
+
+    assertThat(migrated).isFalse();
+    verifyStoredState("+14151112222", firstUuid, account);
+
+
+    account.setDynamoDbMigrationVersion(account.getDynamoDbMigrationVersion() + 1);
+
+    migrated = accountsDynamoDb.migrate(account);
+
+    assertThat(migrated).isTrue();
+  }
 
   private Device generateDevice(long id) {
     Random       random       = new Random(System.currentTimeMillis());
@@ -324,24 +329,22 @@ public class AccountsTest {
     return new Account(number, uuid, devices, unidentifiedAccessKey);
   }
 
-  private void verifyStoredState(PreparedStatement statement, String number, UUID uuid, Account expecting)
-      throws SQLException, IOException
-  {
-    statement.setString(1, number);
+  private void verifyStoredState(String number, UUID uuid, Account expecting) {
+    final Table accounts = dynamoDbExtension.getDynamoDB().getTable(dynamoDbExtension.getTableName());
 
-    ResultSet resultSet = statement.executeQuery();
+    Item item = accounts.getItem(new GetItemSpec()
+        .withPrimaryKey(AccountsDynamoDb.KEY_ACCOUNT_UUID, UUIDUtil.toByteBuffer(uuid))
+        .withConsistentRead(true));
 
-    if (resultSet.next()) {
-      String data = resultSet.getString("data");
+    if (item != null) {
+      String data = new String(item.getBinary(AccountsDynamoDb.ATTR_ACCOUNT_DATA), StandardCharsets.UTF_8);
       assertThat(data).isNotEmpty();
 
-      Account result = new AccountRowMapper().map(resultSet, null);
+      Account result = AccountsDynamoDb.fromItem(item);
       verifyStoredState(number, uuid, result, expecting);
     } else {
       throw new AssertionError("No data");
     }
-
-    assertThat(resultSet.next()).isFalse();
   }
 
   private void verifyStoredState(String number, UUID uuid, Account result, Account expecting) {
@@ -364,8 +367,4 @@ public class AccountsTest {
       assertThat(resultDevice.getCreated()).isEqualTo(expectingDevice.getCreated());
     }
   }
-
-
-
-
 }

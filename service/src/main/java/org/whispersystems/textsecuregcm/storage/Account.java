@@ -58,6 +58,9 @@ public class Account implements Principal  {
   @JsonProperty("inCds")
   private boolean discoverableByPhoneNumber = true;
 
+  @JsonProperty("_ddbV")
+  private int dynamoDbMigrationVersion;
+
   @JsonIgnore
   private Device authenticatedDevice;
 
@@ -263,6 +266,14 @@ public class Account implements Principal  {
 
   public void setDiscoverableByPhoneNumber(final boolean discoverableByPhoneNumber) {
     this.discoverableByPhoneNumber = discoverableByPhoneNumber;
+  }
+
+  public int getDynamoDbMigrationVersion() {
+    return dynamoDbMigrationVersion;
+  }
+
+  public void setDynamoDbMigrationVersion(int dynamoDbMigrationVersion) {
+    this.dynamoDbMigrationVersion = dynamoDbMigrationVersion;
   }
 
   // Principal implementation

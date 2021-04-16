@@ -229,7 +229,7 @@ class DynamicConfigurationTest {
   }
 
   @Test
-  public void testParseTwilioConfiguration() throws JsonProcessingException {
+  void testParseTwilioConfiguration() throws JsonProcessingException {
     {
       final String emptyConfigYaml = "test: true";
       final DynamicConfiguration emptyConfig = DynamicConfigurationManager.OBJECT_MAPPER
@@ -254,7 +254,7 @@ class DynamicConfigurationTest {
   }
 
   @Test
-  public void testParsePaymentsConfiguration() throws JsonProcessingException {
+  void testParsePaymentsConfiguration() throws JsonProcessingException {
     {
       final String emptyConfigYaml = "test: true";
       final DynamicConfiguration emptyConfig = DynamicConfigurationManager.OBJECT_MAPPER
@@ -278,7 +278,7 @@ class DynamicConfigurationTest {
   }
 
   @Test
-  public void testParseSignupCaptchaConfiguration() throws JsonProcessingException {
+  void testParseSignupCaptchaConfiguration() throws JsonProcessingException {
     {
       final String emptyConfigYaml = "test: true";
       final DynamicConfiguration emptyConfig = DynamicConfigurationManager.OBJECT_MAPPER
@@ -298,6 +298,38 @@ class DynamicConfigurationTest {
           .getSignupCaptchaConfiguration();
 
       assertEquals(Set.of("1"), config.getCountryCodes());
+    }
+  }
+
+  @Test
+  void testParseAccountsDynamoDbMigrationConfiguration() throws JsonProcessingException {
+    {
+      final String emptyConfigYaml = "test: true";
+      final DynamicConfiguration emptyConfig = DynamicConfigurationManager.OBJECT_MAPPER
+          .readValue(emptyConfigYaml, DynamicConfiguration.class);
+
+      assertFalse(emptyConfig.getAccountsDynamoDbMigrationConfiguration().isBackgroundMigrationEnabled());
+      assertFalse(emptyConfig.getAccountsDynamoDbMigrationConfiguration().isDeleteEnabled());
+      assertFalse(emptyConfig.getAccountsDynamoDbMigrationConfiguration().isWriteEnabled());
+      assertFalse(emptyConfig.getAccountsDynamoDbMigrationConfiguration().isReadEnabled());
+    }
+
+    {
+      final String accountsDynamoDbMigrationConfig =
+          "accountsDynamoDbMigration:\n"
+              + "  backgroundMigrationEnabled: true\n"
+              + "  deleteEnabled: true\n"
+              + "  readEnabled: true\n"
+              + "  writeEnabled: true";
+
+      final DynamicAccountsDynamoDbMigrationConfiguration config = DynamicConfigurationManager.OBJECT_MAPPER
+          .readValue(accountsDynamoDbMigrationConfig, DynamicConfiguration.class)
+          .getAccountsDynamoDbMigrationConfiguration();
+
+      assertTrue(config.isBackgroundMigrationEnabled());
+      assertTrue(config.isDeleteEnabled());
+      assertTrue(config.isWriteEnabled());
+      assertTrue(config.isReadEnabled());
     }
   }
 }

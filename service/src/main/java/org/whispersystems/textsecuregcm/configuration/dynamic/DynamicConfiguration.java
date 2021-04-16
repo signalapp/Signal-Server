@@ -44,6 +44,9 @@ public class DynamicConfiguration {
   @JsonProperty
   private DynamicSignupCaptchaConfiguration signupCaptcha = new DynamicSignupCaptchaConfiguration();
 
+  @JsonProperty
+  private DynamicAccountsDynamoDbMigrationConfiguration accountsDynamoDbMigration = new DynamicAccountsDynamoDbMigrationConfiguration();
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -85,5 +88,9 @@ public class DynamicConfiguration {
 
   public DynamicSignupCaptchaConfiguration getSignupCaptchaConfiguration() {
     return signupCaptcha;
+  }
+
+  public DynamicAccountsDynamoDbMigrationConfiguration getAccountsDynamoDbMigrationConfiguration() {
+    return accountsDynamoDbMigration;
   }
 }

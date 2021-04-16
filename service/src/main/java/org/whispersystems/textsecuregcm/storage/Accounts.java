@@ -4,23 +4,22 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel;
 import org.whispersystems.textsecuregcm.storage.mappers.AccountRowMapper;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import static com.codahale.metrics.MetricRegistry.name;
-
-public class Accounts {
+public class Accounts implements AccountStore {
 
   public static final String ID     = "id";
   public static final String UID    = "uuid";
@@ -46,6 +45,7 @@ public class Accounts {
     this.database.getDatabase().registerRowMapper(new AccountRowMapper());
   }
 
+  @Override
   public boolean create(Account account) {
     return database.with(jdbi -> jdbi.inTransaction(TransactionIsolationLevel.SERIALIZABLE, handle -> {
       try (Timer.Context ignored = createTimer.time()) {
@@ -65,6 +65,7 @@ public class Accounts {
     }));
   }
 
+  @Override
   public void update(Account account) {
     database.use(jdbi -> jdbi.useHandle(handle -> {
       try (Timer.Context ignored = updateTimer.time()) {
@@ -78,6 +79,7 @@ public class Accounts {
     }));
   }
 
+  @Override
   public Optional<Account> get(String number) {
     return database.with(jdbi -> jdbi.withHandle(handle -> {
       try (Timer.Context ignored = getByNumberTimer.time()) {
@@ -89,6 +91,7 @@ public class Accounts {
     }));
   }
 
+  @Override
   public Optional<Account> get(UUID uuid) {
     return database.with(jdbi -> jdbi.withHandle(handle -> {
       try (Timer.Context ignored = getByUuidTimer.time()) {
@@ -123,6 +126,7 @@ public class Accounts {
     }));
   }
 
+  @Override
   public void delete(final UUID uuid) {
     database.use(jdbi -> jdbi.useHandle(handle -> {
       try (Timer.Context ignored = deleteTimer.time()) {
