@@ -55,6 +55,9 @@ public class TwilioConfiguration {
   @NotEmpty
   private String androidAppHash;
 
+  @NotEmpty
+  private String verifyServiceFriendlyName;
+
   public String getAccountId() {
     return accountId;
   }
@@ -177,5 +180,13 @@ public class TwilioConfiguration {
 
   public void setAndroidAppHash(String androidAppHash) {
     this.androidAppHash = androidAppHash;
+  }
+
+  public void setVerifyServiceFriendlyName(String serviceFriendlyName) {
+    this.verifyServiceFriendlyName = serviceFriendlyName;
+  }
+
+  public String getVerifyServiceFriendlyName() {
+    return verifyServiceFriendlyName;
   }
 }

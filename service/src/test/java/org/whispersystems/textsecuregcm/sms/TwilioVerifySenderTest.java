@@ -39,6 +39,7 @@ public class TwilioVerifySenderTest {
   private static final String VERIFY_SERVICE_SID = "verify_service_sid";
   private static final String LOCAL_DOMAIN = "test.com";
   private static final String ANDROID_APP_HASH = "someHash";
+  private static final String SERVICE_FRIENDLY_NAME = "SignalTest";
 
   private static final String VERIFICATION_SID = "verification";
 
@@ -75,6 +76,7 @@ public class TwilioVerifySenderTest {
     configuration.setVerifyServiceSid(VERIFY_SERVICE_SID);
     configuration.setLocalDomain(LOCAL_DOMAIN);
     configuration.setAndroidAppHash(ANDROID_APP_HASH);
+    configuration.setVerifyServiceFriendlyName(SERVICE_FRIENDLY_NAME);
 
     return configuration;
   }
@@ -108,8 +110,8 @@ public class TwilioVerifySenderTest {
         .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
         .withRequestBody(equalTo(
             (expectedLocale == null ? "" : "Locale=" + expectedLocale + "&")
-                + "Channel=sms&To=%2B14153333333&CustomCode=123456"
-                + (expectAppHash ? "&AppHash=" + ANDROID_APP_HASH : "")
+                + "Channel=sms&To=%2B14153333333&CustomFriendlyName=" + SERVICE_FRIENDLY_NAME
+                + "&CustomCode=123456" + (expectAppHash ? "&AppHash=" + ANDROID_APP_HASH : "")
         )));
   }
 
@@ -142,7 +144,8 @@ public class TwilioVerifySenderTest {
         .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
         .withRequestBody(equalTo(
             (expectedLocale == null ? "" : "Locale=" + expectedLocale + "&")
-                + "Channel=call&To=%2B14153333333&CustomCode=123456")));
+                + "Channel=call&To=%2B14153333333&CustomFriendlyName=" + SERVICE_FRIENDLY_NAME
+                + "&CustomCode=123456")));
   }
 
   private static Object argumentsForDeliverVoxVerificationWithVerify() {
@@ -171,7 +174,8 @@ public class TwilioVerifySenderTest {
 
     verify(3, postRequestedFor(urlEqualTo("/v2/Services/" + VERIFY_SERVICE_SID + "/Verifications"))
         .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
-        .withRequestBody(equalTo("Channel=sms&To=%2B14153333333&CustomCode=123456")));
+        .withRequestBody(equalTo("Channel=sms&To=%2B14153333333&CustomFriendlyName=" + SERVICE_FRIENDLY_NAME
+            + "&CustomCode=123456")));
   }
 
   @Test
@@ -190,7 +194,8 @@ public class TwilioVerifySenderTest {
 
     verify(3, postRequestedFor(urlEqualTo("/v2/Services/" + VERIFY_SERVICE_SID + "/Verifications"))
         .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
-        .withRequestBody(equalTo("Channel=call&To=%2B14153333333&CustomCode=123456")));
+        .withRequestBody(equalTo("Channel=call&To=%2B14153333333&CustomFriendlyName=" + SERVICE_FRIENDLY_NAME
+            + "&CustomCode=123456")));
   }
 
   @Test

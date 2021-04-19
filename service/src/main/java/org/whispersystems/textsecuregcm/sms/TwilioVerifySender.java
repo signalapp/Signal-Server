@@ -72,6 +72,7 @@ class TwilioVerifySender {
   private final URI verifyServiceUri;
   private final URI verifyApprovalBaseUri;
   private final String androidAppHash;
+  private final String verifyServiceFriendlyName;
   private final FaultTolerantHttpClient httpClient;
 
   TwilioVerifySender(String baseUri, FaultTolerantHttpClient httpClient, TwilioConfiguration twilioConfiguration) {
@@ -85,7 +86,7 @@ class TwilioVerifySender {
         .create(baseUri + "/v2/Services/" + twilioConfiguration.getVerifyServiceSid() + "/Verifications/");
 
     this.androidAppHash = twilioConfiguration.getAndroidAppHash();
-
+    this.verifyServiceFriendlyName = twilioConfiguration.getVerifyServiceFriendlyName();
     this.httpClient = httpClient;
   }
 
@@ -153,6 +154,7 @@ class TwilioVerifySender {
     requestParameters.put("To", destination);
     requestParameters.put("CustomCode", verificationCode);
     requestParameters.put("Channel", channel);
+    requestParameters.put("CustomFriendlyName", verifyServiceFriendlyName);
     locale.ifPresent(loc -> requestParameters.put("Locale", loc));
     clientType.filter(client -> client.startsWith("android"))
         .ifPresent(ignored -> requestParameters.put("AppHash", androidAppHash));

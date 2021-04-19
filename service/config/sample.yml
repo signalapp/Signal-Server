@@ -11,6 +11,7 @@ twilio: # Twilio gateway configuration
   android202103VerificationText: # Text to use for the verification message on android-2021-03 client types. Will be passed to String.format with the verification code as argument 1.
   genericVerificationText: # Text to use when the client type is unrecognized. Will be passed to String.format with the verification code as argument 1.
   androidAppHash: # Hash appended to Android
+  verifyServiceFriendlyName: # Service name used in template. Requires Twilio account rep to enable
 
 push:
   queueSize: # Size of push pending queue
