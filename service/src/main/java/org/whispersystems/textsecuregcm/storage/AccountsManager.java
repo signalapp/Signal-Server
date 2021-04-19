@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
+import com.amazonaws.services.dynamodbv2.model.ConditionalCheckFailedException;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
@@ -130,7 +131,11 @@ public class AccountsManager {
 
       if (dynamoWriteEnabled()) {
         runSafelyAndRecordMetrics(() -> {
-          dynamoUpdate(account);
+          try {
+            dynamoUpdate(account);
+          } catch (final ConditionalCheckFailedException e) {
+            dynamoCreate(account);
+          }
           return true;
         }, Optional.of(account.getUuid()), true, Boolean::compareTo, "update");
       }
@@ -404,7 +409,7 @@ public class AccountsManager {
       compare(databaseResult, dynamoResult, comparator);
 
     } catch (final Exception e) {
-      logger.error("Error running " + action + " ih Dynamo", e);
+      logger.error("Error running " + action + " in Dynamo", e);
 
       Metrics.counter(DYNAMO_MIGRATION_ERROR_COUNTER, "action", action).increment();
     }

@@ -3,13 +3,11 @@ package org.whispersystems.textsecuregcm.storage;
 import static com.codahale.metrics.MetricRegistry.name;
 
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.document.AttributeUpdate;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.amazonaws.services.dynamodbv2.document.Item;
 import com.amazonaws.services.dynamodbv2.document.PrimaryKey;
 import com.amazonaws.services.dynamodbv2.document.Table;
 import com.amazonaws.services.dynamodbv2.document.spec.GetItemSpec;
-import com.amazonaws.services.dynamodbv2.document.spec.UpdateItemSpec;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.dynamodbv2.model.CancellationReason;
 import com.amazonaws.services.dynamodbv2.model.Delete;
@@ -19,6 +17,7 @@ import com.amazonaws.services.dynamodbv2.model.ReturnValuesOnConditionCheckFailu
 import com.amazonaws.services.dynamodbv2.model.TransactWriteItem;
 import com.amazonaws.services.dynamodbv2.model.TransactWriteItemsRequest;
 import com.amazonaws.services.dynamodbv2.model.TransactionCanceledException;
+import com.amazonaws.services.dynamodbv2.model.UpdateItemRequest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Metrics;
@@ -145,20 +144,22 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
   @Override
   public void update(Account account) {
     UPDATE_TIMER.record(() -> {
-      UpdateItemSpec updateItemSpec;
+      UpdateItemRequest updateItemRequest;
       try {
-        updateItemSpec = new UpdateItemSpec()
-            .withPrimaryKey(
-                new PrimaryKey(KEY_ACCOUNT_UUID, UUIDUtil.toByteBuffer(account.getUuid())))
-            .withAttributeUpdate(
-                new AttributeUpdate(ATTR_ACCOUNT_DATA).put(SystemMapper.getMapper().writeValueAsBytes(account)),
-                new AttributeUpdate(ATTR_MIGRATION_VERSION).put(String.valueOf(account.getDynamoDbMigrationVersion())));
+        updateItemRequest = new UpdateItemRequest()
+            .withTableName(accountsTable.getTableName())
+            .withKey(Map.of(KEY_ACCOUNT_UUID, new AttributeValue().withB(UUIDUtil.toByteBuffer(account.getUuid()))))
+            .withUpdateExpression("SET #data=:data")
+            .withConditionExpression("attribute_exists(#number)")
+            .withExpressionAttributeNames(Map.of("#number", ATTR_ACCOUNT_E164,
+                "#data", ATTR_ACCOUNT_DATA))
+        .withExpressionAttributeValues(Map.of(":data", new AttributeValue().withB(ByteBuffer.wrap(SystemMapper.getMapper().writeValueAsBytes(account)))));
 
       } catch (JsonProcessingException e) {
         throw new IllegalArgumentException(e);
       }
 
-      accountsTable.updateItem(updateItemSpec);
+      client.updateItem(updateItemRequest);
     });
   }
 

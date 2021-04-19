@@ -17,6 +17,7 @@ import com.amazonaws.services.dynamodbv2.document.Item;
 import com.amazonaws.services.dynamodbv2.document.Table;
 import com.amazonaws.services.dynamodbv2.document.spec.GetItemSpec;
 import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
+import com.amazonaws.services.dynamodbv2.model.ConditionalCheckFailedException;
 import com.amazonaws.services.dynamodbv2.model.CreateTableRequest;
 import com.amazonaws.services.dynamodbv2.model.KeySchemaElement;
 import com.amazonaws.services.dynamodbv2.model.KeyType;
@@ -172,6 +173,11 @@ class AccountsDynamoDbTest {
 
     assertThat(retrieved.isPresent()).isTrue();
     verifyStoredState("+14151112222", account.getUuid(), retrieved.get(), account);
+
+    device = generateDevice(1);
+    Account unknownAccount = generateAccount("+14151113333", UUID.randomUUID(), Collections.singleton(device));
+
+    assertThatThrownBy(() -> accountsDynamoDb.update(unknownAccount)).isInstanceOfAny(ConditionalCheckFailedException.class);
   }
 
   @Test
@@ -300,7 +306,6 @@ class AccountsDynamoDbTest {
 
     assertThat(migrated).isFalse();
     verifyStoredState("+14151112222", firstUuid, account);
-
 
     account.setDynamoDbMigrationVersion(account.getDynamoDbMigrationVersion() + 1);
 
