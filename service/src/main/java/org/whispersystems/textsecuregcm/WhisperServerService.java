@@ -13,6 +13,8 @@ import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsyncClientBuilder;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.amazonaws.services.s3.AmazonS3;
@@ -52,7 +54,9 @@ import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import javax.servlet.DispatcherType;
 import javax.servlet.FilterRegistration;
@@ -286,13 +290,25 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             .withRequestTimeout((int) config.getAccountsDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
         .withCredentials(InstanceProfileCredentialsProvider.getInstance());
 
+    // The thread pool core & max sizes are set via dynamic configuration within AccountsDynamoDb
+    ThreadPoolExecutor accountsDynamoDbMigrationThreadPool = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
+        new LinkedBlockingDeque<>());
+
+    AmazonDynamoDBAsyncClientBuilder accountsDynamoDbAsyncClientBuilder = AmazonDynamoDBAsyncClientBuilder
+        .standard()
+        .withRegion(accountsDynamoDbClientBuilder.getRegion())
+        .withClientConfiguration(accountsDynamoDbClientBuilder.getClientConfiguration())
+        .withCredentials(accountsDynamoDbClientBuilder.getCredentials())
+        .withExecutorFactory(() -> accountsDynamoDbMigrationThreadPool);
+
     DynamoDB messageDynamoDb = new DynamoDB(messageDynamoDbClientBuilder.build());
     DynamoDB preKeyDynamoDb = new DynamoDB(keysDynamoDbClientBuilder.build());
 
     AmazonDynamoDB accountsDynamoDbClient = accountsDynamoDbClientBuilder.build();
+    AmazonDynamoDBAsync accountsDynamodbAsyncClient = accountsDynamoDbAsyncClientBuilder.build();
 
     Accounts          accounts          = new Accounts(accountDatabase);
-    AccountsDynamoDb  accountsDynamoDb  = new AccountsDynamoDb(accountsDynamoDbClient, new DynamoDB(accountsDynamoDbClient), config.getAccountsDynamoDbConfiguration().getTableName(), config.getAccountsDynamoDbConfiguration().getPhoneNumberTableName());
+    AccountsDynamoDb  accountsDynamoDb  = new AccountsDynamoDb(accountsDynamoDbClient, accountsDynamodbAsyncClient, accountsDynamoDbMigrationThreadPool, new DynamoDB(accountsDynamoDbClient), config.getAccountsDynamoDbConfiguration().getTableName(), config.getAccountsDynamoDbConfiguration().getPhoneNumberTableName());
     PendingAccounts   pendingAccounts   = new PendingAccounts(accountDatabase);
     PendingDevices    pendingDevices    = new PendingDevices (accountDatabase);
     Usernames         usernames         = new Usernames(accountDatabase);

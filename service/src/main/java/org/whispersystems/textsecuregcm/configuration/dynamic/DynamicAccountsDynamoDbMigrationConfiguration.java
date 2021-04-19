@@ -9,6 +9,9 @@ public class DynamicAccountsDynamoDbMigrationConfiguration {
   boolean backgroundMigrationEnabled;
 
   @JsonProperty
+  int backgroundMigrationExecutorThreads = 1;
+
+  @JsonProperty
   boolean deleteEnabled;
 
   @JsonProperty
@@ -19,6 +22,10 @@ public class DynamicAccountsDynamoDbMigrationConfiguration {
 
   public boolean isBackgroundMigrationEnabled() {
     return backgroundMigrationEnabled;
+  }
+
+  public int getBackgroundMigrationExecutorThreads() {
+    return backgroundMigrationExecutorThreads;
   }
 
   public void setDeleteEnabled(boolean deleteEnabled) {

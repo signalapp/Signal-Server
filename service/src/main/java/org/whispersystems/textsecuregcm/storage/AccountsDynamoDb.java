@@ -2,7 +2,9 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
+import com.amazonaws.handlers.AsyncHandler;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.amazonaws.services.dynamodbv2.document.Item;
 import com.amazonaws.services.dynamodbv2.document.PrimaryKey;
@@ -16,17 +18,23 @@ import com.amazonaws.services.dynamodbv2.model.Put;
 import com.amazonaws.services.dynamodbv2.model.ReturnValuesOnConditionCheckFailure;
 import com.amazonaws.services.dynamodbv2.model.TransactWriteItem;
 import com.amazonaws.services.dynamodbv2.model.TransactWriteItemsRequest;
+import com.amazonaws.services.dynamodbv2.model.TransactWriteItemsResult;
 import com.amazonaws.services.dynamodbv2.model.TransactionCanceledException;
 import com.amazonaws.services.dynamodbv2.model.UpdateItemRequest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.stream.Collectors;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
@@ -43,6 +51,9 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
 
   private final AmazonDynamoDB client;
   private final Table accountsTable;
+  private final AmazonDynamoDBAsync asyncClient;
+
+  private final ThreadPoolExecutor migrationThreadPool;
 
   private final String phoneNumbersTableName;
 
@@ -52,12 +63,15 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
   private static final Timer GET_BY_UUID_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "getByUuid"));
   private static final Timer DELETE_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "delete"));
 
-  public AccountsDynamoDb(AmazonDynamoDB client, DynamoDB dynamoDb, String accountsTableName, String phoneNumbersTableName) {
+  public AccountsDynamoDb(AmazonDynamoDB client, AmazonDynamoDBAsync asyncClient, ThreadPoolExecutor migrationThreadPool, DynamoDB dynamoDb, String accountsTableName, String phoneNumbersTableName) {
     super(dynamoDb);
 
     this.client = client;
     this.accountsTable = dynamoDb.getTable(accountsTableName);
     this.phoneNumbersTableName = phoneNumbersTableName;
+
+    this.asyncClient = asyncClient;
+    this.migrationThreadPool = migrationThreadPool;
   }
 
   @Override
@@ -216,7 +230,29 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
     });
   }
 
-  public boolean migrate(Account account) {
+  public CompletableFuture<Void> migrate(List<Account> accounts, int threads) {
+
+  migrationThreadPool.setCorePoolSize(threads);
+  migrationThreadPool.setMaximumPoolSize(threads);
+
+     final List<CompletableFuture<?>> futures = accounts.stream()
+        .map(this::migrate)
+         .map(f -> f.whenComplete((migrated, e) -> {
+           if (e == null) {
+             MIGRATED_COUNTER.increment(migrated ? 1 : 0);
+           } else {
+             ERROR_COUNTER.increment();
+           }
+         }))
+        .collect(Collectors.toList());
+
+    return CompletableFuture.allOf(futures.toArray(new CompletableFuture[]{}));
+  }
+
+  private static final Counter MIGRATED_COUNTER = Metrics.counter(name(AccountsDynamoDb.class, "migration", "count"));
+  private static final Counter ERROR_COUNTER = Metrics.counter(name(AccountsDynamoDb.class, "migration", "error"));
+
+  public CompletableFuture<Boolean> migrate(Account account) {
     try {
       TransactWriteItem phoneNumberConstraintPut = buildPutWriteItemForPhoneNumberConstraint(account, account.getUuid());
 
@@ -233,17 +269,32 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
       final TransactWriteItemsRequest request = new TransactWriteItemsRequest()
           .withTransactItems(phoneNumberConstraintPut, accountPut);
 
-      client.transactWriteItems(request);
+      final CompletableFuture<Boolean> resultFuture = new CompletableFuture<>();
 
-      return true;
+      asyncClient.transactWriteItemsAsync(request,
+          new AsyncHandler<>() {
+            @Override
+            public void onError(Exception exception) {
+              if (exception instanceof TransactionCanceledException) {
+                // account is already migrated
+                resultFuture.complete(false);
+              } else {
+                ERROR_COUNTER.increment();
+                resultFuture.completeExceptionally(exception);
+              }
+            }
 
-    } catch (JsonProcessingException e) {
-      throw new IllegalArgumentException(e);
-    } catch (TransactionCanceledException ignored) {
-      // account is already migrated
+            @Override
+            public void onSuccess(TransactWriteItemsRequest request, TransactWriteItemsResult transactWriteItemsResult) {
+              resultFuture.complete(true);
+            }
+          });
+
+      return resultFuture;
+
+    } catch (Exception e) {
+      return CompletableFuture.failedFuture(e);
     }
-
-    return false;
   }
 
   @VisibleForTesting

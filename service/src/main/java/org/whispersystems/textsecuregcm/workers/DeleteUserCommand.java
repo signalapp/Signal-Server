@@ -10,6 +10,8 @@ import static com.codahale.metrics.MetricRegistry.name;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsyncClientBuilder;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -20,6 +22,9 @@ import io.dropwizard.setup.Environment;
 import io.lettuce.core.resource.ClientResources;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.jdbi.v3.core.Jdbi;
@@ -111,11 +116,21 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
               .withRequestTimeout((int) configuration.getAccountsDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
           .withCredentials(InstanceProfileCredentialsProvider.getInstance());
 
+      ThreadPoolExecutor accountsDynamoDbMigrationThreadPool = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
+          new LinkedBlockingDeque<>());
+
+      AmazonDynamoDBAsyncClientBuilder accountsDynamoDbAsyncClientBuilder = AmazonDynamoDBAsyncClientBuilder
+          .standard()
+          .withRegion(accountsDynamoDbClientBuilder.getRegion())
+          .withClientConfiguration(accountsDynamoDbClientBuilder.getClientConfiguration())
+          .withCredentials(accountsDynamoDbClientBuilder.getCredentials())
+          .withExecutorFactory(() -> accountsDynamoDbMigrationThreadPool);
 
       DynamoDB messageDynamoDb = new DynamoDB(clientBuilder.build());
       DynamoDB preKeysDynamoDb = new DynamoDB(keysDynamoDbClientBuilder.build());
 
       AmazonDynamoDB accountsDynamoDbClient = accountsDynamoDbClientBuilder.build();
+      AmazonDynamoDBAsync accountsDynamoDbAsyncClient = accountsDynamoDbAsyncClientBuilder.build();
 
       FaultTolerantRedisCluster cacheCluster = new FaultTolerantRedisCluster("main_cache_cluster", configuration.getCacheClusterConfiguration(), redisClusterClientResources);
 
@@ -132,7 +147,7 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
       ExperimentEnrollmentManager experimentEnrollmentManager = new ExperimentEnrollmentManager(dynamicConfigurationManager);
 
       Accounts                  accounts             = new Accounts(accountDatabase);
-      AccountsDynamoDb          accountsDynamoDb     = new AccountsDynamoDb(accountsDynamoDbClient, new DynamoDB(accountsDynamoDbClient), configuration.getAccountsDynamoDbConfiguration().getTableName(), configuration.getAccountsDynamoDbConfiguration().getPhoneNumberTableName());
+      AccountsDynamoDb          accountsDynamoDb     = new AccountsDynamoDb(accountsDynamoDbClient, accountsDynamoDbAsyncClient, accountsDynamoDbMigrationThreadPool, new DynamoDB(accountsDynamoDbClient), configuration.getAccountsDynamoDbConfiguration().getTableName(), configuration.getAccountsDynamoDbConfiguration().getPhoneNumberTableName());
       Usernames                 usernames            = new Usernames(accountDatabase);
       Profiles                  profiles             = new Profiles(accountDatabase);
       ReservedUsernames         reservedUsernames    = new ReservedUsernames(accountDatabase);

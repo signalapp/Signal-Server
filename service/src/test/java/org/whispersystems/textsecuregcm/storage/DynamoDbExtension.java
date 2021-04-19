@@ -5,6 +5,8 @@ import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsyncClientBuilder;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.amazonaws.services.dynamodbv2.local.main.ServerRunner;
@@ -41,6 +43,7 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
   private final long writeCapacityUnits;
 
   private AmazonDynamoDB client;
+  private AmazonDynamoDBAsync asyncClient;
   private DynamoDB dynamoDB;
 
   private DynamoDbExtension(String tableName, String hashKey, String rangeKey, List<AttributeDefinition> attributeDefinitions, List<GlobalSecondaryIndex> globalSecondaryIndexes, long readCapacityUnits,
@@ -114,11 +117,16 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
   }
 
   private void initializeClient() {
-    client = AmazonDynamoDBClientBuilder.standard()
-            .withEndpointConfiguration(
-                new AwsClientBuilder.EndpointConfiguration("http://localhost:" + port, "local-test-region"))
-            .withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials("accessKey", "secretKey")))
-            .build();
+    AmazonDynamoDBClientBuilder clientBuilder = AmazonDynamoDBClientBuilder.standard()
+        .withEndpointConfiguration(
+            new AwsClientBuilder.EndpointConfiguration("http://localhost:" + port, "local-test-region"))
+        .withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials("accessKey", "secretKey")));
+    client = clientBuilder.build();
+
+    asyncClient = AmazonDynamoDBAsyncClientBuilder.standard()
+        .withEndpointConfiguration(clientBuilder.getEndpoint())
+        .withCredentials(clientBuilder.getCredentials())
+    .build();
 
     dynamoDB = new DynamoDB(client);
   }
@@ -172,6 +180,10 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
 
   public AmazonDynamoDB getClient() {
     return client;
+  }
+
+  public AmazonDynamoDBAsync getAsyncClient() {
+    return asyncClient;
   }
 
   public DynamoDB getDynamoDB() {

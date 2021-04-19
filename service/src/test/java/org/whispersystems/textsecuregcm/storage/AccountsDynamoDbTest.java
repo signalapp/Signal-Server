@@ -12,6 +12,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.amazonaws.services.dynamodbv2.document.Item;
 import com.amazonaws.services.dynamodbv2.document.Table;
@@ -31,6 +32,10 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import org.jdbi.v3.core.transaction.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -65,7 +70,7 @@ class AccountsDynamoDbTest {
 
     final Table numbersTable = dynamoDbExtension.getDynamoDB().createTable(createNumbersTableRequest);
 
-    this.accountsDynamoDb = new AccountsDynamoDb(dynamoDbExtension.getClient(), dynamoDbExtension.getDynamoDB(), dynamoDbExtension.getTableName(), numbersTable.getTableName());
+    this.accountsDynamoDb = new AccountsDynamoDb(dynamoDbExtension.getClient(), dynamoDbExtension.getAsyncClient(), new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, new LinkedBlockingDeque<>()), dynamoDbExtension.getDynamoDB(), dynamoDbExtension.getTableName(), numbersTable.getTableName());
   }
 
   @Test
@@ -244,7 +249,7 @@ class AccountsDynamoDbTest {
     when(client.updateItem(any()))
         .thenThrow(RuntimeException.class);
 
-    AccountsDynamoDb accounts = new AccountsDynamoDb(client, dynamoDB, ACCOUNTS_TABLE_NAME, NUMBERS_TABLE_NAME);
+    AccountsDynamoDb accounts = new AccountsDynamoDb(client, mock(AmazonDynamoDBAsync.class), mock(ThreadPoolExecutor.class), dynamoDB, ACCOUNTS_TABLE_NAME, NUMBERS_TABLE_NAME);
     Account  account  = generateAccount("+14151112222", UUID.randomUUID());
 
     try {
@@ -279,19 +284,19 @@ class AccountsDynamoDbTest {
   }
 
   @Test
-  void testMigrate() {
+  void testMigrate() throws ExecutionException, InterruptedException {
 
     Device  device  = generateDevice (1                                            );
     UUID    firstUuid = UUID.randomUUID();
     Account account   = generateAccount("+14151112222", firstUuid, Collections.singleton(device));
 
-    boolean migrated = accountsDynamoDb.migrate(account);
+    boolean migrated = accountsDynamoDb.migrate(account).get();
 
     assertThat(migrated).isTrue();
 
     verifyStoredState("+14151112222", account.getUuid(), account);
 
-    migrated = accountsDynamoDb.migrate(account);
+    migrated = accountsDynamoDb.migrate(account).get();
 
     assertThat(migrated).isFalse();
 
@@ -302,14 +307,14 @@ class AccountsDynamoDbTest {
     device = generateDevice(1);
     Account accountRemigrationWithDifferentUuid = generateAccount("+14151112222", secondUuid, Collections.singleton(device));
 
-    migrated = accountsDynamoDb.migrate(account);
+    migrated = accountsDynamoDb.migrate(account).get();
 
     assertThat(migrated).isFalse();
     verifyStoredState("+14151112222", firstUuid, account);
 
     account.setDynamoDbMigrationVersion(account.getDynamoDbMigrationVersion() + 1);
 
-    migrated = accountsDynamoDb.migrate(account);
+    migrated = accountsDynamoDb.migrate(account).get();
 
     assertThat(migrated).isTrue();
   }

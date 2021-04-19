@@ -318,6 +318,7 @@ class DynamicConfigurationTest {
       final String accountsDynamoDbMigrationConfig =
           "accountsDynamoDbMigration:\n"
               + "  backgroundMigrationEnabled: true\n"
+              + "  backgroundMigrationExecutorThreads: 100\n"
               + "  deleteEnabled: true\n"
               + "  readEnabled: true\n"
               + "  writeEnabled: true";
@@ -327,6 +328,7 @@ class DynamicConfigurationTest {
           .getAccountsDynamoDbMigrationConfiguration();
 
       assertTrue(config.isBackgroundMigrationEnabled());
+      assertEquals(100, config.getBackgroundMigrationExecutorThreads());
       assertTrue(config.isDeleteEnabled());
       assertTrue(config.isWriteEnabled());
       assertTrue(config.isReadEnabled());
