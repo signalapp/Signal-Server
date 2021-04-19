@@ -15,8 +15,11 @@ import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.amazonaws.services.dynamodbv2.document.Item;
+import com.amazonaws.services.dynamodbv2.document.Page;
+import com.amazonaws.services.dynamodbv2.document.ScanOutcome;
 import com.amazonaws.services.dynamodbv2.document.Table;
 import com.amazonaws.services.dynamodbv2.document.spec.GetItemSpec;
+import com.amazonaws.services.dynamodbv2.document.spec.ScanSpec;
 import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
 import com.amazonaws.services.dynamodbv2.model.ConditionalCheckFailedException;
 import com.amazonaws.services.dynamodbv2.model.CreateTableRequest;
@@ -49,6 +52,8 @@ class AccountsDynamoDbTest {
 
   private static final String ACCOUNTS_TABLE_NAME = "accounts_test";
   private static final String NUMBERS_TABLE_NAME = "numbers_test";
+  private static final String MIGRATION_DELETED_ACCOUNTS_TABLE_NAME = "migration_deleted_accounts_test";
+  private static final String MIGRATION_RETRY_ACCOUNTS_TABLE_NAME = "miration_retry_accounts_test";
 
   @RegisterExtension
   static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
@@ -58,6 +63,9 @@ class AccountsDynamoDbTest {
       .build();
 
   private AccountsDynamoDb accountsDynamoDb;
+
+  private Table migrationDeletedAccountsTable;
+  private Table migrationRetryAccountsTable;
 
   @BeforeEach
   void setupAccountsDao() {
@@ -70,7 +78,30 @@ class AccountsDynamoDbTest {
 
     final Table numbersTable = dynamoDbExtension.getDynamoDB().createTable(createNumbersTableRequest);
 
-    this.accountsDynamoDb = new AccountsDynamoDb(dynamoDbExtension.getClient(), dynamoDbExtension.getAsyncClient(), new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, new LinkedBlockingDeque<>()), dynamoDbExtension.getDynamoDB(), dynamoDbExtension.getTableName(), numbersTable.getTableName());
+    final CreateTableRequest createMigrationDeletedAccountsTableRequest = new CreateTableRequest()
+        .withTableName(MIGRATION_DELETED_ACCOUNTS_TABLE_NAME)
+        .withKeySchema(new KeySchemaElement(MigrationDeletedAccounts.KEY_UUID, KeyType.HASH))
+        .withAttributeDefinitions(new AttributeDefinition(MigrationDeletedAccounts.KEY_UUID, ScalarAttributeType.B))
+        .withProvisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT);
+
+    migrationDeletedAccountsTable = dynamoDbExtension.getDynamoDB().createTable(createMigrationDeletedAccountsTableRequest);
+
+    MigrationDeletedAccounts migrationDeletedAccounts = new MigrationDeletedAccounts(dynamoDbExtension.getDynamoDB(),
+        migrationDeletedAccountsTable.getTableName());
+
+    final CreateTableRequest createMigrationRetryAccountsTableRequest = new CreateTableRequest()
+        .withTableName(MIGRATION_RETRY_ACCOUNTS_TABLE_NAME)
+        .withKeySchema(new KeySchemaElement(MigrationRetryAccounts.KEY_UUID, KeyType.HASH))
+        .withAttributeDefinitions(new AttributeDefinition(MigrationRetryAccounts.KEY_UUID, ScalarAttributeType.B))
+        .withProvisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT);
+
+    migrationRetryAccountsTable = dynamoDbExtension.getDynamoDB().createTable(createMigrationRetryAccountsTableRequest);
+
+    MigrationRetryAccounts migrationRetryAccounts = new MigrationRetryAccounts((dynamoDbExtension.getDynamoDB()),
+        migrationRetryAccountsTable.getTableName());
+
+    this.accountsDynamoDb = new AccountsDynamoDb(dynamoDbExtension.getClient(), dynamoDbExtension.getAsyncClient(), new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, new LinkedBlockingDeque<>()), dynamoDbExtension.getDynamoDB(), dynamoDbExtension.getTableName(), numbersTable.getTableName(),
+        migrationDeletedAccounts, migrationRetryAccounts);
   }
 
   @Test
@@ -214,6 +245,27 @@ class AccountsDynamoDbTest {
       verifyStoredState(recreatedAccount.getNumber(), recreatedAccount.getUuid(),
           accountsDynamoDb.get(recreatedAccount.getUuid()).get(), recreatedAccount);
     }
+
+    verifyRecentlyDeletedAccountsTableItemCount(1);
+
+    assertThat(migrationDeletedAccountsTable
+        .getItem(MigrationDeletedAccounts.primaryKey(deletedAccount.getUuid()))).isNotNull();
+
+    accountsDynamoDb.deleteRecentlyDeletedUuids();
+
+    verifyRecentlyDeletedAccountsTableItemCount(0);
+  }
+
+  private void verifyRecentlyDeletedAccountsTableItemCount(int expectedItemCount) {
+    int totalItems = 0;
+
+    for (Page<Item, ScanOutcome> page : migrationDeletedAccountsTable.scan(new ScanSpec()).pages()) {
+      for (Item ignored : page) {
+        totalItems++;
+      }
+    }
+
+    assertThat(totalItems).isEqualTo(expectedItemCount);
   }
 
   @Test
@@ -249,7 +301,8 @@ class AccountsDynamoDbTest {
     when(client.updateItem(any()))
         .thenThrow(RuntimeException.class);
 
-    AccountsDynamoDb accounts = new AccountsDynamoDb(client, mock(AmazonDynamoDBAsync.class), mock(ThreadPoolExecutor.class), dynamoDB, ACCOUNTS_TABLE_NAME, NUMBERS_TABLE_NAME);
+    AccountsDynamoDb accounts = new AccountsDynamoDb(client, mock(AmazonDynamoDBAsync.class), mock(ThreadPoolExecutor.class), dynamoDB, ACCOUNTS_TABLE_NAME, NUMBERS_TABLE_NAME, mock(
+        MigrationDeletedAccounts.class), mock(MigrationRetryAccounts.class));
     Account  account  = generateAccount("+14151112222", UUID.randomUUID());
 
     try {
