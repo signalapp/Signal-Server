@@ -32,7 +32,7 @@
     </modules>
 
     <properties>
-        <dropwizard.version>2.0.13</dropwizard.version>
+        <dropwizard.version>2.0.21</dropwizard.version>
         <resilience4j.version>1.5.0</resilience4j.version>
         <mockito.version>2.25.1</mockito.version>
         <aws.sdk.version>1.11.939</aws.sdk.version>
