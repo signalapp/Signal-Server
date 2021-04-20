@@ -174,6 +174,7 @@ public class MessageController {
 
       if (dynamicConfigurationManager.getConfiguration().getMessageRateConfiguration().getRateLimitedCountryCodes().contains(senderCountryCode)) {
         try {
+          rateLimiters.getUnsealedSenderLimiter().validate(source.get().getNumber(), destinationName.toString());
           rateLimiters.getUnsealedSenderLimiter().validate(source.get().getUuid().toString(), destinationName.toString());
         } catch (RateLimitExceededException e) {
           Metrics.counter(REJECT_UNSEALED_SENDER_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, senderCountryCode).increment();
