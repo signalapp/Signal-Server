@@ -8,10 +8,10 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -20,6 +20,7 @@ import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -30,7 +31,9 @@ import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixtur
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
-import io.dropwizard.testing.junit.ResourceTestRule;
+import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
+import io.dropwizard.testing.junit5.ResourceExtension;
+import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -41,21 +44,20 @@ import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import io.lettuce.core.ScriptOutputType;
-import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
-import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
@@ -86,8 +88,8 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 import org.whispersystems.textsecuregcm.util.Base64;
 
-@RunWith(JUnitParamsRunner.class)
-public class MessageControllerTest {
+@ExtendWith(DropwizardExtensionsSupport.class)
+class MessageControllerTest {
 
   private static final String SINGLE_DEVICE_RECIPIENT = "+14151111111";
   private static final UUID   SINGLE_DEVICE_UUID      = UUID.randomUUID();
@@ -99,24 +101,23 @@ public class MessageControllerTest {
   private static final UUID   INTERNATIONAL_UUID      = UUID.randomUUID();
 
   @SuppressWarnings("unchecked")
-  private final RedisAdvancedClusterCommands<String, String> redisCommands  = mock(RedisAdvancedClusterCommands.class);
+  private static final RedisAdvancedClusterCommands<String, String> redisCommands  = mock(RedisAdvancedClusterCommands.class);
 
-  private final MessageSender               messageSender               = mock(MessageSender.class);
-  private final ReceiptSender               receiptSender               = mock(ReceiptSender.class);
-  private final AccountsManager             accountsManager             = mock(AccountsManager.class);
-  private final MessagesManager             messagesManager             = mock(MessagesManager.class);
-  private final RateLimiters                rateLimiters                = mock(RateLimiters.class);
-  private final RateLimiter                 rateLimiter                 = mock(RateLimiter.class);
-  private final CardinalityRateLimiter      unsealedSenderLimiter       = mock(CardinalityRateLimiter.class);
-  private final ApnFallbackManager          apnFallbackManager          = mock(ApnFallbackManager.class);
-  private final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
-  private final FaultTolerantRedisCluster   metricsCluster              = RedisClusterHelper.buildMockRedisCluster(redisCommands);
-  private final ScheduledExecutorService    receiptExecutor             = mock(ScheduledExecutorService.class);
+  private static final MessageSender               messageSender               = mock(MessageSender.class);
+  private static final ReceiptSender               receiptSender               = mock(ReceiptSender.class);
+  private static final AccountsManager             accountsManager             = mock(AccountsManager.class);
+  private static final MessagesManager             messagesManager             = mock(MessagesManager.class);
+  private static final RateLimiters                rateLimiters                = mock(RateLimiters.class);
+  private static final RateLimiter                 rateLimiter                 = mock(RateLimiter.class);
+  private static final CardinalityRateLimiter      unsealedSenderLimiter       = mock(CardinalityRateLimiter.class);
+  private static final ApnFallbackManager          apnFallbackManager          = mock(ApnFallbackManager.class);
+  private static final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
+  private static final FaultTolerantRedisCluster   metricsCluster              = RedisClusterHelper.buildMockRedisCluster(redisCommands);
+  private static final ScheduledExecutorService    receiptExecutor             = mock(ScheduledExecutorService.class);
 
   private final ObjectMapper mapper = new ObjectMapper();
 
-  @Rule
-  public final ResourceTestRule resources = ResourceTestRule.builder()
+  private static final ResourceExtension resources = ResourceExtension.builder()
                                                             .addProvider(AuthHelper.getAuthFilter())
                                                             .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
@@ -124,9 +125,8 @@ public class MessageControllerTest {
                                                                                                messagesManager, apnFallbackManager, dynamicConfigurationManager, metricsCluster, receiptExecutor))
                                                             .build();
 
-
-  @Before
-  public void setup() throws Exception {
+  @BeforeEach
+  void setup() throws Exception {
     Set<Device> singleDeviceList = new HashSet<Device>() {{
       add(new Device(1, null, "foo", "bar",
           "isgcm", null, null, false, 111, new SignedPreKey(333, "baz", "boop"), System.currentTimeMillis(), System.currentTimeMillis(), "Test", 0, new Device.DeviceCapabilities(true, false, false, true, true, false)));
@@ -164,8 +164,26 @@ public class MessageControllerTest {
         });
   }
 
+  @AfterEach
+  void teardown() {
+    reset(
+        redisCommands,
+        messageSender,
+        receiptSender,
+        accountsManager,
+        messagesManager,
+        rateLimiters,
+        rateLimiter,
+        unsealedSenderLimiter,
+        apnFallbackManager,
+        dynamicConfigurationManager,
+        metricsCluster,
+        receiptExecutor
+    );
+  }
+
   @Test
-  public synchronized void testSendFromDisabledAccount() throws Exception {
+  void testSendFromDisabledAccount() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/messages/%s", SINGLE_DEVICE_RECIPIENT))
@@ -178,7 +196,7 @@ public class MessageControllerTest {
   }
 
   @Test
-  public synchronized void testSingleDeviceCurrent() throws Exception {
+  void testSingleDeviceCurrent() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/messages/%s", SINGLE_DEVICE_RECIPIENT))
@@ -197,7 +215,7 @@ public class MessageControllerTest {
   }
 
   @Test
-  public synchronized void testInternationalUnsealedSenderFromRateLimitedHost() throws Exception {
+  void testInternationalUnsealedSenderFromRateLimitedHost() throws Exception {
     final String senderHost = "10.0.0.1";
 
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
@@ -231,7 +249,7 @@ public class MessageControllerTest {
   }
 
   @Test
-  public synchronized void testSingleDeviceCurrentUnidentified() throws Exception {
+  void testSingleDeviceCurrentUnidentified() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/messages/%s", SINGLE_DEVICE_RECIPIENT))
@@ -251,7 +269,7 @@ public class MessageControllerTest {
 
 
   @Test
-  public synchronized void testSendBadAuth() throws Exception {
+  void testSendBadAuth() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/messages/%s", SINGLE_DEVICE_RECIPIENT))
@@ -263,7 +281,7 @@ public class MessageControllerTest {
   }
 
   @Test
-  public synchronized void testMultiDeviceMissing() throws Exception {
+  void testMultiDeviceMissing() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
@@ -282,7 +300,7 @@ public class MessageControllerTest {
   }
 
   @Test
-  public synchronized void testMultiDeviceExtra() throws Exception {
+  void testMultiDeviceExtra() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
@@ -301,7 +319,7 @@ public class MessageControllerTest {
   }
 
   @Test
-  public synchronized void testMultiDevice() throws Exception {
+  void testMultiDevice() throws Exception {
     Response response =
         resources.getJerseyTest()
                  .target(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
@@ -316,7 +334,7 @@ public class MessageControllerTest {
   }
 
   @Test
-  public synchronized void testRegistrationIdMismatch() throws Exception {
+  void testRegistrationIdMismatch() throws Exception {
     Response response =
         resources.getJerseyTest().target(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
                  .request()
@@ -335,7 +353,7 @@ public class MessageControllerTest {
   }
 
   @Test
-  public synchronized void testGetMessages() throws Exception {
+  void testGetMessages() throws Exception {
 
     final long timestampOne = 313377;
     final long timestampTwo = 313388;
@@ -376,7 +394,7 @@ public class MessageControllerTest {
   }
 
   @Test
-  public synchronized void testGetMessagesBadAuth() throws Exception {
+  void testGetMessagesBadAuth() throws Exception {
     final long timestampOne = 313377;
     final long timestampTwo = 313388;
 
@@ -400,7 +418,7 @@ public class MessageControllerTest {
   }
 
   @Test
-  public synchronized void testDeleteMessages() throws Exception {
+  void testDeleteMessages() throws Exception {
     long timestamp = System.currentTimeMillis();
 
     UUID sourceUuid = UUID.randomUUID();
@@ -450,9 +468,10 @@ public class MessageControllerTest {
 
   }
 
-  @Test
-  @Parameters(method = "argumentsForTestOnlineMessage")
-  public void testOnlineMessage(final String fixture, final boolean expectedOnline) throws Exception {
+
+  @ParameterizedTest
+  @MethodSource
+  void testOnlineMessage(final String fixture, final boolean expectedOnline) throws Exception {
 
     final Response response =
         resources.getJerseyTest()
@@ -467,17 +486,16 @@ public class MessageControllerTest {
     verify(messageSender, times(1)).sendMessage(any(Account.class), any(Device.class), any(Envelope.class), eq(expectedOnline));
   }
 
-  private static Object argumentsForTestOnlineMessage() {
-    return new Object[] {
-        new Object[] { "fixtures/current_message_single_device.json", false }, // default to `false` when absent
-        new Object[] { "fixtures/online_message_true.json", true },
-        new Object[] { "fixtures/online_message_false.json", false },
+  private static Stream<Arguments> testOnlineMessage() {
+    return Stream.of(
+        Arguments.of("fixtures/current_message_single_device.json", false), // default to `false` when absent
+        Arguments.of("fixtures/online_message_true.json", true),
+        Arguments.of("fixtures/online_message_false.json", false),
         // iOS versions prior to 5.5.0.7 send `online` on  IncomingMessageList.message, rather on the top-level entity.
         // This causes some odd client behaviors, such as persisted typing indicators, so we have a temporary
         // server-side adaptation.
-        new Object[] { "fixtures/online_message_true_nested_property.json", true },
-        new Object[] { "fixtures/online_message_false_nested_property.json", false },
-    };
+        Arguments.of("fixtures/online_message_true_nested_property.json", true),
+        Arguments.of("fixtures/online_message_false_nested_property.json", false)
+    );
   }
-
 }
