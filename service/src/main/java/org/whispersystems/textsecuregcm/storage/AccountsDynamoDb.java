@@ -260,8 +260,13 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
 
   public CompletableFuture<Void> migrate(List<Account> accounts, int threads) {
 
-    migrationThreadPool.setCorePoolSize(threads);
-    migrationThreadPool.setMaximumPoolSize(threads);
+    if (threads > migrationThreadPool.getMaximumPoolSize()) {
+      migrationThreadPool.setMaximumPoolSize(threads);
+      migrationThreadPool.setCorePoolSize(threads);
+    } else {
+      migrationThreadPool.setCorePoolSize(threads);
+      migrationThreadPool.setMaximumPoolSize(threads);
+    }
 
     final List<CompletableFuture<?>> futures = accounts.stream()
         .map(this::migrate)
