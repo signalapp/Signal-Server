@@ -3,7 +3,7 @@ name: Signal Server PR Builder
 on:
   pull_request:
     branches: [ master ]
-    types: [ opened, reopened, synchronize, labeled, unlabeled ]
+    types: [ opened, reopened, synchronize ]
 
 jobs:
 
