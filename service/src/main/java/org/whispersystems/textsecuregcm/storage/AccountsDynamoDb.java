@@ -177,11 +177,13 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
         updateItemRequest = new UpdateItemRequest()
             .withTableName(accountsTable.getTableName())
             .withKey(Map.of(KEY_ACCOUNT_UUID, new AttributeValue().withB(UUIDUtil.toByteBuffer(account.getUuid()))))
-            .withUpdateExpression("SET #data=:data")
+            .withUpdateExpression("SET #data = :data, #version = :version")
             .withConditionExpression("attribute_exists(#number)")
             .withExpressionAttributeNames(Map.of("#number", ATTR_ACCOUNT_E164,
-                "#data", ATTR_ACCOUNT_DATA))
-        .withExpressionAttributeValues(Map.of(":data", new AttributeValue().withB(ByteBuffer.wrap(SystemMapper.getMapper().writeValueAsBytes(account)))));
+                "#data", ATTR_ACCOUNT_DATA,
+                "#version", ATTR_MIGRATION_VERSION))
+            .withExpressionAttributeValues(Map.of(":data", new AttributeValue().withB(ByteBuffer.wrap(SystemMapper.getMapper().writeValueAsBytes(account))),
+                ":version", new AttributeValue().withN(String.valueOf(account.getDynamoDbMigrationVersion()))));
 
       } catch (JsonProcessingException e) {
         throw new IllegalArgumentException(e);

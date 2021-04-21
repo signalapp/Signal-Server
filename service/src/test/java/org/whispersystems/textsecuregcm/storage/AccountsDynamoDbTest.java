@@ -208,12 +208,18 @@ class AccountsDynamoDbTest {
     retrieved = accountsDynamoDb.get(account.getUuid());
 
     assertThat(retrieved.isPresent()).isTrue();
-    verifyStoredState("+14151112222", account.getUuid(), retrieved.get(), account);
+    verifyStoredState("+14151112222", account.getUuid(), account);
 
     device = generateDevice(1);
     Account unknownAccount = generateAccount("+14151113333", UUID.randomUUID(), Collections.singleton(device));
 
     assertThatThrownBy(() -> accountsDynamoDb.update(unknownAccount)).isInstanceOfAny(ConditionalCheckFailedException.class);
+
+    account.setDynamoDbMigrationVersion(5);
+
+    accountsDynamoDb.update(account);
+
+    verifyStoredState("+14151112222", account.getUuid(), account);
   }
 
   @Test
@@ -402,6 +408,9 @@ class AccountsDynamoDbTest {
     if (item != null) {
       String data = new String(item.getBinary(AccountsDynamoDb.ATTR_ACCOUNT_DATA), StandardCharsets.UTF_8);
       assertThat(data).isNotEmpty();
+
+      assertThat(item.getNumber(AccountsDynamoDb.ATTR_MIGRATION_VERSION).intValue())
+          .isEqualTo(expecting.getDynamoDbMigrationVersion());
 
       Account result = AccountsDynamoDb.fromItem(item);
       verifyStoredState(number, uuid, result, expecting);
