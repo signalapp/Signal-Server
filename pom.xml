@@ -38,7 +38,7 @@
         <aws.sdk.version>1.11.939</aws.sdk.version>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <TextSecureServer.version>5.54</TextSecureServer.version>
+        <TextSecureServer.version>5.55</TextSecureServer.version>
     </properties>
 
     <parent>
