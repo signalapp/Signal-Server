@@ -5,6 +5,9 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import static com.codahale.metrics.MetricRegistry.name;
+import static io.micrometer.core.instrument.Metrics.timer;
+
 import com.amazonaws.services.dynamodbv2.document.DeleteItemOutcome;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.amazonaws.services.dynamodbv2.document.Index;
@@ -17,12 +20,6 @@ import com.amazonaws.services.dynamodbv2.document.spec.DeleteItemSpec;
 import com.amazonaws.services.dynamodbv2.document.spec.QuerySpec;
 import com.amazonaws.services.dynamodbv2.model.ReturnValue;
 import io.micrometer.core.instrument.Timer;
-import org.apache.commons.lang3.StringUtils;
-import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
-import org.whispersystems.textsecuregcm.util.UUIDUtil;
-
-import javax.annotation.Nonnull;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -30,9 +27,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-
-import static com.codahale.metrics.MetricRegistry.name;
-import static io.micrometer.core.instrument.Metrics.timer;
+import javax.annotation.Nonnull;
+import org.apache.commons.lang3.StringUtils;
+import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 public class MessagesDynamoDb extends AbstractDynamoDbStore {
 
@@ -182,7 +181,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
         deleteItemSpec.withReturnValues(ReturnValue.ALL_OLD);
       }
       final DeleteItemOutcome deleteItemOutcome = table.deleteItem(deleteItemSpec);
-      if (deleteItemOutcome.getItem().hasAttribute(KEY_PARTITION)) {
+      if (deleteItemOutcome.getItem() != null && deleteItemOutcome.getItem().hasAttribute(KEY_PARTITION)) {
         result = Optional.of(convertItemToOutgoingMessageEntity(deleteItemOutcome.getItem()));
       }
     }
