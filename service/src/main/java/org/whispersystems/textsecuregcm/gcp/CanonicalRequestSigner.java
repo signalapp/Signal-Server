@@ -5,26 +5,32 @@
 
 package org.whispersystems.textsecuregcm.gcp;
 
-import org.apache.commons.codec.binary.Hex;
-import org.bouncycastle.openssl.PEMReader;
-
-import javax.annotation.Nonnull;
 import java.io.IOException;
-import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
+import java.security.KeyFactory;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.Signature;
 import java.security.SignatureException;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import javax.annotation.Nonnull;
+import org.apache.commons.codec.binary.Hex;
+import org.whispersystems.websocket.util.Base64;
 
 public class CanonicalRequestSigner {
 
   @Nonnull
   private final PrivateKey rsaSigningKey;
 
-  public CanonicalRequestSigner(@Nonnull String rsaSigningKey) throws IOException, InvalidKeyException {
+  private static final Pattern PRIVATE_KEY_PATTERN =
+      Pattern.compile("(?m)(?s)^-+BEGIN PRIVATE KEY-+$(.+)^-+END PRIVATE KEY-+.*$");
+
+  public CanonicalRequestSigner(@Nonnull String rsaSigningKey) throws IOException, InvalidKeyException, InvalidKeySpecException {
     this.rsaSigningKey = initializeRsaSigningKey(rsaSigningKey);
   }
 
@@ -64,11 +70,23 @@ public class CanonicalRequestSigner {
     return Hex.encodeHexString(signature);
   }
 
-  private static PrivateKey initializeRsaSigningKey(String rsaSigningKey) throws IOException, InvalidKeyException {
-    final PEMReader pemReader          = new PEMReader(new StringReader(rsaSigningKey));
-    final PrivateKey key               = (PrivateKey) pemReader.readObject();
-    testKeyIsValidForSigning(key);
-    return key;
+  private static PrivateKey initializeRsaSigningKey(String rsaSigningKey) throws IOException, InvalidKeyException, InvalidKeySpecException {
+    final Matcher matcher = PRIVATE_KEY_PATTERN.matcher(rsaSigningKey);
+
+    if (matcher.matches()) {
+      try {
+        final KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        final PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(Base64.decode(matcher.group(1)));
+        final PrivateKey key = keyFactory.generatePrivate(keySpec);
+
+        testKeyIsValidForSigning(key);
+        return key;
+      } catch (NoSuchAlgorithmException e) {
+        throw new AssertionError(e);
+      }
+    }
+
+    throw new IOException("Invalid RSA key");
   }
 
   private static void testKeyIsValidForSigning(PrivateKey key) throws InvalidKeyException {

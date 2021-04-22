@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.securestorage;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -46,11 +45,6 @@ public class SecureStorageClientTest {
     @Rule
     public WireMockRule wireMockRule = new WireMockRule(options().dynamicPort().dynamicHttpsPort());
 
-    @BeforeClass
-    public static void setupBeforeClass() {
-        Security.addProvider(new BouncyCastleProvider());
-    }
-
     @Before
     public void setUp() throws CertificateException {
         accountUuid         = UUID.randomUUID();
@@ -85,11 +79,6 @@ public class SecureStorageClientTest {
     public void tearDown() throws InterruptedException {
         httpExecutor.shutdown();
         httpExecutor.awaitTermination(1, TimeUnit.SECONDS);
-    }
-
-    @AfterClass
-    public static void tearDownAfterClass() {
-        Security.removeProvider(BouncyCastleProvider.PROVIDER_NAME);
     }
 
     @Test

@@ -23,6 +23,7 @@ import javax.ws.rs.core.MediaType;
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.SecureRandom;
+import java.security.spec.InvalidKeySpecException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Base64;
@@ -45,7 +46,7 @@ public class AttachmentControllerV3 extends AttachmentControllerBase {
   private final SecureRandom secureRandom;
 
   public AttachmentControllerV3(@Nonnull RateLimiters rateLimiters, @Nonnull String domain, @Nonnull String email, int maxSizeInBytes, @Nonnull String pathPrefix, @Nonnull String rsaSigningKey)
-          throws IOException, InvalidKeyException {
+      throws IOException, InvalidKeyException, InvalidKeySpecException {
     this.rateLimiter               = rateLimiters.getAttachmentLimiter();
     this.canonicalRequestGenerator = new CanonicalRequestGenerator(domain, email, maxSizeInBytes, pathPrefix);
     this.canonicalRequestSigner    = new CanonicalRequestSigner(rsaSigningKey);

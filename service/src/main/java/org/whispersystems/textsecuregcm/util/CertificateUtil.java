@@ -5,15 +5,13 @@
 
 package org.whispersystems.textsecuregcm.util;
 
-import org.bouncycastle.openssl.PEMReader;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 
 public class CertificateUtil {
@@ -38,8 +36,10 @@ public class CertificateUtil {
     }
 
     public static X509Certificate getCertificate(final String certificatePem) throws CertificateException {
-        try (PEMReader reader = new PEMReader(new InputStreamReader(new ByteArrayInputStream(certificatePem.getBytes())))) {
-            return (X509Certificate) reader.readObject();
+        final CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
+
+        try (final ByteArrayInputStream pemInputStream = new ByteArrayInputStream(certificatePem.getBytes())) {
+          return (X509Certificate) certificateFactory.generateCertificate(pemInputStream);
         } catch (IOException e) {
             throw new CertificateException(e);
         }
