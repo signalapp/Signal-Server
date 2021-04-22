@@ -6,7 +6,6 @@
 package org.whispersystems.textsecuregcm.configuration.dynamic;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Set;

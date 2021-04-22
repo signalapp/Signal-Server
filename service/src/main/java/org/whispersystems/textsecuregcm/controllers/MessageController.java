@@ -172,19 +172,16 @@ public class MessageController {
         Metrics.counter(UNSEALED_SENDER_WITHOUT_PUSH_TOKEN_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, senderCountryCode).increment();
       }
 
-      if (dynamicConfigurationManager.getConfiguration().getMessageRateConfiguration().getRateLimitedCountryCodes().contains(senderCountryCode)) {
-        try {
-          rateLimiters.getUnsealedSenderLimiter().validate(source.get().getNumber(), destinationName.toString());
-          rateLimiters.getUnsealedSenderLimiter().validate(source.get().getUuid().toString(), destinationName.toString());
-        } catch (RateLimitExceededException e) {
-          Metrics.counter(REJECT_UNSEALED_SENDER_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, senderCountryCode).increment();
+      try {
+        rateLimiters.getUnsealedSenderLimiter().validate(source.get().getNumber(), destinationName.toString());
+      } catch (RateLimitExceededException e) {
 
-          if (dynamicConfigurationManager.getConfiguration().getMessageRateConfiguration().isEnforceUnsealedSenderRateLimit()) {
-            logger.debug("Rejected unsealed sender limit from: {}", source.get().getNumber());
-            throw e;
-          } else {
-            logger.debug("Would reject unsealed sender limit from: {}", source.get().getNumber());
-          }
+        if (dynamicConfigurationManager.getConfiguration().getMessageRateConfiguration().isEnforceUnsealedSenderRateLimit()) {
+          Metrics.counter(REJECT_UNSEALED_SENDER_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, senderCountryCode).increment();
+          logger.debug("Rejected unsealed sender limit from: {}", source.get().getNumber());
+          throw e;
+        } else {
+          logger.debug("Would reject unsealed sender limit from: {}", source.get().getNumber());
         }
       }
     }

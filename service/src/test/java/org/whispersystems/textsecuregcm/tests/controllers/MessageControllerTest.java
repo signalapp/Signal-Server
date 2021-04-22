@@ -18,6 +18,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -56,6 +57,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.mockito.stubbing.Answer;
@@ -65,6 +67,7 @@ import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessageRateConfiguration;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
+import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
@@ -75,6 +78,7 @@ import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.limits.CardinalityRateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -120,6 +124,7 @@ class MessageControllerTest {
   private static final ResourceExtension resources = ResourceExtension.builder()
                                                             .addProvider(AuthHelper.getAuthFilter())
                                                             .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
+                                                            .addProvider(RateLimitExceededExceptionMapper.class)
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new MessageController(rateLimiters, messageSender, receiptSender, accountsManager,
                                                                                                messagesManager, apnFallbackManager, dynamicConfigurationManager, metricsCluster, receiptExecutor))
@@ -246,6 +251,45 @@ class MessageControllerTest {
 
     verify(messageSender, never()).sendMessage(any(), any(), any(), anyBoolean());
     verify(receiptSender).sendReceipt(any(), eq(AuthHelper.VALID_NUMBER), anyLong());
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testUnsealedSenderCardinalityRateLimited(final boolean rateLimited) throws Exception {
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+    final DynamicMessageRateConfiguration messageRateConfiguration = mock(DynamicMessageRateConfiguration.class);
+
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+    when(dynamicConfiguration.getMessageRateConfiguration()).thenReturn(messageRateConfiguration);
+    when(messageRateConfiguration.isEnforceUnsealedSenderRateLimit()).thenReturn(true);
+    when(messageRateConfiguration.getResponseDelay()).thenReturn(Duration.ofMillis(1));
+    when(messageRateConfiguration.getResponseDelayJitter()).thenReturn(Duration.ofMillis(1));
+    when(messageRateConfiguration.getReceiptDelay()).thenReturn(Duration.ofMillis(1));
+    when(messageRateConfiguration.getReceiptDelayJitter()).thenReturn(Duration.ofMillis(1));
+    when(messageRateConfiguration.getReceiptProbability()).thenReturn(1.0);
+
+    when(redisCommands.evalsha(any(), any(), any(), any())).thenReturn(List.of(1L, 1L));
+
+    if (rateLimited) {
+      doThrow(RateLimitExceededException.class)
+          .when(unsealedSenderLimiter).validate(eq(AuthHelper.VALID_NUMBER), eq(INTERNATIONAL_RECIPIENT));
+    }
+
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/messages/%s", INTERNATIONAL_RECIPIENT))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    if (rateLimited) {
+      assertThat("Error Response", response.getStatus(), is(equalTo(413)));
+    } else {
+      assertThat("Good Response", response.getStatus(), is(equalTo(200)));
+    }
+
+    verify(messageSender, rateLimited ? never() : times(1)).sendMessage(any(), any(), any(), anyBoolean());
   }
 
   @Test
