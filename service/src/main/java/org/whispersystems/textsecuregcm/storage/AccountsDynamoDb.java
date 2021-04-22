@@ -124,7 +124,7 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
           }
 
           // this shouldn’t happen
-          throw new RuntimeException("could not create account");
+          throw new RuntimeException("could not create account: " + extractCancellationReasonCodes(e));
         }
       } catch (JsonProcessingException e) {
         throw new IllegalArgumentException(e);
@@ -319,7 +319,9 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
             @Override
             public void onError(Exception exception) {
               if (exception instanceof TransactionCanceledException) {
-                // account is already migrated
+                // account is likely already migrated
+                logger.warn("Error migrating account: {}",
+                    extractCancellationReasonCodes((TransactionCanceledException) exception));
                 resultFuture.complete(false);
               } else {
                 try {
@@ -342,6 +344,12 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
     } catch (Exception e) {
       return CompletableFuture.failedFuture(e);
     }
+  }
+
+  private static String extractCancellationReasonCodes(final TransactionCanceledException exception) {
+    return exception.getCancellationReasons().stream()
+        .map(CancellationReason::getCode)
+        .collect(Collectors.joining(", "));
   }
 
   @VisibleForTesting
