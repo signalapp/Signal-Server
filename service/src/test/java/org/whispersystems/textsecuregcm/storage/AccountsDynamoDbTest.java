@@ -366,7 +366,7 @@ class AccountsDynamoDbTest {
     device = generateDevice(1);
     Account accountRemigrationWithDifferentUuid = generateAccount("+14151112222", secondUuid, Collections.singleton(device));
 
-    migrated = accountsDynamoDb.migrate(account).get();
+    migrated = accountsDynamoDb.migrate(accountRemigrationWithDifferentUuid).get();
 
     assertThat(migrated).isFalse();
     verifyStoredState("+14151112222", firstUuid, account);
