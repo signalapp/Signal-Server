@@ -319,9 +319,7 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
             @Override
             public void onError(Exception exception) {
               if (exception instanceof TransactionCanceledException) {
-                // account is likely already migrated
-                logger.warn("Error migrating account: {}",
-                    extractCancellationReasonCodes((TransactionCanceledException) exception));
+                // account is already migrated
                 resultFuture.complete(false);
               } else {
                 try {
