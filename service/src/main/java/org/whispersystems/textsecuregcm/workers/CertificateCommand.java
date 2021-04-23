@@ -14,10 +14,10 @@ import org.whispersystems.textsecuregcm.crypto.Curve;
 import org.whispersystems.textsecuregcm.crypto.ECKeyPair;
 import org.whispersystems.textsecuregcm.crypto.ECPrivateKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.util.Base64;
 
 import java.io.IOException;
 import java.security.InvalidKeyException;
+import java.util.Base64;
 import java.util.Set;
 
 import io.dropwizard.cli.Command;
@@ -60,8 +60,8 @@ public class CertificateCommand extends Command {
 
   private void runCaCommand() {
     ECKeyPair keyPair = Curve.generateKeyPair();
-    System.out.println("Public key : " + Base64.encodeBytes(keyPair.getPublicKey().serialize()));
-    System.out.println("Private key: " + Base64.encodeBytes(keyPair.getPrivateKey().serialize()));
+    System.out.println("Public key : " + Base64.getEncoder().encodeToString(keyPair.getPublicKey().serialize()));
+    System.out.println("Private key: " + Base64.getEncoder().encodeToString(keyPair.getPrivateKey().serialize()));
   }
 
   private void runCertificateCommand(Namespace namespace) throws IOException, InvalidKeyException {
@@ -75,7 +75,7 @@ public class CertificateCommand extends Command {
       return;
     }
 
-    ECPrivateKey key   = Curve.decodePrivatePoint(Base64.decode(namespace.getString("key")));
+    ECPrivateKey key   = Curve.decodePrivatePoint(Base64.getDecoder().decode(namespace.getString("key")));
     int          keyId = namespace.getInt("keyId");
 
     if (RESERVED_CERTIFICATE_IDS.contains(keyId)) {
@@ -99,7 +99,7 @@ public class CertificateCommand extends Command {
                                                               .build()
                                                               .toByteArray();
 
-    System.out.println("Certificate: " + Base64.encodeBytes(signedCertificate));
-    System.out.println("Private key: " + Base64.encodeBytes(keyPair.getPrivateKey().serialize()));
+    System.out.println("Certificate: " + Base64.getEncoder().encodeToString(signedCertificate));
+    System.out.println("Private key: " + Base64.getEncoder().encodeToString(keyPair.getPrivateKey().serialize()));
   }
 }

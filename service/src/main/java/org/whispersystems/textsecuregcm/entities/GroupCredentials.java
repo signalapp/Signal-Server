@@ -14,9 +14,9 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import org.whispersystems.textsecuregcm.util.Base64;
 
 import java.io.IOException;
+import java.util.Base64;
 import java.util.List;
 
 public class GroupCredentials {
@@ -63,14 +63,14 @@ public class GroupCredentials {
   public static class ByteArraySerializer extends JsonSerializer<byte[]> {
     @Override
     public void serialize(byte[] bytes, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException {
-      jsonGenerator.writeString(Base64.encodeBytes(bytes));
+      jsonGenerator.writeString(Base64.getEncoder().encodeToString(bytes));
     }
   }
 
   public static class ByteArrayDeserializer extends JsonDeserializer<byte[]> {
     @Override
     public byte[] deserialize(JsonParser jsonParser, DeserializationContext deserializationContext) throws IOException {
-      return Base64.decode(jsonParser.getValueAsString());
+      return Base64.getDecoder().decode(jsonParser.getValueAsString());
     }
   }
 

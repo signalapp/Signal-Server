@@ -20,6 +20,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -39,7 +40,6 @@ import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.http.FormDataBodyPublisher;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
-import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.ExecutorUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -124,7 +124,7 @@ public class TwilioSmsSender {
                                      .uri(smsUri)
                                      .POST(FormDataBodyPublisher.of(requestParameters))
                                      .header("Content-Type", "application/x-www-form-urlencoded")
-                                     .header("Authorization", "Basic " + Base64.encodeBytes((accountId + ":" + accountToken).getBytes(StandardCharsets.UTF_8)))
+                                     .header("Authorization", "Basic " + Base64.getEncoder().encodeToString((accountId + ":" + accountToken).getBytes(StandardCharsets.UTF_8)))
                                      .build();
 
     smsMeter.mark();
@@ -183,7 +183,7 @@ public class TwilioSmsSender {
                                      .uri(voxUri)
                                      .POST(FormDataBodyPublisher.of(requestParameters))
                                      .header("Content-Type", "application/x-www-form-urlencoded")
-                                     .header("Authorization", "Basic " + Base64.encodeBytes((accountId + ":" + accountToken).getBytes()))
+                                     .header("Authorization", "Basic " + Base64.getEncoder().encodeToString((accountId + ":" + accountToken).getBytes()))
                                      .build();
 
     voxMeter.mark();

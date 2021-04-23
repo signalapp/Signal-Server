@@ -16,11 +16,11 @@ import java.security.Signature;
 import java.security.SignatureException;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.Base64;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
 import org.apache.commons.codec.binary.Hex;
-import org.whispersystems.websocket.util.Base64;
 
 public class CanonicalRequestSigner {
 
@@ -28,7 +28,7 @@ public class CanonicalRequestSigner {
   private final PrivateKey rsaSigningKey;
 
   private static final Pattern PRIVATE_KEY_PATTERN =
-      Pattern.compile("(?m)(?s)^-+BEGIN PRIVATE KEY-+$(.+)^-+END PRIVATE KEY-+.*$");
+      Pattern.compile("^-+BEGIN PRIVATE KEY-+\\s*(.+)\\n-+END PRIVATE KEY-+\\s*$", Pattern.DOTALL);
 
   public CanonicalRequestSigner(@Nonnull String rsaSigningKey) throws IOException, InvalidKeyException, InvalidKeySpecException {
     this.rsaSigningKey = initializeRsaSigningKey(rsaSigningKey);
@@ -76,7 +76,7 @@ public class CanonicalRequestSigner {
     if (matcher.matches()) {
       try {
         final KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-        final PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(Base64.decode(matcher.group(1)));
+        final PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(Base64.getDecoder().decode(matcher.group(1)));
         final PrivateKey key = keyFactory.generatePrivate(keySpec);
 
         testKeyIsValidForSigning(key);

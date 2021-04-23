@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale.LanguageRange;
@@ -19,7 +20,6 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.http.FormDataBodyPublisher;
-import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -163,7 +163,7 @@ class TwilioVerifySender {
         .uri(verifyServiceUri)
         .POST(FormDataBodyPublisher.of(requestParameters))
         .header("Content-Type", "application/x-www-form-urlencoded")
-        .header("Authorization", "Basic " + Base64.encodeBytes((accountId + ":" + accountToken).getBytes()))
+        .header("Authorization", "Basic " + Base64.getEncoder().encodeToString((accountId + ":" + accountToken).getBytes()))
         .build();
   }
 
@@ -176,7 +176,7 @@ class TwilioVerifySender {
         .uri(verifyApprovalBaseUri.resolve(verificationSid))
         .POST(FormDataBodyPublisher.of(requestParameters))
         .header("Content-Type", "application/x-www-form-urlencoded")
-        .header("Authorization", "Basic " + Base64.encodeBytes((accountId + ":" + accountToken).getBytes()))
+        .header("Authorization", "Basic " + Base64.getEncoder().encodeToString((accountId + ":" + accountToken).getBytes()))
         .build();
 
     return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())

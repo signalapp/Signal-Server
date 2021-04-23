@@ -21,6 +21,7 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -71,7 +72,6 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
-import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.ForwardedIpUtil;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -527,9 +527,9 @@ public class MessageController {
     if (Util.isEmpty(message.getBody())) return Optional.empty();
 
     try {
-      return Optional.of(Base64.decode(message.getBody()));
-    } catch (IOException ioe) {
-      logger.debug("Bad B64", ioe);
+      return Optional.of(Base64.getDecoder().decode(message.getBody()));
+    } catch (IllegalArgumentException e) {
+      logger.debug("Bad B64", e);
       return Optional.empty();
     }
   }
@@ -538,9 +538,9 @@ public class MessageController {
     if (Util.isEmpty(message.getContent())) return Optional.empty();
 
     try {
-      return Optional.of(Base64.decode(message.getContent()));
-    } catch (IOException ioe) {
-      logger.debug("Bad B64", ioe);
+      return Optional.of(Base64.getDecoder().decode(message.getContent()));
+    } catch (IllegalArgumentException e) {
+      logger.debug("Bad B64", e);
       return Optional.empty();
     }
   }

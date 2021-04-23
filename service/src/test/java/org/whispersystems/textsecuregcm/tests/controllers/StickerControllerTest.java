@@ -16,6 +16,7 @@ import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
 import java.io.IOException;
+import java.util.Base64;
 import javax.ws.rs.core.Response;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.Before;
@@ -29,7 +30,6 @@ import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
-import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 public class StickerControllerTest {
@@ -66,7 +66,7 @@ public class StickerControllerTest {
     assertThat(attributes.getManifest().getKey()).isEqualTo("stickers/" + attributes.getPackId() + "/manifest.proto");
     assertThat(attributes.getManifest().getAcl()).isEqualTo("private");
     assertThat(attributes.getManifest().getPolicy()).isNotEmpty();
-    assertThat(new String(Base64.decode(attributes.getManifest().getPolicy()))).contains("[\"content-length-range\", 1, 10240]");
+    assertThat(new String(Base64.getDecoder().decode(attributes.getManifest().getPolicy()))).contains("[\"content-length-range\", 1, 10240]");
     assertThat(attributes.getManifest().getSignature()).isNotEmpty();
     assertThat(attributes.getManifest().getAlgorithm()).isEqualTo("AWS4-HMAC-SHA256");
     assertThat(attributes.getManifest().getCredential()).isNotEmpty();
@@ -79,7 +79,7 @@ public class StickerControllerTest {
       assertThat(attributes.getStickers().get(i).getKey()).isEqualTo("stickers/" + attributes.getPackId() + "/full/" + i);
       assertThat(attributes.getStickers().get(i).getAcl()).isEqualTo("private");
       assertThat(attributes.getStickers().get(i).getPolicy()).isNotEmpty();
-      assertThat(new String(Base64.decode(attributes.getStickers().get(i).getPolicy()))).contains("[\"content-length-range\", 1, 307200]");
+      assertThat(new String(Base64.getDecoder().decode(attributes.getStickers().get(i).getPolicy()))).contains("[\"content-length-range\", 1, 307200]");
       assertThat(attributes.getStickers().get(i).getSignature()).isNotEmpty();
       assertThat(attributes.getStickers().get(i).getAlgorithm()).isEqualTo("AWS4-HMAC-SHA256");
       assertThat(attributes.getStickers().get(i).getCredential()).isNotEmpty();

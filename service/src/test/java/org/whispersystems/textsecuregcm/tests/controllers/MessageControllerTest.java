@@ -36,6 +36,7 @@ import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -90,7 +91,6 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
-import org.whispersystems.textsecuregcm.util.Base64;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class MessageControllerTest {
@@ -298,7 +298,7 @@ class MessageControllerTest {
         resources.getJerseyTest()
                  .target(String.format("/v1/messages/%s", SINGLE_DEVICE_RECIPIENT))
                  .request()
-                 .header(OptionalAccess.UNIDENTIFIED, Base64.encodeBytes("1234".getBytes()))
+                 .header(OptionalAccess.UNIDENTIFIED, Base64.getEncoder().encodeToString("1234".getBytes()))
                  .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
                                     MediaType.APPLICATION_JSON_TYPE));
 

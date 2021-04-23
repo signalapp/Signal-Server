@@ -13,10 +13,10 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos.SenderCertificate
 import org.whispersystems.textsecuregcm.entities.MessageProtos.ServerCertificate;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.util.Base64;
 
 import java.io.IOException;
 import java.security.InvalidKeyException;
+import java.util.Base64;
 import java.util.concurrent.TimeUnit;
 
 public class CertificateGenerator {
@@ -37,7 +37,7 @@ public class CertificateGenerator {
     SenderCertificate.Certificate.Builder builder = SenderCertificate.Certificate.newBuilder()
                                                                                  .setSenderDevice(Math.toIntExact(device.getId()))
                                                                                  .setExpires(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(expiresDays))
-                                                                                 .setIdentityKey(ByteString.copyFrom(Base64.decode(account.getIdentityKey())))
+                                                                                 .setIdentityKey(ByteString.copyFrom(Base64.getDecoder().decode(account.getIdentityKey())))
                                                                                  .setSigner(serverCertificate)
                                                                                  .setSenderUuid(account.getUuid().toString());
 

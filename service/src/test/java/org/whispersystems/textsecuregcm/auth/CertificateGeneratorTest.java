@@ -9,10 +9,10 @@ import org.junit.Test;
 import org.whispersystems.textsecuregcm.crypto.Curve;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.util.Base64;
 
 import java.io.IOException;
 import java.security.InvalidKeyException;
+import java.util.Base64;
 import java.util.UUID;
 
 import static org.junit.Assert.assertTrue;
@@ -29,7 +29,7 @@ public class CertificateGeneratorTest {
     public void testCreateFor() throws IOException, InvalidKeyException {
         final Account account = mock(Account.class);
         final Device device = mock(Device.class);
-        final CertificateGenerator certificateGenerator = new CertificateGenerator(Base64.decode(SIGNING_CERTIFICATE), Curve.decodePrivatePoint(Base64.decode(SIGNING_KEY)), 1);
+        final CertificateGenerator certificateGenerator = new CertificateGenerator(Base64.getDecoder().decode(SIGNING_CERTIFICATE), Curve.decodePrivatePoint(Base64.getDecoder().decode(SIGNING_KEY)), 1);
 
         when(account.getIdentityKey()).thenReturn(IDENTITY_KEY);
         when(account.getUuid()).thenReturn(UUID.randomUUID());

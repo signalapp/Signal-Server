@@ -10,7 +10,6 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.configuration.SecureStorageServiceConfiguration;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
-import org.whispersystems.textsecuregcm.util.Base64;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -19,6 +18,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.cert.CertificateException;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -57,7 +57,8 @@ public class SecureStorageClient {
         final HttpRequest request = HttpRequest.newBuilder()
                 .uri(deleteUri)
                 .DELETE()
-                .header("Authorization", "Basic " + Base64.encodeBytes((credentials.getUsername() + ":" + credentials.getPassword()).getBytes(StandardCharsets.UTF_8)))
+                .header("Authorization", "Basic " + Base64.getEncoder().encodeToString(
+                    (credentials.getUsername() + ":" + credentials.getPassword()).getBytes(StandardCharsets.UTF_8)))
                 .build();
 
         return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenApply(response -> {

@@ -10,7 +10,6 @@ import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.ProvisioningManager;
 import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.websocket.InvalidWebsocketAddressException;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningAddress;
 
@@ -24,6 +23,7 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
+import java.util.Base64;
 
 import io.dropwizard.auth.Auth;
 
@@ -51,7 +51,7 @@ public class ProvisioningController {
     rateLimiters.getMessagesLimiter().validate(source.getNumber());
 
     if (!provisioningManager.sendProvisioningMessage(new ProvisioningAddress(destinationName, 0),
-                                                     Base64.decode(message.getBody())))
+                                                     Base64.getDecoder().decode(message.getBody())))
     {
       throw new WebApplicationException(Response.Status.NOT_FOUND);
     }

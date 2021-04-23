@@ -6,13 +6,13 @@
 package org.whispersystems.textsecuregcm.auth;
 
 import org.whispersystems.textsecuregcm.configuration.TurnConfiguration;
-import org.whispersystems.textsecuregcm.util.Base64;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -34,7 +34,7 @@ public class TurnTokenGenerator {
       String userTime           = validUntilSeconds + ":"  + user;
 
       mac.init(new SecretKeySpec(key, "HmacSHA1"));
-      String password = Base64.encodeBytes(mac.doFinal(userTime.getBytes()));
+      String password = Base64.getEncoder().encodeToString(mac.doFinal(userTime.getBytes()));
 
       return new TurnToken(userTime, password, urls);
     } catch (NoSuchAlgorithmException | InvalidKeyException e) {

@@ -5,15 +5,31 @@
 
 package org.whispersystems.textsecuregcm.tests.controllers;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.InvalidKeySpecException;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+import javax.ws.rs.core.Response;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.Condition;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
@@ -28,26 +44,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
-import org.whispersystems.textsecuregcm.util.Base64;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
-
-import javax.ws.rs.core.Response;
-import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
-import java.security.InvalidKeyException;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
-import java.security.spec.InvalidKeySpecException;
-import java.util.HashMap;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 public class AttachmentControllerTest {
 
@@ -67,7 +64,7 @@ public class AttachmentControllerTest {
       final KeyPair           keyPair          = keyPairGenerator.generateKeyPair();
 
       RSA_PRIVATE_KEY_PEM = "-----BEGIN PRIVATE KEY-----\n" +
-          Base64.encodeBytes(keyPair.getPrivate().getEncoded()) + "\n" +
+          Base64.getEncoder().encodeToString(keyPair.getPrivate().getEncoded()) + "\n" +
           "-----END PRIVATE KEY-----";
     } catch (NoSuchAlgorithmException e) {
       throw new AssertionError(e);
@@ -185,7 +182,7 @@ public class AttachmentControllerTest {
     assertThat(descriptor.getPolicy()).isNotBlank();
     assertThat(descriptor.getSignature()).isNotBlank();
 
-    assertThat(new String(Base64.decode(descriptor.getPolicy()))).contains("[\"content-length-range\", 1, 104857600]");
+    assertThat(new String(Base64.getDecoder().decode(descriptor.getPolicy()))).contains("[\"content-length-range\", 1, 104857600]");
   }
 
   @Test

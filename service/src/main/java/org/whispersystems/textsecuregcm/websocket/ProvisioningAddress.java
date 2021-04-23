@@ -5,13 +5,12 @@
 
 package org.whispersystems.textsecuregcm.websocket;
 
-import org.whispersystems.textsecuregcm.util.Base64;
-
 import java.security.SecureRandom;
+import java.util.Base64;
 
 public class ProvisioningAddress extends WebsocketAddress {
 
-  public ProvisioningAddress(String address, int id) throws InvalidWebsocketAddressException {
+  public ProvisioningAddress(String address, int id) {
     super(address, id);
   }
 
@@ -24,14 +23,9 @@ public class ProvisioningAddress extends WebsocketAddress {
   }
 
   public static ProvisioningAddress generate() {
-    try {
-      byte[] random = new byte[16];
-      new SecureRandom().nextBytes(random);
+    byte[] random = new byte[16];
+    new SecureRandom().nextBytes(random);
 
-      return new ProvisioningAddress(Base64.encodeBytesWithoutPadding(random)
-                                           .replace('+', '-').replace('/', '_'), 0);
-    } catch (InvalidWebsocketAddressException e) {
-      throw new AssertionError(e);
-    }
+    return new ProvisioningAddress(Base64.getUrlEncoder().withoutPadding().encodeToString(random), 0);
   }
 }

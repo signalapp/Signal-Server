@@ -5,7 +5,6 @@
 package org.whispersystems.textsecuregcm.util;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
-
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.security.MessageDigest;
@@ -14,8 +13,13 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.temporal.ChronoField;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.Locale;
 import java.util.Locale.LanguageRange;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -34,10 +38,6 @@ public class Util {
     } catch (NoSuchAlgorithmException e) {
       throw new AssertionError(e);
     }
-  }
-
-  public static String getEncodedContactToken(String number) {
-    return Base64.encodeBytesWithoutPadding(getContactToken(number));
   }
 
   public static boolean isValidNumber(String number) {

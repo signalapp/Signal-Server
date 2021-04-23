@@ -16,6 +16,7 @@ import io.dropwizard.auth.PolymorphicAuthDynamicFeature;
 import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
 import io.dropwizard.auth.basic.BasicCredentials;
 import java.security.Principal;
+import java.util.Base64;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
@@ -28,7 +29,6 @@ import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccountAuthenticat
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.util.Base64;
 
 public class AuthHelper {
   // Static seed to ensure reproducible tests.
@@ -173,11 +173,11 @@ public class AuthHelper {
   }
 
   public static String getAuthHeader(String number, String password) {
-    return "Basic " + Base64.encodeBytes((number + ":" + password).getBytes());
+    return "Basic " + Base64.getEncoder().encodeToString((number + ":" + password).getBytes());
   }
 
   public static String getUnidentifiedAccessHeader(byte[] key) {
-    return Base64.encodeBytes(key);
+    return Base64.getEncoder().encodeToString(key);
   }
 
   public static UUID getRandomUUID(Random random) {
