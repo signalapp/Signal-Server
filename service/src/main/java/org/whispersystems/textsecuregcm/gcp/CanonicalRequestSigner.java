@@ -76,7 +76,7 @@ public class CanonicalRequestSigner {
     if (matcher.matches()) {
       try {
         final KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-        final PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(Base64.getDecoder().decode(matcher.group(1)));
+        final PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(Base64.getMimeDecoder().decode(matcher.group(1)));
         final PrivateKey key = keyFactory.generatePrivate(keySpec);
 
         testKeyIsValidForSigning(key);

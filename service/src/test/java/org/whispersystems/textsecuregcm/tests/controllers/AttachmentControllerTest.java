@@ -64,7 +64,7 @@ public class AttachmentControllerTest {
       final KeyPair           keyPair          = keyPairGenerator.generateKeyPair();
 
       RSA_PRIVATE_KEY_PEM = "-----BEGIN PRIVATE KEY-----\n" +
-          Base64.getEncoder().encodeToString(keyPair.getPrivate().getEncoded()) + "\n" +
+          Base64.getMimeEncoder().encodeToString(keyPair.getPrivate().getEncoded()) + "\n" +
           "-----END PRIVATE KEY-----";
     } catch (NoSuchAlgorithmException e) {
       throw new AssertionError(e);
