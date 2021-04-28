@@ -148,7 +148,7 @@
         <dependency>
             <groupId>com.googlecode.libphonenumber</groupId>
             <artifactId>libphonenumber</artifactId>
-            <version>8.12.18</version>
+            <version>8.12.21</version>
         </dependency>
 
 
