@@ -10,6 +10,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -37,7 +38,9 @@ public class DynamicConfigurationManager {
 
   private boolean initialized = false;
 
-  public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper(new YAMLFactory()).configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+  public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper(new YAMLFactory())
+      .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+      .registerModule(new JavaTimeModule());
 
   public DynamicConfigurationManager(String application, String environment, String configurationName) {
     this(AmazonAppConfigClient.builder()

@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.configuration.dynamic;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -12,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.vdurmont.semver4j.Semver;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +21,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration.CardinalityRateLimitConfiguration;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
@@ -332,6 +335,35 @@ class DynamicConfigurationTest {
       assertTrue(config.isDeleteEnabled());
       assertTrue(config.isWriteEnabled());
       assertTrue(config.isReadEnabled());
+    }
+  }
+
+  @Test
+  void testParseLimits() throws JsonProcessingException {
+    {
+      final String emptyConfigYaml = "test: true";
+      final DynamicConfiguration emptyConfig = DynamicConfigurationManager.OBJECT_MAPPER.readValue(
+          emptyConfigYaml, DynamicConfiguration.class);
+
+      assertThat(emptyConfig.getLimits().getUnsealedSenderNumber().getMaxCardinality()).isEqualTo(100);
+      assertThat(emptyConfig.getLimits().getUnsealedSenderNumber().getTtl()).isEqualTo(Duration.ofDays(1));
+      assertThat(emptyConfig.getLimits().getUnsealedSenderNumber().getTtlJitter()).isEqualTo(Duration.ofDays(1));
+    }
+
+    {
+      final String limitsConfig =
+          "limits:\n"
+          + "  unsealedSenderNumber:\n"
+          + "    maxCardinality: 99\n"
+          + "    ttl: PT23H\n"
+          + "    ttlJitter: PT22H";
+      final CardinalityRateLimitConfiguration unsealedSenderNumber = DynamicConfigurationManager.OBJECT_MAPPER
+          .readValue(limitsConfig, DynamicConfiguration.class)
+          .getLimits().getUnsealedSenderNumber();
+
+      assertThat(unsealedSenderNumber.getMaxCardinality()).isEqualTo(99);
+      assertThat(unsealedSenderNumber.getTtl()).isEqualTo(Duration.ofHours(23));
+      assertThat(unsealedSenderNumber.getTtlJitter()).isEqualTo(Duration.ofHours(22));
     }
   }
 }
