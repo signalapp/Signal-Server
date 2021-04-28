@@ -94,7 +94,7 @@ public class MultiRecipientMessageProvider implements MessageBodyReader<MultiRec
   private long convertNetworkByteOrderToLong(byte[] buffer) {
     long result = 0;
     for (int i = 0; i < 8; i++) {
-      result = (result << (i * 8)) | (buffer[i] & 0xFFL);
+      result = (result << 8) | (buffer[i] & 0xFFL);
     }
     return result;
   }
