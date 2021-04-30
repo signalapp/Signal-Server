@@ -30,7 +30,7 @@ public class CardinalityRateLimiterTest extends AbstractRedisClusterTest {
     @Test
     public void testValidate() {
       final int maxCardinality = 10;
-      final CardinalityRateLimiter rateLimiter = new CardinalityRateLimiter(getRedisCluster(), null, "test", Duration.ofDays(1), Duration.ofDays(1), maxCardinality);
+      final CardinalityRateLimiter rateLimiter = new CardinalityRateLimiter(getRedisCluster(), "test", Duration.ofDays(1), Duration.ofDays(1), maxCardinality);
 
       final String source = "+18005551234";
       int validatedAttempts = 0;

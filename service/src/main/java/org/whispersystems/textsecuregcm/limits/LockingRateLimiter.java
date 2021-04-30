@@ -20,8 +20,8 @@ public class LockingRateLimiter extends RateLimiter {
 
   private final Meter meter;
 
-  public LockingRateLimiter(FaultTolerantRedisCluster cacheCluster, FaultTolerantRedisCluster secondaryCacheCluster, String name, int bucketSize, double leakRatePerMinute) {
-    super(cacheCluster, secondaryCacheCluster, name, bucketSize, leakRatePerMinute);
+  public LockingRateLimiter(FaultTolerantRedisCluster cacheCluster, String name, int bucketSize, double leakRatePerMinute) {
+    super(cacheCluster, name, bucketSize, leakRatePerMinute);
 
     MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
     this.meter = metricRegistry.meter(name(getClass(), name, "locked"));

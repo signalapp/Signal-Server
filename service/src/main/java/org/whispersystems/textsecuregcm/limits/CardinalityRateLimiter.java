@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.limits;
 
 import java.time.Duration;
 import java.util.Random;
-import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration.CardinalityRateLimitConfiguration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
@@ -21,8 +20,6 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 public class CardinalityRateLimiter {
 
   private final FaultTolerantRedisCluster cacheCluster;
-  @Nullable
-  private final FaultTolerantRedisCluster secondaryCacheCluster;
 
   private final String name;
 
@@ -32,9 +29,8 @@ public class CardinalityRateLimiter {
 
   private final Random random = new Random();
 
-  public CardinalityRateLimiter(final FaultTolerantRedisCluster cacheCluster, @Nullable final FaultTolerantRedisCluster secondaryCacheCluster, final String name, final Duration ttl, final Duration ttlJitter, final int maxCardinality) {
+  public CardinalityRateLimiter(final FaultTolerantRedisCluster cacheCluster, final String name, final Duration ttl, final Duration ttlJitter, final int maxCardinality) {
     this.cacheCluster = cacheCluster;
-    this.secondaryCacheCluster = secondaryCacheCluster;
 
     this.name = name;
 
@@ -62,28 +58,7 @@ public class CardinalityRateLimiter {
       return changed && cardinality > maxCardinality;
     });
 
-    final boolean secondaryRateLimitExceeded;
-    if (secondaryCacheCluster != null) {
-      secondaryRateLimitExceeded = secondaryCacheCluster.withCluster(connection -> {
-        final boolean changed = connection.sync().pfadd(hllKey, target) == 1;
-        final long cardinality = connection.sync().pfcount(hllKey);
-
-        final boolean mayNeedExpiration = changed && cardinality == 1;
-
-        // If the set already existed, we can assume it already had an expiration time and can save a round trip by
-        // skipping the ttl check.
-        if (mayNeedExpiration && connection.sync().ttl(hllKey) == -1) {
-          final long expireSeconds = ttl.plusSeconds(random.nextInt((int) ttlJitter.toSeconds())).toSeconds();
-          connection.sync().expire(hllKey, expireSeconds);
-        }
-
-        return changed && cardinality > maxCardinality;
-      });
-    } else {
-      secondaryRateLimitExceeded = false;
-    }
-
-    if (rateLimitExceeded || secondaryRateLimitExceeded) {
+    if (rateLimitExceeded) {
       // Using the TTL as the "retry after" time isn't EXACTLY right, but it's a reasonable approximation
       throw new RateLimitExceededException(ttl);
     }
