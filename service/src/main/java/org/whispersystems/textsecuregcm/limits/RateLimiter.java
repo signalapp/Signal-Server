@@ -132,14 +132,17 @@ public class RateLimiter {
       logger.warn("Deserialization error", e);
     }
 
-    try {
-      final String serialized = secondaryCacheCluster.withCluster(connection -> connection.sync().get(getBucketName(key)));
+    if (secondaryCacheCluster != null) {
+      try {
+        final String serialized = secondaryCacheCluster
+            .withCluster(connection -> connection.sync().get(getBucketName(key)));
 
-      if (serialized != null) {
-        return LeakyBucket.fromSerialized(mapper, serialized);
+        if (serialized != null) {
+          return LeakyBucket.fromSerialized(mapper, serialized);
+        }
+      } catch (IOException e) {
+        logger.warn("Deserialization error", e);
       }
-    } catch (IOException e) {
-      logger.warn("Deserialization error", e);
     }
 
     return new LeakyBucket(bucketSize, leakRatePerMillis);
