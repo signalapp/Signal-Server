@@ -5,12 +5,12 @@
 
 package org.whispersystems.textsecuregcm.limits;
 
+import java.time.Duration;
+import java.util.Random;
+import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration.CardinalityRateLimitConfiguration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import javax.annotation.Nullable;
-import java.time.Duration;
-import java.util.Random;
 
 /**
  * A cardinality rate limiter prevents an actor from taking some action if that actor has attempted to take that action
