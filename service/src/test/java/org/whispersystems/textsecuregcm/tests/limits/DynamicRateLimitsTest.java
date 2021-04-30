@@ -1,5 +1,12 @@
 package org.whispersystems.textsecuregcm.tests.limits;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertSame;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import java.time.Duration;
 import org.junit.Before;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
@@ -11,22 +18,17 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
-import java.time.Duration;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 public class DynamicRateLimitsTest {
 
   private DynamicConfigurationManager dynamicConfig;
   private FaultTolerantRedisCluster   redisCluster;
+  private FaultTolerantRedisCluster   newRedisCluster;
 
   @Before
   public void setup() {
-    this.dynamicConfig = mock(DynamicConfigurationManager.class);
-    this.redisCluster  = mock(FaultTolerantRedisCluster.class);
+    this.dynamicConfig   = mock(DynamicConfigurationManager.class);
+    this.redisCluster    = mock(FaultTolerantRedisCluster.class);
+    this.newRedisCluster = mock(FaultTolerantRedisCluster.class);
 
     DynamicConfiguration defaultConfig = new DynamicConfiguration();
     when(dynamicConfig.getConfiguration()).thenReturn(defaultConfig);
@@ -35,7 +37,7 @@ public class DynamicRateLimitsTest {
 
   @Test
   public void testUnchangingConfiguration() {
-    RateLimiters rateLimiters = new RateLimiters(new RateLimitsConfiguration(), dynamicConfig, redisCluster);
+    RateLimiters rateLimiters = new RateLimiters(new RateLimitsConfiguration(), dynamicConfig, redisCluster, newRedisCluster);
 
     RateLimiter limiter = rateLimiters.getUnsealedIpLimiter();
 
@@ -55,7 +57,7 @@ public class DynamicRateLimitsTest {
 
     when(dynamicConfig.getConfiguration()).thenReturn(configuration);
 
-    RateLimiters rateLimiters = new RateLimiters(new RateLimitsConfiguration(), dynamicConfig, redisCluster);
+    RateLimiters rateLimiters = new RateLimiters(new RateLimitsConfiguration(), dynamicConfig, redisCluster, newRedisCluster);
 
     CardinalityRateLimiter limiter = rateLimiters.getUnsealedSenderLimiter();
 

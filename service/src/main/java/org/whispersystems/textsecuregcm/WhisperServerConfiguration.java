@@ -112,6 +112,11 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
+  private RedisClusterConfiguration rateLimitersCluster;
+
+  @NotNull
+  @Valid
+  @JsonProperty
   private MessageCacheConfiguration messageCache;
 
   @NotNull
@@ -307,6 +312,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public RedisClusterConfiguration getPushSchedulerCluster() {
     return pushSchedulerCluster;
+  }
+
+  public RedisClusterConfiguration getRateLimitersCluster() {
+    return rateLimitersCluster;
   }
 
   public MessageDynamoDbConfiguration getMessageDynamoDbConfiguration() {

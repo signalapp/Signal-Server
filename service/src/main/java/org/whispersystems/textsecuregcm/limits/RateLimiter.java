@@ -4,12 +4,16 @@
  */
 package org.whispersystems.textsecuregcm.limits;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration.RateLimitConfiguration;
@@ -17,10 +21,6 @@ import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
-
-import java.io.IOException;
-
-import static com.codahale.metrics.MetricRegistry.name;
 
 public class RateLimiter {
 
@@ -34,28 +34,30 @@ public class RateLimiter {
   private   final int                       bucketSize;
   private   final double                    leakRatePerMinute;
   private   final double                    leakRatePerMillis;
-  private   final boolean                   reportLimits;
+
+  @Nullable
+  private final FaultTolerantRedisCluster   secondaryCacheCluster;
 
   public RateLimiter(FaultTolerantRedisCluster cacheCluster, String name,
                      int bucketSize, double leakRatePerMinute)
   {
-    this(cacheCluster, name, bucketSize, leakRatePerMinute, false);
+    this(cacheCluster, null, name, bucketSize, leakRatePerMinute);
   }
 
-  public RateLimiter(FaultTolerantRedisCluster cacheCluster, String name,
-                     int bucketSize, double leakRatePerMinute,
-                     boolean reportLimits)
+  public RateLimiter(FaultTolerantRedisCluster cacheCluster, @Nullable FaultTolerantRedisCluster secondaryCacheCluster,
+      String name,
+      int bucketSize, double leakRatePerMinute)
   {
     MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
 
     this.meter                  = metricRegistry.meter(name(getClass(), name, "exceeded"));
     this.validateTimer          = metricRegistry.timer(name(getClass(), name, "validate"));
     this.cacheCluster           = cacheCluster;
+    this.secondaryCacheCluster  = secondaryCacheCluster;
     this.name                   = name;
     this.bucketSize             = bucketSize;
     this.leakRatePerMinute      = leakRatePerMinute;
     this.leakRatePerMillis      = leakRatePerMinute / (60.0 * 1000.0);
-    this.reportLimits           = reportLimits;
   }
 
   public void validate(String key, int amount) throws RateLimitExceededException {
@@ -77,6 +79,10 @@ public class RateLimiter {
 
   public void clear(String key) {
     cacheCluster.useCluster(connection -> connection.sync().del(getBucketName(key)));
+
+    if (secondaryCacheCluster != null) {
+      secondaryCacheCluster.useCluster(connection -> connection.sync().del(getBucketName(key)));
+    }
   }
 
   public int getBucketSize() {
@@ -88,18 +94,46 @@ public class RateLimiter {
   }
 
   private void setBucket(String key, LeakyBucket bucket) {
+
+    IllegalArgumentException ex = null;
     try {
       final String serialized = bucket.serialize(mapper);
 
       cacheCluster.useCluster(connection -> connection.sync().setex(getBucketName(key), (int) Math.ceil((bucketSize / leakRatePerMillis) / 1000), serialized));
     } catch (JsonProcessingException e) {
-      throw new IllegalArgumentException(e);
+      ex = new IllegalArgumentException(e);
     }
+
+    if (secondaryCacheCluster != null) {
+      try {
+        final String serialized = bucket.serialize(mapper);
+
+        secondaryCacheCluster.useCluster(connection -> connection.sync()
+            .setex(getBucketName(key), (int) Math.ceil((bucketSize / leakRatePerMillis) / 1000), serialized));
+      } catch (JsonProcessingException e) {
+        ex = ex == null ? new IllegalArgumentException(e) : ex;
+      }
+    }
+
+    if (ex != null) {
+      throw ex;
+    }
+
   }
 
   private LeakyBucket getBucket(String key) {
     try {
       final String serialized = cacheCluster.withCluster(connection -> connection.sync().get(getBucketName(key)));
+
+      if (serialized != null) {
+        return LeakyBucket.fromSerialized(mapper, serialized);
+      }
+    } catch (IOException e) {
+      logger.warn("Deserialization error", e);
+    }
+
+    try {
+      final String serialized = secondaryCacheCluster.withCluster(connection -> connection.sync().get(getBucketName(key)));
 
       if (serialized != null) {
         return LeakyBucket.fromSerialized(mapper, serialized);
