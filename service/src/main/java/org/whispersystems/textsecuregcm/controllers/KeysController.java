@@ -53,10 +53,10 @@ public class KeysController {
   private final AccountsManager             accounts;
   private final DirectoryQueue              directoryQueue;
 
-  private static final String INTERNATIONAL_PREKEY_REQUEST_COUNTER_NAME =
-      name(KeysController.class, "internationalPreKeyGet");
+  private static final String PREKEY_REQUEST_COUNTER_NAME = name(KeysController.class, "preKeyGet");
 
   private static final String SOURCE_COUNTRY_TAG_NAME = "sourceCountry";
+  private static final String INTERNATIONAL_TAG_NAME = "international";
   private static final String PREKEY_TARGET_IDENTIFIER_TAG_NAME =  "identifierType";
 
   public KeysController(RateLimiters rateLimiters, KeysDynamoDb keysDynamoDb, AccountsManager accounts, DirectoryQueue directoryQueue) {
@@ -129,16 +129,17 @@ public class KeysController {
 
     if (account.isPresent()) {
       rateLimiters.getPreKeysLimiter().validate(account.get().getNumber() + "." + account.get().getAuthenticatedDevice().get().getId() +  "__" + target.get().getNumber() + "." + deviceId);
+    }
 
-      final String accountCountryCode = Util.getCountryCode(account.get().getNumber());
-      final String targetCountryCode = Util.getCountryCode(target.get().getNumber());
+    {
+      final String sourceCountryCode = account.map(a -> Util.getCountryCode(a.getNumber())).orElse("0");
+      final String targetCountryCode = target.map(a -> Util.getCountryCode(a.getNumber())).orElseThrow();
 
-      if (!accountCountryCode.equals(targetCountryCode)) {
-        final Tags tags = Tags.of(SOURCE_COUNTRY_TAG_NAME, accountCountryCode)
-            .and(PREKEY_TARGET_IDENTIFIER_TAG_NAME, targetName.hasNumber() ? "number" : "uuid");
-        Metrics.counter(INTERNATIONAL_PREKEY_REQUEST_COUNTER_NAME, tags)
-            .increment();
-      }
+      Metrics.counter(PREKEY_REQUEST_COUNTER_NAME, Tags.of(
+          SOURCE_COUNTRY_TAG_NAME, sourceCountryCode,
+          INTERNATIONAL_TAG_NAME, String.valueOf(!sourceCountryCode.equals(targetCountryCode)),
+          PREKEY_TARGET_IDENTIFIER_TAG_NAME, targetName.hasNumber() ? "number" : "uuid"
+      )).increment();
     }
 
     Map<Long, PreKey>        preKeysByDeviceId = getLocalKeys(target.get(), deviceId);
