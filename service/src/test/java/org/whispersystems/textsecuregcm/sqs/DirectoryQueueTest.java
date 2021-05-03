@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.sqs;
 
 import com.amazonaws.services.sqs.AmazonSQS;
 import com.amazonaws.services.sqs.model.MessageAttributeValue;
+import com.amazonaws.services.sqs.model.SendMessageBatchRequest;
 import com.amazonaws.services.sqs.model.SendMessageRequest;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
@@ -43,11 +44,48 @@ public class DirectoryQueueTest {
 
         directoryQueue.refreshRegisteredUser(account);
 
-        final ArgumentCaptor<SendMessageRequest> requestCaptor = ArgumentCaptor.forClass(SendMessageRequest.class);
-        verify(sqs).sendMessage(requestCaptor.capture());
+        final ArgumentCaptor<SendMessageBatchRequest> requestCaptor = ArgumentCaptor.forClass(SendMessageBatchRequest.class);
+        verify(sqs).sendMessageBatch(requestCaptor.capture());
 
-        final Map<String, MessageAttributeValue> messageAttributes = requestCaptor.getValue().getMessageAttributes();
+        assertEquals(1, requestCaptor.getValue().getEntries().size());
+
+        final Map<String, MessageAttributeValue> messageAttributes = requestCaptor.getValue().getEntries().get(0).getMessageAttributes();
         assertEquals(new MessageAttributeValue().withDataType("String").withStringValue(expectedAction), messageAttributes.get("action"));
+    }
+
+    @Test
+    public void testRefreshBatch() {
+        final AmazonSQS sqs = mock(AmazonSQS.class);
+        final DirectoryQueue directoryQueue = new DirectoryQueue(List.of("sqs://test"), sqs);
+
+        final Account discoverableAccount = mock(Account.class);
+        when(discoverableAccount.getNumber()).thenReturn("+18005556543");
+        when(discoverableAccount.getUuid()).thenReturn(UUID.randomUUID());
+        when(discoverableAccount.isEnabled()).thenReturn(true);
+        when(discoverableAccount.isDiscoverableByPhoneNumber()).thenReturn(true);
+
+        final Account undiscoverableAccount = mock(Account.class);
+        when(undiscoverableAccount.getNumber()).thenReturn("+18005550987");
+        when(undiscoverableAccount.getUuid()).thenReturn(UUID.randomUUID());
+        when(undiscoverableAccount.isEnabled()).thenReturn(true);
+        when(undiscoverableAccount.isDiscoverableByPhoneNumber()).thenReturn(false);
+
+        directoryQueue.refreshRegisteredUsers(List.of(discoverableAccount, undiscoverableAccount));
+
+        final ArgumentCaptor<SendMessageBatchRequest> requestCaptor = ArgumentCaptor.forClass(SendMessageBatchRequest.class);
+        verify(sqs).sendMessageBatch(requestCaptor.capture());
+
+        assertEquals(2, requestCaptor.getValue().getEntries().size());
+
+        final Map<String, MessageAttributeValue> discoverableAccountAttributes = requestCaptor.getValue().getEntries().get(0).getMessageAttributes();
+        assertEquals(new MessageAttributeValue().withDataType("String").withStringValue(discoverableAccount.getNumber()), discoverableAccountAttributes.get("id"));
+        assertEquals(new MessageAttributeValue().withDataType("String").withStringValue(discoverableAccount.getUuid().toString()), discoverableAccountAttributes.get("uuid"));
+        assertEquals(new MessageAttributeValue().withDataType("String").withStringValue("add"), discoverableAccountAttributes.get("action"));
+
+        final Map<String, MessageAttributeValue> undiscoverableAccountAttributes = requestCaptor.getValue().getEntries().get(1).getMessageAttributes();
+        assertEquals(new MessageAttributeValue().withDataType("String").withStringValue(undiscoverableAccount.getNumber()), undiscoverableAccountAttributes.get("id"));
+        assertEquals(new MessageAttributeValue().withDataType("String").withStringValue(undiscoverableAccount.getUuid().toString()), undiscoverableAccountAttributes.get("uuid"));
+        assertEquals(new MessageAttributeValue().withDataType("String").withStringValue("delete"), undiscoverableAccountAttributes.get("action"));
     }
 
     @Test
@@ -63,11 +101,13 @@ public class DirectoryQueueTest {
 
         directoryQueue.refreshRegisteredUser(account);
 
-        final ArgumentCaptor<SendMessageRequest> requestCaptor = ArgumentCaptor.forClass(SendMessageRequest.class);
-        verify(sqs, times(2)).sendMessage(requestCaptor.capture());
+        final ArgumentCaptor<SendMessageBatchRequest> requestCaptor = ArgumentCaptor.forClass(SendMessageBatchRequest.class);
+        verify(sqs, times(2)).sendMessageBatch(requestCaptor.capture());
 
-        for (final SendMessageRequest sendMessageRequest : requestCaptor.getAllValues()) {
-            final Map<String, MessageAttributeValue> messageAttributes = sendMessageRequest.getMessageAttributes();
+        for (final SendMessageBatchRequest sendMessageBatchRequest : requestCaptor.getAllValues()) {
+            assertEquals(1, requestCaptor.getValue().getEntries().size());
+
+            final Map<String, MessageAttributeValue> messageAttributes = sendMessageBatchRequest.getEntries().get(0).getMessageAttributes();
             assertEquals(new MessageAttributeValue().withDataType("String").withStringValue("add"), messageAttributes.get("action"));
         }
     }

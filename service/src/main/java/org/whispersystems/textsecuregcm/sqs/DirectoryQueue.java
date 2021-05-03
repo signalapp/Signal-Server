@@ -4,6 +4,8 @@
  */
 package org.whispersystems.textsecuregcm.sqs;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.auth.AWSCredentials;
@@ -12,33 +14,33 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.sqs.AmazonSQS;
 import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
 import com.amazonaws.services.sqs.model.MessageAttributeValue;
-import com.amazonaws.services.sqs.model.SendMessageRequest;
+import com.amazonaws.services.sqs.model.SendMessageBatchRequest;
+import com.amazonaws.services.sqs.model.SendMessageBatchRequestEntry;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import com.google.common.collect.Iterables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.SqsConfiguration;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.Constants;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import static com.codahale.metrics.MetricRegistry.name;
+import org.whispersystems.textsecuregcm.util.Pair;
 
 public class DirectoryQueue {
 
   private static final Logger  logger = LoggerFactory.getLogger(DirectoryQueue.class);
 
-  private final MetricRegistry metricRegistry    = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private final Meter          serviceErrorMeter = metricRegistry.meter(name(DirectoryQueue.class, "serviceError"));
-  private final Meter          clientErrorMeter  = metricRegistry.meter(name(DirectoryQueue.class, "clientError"));
-  private final Timer          sendMessageTimer  = metricRegistry.timer(name(DirectoryQueue.class, "sendMessage"));
+  private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  private final Meter serviceErrorMeter = metricRegistry.meter(name(DirectoryQueue.class, "serviceError"));
+  private final Meter clientErrorMeter = metricRegistry.meter(name(DirectoryQueue.class, "clientError"));
+  private final Timer sendMessageBatchTimer = metricRegistry.timer(name(DirectoryQueue.class, "sendMessageBatch"));
 
   private final List<String>   queueUrls;
   private final AmazonSQS      sqs;
@@ -58,36 +60,54 @@ public class DirectoryQueue {
   }
 
   public void refreshRegisteredUser(final Account account) {
-    sendMessage(account.isEnabled() && account.isDiscoverableByPhoneNumber() ? "add" : "delete", account.getUuid(), account.getNumber());
+    refreshRegisteredUsers(List.of(account));
+  }
+
+  public void refreshRegisteredUsers(final List<Account> accounts) {
+    final List<Pair<Account, String>> accountsAndActions = accounts.stream()
+        .map(account -> new Pair<>(account, account.isEnabled() && account.isDiscoverableByPhoneNumber() ? "add" : "delete"))
+        .collect(Collectors.toList());
+
+    sendUpdateMessages(accountsAndActions);
   }
 
   public void deleteAccount(final Account account) {
-    sendMessage("delete", account.getUuid(), account.getNumber());
+    sendUpdateMessages(List.of(new Pair<>(account, "delete")));
   }
 
-  private void sendMessage(String action, UUID uuid, String number) {
-    final Map<String, MessageAttributeValue> messageAttributes = new HashMap<>();
-    messageAttributes.put("id", new MessageAttributeValue().withDataType("String").withStringValue(number));
-    messageAttributes.put("uuid", new MessageAttributeValue().withDataType("String").withStringValue(uuid.toString()));
-    messageAttributes.put("action", new MessageAttributeValue().withDataType("String").withStringValue(action));
-
+  private void sendUpdateMessages(final List<Pair<Account, String>> accountsAndActions) {
     for (final String queueUrl : queueUrls) {
-      final SendMessageRequest sendMessageRequest = new SendMessageRequest()
-              .withQueueUrl(queueUrl)
+      for (final List<Pair<Account, String>> partition : Iterables.partition(accountsAndActions, 10)) {
+        final List<SendMessageBatchRequestEntry> entries = partition.stream().map(pair -> {
+          final Account account = pair.first();
+          final String action = pair.second();
+
+          return new SendMessageBatchRequestEntry()
               .withMessageBody("-")
               .withMessageDeduplicationId(UUID.randomUUID().toString())
-              .withMessageGroupId(number)
-              .withMessageAttributes(messageAttributes);
-      try (final Timer.Context ignored = sendMessageTimer.time()) {
-        sqs.sendMessage(sendMessageRequest);
-      } catch (AmazonServiceException ex) {
-        serviceErrorMeter.mark();
-        logger.warn("sqs service error: ", ex);
-      } catch (AmazonClientException ex) {
-        clientErrorMeter.mark();
-        logger.warn("sqs client error: ", ex);
-      } catch (Throwable t) {
-        logger.warn("sqs unexpected error: ", t);
+              .withMessageGroupId(account.getNumber())
+              .withMessageAttributes(Map.of(
+                  "id", new MessageAttributeValue().withDataType("String").withStringValue(account.getNumber()),
+                  "uuid", new MessageAttributeValue().withDataType("String").withStringValue(account.getUuid().toString()),
+                  "action", new MessageAttributeValue().withDataType("String").withStringValue(action)
+              ));
+        }).collect(Collectors.toList());
+
+        final SendMessageBatchRequest sendMessageBatchRequest = new SendMessageBatchRequest()
+            .withQueueUrl(queueUrl)
+            .withEntries(entries);
+
+        try (final Timer.Context ignored = sendMessageBatchTimer.time()) {
+          sqs.sendMessageBatch(sendMessageBatchRequest);
+        } catch (AmazonServiceException ex) {
+          serviceErrorMeter.mark();
+          logger.warn("sqs service error: ", ex);
+        } catch (AmazonClientException ex) {
+          clientErrorMeter.mark();
+          logger.warn("sqs client error: ", ex);
+        } catch (Throwable t) {
+          logger.warn("sqs unexpected error: ", t);
+        }
       }
     }
   }

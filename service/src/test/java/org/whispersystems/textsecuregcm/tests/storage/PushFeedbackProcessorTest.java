@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.tests.storage;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
@@ -22,6 +23,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.*;
 
 public class PushFeedbackProcessorTest {
@@ -131,8 +133,10 @@ public class PushFeedbackProcessorTest {
 
     verify(accountsManager).update(eq(stillActiveAccount));
 
-    verify(directoryQueue).refreshRegisteredUser(undiscoverableAccount);
-    verify(directoryQueue).refreshRegisteredUser(uninstalledAccount);
+    final ArgumentCaptor<List<Account>> refreshedAccountArgumentCaptor = ArgumentCaptor.forClass(List.class);
+    verify(directoryQueue).refreshRegisteredUsers(refreshedAccountArgumentCaptor.capture());
+
+    assertTrue(refreshedAccountArgumentCaptor.getValue().containsAll(List.of(undiscoverableAccount, uninstalledAccount)));
   }
 
 

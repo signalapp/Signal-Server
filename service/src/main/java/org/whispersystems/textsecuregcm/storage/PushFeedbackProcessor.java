@@ -12,6 +12,7 @@ import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Util;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -41,6 +42,8 @@ public class PushFeedbackProcessor extends AccountDatabaseCrawlerListener {
 
   @Override
   protected void onCrawlChunk(Optional<UUID> fromUuid, List<Account> chunkAccounts) {
+    final List<Account> directoryUpdateAccounts = new ArrayList<>();
+
     for (Account account : chunkAccounts) {
       boolean update = false;
 
@@ -74,8 +77,12 @@ public class PushFeedbackProcessor extends AccountDatabaseCrawlerListener {
 
       if (update) {
         accountsManager.update(account);
-        directoryQueue.refreshRegisteredUser(account);
+        directoryUpdateAccounts.add(account);
       }
+    }
+
+    if (!directoryUpdateAccounts.isEmpty()) {
+      directoryQueue.refreshRegisteredUsers(directoryUpdateAccounts);
     }
   }
 }
