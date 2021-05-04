@@ -84,6 +84,7 @@ public class DirectoryQueue {
 
           return new SendMessageBatchRequestEntry()
               .withMessageBody("-")
+              .withId(UUID.randomUUID().toString())
               .withMessageDeduplicationId(UUID.randomUUID().toString())
               .withMessageGroupId(account.getNumber())
               .withMessageAttributes(Map.of(
