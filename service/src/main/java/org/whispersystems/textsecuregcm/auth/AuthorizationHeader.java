@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.auth;
 
 import org.whispersystems.textsecuregcm.util.Util;
 
-import java.io.IOException;
 import java.util.Base64;
 
 public class AuthorizationHeader {
