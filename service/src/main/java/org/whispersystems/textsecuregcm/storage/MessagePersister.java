@@ -144,12 +144,9 @@ public class MessagePersister implements Managed {
     void persistQueue(final UUID accountUuid, final long deviceId) {
         final Optional<Account> maybeAccount = accountsManager.get(accountUuid);
 
-        final String accountNumber;
 
-        if (maybeAccount.isPresent()) {
-            accountNumber = maybeAccount.get().getNumber();
-        } else {
-            logger.error("No account record found for account {}", accountUuid);
+        if (!maybeAccount.isPresent()) {
+        	logger.error("No account record found for account {}", accountUuid);
             return;
         }
 

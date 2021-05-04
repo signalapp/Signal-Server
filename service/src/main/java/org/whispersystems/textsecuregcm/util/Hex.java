@@ -10,7 +10,6 @@ package org.whispersystems.textsecuregcm.util;
 public class Hex {
 
   private final static int HEX_DIGITS_START = 10;
-  private final static int ASCII_TEXT_START = HEX_DIGITS_START + (16*2 + (16/2));
 
   final static String EOL = System.getProperty("line.separator");
 

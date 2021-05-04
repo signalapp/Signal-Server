@@ -6,7 +6,6 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import javax.validation.Valid;
-import javax.validation.constraints.NotEmpty;
 import java.time.Duration;
 
 public class MessageDynamoDbConfiguration extends DynamoDbConfiguration {
