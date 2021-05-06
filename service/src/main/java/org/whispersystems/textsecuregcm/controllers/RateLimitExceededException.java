@@ -11,12 +11,11 @@ public class RateLimitExceededException extends Exception {
   private final Duration retryDuration;
 
   public RateLimitExceededException(final Duration retryDuration) {
-    super();
-    this.retryDuration = retryDuration;
+    this(null, retryDuration);
   }
 
   public RateLimitExceededException(final String message, final Duration retryDuration) {
-    super(message);
+    super(message, null, true, false);
     this.retryDuration = retryDuration;
   }
 

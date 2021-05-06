@@ -11,7 +11,7 @@ public class RetryLaterException extends Exception {
   private final Duration backoffDuration;
 
   public RetryLaterException(RateLimitExceededException e) {
-    super(e);
+    super(null, e, true, false);
     this.backoffDuration = e.getRetryDuration();
   }
 
