@@ -39,6 +39,7 @@ import org.whispersystems.textsecuregcm.configuration.RemoteConfigConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SecureBackupServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SecureStorageServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TestDeviceConfiguration;
+import org.whispersystems.textsecuregcm.configuration.TorExitNodeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TurnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
 import org.whispersystems.textsecuregcm.configuration.UnidentifiedDeliveryConfiguration;
@@ -244,6 +245,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private AppConfigConfiguration appConfig;
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private TorExitNodeConfiguration tor;
+
   private Map<String, String> transparentDataIndex = new HashMap<>();
 
   public RecaptchaConfiguration getRecaptchaConfiguration() {
@@ -418,5 +424,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public AppConfigConfiguration getAppConfig() {
     return appConfig;
+  }
+
+  public TorExitNodeConfiguration getTorExitNodeConfiguration() {
+    return tor;
   }
 }
