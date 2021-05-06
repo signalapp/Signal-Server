@@ -5,11 +5,16 @@ twilio: # Twilio gateway configuration
   messagingServiceSid: # Twilio SID for the message service to use for non-NANPA.
   verifyServiceSid: # Twilio SID for a Verify service
   localDomain: # Domain Twilio can connect back to for calls. Should be domain of your service.
-  iosVerificationText: # Text to use for the verification message on iOS. Will be passed to String.format with the verification code as argument 1.
-  androidNgVerificationText: # Text to use for the verification message on android-ng client types. Will be passed to String.format with the verification code as argument 1.
-  android202001VerificationText: # Text to use for the verification message on android-2020-01 client types. Will be passed to String.format with the verification code as argument 1.
-  android202103VerificationText: # Text to use for the verification message on android-2021-03 client types. Will be passed to String.format with the verification code as argument 1.
-  genericVerificationText: # Text to use when the client type is unrecognized. Will be passed to String.format with the verification code as argument 1.
+  defaultClientVerificationTexts:
+    ios: # Text to use for the verification message on iOS. Will be passed to String.format with the verification code as argument 1.
+    androidNg: # Text to use for the verification message on android-ng client types. Will be passed to String.format with the verification code as argument 1.
+    android202001: # Text to use for the verification message on android-2020-01 client types. Will be passed to String.format with the verification code as argument 1.
+    android202103: # Text to use for the verification message on android-2021-03 client types. Will be passed to String.format with the verification code as argument 1.
+    generic: # Text to use when the client type is unrecognized. Will be passed to String.format with the verification code as argument 1.
+  regionalClientVerificationTexts: # Map of country codes to custom texts
+    999: # example country code
+      ios:
+      # … all keys from defaultClientVerificationTexts are required
   androidAppHash: # Hash appended to Android
   verifyServiceFriendlyName: # Service name used in template. Requires Twilio account rep to enable
 

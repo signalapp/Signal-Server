@@ -37,6 +37,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
+import org.whispersystems.textsecuregcm.configuration.TwilioVerificationTextConfiguration;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.http.FormDataBodyPublisher;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
@@ -64,11 +65,9 @@ public class TwilioSmsSender {
   private final String            nanpaMessagingServiceSid;
   private final String            localDomain;
   private final Random            random;
-  private final String            androidNgVerificationText;
-  private final String            android202001VerificationText;
-  private final String            android202103VerificationText;
-  private final String            iosVerificationText;
-  private final String            genericVerificationText;
+
+  private final TwilioVerificationTextConfiguration defaultClientVerificationTexts;
+  private final Map<String,TwilioVerificationTextConfiguration> regionalClientVerificationTexts;
 
   private final FaultTolerantHttpClient httpClient;
   private final URI                     smsUri;
@@ -88,11 +87,6 @@ public class TwilioSmsSender {
     this.messagingServiceSid           = twilioConfiguration.getMessagingServiceSid();
     this.nanpaMessagingServiceSid      = twilioConfiguration.getNanpaMessagingServiceSid();
     this.random                        = new Random(System.currentTimeMillis());
-    this.androidNgVerificationText     = twilioConfiguration.getAndroidNgVerificationText();
-    this.android202001VerificationText = twilioConfiguration.getAndroid202001VerificationText();
-    this.android202103VerificationText = twilioConfiguration.getAndroid202103VerificationText();
-    this.iosVerificationText           = twilioConfiguration.getIosVerificationText();
-    this.genericVerificationText       = twilioConfiguration.getGenericVerificationText();
     this.smsUri                        = URI.create(baseUri + "/2010-04-01/Accounts/" + accountId + "/Messages.json");
     this.voxUri                        = URI.create(baseUri + "/2010-04-01/Accounts/" + accountId + "/Calls.json"   );
     this.httpClient                    = FaultTolerantHttpClient.newBuilder()
@@ -104,6 +98,9 @@ public class TwilioSmsSender {
                                                                 .withExecutor(executor)
                                                                 .withName("twilio")
                                                                 .build();
+
+    this.defaultClientVerificationTexts = twilioConfiguration.getDefaultClientVerificationTexts();
+    this.regionalClientVerificationTexts = twilioConfiguration.getRegionalClientVerificationTexts();
 
     this.dynamicConfigurationManager   = dynamicConfigurationManager;
     this.twilioVerifySender = new TwilioVerifySender(baseVerifyUri, httpClient, twilioConfiguration);
@@ -134,19 +131,25 @@ public class TwilioSmsSender {
   }
 
   private String getBodyFormatString(@Nonnull String destination, @Nullable String clientType) {
+
+    final String countryCode = Util.getCountryCode(destination);
+
+    final TwilioVerificationTextConfiguration verificationTexts = regionalClientVerificationTexts
+        .getOrDefault(countryCode, defaultClientVerificationTexts);
+
     final String result;
     if ("ios".equals(clientType)) {
-      result = iosVerificationText;
+      result = verificationTexts.getIosText();
     } else if ("android-ng".equals(clientType)) {
-      result = androidNgVerificationText;
+      result = verificationTexts.getAndroidNgText();
     } else if ("android-2020-01".equals(clientType)) {
-      result = android202001VerificationText;
+      result = verificationTexts.getAndroid202001Text();
     } else if ("android-2021-03".equals(clientType)) {
-      result = android202103VerificationText;
+      result = verificationTexts.getAndroid202103Text();
     } else {
-      result = genericVerificationText;
+      result = verificationTexts.getGenericText();
     }
-    if (destination.startsWith("+86")) {  // is China
+    if ("86".equals(countryCode)) {  // is China
       return result + "\u2008";
       // Twilio recommends adding this character to the end of strings delivered to China because some carriers in
       // China are blocking GSM-7 encoding and this will force Twilio to send using UCS-2 instead.

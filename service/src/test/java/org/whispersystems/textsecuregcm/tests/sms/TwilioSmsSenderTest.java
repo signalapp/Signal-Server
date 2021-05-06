@@ -5,20 +5,29 @@
 
 package org.whispersystems.textsecuregcm.tests.sms;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.matching;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import java.util.List;
 import java.util.Locale.LanguageRange;
+import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
+import org.whispersystems.textsecuregcm.configuration.TwilioVerificationTextConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicTwilioConfiguration;
 import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
@@ -62,13 +71,27 @@ public class TwilioSmsSenderTest {
     configuration.setNanpaMessagingServiceSid(NANPA_MESSAGING_SERVICE_SID);
     configuration.setVerifyServiceSid(VERIFY_SERVICE_SID);
     configuration.setLocalDomain(LOCAL_DOMAIN);
-    configuration.setIosVerificationText("Verify on iOS: %1$s\n\nsomelink://verify/%1$s");
-    configuration.setAndroidNgVerificationText("<#> Verify on AndroidNg: %1$s\n\ncharacters");
-    configuration.setAndroid202001VerificationText("Verify on Android202001: %1$s\n\nsomelink://verify/%1$s\n\ncharacters");
-    configuration.setAndroid202103VerificationText("Verify on Android202103: %1$s\n\ncharacters");
-    configuration.setGenericVerificationText("Verify on whatever: %1$s");
+
+    configuration.setDefaultClientVerificationTexts(createTwlilioVerificationText(""));
+
+    configuration.setRegionalClientVerificationTexts(
+        Map.of("33", createTwlilioVerificationText("[33] "))
+    );
     configuration.setAndroidAppHash("someHash");
     return configuration;
+  }
+
+  private TwilioVerificationTextConfiguration createTwlilioVerificationText(final String prefix) {
+
+    TwilioVerificationTextConfiguration verificationTextConfiguration = new TwilioVerificationTextConfiguration();
+
+    verificationTextConfiguration.setIosText(prefix + "Verify on iOS: %1$s\n\nsomelink://verify/%1$s");
+    verificationTextConfiguration.setAndroidNgText(prefix + "<#> Verify on AndroidNg: %1$s\n\ncharacters");
+    verificationTextConfiguration.setAndroid202001Text(prefix + "Verify on Android202001: %1$s\n\nsomelink://verify/%1$s\n\ncharacters");
+    verificationTextConfiguration.setAndroid202103Text(prefix + "Verify on Android202103: %1$s\n\ncharacters");
+    verificationTextConfiguration.setGenericText(prefix + "Verify on whatever: %1$s");
+
+    return verificationTextConfiguration;
   }
 
   private void setupSuccessStubForSms() {
@@ -250,4 +273,18 @@ public class TwilioSmsSenderTest {
             .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
             .withRequestBody(equalTo("MessagingServiceSid=test_messaging_services_id&To=%2B861065529988&Body=%3C%23%3E+Verify+on+AndroidNg%3A+123-456%0A%0Acharacters%E2%80%88")));
   }
+
+  @Test
+  public void testSendSmsRegionalVerificationText() {
+    setupSuccessStubForSms();
+
+    boolean success = sender.deliverSmsVerification("+33655512673", Optional.of("android-ng"), "123-456").join();
+
+    assertThat(success).isTrue();
+
+    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+        .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
+        .withRequestBody(equalTo("MessagingServiceSid=test_messaging_services_id&To=%2B33655512673&Body=%5B33%5D+%3C%23%3E+Verify+on+AndroidNg%3A+123-456%0A%0Acharacters")));
+  }
+
 }

@@ -5,6 +5,8 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.google.common.annotations.VisibleForTesting;
+import java.util.Collections;
+import java.util.Map;
 import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
@@ -37,20 +39,11 @@ public class TwilioConfiguration {
   @Valid
   private RetryConfiguration retry = new RetryConfiguration();
 
-  @NotEmpty
-  private String iosVerificationText;
+  @Valid
+  private TwilioVerificationTextConfiguration defaultClientVerificationTexts;
 
-  @NotEmpty
-  private String androidNgVerificationText;
-
-  @NotEmpty
-  private String android202001VerificationText;
-
-  @NotEmpty
-  private String android202103VerificationText;
-
-  @NotEmpty
-  private String genericVerificationText;
+  @Valid
+  private Map<String,TwilioVerificationTextConfiguration> regionalClientVerificationTexts = Collections.emptyMap();
 
   @NotEmpty
   private String androidAppHash;
@@ -129,49 +122,23 @@ public class TwilioConfiguration {
     this.retry = retry;
   }
 
-  public String getIosVerificationText() {
-    return iosVerificationText;
+  public TwilioVerificationTextConfiguration getDefaultClientVerificationTexts() {
+    return defaultClientVerificationTexts;
   }
 
   @VisibleForTesting
-  public void setIosVerificationText(String iosVerificationText) {
-    this.iosVerificationText = iosVerificationText;
+  public void setDefaultClientVerificationTexts(TwilioVerificationTextConfiguration defaultClientVerificationTexts) {
+    this.defaultClientVerificationTexts = defaultClientVerificationTexts;
   }
 
-  public String getAndroidNgVerificationText() {
-    return androidNgVerificationText;
-  }
 
-  @VisibleForTesting
-  public void setAndroidNgVerificationText(String androidNgVerificationText) {
-    this.androidNgVerificationText = androidNgVerificationText;
-  }
-
-  public String getAndroid202001VerificationText() {
-    return android202001VerificationText;
+  public Map<String,TwilioVerificationTextConfiguration> getRegionalClientVerificationTexts() {
+    return regionalClientVerificationTexts;
   }
 
   @VisibleForTesting
-  public void setAndroid202001VerificationText(String android202001VerificationText) {
-    this.android202001VerificationText = android202001VerificationText;
-  }
-
-  public String getAndroid202103VerificationText() {
-    return android202103VerificationText;
-  }
-
-  @VisibleForTesting
-  public void setAndroid202103VerificationText(String android202103VerificationText) {
-    this.android202103VerificationText = android202103VerificationText;
-  }
-
-  public String getGenericVerificationText() {
-    return genericVerificationText;
-  }
-
-  @VisibleForTesting
-  public void setGenericVerificationText(String genericVerificationText) {
-    this.genericVerificationText = genericVerificationText;
+  public void setRegionalClientVerificationTexts(final Map<String,TwilioVerificationTextConfiguration> regionalClientVerificationTexts) {
+    this.regionalClientVerificationTexts = regionalClientVerificationTexts;
   }
 
   public String getAndroidAppHash() {
