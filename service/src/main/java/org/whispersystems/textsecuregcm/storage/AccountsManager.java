@@ -215,7 +215,7 @@ public class AccountsManager {
             dynamoDelete(account);
           } catch (final Exception e) {
             logger.error("Could not delete account {} from dynamo", account.getUuid().toString());
-            Metrics.counter(DYNAMO_MIGRATION_ERROR_COUNTER, "action", "delete");
+            Metrics.counter(DYNAMO_MIGRATION_ERROR_COUNTER, "action", "delete").increment();
           }
       }
 
