@@ -115,3 +115,20 @@ remoteConfig:
 
 paymentService:
   userAuthenticationTokenSharedSecret: # hex-encoded 32-byte secret shared with MobileCoin services used to generate auth tokens for Signal users
+
+donation:
+  uri: # value
+  apiKey: # value
+  supportedCurrencies:
+    - # 1st supported currency
+    - # 2nd supported currency
+    - # ...
+    - # Nth supported currency
+  circuitBreaker:
+    failureRateThreshold: # value
+    ringBufferSizeInHalfOpenState: # value
+    ringBufferSizeInClosedState: # value
+    waitDurationInOpenStateInSeconds: # value
+  retry:
+    maxAttempts: # value
+    waitDuration: # value

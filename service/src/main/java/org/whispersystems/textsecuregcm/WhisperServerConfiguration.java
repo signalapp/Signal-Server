@@ -22,6 +22,7 @@ import org.whispersystems.textsecuregcm.configuration.AwsAttachmentsConfiguratio
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DatabaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
+import org.whispersystems.textsecuregcm.configuration.DonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguration;
@@ -250,6 +251,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private TorExitNodeConfiguration tor;
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private DonationConfiguration donation;
+
   private Map<String, String> transparentDataIndex = new HashMap<>();
 
   public RecaptchaConfiguration getRecaptchaConfiguration() {
@@ -428,5 +434,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public TorExitNodeConfiguration getTorExitNodeConfiguration() {
     return tor;
+  }
+
+  public DonationConfiguration getDonationConfiguration() {
+    return donation;
   }
 }
