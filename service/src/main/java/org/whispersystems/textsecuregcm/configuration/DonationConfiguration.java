@@ -17,8 +17,8 @@ public class DonationConfiguration {
   private String uri;
   private String apiKey;
   private Set<String> supportedCurrencies;
-  private CircuitBreakerConfiguration circuitBreaker;
-  private RetryConfiguration retry;
+  private CircuitBreakerConfiguration circuitBreaker = new CircuitBreakerConfiguration();
+  private RetryConfiguration retry = new RetryConfiguration();
 
   @JsonProperty
   @NotEmpty
