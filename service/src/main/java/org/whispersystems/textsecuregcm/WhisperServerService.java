@@ -43,6 +43,8 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import io.micrometer.wavefront.WavefrontConfig;
 import io.micrometer.wavefront.WavefrontMeterRegistry;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -65,6 +67,7 @@ import org.jdbi.v3.core.Jdbi;
 import org.signal.zkgroup.ServerSecretParams;
 import org.signal.zkgroup.auth.ServerZkAuthOperations;
 import org.signal.zkgroup.profiles.ServerZkProfileOperations;
+import org.slf4j.MDC;
 import org.whispersystems.dispatch.DispatchManager;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
@@ -226,8 +229,15 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
   @Override
   public void run(WhisperServerConfiguration config, Environment environment)
-      throws Exception
-  {
+      throws Exception {
+    try {
+      MDC.put("host", InetAddress.getLocalHost().getHostName());
+    } catch (UnknownHostException e) {
+      MDC.put("host", "unknown");
+    }
+    MDC.put("service", "chat");
+    MDC.put("ddsource", "logstash");
+    MDC.put("ddtags", "env:" + config.getEnvironment());
     SharedMetricRegistries.add(Constants.METRICS_NAME, environment.metrics());
 
     final WavefrontConfig wavefrontConfig = new WavefrontConfig() {
