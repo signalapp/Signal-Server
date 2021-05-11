@@ -52,10 +52,6 @@ import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 /** @noinspection MismatchedQueryAndUpdateOfCollection, WeakerAccess */
 public class WhisperServerConfiguration extends Configuration {
 
-  @NotEmpty
-  @JsonProperty
-  private String environment;
-
   @NotNull
   @Valid
   @JsonProperty
@@ -262,10 +258,6 @@ public class WhisperServerConfiguration extends Configuration {
   private DonationConfiguration donation;
 
   private Map<String, String> transparentDataIndex = new HashMap<>();
-
-  public String getEnvironment() {
-    return environment;
-  }
 
   public RecaptchaConfiguration getRecaptchaConfiguration() {
     return recaptcha;

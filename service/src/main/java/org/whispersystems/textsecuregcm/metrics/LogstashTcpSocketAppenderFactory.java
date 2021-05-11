@@ -13,10 +13,15 @@ import ch.qos.logback.core.encoder.LayoutWrappingEncoder;
 import ch.qos.logback.core.net.ssl.SSLConfiguration;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import io.dropwizard.logging.AbstractAppenderFactory;
 import io.dropwizard.logging.async.AsyncAppenderFactory;
 import io.dropwizard.logging.filter.LevelFilterFactory;
 import io.dropwizard.logging.layout.LayoutFactory;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.time.Duration;
 import javax.validation.constraints.NotEmpty;
 import net.logstash.logback.appender.LogstashTcpSocketAppender;
@@ -25,15 +30,13 @@ import net.logstash.logback.encoder.LogstashEncoder;
 @JsonTypeName("logstashtcpsocket")
 public class LogstashTcpSocketAppenderFactory extends AbstractAppenderFactory<ILoggingEvent> {
 
-  @NotEmpty
   private String destination;
-
   private Duration keepAlive = Duration.ofSeconds(20);
-
-  @NotEmpty
   private String apiKey;
+  private String environment;
 
   @JsonProperty
+  @NotEmpty
   public String getDestination() {
     return destination;
   }
@@ -44,8 +47,15 @@ public class LogstashTcpSocketAppenderFactory extends AbstractAppenderFactory<IL
   }
 
   @JsonProperty
+  @NotEmpty
   public String getApiKey() {
     return apiKey;
+  }
+
+  @JsonProperty
+  @NotEmpty
+  public String getEnvironment() {
+    return environment;
   }
 
   @Override
@@ -65,6 +75,16 @@ public class LogstashTcpSocketAppenderFactory extends AbstractAppenderFactory<IL
     appender.setKeepAliveDuration(new ch.qos.logback.core.util.Duration(keepAlive.toMillis()));
 
     final LogstashEncoder encoder = new LogstashEncoder();
+    final ObjectNode customFieldsNode = new ObjectNode(JsonNodeFactory.instance);
+    try {
+      customFieldsNode.set("host", TextNode.valueOf(InetAddress.getLocalHost().getHostName()));
+    } catch (UnknownHostException e) {
+      customFieldsNode.set("host", TextNode.valueOf("unknown"));
+    }
+    customFieldsNode.set("service", TextNode.valueOf("chat"));
+    customFieldsNode.set("ddsource", TextNode.valueOf("logstash"));
+    customFieldsNode.set("ddtags", TextNode.valueOf("env:" + environment));
+    encoder.setCustomFields(customFieldsNode.toString());
     final LayoutWrappingEncoder<ILoggingEvent> prefix = new LayoutWrappingEncoder<>();
     final PatternLayout layout = new PatternLayout();
     layout.setPattern(String.format("%s ", apiKey));
