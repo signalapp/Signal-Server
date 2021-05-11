@@ -140,7 +140,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
   }
 
   private void handleRequest(WebSocketRequestMessage requestMessage) {
-    ContainerRequest containerRequest = new ContainerRequest(null, URI.create(requestMessage.getPath()), requestMessage.getVerb(), new WebSocketSecurityContext(new ContextPrincipal(context)), new MapPropertiesDelegate(new HashMap<>()), null);
+    ContainerRequest containerRequest = new ContainerRequest(null, URI.create(requestMessage.getPath()), requestMessage.getVerb(), new WebSocketSecurityContext(new ContextPrincipal(context)), new MapPropertiesDelegate(new HashMap<>()), jerseyHandler.getConfiguration());
     containerRequest.headers(getCombinedHeaders(session.getUpgradeRequest().getHeaders(), requestMessage.getHeaders()));
 
     if (requestMessage.getBody().isPresent()) {
