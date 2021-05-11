@@ -36,6 +36,7 @@ public class DynamicMessageRateConfiguration {
   @JsonProperty
   private double receiptProbability = 0.82;
 
+
   public boolean isEnforceUnsealedSenderRateLimit() {
     return enforceUnsealedSenderRateLimit;
   }

@@ -13,6 +13,7 @@ import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration.RateLimitConfiguration;
@@ -62,6 +63,10 @@ public class RateLimiter {
 
   public void validate(String key) throws RateLimitExceededException {
     validate(key, 1);
+  }
+
+  public boolean hasAvailablePermits(final String key, final int permits) {
+    return getBucket(key).getTimeUntilSpaceAvailable(permits).equals(Duration.ZERO);
   }
 
   public void clear(String key) {

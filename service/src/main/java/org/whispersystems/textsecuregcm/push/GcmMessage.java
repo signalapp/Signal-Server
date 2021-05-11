@@ -12,7 +12,7 @@ import java.util.Optional;
 public class GcmMessage {
 
   public enum Type {
-    NOTIFICATION, CHALLENGE
+    NOTIFICATION, CHALLENGE, RATE_LIMIT_CHALLENGE
   }
 
   private final String           gcmId;

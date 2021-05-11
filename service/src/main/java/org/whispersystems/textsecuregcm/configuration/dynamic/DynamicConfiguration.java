@@ -47,6 +47,10 @@ public class DynamicConfiguration {
   @JsonProperty
   private DynamicAccountsDynamoDbMigrationConfiguration accountsDynamoDbMigration = new DynamicAccountsDynamoDbMigrationConfiguration();
 
+  @JsonProperty
+  @Valid
+  private DynamicRateLimitChallengeConfiguration rateLimitChallenge = new DynamicRateLimitChallengeConfiguration();
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -92,5 +96,9 @@ public class DynamicConfiguration {
 
   public DynamicAccountsDynamoDbMigrationConfiguration getAccountsDynamoDbMigrationConfiguration() {
     return accountsDynamoDbMigration;
+  }
+
+  public DynamicRateLimitChallengeConfiguration getRateLimitChallengeConfiguration() {
+    return rateLimitChallenge;
   }
 }

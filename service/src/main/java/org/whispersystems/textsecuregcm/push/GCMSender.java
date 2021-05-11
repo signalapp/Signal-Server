@@ -5,10 +5,18 @@
 
 package org.whispersystems.textsecuregcm.push;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.annotations.VisibleForTesting;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.gcm.server.Message;
@@ -21,15 +29,6 @@ import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
-
-import static com.codahale.metrics.MetricRegistry.name;
 
 public class GCMSender {
 
@@ -45,6 +44,7 @@ public class GCMSender {
     put("receipt", metricRegistry.meter(name(getClass(), "outbound", "receipt")));
     put("notification", metricRegistry.meter(name(getClass(), "outbound", "notification")));
     put("challenge", metricRegistry.meter(name(getClass(), "outbound", "challenge")));
+    put("rateLimitChallenge", metricRegistry.meter(name(getClass(), "outbound", "rateLimitChallenge")));
   }};
 
   private final AccountsManager   accountsManager;
@@ -72,9 +72,10 @@ public class GCMSender {
     String key;
 
     switch (message.getType()) {
-      case NOTIFICATION: key = "notification"; break;
-      case CHALLENGE:    key = "challenge";    break;
-      default:           throw new AssertionError();
+      case NOTIFICATION:         key = "notification";         break;
+      case CHALLENGE:            key = "challenge";            break;
+      case RATE_LIMIT_CHALLENGE: key = "rateLimitChallenge"; break;
+      default:                   throw new AssertionError();
     }
 
     Message request = builder.withDataPart(key, message.getData().orElse("")).build();

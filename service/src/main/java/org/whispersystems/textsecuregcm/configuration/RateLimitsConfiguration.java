@@ -165,16 +165,12 @@ public class RateLimitsConfiguration {
     @JsonProperty
     private Duration ttl;
 
-    @JsonProperty
-    private Duration ttlJitter;
-
     public CardinalityRateLimitConfiguration() {
     }
 
-    public CardinalityRateLimitConfiguration(int maxCardinality, Duration ttl, Duration ttlJitter) {
+    public CardinalityRateLimitConfiguration(int maxCardinality, Duration ttl) {
       this.maxCardinality = maxCardinality;
       this.ttl = ttl;
-      this.ttlJitter = ttlJitter;
     }
 
     public int getMaxCardinality() {
@@ -183,10 +179,6 @@ public class RateLimitsConfiguration {
 
     public Duration getTtl() {
       return ttl;
-    }
-
-    public Duration getTtlJitter() {
-      return ttlJitter;
     }
   }
 }

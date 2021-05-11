@@ -19,6 +19,7 @@ import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.ApnMessage;
+import org.whispersystems.textsecuregcm.push.ApnMessage.Type;
 import org.whispersystems.textsecuregcm.push.RetryingApnsClient;
 import org.whispersystems.textsecuregcm.push.RetryingApnsClient.ApnResult;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -65,7 +66,7 @@ public class APNSenderTest {
         .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
 
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
-    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true, Optional.empty());
+    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true, Type.NOTIFICATION, Optional.empty());
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
 
     apnSender.setApnFallbackManager(fallbackManager);
@@ -99,7 +100,7 @@ public class APNSenderTest {
         .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
 
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
-    ApnMessage message = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, false, Optional.empty());
+    ApnMessage message = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, false, Type.NOTIFICATION, Optional.empty());
     APNSender apnSender = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
     apnSender.setApnFallbackManager(fallbackManager);
 
@@ -135,7 +136,7 @@ public class APNSenderTest {
 
 
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
-    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true, Optional.empty());
+    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true, Type.NOTIFICATION, Optional.empty());
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
     apnSender.setApnFallbackManager(fallbackManager);
 
@@ -238,7 +239,7 @@ public class APNSenderTest {
         .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
 
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
-    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true, Optional.empty());
+    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true, Type.NOTIFICATION, Optional.empty());
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
     apnSender.setApnFallbackManager(fallbackManager);
 
@@ -333,7 +334,7 @@ public class APNSenderTest {
         .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
 
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
-    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true, Optional.empty());
+    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true, Type.NOTIFICATION, Optional.empty());
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
     apnSender.setApnFallbackManager(fallbackManager);
 
@@ -366,7 +367,7 @@ public class APNSenderTest {
         .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), new Exception("lost connection")));
 
     RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
-    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true, Optional.empty());
+    ApnMessage         message            = new ApnMessage(DESTINATION_APN_ID, DESTINATION_NUMBER, 1, true, Type.NOTIFICATION, Optional.empty());
     APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), accountsManager, retryingApnsClient, "foo", false);
     apnSender.setApnFallbackManager(fallbackManager);
 

@@ -347,7 +347,6 @@ class DynamicConfigurationTest {
 
       assertThat(emptyConfig.getLimits().getUnsealedSenderNumber().getMaxCardinality()).isEqualTo(100);
       assertThat(emptyConfig.getLimits().getUnsealedSenderNumber().getTtl()).isEqualTo(Duration.ofDays(1));
-      assertThat(emptyConfig.getLimits().getUnsealedSenderNumber().getTtlJitter()).isEqualTo(Duration.ofDays(1));
     }
 
     {
@@ -355,15 +354,46 @@ class DynamicConfigurationTest {
           "limits:\n"
           + "  unsealedSenderNumber:\n"
           + "    maxCardinality: 99\n"
-          + "    ttl: PT23H\n"
-          + "    ttlJitter: PT22H";
+          + "    ttl: PT23H";
       final CardinalityRateLimitConfiguration unsealedSenderNumber = DynamicConfigurationManager.OBJECT_MAPPER
           .readValue(limitsConfig, DynamicConfiguration.class)
           .getLimits().getUnsealedSenderNumber();
 
       assertThat(unsealedSenderNumber.getMaxCardinality()).isEqualTo(99);
       assertThat(unsealedSenderNumber.getTtl()).isEqualTo(Duration.ofHours(23));
-      assertThat(unsealedSenderNumber.getTtlJitter()).isEqualTo(Duration.ofHours(22));
+    }
+  }
+
+  @Test
+  void testParseRateLimitReset() throws JsonProcessingException {
+    {
+      final String emptyConfigYaml = "test: true";
+      final DynamicConfiguration emptyConfig = DynamicConfigurationManager.OBJECT_MAPPER.readValue(
+          emptyConfigYaml, DynamicConfiguration.class);
+
+      assertThat(emptyConfig.getRateLimitChallengeConfiguration().getClientSupportedVersions()).isEmpty();
+      assertThat(emptyConfig.getRateLimitChallengeConfiguration().isPreKeyLimitEnforced()).isFalse();
+      assertThat(emptyConfig.getRateLimitChallengeConfiguration().isUnsealedSenderLimitEnforced()).isFalse();
+    }
+
+    {
+      final String rateLimitChallengeConfig =
+          "rateLimitChallenge:\n"
+              + "  preKeyLimitEnforced: true\n"
+              + "  clientSupportedVersions:\n"
+              + "    IOS: 5.1.0\n"
+              + "    ANDROID: 5.2.0\n"
+              + "    DESKTOP: 5.0.0";
+      DynamicRateLimitChallengeConfiguration rateLimitChallengeConfiguration = DynamicConfigurationManager.OBJECT_MAPPER
+          .readValue(rateLimitChallengeConfig, DynamicConfiguration.class)
+          .getRateLimitChallengeConfiguration();
+      final Map<ClientPlatform, Semver> clientSupportedVersions = rateLimitChallengeConfiguration.getClientSupportedVersions();
+
+      assertThat(clientSupportedVersions.get(ClientPlatform.IOS)).isEqualTo(new Semver("5.1.0"));
+      assertThat(clientSupportedVersions.get(ClientPlatform.ANDROID)).isEqualTo(new Semver("5.2.0"));
+      assertThat(clientSupportedVersions.get(ClientPlatform.DESKTOP)).isEqualTo(new Semver("5.0.0"));
+      assertThat(rateLimitChallengeConfiguration.isPreKeyLimitEnforced()).isTrue();
+      assertThat(rateLimitChallengeConfiguration.isUnsealedSenderLimitEnforced()).isFalse();
     }
   }
 }

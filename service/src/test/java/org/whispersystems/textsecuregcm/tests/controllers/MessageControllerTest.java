@@ -31,6 +31,7 @@ import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixtur
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
+import com.vdurmont.semver4j.Semver;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
@@ -57,8 +58,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.mockito.stubbing.Answer;
@@ -67,6 +68,7 @@ import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessageRateConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRateLimitChallengeConfiguration;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
@@ -74,11 +76,15 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
+import org.whispersystems.textsecuregcm.entities.RateLimitChallenge;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.limits.CardinalityRateLimiter;
+import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.limits.UnsealedSenderRateLimiter;
+import org.whispersystems.textsecuregcm.mappers.RateLimitChallengeExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.MessageSender;
@@ -91,6 +97,7 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
+import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class MessageControllerTest {
@@ -104,6 +111,8 @@ class MessageControllerTest {
   private static final String INTERNATIONAL_RECIPIENT = "+61123456789";
   private static final UUID   INTERNATIONAL_UUID      = UUID.randomUUID();
 
+  private Account internationalAccount;
+
   @SuppressWarnings("unchecked")
   private static final RedisAdvancedClusterCommands<String, String> redisCommands  = mock(RedisAdvancedClusterCommands.class);
 
@@ -114,8 +123,10 @@ class MessageControllerTest {
   private static final RateLimiters                rateLimiters                = mock(RateLimiters.class);
   private static final RateLimiter                 rateLimiter                 = mock(RateLimiter.class);
   private static final CardinalityRateLimiter      unsealedSenderLimiter       = mock(CardinalityRateLimiter.class);
+  private static final UnsealedSenderRateLimiter   unsealedSenderRateLimiter   = mock(UnsealedSenderRateLimiter.class);
   private static final ApnFallbackManager          apnFallbackManager          = mock(ApnFallbackManager.class);
   private static final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
+  private static final RateLimitChallengeManager   rateLimitChallengeManager   = mock(RateLimitChallengeManager.class);
   private static final FaultTolerantRedisCluster   metricsCluster              = RedisClusterHelper.buildMockRedisCluster(redisCommands);
   private static final ScheduledExecutorService    receiptExecutor             = mock(ScheduledExecutorService.class);
 
@@ -125,9 +136,10 @@ class MessageControllerTest {
                                                             .addProvider(AuthHelper.getAuthFilter())
                                                             .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
                                                             .addProvider(RateLimitExceededExceptionMapper.class)
+                                                            .addProvider(new RateLimitChallengeExceptionMapper(rateLimitChallengeManager))
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new MessageController(rateLimiters, messageSender, receiptSender, accountsManager,
-                                                                                               messagesManager, apnFallbackManager, dynamicConfigurationManager, metricsCluster, receiptExecutor))
+                                                                                               messagesManager, unsealedSenderRateLimiter, apnFallbackManager, dynamicConfigurationManager, rateLimitChallengeManager, metricsCluster, receiptExecutor))
                                                             .build();
 
   @BeforeEach
@@ -148,7 +160,7 @@ class MessageControllerTest {
 
     Account singleDeviceAccount  = new Account(SINGLE_DEVICE_RECIPIENT, SINGLE_DEVICE_UUID, singleDeviceList, "1234".getBytes());
     Account multiDeviceAccount   = new Account(MULTI_DEVICE_RECIPIENT, MULTI_DEVICE_UUID, multiDeviceList, "1234".getBytes());
-    Account internationalAccount = new Account(INTERNATIONAL_RECIPIENT, INTERNATIONAL_UUID, singleDeviceList, "1234".getBytes());
+    internationalAccount = new Account(INTERNATIONAL_RECIPIENT, INTERNATIONAL_UUID, singleDeviceList, "1234".getBytes());
 
     when(accountsManager.get(eq(SINGLE_DEVICE_RECIPIENT))).thenReturn(Optional.of(singleDeviceAccount));
     when(accountsManager.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(SINGLE_DEVICE_RECIPIENT)))).thenReturn(Optional.of(singleDeviceAccount));
@@ -158,7 +170,6 @@ class MessageControllerTest {
     when(accountsManager.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(INTERNATIONAL_RECIPIENT)))).thenReturn(Optional.of(internationalAccount));
 
     when(rateLimiters.getMessagesLimiter()).thenReturn(rateLimiter);
-    when(rateLimiters.getUnsealedSenderLimiter()).thenReturn(unsealedSenderLimiter);
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
 
@@ -179,9 +190,10 @@ class MessageControllerTest {
         messagesManager,
         rateLimiters,
         rateLimiter,
-        unsealedSenderLimiter,
+        unsealedSenderRateLimiter,
         apnFallbackManager,
         dynamicConfigurationManager,
+        rateLimitChallengeManager,
         metricsCluster,
         receiptExecutor
     );
@@ -254,8 +266,8 @@ class MessageControllerTest {
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testUnsealedSenderCardinalityRateLimited(final boolean rateLimited) throws Exception {
+  @CsvSource({"true, 5.1.0, 413", "true, 5.6.4, 428", "false, 5.6.4, 200"})
+  void testUnsealedSenderCardinalityRateLimited(final boolean rateLimited, final String clientVersion, final int expectedStatusCode) throws Exception {
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
     final DynamicMessageRateConfiguration messageRateConfiguration = mock(DynamicMessageRateConfiguration.class);
 
@@ -268,11 +280,23 @@ class MessageControllerTest {
     when(messageRateConfiguration.getReceiptDelayJitter()).thenReturn(Duration.ofMillis(1));
     when(messageRateConfiguration.getReceiptProbability()).thenReturn(1.0);
 
+    DynamicRateLimitChallengeConfiguration dynamicRateLimitChallengeConfiguration = mock(
+        DynamicRateLimitChallengeConfiguration.class);
+    when(dynamicConfiguration.getRateLimitChallengeConfiguration())
+        .thenReturn(dynamicRateLimitChallengeConfiguration);
+
+    when(dynamicRateLimitChallengeConfiguration.getMinimumSupportedVersion(any())).thenReturn(Optional.empty());
+    when(dynamicRateLimitChallengeConfiguration.getMinimumSupportedVersion(ClientPlatform.ANDROID))
+        .thenReturn(Optional.of(new Semver("5.5.0")));
+
     when(redisCommands.evalsha(any(), any(), any(), any())).thenReturn(List.of(1L, 1L));
 
     if (rateLimited) {
-      doThrow(RateLimitExceededException.class)
-          .when(unsealedSenderLimiter).validate(eq(AuthHelper.VALID_NUMBER), eq(INTERNATIONAL_RECIPIENT));
+      doThrow(new RateLimitExceededException(Duration.ofHours(1)))
+          .when(unsealedSenderRateLimiter).validate(eq(AuthHelper.VALID_ACCOUNT), eq(internationalAccount));
+
+      when(rateLimitChallengeManager.shouldIssueRateLimitChallenge(String.format("Signal-Android/%s Android/30", clientVersion)))
+          .thenReturn(true);
     }
 
     Response response =
@@ -280,16 +304,48 @@ class MessageControllerTest {
             .target(String.format("/v1/messages/%s", INTERNATIONAL_RECIPIENT))
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+            .header("User-Agent", "Signal-Android/5.6.4 Android/30")
             .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
 
     if (rateLimited) {
-      assertThat("Error Response", response.getStatus(), is(equalTo(413)));
+      assertThat("Error Response", response.getStatus(), is(equalTo(expectedStatusCode)));
     } else {
-      assertThat("Good Response", response.getStatus(), is(equalTo(200)));
+      assertThat("Good Response", response.getStatus(), is(equalTo(expectedStatusCode)));
     }
 
     verify(messageSender, rateLimited ? never() : times(1)).sendMessage(any(), any(), any(), anyBoolean());
+  }
+
+  @Test
+  void testRateLimitResetRequirement() throws Exception {
+
+    Duration retryAfter = Duration.ofMinutes(1);
+    doThrow(new RateLimitExceededException(retryAfter))
+        .when(unsealedSenderRateLimiter).validate(any(), any());
+
+    when(rateLimitChallengeManager.shouldIssueRateLimitChallenge("Signal-Android/5.1.2 Android/30")).thenReturn(true);
+    when(rateLimitChallengeManager.getChallengeOptions(AuthHelper.VALID_ACCOUNT))
+        .thenReturn(List.of(RateLimitChallengeManager.OPTION_PUSH_CHALLENGE, RateLimitChallengeManager.OPTION_RECAPTCHA));
+
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/messages/%s", INTERNATIONAL_RECIPIENT))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+            .header("User-Agent", "Signal-Android/5.1.2 Android/30")
+            .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    assertEquals(428, response.getStatus());
+
+    RateLimitChallenge rateLimitChallenge = response.readEntity(RateLimitChallenge.class);
+
+    assertFalse(rateLimitChallenge.getToken().isBlank());
+    assertFalse(rateLimitChallenge.getOptions().isEmpty());
+    assertTrue(rateLimitChallenge.getOptions().contains("recaptcha"));
+    assertTrue(rateLimitChallenge.getOptions().contains("pushChallenge"));
+    assertEquals(retryAfter.toSeconds(), Long.parseLong(response.getHeaderString("Retry-After")));
   }
 
   @Test

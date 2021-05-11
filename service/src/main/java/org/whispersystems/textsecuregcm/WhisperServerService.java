@@ -78,6 +78,7 @@ import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV1;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV2;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV3;
 import org.whispersystems.textsecuregcm.controllers.CertificateController;
+import org.whispersystems.textsecuregcm.controllers.ChallengeController;
 import org.whispersystems.textsecuregcm.controllers.DeviceController;
 import org.whispersystems.textsecuregcm.controllers.DirectoryController;
 import org.whispersystems.textsecuregcm.controllers.DonationController;
@@ -98,11 +99,17 @@ import org.whispersystems.textsecuregcm.currency.FtxClient;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.filters.RemoteDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
+import org.whispersystems.textsecuregcm.limits.PreKeyRateLimiter;
+import org.whispersystems.textsecuregcm.limits.PushChallengeManager;
+import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
+import org.whispersystems.textsecuregcm.limits.RateLimitResetMetricsManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.limits.UnsealedSenderRateLimiter;
 import org.whispersystems.textsecuregcm.liquibase.NameableMigrationsBundle;
 import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.IOExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.InvalidWebsocketAddressExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.RateLimitChallengeExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RetryLaterExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.BufferPoolGauges;
@@ -169,6 +176,7 @@ import org.whispersystems.textsecuregcm.storage.PendingDevicesManager;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
+import org.whispersystems.textsecuregcm.storage.PushChallengeDynamoDb;
 import org.whispersystems.textsecuregcm.storage.PushFeedbackProcessor;
 import org.whispersystems.textsecuregcm.storage.RegistrationLockVersionCounter;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigs;
@@ -314,6 +322,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             .withRequestTimeout((int) config.getMigrationRetryAccountsDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
         .withCredentials(InstanceProfileCredentialsProvider.getInstance());
 
+    AmazonDynamoDBClientBuilder pushChallengeDynamoDbClientBuilder = AmazonDynamoDBClientBuilder
+        .standard()
+        .withRegion(config.getPushChallengeDynamoDbConfiguration().getRegion())
+        .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(((int) config.getPushChallengeDynamoDbConfiguration().getClientExecutionTimeout().toMillis()))
+            .withRequestTimeout((int) config.getPushChallengeDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
+        .withCredentials(InstanceProfileCredentialsProvider.getInstance());
+
     DynamoDB messageDynamoDb = new DynamoDB(messageDynamoDbClientBuilder.build());
     DynamoDB preKeyDynamoDb = new DynamoDB(keysDynamoDbClientBuilder.build());
 
@@ -337,6 +352,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     MessagesDynamoDb  messagesDynamoDb  = new MessagesDynamoDb(messageDynamoDb, config.getMessageDynamoDbConfiguration().getTableName(), config.getMessageDynamoDbConfiguration().getTimeToLive());
     AbusiveHostRules  abusiveHostRules  = new AbusiveHostRules(abuseDatabase);
     RemoteConfigs     remoteConfigs     = new RemoteConfigs(accountDatabase);
+    PushChallengeDynamoDb pushChallengeDynamoDb = new PushChallengeDynamoDb(new DynamoDB(pushChallengeDynamoDbClientBuilder.build()), config.getPushChallengeDynamoDbConfiguration().getTableName());
 
     RedisClientFactory  pubSubClientFactory = new RedisClientFactory("pubsub_cache", config.getPubsubCacheConfiguration().getUrl(), config.getPubsubCacheConfiguration().getReplicaUrls(), config.getPubsubCacheConfiguration().getCircuitBreakerConfiguration());
     ReplicatedJedisPool pubsubClient        = pubSubClientFactory.getRedisClientPool();
@@ -415,6 +431,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     AccountAuthenticator                  accountAuthenticator                  = new AccountAuthenticator(accountsManager);
     DisabledPermittedAccountAuthenticator disabledPermittedAccountAuthenticator = new DisabledPermittedAccountAuthenticator(accountsManager);
 
+    RateLimitResetMetricsManager rateLimitResetMetricsManager = new RateLimitResetMetricsManager(metricsCluster, Metrics.globalRegistry);
+
+    UnsealedSenderRateLimiter unsealedSenderRateLimiter = new UnsealedSenderRateLimiter(rateLimiters, rateLimitersCluster, dynamicConfigurationManager, rateLimitResetMetricsManager);
+    PreKeyRateLimiter preKeyRateLimiter = new PreKeyRateLimiter(rateLimiters, dynamicConfigurationManager, rateLimitResetMetricsManager);
+
     ApnFallbackManager       apnFallbackManager = new ApnFallbackManager(pushSchedulerCluster, apnSender, accountsManager);
     TwilioSmsSender          twilioSmsSender    = new TwilioSmsSender(config.getTwilioConfiguration(), dynamicConfigurationManager);
     SmsSender                smsSender          = new SmsSender(twilioSmsSender);
@@ -422,6 +443,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ReceiptSender            receiptSender      = new ReceiptSender(accountsManager, messageSender);
     TurnTokenGenerator       turnTokenGenerator = new TurnTokenGenerator(config.getTurnConfiguration());
     RecaptchaClient          recaptchaClient    = new RecaptchaClient(config.getRecaptchaConfiguration().getSecret());
+    PushChallengeManager     pushChallengeManager = new PushChallengeManager(apnSender, gcmSender, pushChallengeDynamoDb);
+    RateLimitChallengeManager rateLimitChallengeManager = new RateLimitChallengeManager(pushChallengeManager, recaptchaClient, preKeyRateLimiter, unsealedSenderRateLimiter, rateLimiters, dynamicConfigurationManager);
 
     MessagePersister messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager, dynamicConfigurationManager, Duration.ofMinutes(config.getMessageCacheConfiguration().getPersistDelayMinutes()));
 
@@ -472,11 +495,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     AttachmentControllerV2 attachmentControllerV2    = new AttachmentControllerV2(rateLimiters, config.getAwsAttachmentsConfiguration().getAccessKey(), config.getAwsAttachmentsConfiguration().getAccessSecret(), config.getAwsAttachmentsConfiguration().getRegion(), config.getAwsAttachmentsConfiguration().getBucket());
     AttachmentControllerV3 attachmentControllerV3    = new AttachmentControllerV3(rateLimiters, config.getGcpAttachmentsConfiguration().getDomain(), config.getGcpAttachmentsConfiguration().getEmail(), config.getGcpAttachmentsConfiguration().getMaxSizeInBytes(), config.getGcpAttachmentsConfiguration().getPathPrefix(), config.getGcpAttachmentsConfiguration().getRsaSigningKey());
     DonationController     donationController        = new DonationController(donationExecutor, config.getDonationConfiguration());
-    KeysController         keysController            = new KeysController(rateLimiters, keysDynamoDb, accountsManager, directoryQueue);
-    MessageController      messageController         = new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, messagesManager, apnFallbackManager, dynamicConfigurationManager, metricsCluster, declinedMessageReceiptExecutor);
+    KeysController         keysController            = new KeysController(rateLimiters, keysDynamoDb, accountsManager, directoryQueue, preKeyRateLimiter, dynamicConfigurationManager, rateLimitChallengeManager);
+    MessageController      messageController         = new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, messagesManager, unsealedSenderRateLimiter, apnFallbackManager, dynamicConfigurationManager, rateLimitChallengeManager, metricsCluster, declinedMessageReceiptExecutor);
     ProfileController      profileController         = new ProfileController(rateLimiters, accountsManager, profilesManager, usernamesManager, dynamicConfigurationManager, cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner, config.getCdnConfiguration().getBucket(), zkProfileOperations, isZkEnabled);
     StickerController      stickerController         = new StickerController(rateLimiters, config.getCdnConfiguration().getAccessKey(), config.getCdnConfiguration().getAccessSecret(), config.getCdnConfiguration().getRegion(), config.getCdnConfiguration().getBucket());
     RemoteConfigController remoteConfigController    = new RemoteConfigController(remoteConfigsManager, config.getRemoteConfigConfiguration().getAuthorizedTokens(), config.getRemoteConfigConfiguration().getGlobalConfig());
+    ChallengeController    challengeController       = new ChallengeController(rateLimitChallengeManager);
 
     AuthFilter<BasicCredentials, Account>                  accountAuthFilter                  = new BasicCredentialAuthFilter.Builder<Account>().setAuthenticator(accountAuthenticator).buildAuthFilter                                  ();
     AuthFilter<BasicCredentials, DisabledPermittedAccount> disabledPermittedAccountAuthFilter = new BasicCredentialAuthFilter.Builder<DisabledPermittedAccount>().setAuthenticator(disabledPermittedAccountAuthenticator).buildAuthFilter();
@@ -508,6 +532,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(profileController);
     environment.jersey().register(stickerController);
     environment.jersey().register(remoteConfigController);
+    environment.jersey().register(challengeController);
 
     ///
     WebSocketEnvironment<Account> webSocketEnvironment = new WebSocketEnvironment<>(environment, config.getWebSocketConfiguration(), 90000);
@@ -530,6 +555,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     registerCorsFilter(environment);
     registerExceptionMappers(environment, webSocketEnvironment, provisioningEnvironment);
+
+    RateLimitChallengeExceptionMapper rateLimitChallengeExceptionMapper = new RateLimitChallengeExceptionMapper(rateLimitChallengeManager);
+
+    environment.jersey().register(rateLimitChallengeExceptionMapper);
+    webSocketEnvironment.jersey().register(rateLimitChallengeExceptionMapper);
+    provisioningEnvironment.jersey().register(rateLimitChallengeExceptionMapper);
 
     WebSocketResourceProviderFactory<Account> webSocketServlet    = new WebSocketResourceProviderFactory<>(webSocketEnvironment, Account.class);
     WebSocketResourceProviderFactory<Account> provisioningServlet = new WebSocketResourceProviderFactory<>(provisioningEnvironment, Account.class);

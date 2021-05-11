@@ -8,6 +8,7 @@ import io.dropwizard.lifecycle.Managed;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
+import org.whispersystems.textsecuregcm.push.ApnMessage.Type;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -131,10 +132,10 @@ public class MessageSender implements Managed {
     ApnMessage apnMessage;
 
     if (!Util.isEmpty(device.getVoipApnId())) {
-      apnMessage = new ApnMessage(device.getVoipApnId(), account.getNumber(), device.getId(), true, Optional.empty());
+      apnMessage = new ApnMessage(device.getVoipApnId(), account.getNumber(), device.getId(), true, Type.NOTIFICATION, Optional.empty());
       RedisOperation.unchecked(() -> apnFallbackManager.schedule(account, device));
     } else {
-      apnMessage = new ApnMessage(device.getApnId(), account.getNumber(), device.getId(), false, Optional.empty());
+      apnMessage = new ApnMessage(device.getApnId(), account.getNumber(), device.getId(), false, Type.NOTIFICATION, Optional.empty());
     }
 
     apnSender.sendMessage(apnMessage);

@@ -5,9 +5,16 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+
+import java.util.concurrent.ScheduledExecutorService;
 import org.junit.Before;
 import org.junit.Test;
+import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.limits.UnsealedSenderRateLimiter;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -15,12 +22,6 @@ import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
-
-import java.util.concurrent.ScheduledExecutorService;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.mock;
 
 public class MessageControllerMetricsTest extends AbstractRedisClusterTest {
 
@@ -35,8 +36,10 @@ public class MessageControllerMetricsTest extends AbstractRedisClusterTest {
         mock(ReceiptSender.class),
         mock(AccountsManager.class),
         mock(MessagesManager.class),
+        mock(UnsealedSenderRateLimiter.class),
         mock(ApnFallbackManager.class),
         mock(DynamicConfigurationManager.class),
+        mock(RateLimitChallengeManager.class),
         getRedisCluster(),
         mock(ScheduledExecutorService.class));
   }

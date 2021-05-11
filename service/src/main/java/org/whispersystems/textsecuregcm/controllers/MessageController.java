@@ -71,7 +71,10 @@ import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
 import org.whispersystems.textsecuregcm.entities.SendMessageResponse;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
+import org.whispersystems.textsecuregcm.limits.RateLimitChallengeException;
+import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.limits.UnsealedSenderRateLimiter;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
@@ -111,8 +114,10 @@ public class MessageController {
   private final ReceiptSender               receiptSender;
   private final AccountsManager             accountsManager;
   private final MessagesManager             messagesManager;
+  private final UnsealedSenderRateLimiter   unsealedSenderRateLimiter;
   private final ApnFallbackManager          apnFallbackManager;
   private final DynamicConfigurationManager dynamicConfigurationManager;
+  private final RateLimitChallengeManager   rateLimitChallengeManager;
   private final ScheduledExecutorService    receiptExecutorService;
 
   private final Random random = new Random();
@@ -134,22 +139,26 @@ public class MessageController {
   private static final long MAX_MESSAGE_SIZE = DataSize.kibibytes(256).toBytes();
 
   public MessageController(RateLimiters rateLimiters,
-                           MessageSender messageSender,
-                           ReceiptSender receiptSender,
-                           AccountsManager accountsManager,
-                           MessagesManager messagesManager,
-                           ApnFallbackManager apnFallbackManager,
-                           DynamicConfigurationManager dynamicConfigurationManager,
-                           FaultTolerantRedisCluster metricsCluster,
-                           ScheduledExecutorService receiptExecutorService)
+      MessageSender messageSender,
+      ReceiptSender receiptSender,
+      AccountsManager accountsManager,
+      MessagesManager messagesManager,
+      UnsealedSenderRateLimiter unsealedSenderRateLimiter,
+      ApnFallbackManager apnFallbackManager,
+      DynamicConfigurationManager dynamicConfigurationManager,
+      RateLimitChallengeManager rateLimitChallengeManager,
+      FaultTolerantRedisCluster metricsCluster,
+      ScheduledExecutorService receiptExecutorService)
   {
     this.rateLimiters                = rateLimiters;
     this.messageSender               = messageSender;
     this.receiptSender               = receiptSender;
     this.accountsManager             = accountsManager;
     this.messagesManager             = messagesManager;
+    this.unsealedSenderRateLimiter   = unsealedSenderRateLimiter;
     this.apnFallbackManager          = apnFallbackManager;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
+    this.rateLimitChallengeManager   = rateLimitChallengeManager;
     this.receiptExecutorService      = receiptExecutorService;
 
     try {
@@ -171,8 +180,7 @@ public class MessageController {
                               @HeaderParam("X-Forwarded-For")           String forwardedFor,
                               @PathParam("destination")                 AmbiguousIdentifier destinationName,
                               @Valid                                    IncomingMessageList messages)
-      throws RateLimitExceededException
-  {
+      throws RateLimitExceededException, RateLimitChallengeException {
     if (source.isEmpty() && accessKey.isEmpty()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
@@ -185,19 +193,6 @@ public class MessageController {
 
       if (StringUtils.isAllBlank(masterDevice.getApnId(), masterDevice.getVoipApnId(), masterDevice.getGcmId()) || masterDevice.getUninstalledFeedbackTimestamp() > 0) {
         Metrics.counter(UNSEALED_SENDER_WITHOUT_PUSH_TOKEN_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, senderCountryCode).increment();
-      }
-
-      try {
-        rateLimiters.getUnsealedSenderLimiter().validate(source.get().getNumber(), destinationName.toString());
-      } catch (RateLimitExceededException e) {
-
-        if (dynamicConfigurationManager.getConfiguration().getMessageRateConfiguration().isEnforceUnsealedSenderRateLimit()) {
-          Metrics.counter(REJECT_UNSEALED_SENDER_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, senderCountryCode).increment();
-          logger.debug("Rejected unsealed sender limit from: {}", source.get().getNumber());
-          throw e;
-        } else {
-          logger.debug("Would reject unsealed sender limit from: {}", source.get().getNumber());
-        }
       }
     }
 
@@ -247,6 +242,27 @@ public class MessageController {
         rateLimiters.getMessagesLimiter().validate(source.get().getNumber() + "__" + destination.get().getUuid());
 
         final String senderCountryCode = Util.getCountryCode(source.get().getNumber());
+
+        try {
+          unsealedSenderRateLimiter.validate(source.get(), destination.get());
+        } catch (final RateLimitExceededException e) {
+
+          final boolean enforceLimit = rateLimitChallengeManager.shouldIssueRateLimitChallenge(userAgent);
+
+          Metrics.counter(REJECT_UNSEALED_SENDER_COUNTER_NAME,
+              SENDER_COUNTRY_TAG_NAME, senderCountryCode,
+              "enforced", String.valueOf(enforceLimit))
+              .increment();
+
+          if (enforceLimit) {
+            logger.debug("Rejected unsealed sender limit from: {}", source.get().getNumber());
+
+            throw new RateLimitChallengeException(source.get(), e.getRetryDuration());
+          } else {
+            throw e;
+          }
+        }
+
         final String destinationCountryCode = Util.getCountryCode(destination.get().getNumber());
         final Device masterDevice = source.get().getMasterDevice().get();
 

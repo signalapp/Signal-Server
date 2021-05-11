@@ -36,11 +36,15 @@ import org.whispersystems.textsecuregcm.entities.PreKeyResponse;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponseItem;
 import org.whispersystems.textsecuregcm.entities.PreKeyState;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+import org.whispersystems.textsecuregcm.limits.PreKeyRateLimiter;
+import org.whispersystems.textsecuregcm.limits.RateLimitChallengeException;
+import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -52,18 +56,30 @@ public class KeysController {
   private final KeysDynamoDb                keysDynamoDb;
   private final AccountsManager             accounts;
   private final DirectoryQueue              directoryQueue;
+  private final PreKeyRateLimiter           preKeyRateLimiter;
+
+  private final DynamicConfigurationManager dynamicConfigurationManager;
+  private final RateLimitChallengeManager rateLimitChallengeManager;
 
   private static final String PREKEY_REQUEST_COUNTER_NAME = name(KeysController.class, "preKeyGet");
+  private static final String RATE_LIMITED_GET_PREKEYS_COUNTER_NAME = name(KeysController.class, "rateLimitedGetPreKeys");
 
   private static final String SOURCE_COUNTRY_TAG_NAME = "sourceCountry";
   private static final String INTERNATIONAL_TAG_NAME = "international";
   private static final String PREKEY_TARGET_IDENTIFIER_TAG_NAME =  "identifierType";
 
-  public KeysController(RateLimiters rateLimiters, KeysDynamoDb keysDynamoDb, AccountsManager accounts, DirectoryQueue directoryQueue) {
+  public KeysController(RateLimiters rateLimiters, KeysDynamoDb keysDynamoDb, AccountsManager accounts,
+      DirectoryQueue directoryQueue, PreKeyRateLimiter preKeyRateLimiter,
+      DynamicConfigurationManager dynamicConfigurationManager,
+      RateLimitChallengeManager rateLimitChallengeManager) {
     this.rateLimiters                = rateLimiters;
     this.keysDynamoDb                = keysDynamoDb;
     this.accounts                    = accounts;
     this.directoryQueue              = directoryQueue;
+    this.preKeyRateLimiter           = preKeyRateLimiter;
+
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
+    this.rateLimitChallengeManager = rateLimitChallengeManager;
   }
 
   @GET
@@ -112,12 +128,12 @@ public class KeysController {
   @GET
   @Path("/{identifier}/{device_id}")
   @Produces(MediaType.APPLICATION_JSON)
-  public Optional<PreKeyResponse> getDeviceKeys(@Auth                                     Optional<Account> account,
-                                                @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
-                                                @PathParam("identifier")                  AmbiguousIdentifier targetName,
-                                                @PathParam("device_id")                   String deviceId)
-      throws RateLimitExceededException
-  {
+  public Response getDeviceKeys(@Auth                                     Optional<Account> account,
+                                @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
+                                @PathParam("identifier")                  AmbiguousIdentifier targetName,
+                                @PathParam("device_id")                   String deviceId,
+                                @HeaderParam("User-Agent")                String userAgent)
+      throws RateLimitExceededException, RateLimitChallengeException {
     if (!account.isPresent() && !accessKey.isPresent()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
@@ -126,10 +142,6 @@ public class KeysController {
     OptionalAccess.verify(account, accessKey, target, deviceId);
 
     assert(target.isPresent());
-
-    if (account.isPresent()) {
-      rateLimiters.getPreKeysLimiter().validate(account.get().getNumber() + "." + account.get().getAuthenticatedDevice().get().getId() +  "__" + target.get().getNumber() + "." + deviceId);
-    }
 
     {
       final String sourceCountryCode = account.map(a -> Util.getCountryCode(a.getNumber())).orElse("0");
@@ -140,6 +152,26 @@ public class KeysController {
           INTERNATIONAL_TAG_NAME, String.valueOf(!sourceCountryCode.equals(targetCountryCode)),
           PREKEY_TARGET_IDENTIFIER_TAG_NAME, targetName.hasNumber() ? "number" : "uuid"
       )).increment();
+    }
+
+    if (account.isPresent()) {
+      rateLimiters.getPreKeysLimiter().validate(account.get().getNumber() + "." + account.get().getAuthenticatedDevice().get().getId() +  "__" + target.get().getNumber() + "." + deviceId);
+
+      try {
+        preKeyRateLimiter.validate(account.get());
+      } catch (RateLimitExceededException e) {
+
+        final boolean enforceLimit = rateLimitChallengeManager.shouldIssueRateLimitChallenge(userAgent);
+
+        Metrics.counter(RATE_LIMITED_GET_PREKEYS_COUNTER_NAME,
+            SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account.get().getNumber()),
+            "enforced", String.valueOf(enforceLimit))
+            .increment();
+
+        if (enforceLimit) {
+          throw new RateLimitChallengeException(account.get(), e.getRetryDuration());
+        }
+      }
     }
 
     Map<Long, PreKey>        preKeysByDeviceId = getLocalKeys(target.get(), deviceId);
@@ -156,8 +188,8 @@ public class KeysController {
       }
     }
 
-    if (responseItems.isEmpty()) return Optional.empty();
-    else                         return Optional.of(new PreKeyResponse(target.get().getIdentityKey(), responseItems));
+    if (responseItems.isEmpty()) return Response.status(404).build();
+    else                         return Response.ok().entity(new PreKeyResponse(target.get().getIdentityKey(), responseItems)).build();
   }
 
   @Timed

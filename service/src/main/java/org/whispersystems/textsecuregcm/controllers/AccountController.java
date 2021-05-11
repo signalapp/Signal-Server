@@ -190,7 +190,7 @@ public class AccountController {
     if ("fcm".equals(pushType)) {
       gcmSender.sendMessage(new GcmMessage(pushToken, number, 0, GcmMessage.Type.CHALLENGE, Optional.of(storedVerificationCode.getPushCode())));
     } else if ("apn".equals(pushType)) {
-      apnSender.sendMessage(new ApnMessage(pushToken, number, 0, true, Optional.of(storedVerificationCode.getPushCode())));
+      apnSender.sendMessage(new ApnMessage(pushToken, number, 0, true, ApnMessage.Type.CHALLENGE, Optional.of(storedVerificationCode.getPushCode())));
     } else {
       throw new AssertionError();
     }

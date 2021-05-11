@@ -6,6 +6,10 @@
 package org.whispersystems.textsecuregcm.push;
 
 public class NotPushRegisteredException extends Exception {
+  public NotPushRegisteredException() {
+    super();
+  }
+
   public NotPushRegisteredException(String s) {
     super(s);
   }
