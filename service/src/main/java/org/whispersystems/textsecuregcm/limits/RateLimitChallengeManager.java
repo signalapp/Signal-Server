@@ -4,14 +4,18 @@ import com.vdurmont.semver4j.Semver;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import io.micrometer.core.instrument.Metrics;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgent;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
+
+import static com.codahale.metrics.MetricRegistry.name;
 
 public class RateLimitChallengeManager {
 
@@ -26,6 +30,11 @@ public class RateLimitChallengeManager {
 
   public static final String OPTION_RECAPTCHA = "recaptcha";
   public static final String OPTION_PUSH_CHALLENGE = "pushChallenge";
+
+  private static final String RECAPTCHA_ATTEMPT_COUNTER_NAME = name(RateLimitChallengeManager.class, "recaptcha", "attempt");
+
+  private static final String SOURCE_COUNTRY_TAG_NAME = "sourceCountry";
+  private static final String SUCCESS_TAG_NAME = "success";
 
   public RateLimitChallengeManager(
       final PushChallengeManager pushChallengeManager,
@@ -60,6 +69,10 @@ public class RateLimitChallengeManager {
     rateLimiters.getRecaptchaChallengeAttemptLimiter().validate(account.getNumber());
 
     final boolean challengeSuccess = recaptchaClient.verify(captcha, mostRecentProxyIp);
+
+    Metrics.counter(RECAPTCHA_ATTEMPT_COUNTER_NAME,
+        SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account.getNumber()),
+        SUCCESS_TAG_NAME, String.valueOf(challengeSuccess)).increment();
 
     if (challengeSuccess) {
       rateLimiters.getRecaptchaChallengeSuccessLimiter().validate(account.getNumber());

@@ -87,6 +87,8 @@ class RateLimitChallengeManagerTest {
   @ValueSource(booleans = {true, false})
   void answerRecaptchaChallenge(final boolean successfulChallenge) throws RateLimitExceededException {
     final Account account = mock(Account.class);
+    when(account.getNumber()).thenReturn("+18005551234");
+
     when(recaptchaClient.verify(any(), any())).thenReturn(successfulChallenge);
 
     when(rateLimiters.getRecaptchaChallengeAttemptLimiter()).thenReturn(mock(RateLimiter.class));
