@@ -221,7 +221,8 @@ public class DeviceControllerTest {
   @Test
   @Parameters(method = "argumentsForDeviceDowngradeCapabilitiesTest")
   public void deviceDowngradeCapabilitiesTest(final String userAgent, final boolean gv2, final boolean gv2_2, final boolean gv2_3, final int expectedStatus) throws Exception {
-    Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(gv2, gv2_2, gv2_3, true, false, true);
+    Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(gv2, gv2_2, gv2_3, true, false, true,
+        false);
     AccountAttributes accountAttributes = new AccountAttributes(false, 1234, null, null, null, true, deviceCapabilities);
     Response response = resources.getJerseyTest()
             .target("/v1/devices/5678901")
@@ -261,7 +262,8 @@ public class DeviceControllerTest {
 
   @Test
   public void deviceDowngradeGv1MigrationTest() {
-    Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(true, true, true, true, false, false);
+    Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(true, true, true, true, false, false,
+        false);
     AccountAttributes accountAttributes = new AccountAttributes(false, 1234, null, null, null, true, deviceCapabilities);
     Response response = resources.getJerseyTest()
                                  .target("/v1/devices/5678901")
@@ -272,7 +274,7 @@ public class DeviceControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(409);
 
-    deviceCapabilities = new Device.DeviceCapabilities(true, true, true, true, false, true);
+    deviceCapabilities = new Device.DeviceCapabilities(true, true, true, true, false, true, false);
     accountAttributes = new AccountAttributes(false, 1234, null, null, null, true, deviceCapabilities);
     response = resources.getJerseyTest()
                         .target("/v1/devices/5678901")

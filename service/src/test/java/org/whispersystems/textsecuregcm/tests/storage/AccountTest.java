@@ -72,13 +72,16 @@ public class AccountTest {
     when(gv2IncapableExpiredDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31));
     when(gv2IncapableExpiredDevice.isEnabled()).thenReturn(false);
 
-    when(gv1MigrationCapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(true, true, true, true, true, true));
+    when(gv1MigrationCapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(true, true, true, true, true, true,
+        false));
     when(gv1MigrationCapableDevice.isEnabled()).thenReturn(true);
 
-    when(gv1MigrationIncapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(true, true, true, true, true, false));
+    when(gv1MigrationIncapableDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(true, true, true, true, true, false,
+        false));
     when(gv1MigrationIncapableDevice.isEnabled()).thenReturn(true);
 
-    when(gv1MigrationIncapableExpiredDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(true, true, true, true, true, false));
+    when(gv1MigrationIncapableExpiredDevice.getCapabilities()).thenReturn(new Device.DeviceCapabilities(true, true, true, true, true, false,
+        false));
     when(gv1MigrationIncapableExpiredDevice.isEnabled()).thenReturn(false);
   }
 

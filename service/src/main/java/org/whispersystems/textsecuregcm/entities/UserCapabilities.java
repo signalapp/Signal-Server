@@ -14,11 +14,15 @@ public class UserCapabilities {
   @JsonProperty("gv1-migration")
   private boolean gv1Migration;
 
+  @JsonProperty
+  private boolean senderKey;
+
   public UserCapabilities() {}
 
-  public UserCapabilities(boolean gv2, boolean gv1Migration) {
+  public UserCapabilities(boolean gv2, boolean gv1Migration, final boolean senderKey) {
     this.gv2  = gv2;
     this.gv1Migration = gv1Migration;
+    this.senderKey = senderKey;
   }
 
   public boolean isGv2() {
@@ -27,5 +31,9 @@ public class UserCapabilities {
 
   public boolean isGv1Migration() {
     return gv1Migration;
+  }
+
+  public boolean isSenderKey() {
+    return senderKey;
   }
 }

@@ -145,6 +145,12 @@ public class Account implements Principal  {
                   .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isGv1Migration());
   }
 
+  public boolean isSenderKeySupported() {
+    return devices.stream()
+        .filter(Device::isEnabled)
+        .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isSenderKey());
+  }
+
   public boolean isEnabled() {
     return getMasterDevice().map(Device::isEnabled).orElse(false);
   }

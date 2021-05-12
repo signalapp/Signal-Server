@@ -231,6 +231,10 @@ public class ProfileController {
 
       Optional<ProfileKeyCredentialResponse> credential = getProfileCredential(credentialRequest, profile, uuid);
 
+      final UserCapabilities userCapabilities = new UserCapabilities(
+          accountProfile.get().isGroupsV2Supported(),
+          accountProfile.get().isGv1MigrationSupported(),
+          accountProfile.get().isSenderKeySupported());
       return Optional.of(new Profile(name,
                                      about,
                                      aboutEmoji,
@@ -239,7 +243,7 @@ public class ProfileController {
                                      accountProfile.get().getIdentityKey(),
                                      UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
                                      accountProfile.get().isUnrestrictedUnidentifiedAccess(),
-                                     new UserCapabilities(accountProfile.get().isGroupsV2Supported(), accountProfile.get().isGv1MigrationSupported()),
+                                     userCapabilities,
                                      username.orElse(null),
                                      null,
                                      credential.orElse(null)));
@@ -271,6 +275,10 @@ public class ProfileController {
       throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
     }
 
+    final UserCapabilities userCapabilities = new UserCapabilities(
+        accountProfile.get().isGroupsV2Supported(),
+        accountProfile.get().isGv1MigrationSupported(),
+        accountProfile.get().isSenderKeySupported());
     return new Profile(accountProfile.get().getProfileName(),
                        null,
                        null,
@@ -279,7 +287,7 @@ public class ProfileController {
                        accountProfile.get().getIdentityKey(),
                        UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
                        accountProfile.get().isUnrestrictedUnidentifiedAccess(),
-                       new UserCapabilities(accountProfile.get().isGroupsV2Supported(), accountProfile.get().isGv1MigrationSupported()),
+                       userCapabilities,
                        username,
                        accountProfile.get().getUuid(),
                        null);
@@ -346,6 +354,10 @@ public class ProfileController {
       username = usernamesManager.get(accountProfile.get().getUuid());
     }
 
+    final UserCapabilities userCapabilities = new UserCapabilities(
+        accountProfile.get().isGroupsV2Supported(),
+        accountProfile.get().isGv1MigrationSupported(),
+        accountProfile.get().isSenderKeySupported());
     return new Profile(accountProfile.get().getProfileName(),
                        null,
                        null,
@@ -354,7 +366,7 @@ public class ProfileController {
                        accountProfile.get().getIdentityKey(),
                        UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
                        accountProfile.get().isUnrestrictedUnidentifiedAccess(),
-                       new UserCapabilities(accountProfile.get().isGroupsV2Supported(), accountProfile.get().isGv1MigrationSupported()),
+                       userCapabilities,
                        username.orElse(null),
                        null,
                        null);
