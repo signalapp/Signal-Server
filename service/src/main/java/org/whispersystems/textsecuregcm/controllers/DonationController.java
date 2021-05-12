@@ -20,6 +20,7 @@ import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -48,12 +49,14 @@ public class DonationController {
 
   private final URI uri;
   private final String apiKey;
+  private final String description;
   private final Set<String> supportedCurrencies;
   private final FaultTolerantHttpClient httpClient;
 
   public DonationController(final Executor executor, final DonationConfiguration configuration) {
     this.uri = URI.create(configuration.getUri());
     this.apiKey = configuration.getApiKey();
+    this.description = configuration.getDescription();
     this.supportedCurrencies = configuration.getSupportedCurrencies();
     this.httpClient = FaultTolerantHttpClient.newBuilder()
         .withCircuitBreaker(configuration.getCircuitBreaker())
@@ -77,11 +80,15 @@ public class DonationController {
       return CompletableFuture.completedFuture(Response.status(422).build());
     }
 
+    final Map<String, String> formData = new HashMap<>();
+    formData.put("amount", Long.toString(request.getAmount()));
+    formData.put("currency", request.getCurrency());
+    if (!Strings.isNullOrEmpty(description)) {
+      formData.put("description", description);
+    }
     final HttpRequest httpRequest = HttpRequest.newBuilder()
         .uri(uri)
-        .POST(FormDataBodyPublisher.of(Map.of(
-            "amount", Long.toString(request.getAmount()),
-            "currency", request.getCurrency())))
+        .POST(FormDataBodyPublisher.of(formData))
         .header("Authorization", "Basic " + Base64.getEncoder().encodeToString(
             (apiKey + ":").getBytes(StandardCharsets.UTF_8)))
         .header("Content-Type", "application/x-www-form-urlencoded")

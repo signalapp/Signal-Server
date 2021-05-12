@@ -16,6 +16,7 @@ public class DonationConfiguration {
 
   private String uri;
   private String apiKey;
+  private String description;
   private Set<String> supportedCurrencies;
   private CircuitBreakerConfiguration circuitBreaker = new CircuitBreakerConfiguration();
   private RetryConfiguration retry = new RetryConfiguration();
@@ -40,6 +41,16 @@ public class DonationConfiguration {
   @VisibleForTesting
   public void setApiKey(final String apiKey) {
     this.apiKey = apiKey;
+  }
+
+  @JsonProperty
+  public String getDescription() {
+    return description;
+  }
+
+  @VisibleForTesting
+  public void setDescription(final String description) {
+    this.description = description;
   }
 
   @JsonProperty

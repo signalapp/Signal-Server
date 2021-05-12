@@ -50,6 +50,7 @@ public class DonationControllerTest {
   public void before() throws Throwable {
     DonationConfiguration configuration = new DonationConfiguration();
     configuration.setApiKey("test-api-key");
+    configuration.setDescription("some description");
     configuration.setUri("http://localhost:" + wireMockRule.port() + "/foo/bar");
     configuration.setCircuitBreaker(new CircuitBreakerConfiguration());
     configuration.setRetry(new RetryConfiguration());
