@@ -32,6 +32,7 @@ public class RateLimitChallengeManager {
   public static final String OPTION_PUSH_CHALLENGE = "pushChallenge";
 
   private static final String RECAPTCHA_ATTEMPT_COUNTER_NAME = name(RateLimitChallengeManager.class, "recaptcha", "attempt");
+  private static final String RESET_RATE_LIMIT_EXCEEDED_COUNTER_NAME = name(RateLimitChallengeManager.class, "resetRateLimitExceeded");
 
   private static final String SOURCE_COUNTRY_TAG_NAME = "sourceCountry";
   private static final String SUCCESS_TAG_NAME = "success";
@@ -81,7 +82,14 @@ public class RateLimitChallengeManager {
   }
 
   private void resetRateLimits(final Account account) throws RateLimitExceededException {
-    rateLimiters.getRateLimitResetLimiter().validate(account.getNumber());
+    try {
+      rateLimiters.getRateLimitResetLimiter().validate(account.getNumber());
+    } catch (final RateLimitExceededException e) {
+      Metrics.counter(RESET_RATE_LIMIT_EXCEEDED_COUNTER_NAME,
+          SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account.getNumber())).increment();
+
+      throw e;
+    }
 
     preKeyRateLimiter.handleRateLimitReset(account);
     unsealedSenderRateLimiter.handleRateLimitReset(account);
