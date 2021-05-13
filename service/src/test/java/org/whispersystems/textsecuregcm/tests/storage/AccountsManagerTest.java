@@ -398,19 +398,23 @@ class AccountsManagerTest {
 
     AccountsManager   accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
 
-    assertEquals(0, accountsManager.compareAccounts(Optional.empty(), Optional.empty()));
+    assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.empty(), Optional.empty()));
 
     final UUID uuidA = UUID.randomUUID();
     final Account a1 = new Account("+14152222222", uuidA, new HashSet<>(), new byte[16]);
 
-    assertEquals(1, accountsManager.compareAccounts(Optional.empty(), Optional.of(a1)));
+    assertEquals(Optional.of("dbMissing"), accountsManager.compareAccounts(Optional.empty(), Optional.of(a1)));
 
     final Account a2 = new Account("+14152222222", uuidA, new HashSet<>(), new byte[16]);
 
-    assertEquals(0, accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
+    assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
+
+    a1.setDynamoDbMigrationVersion(1);
+
+    assertEquals(Optional.of("migrationVersion"), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
 
     a2.setProfileName("name");
 
-    assertTrue(0 < accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
+    assertEquals(Optional.of("serialization"), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
   }
 }
