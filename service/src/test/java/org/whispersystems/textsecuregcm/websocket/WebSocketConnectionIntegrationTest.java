@@ -47,6 +47,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.tests.util.MessagesDynamoDbRule;
 import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
@@ -59,6 +60,7 @@ public class WebSocketConnectionIntegrationTest extends AbstractRedisClusterTest
     private ExecutorService executorService;
     private MessagesDynamoDb messagesDynamoDb;
     private MessagesCache messagesCache;
+    private ReportMessageManager reportMessageManager;
     private Account account;
     private Device device;
     private WebSocketClient webSocketClient;
@@ -75,6 +77,7 @@ public class WebSocketConnectionIntegrationTest extends AbstractRedisClusterTest
         executorService = Executors.newSingleThreadExecutor();
         messagesCache = new MessagesCache(getRedisCluster(), getRedisCluster(), executorService);
         messagesDynamoDb = new MessagesDynamoDb(messagesDynamoDbRule.getDynamoDB(), MessagesDynamoDbRule.TABLE_NAME, Duration.ofDays(7));
+        reportMessageManager = mock(ReportMessageManager.class);
         account = mock(Account.class);
         device = mock(Device.class);
         webSocketClient = mock(WebSocketClient.class);
@@ -86,7 +89,7 @@ public class WebSocketConnectionIntegrationTest extends AbstractRedisClusterTest
 
         webSocketConnection = new WebSocketConnection(
                 mock(ReceiptSender.class),
-                new MessagesManager(messagesDynamoDb, messagesCache, mock(PushLatencyManager.class)),
+                new MessagesManager(messagesDynamoDb, messagesCache, mock(PushLatencyManager.class), reportMessageManager),
                 account,
                 device,
                 webSocketClient,

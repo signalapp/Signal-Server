@@ -22,6 +22,7 @@ import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 
 public class MessageControllerMetricsTest extends AbstractRedisClusterTest {
 
@@ -40,6 +41,7 @@ public class MessageControllerMetricsTest extends AbstractRedisClusterTest {
         mock(ApnFallbackManager.class),
         mock(DynamicConfigurationManager.class),
         mock(RateLimitChallengeManager.class),
+        mock(ReportMessageManager.class),
         getRedisCluster(),
         mock(ScheduledExecutorService.class));
   }

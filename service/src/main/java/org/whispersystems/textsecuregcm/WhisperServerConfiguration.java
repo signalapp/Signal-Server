@@ -12,7 +12,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import javax.validation.Valid;
-import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.configuration.AccountDatabaseCrawlerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AccountsDatabaseConfiguration;
@@ -156,6 +155,11 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private DynamoDbConfiguration pushChallengeDynamoDb;
+
+  @Valid
+  @NotNull
+  @JsonProperty
+  private DynamoDbConfiguration reportMessageDynamoDb;
 
   @Valid
   @NotNull
@@ -440,6 +444,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public DynamoDbConfiguration getPushChallengeDynamoDbConfiguration() {
     return pushChallengeDynamoDb;
+  }
+
+  public DynamoDbConfiguration getReportMessageDynamoDbConfiguration() {
+    return reportMessageDynamoDb;
   }
 
   public TorExitNodeConfiguration getTorExitNodeConfiguration() {

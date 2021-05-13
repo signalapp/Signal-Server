@@ -34,18 +34,27 @@ public class MessagesManager {
   private final MessagesDynamoDb messagesDynamoDb;
   private final MessagesCache messagesCache;
   private final PushLatencyManager pushLatencyManager;
+  private final ReportMessageManager reportMessageManager;
 
   public MessagesManager(
-      MessagesDynamoDb messagesDynamoDb,
-      MessagesCache messagesCache,
-      PushLatencyManager pushLatencyManager) {
+      final MessagesDynamoDb messagesDynamoDb,
+      final MessagesCache messagesCache,
+      final PushLatencyManager pushLatencyManager,
+      final ReportMessageManager reportMessageManager) {
     this.messagesDynamoDb = messagesDynamoDb;
     this.messagesCache = messagesCache;
     this.pushLatencyManager = pushLatencyManager;
+    this.reportMessageManager = reportMessageManager;
   }
 
   public void insert(UUID destinationUuid, long destinationDevice, Envelope message) {
-    messagesCache.insert(UUID.randomUUID(), destinationUuid, destinationDevice, message);
+    final UUID messageGuid = UUID.randomUUID();
+
+    messagesCache.insert(messageGuid, destinationUuid, destinationDevice, message);
+
+    if (message.hasSource() && !destinationUuid.toString().equals(message.getSourceUuid())) {
+      reportMessageManager.store(message.getSource(), messageGuid);
+    }
   }
 
   public void insertEphemeral(final UUID destinationUuid, final long destinationDevice, final Envelope message) {

@@ -95,6 +95,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
@@ -127,6 +128,7 @@ class MessageControllerTest {
   private static final ApnFallbackManager          apnFallbackManager          = mock(ApnFallbackManager.class);
   private static final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
   private static final RateLimitChallengeManager   rateLimitChallengeManager   = mock(RateLimitChallengeManager.class);
+  private static final ReportMessageManager        reportMessageManager        = mock(ReportMessageManager.class);
   private static final FaultTolerantRedisCluster   metricsCluster              = RedisClusterHelper.buildMockRedisCluster(redisCommands);
   private static final ScheduledExecutorService    receiptExecutor             = mock(ScheduledExecutorService.class);
 
@@ -139,7 +141,8 @@ class MessageControllerTest {
                                                             .addProvider(new RateLimitChallengeExceptionMapper(rateLimitChallengeManager))
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new MessageController(rateLimiters, messageSender, receiptSender, accountsManager,
-                                                                                               messagesManager, unsealedSenderRateLimiter, apnFallbackManager, dynamicConfigurationManager, rateLimitChallengeManager, metricsCluster, receiptExecutor))
+                                                                                               messagesManager, unsealedSenderRateLimiter, apnFallbackManager, dynamicConfigurationManager,
+                                                                                               rateLimitChallengeManager, reportMessageManager, metricsCluster, receiptExecutor))
                                                             .build();
 
   @BeforeEach
@@ -198,6 +201,7 @@ class MessageControllerTest {
         apnFallbackManager,
         dynamicConfigurationManager,
         rateLimitChallengeManager,
+        reportMessageManager,
         metricsCluster,
         receiptExecutor
     );
@@ -601,5 +605,23 @@ class MessageControllerTest {
         Arguments.of("fixtures/online_message_true_nested_property.json", true),
         Arguments.of("fixtures/online_message_false_nested_property.json", false)
     );
+  }
+
+  @Test
+  void testReportMessage() {
+
+    final String senderNumber = "+12125550001";
+    final UUID messageGuid = UUID.randomUUID();
+
+    final Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/messages/report/%s/%s", senderNumber, messageGuid))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+            .post(null);
+
+    assertThat(response.getStatus(), is(equalTo(202)));
+
+    verify(reportMessageManager).report(senderNumber, messageGuid);
   }
 }
