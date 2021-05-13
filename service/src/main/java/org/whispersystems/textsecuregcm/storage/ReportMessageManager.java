@@ -8,6 +8,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Objects;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -19,6 +21,8 @@ public class ReportMessageManager {
   private final ReportMessageDynamoDb reportMessageDynamoDb;
   private final MeterRegistry meterRegistry;
 
+  private static final Logger logger = LoggerFactory.getLogger(ReportMessageManager.class);
+
   public ReportMessageManager(ReportMessageDynamoDb reportMessageDynamoDb, final MeterRegistry meterRegistry) {
 
     this.reportMessageDynamoDb = reportMessageDynamoDb;
@@ -27,9 +31,13 @@ public class ReportMessageManager {
 
   public void store(String sourceNumber, UUID messageGuid) {
 
-    Objects.requireNonNull(sourceNumber);
+    try {
+      Objects.requireNonNull(sourceNumber);
 
-    reportMessageDynamoDb.store(hash(messageGuid, sourceNumber));
+      reportMessageDynamoDb.store(hash(messageGuid, sourceNumber));
+    } catch (final Exception e) {
+      logger.warn("Failed to store hash", e);
+    }
   }
 
   public void report(String sourceNumber, UUID messageGuid) {
