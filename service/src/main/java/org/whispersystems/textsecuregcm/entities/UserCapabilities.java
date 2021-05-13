@@ -6,8 +6,17 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.whispersystems.textsecuregcm.storage.Account;
 
 public class UserCapabilities {
+
+  public static UserCapabilities createForAccount(Account account) {
+    return new UserCapabilities(
+        account.isGroupsV2Supported(),
+        account.isGv1MigrationSupported(),
+        account.isSenderKeySupported());
+  }
+
   @JsonProperty
   private boolean gv2;
 
