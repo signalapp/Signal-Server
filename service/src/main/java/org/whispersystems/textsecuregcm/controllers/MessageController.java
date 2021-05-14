@@ -38,7 +38,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import javax.validation.Valid;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -62,6 +61,7 @@ import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.CombinedUnidentifiedSenderAccessKeys;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessageRateConfiguration;
+import org.whispersystems.textsecuregcm.entities.AccountMismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
@@ -359,42 +359,47 @@ public class MessageController {
         }));
     checkAccessKeys(accessKeys, uuidToAccountMap);
 
-    try {
-      for (Account account : uuidToAccountMap.values()) {
-        Set<Long> deviceIds = Arrays.stream(multiRecipientMessage.getRecipients())
-            .filter(recipient -> recipient.getUuid().equals(account.getUuid()))
-            .map(Recipient::getDeviceId)
-            .collect(Collectors.toSet());
+    List<AccountMismatchedDevices> accountMismatchedDevices = new ArrayList<>();
+    for (Account account : uuidToAccountMap.values()) {
+      Set<Long> deviceIds = Arrays.stream(multiRecipientMessage.getRecipients())
+          .filter(recipient -> recipient.getUuid().equals(account.getUuid()))
+          .map(Recipient::getDeviceId)
+          .collect(Collectors.toSet());
+      try {
         validateCompleteDeviceList(account, deviceIds, false);
+      } catch (MismatchedDevicesException e) {
+        accountMismatchedDevices.add(new AccountMismatchedDevices(account.getUuid(),
+            new MismatchedDevices(e.getMissingDevices(), e.getExtraDevices())));
       }
-
-      List<Tag> tags = List.of(
-          UserAgentTagUtil.getPlatformTag(userAgent),
-          Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(online)),
-          Tag.of(SENDER_TYPE_TAG_NAME, "unidentified"));
-      List<UUID> uuids404 = new ArrayList<>();
-      for (Recipient recipient : multiRecipientMessage.getRecipients()) {
-
-        Account destinationAccount = uuidToAccountMap.get(recipient.getUuid());
-        // we asserted this must be true in validateCompleteDeviceList
-        //noinspection OptionalGetWithoutIsPresent
-        Device destinationDevice = destinationAccount.getDevice(recipient.getDeviceId()).get();
-        Metrics.counter(SENT_MESSAGE_COUNTER_NAME, tags).increment();
-        try {
-          sendMessage(destinationAccount, destinationDevice, timestamp, online, recipient,
-              multiRecipientMessage.getCommonPayload());
-        } catch (NoSuchUserException e) {
-          uuids404.add(destinationAccount.getUuid());
-        }
-      }
-      return Response.ok(new SendMessageResponse(uuids404)).build();
-    } catch (MismatchedDevicesException e) {
-      throw new WebApplicationException(Response
+    }
+    if (!accountMismatchedDevices.isEmpty()) {
+      return Response
           .status(409)
           .type(MediaType.APPLICATION_JSON_TYPE)
-          .entity(new MismatchedDevices(e.getMissingDevices(), e.getExtraDevices()))
-          .build());
+          .entity(accountMismatchedDevices)
+          .build();
     }
+
+    List<Tag> tags = List.of(
+        UserAgentTagUtil.getPlatformTag(userAgent),
+        Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(online)),
+        Tag.of(SENDER_TYPE_TAG_NAME, "unidentified"));
+    List<UUID> uuids404 = new ArrayList<>();
+    for (Recipient recipient : multiRecipientMessage.getRecipients()) {
+
+      Account destinationAccount = uuidToAccountMap.get(recipient.getUuid());
+      // we asserted this must be true in validateCompleteDeviceList
+      //noinspection OptionalGetWithoutIsPresent
+      Device destinationDevice = destinationAccount.getDevice(recipient.getDeviceId()).get();
+      Metrics.counter(SENT_MESSAGE_COUNTER_NAME, tags).increment();
+      try {
+        sendMessage(destinationAccount, destinationDevice, timestamp, online, recipient,
+            multiRecipientMessage.getCommonPayload());
+      } catch (NoSuchUserException e) {
+        uuids404.add(destinationAccount.getUuid());
+      }
+    }
+    return Response.ok(new SendMessageResponse(uuids404)).build();
   }
 
   private void checkAccessKeys(CombinedUnidentifiedSenderAccessKeys accessKeys, Map<UUID, Account> uuidToAccountMap) {
