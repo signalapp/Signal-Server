@@ -298,6 +298,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
           builder.setRelay(message.getRelay());
         }
 
+        builder.setServerGuid(message.getGuid().toString());
+
         final Envelope envelope = builder.build();
 
         if (envelope.getSerializedSize() > MAX_DESKTOP_MESSAGE_SIZE && isDesktopClient) {
