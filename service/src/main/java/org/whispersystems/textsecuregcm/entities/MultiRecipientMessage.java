@@ -6,6 +6,8 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import java.util.UUID;
+import javax.validation.Valid;
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
@@ -21,13 +23,18 @@ public class MultiRecipientMessage {
     @Min(1)
     private final long deviceId;
 
+    @Min(0)
+    @Max(65535)
+    private final int registrationId;
+
     @Size(min = 48, max = 48)
     @NotNull
     private final byte[] perRecipientKeyMaterial;
 
-    public Recipient(UUID uuid, long deviceId, byte[] perRecipientKeyMaterial) {
+    public Recipient(UUID uuid, long deviceId, int registrationId, byte[] perRecipientKeyMaterial) {
       this.uuid = uuid;
       this.deviceId = deviceId;
+      this.registrationId = registrationId;
       this.perRecipientKeyMaterial = perRecipientKeyMaterial;
     }
 
@@ -39,6 +46,10 @@ public class MultiRecipientMessage {
       return deviceId;
     }
 
+    public int getRegistrationId() {
+      return registrationId;
+    }
+
     public byte[] getPerRecipientKeyMaterial() {
       return perRecipientKeyMaterial;
     }
@@ -46,6 +57,7 @@ public class MultiRecipientMessage {
 
   @NotNull
   @Size(min = 1, max = MultiRecipientMessageProvider.MAX_RECIPIENT_COUNT)
+  @Valid
   private final Recipient[] recipients;
 
   @NotNull

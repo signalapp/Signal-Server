@@ -54,11 +54,12 @@ public class MultiRecipientMessageProvider implements MessageBodyReader<MultiRec
     for (int i = 0; i < Math.toIntExact(count); i++) {
       UUID uuid = readUuid(entityStream);
       long deviceId = readVarint(entityStream);
+      int registrationId = readU16(entityStream);
       byte[] perRecipientKeyMaterial = entityStream.readNBytes(48);
       if (perRecipientKeyMaterial.length != 48) {
         throw new IOException("Failed to read expected number of key material bytes for a recipient");
       }
-      recipients[i] = new MultiRecipientMessage.Recipient(uuid, deviceId, perRecipientKeyMaterial);
+      recipients[i] = new MultiRecipientMessage.Recipient(uuid, deviceId, registrationId, perRecipientKeyMaterial);
     }
 
     // caller is responsible for checking that the entity stream is at EOF when we return; if there are more bytes than
@@ -125,5 +126,21 @@ public class MultiRecipientMessageProvider implements MessageBodyReader<MultiRec
       currentOffset += 7;
     }
     return result;
+  }
+
+  /**
+   * Reads two bytes with most significant byte first. Treats the value as unsigned so the range returned is
+   * {@code [0, 65535]}.
+   */
+  private int readU16(InputStream stream) throws IOException {
+    int b1 = stream.read();
+    if (b1 == -1) {
+      throw new IOException("Missing byte 1 of U16");
+    }
+    int b2 = stream.read();
+    if (b2 == -1) {
+      throw new IOException("Missing byte 2 of U16");
+    }
+    return (b1 << 8) | b2;
   }
 }
