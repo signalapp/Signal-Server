@@ -10,6 +10,8 @@ import java.io.IOException;
 import java.io.Reader;
 import java.net.Inet4Address;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -21,7 +23,8 @@ import org.apache.commons.csv.CSVRecord;
  * Allows IP->ASN lookup operations using data from https://iptoasn.com/.
  */
 class AsnTable {
-  private final NavigableMap<Long, AsnRange> asnBlocksByFirstIp;
+  private final NavigableMap<Long, AsnRange> asnBlocksByFirstIp = new TreeMap<>();
+  private final Map<Long, String> countryCodesByAsn = new HashMap<>();
 
   private static class AsnRange {
     private final long rangeStart;
@@ -47,23 +50,20 @@ class AsnTable {
   public static final AsnTable EMPTY = new AsnTable();
 
   public AsnTable(final Reader tsvReader) throws IOException {
-    final TreeMap<Long, AsnRange> treeMap = new TreeMap<>();
-
     try (final CSVParser csvParser = CSVFormat.TDF.parse(tsvReader)) {
       for (final CSVRecord record : csvParser) {
         final long start = Long.parseLong(record.get(0), 10);
         final long end = Long.parseLong(record.get(1), 10);
         final long asn = Long.parseLong(record.get(2), 10);
+        final String countryCode = record.get(3);
 
-        treeMap.put(start, new AsnRange(start, end, asn));
+        asnBlocksByFirstIp.put(start, new AsnRange(start, end, asn));
+        countryCodesByAsn.put(asn, countryCode);
       }
     }
-
-    asnBlocksByFirstIp = treeMap;
   }
 
   private AsnTable() {
-    asnBlocksByFirstIp = new TreeMap<>();
   }
 
   public Optional<Long> getAsn(final Inet4Address address) {
@@ -72,6 +72,10 @@ class AsnTable {
     return Optional.ofNullable(asnBlocksByFirstIp.floorEntry(addressAsLong))
         .filter(entry -> entry.getValue().contains(addressAsLong))
         .map(entry -> entry.getValue().getAsn());
+  }
+
+  public Optional<String> getCountryCode(final long asn) {
+    return Optional.ofNullable(countryCodesByAsn.get(asn));
   }
 
   @VisibleForTesting

@@ -31,6 +31,17 @@ class AsnTableTest {
     }
 
     @Test
+    void getCountryCode() throws IOException {
+      try (final InputStreamReader reader = new InputStreamReader(getClass().getResourceAsStream("ip2asn-test.tsv"))) {
+        final AsnTable asnTable = new AsnTable(reader);
+
+        assertEquals(Optional.of("US"), asnTable.getCountryCode(7922));
+        assertEquals(Optional.of("VN"), asnTable.getCountryCode(7552));
+        assertEquals(Optional.empty(), asnTable.getCountryCode(1234));
+      }
+    }
+
+    @Test
     void ipToLong() throws UnknownHostException {
       assertEquals(0x00000000ffffffffL, AsnTable.ipToLong((Inet4Address) Inet4Address.getByName("255.255.255.255")));
       assertEquals(0x0000000000000001L, AsnTable.ipToLong((Inet4Address) Inet4Address.getByName("0.0.0.1")));
