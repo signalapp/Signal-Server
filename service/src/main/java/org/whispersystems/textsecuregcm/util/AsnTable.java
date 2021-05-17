@@ -44,6 +44,8 @@ class AsnTable {
     }
   }
 
+  public static final AsnTable EMPTY = new AsnTable();
+
   public AsnTable(final Reader tsvReader) throws IOException {
     final TreeMap<Long, AsnRange> treeMap = new TreeMap<>();
 
@@ -58,6 +60,10 @@ class AsnTable {
     }
 
     asnBlocksByFirstIp = treeMap;
+  }
+
+  private AsnTable() {
+    asnBlocksByFirstIp = new TreeMap<>();
   }
 
   public Optional<Long> getAsn(final Inet4Address address) {

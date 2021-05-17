@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.configuration.TorExitNodeConfiguration;
+import org.whispersystems.textsecuregcm.configuration.MonitoredS3ObjectConfiguration;
 
 /**
  * A utility for checking whether IP addresses belong to Tor exit nodes using the "bulk exit list."
@@ -44,7 +44,7 @@ public class TorExitNodeManager implements Managed {
 
   public TorExitNodeManager(
       final ScheduledExecutorService scheduledExecutorService,
-      final TorExitNodeConfiguration configuration) {
+      final MonitoredS3ObjectConfiguration configuration) {
 
     this.exitListMonitor = new S3ObjectMonitor(
         configuration.getS3Region(),

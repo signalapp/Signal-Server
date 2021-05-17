@@ -11,7 +11,7 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import java.time.Duration;
 
-public class TorExitNodeConfiguration {
+public class MonitoredS3ObjectConfiguration {
 
   @JsonProperty
   @NotBlank
