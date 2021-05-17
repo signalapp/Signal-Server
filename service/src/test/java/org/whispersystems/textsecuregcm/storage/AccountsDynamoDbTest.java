@@ -109,9 +109,15 @@ class AccountsDynamoDbTest {
     Device  device  = generateDevice (1                                            );
     Account account = generateAccount("+14151112222", UUID.randomUUID(), Collections.singleton(device));
 
-    accountsDynamoDb.create(account);
+    boolean freshUser = accountsDynamoDb.create(account);
 
+    assertThat(freshUser).isTrue();
     verifyStoredState("+14151112222", account.getUuid(), account);
+
+    freshUser = accountsDynamoDb.create(account);
+    assertThat(freshUser).isTrue();
+    verifyStoredState("+14151112222", account.getUuid(), account);
+
   }
 
   @Test
@@ -180,7 +186,8 @@ class AccountsDynamoDbTest {
     device = generateDevice(1);
     account = generateAccount("+14151112222", secondUuid, Collections.singleton(device));
 
-    accountsDynamoDb.create(account);
+    final boolean freshUser = accountsDynamoDb.create(account);
+    assertThat(freshUser).isFalse();
     verifyStoredState("+14151112222", firstUuid, account);
 
     device = generateDevice(1);
@@ -245,8 +252,9 @@ class AccountsDynamoDbTest {
       final Account recreatedAccount = generateAccount(deletedAccount.getNumber(), UUID.randomUUID(),
           Collections.singleton(generateDevice(1)));
 
-      accountsDynamoDb.create(recreatedAccount);
+      final boolean freshUser = accountsDynamoDb.create(recreatedAccount);
 
+      assertThat(freshUser).isTrue();
       assertThat(accountsDynamoDb.get(recreatedAccount.getUuid())).isPresent();
       verifyStoredState(recreatedAccount.getNumber(), recreatedAccount.getUuid(),
           accountsDynamoDb.get(recreatedAccount.getUuid()).get(), recreatedAccount);
