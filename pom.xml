@@ -32,6 +32,7 @@
   </modules>
 
   <properties>
+    <dropwizard.version>2.0.21</dropwizard.version>
     <aws.sdk.version>1.11.939</aws.sdk.version>
     <mockito.version>2.25.1</mockito.version>
     <micrometer.version>1.5.3</micrometer.version>
@@ -42,18 +43,19 @@
     <TextSecureServer.version>5.90</TextSecureServer.version>
   </properties>
 
-  <parent>
-    <groupId>io.dropwizard</groupId>
-    <artifactId>dropwizard-dependencies</artifactId>
-    <version>2.0.21</version>
-  </parent>
-
   <groupId>org.whispersystems.textsecure</groupId>
   <artifactId>TextSecureServer</artifactId>
   <version>1.0</version>
 
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>io.dropwizard</groupId>
+        <artifactId>dropwizard-dependencies</artifactId>
+        <version>${dropwizard.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>com.amazonaws</groupId>
         <artifactId>aws-java-sdk-bom</artifactId>
