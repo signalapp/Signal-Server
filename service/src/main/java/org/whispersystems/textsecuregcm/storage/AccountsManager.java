@@ -118,24 +118,43 @@ public class AccountsManager {
 
   public boolean create(Account account) {
     try (Timer.Context ignored = createTimer.time()) {
+      final UUID originalUuid = account.getUuid();
       boolean freshUser = databaseCreate(account);
+
+      // databaseCreate() sometimes updates the UUID, if there was a number conflict.
+      // for metrics, we want dynamo to run with the same original UUID
+      final UUID actualUuid = account.getUuid();
+
+      try {
+        if (dynamoWriteEnabled()) {
+
+          account.setUuid(originalUuid);
+
+          runSafelyAndRecordMetrics(() -> dynamoCreate(account), Optional.of(account.getUuid()), freshUser,
+              (databaseResult, dynamoResult) -> {
+
+                if (!account.getUuid().equals(actualUuid)) {
+                  logger.warn("dynamoCreate() did not return correct UUID");
+                }
+
+                if (databaseResult.equals(dynamoResult)) {
+                  return Optional.empty();
+                }
+
+                if (dynamoResult) {
+                  return Optional.of("dynamoFreshUser");
+                }
+
+                return Optional.of("dbFreshUser");
+              },
+              "create");
+        }
+      } finally {
+        account.setUuid(actualUuid);
+      }
+
       redisSet(account);
 
-      if (dynamoWriteEnabled()) {
-        runSafelyAndRecordMetrics(() -> dynamoCreate(account), Optional.of(account.getUuid()), freshUser,
-            (databaseResult, dynamoResult) -> {
-              if (databaseResult.equals(dynamoResult)) {
-                return Optional.empty();
-              }
-
-              if (dynamoResult) {
-                return Optional.of("dynamoFreshUser");
-              }
-
-              return Optional.of("dbFreshUser");
-            },
-            "create");
-      }
       return freshUser;
     }
   }
