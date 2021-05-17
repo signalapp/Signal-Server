@@ -397,7 +397,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ExecutorService          gcmSenderExecutor                    = environment.lifecycle().executorService(name(getClass(), "gcmSender-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService          backupServiceExecutor                = environment.lifecycle().executorService(name(getClass(), "backupService-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService          storageServiceExecutor               = environment.lifecycle().executorService(name(getClass(), "storageService-%d")).maxThreads(1).minThreads(1).build();
-    ExecutorService          torExitNodeExecutor                  = environment.lifecycle().executorService(name(getClass(), "torExitNode-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService          donationExecutor                     = environment.lifecycle().executorService(name(getClass(), "donation-%d")).maxThreads(1).minThreads(1).build();
 
     ExternalServiceCredentialGenerator directoryCredentialsGenerator = new ExternalServiceCredentialGenerator(config.getDirectoryConfiguration().getDirectoryClientConfiguration().getUserAuthenticationTokenSharedSecret(),
@@ -437,7 +436,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     GCMSender                  gcmSender                  = new GCMSender(gcmSenderExecutor, accountsManager, config.getGcmConfiguration().getApiKey());
     RateLimiters               rateLimiters               = new RateLimiters(config.getLimitsConfiguration(), dynamicConfigurationManager, rateLimitersCluster);
     ProvisioningManager        provisioningManager        = new ProvisioningManager(pubSubManager);
-    TorExitNodeManager         torExitNodeManager         = new TorExitNodeManager(recurringJobExecutor, torExitNodeExecutor, config.getTorExitNodeConfiguration());
+    TorExitNodeManager         torExitNodeManager         = new TorExitNodeManager(recurringJobExecutor, config.getTorExitNodeConfiguration());
 
     AccountAuthenticator                  accountAuthenticator                  = new AccountAuthenticator(accountsManager);
     DisabledPermittedAccountAuthenticator disabledPermittedAccountAuthenticator = new DisabledPermittedAccountAuthenticator(accountsManager);
