@@ -415,6 +415,6 @@ class AccountsManagerTest {
 
     a2.setProfileName("name");
 
-    assertEquals(Optional.of("serialization"), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
+    assertEquals(Optional.of("profileName"), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
   }
 }

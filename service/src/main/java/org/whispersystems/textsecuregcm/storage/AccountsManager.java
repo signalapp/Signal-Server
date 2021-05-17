@@ -21,6 +21,7 @@ import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -421,13 +422,52 @@ public class AccountsManager {
       return Optional.of("number");
     }
 
+    if (!Objects.equals(databaseAccount.getIdentityKey(), dynamoAccount.getIdentityKey())) {
+      return Optional.of("identityKey");
+    }
+
+    if (!Objects.equals(databaseAccount.getCurrentProfileVersion(), dynamoAccount.getCurrentProfileVersion())) {
+      return Optional.of("currentProfileVersion");
+    }
+
+    if (!Objects.equals(databaseAccount.getProfileName(), dynamoAccount.getProfileName())) {
+      return Optional.of("profileName");
+    }
+
+    if (!Objects.equals(databaseAccount.getAvatar(), dynamoAccount.getAvatar())) {
+      return Optional.of("avatar");
+    }
+
+    if (!Objects.equals(databaseAccount.getUnidentifiedAccessKey(), dynamoAccount.getUnidentifiedAccessKey())) {
+      if (databaseAccount.getUnidentifiedAccessKey().isPresent() && dynamoAccount.getUnidentifiedAccessKey().isPresent()) {
+
+        if (Arrays.compare(databaseAccount.getUnidentifiedAccessKey().get(), dynamoAccount.getUnidentifiedAccessKey().get()) != 0) {
+          return Optional.of("unidentifiedAccessKey");
+        }
+
+      } else {
+        return Optional.of("unidentifiedAccessKey");
+      }
+    }
+
+    if (!Objects.equals(databaseAccount.isUnrestrictedUnidentifiedAccess(), dynamoAccount.isUnrestrictedUnidentifiedAccess())) {
+      return Optional.of("unrestrictedUnidentifiedAccess");
+    }
+
+    if (!Objects.equals(databaseAccount.isDiscoverableByPhoneNumber(), dynamoAccount.isDiscoverableByPhoneNumber())) {
+      return Optional.of("discoverableByPhoneNumber");
+    }
+
     try {
-      final byte[] databaseSerialized = migrationComparisonMapper.writeValueAsBytes(databaseAccount);
-      final byte[] dynamoSerialized = migrationComparisonMapper.writeValueAsBytes(dynamoAccount);
+      if (!serializedEquals(databaseAccount.getRegistrationLock(), dynamoAccount.getRegistrationLock())) {
+        return Optional.of("registrationLock");
+      }
 
-      final int serializeCompare = Arrays.compare(databaseSerialized, dynamoSerialized);
+      if (!serializedEquals(databaseAccount.getDevices(), dynamoAccount.getDevices())) {
+        return Optional.of("devices");
+      }
 
-      if (serializeCompare != 0) {
+      if (!serializedEquals(databaseAccount, dynamoAccount)) {
         return Optional.of("serialization");
       }
 
@@ -484,5 +524,13 @@ public class AccountsManager {
     @JsonIgnore
     private int dynamoDbMigrationVersion;
 
+  }
+
+  private boolean serializedEquals(final Object database, final Object dynamo) throws JsonProcessingException {
+    final byte[] databaseSerialized = migrationComparisonMapper.writeValueAsBytes(database);
+    final byte[] dynamoSerialized = migrationComparisonMapper.writeValueAsBytes(dynamo);
+    final int serializeCompare = Arrays.compare(databaseSerialized, dynamoSerialized);
+
+    return serializeCompare == 0;
   }
 }
