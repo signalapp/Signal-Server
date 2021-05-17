@@ -5,7 +5,12 @@
 
 package org.whispersystems.textsecuregcm.limits;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import io.micrometer.core.instrument.Metrics;
+import java.security.SecureRandom;
+import java.time.Duration;
+import java.util.Optional;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.StringUtils;
@@ -19,11 +24,6 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.PushChallengeDynamoDb;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
-import java.security.SecureRandom;
-import java.time.Duration;
-import java.util.Optional;
-
-import static com.codahale.metrics.MetricRegistry.name;
 
 public class PushChallengeManager {
   private final APNSender apnSender;
@@ -79,7 +79,7 @@ public class PushChallengeManager {
       }
     } else {
       sent = false;
-      platform = null;
+      platform = "unrecognized";
     }
 
     Metrics.counter(CHALLENGE_REQUESTED_COUNTER_NAME,
