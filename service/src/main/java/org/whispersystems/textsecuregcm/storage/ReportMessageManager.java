@@ -1,5 +1,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -16,7 +18,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 public class ReportMessageManager {
 
   @VisibleForTesting
-  static final String REPORT_COUNTER_NAME = "reported";
+  static final String REPORT_COUNTER_NAME = name(ReportMessageManager.class, "reported");
 
   private final ReportMessageDynamoDb reportMessageDynamoDb;
   private final MeterRegistry meterRegistry;
