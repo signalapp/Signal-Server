@@ -498,7 +498,7 @@ public class AccountsManager {
     try {
 
       final T dynamoResult = callable.call();
-      compare(databaseResult, dynamoResult, mismatchClassifier, action);
+      compare(databaseResult, dynamoResult, mismatchClassifier, action, maybeUuid);
 
     } catch (final Exception e) {
       logger.error("Error running " + action + " in Dynamo", e);
@@ -507,16 +507,23 @@ public class AccountsManager {
     }
   }
 
-  private <T> void compare(final T databaseResult, final T dynamoResult, final BiFunction<T, T, Optional<String>> mismatchClassifier, final String action) {
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  private <T> void compare(final T databaseResult, final T dynamoResult, final BiFunction<T, T, Optional<String>> mismatchClassifier, final String action, final Optional<UUID> maybeUUid) {
 
     DYNAMO_MIGRATION_COMPARISON_COUNTER.increment();
 
     mismatchClassifier.apply(databaseResult, dynamoResult)
-        .ifPresent(mismatchType ->
-            Metrics.counter(DYNAMO_MIGRATION_MISMATCH_COUNTER_NAME,
-                "mismatchType", action + ":" + mismatchType)
-                .increment()
-        );
+        .ifPresent(mismatchType -> {
+          final String mismatchDescription = action + ":" + mismatchType;
+          Metrics.counter(DYNAMO_MIGRATION_MISMATCH_COUNTER_NAME,
+              "mismatchType", mismatchDescription)
+              .increment();
+
+          if (maybeUUid.isPresent()
+              && dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration().isLogMismatches()) {
+            logger.info("Mismatched {} for {}", mismatchDescription, maybeUUid.get());
+          }
+        });
   }
 
   private static abstract class AccountComparisonMixin extends Account {
