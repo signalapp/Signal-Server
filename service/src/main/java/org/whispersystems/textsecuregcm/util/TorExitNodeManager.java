@@ -14,6 +14,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Collections;
@@ -57,7 +58,12 @@ public class TorExitNodeManager implements Managed {
 
   @Override
   public synchronized void start() {
-    exitListMonitor.refresh();
+    try {
+      handleExitListChanged(exitListMonitor.getObject());
+    } catch (final Exception e) {
+      log.warn("Failed to load initial Tor exit node list", e);
+    }
+
     exitListMonitor.start();
   }
 

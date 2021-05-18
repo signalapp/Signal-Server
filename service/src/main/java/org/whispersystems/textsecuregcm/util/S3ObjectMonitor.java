@@ -12,6 +12,7 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.lifecycle.Managed;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -103,12 +104,33 @@ public class S3ObjectMonitor implements Managed {
   }
 
   /**
-   * Polls S3 for object metadata and notifies the listener provided at construction time if and only if the object has
-   * changed. This method blocks until S3 object metadata has been retrieved and, if the object has changed, the
-   * listener returns. Callers may wish to call this method at initialization time if they need data from the monitored
-   * S3 object immediately and don't want to wait for the first scheduled update.
+   * Immediately returns the monitored S3 object regardless of whether it has changed since it was last retrieved.
+   *
+   * @return the current version of the monitored S3 object
+   *
+   * @throws IOException if the retrieved S3 object is larger than the configured maximum size
    */
-  public void refresh() {
+  public S3Object getObject() throws IOException {
+    final S3Object s3Object = s3Client.getObject(s3Bucket, objectKey);
+
+    lastETag.set(s3Object.getObjectMetadata().getETag());
+
+    if (s3Object.getObjectMetadata().getContentLength() <= maxObjectSize) {
+      return s3Object;
+    } else {
+      log.warn("Object at s3://{}/{} has a size of {} bytes, which exceeds the maximum allowed size of {} bytes",
+          s3Bucket, objectKey, s3Object.getObjectMetadata().getContentLength(), maxObjectSize);
+
+      throw new IOException("S3 object too large");
+    }
+  }
+
+  /**
+   * Polls S3 for object metadata and notifies the listener provided at construction time if and only if the object has
+   * changed since the last call to {@link #getObject()} or {@code refresh()}.
+   */
+  @VisibleForTesting
+  void refresh() {
     try {
       final ObjectMetadata objectMetadata = s3Client.getObjectMetadata(s3Bucket, objectKey);
 
@@ -116,17 +138,12 @@ public class S3ObjectMonitor implements Managed {
       final String refreshedETag = objectMetadata.getETag();
 
       if (!StringUtils.equals(initialETag, refreshedETag) && lastETag.compareAndSet(initialETag, refreshedETag)) {
-        final S3Object s3Object = s3Client.getObject(s3Bucket, objectKey);
+        final S3Object s3Object = getObject();
 
         log.info("Object at s3://{}/{} has changed; new eTag is {} and object size is {} bytes",
             s3Bucket, objectKey, s3Object.getObjectMetadata().getETag(), s3Object.getObjectMetadata().getContentLength());
 
-        if (s3Object.getObjectMetadata().getContentLength() <= maxObjectSize) {
-          changeListener.accept(s3Object);
-        } else {
-          log.warn("Object at s3://{}/{} has a size of {} bytes, which exceeds the maximum allowed size of {} bytes",
-              s3Bucket, objectKey, s3Object.getObjectMetadata().getContentLength(), maxObjectSize);
-        }
+        changeListener.accept(s3Object);
       }
     } catch (final Exception e) {
       log.warn("Failed to refresh monitored object", e);
