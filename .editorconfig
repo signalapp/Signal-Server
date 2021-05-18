@@ -5,7 +5,7 @@ indent_size = 2
 indent_style = space
 insert_final_newline = true
 max_line_length = 120
-tab_width = 2
+tab_width = 8
 ij_continuation_indent_size = 4
 ij_formatter_off_tag = @formatter:off
 ij_formatter_on_tag = @formatter:on
@@ -34,18 +34,15 @@ ij_css_use_double_quotes = true
 ij_css_value_alignment = do_not_align
 
 [*.feature]
-tab_width = 4
 ij_continuation_indent_size = 8
 ij_gherkin_keep_indents_on_empty_lines = false
 
 [*.gsp]
 indent_size = 4
-tab_width = 4
 ij_continuation_indent_size = 8
 ij_gsp_keep_indents_on_empty_lines = false
 
 [*.haml]
-tab_width = 4
 ij_continuation_indent_size = 8
 ij_haml_keep_indents_on_empty_lines = false
 
@@ -298,7 +295,6 @@ ij_java_wrap_first_method_in_call_chain = false
 ij_java_wrap_long_lines = false
 
 [*.less]
-tab_width = 4
 ij_continuation_indent_size = 8
 ij_less_align_closing_brace_with_properties = false
 ij_less_blank_lines_around_nested_selector = 1
@@ -332,7 +328,6 @@ ij_protobuf_spaces_within_brackets = false
 
 [*.rs]
 indent_size = 4
-tab_width = 4
 ij_rust_align_multiline_chained_methods = false
 ij_rust_align_multiline_parameters = true
 ij_rust_align_multiline_parameters_in_calls = true
@@ -392,7 +387,6 @@ ij_scss_use_double_quotes = true
 ij_scss_value_alignment = 0
 
 [*.styl]
-tab_width = 4
 ij_continuation_indent_size = 8
 ij_stylus_align_closing_brace_with_properties = false
 ij_stylus_blank_lines_around_nested_selector = 1
@@ -876,7 +870,6 @@ ij_coffeescript_var_declaration_wrap = normal
 
 [{*.dot,*.gv}]
 indent_size = 4
-tab_width = 4
 ij_continuation_indent_size = 8
 ij_dot_keep_blank_lines_in_code = 2
 ij_dot_keep_indents_on_empty_lines = false
@@ -898,13 +891,11 @@ ij_rhtml_keep_indents_on_empty_lines = false
 
 [{*.ft,*.vm,*.vsl}]
 indent_size = 4
-tab_width = 4
 ij_continuation_indent_size = 8
 ij_vtl_keep_indents_on_empty_lines = false
 
 [{*.gant,*.gradle,*.groovy,*.gson,*.gy}]
 indent_size = 4
-tab_width = 4
 ij_continuation_indent_size = 8
 ij_groovy_align_group_field_declarations = false
 ij_groovy_align_multiline_array_initializer_expression = false
@@ -1111,7 +1102,6 @@ ij_ruby_spaces_within_braces = true
 
 [{*.gradle.kts,*.kt,*.kts,*.main.kts}]
 indent_size = 4
-tab_width = 4
 ij_continuation_indent_size = 8
 ij_kotlin_align_in_columns_case_branch = false
 ij_kotlin_align_multiline_binary_operation = false
@@ -1206,7 +1196,6 @@ ij_json_spaces_within_brackets = false
 ij_json_wrap_long_lines = false
 
 [{*.hcl,*.nomad}]
-tab_width = 4
 ij_continuation_indent_size = 8
 ij_hcl_array_wrapping = 2
 ij_hcl_keep_blank_lines_in_code = 2
@@ -1252,20 +1241,17 @@ ij_html_uniform_ident = false
 
 [{*.jsf,*.jsp,*.jspf,*.tag,*.tagf,*.xjsp}]
 indent_size = 4
-tab_width = 4
 ij_continuation_indent_size = 8
 ij_jsp_jsp_prefer_comma_separated_import_list = false
 ij_jsp_keep_indents_on_empty_lines = false
 
 [{*.jspx,*.tagx}]
 indent_size = 4
-tab_width = 4
 ij_continuation_indent_size = 8
 ij_jspx_keep_indents_on_empty_lines = false
 
 [{*.lua,*.lua.txt}]
 indent_size = 4
-tab_width = 4
 ij_continuation_indent_size = 8
 ij_lua_align_consecutive_variable_declarations = false
 ij_lua_align_multiline_parameters = true
@@ -1280,7 +1266,6 @@ ij_lua_spaces_around_assignment_operators = true
 
 [{*.markdown,*.md}]
 indent_size = 4
-tab_width = 4
 ij_continuation_indent_size = 8
 ij_markdown_force_one_space_after_blockquote_symbol = true
 ij_markdown_force_one_space_after_header_symbol = true
@@ -1293,9 +1278,6 @@ ij_markdown_max_lines_between_paragraphs = 1
 ij_markdown_min_lines_around_block_elements = 1
 ij_markdown_min_lines_around_header = 1
 ij_markdown_min_lines_between_paragraphs = 1
-
-[{*.mk,GNUmakefile,makefile}]
-tab_width = 4
 
 [{*.pb,*.textproto}]
 ij_prototext_keep_blank_lines_in_code = 2
@@ -1381,7 +1363,6 @@ ij_python_use_continuation_indent_for_collection_and_comprehensions = false
 ij_python_wrap_long_lines = false
 
 [{*.tf,*.tfvars}]
-tab_width = 4
 ij_continuation_indent_size = 8
 ij_hcl-terraform_array_wrapping = 2
 ij_hcl-terraform_keep_blank_lines_in_code = 2
@@ -1399,7 +1380,6 @@ ij_hcl-terraform_wrap_long_lines = false
 
 [{*.toml,Cargo.lock,Gopkg.lock,Pipfile}]
 indent_size = 4
-tab_width = 4
 ij_continuation_indent_size = 8
 ij_toml_keep_indents_on_empty_lines = false
 
