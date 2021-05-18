@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.providers;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.util.DataSizeUnit;
 import java.io.IOException;
 import java.io.InputStream;
@@ -132,7 +133,8 @@ public class MultiRecipientMessageProvider implements MessageBodyReader<MultiRec
    * Reads two bytes with most significant byte first. Treats the value as unsigned so the range returned is
    * {@code [0, 65535]}.
    */
-  private int readU16(InputStream stream) throws IOException {
+  @VisibleForTesting
+  static int readU16(InputStream stream) throws IOException {
     int b1 = stream.read();
     if (b1 == -1) {
       throw new IOException("Missing byte 1 of U16");
