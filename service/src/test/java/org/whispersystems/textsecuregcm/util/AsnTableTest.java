@@ -25,6 +25,7 @@ class AsnTableTest {
 
         assertEquals(Optional.of(7922L), asnTable.getAsn((Inet4Address) Inet4Address.getByName("50.79.54.1")));
         assertEquals(Optional.of(7552L), asnTable.getAsn((Inet4Address) Inet4Address.getByName("27.79.32.1")));
+        assertEquals(Optional.empty(), asnTable.getAsn((Inet4Address) Inet4Address.getByName("5.182.202.1")));
         assertEquals(Optional.empty(), asnTable.getAsn((Inet4Address) Inet4Address.getByName("32.79.117.1")));
         assertEquals(Optional.empty(), asnTable.getAsn((Inet4Address) Inet4Address.getByName("10.0.0.1")));
       }

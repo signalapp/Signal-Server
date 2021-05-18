@@ -71,7 +71,8 @@ class AsnTable {
 
     return Optional.ofNullable(asnBlocksByFirstIp.floorEntry(addressAsLong))
         .filter(entry -> entry.getValue().contains(addressAsLong))
-        .map(entry -> entry.getValue().getAsn());
+        .map(entry -> entry.getValue().getAsn())
+        .filter(asn -> asn != 0);
   }
 
   public Optional<String> getCountryCode(final long asn) {
