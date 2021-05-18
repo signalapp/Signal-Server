@@ -665,7 +665,8 @@ public class MessageController {
     }
   }
 
-  private void validateRegistrationIds(Account account, List<IncomingMessage> messages)
+  @VisibleForTesting
+  public static void validateRegistrationIds(Account account, List<IncomingMessage> messages)
       throws StaleDevicesException {
     final Stream<Pair<Long, Integer>> deviceIdAndRegistrationIdStream = messages
         .stream()
@@ -673,7 +674,8 @@ public class MessageController {
     validateRegistrationIds(account, deviceIdAndRegistrationIdStream);
   }
 
-  private void validateRegistrationIds(Account account, Stream<Pair<Long, Integer>> deviceIdAndRegistrationIdStream)
+  @VisibleForTesting
+  public static void validateRegistrationIds(Account account, Stream<Pair<Long, Integer>> deviceIdAndRegistrationIdStream)
       throws StaleDevicesException {
     final List<Long> staleDevices = deviceIdAndRegistrationIdStream
         .filter(deviceIdAndRegistrationId -> deviceIdAndRegistrationId.second() > 0)
@@ -689,18 +691,16 @@ public class MessageController {
     }
   }
 
-  private void validateCompleteDeviceList(Account account, List<IncomingMessage> messages, boolean isSyncMessage)
+  @VisibleForTesting
+  public static void validateCompleteDeviceList(Account account, List<IncomingMessage> messages, boolean isSyncMessage)
       throws MismatchedDevicesException {
     Set<Long> messageDeviceIds = messages.stream().map(IncomingMessage::getDestinationDeviceId).collect(Collectors.toSet());
     validateCompleteDeviceList(account, messageDeviceIds, isSyncMessage);
   }
 
-
-  private void validateCompleteDeviceList(Account account,
-                                          Set<Long> messageDeviceIds,
-                                          boolean isSyncMessage)
-      throws MismatchedDevicesException
-  {
+  @VisibleForTesting
+  public static void validateCompleteDeviceList(Account account, Set<Long> messageDeviceIds, boolean isSyncMessage)
+      throws MismatchedDevicesException {
     Set<Long> accountDeviceIds = new HashSet<>();
 
     List<Long> missingDeviceIds = new LinkedList<>();

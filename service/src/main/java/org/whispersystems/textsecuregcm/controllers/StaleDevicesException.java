@@ -8,7 +8,7 @@ package org.whispersystems.textsecuregcm.controllers;
 import java.util.List;
 
 
-public class StaleDevicesException extends Throwable {
+public class StaleDevicesException extends Exception {
   private final List<Long> staleDevices;
 
   public StaleDevicesException(List<Long> staleDevices) {
