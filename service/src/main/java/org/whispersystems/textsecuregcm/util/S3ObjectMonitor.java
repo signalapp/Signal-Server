@@ -29,6 +29,7 @@ public class S3ObjectMonitor implements Managed {
 
   private final String s3Bucket;
   private final String objectKey;
+  private final long maxObjectSize;
 
   private final ScheduledExecutorService refreshExecutorService;
   private final Duration refreshInterval;
@@ -46,6 +47,7 @@ public class S3ObjectMonitor implements Managed {
       final String s3Region,
       final String s3Bucket,
       final String objectKey,
+      final long maxObjectSize,
       final ScheduledExecutorService refreshExecutorService,
       final Duration refreshInterval,
       final Consumer<S3Object> changeListener) {
@@ -56,6 +58,7 @@ public class S3ObjectMonitor implements Managed {
             .build(),
         s3Bucket,
         objectKey,
+        maxObjectSize,
         refreshExecutorService,
         refreshInterval,
         changeListener);
@@ -66,6 +69,7 @@ public class S3ObjectMonitor implements Managed {
       final AmazonS3 s3Client,
       final String s3Bucket,
       final String objectKey,
+      final long maxObjectSize,
       final ScheduledExecutorService refreshExecutorService,
       final Duration refreshInterval,
       final Consumer<S3Object> changeListener) {
@@ -73,6 +77,7 @@ public class S3ObjectMonitor implements Managed {
     this.s3Client = s3Client;
     this.s3Bucket = s3Bucket;
     this.objectKey = objectKey;
+    this.maxObjectSize = maxObjectSize;
 
     this.refreshExecutorService = refreshExecutorService;
     this.refreshInterval = refreshInterval;
@@ -111,7 +116,17 @@ public class S3ObjectMonitor implements Managed {
       final String refreshedETag = objectMetadata.getETag();
 
       if (!StringUtils.equals(initialETag, refreshedETag) && lastETag.compareAndSet(initialETag, refreshedETag)) {
-        changeListener.accept(s3Client.getObject(s3Bucket, objectKey));
+        final S3Object s3Object = s3Client.getObject(s3Bucket, objectKey);
+
+        log.info("Object at s3://{}/{} has changed; new eTag is {} and object size is {} bytes",
+            s3Bucket, objectKey, s3Object.getObjectMetadata().getETag(), s3Object.getObjectMetadata().getContentLength());
+
+        if (s3Object.getObjectMetadata().getContentLength() <= maxObjectSize) {
+          changeListener.accept(s3Object);
+        } else {
+          log.warn("Object at s3://{}/{} has a size of {} bytes, which exceeds the maximum allowed size of {} bytes",
+              s3Bucket, objectKey, s3Object.getObjectMetadata().getContentLength(), maxObjectSize);
+        }
       }
     } catch (final Exception e) {
       log.warn("Failed to refresh monitored object", e);

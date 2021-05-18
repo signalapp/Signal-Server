@@ -49,6 +49,7 @@ public class TorExitNodeManager implements Managed {
         configuration.getS3Region(),
         configuration.getS3Bucket(),
         configuration.getObjectKey(),
+        configuration.getMaxSize(),
         scheduledExecutorService,
         configuration.getRefreshInterval(),
         this::handleExitListChanged);
