@@ -647,7 +647,7 @@ public class MessageController {
       byte[] payload = new byte[1 + recipientKeyMaterial.length + commonPayload.length];
       payload[0] = MultiRecipientMessageProvider.VERSION;
       System.arraycopy(recipientKeyMaterial, 0, payload, 1, recipientKeyMaterial.length);
-      System.arraycopy(commonPayload, 0, payload, 1 + recipientKeyMaterial.length, payload.length);
+      System.arraycopy(commonPayload, 0, payload, 1 + recipientKeyMaterial.length, commonPayload.length);
 
       messageBuilder
           .setType(Type.UNIDENTIFIED_SENDER)
