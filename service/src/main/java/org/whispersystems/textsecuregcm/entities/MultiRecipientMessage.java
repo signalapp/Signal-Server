@@ -61,7 +61,7 @@ public class MultiRecipientMessage {
   private final Recipient[] recipients;
 
   @NotNull
-  @Min(32)
+  @Size(min = 32)
   private final byte[] commonPayload;
 
   public MultiRecipientMessage(Recipient[] recipients, byte[] commonPayload) {
