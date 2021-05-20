@@ -8,17 +8,11 @@ package org.whispersystems.textsecuregcm.util;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.configuration.MonitoredS3ObjectConfiguration;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.Inet4Address;
-import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 
@@ -34,7 +28,7 @@ class AsnManagerTest {
     assertEquals(Optional.empty(), asnManager.getAsn("10.0.0.1"));
 
     try (final InputStream tableInputStream = getClass().getResourceAsStream("ip2asn-test.tsv")) {
-      asnManager.handleAsnTableChanged(tableInputStream);
+      asnManager.handleAsnTableChangedStream(tableInputStream);
     }
 
     assertEquals(Optional.of(7922L), asnManager.getAsn("50.79.54.1"));

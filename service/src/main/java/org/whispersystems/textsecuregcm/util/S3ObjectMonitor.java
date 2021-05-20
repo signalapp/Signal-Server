@@ -5,11 +5,6 @@
 
 package org.whispersystems.textsecuregcm.util;
 
-import com.amazonaws.auth.InstanceProfileCredentialsProvider;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.S3Object;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.lifecycle.Managed;
 import java.io.IOException;
@@ -22,6 +17,14 @@ import java.util.function.Consumer;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider;
+import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 
 /**
  * An S3 object monitor watches a specific object in an S3 bucket and notifies a listener if that object changes.
@@ -36,11 +39,11 @@ public class S3ObjectMonitor implements Managed {
   private final Duration refreshInterval;
   private ScheduledFuture<?> refreshFuture;
 
-  private final Consumer<S3Object> changeListener;
+  private final Consumer<ResponseInputStream<GetObjectResponse>> changeListener;
 
   private final AtomicReference<String> lastETag = new AtomicReference<>();
 
-  private final AmazonS3 s3Client;
+  private final S3Client s3Client;
 
   private static final Logger log = LoggerFactory.getLogger(S3ObjectMonitor.class);
 
@@ -51,11 +54,11 @@ public class S3ObjectMonitor implements Managed {
       final long maxObjectSize,
       final ScheduledExecutorService refreshExecutorService,
       final Duration refreshInterval,
-      final Consumer<S3Object> changeListener) {
+      final Consumer<ResponseInputStream<GetObjectResponse>> changeListener) {
 
-    this(AmazonS3ClientBuilder.standard()
-            .withCredentials(InstanceProfileCredentialsProvider.getInstance())
-            .withRegion(s3Region)
+    this(S3Client.builder()
+            .region(Region.of(s3Region))
+            .credentialsProvider(InstanceProfileCredentialsProvider.create())
             .build(),
         s3Bucket,
         objectKey,
@@ -67,13 +70,13 @@ public class S3ObjectMonitor implements Managed {
 
   @VisibleForTesting
   S3ObjectMonitor(
-      final AmazonS3 s3Client,
+      final S3Client s3Client,
       final String s3Bucket,
       final String objectKey,
       final long maxObjectSize,
       final ScheduledExecutorService refreshExecutorService,
       final Duration refreshInterval,
-      final Consumer<S3Object> changeListener) {
+      final Consumer<ResponseInputStream<GetObjectResponse>> changeListener) {
 
     this.s3Client = s3Client;
     this.s3Bucket = s3Bucket;
@@ -92,8 +95,13 @@ public class S3ObjectMonitor implements Managed {
       throw new RuntimeException("S3 object manager already started");
     }
 
+    // Run the first request immediately/blocking, then start subsequent calls.
+    log.info("Initial request for s3://{}/{}", s3Bucket, objectKey);
+    refresh();
+
     refreshFuture = refreshExecutorService
-        .scheduleAtFixedRate(this::refresh, refreshInterval.toMillis(), refreshInterval.toMillis(), TimeUnit.MILLISECONDS);
+        .scheduleAtFixedRate(this::refresh, refreshInterval.toMillis(), refreshInterval.toMillis(),
+            TimeUnit.MILLISECONDS);
   }
 
   @Override
@@ -106,21 +114,24 @@ public class S3ObjectMonitor implements Managed {
   /**
    * Immediately returns the monitored S3 object regardless of whether it has changed since it was last retrieved.
    *
-   * @return the current version of the monitored S3 object
-   *
+   * @return the current version of the monitored S3 object.  Caller should close() this upon completion.
    * @throws IOException if the retrieved S3 object is larger than the configured maximum size
    */
-  public S3Object getObject() throws IOException {
-    final S3Object s3Object = s3Client.getObject(s3Bucket, objectKey);
+  @VisibleForTesting
+  ResponseInputStream<GetObjectResponse> getObject() throws IOException {
+    ResponseInputStream<GetObjectResponse> response = s3Client.getObject(GetObjectRequest.builder()
+        .key(objectKey)
+        .bucket(s3Bucket)
+        .build());
 
-    lastETag.set(s3Object.getObjectMetadata().getETag());
+    lastETag.set(response.response().eTag());
 
-    if (s3Object.getObjectMetadata().getContentLength() <= maxObjectSize) {
-      return s3Object;
+    if (response.response().contentLength() <= maxObjectSize) {
+      return response;
     } else {
       log.warn("Object at s3://{}/{} has a size of {} bytes, which exceeds the maximum allowed size of {} bytes",
-          s3Bucket, objectKey, s3Object.getObjectMetadata().getContentLength(), maxObjectSize);
-
+          s3Bucket, objectKey, response.response().contentLength(), maxObjectSize);
+      response.abort();
       throw new IOException("S3 object too large");
     }
   }
@@ -132,18 +143,25 @@ public class S3ObjectMonitor implements Managed {
   @VisibleForTesting
   void refresh() {
     try {
-      final ObjectMetadata objectMetadata = s3Client.getObjectMetadata(s3Bucket, objectKey);
+      final HeadObjectResponse objectMetadata = s3Client.headObject(HeadObjectRequest.builder()
+          .bucket(s3Bucket)
+          .key(objectKey)
+          .build());
 
       final String initialETag = lastETag.get();
-      final String refreshedETag = objectMetadata.getETag();
+      final String refreshedETag = objectMetadata.eTag();
 
       if (!StringUtils.equals(initialETag, refreshedETag) && lastETag.compareAndSet(initialETag, refreshedETag)) {
-        final S3Object s3Object = getObject();
+        final ResponseInputStream<GetObjectResponse> response = getObject();
 
         log.info("Object at s3://{}/{} has changed; new eTag is {} and object size is {} bytes",
-            s3Bucket, objectKey, s3Object.getObjectMetadata().getETag(), s3Object.getObjectMetadata().getContentLength());
+            s3Bucket, objectKey, response.response().eTag(), response.response().contentLength());
 
-        changeListener.accept(s3Object);
+        try {
+          changeListener.accept(response);
+        } finally {
+          response.close();
+        }
       }
     } catch (final Exception e) {
       log.warn("Failed to refresh monitored object", e);

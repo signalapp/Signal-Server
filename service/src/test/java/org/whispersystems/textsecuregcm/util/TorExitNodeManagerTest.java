@@ -29,7 +29,7 @@ public class TorExitNodeManagerTest extends AbstractRedisClusterTest {
     assertFalse(torExitNodeManager.isTorExitNode("10.0.0.1"));
     assertFalse(torExitNodeManager.isTorExitNode("10.0.0.2"));
 
-    torExitNodeManager.handleExitListChanged(
+    torExitNodeManager.handleExitListChangedStream(
         new ByteArrayInputStream("10.0.0.1\n10.0.0.2".getBytes(StandardCharsets.UTF_8)));
 
     assertTrue(torExitNodeManager.isTorExitNode("10.0.0.1"));

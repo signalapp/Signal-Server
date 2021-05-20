@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.util;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import com.amazonaws.services.s3.model.S3Object;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.lifecycle.Managed;
 import io.micrometer.core.instrument.Counter;
@@ -25,6 +24,8 @@ import java.util.zip.GZIPInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.MonitoredS3ObjectConfiguration;
+import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
 public class AsnManager implements Managed {
 
@@ -53,12 +54,6 @@ public class AsnManager implements Managed {
 
   @Override
   public void start() throws Exception {
-    try {
-      handleAsnTableChanged(asnTableMonitor.getObject());
-    } catch (final Exception e) {
-      log.warn("Failed to load initial IP-to-ASN map", e);
-    }
-
     asnTableMonitor.start();
   }
 
@@ -76,10 +71,10 @@ public class AsnManager implements Managed {
     }
   }
 
-  private void handleAsnTableChanged(final S3Object asnTableObject) {
+  private void handleAsnTableChanged(final ResponseInputStream<GetObjectResponse> asnTableObject) {
     REFRESH_TIMER.record(() -> {
       try {
-        handleAsnTableChanged(new GZIPInputStream(asnTableObject.getObjectContent()));
+        handleAsnTableChangedStream(new GZIPInputStream(asnTableObject));
       } catch (final IOException e) {
         log.error("Retrieved object was not a gzip archive", e);
       }
@@ -87,7 +82,7 @@ public class AsnManager implements Managed {
   }
 
   @VisibleForTesting
-  void handleAsnTableChanged(final InputStream inputStream) {
+  void handleAsnTableChangedStream(final InputStream inputStream) {
     try (final InputStreamReader reader = new InputStreamReader(inputStream)) {
       asnTable.set(new AsnTable(reader));
     } catch (final Exception e) {
