@@ -34,7 +34,7 @@
   <properties>
     <dropwizard.version>2.0.21</dropwizard.version>
     <aws.sdk.version>1.11.939</aws.sdk.version>
-    <aws.sdk2.version>2.66.16</aws.sdk.version>
+    <aws.sdk2.version>2.16.66</aws.sdk2.version>
     <mockito.version>2.25.1</mockito.version>
     <micrometer.version>1.5.3</micrometer.version>
     <pushy.version>0.14.2</pushy.version>
@@ -65,11 +65,11 @@
         <scope>import</scope>
       </dependency>
       <dependency>
-          <groupId>software.amazon.awssdk</groupId>
-          <artifactId>bom</artifactId>
-	  <version>${aws.sdk2.version}</version>
-          <type>pom</type>
-          <scope>import</scope>
+        <groupId>software.amazon.awssdk</groupId>
+        <artifactId>bom</artifactId>
+        <version>${aws.sdk2.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
       </dependency>
       <dependency>
         <groupId>io.github.resilience4j</groupId>
