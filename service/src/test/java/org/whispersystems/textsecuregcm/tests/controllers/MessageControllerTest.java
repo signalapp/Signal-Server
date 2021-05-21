@@ -583,37 +583,6 @@ class MessageControllerTest {
 
   }
 
-
-  @ParameterizedTest
-  @MethodSource
-  void testOnlineMessage(final String fixture, final boolean expectedOnline) throws Exception {
-
-    final Response response =
-        resources.getJerseyTest()
-            .target(String.format("/v1/messages/%s", SINGLE_DEVICE_RECIPIENT))
-            .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(mapper.readValue(jsonFixture(fixture), IncomingMessageList.class),
-                MediaType.APPLICATION_JSON_TYPE));
-
-    assertThat("Good Response", response.getStatus(), is(equalTo(200)));
-
-    verify(messageSender, times(1)).sendMessage(any(Account.class), any(Device.class), any(Envelope.class), eq(expectedOnline));
-  }
-
-  private static Stream<Arguments> testOnlineMessage() {
-    return Stream.of(
-        Arguments.of("fixtures/current_message_single_device.json", false), // default to `false` when absent
-        Arguments.of("fixtures/online_message_true.json", true),
-        Arguments.of("fixtures/online_message_false.json", false),
-        // iOS versions prior to 5.5.0.7 send `online` on  IncomingMessageList.message, rather on the top-level entity.
-        // This causes some odd client behaviors, such as persisted typing indicators, so we have a temporary
-        // server-side adaptation.
-        Arguments.of("fixtures/online_message_true_nested_property.json", true),
-        Arguments.of("fixtures/online_message_false_nested_property.json", false)
-    );
-  }
-
   @Test
   void testReportMessage() {
 

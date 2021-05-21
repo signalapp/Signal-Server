@@ -298,17 +298,8 @@ public class MessageController {
       validateCompleteDeviceList(destination.get(), messages.getMessages(), isSyncMessage);
       validateRegistrationIds(destination.get(), messages.getMessages());
 
-      // iOS versions prior to 5.5.0.7 send `online` on  IncomingMessageList.message, rather on the top-level entity.
-      // This causes some odd client behaviors, such as persisted typing indicators, so we have a temporary
-      // server-side adaptation.
-      final boolean online = messages.getMessages()
-          .stream()
-          .findFirst()
-          .map(IncomingMessage::isOnline)
-          .orElse(messages.isOnline());
-
       final List<Tag> tags = List.of(UserAgentTagUtil.getPlatformTag(userAgent),
-                                     Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(online)),
+                                     Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(messages.isOnline())),
                                      Tag.of(SENDER_TYPE_TAG_NAME, senderType));
 
       for (IncomingMessage incomingMessage : messages.getMessages()) {
@@ -316,7 +307,7 @@ public class MessageController {
 
         if (destinationDevice.isPresent()) {
           Metrics.counter(SENT_MESSAGE_COUNTER_NAME, tags).increment();
-          sendMessage(source, destination.get(), destinationDevice.get(), messages.getTimestamp(), online, incomingMessage);
+          sendMessage(source, destination.get(), destinationDevice.get(), messages.getTimestamp(), messages.isOnline(), incomingMessage);
         }
       }
 
