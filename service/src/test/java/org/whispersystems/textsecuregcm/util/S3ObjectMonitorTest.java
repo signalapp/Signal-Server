@@ -1,5 +1,19 @@
 package org.whispersystems.textsecuregcm.util;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.UUID;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.http.AbortableInputStream;
@@ -8,20 +22,6 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
-
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.util.UUID;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Consumer;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 class S3ObjectMonitorTest {
 
@@ -33,7 +33,7 @@ class S3ObjectMonitorTest {
     final String objectKey = "greatest-smooth-jazz-hits-of-all-time.zip";
 
     //noinspection unchecked
-    final Consumer<ResponseInputStream<GetObjectResponse>> listener = mock(Consumer.class);
+    final Consumer<InputStream> listener = mock(Consumer.class);
 
     final S3ObjectMonitor objectMonitor = new S3ObjectMonitor(
         s3Client,
@@ -64,7 +64,7 @@ class S3ObjectMonitorTest {
     final String objectKey = "greatest-smooth-jazz-hits-of-all-time.zip";
 
     //noinspection unchecked
-    final Consumer<ResponseInputStream<GetObjectResponse>> listener = mock(Consumer.class);
+    final Consumer<InputStream> listener = mock(Consumer.class);
 
     final S3ObjectMonitor objectMonitor = new S3ObjectMonitor(
         s3Client,
@@ -102,7 +102,7 @@ class S3ObjectMonitorTest {
     final long maxObjectSize = 16 * 1024 * 1024;
 
     //noinspection unchecked
-    final Consumer<ResponseInputStream<GetObjectResponse>> listener = mock(Consumer.class);
+    final Consumer<InputStream> listener = mock(Consumer.class);
 
     final S3ObjectMonitor objectMonitor = new S3ObjectMonitor(
         s3Client,

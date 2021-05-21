@@ -24,8 +24,6 @@ import java.util.zip.GZIPInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.MonitoredS3ObjectConfiguration;
-import software.amazon.awssdk.core.ResponseInputStream;
-import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
 public class AsnManager implements Managed {
 
@@ -71,7 +69,7 @@ public class AsnManager implements Managed {
     }
   }
 
-  private void handleAsnTableChanged(final ResponseInputStream<GetObjectResponse> asnTableObject) {
+  private void handleAsnTableChanged(final InputStream asnTableObject) {
     REFRESH_TIMER.record(() -> {
       try {
         handleAsnTableChangedStream(new GZIPInputStream(asnTableObject));

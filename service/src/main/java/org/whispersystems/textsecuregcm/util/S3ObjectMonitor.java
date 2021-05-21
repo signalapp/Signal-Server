@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.util;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.lifecycle.Managed;
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.Duration;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -39,7 +40,7 @@ public class S3ObjectMonitor implements Managed {
   private final Duration refreshInterval;
   private ScheduledFuture<?> refreshFuture;
 
-  private final Consumer<ResponseInputStream<GetObjectResponse>> changeListener;
+  private final Consumer<InputStream> changeListener;
 
   private final AtomicReference<String> lastETag = new AtomicReference<>();
 
@@ -54,7 +55,7 @@ public class S3ObjectMonitor implements Managed {
       final long maxObjectSize,
       final ScheduledExecutorService refreshExecutorService,
       final Duration refreshInterval,
-      final Consumer<ResponseInputStream<GetObjectResponse>> changeListener) {
+      final Consumer<InputStream> changeListener) {
 
     this(S3Client.builder()
             .region(Region.of(s3Region))
@@ -76,7 +77,7 @@ public class S3ObjectMonitor implements Managed {
       final long maxObjectSize,
       final ScheduledExecutorService refreshExecutorService,
       final Duration refreshInterval,
-      final Consumer<ResponseInputStream<GetObjectResponse>> changeListener) {
+      final Consumer<InputStream> changeListener) {
 
     this.s3Client = s3Client;
     this.s3Bucket = s3Bucket;
@@ -152,15 +153,10 @@ public class S3ObjectMonitor implements Managed {
       final String refreshedETag = objectMetadata.eTag();
 
       if (!StringUtils.equals(initialETag, refreshedETag) && lastETag.compareAndSet(initialETag, refreshedETag)) {
-        final ResponseInputStream<GetObjectResponse> response = getObject();
-
-        log.info("Object at s3://{}/{} has changed; new eTag is {} and object size is {} bytes",
-            s3Bucket, objectKey, response.response().eTag(), response.response().contentLength());
-
-        try {
+        try (final ResponseInputStream<GetObjectResponse> response = getObject()) {
+          log.info("Object at s3://{}/{} has changed; new eTag is {} and object size is {} bytes",
+              s3Bucket, objectKey, response.response().eTag(), response.response().contentLength());
           changeListener.accept(response);
-        } finally {
-          response.close();
         }
       }
     } catch (final Exception e) {
