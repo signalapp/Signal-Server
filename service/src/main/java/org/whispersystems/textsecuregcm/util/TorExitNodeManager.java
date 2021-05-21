@@ -69,7 +69,7 @@ public class TorExitNodeManager implements Managed {
   }
 
   private void handleExitListChanged(final InputStream exitList) {
-    REFRESH_TIMER.record(() -> handleExitListChanged(exitList));
+    REFRESH_TIMER.record(() -> handleExitListChangedStream(exitList));
   }
 
   @VisibleForTesting
