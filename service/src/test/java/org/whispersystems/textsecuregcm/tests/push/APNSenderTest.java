@@ -78,7 +78,7 @@ public class APNSenderTest {
 
     assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
     assertThat(notification.getValue().getExpiration()).isEqualTo(Instant.ofEpochMilli(ApnMessage.MAX_EXPIRATION));
-    assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_NOTIFICATION_PAYLOAD);
+    assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_VOIP_NOTIFICATION_PAYLOAD);
     assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
     assertThat(notification.getValue().getTopic()).isEqualTo("foo.voip");
 
@@ -112,7 +112,7 @@ public class APNSenderTest {
 
     assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
     assertThat(notification.getValue().getExpiration()).isEqualTo(Instant.ofEpochMilli(ApnMessage.MAX_EXPIRATION));
-    assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_NOTIFICATION_PAYLOAD);
+    assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_NSE_NOTIFICATION_PAYLOAD);
     assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
     assertThat(notification.getValue().getTopic()).isEqualTo("foo");
 
@@ -153,7 +153,7 @@ public class APNSenderTest {
 
     assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
     assertThat(notification.getValue().getExpiration()).isEqualTo(Instant.ofEpochMilli(ApnMessage.MAX_EXPIRATION));
-    assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_NOTIFICATION_PAYLOAD);
+    assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_VOIP_NOTIFICATION_PAYLOAD);
     assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
 
     assertThat(apnResult.getStatus()).isEqualTo(ApnResult.Status.NO_SUCH_USER);
@@ -256,7 +256,7 @@ public class APNSenderTest {
 
     assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
     assertThat(notification.getValue().getExpiration()).isEqualTo(Instant.ofEpochMilli(ApnMessage.MAX_EXPIRATION));
-    assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_NOTIFICATION_PAYLOAD);
+    assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_VOIP_NOTIFICATION_PAYLOAD);
     assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
 
     assertThat(apnResult.getStatus()).isEqualTo(ApnResult.Status.NO_SUCH_USER);
@@ -346,7 +346,7 @@ public class APNSenderTest {
 
     assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
     assertThat(notification.getValue().getExpiration()).isEqualTo(Instant.ofEpochMilli(ApnMessage.MAX_EXPIRATION));
-    assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_NOTIFICATION_PAYLOAD);
+    assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_VOIP_NOTIFICATION_PAYLOAD);
     assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
 
     assertThat(apnResult.getStatus()).isEqualTo(ApnResult.Status.GENERIC_FAILURE);
@@ -387,7 +387,7 @@ public class APNSenderTest {
 
     assertThat(notification.getValue().getToken()).isEqualTo(DESTINATION_APN_ID);
     assertThat(notification.getValue().getExpiration()).isEqualTo(Instant.ofEpochMilli(ApnMessage.MAX_EXPIRATION));
-    assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_NOTIFICATION_PAYLOAD);
+    assertThat(notification.getValue().getPayload()).isEqualTo(ApnMessage.APN_VOIP_NOTIFICATION_PAYLOAD);
     assertThat(notification.getValue().getPriority()).isEqualTo(DeliveryPriority.IMMEDIATE);
 
     verifyNoMoreInteractions(apnsClient);

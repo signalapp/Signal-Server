@@ -16,7 +16,8 @@ public class ApnMessage {
     NOTIFICATION, CHALLENGE, RATE_LIMIT_CHALLENGE
   }
 
-  public static final String APN_NOTIFICATION_PAYLOAD         = "{\"aps\":{\"sound\":\"default\",\"alert\":{\"loc-key\":\"APN_Message\"}}}";
+  public static final String APN_VOIP_NOTIFICATION_PAYLOAD    = "{\"aps\":{\"sound\":\"default\",\"alert\":{\"loc-key\":\"APN_Message\"}}}";
+  public static final String APN_NSE_NOTIFICATION_PAYLOAD     = "{\"aps\":{\"mutable-content\":1,\"alert\":{\"loc-key\":\"APN_Message\"}}}";
   public static final String APN_CHALLENGE_PAYLOAD            = "{\"aps\":{\"sound\":\"default\",\"alert\":{\"loc-key\":\"APN_Message\"}}, \"challenge\" : \"%s\"}";
   public static final String APN_RATE_LIMIT_CHALLENGE_PAYLOAD = "{\"aps\":{\"sound\":\"default\",\"alert\":{\"loc-key\":\"APN_Message\"}}, \"rateLimitChallenge\" : \"%s\"}";
   public static final long   MAX_EXPIRATION                   = Integer.MAX_VALUE * 1000L;
@@ -48,7 +49,7 @@ public class ApnMessage {
   public String getMessage() {
     switch (type) {
       case NOTIFICATION:
-        return APN_NOTIFICATION_PAYLOAD;
+        return this.isVoip() ? APN_VOIP_NOTIFICATION_PAYLOAD : APN_NSE_NOTIFICATION_PAYLOAD;
 
       case CHALLENGE:
         return String.format(APN_CHALLENGE_PAYLOAD, challengeData.orElseThrow(AssertionError::new));
