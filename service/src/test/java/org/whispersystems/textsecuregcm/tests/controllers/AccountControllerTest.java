@@ -266,6 +266,8 @@ class AccountControllerTest {
         apnSender,
         usernamesManager,
         verifyExperimentEnrollmentManager);
+
+    clearInvocations(AuthHelper.DISABLED_DEVICE);
   }
 
   @Test
@@ -1383,6 +1385,23 @@ class AccountControllerTest {
 
     verify(AuthHelper.DISABLED_DEVICE, times(1)).setApnId(eq("first"));
     verify(AuthHelper.DISABLED_DEVICE, times(1)).setVoipApnId(eq("second"));
+    verify(accountsManager, times(1)).update(eq(AuthHelper.DISABLED_ACCOUNT));
+    verify(directoryQueue, never()).refreshRegisteredUser(any(Account.class));
+  }
+
+  @Test
+  void testSetApnIdNoVoip() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/apn/")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_NUMBER, AuthHelper.DISABLED_PASSWORD))
+            .put(Entity.json(new ApnRegistrationId("first", null)));
+
+    assertThat(response.getStatus()).isEqualTo(204);
+
+    verify(AuthHelper.DISABLED_DEVICE, times(1)).setApnId(eq("first"));
+    verify(AuthHelper.DISABLED_DEVICE, times(1)).setVoipApnId(null);
     verify(accountsManager, times(1)).update(eq(AuthHelper.DISABLED_ACCOUNT));
     verify(directoryQueue, never()).refreshRegisteredUser(any(Account.class));
   }
