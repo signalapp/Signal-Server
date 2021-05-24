@@ -170,7 +170,8 @@ public class AccountController {
   @Path("/{type}/preauth/{token}/{number}")
   public Response getPreAuth(@PathParam("type")   String pushType,
                              @PathParam("token")  String pushToken,
-                             @PathParam("number") String number)
+                             @PathParam("number") String number,
+                             @QueryParam("voip")  Optional<Boolean> useVoip)
   {
     if (!"apn".equals(pushType) && !"fcm".equals(pushType)) {
       return Response.status(400).build();
@@ -190,7 +191,7 @@ public class AccountController {
     if ("fcm".equals(pushType)) {
       gcmSender.sendMessage(new GcmMessage(pushToken, number, 0, GcmMessage.Type.CHALLENGE, Optional.of(storedVerificationCode.getPushCode())));
     } else if ("apn".equals(pushType)) {
-      apnSender.sendMessage(new ApnMessage(pushToken, number, 0, true, ApnMessage.Type.CHALLENGE, Optional.of(storedVerificationCode.getPushCode())));
+      apnSender.sendMessage(new ApnMessage(pushToken, number, 0, useVoip.orElse(true), ApnMessage.Type.CHALLENGE, Optional.of(storedVerificationCode.getPushCode())));
     } else {
       throw new AssertionError();
     }

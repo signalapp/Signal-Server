@@ -322,6 +322,51 @@ class AccountControllerTest {
     assertThat(captor.getValue().getChallengeData().isPresent()).isTrue();
     assertThat(captor.getValue().getChallengeData().get().length()).isEqualTo(32);
     assertThat(captor.getValue().getMessage()).contains("\"challenge\" : \"" + captor.getValue().getChallengeData().get() + "\"");
+    assertThat(captor.getValue().isVoip()).isTrue();
+
+    verifyNoMoreInteractions(gcmSender);
+  }
+
+  @Test
+  void testGetApnPreauthExplicitVoip() throws Exception {
+    Response response = resources.getJerseyTest()
+        .target("/v1/accounts/apn/preauth/mytoken/+14152222222")
+        .queryParam("voip", "true")
+        .request()
+        .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    ArgumentCaptor<ApnMessage> captor = ArgumentCaptor.forClass(ApnMessage.class);
+
+    verify(apnSender, times(1)).sendMessage(captor.capture());
+    assertThat(captor.getValue().getApnId()).isEqualTo("mytoken");
+    assertThat(captor.getValue().getChallengeData().isPresent()).isTrue();
+    assertThat(captor.getValue().getChallengeData().get().length()).isEqualTo(32);
+    assertThat(captor.getValue().getMessage()).contains("\"challenge\" : \"" + captor.getValue().getChallengeData().get() + "\"");
+    assertThat(captor.getValue().isVoip()).isTrue();
+
+    verifyNoMoreInteractions(gcmSender);
+  }
+
+  @Test
+  void testGetApnPreauthExplicitNoVoip() throws Exception {
+    Response response = resources.getJerseyTest()
+        .target("/v1/accounts/apn/preauth/mytoken/+14152222222")
+        .queryParam("voip", "false")
+        .request()
+        .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+
+    ArgumentCaptor<ApnMessage> captor = ArgumentCaptor.forClass(ApnMessage.class);
+
+    verify(apnSender, times(1)).sendMessage(captor.capture());
+    assertThat(captor.getValue().getApnId()).isEqualTo("mytoken");
+    assertThat(captor.getValue().getChallengeData().isPresent()).isTrue();
+    assertThat(captor.getValue().getChallengeData().get().length()).isEqualTo(32);
+    assertThat(captor.getValue().getMessage()).contains("\"challenge\" : \"" + captor.getValue().getChallengeData().get() + "\"");
+    assertThat(captor.getValue().isVoip()).isFalse();
 
     verifyNoMoreInteractions(gcmSender);
   }
