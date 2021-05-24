@@ -1,33 +1,35 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import com.almworks.sqlite4java.SQLite;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsyncClientBuilder;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
-import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.amazonaws.services.dynamodbv2.local.main.ServerRunner;
 import com.amazonaws.services.dynamodbv2.local.server.DynamoDBProxyServer;
-import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
-import com.amazonaws.services.dynamodbv2.model.CreateTableRequest;
-import com.amazonaws.services.dynamodbv2.model.GlobalSecondaryIndex;
-import com.amazonaws.services.dynamodbv2.model.KeySchemaElement;
-import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
 import java.net.ServerSocket;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
+import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
+import software.amazon.awssdk.services.dynamodb.model.GlobalSecondaryIndex;
+import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
+import software.amazon.awssdk.services.dynamodb.model.KeyType;
+import software.amazon.awssdk.services.dynamodb.model.ProvisionedThroughput;
 
 public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback {
 
   static final  String DEFAULT_TABLE_NAME = "test_table";
 
-  static final ProvisionedThroughput DEFAULT_PROVISIONED_THROUGHPUT = new ProvisionedThroughput(20L, 20L);
+  static final ProvisionedThroughput DEFAULT_PROVISIONED_THROUGHPUT = ProvisionedThroughput.builder()
+      .readCapacityUnits(20L)
+      .writeCapacityUnits(20L)
+      .build();
 
   private DynamoDBProxyServer server;
   private int port;
@@ -42,9 +44,8 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
   private final long readCapacityUnits;
   private final long writeCapacityUnits;
 
-  private AmazonDynamoDB client;
-  private AmazonDynamoDBAsync asyncClient;
-  private DynamoDB dynamoDB;
+  private DynamoDbClient dynamoDB2;
+  private DynamoDbAsyncClient dynamoAsyncDB2;
 
   private DynamoDbExtension(String tableName, String hashKey, String rangeKey, List<AttributeDefinition> attributeDefinitions, List<GlobalSecondaryIndex> globalSecondaryIndexes, long readCapacityUnits,
       long writeCapacityUnits) {
@@ -87,26 +88,33 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
     KeySchemaElement[] keySchemaElements;
     if (rangeKeyName == null) {
       keySchemaElements = new KeySchemaElement[] {
-          new KeySchemaElement(hashKeyName, "HASH"),
+          KeySchemaElement.builder().attributeName(hashKeyName).keyType(KeyType.HASH).build(),
       };
     } else {
       keySchemaElements = new KeySchemaElement[] {
-          new KeySchemaElement(hashKeyName, "HASH"),
-          new KeySchemaElement(rangeKeyName, "RANGE")
+          KeySchemaElement.builder().attributeName(hashKeyName).keyType(KeyType.HASH).build(),
+          KeySchemaElement.builder().attributeName(rangeKeyName).keyType(KeyType.RANGE).build(),
       };
     }
 
-    final CreateTableRequest createTableRequest = new CreateTableRequest()
-        .withTableName(tableName)
-        .withKeySchema(keySchemaElements)
-        .withAttributeDefinitions(attributeDefinitions.isEmpty() ? null : attributeDefinitions)
-        .withGlobalSecondaryIndexes(globalSecondaryIndexes.isEmpty() ? null : globalSecondaryIndexes)
-        .withProvisionedThroughput(new ProvisionedThroughput(readCapacityUnits, writeCapacityUnits));
+    final CreateTableRequest createTableRequest = CreateTableRequest.builder()
+        .tableName(tableName)
+        .keySchema(keySchemaElements)
+        .attributeDefinitions(attributeDefinitions.isEmpty() ? null : attributeDefinitions)
+        .globalSecondaryIndexes(globalSecondaryIndexes.isEmpty() ? null : globalSecondaryIndexes)
+        .provisionedThroughput(ProvisionedThroughput.builder()
+            .readCapacityUnits(readCapacityUnits)
+            .writeCapacityUnits(writeCapacityUnits)
+            .build())
+        .build();
 
-    getDynamoDB().createTable(createTableRequest);
+    getDynamoDbClient().createTable(createTableRequest);
   }
 
   private void startServer() throws Exception {
+    // Even though we're using AWS SDK v2, Dynamo's local implementation's canonical location
+    // is within v1 (https://github.com/aws/aws-sdk-java-v2/issues/982).  This does support
+    // v2 clients, though.
     SQLite.setLibraryPath("target/lib");  // if you see a library failed to load error, you need to run mvn test-compile at least once first
     ServerSocket serverSocket = new ServerSocket(0);
     serverSocket.setReuseAddress(false);
@@ -117,18 +125,18 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
   }
 
   private void initializeClient() {
-    AmazonDynamoDBClientBuilder clientBuilder = AmazonDynamoDBClientBuilder.standard()
-        .withEndpointConfiguration(
-            new AwsClientBuilder.EndpointConfiguration("http://localhost:" + port, "local-test-region"))
-        .withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials("accessKey", "secretKey")));
-    client = clientBuilder.build();
-
-    asyncClient = AmazonDynamoDBAsyncClientBuilder.standard()
-        .withEndpointConfiguration(clientBuilder.getEndpoint())
-        .withCredentials(clientBuilder.getCredentials())
-    .build();
-
-    dynamoDB = new DynamoDB(client);
+    dynamoDB2 = DynamoDbClient.builder()
+        .endpointOverride(URI.create("http://localhost:" + port))
+        .region(Region.of("local-test-region"))
+        .credentialsProvider(StaticCredentialsProvider.create(
+            AwsBasicCredentials.create("accessKey", "secretKey")))
+        .build();
+    dynamoAsyncDB2 = DynamoDbAsyncClient.builder()
+        .endpointOverride(URI.create("http://localhost:" + port))
+        .region(Region.of("local-test-region"))
+        .credentialsProvider(StaticCredentialsProvider.create(
+            AwsBasicCredentials.create("accessKey", "secretKey")))
+        .build();
   }
 
   static class DynamoDbExtensionBuilder {
@@ -140,8 +148,8 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
     private List<AttributeDefinition> attributeDefinitions = new ArrayList<>();
     private List<GlobalSecondaryIndex> globalSecondaryIndexes = new ArrayList<>();
 
-    private long readCapacityUnits = DEFAULT_PROVISIONED_THROUGHPUT.getReadCapacityUnits();
-    private long writeCapacityUnits = DEFAULT_PROVISIONED_THROUGHPUT.getWriteCapacityUnits();
+    private long readCapacityUnits = DEFAULT_PROVISIONED_THROUGHPUT.readCapacityUnits();
+    private long writeCapacityUnits = DEFAULT_PROVISIONED_THROUGHPUT.writeCapacityUnits();
 
     private DynamoDbExtensionBuilder() {
 
@@ -178,16 +186,12 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
     }
   }
 
-  public AmazonDynamoDB getClient() {
-    return client;
+  public DynamoDbClient getDynamoDbClient() {
+    return dynamoDB2;
   }
 
-  public AmazonDynamoDBAsync getAsyncClient() {
-    return asyncClient;
-  }
-
-  public DynamoDB getDynamoDB() {
-    return dynamoDB;
+  public DynamoDbAsyncClient getDynamoDbAsyncClient() {
+    return dynamoAsyncDB2;
   }
 
   public String getTableName() {

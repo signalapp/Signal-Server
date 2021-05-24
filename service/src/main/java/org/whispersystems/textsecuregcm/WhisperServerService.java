@@ -12,11 +12,6 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsyncClientBuilder;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
-import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.codahale.metrics.SharedMetricRegistries;
@@ -194,6 +189,7 @@ import org.whispersystems.textsecuregcm.storage.Usernames;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.util.AsnManager;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
 import org.whispersystems.textsecuregcm.util.TorExitNodeManager;
 import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
 import org.whispersystems.textsecuregcm.websocket.DeadLetterHandler;
@@ -210,6 +206,14 @@ import org.whispersystems.textsecuregcm.workers.VacuumCommand;
 import org.whispersystems.textsecuregcm.workers.ZkParamsCommand;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
+import software.amazon.awssdk.core.client.config.ClientAsyncConfiguration;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.core.client.config.SdkAdvancedAsyncClientOption;
+import software.amazon.awssdk.http.SdkHttpClient;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClientBuilder;
 
 public class WhisperServerService extends Application<WhisperServerConfiguration> {
 
@@ -316,80 +320,40 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     FaultTolerantDatabase accountDatabase = new FaultTolerantDatabase("accounts_database", accountJdbi, config.getAccountsDatabaseConfiguration().getCircuitBreakerConfiguration());
     FaultTolerantDatabase abuseDatabase   = new FaultTolerantDatabase("abuse_database", abuseJdbi, config.getAbuseDatabaseConfiguration().getCircuitBreakerConfiguration());
 
-    AmazonDynamoDBClientBuilder messageDynamoDbClientBuilder = AmazonDynamoDBClientBuilder
-            .standard()
-            .withRegion(config.getMessageDynamoDbConfiguration().getRegion())
-            .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(((int) config.getMessageDynamoDbConfiguration().getClientExecutionTimeout().toMillis()))
-                                                              .withRequestTimeout((int) config.getMessageDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
-            .withCredentials(InstanceProfileCredentialsProvider.getInstance());
+    DynamoDbClient messageDynamoDb = DynamoDbFromConfig.client(config.getMessageDynamoDbConfiguration(),
+        software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
-    AmazonDynamoDBClientBuilder keysDynamoDbClientBuilder = AmazonDynamoDBClientBuilder
-            .standard()
-            .withRegion(config.getKeysDynamoDbConfiguration().getRegion())
-            .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(((int) config.getKeysDynamoDbConfiguration().getClientExecutionTimeout().toMillis()))
-                                                              .withRequestTimeout((int) config.getKeysDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
-            .withCredentials(InstanceProfileCredentialsProvider.getInstance());
+    DynamoDbClient preKeyDynamoDb = DynamoDbFromConfig.client(config.getKeysDynamoDbConfiguration(),
+        software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
-    AmazonDynamoDBClientBuilder accountsDynamoDbClientBuilder = AmazonDynamoDBClientBuilder
-        .standard()
-        .withRegion(config.getAccountsDynamoDbConfiguration().getRegion())
-        .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(((int) config.getAccountsDynamoDbConfiguration().getClientExecutionTimeout().toMillis()))
-            .withRequestTimeout((int) config.getAccountsDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
-        .withCredentials(InstanceProfileCredentialsProvider.getInstance());
+    DynamoDbClient accountsDynamoDbClient = DynamoDbFromConfig.client(config.getAccountsDynamoDbConfiguration(),
+        software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
     // The thread pool core & max sizes are set via dynamic configuration within AccountsDynamoDb
     ThreadPoolExecutor accountsDynamoDbMigrationThreadPool = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
         new LinkedBlockingDeque<>());
 
-    AmazonDynamoDBAsyncClientBuilder accountsDynamoDbAsyncClientBuilder = AmazonDynamoDBAsyncClientBuilder
-        .standard()
-        .withRegion(accountsDynamoDbClientBuilder.getRegion())
-        .withClientConfiguration(accountsDynamoDbClientBuilder.getClientConfiguration())
-        .withCredentials(accountsDynamoDbClientBuilder.getCredentials())
-        .withExecutorFactory(() -> accountsDynamoDbMigrationThreadPool);
+    DynamoDbAsyncClient accountsDynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(config.getAccountsDynamoDbConfiguration(),
+        software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create(),
+        accountsDynamoDbMigrationThreadPool);
 
-    AmazonDynamoDBClientBuilder migrationDeletedAccountsDynamoDbClientBuilder = AmazonDynamoDBClientBuilder
-        .standard()
-        .withRegion(config.getMigrationDeletedAccountsDynamoDbConfiguration().getRegion())
-        .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(((int) config.getMigrationDeletedAccountsDynamoDbConfiguration().getClientExecutionTimeout().toMillis()))
-            .withRequestTimeout((int) config.getMigrationDeletedAccountsDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
-        .withCredentials(InstanceProfileCredentialsProvider.getInstance());
+    DynamoDbClient recentlyDeletedAccountsDynamoDb = DynamoDbFromConfig.client(config.getMigrationDeletedAccountsDynamoDbConfiguration(),
+        software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
-    AmazonDynamoDBClientBuilder migrationRetryAccountsDynamoDbClientBuilder = AmazonDynamoDBClientBuilder
-        .standard()
-        .withRegion(config.getMigrationRetryAccountsDynamoDbConfiguration().getRegion())
-        .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(((int) config.getMigrationRetryAccountsDynamoDbConfiguration().getClientExecutionTimeout().toMillis()))
-            .withRequestTimeout((int) config.getMigrationRetryAccountsDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
-        .withCredentials(InstanceProfileCredentialsProvider.getInstance());
+    DynamoDbClient pushChallengeDynamoDbClient = DynamoDbFromConfig.client(config.getPushChallengeDynamoDbConfiguration(),
+        software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
-    AmazonDynamoDBClientBuilder pushChallengeDynamoDbClientBuilder = AmazonDynamoDBClientBuilder
-        .standard()
-        .withRegion(config.getPushChallengeDynamoDbConfiguration().getRegion())
-        .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(((int) config.getPushChallengeDynamoDbConfiguration().getClientExecutionTimeout().toMillis()))
-            .withRequestTimeout((int) config.getPushChallengeDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
-        .withCredentials(InstanceProfileCredentialsProvider.getInstance());
+    DynamoDbClient reportMessageDynamoDbClient = DynamoDbFromConfig.client(config.getReportMessageDynamoDbConfiguration(),
+        software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
-    AmazonDynamoDBClientBuilder reportMessageDynamoDbClientBuilder = AmazonDynamoDBClientBuilder
-        .standard()
-        .withRegion(config.getReportMessageDynamoDbConfiguration().getRegion())
-        .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(((int) config.getReportMessageDynamoDbConfiguration().getClientExecutionTimeout().toMillis()))
-            .withRequestTimeout((int) config.getReportMessageDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
-        .withCredentials(InstanceProfileCredentialsProvider.getInstance());
-
-    DynamoDB messageDynamoDb = new DynamoDB(messageDynamoDbClientBuilder.build());
-    DynamoDB preKeyDynamoDb = new DynamoDB(keysDynamoDbClientBuilder.build());
-
-    AmazonDynamoDB accountsDynamoDbClient = accountsDynamoDbClientBuilder.build();
-    AmazonDynamoDBAsync accountsDynamodbAsyncClient = accountsDynamoDbAsyncClientBuilder.build();
-
-    DynamoDB recentlyDeletedAccountsDynamoDb = new DynamoDB(migrationDeletedAccountsDynamoDbClientBuilder.build());
-    DynamoDB migrationRetryAccountsDynamoDb = new DynamoDB(migrationRetryAccountsDynamoDbClientBuilder.build());
+    DynamoDbClient migrationRetryAccountsDynamoDb = DynamoDbFromConfig.client(config.getMigrationRetryAccountsDynamoDbConfiguration(),
+        software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
     MigrationDeletedAccounts migrationDeletedAccounts = new MigrationDeletedAccounts(recentlyDeletedAccountsDynamoDb, config.getMigrationDeletedAccountsDynamoDbConfiguration().getTableName());
     MigrationRetryAccounts migrationRetryAccounts = new MigrationRetryAccounts(migrationRetryAccountsDynamoDb, config.getMigrationRetryAccountsDynamoDbConfiguration().getTableName());
 
     Accounts          accounts          = new Accounts(accountDatabase);
-    AccountsDynamoDb  accountsDynamoDb  = new AccountsDynamoDb(accountsDynamoDbClient, accountsDynamodbAsyncClient, accountsDynamoDbMigrationThreadPool, new DynamoDB(accountsDynamoDbClient), config.getAccountsDynamoDbConfiguration().getTableName(), config.getAccountsDynamoDbConfiguration().getPhoneNumberTableName(), migrationDeletedAccounts, migrationRetryAccounts);
+    AccountsDynamoDb  accountsDynamoDb  = new AccountsDynamoDb(accountsDynamoDbClient, accountsDynamoDbAsyncClient, accountsDynamoDbMigrationThreadPool, config.getAccountsDynamoDbConfiguration().getTableName(), config.getAccountsDynamoDbConfiguration().getPhoneNumberTableName(), migrationDeletedAccounts, migrationRetryAccounts);
     PendingAccounts   pendingAccounts   = new PendingAccounts(accountDatabase);
     PendingDevices    pendingDevices    = new PendingDevices (accountDatabase);
     Usernames         usernames         = new Usernames(accountDatabase);
@@ -399,8 +363,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     MessagesDynamoDb  messagesDynamoDb  = new MessagesDynamoDb(messageDynamoDb, config.getMessageDynamoDbConfiguration().getTableName(), config.getMessageDynamoDbConfiguration().getTimeToLive());
     AbusiveHostRules  abusiveHostRules  = new AbusiveHostRules(abuseDatabase);
     RemoteConfigs     remoteConfigs     = new RemoteConfigs(accountDatabase);
-    PushChallengeDynamoDb pushChallengeDynamoDb = new PushChallengeDynamoDb(new DynamoDB(pushChallengeDynamoDbClientBuilder.build()), config.getPushChallengeDynamoDbConfiguration().getTableName());
-    ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(new DynamoDB(reportMessageDynamoDbClientBuilder.build()), config.getReportMessageDynamoDbConfiguration().getTableName());
+    PushChallengeDynamoDb pushChallengeDynamoDb = new PushChallengeDynamoDb(pushChallengeDynamoDbClient, config.getPushChallengeDynamoDbConfiguration().getTableName());
+    ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(reportMessageDynamoDbClient, config.getReportMessageDynamoDbConfiguration().getTableName());
 
     RedisClientFactory  pubSubClientFactory = new RedisClientFactory("pubsub_cache", config.getPubsubCacheConfiguration().getUrl(), config.getPubsubCacheConfiguration().getReplicaUrls(), config.getPubsubCacheConfiguration().getCircuitBreakerConfiguration());
     ReplicatedJedisPool pubsubClient        = pubSubClientFactory.getRedisClientPool();

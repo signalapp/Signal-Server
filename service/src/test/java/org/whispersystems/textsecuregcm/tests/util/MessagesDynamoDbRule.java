@@ -5,15 +5,15 @@
 
 package org.whispersystems.textsecuregcm.tests.util;
 
-import com.amazonaws.services.dynamodbv2.document.DynamoDB;
-import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
-import com.amazonaws.services.dynamodbv2.model.CreateTableRequest;
-import com.amazonaws.services.dynamodbv2.model.KeySchemaElement;
-import com.amazonaws.services.dynamodbv2.model.LocalSecondaryIndex;
-import com.amazonaws.services.dynamodbv2.model.Projection;
-import com.amazonaws.services.dynamodbv2.model.ProjectionType;
-import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
-import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
+import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
+import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
+import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
+import software.amazon.awssdk.services.dynamodb.model.KeyType;
+import software.amazon.awssdk.services.dynamodb.model.LocalSecondaryIndex;
+import software.amazon.awssdk.services.dynamodb.model.Projection;
+import software.amazon.awssdk.services.dynamodb.model.ProjectionType;
+import software.amazon.awssdk.services.dynamodb.model.ProvisionedThroughput;
+import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
 public class MessagesDynamoDbRule extends LocalDynamoDbRule {
 
@@ -22,20 +22,21 @@ public class MessagesDynamoDbRule extends LocalDynamoDbRule {
   @Override
   protected void before() throws Throwable {
     super.before();
-    DynamoDB dynamoDB = getDynamoDB();
-    CreateTableRequest createTableRequest = new CreateTableRequest()
-            .withTableName(TABLE_NAME)
-            .withKeySchema(new KeySchemaElement("H", "HASH"),
-                           new KeySchemaElement("S", "RANGE"))
-            .withAttributeDefinitions(new AttributeDefinition("H", ScalarAttributeType.B),
-                                      new AttributeDefinition("S", ScalarAttributeType.B),
-                                      new AttributeDefinition("U", ScalarAttributeType.B))
-            .withProvisionedThroughput(new ProvisionedThroughput(20L, 20L))
-            .withLocalSecondaryIndexes(new LocalSecondaryIndex().withIndexName("Message_UUID_Index")
-                                                                .withKeySchema(new KeySchemaElement("H", "HASH"),
-                                                                               new KeySchemaElement("U", "RANGE"))
-                                                                .withProjection(new Projection().withProjectionType(ProjectionType.KEYS_ONLY)));
-    dynamoDB.createTable(createTableRequest);
+    getDynamoDbClient().createTable(CreateTableRequest.builder()
+        .tableName(TABLE_NAME)
+        .keySchema(KeySchemaElement.builder().attributeName("H").keyType(KeyType.HASH).build(),
+            KeySchemaElement.builder().attributeName("S").keyType(KeyType.RANGE).build())
+        .attributeDefinitions(
+            AttributeDefinition.builder().attributeName("H").attributeType(ScalarAttributeType.B).build(),
+            AttributeDefinition.builder().attributeName("S").attributeType(ScalarAttributeType.B).build(),
+            AttributeDefinition.builder().attributeName("U").attributeType(ScalarAttributeType.B).build())
+        .provisionedThroughput(ProvisionedThroughput.builder().readCapacityUnits(20L).writeCapacityUnits(20L).build())
+        .localSecondaryIndexes(LocalSecondaryIndex.builder().indexName("Message_UUID_Index")
+            .keySchema(KeySchemaElement.builder().attributeName("H").keyType(KeyType.HASH).build(),
+                KeySchemaElement.builder().attributeName("U").keyType(KeyType.RANGE).build())
+            .projection(Projection.builder().projectionType(ProjectionType.KEYS_ONLY).build())
+            .build())
+        .build());
   }
 
   @Override

@@ -2,12 +2,12 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
-import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
+import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
 class MigrationRetryAccountsTest {
 
@@ -15,13 +15,16 @@ class MigrationRetryAccountsTest {
   static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
       .tableName("account_migration_errors_test")
       .hashKey(MigrationRetryAccounts.KEY_UUID)
-      .attributeDefinition(new AttributeDefinition(MigrationRetryAccounts.KEY_UUID, ScalarAttributeType.B))
+      .attributeDefinition(AttributeDefinition.builder()
+          .attributeName(MigrationRetryAccounts.KEY_UUID)
+          .attributeType(ScalarAttributeType.B)
+          .build())
       .build();
 
   @Test
   void test() {
 
-    final MigrationRetryAccounts migrationRetryAccounts = new MigrationRetryAccounts(dynamoDbExtension.getDynamoDB(),
+    final MigrationRetryAccounts migrationRetryAccounts = new MigrationRetryAccounts(dynamoDbExtension.getDynamoDbClient(),
         dynamoDbExtension.getTableName());
 
     UUID firstUuid = UUID.randomUUID();

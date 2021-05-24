@@ -9,12 +9,6 @@ import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.amazonaws.services.dynamodbv2.document.DynamoDB;
-import com.amazonaws.services.dynamodbv2.document.Item;
-import com.amazonaws.services.dynamodbv2.document.ItemCollection;
-import com.amazonaws.services.dynamodbv2.document.ScanOutcome;
-import com.amazonaws.services.dynamodbv2.document.Table;
-import com.amazonaws.services.dynamodbv2.document.spec.ScanSpec;
 import com.google.protobuf.ByteString;
 import io.lettuce.core.cluster.SlotHash;
 import java.nio.ByteBuffer;
@@ -22,6 +16,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -38,6 +33,10 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
 import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
 import org.whispersystems.textsecuregcm.tests.util.MessagesDynamoDbRule;
+import org.whispersystems.textsecuregcm.util.AttributeValues;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 
 public class MessagePersisterIntegrationTest extends AbstractRedisClusterTest {
 
@@ -62,7 +61,7 @@ public class MessagePersisterIntegrationTest extends AbstractRedisClusterTest {
             connection.sync().upstream().commands().configSet("notify-keyspace-events", "K$glz");
         });
 
-        final MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(messagesDynamoDbRule.getDynamoDB(), MessagesDynamoDbRule.TABLE_NAME, Duration.ofDays(7));
+        final MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(messagesDynamoDbRule.getDynamoDbClient(), MessagesDynamoDbRule.TABLE_NAME, Duration.ofDays(7));
         final AccountsManager accountsManager = mock(AccountsManager.class);
         final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
 
@@ -142,17 +141,16 @@ public class MessagePersisterIntegrationTest extends AbstractRedisClusterTest {
 
         final List<MessageProtos.Envelope> persistedMessages = new ArrayList<>(messageCount);
 
-        DynamoDB dynamoDB = messagesDynamoDbRule.getDynamoDB();
-        Table table = dynamoDB.getTable(MessagesDynamoDbRule.TABLE_NAME);
-        final ItemCollection<ScanOutcome> scan = table.scan(new ScanSpec());
-        for (Item item : scan) {
-            persistedMessages.add(MessageProtos.Envelope.newBuilder()
-                                                        .setServerGuid(convertBinaryToUuid(item.getBinary("U")).toString())
-                                                        .setType(MessageProtos.Envelope.Type.valueOf(item.getInt("T")))
-                                                        .setTimestamp(item.getLong("TS"))
-                                                        .setServerTimestamp(extractServerTimestamp(item.getBinary("S")))
-                                                        .setContent(ByteString.copyFrom(item.getBinary("C")))
-                                                        .build());
+        DynamoDbClient dynamoDB = messagesDynamoDbRule.getDynamoDbClient();
+      for (Map<String, AttributeValue> item : dynamoDB
+          .scan(ScanRequest.builder().tableName(MessagesDynamoDbRule.TABLE_NAME).build()).items()) {
+        persistedMessages.add(MessageProtos.Envelope.newBuilder()
+            .setServerGuid(AttributeValues.getUUID(item, "U", null).toString())
+            .setType(MessageProtos.Envelope.Type.valueOf(AttributeValues.getInt(item, "T", -1)))
+            .setTimestamp(AttributeValues.getLong(item, "TS", -1))
+            .setServerTimestamp(extractServerTimestamp(AttributeValues.getByteArray(item, "S", null)))
+            .setContent(ByteString.copyFrom(AttributeValues.getByteArray(item, "C", null)))
+            .build());
         }
 
         assertEquals(expectedMessages, persistedMessages);

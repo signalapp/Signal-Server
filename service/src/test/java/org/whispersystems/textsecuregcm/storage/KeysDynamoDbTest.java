@@ -9,6 +9,7 @@ import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.entities.PreKey;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 import java.util.Collections;
 import java.util.List;
@@ -17,6 +18,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -34,7 +36,7 @@ public class KeysDynamoDbTest {
 
     @Before
     public void setup() {
-        keysDynamoDb = new KeysDynamoDb(dynamoDbRule.getDynamoDB(), KeysDynamoDbRule.TABLE_NAME);
+        keysDynamoDb = new KeysDynamoDb(dynamoDbRule.getDynamoDbClient(), KeysDynamoDbRule.TABLE_NAME);
 
         account = mock(Account.class);
         when(account.getNumber()).thenReturn(ACCOUNT_NUMBER);
@@ -132,5 +134,11 @@ public class KeysDynamoDbTest {
 
         assertEquals(0, keysDynamoDb.getCount(account, DEVICE_ID));
         assertEquals(1, keysDynamoDb.getCount(account, DEVICE_ID + 1));
+    }
+
+    @Test
+    public void testSortKeyPrefix() {
+      AttributeValue got = KeysDynamoDb.getSortKeyPrefix(123);
+      assertArrayEquals(new byte[]{0, 0, 0, 0, 0, 0, 0, 123}, got.b().asByteArray());
     }
 }

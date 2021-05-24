@@ -6,16 +6,16 @@
 package org.whispersystems.textsecuregcm.tests.util;
 
 import com.almworks.sqlite4java.SQLite;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
-import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.amazonaws.services.dynamodbv2.local.main.ServerRunner;
 import com.amazonaws.services.dynamodbv2.local.server.DynamoDBProxyServer;
 import org.junit.rules.ExternalResource;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
 import java.net.ServerSocket;
+import java.net.URI;
 
 public class LocalDynamoDbRule extends ExternalResource {
   private DynamoDBProxyServer server;
@@ -43,11 +43,12 @@ public class LocalDynamoDbRule extends ExternalResource {
     super.after();
   }
 
-  public DynamoDB getDynamoDB() {
-    AmazonDynamoDBClientBuilder clientBuilder =
-            AmazonDynamoDBClientBuilder.standard()
-                                       .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration("http://localhost:" + port, "local-test-region"))
-                                       .withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials("accessKey", "secretKey")));
-    return new DynamoDB(clientBuilder.build());
+  public DynamoDbClient getDynamoDbClient() {
+    return DynamoDbClient.builder()
+        .endpointOverride(URI.create("http://localhost:" + port))
+        .region(Region.of("local-test-region"))
+        .credentialsProvider(StaticCredentialsProvider.create(
+            AwsBasicCredentials.create("accessKey", "secretKey")))
+        .build();
   }
 }

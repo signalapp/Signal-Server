@@ -5,25 +5,23 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import com.amazonaws.services.dynamodbv2.document.DynamoDB;
-import com.amazonaws.services.dynamodbv2.document.Item;
-import com.amazonaws.services.dynamodbv2.document.Table;
-import com.amazonaws.services.dynamodbv2.document.spec.DeleteItemSpec;
-import com.amazonaws.services.dynamodbv2.document.spec.PutItemSpec;
-import com.amazonaws.services.dynamodbv2.model.ConditionalCheckFailedException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
 import com.google.common.annotations.VisibleForTesting;
-import org.whispersystems.textsecuregcm.util.UUIDUtil;
+import org.whispersystems.textsecuregcm.util.AttributeValues;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 
 /**
  * Stores push challenge tokens. Users may have at most one outstanding push challenge token at a time.
  */
 public class PushChallengeDynamoDb extends AbstractDynamoDbStore {
 
-  private final Table table;
+  private final String tableName;
   private final Clock clock;
 
   static final String KEY_ACCOUNT_UUID = "U";
@@ -33,15 +31,15 @@ public class PushChallengeDynamoDb extends AbstractDynamoDbStore {
   private static final Map<String, String> UUID_NAME_MAP = Map.of("#uuid", KEY_ACCOUNT_UUID);
   private static final Map<String, String> CHALLENGE_TOKEN_NAME_MAP = Map.of("#challenge", ATTR_CHALLENGE_TOKEN);
 
-  public PushChallengeDynamoDb(final DynamoDB dynamoDB, final String tableName) {
+  public PushChallengeDynamoDb(final DynamoDbClient dynamoDB, final String tableName) {
     this(dynamoDB, tableName, Clock.systemUTC());
   }
 
   @VisibleForTesting
-  PushChallengeDynamoDb(final DynamoDB dynamoDB, final String tableName, final Clock clock) {
+  PushChallengeDynamoDb(final DynamoDbClient dynamoDB, final String tableName, final Clock clock) {
     super(dynamoDB);
 
-    this.table = dynamoDB.getTable(tableName);
+    this.tableName = tableName;
     this.clock = clock;
   }
 
@@ -57,13 +55,15 @@ public class PushChallengeDynamoDb extends AbstractDynamoDbStore {
    */
   public boolean add(final UUID accountUuid, final byte[] challengeToken, final Duration ttl) {
     try {
-      table.putItem( new PutItemSpec()
-          .withItem(new Item()
-              .withBinary(KEY_ACCOUNT_UUID, UUIDUtil.toByteBuffer(accountUuid))
-              .withBinary(ATTR_CHALLENGE_TOKEN, challengeToken)
-          .withNumber(ATTR_TTL, getExpirationTimestamp(ttl)))
-          .withConditionExpression("attribute_not_exists(#uuid)")
-          .withNameMap(UUID_NAME_MAP));
+      db().putItem(PutItemRequest.builder()
+          .tableName(tableName)
+          .item(Map.of(
+              KEY_ACCOUNT_UUID, AttributeValues.fromUUID(accountUuid),
+              ATTR_CHALLENGE_TOKEN, AttributeValues.fromByteArray(challengeToken),
+              ATTR_TTL, AttributeValues.fromLong(getExpirationTimestamp(ttl))))
+          .conditionExpression("attribute_not_exists(#uuid)")
+          .expressionAttributeNames(UUID_NAME_MAP)
+          .build());
       return true;
     } catch (final ConditionalCheckFailedException e) {
       return false;
@@ -84,11 +84,13 @@ public class PushChallengeDynamoDb extends AbstractDynamoDbStore {
    */
   public boolean remove(final UUID accountUuid, final byte[] challengeToken) {
     try {
-      table.deleteItem(new DeleteItemSpec()
-          .withPrimaryKey(KEY_ACCOUNT_UUID, UUIDUtil.toByteBuffer(accountUuid))
-          .withConditionExpression("#challenge = :challenge")
-          .withNameMap(CHALLENGE_TOKEN_NAME_MAP)
-          .withValueMap(Map.of(":challenge", challengeToken)));
+      db().deleteItem(DeleteItemRequest.builder()
+          .tableName(tableName)
+          .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(accountUuid)))
+          .conditionExpression("#challenge = :challenge")
+          .expressionAttributeNames(CHALLENGE_TOKEN_NAME_MAP)
+          .expressionAttributeValues(Map.of(":challenge", AttributeValues.fromByteArray(challengeToken)))
+          .build());
       return true;
     } catch (final ConditionalCheckFailedException e) {
       return false;

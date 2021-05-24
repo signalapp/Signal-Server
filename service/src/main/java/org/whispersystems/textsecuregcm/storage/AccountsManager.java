@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import com.amazonaws.services.dynamodbv2.model.ConditionalCheckFailedException;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
@@ -42,6 +41,7 @@ import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
+import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 
 public class AccountsManager {
 

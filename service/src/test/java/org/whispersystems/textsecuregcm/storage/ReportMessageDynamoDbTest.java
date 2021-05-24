@@ -4,13 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
-import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
+import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
+import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
 class ReportMessageDynamoDbTest {
 
@@ -22,13 +22,16 @@ class ReportMessageDynamoDbTest {
   static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
       .tableName(TABLE_NAME)
       .hashKey(ReportMessageDynamoDb.KEY_HASH)
-      .attributeDefinition(new AttributeDefinition(ReportMessageDynamoDb.KEY_HASH, ScalarAttributeType.B))
+      .attributeDefinition(AttributeDefinition.builder()
+          .attributeName(ReportMessageDynamoDb.KEY_HASH)
+          .attributeType(ScalarAttributeType.B)
+          .build())
       .build();
 
 
   @BeforeEach
   void setUp() {
-    this.reportMessageDynamoDb = new ReportMessageDynamoDb(dynamoDbExtension.getDynamoDB(), TABLE_NAME);
+    this.reportMessageDynamoDb = new ReportMessageDynamoDb(dynamoDbExtension.getDynamoDbClient(), TABLE_NAME);
   }
 
   @Test

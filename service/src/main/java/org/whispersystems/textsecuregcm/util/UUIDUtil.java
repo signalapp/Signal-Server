@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.util;
 
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.UUID;
 
@@ -26,12 +27,15 @@ public class UUIDUtil {
     }
 
     public static UUID fromByteBuffer(final ByteBuffer byteBuffer) {
-      if (byteBuffer.array().length != 16) {
-        throw new IllegalArgumentException("unexpected byte array length; was " + byteBuffer.array().length + " but expected 16");
+      try {
+        final long mostSigBits = byteBuffer.getLong();
+        final long leastSigBits = byteBuffer.getLong();
+        if (byteBuffer.hasRemaining()) {
+          throw new IllegalArgumentException("unexpected byte array length; was greater than 16");
+        }
+        return new UUID(mostSigBits, leastSigBits);
+      } catch (BufferUnderflowException e) {
+        throw new IllegalArgumentException("unexpected byte array length; was less than 16");
       }
-
-      final long mostSigBits = byteBuffer.getLong();
-      final long leastSigBits = byteBuffer.getLong();
-      return new UUID(mostSigBits, leastSigBits);
   }
 }

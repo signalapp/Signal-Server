@@ -2,25 +2,6 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import com.amazonaws.handlers.AsyncHandler;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync;
-import com.amazonaws.services.dynamodbv2.document.DynamoDB;
-import com.amazonaws.services.dynamodbv2.document.Item;
-import com.amazonaws.services.dynamodbv2.document.PrimaryKey;
-import com.amazonaws.services.dynamodbv2.document.Table;
-import com.amazonaws.services.dynamodbv2.document.spec.GetItemSpec;
-import com.amazonaws.services.dynamodbv2.model.AttributeValue;
-import com.amazonaws.services.dynamodbv2.model.CancellationReason;
-import com.amazonaws.services.dynamodbv2.model.Delete;
-import com.amazonaws.services.dynamodbv2.model.GetItemResult;
-import com.amazonaws.services.dynamodbv2.model.Put;
-import com.amazonaws.services.dynamodbv2.model.ReturnValuesOnConditionCheckFailure;
-import com.amazonaws.services.dynamodbv2.model.TransactWriteItem;
-import com.amazonaws.services.dynamodbv2.model.TransactWriteItemsRequest;
-import com.amazonaws.services.dynamodbv2.model.TransactWriteItemsResult;
-import com.amazonaws.services.dynamodbv2.model.TransactionCanceledException;
-import com.amazonaws.services.dynamodbv2.model.UpdateItemRequest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Counter;
@@ -33,12 +14,27 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.CancellationReason;
+import software.amazon.awssdk.services.dynamodb.model.Delete;
+import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.Put;
+import software.amazon.awssdk.services.dynamodb.model.ReturnValuesOnConditionCheckFailure;
+import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
+import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
+import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
 public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountStore {
 
@@ -51,9 +47,8 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
 
   static final String ATTR_MIGRATION_VERSION = "V";
 
-  private final AmazonDynamoDB client;
-  private final Table accountsTable;
-  private final AmazonDynamoDBAsync asyncClient;
+  private final DynamoDbClient client;
+  private final DynamoDbAsyncClient asyncClient;
 
   private final ThreadPoolExecutor migrationThreadPool;
 
@@ -61,6 +56,7 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
   private final MigrationRetryAccounts migrationRetryAccounts;
 
   private final String phoneNumbersTableName;
+  private final String accountsTableName;
 
   private static final Timer CREATE_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "create"));
   private static final Timer UPDATE_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "update"));
@@ -70,18 +66,17 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
 
   private final Logger logger = LoggerFactory.getLogger(AccountsDynamoDb.class);
 
-  public AccountsDynamoDb(AmazonDynamoDB client, AmazonDynamoDBAsync asyncClient,
-      ThreadPoolExecutor migrationThreadPool, DynamoDB dynamoDb, String accountsTableName, String phoneNumbersTableName,
+  public AccountsDynamoDb(DynamoDbClient client, DynamoDbAsyncClient asyncClient,
+      ThreadPoolExecutor migrationThreadPool, String accountsTableName, String phoneNumbersTableName,
       MigrationDeletedAccounts migrationDeletedAccounts,
       MigrationRetryAccounts accountsMigrationErrors) {
 
-    super(dynamoDb);
+    super(client);
 
     this.client = client;
-    this.accountsTable = dynamoDb.getTable(accountsTableName);
-    this.phoneNumbersTableName = phoneNumbersTableName;
-
     this.asyncClient = asyncClient;
+    this.phoneNumbersTableName = phoneNumbersTableName;
+    this.accountsTableName = accountsTableName;
     this.migrationThreadPool = migrationThreadPool;
 
     this.migrationDeletedAccounts = migrationDeletedAccounts;
@@ -90,32 +85,34 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
 
   @Override
   public boolean create(Account account) {
-
     return CREATE_TIMER.record(() -> {
 
       try {
         TransactWriteItem phoneNumberConstraintPut = buildPutWriteItemForPhoneNumberConstraint(account, account.getUuid());
+        TransactWriteItem accountPut = buildPutWriteItemForAccount(account, account.getUuid(), Put.builder()
+            .conditionExpression("attribute_not_exists(#number) OR #number = :number")
+            .expressionAttributeNames(Map.of("#number", ATTR_ACCOUNT_E164))
+            .expressionAttributeValues(Map.of(":number", AttributeValues.fromString(account.getNumber()))));
 
-        TransactWriteItem accountPut = buildPutWriteItemForAccount(account, account.getUuid());
-
-        final TransactWriteItemsRequest request = new TransactWriteItemsRequest()
-            .withTransactItems(phoneNumberConstraintPut, accountPut);
+        final TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
+            .transactItems(phoneNumberConstraintPut, accountPut)
+            .build();
 
         try {
           client.transactWriteItems(request);
         } catch (TransactionCanceledException e) {
 
-          final CancellationReason accountCancellationReason = e.getCancellationReasons().get(1);
+          final CancellationReason accountCancellationReason = e.cancellationReasons().get(1);
 
-          if ("ConditionalCheckFailed".equals(accountCancellationReason.getCode())) {
+          if ("ConditionalCheckFailed".equals(accountCancellationReason.code())) {
             throw new IllegalArgumentException("uuid present with different phone number");
           }
 
-          final CancellationReason phoneNumberConstraintCancellationReason = e.getCancellationReasons().get(0);
+          final CancellationReason phoneNumberConstraintCancellationReason = e.cancellationReasons().get(0);
 
-          if ("ConditionalCheckFailed".equals(phoneNumberConstraintCancellationReason.getCode())) {
+          if ("ConditionalCheckFailed".equals(phoneNumberConstraintCancellationReason.code())) {
 
-            ByteBuffer actualAccountUuid = phoneNumberConstraintCancellationReason.getItem().get(KEY_ACCOUNT_UUID).getB();
+            ByteBuffer actualAccountUuid = phoneNumberConstraintCancellationReason.item().get(KEY_ACCOUNT_UUID).b().asByteBuffer();
             account.setUuid(UUIDUtil.fromByteBuffer(actualAccountUuid));
 
             update(account);
@@ -134,39 +131,37 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
     });
   }
 
-  private TransactWriteItem buildPutWriteItemForAccount(Account account, UUID uuid) throws JsonProcessingException {
-    return new TransactWriteItem()
-        .withPut(
-            new Put()
-                .withTableName(accountsTable.getTableName())
-                .withItem(Map.of(
-                    KEY_ACCOUNT_UUID, new AttributeValue().withB(UUIDUtil.toByteBuffer(uuid)),
-                    ATTR_ACCOUNT_E164, new AttributeValue(account.getNumber()),
-                    ATTR_ACCOUNT_DATA, new AttributeValue()
-                        .withB(ByteBuffer.wrap(SystemMapper.getMapper().writeValueAsBytes(account))),
-                    ATTR_MIGRATION_VERSION, new AttributeValue().withN(
-                        String.valueOf(account.getDynamoDbMigrationVersion()))))
-                .withConditionExpression("attribute_not_exists(#number) OR #number = :number")
-                .withExpressionAttributeNames(Map.of("#number", ATTR_ACCOUNT_E164))
-                .withExpressionAttributeValues(Map.of(":number", new AttributeValue(account.getNumber()))));
+  private TransactWriteItem buildPutWriteItemForAccount(Account account, UUID uuid, Put.Builder putBuilder) throws JsonProcessingException {
+    return TransactWriteItem.builder()
+        .put(putBuilder
+            .tableName(accountsTableName)
+            .item(Map.of(
+                KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid),
+                ATTR_ACCOUNT_E164, AttributeValues.fromString(account.getNumber()),
+                ATTR_ACCOUNT_DATA, AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
+                ATTR_MIGRATION_VERSION, AttributeValues.fromInt(account.getDynamoDbMigrationVersion())))
+            .build())
+        .build();
   }
 
   private TransactWriteItem buildPutWriteItemForPhoneNumberConstraint(Account account, UUID uuid) {
-    return new TransactWriteItem()
-        .withPut(
-            new Put()
-                .withTableName(phoneNumbersTableName)
-                .withItem(Map.of(
-                    ATTR_ACCOUNT_E164, new AttributeValue(account.getNumber()),
-                    KEY_ACCOUNT_UUID, new AttributeValue().withB(UUIDUtil.toByteBuffer(uuid))))
-                .withConditionExpression(
+    return TransactWriteItem.builder()
+        .put(
+            Put.builder()
+                .tableName(phoneNumbersTableName)
+                .item(Map.of(
+                    ATTR_ACCOUNT_E164, AttributeValues.fromString(account.getNumber()),
+                    KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid)))
+                .conditionExpression(
                     "attribute_not_exists(#number) OR (attribute_exists(#number) AND #uuid = :uuid)")
-                .withExpressionAttributeNames(
+                .expressionAttributeNames(
                     Map.of("#uuid", KEY_ACCOUNT_UUID,
                         "#number", ATTR_ACCOUNT_E164))
-                .withExpressionAttributeValues(
-                    Map.of(":uuid", new AttributeValue().withB(UUIDUtil.toByteBuffer(uuid))))
-                .withReturnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD));
+                .expressionAttributeValues(
+                    Map.of(":uuid", AttributeValues.fromUUID(uuid)))
+                .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
+                .build())
+        .build();
   }
 
   @Override
@@ -174,16 +169,18 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
     UPDATE_TIMER.record(() -> {
       UpdateItemRequest updateItemRequest;
       try {
-        updateItemRequest = new UpdateItemRequest()
-            .withTableName(accountsTable.getTableName())
-            .withKey(Map.of(KEY_ACCOUNT_UUID, new AttributeValue().withB(UUIDUtil.toByteBuffer(account.getUuid()))))
-            .withUpdateExpression("SET #data = :data, #version = :version")
-            .withConditionExpression("attribute_exists(#number)")
-            .withExpressionAttributeNames(Map.of("#number", ATTR_ACCOUNT_E164,
+        updateItemRequest = UpdateItemRequest.builder()
+            .tableName(accountsTableName)
+            .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
+            .updateExpression("SET #data = :data, #version = :version")
+            .conditionExpression("attribute_exists(#number)")
+            .expressionAttributeNames(Map.of("#number", ATTR_ACCOUNT_E164,
                 "#data", ATTR_ACCOUNT_DATA,
                 "#version", ATTR_MIGRATION_VERSION))
-            .withExpressionAttributeValues(Map.of(":data", new AttributeValue().withB(ByteBuffer.wrap(SystemMapper.getMapper().writeValueAsBytes(account))),
-                ":version", new AttributeValue().withN(String.valueOf(account.getDynamoDbMigrationVersion()))));
+            .expressionAttributeValues(Map.of(
+                ":data", AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
+                ":version", AttributeValues.fromInt(account.getDynamoDbMigrationVersion())))
+            .build();
 
       } catch (JsonProcessingException e) {
         throw new IllegalArgumentException(e);
@@ -193,37 +190,42 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
     });
   }
 
+
   @Override
   public Optional<Account> get(String number) {
-
     return GET_BY_NUMBER_TIMER.record(() -> {
 
-      final GetItemResult phoneNumberAndUuid = client.getItem(phoneNumbersTableName,
-          Map.of(ATTR_ACCOUNT_E164, new AttributeValue(number)), true);
+      final GetItemResponse response = client.getItem(GetItemRequest.builder()
+          .tableName(phoneNumbersTableName)
+          .key(Map.of(ATTR_ACCOUNT_E164, AttributeValues.fromString(number)))
+          .build());
 
-      return Optional.ofNullable(phoneNumberAndUuid.getItem())
-          .map(item -> item.get(KEY_ACCOUNT_UUID).getB())
-          .map(uuid -> accountsTable.getItem(new GetItemSpec()
-              .withPrimaryKey(KEY_ACCOUNT_UUID, uuid.array())
-              .withConsistentRead(true)))
+      return Optional.ofNullable(response.item())
+          .map(item -> item.get(KEY_ACCOUNT_UUID))
+          .map(uuid -> accountByUuid(uuid))
           .map(AccountsDynamoDb::fromItem);
     });
   }
 
+  private Map<String, AttributeValue> accountByUuid(AttributeValue uuid) {
+    GetItemResponse r = client.getItem(GetItemRequest.builder()
+        .tableName(accountsTableName)
+        .key(Map.of(KEY_ACCOUNT_UUID, uuid))
+        .consistentRead(true)
+        .build());
+    return r.item().isEmpty() ? null : r.item();
+  }
+
   @Override
   public Optional<Account> get(UUID uuid) {
-    Optional<Item> maybeItem = GET_BY_UUID_TIMER.record(() ->
-        Optional.ofNullable(accountsTable.getItem(new GetItemSpec().
-            withPrimaryKey(new PrimaryKey(KEY_ACCOUNT_UUID, UUIDUtil.toByteBuffer(uuid)))
-            .withConsistentRead(true))));
-
-    return maybeItem.map(AccountsDynamoDb::fromItem);
+    return GET_BY_UUID_TIMER.record(() ->
+        Optional.ofNullable(accountByUuid(AttributeValues.fromUUID(uuid)))
+            .map(AccountsDynamoDb::fromItem));
   }
 
   @Override
   public void delete(UUID uuid) {
     DELETE_TIMER.record(() -> {
-
       delete(uuid, true);
     });
   }
@@ -238,18 +240,22 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
 
     maybeAccount.ifPresent(account -> {
 
-      TransactWriteItem phoneNumberDelete = new TransactWriteItem()
-          .withDelete(new Delete()
-              .withTableName(phoneNumbersTableName)
-              .withKey(Map.of(ATTR_ACCOUNT_E164, new AttributeValue(account.getNumber()))));
+      TransactWriteItem phoneNumberDelete = TransactWriteItem.builder()
+          .delete(Delete.builder()
+              .tableName(phoneNumbersTableName)
+              .key(Map.of(ATTR_ACCOUNT_E164, AttributeValues.fromString(account.getNumber())))
+              .build())
+          .build();
 
-      TransactWriteItem accountDelete = new TransactWriteItem().withDelete(
-          new Delete()
-              .withTableName(accountsTable.getTableName())
-              .withKey(Map.of(KEY_ACCOUNT_UUID, new AttributeValue().withB(UUIDUtil.toByteBuffer(uuid)))));
+      TransactWriteItem accountDelete = TransactWriteItem.builder()
+          .delete(Delete.builder()
+              .tableName(accountsTableName)
+              .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid)))
+              .build())
+          .build();
 
-      TransactWriteItemsRequest request = new TransactWriteItemsRequest()
-          .withTransactItems(phoneNumberDelete, accountDelete);
+      TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
+          .transactItems(phoneNumberDelete, accountDelete).build();
 
       client.transactWriteItems(request);
     });
@@ -299,64 +305,62 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
     try {
       TransactWriteItem phoneNumberConstraintPut = buildPutWriteItemForPhoneNumberConstraint(account, account.getUuid());
 
-      TransactWriteItem accountPut = buildPutWriteItemForAccount(account, account.getUuid());
-      accountPut.getPut()
-          .setConditionExpression("attribute_not_exists(#uuid) OR (attribute_exists(#uuid) AND #version < :version)");
-      accountPut.getPut()
-          .setExpressionAttributeNames(Map.of("#uuid", KEY_ACCOUNT_UUID,
-              "#version", ATTR_MIGRATION_VERSION));
-      accountPut.getPut()
-          .setExpressionAttributeValues(
-              Map.of(":version", new AttributeValue().withN(String.valueOf(account.getDynamoDbMigrationVersion()))));
+      TransactWriteItem accountPut = buildPutWriteItemForAccount(account, account.getUuid(), Put.builder()
+          .conditionExpression("attribute_not_exists(#uuid) OR (attribute_exists(#uuid) AND #version < :version)")
+          .expressionAttributeNames(Map.of(
+              "#uuid", KEY_ACCOUNT_UUID,
+              "#version", ATTR_MIGRATION_VERSION))
+          .expressionAttributeValues(Map.of(
+              ":version", AttributeValues.fromInt(account.getDynamoDbMigrationVersion()))));
 
-      final TransactWriteItemsRequest request = new TransactWriteItemsRequest()
-          .withTransactItems(phoneNumberConstraintPut, accountPut);
+      final TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
+          .transactItems(phoneNumberConstraintPut, accountPut).build();
 
       final CompletableFuture<Boolean> resultFuture = new CompletableFuture<>();
-
-      asyncClient.transactWriteItemsAsync(request,
-          new AsyncHandler<>() {
-            @Override
-            public void onError(Exception exception) {
-              if (exception instanceof TransactionCanceledException) {
-                // account is already migrated
-                resultFuture.complete(false);
-              } else {
-                try {
-                  migrationRetryAccounts.put(account.getUuid());
-                } catch (final Exception e) {
-                  logger.error("Could not store account {}", account.getUuid());
-                }
-                resultFuture.completeExceptionally(exception);
-              }
-            }
-
-            @Override
-            public void onSuccess(TransactWriteItemsRequest request, TransactWriteItemsResult transactWriteItemsResult) {
-              resultFuture.complete(true);
-            }
-          });
-
+      asyncClient.transactWriteItems(request).whenCompleteAsync((result, exception) -> {
+        if (result != null) {
+          resultFuture.complete(true);
+          return;
+        }
+        if (exception instanceof CompletionException) {
+          // whenCompleteAsync can wrap exceptions in a CompletionException; unwrap it to get to the root cause.
+          exception = exception.getCause();
+        }
+        if (exception instanceof TransactionCanceledException) {
+          // account is already migrated
+          resultFuture.complete(false);
+          return;
+        }
+        try {
+          migrationRetryAccounts.put(account.getUuid()); 
+        } catch (final Exception e) {
+          logger.error("Could not store account {}", account.getUuid());
+        }
+        resultFuture.completeExceptionally(exception);
+      });
       return resultFuture;
-
     } catch (Exception e) {
       return CompletableFuture.failedFuture(e);
     }
   }
 
   private static String extractCancellationReasonCodes(final TransactionCanceledException exception) {
-    return exception.getCancellationReasons().stream()
-        .map(CancellationReason::getCode)
+    return exception.cancellationReasons().stream()
+        .map(CancellationReason::code)
         .collect(Collectors.joining(", "));
   }
 
   @VisibleForTesting
-  static Account fromItem(Item item) {
+  static Account fromItem(Map<String, AttributeValue> item) {
+    if (!item.containsKey(ATTR_ACCOUNT_DATA) ||
+        !item.containsKey(ATTR_ACCOUNT_E164) ||
+        !item.containsKey(KEY_ACCOUNT_UUID)) {
+      throw new RuntimeException("item missing values");
+    }
     try {
-      Account account = SystemMapper.getMapper().readValue(item.getBinary(ATTR_ACCOUNT_DATA), Account.class);
-
-      account.setNumber(item.getString(ATTR_ACCOUNT_E164));
-      account.setUuid(UUIDUtil.fromByteBuffer(item.getByteBuffer(KEY_ACCOUNT_UUID)));
+      Account account = SystemMapper.getMapper().readValue(item.get(ATTR_ACCOUNT_DATA).b().asByteArray(), Account.class);
+      account.setNumber(item.get(ATTR_ACCOUNT_E164).s());
+      account.setUuid(UUIDUtil.fromByteBuffer(item.get(KEY_ACCOUNT_UUID).b().asByteBuffer()));
 
       return account;
 

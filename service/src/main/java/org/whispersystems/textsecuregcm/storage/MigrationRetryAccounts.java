@@ -1,43 +1,44 @@
 package org.whispersystems.textsecuregcm.storage;
 
-import com.amazonaws.services.dynamodbv2.document.DynamoDB;
-import com.amazonaws.services.dynamodbv2.document.Item;
-import com.amazonaws.services.dynamodbv2.document.Page;
-import com.amazonaws.services.dynamodbv2.document.PrimaryKey;
-import com.amazonaws.services.dynamodbv2.document.ScanOutcome;
-import com.amazonaws.services.dynamodbv2.document.Table;
-import com.amazonaws.services.dynamodbv2.document.spec.ScanSpec;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
-import org.whispersystems.textsecuregcm.util.UUIDUtil;
+import org.whispersystems.textsecuregcm.util.AttributeValues;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 
 public class MigrationRetryAccounts extends AbstractDynamoDbStore {
 
-  private final Table table;
+  private final String tableName;
 
   static final String KEY_UUID = "U";
 
-  public MigrationRetryAccounts(DynamoDB dynamoDb, String tableName) {
+  public MigrationRetryAccounts(DynamoDbClient dynamoDb, String tableName) {
     super(dynamoDb);
 
-    table = dynamoDb.getTable(tableName);
+    this.tableName = tableName;
   }
 
   public void put(UUID uuid) {
-    table.putItem(new Item()
-        .withPrimaryKey(primaryKey(uuid)));
+    db().putItem(PutItemRequest.builder()
+        .tableName(tableName)
+        .item(primaryKey(uuid))
+        .build());
   }
 
   public List<UUID> getUuids(int max) {
 
     final List<UUID> uuids = new ArrayList<>();
 
-    for (Page<Item, ScanOutcome> page : table.scan(new ScanSpec()).pages()) {
+    for (ScanResponse response : db().scanPaginator(ScanRequest.builder().tableName(tableName).build())) {
 
-      for (Item item : page) {
-        uuids.add(UUIDUtil.fromByteBuffer(item.getByteBuffer(KEY_UUID)));
+      for (Map<String, AttributeValue> item : response.items()) {
+        uuids.add(AttributeValues.getUUID(item, KEY_UUID, null));
 
         if (uuids.size() >= max) {
           break;
@@ -53,8 +54,8 @@ public class MigrationRetryAccounts extends AbstractDynamoDbStore {
   }
 
   @VisibleForTesting
-  public static PrimaryKey primaryKey(UUID uuid) {
-    return new PrimaryKey(KEY_UUID, UUIDUtil.toBytes(uuid));
+  public static Map<String, AttributeValue> primaryKey(UUID uuid) {
+    return Map.of(KEY_UUID, AttributeValues.fromUUID(uuid));
   }
 
 }

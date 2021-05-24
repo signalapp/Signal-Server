@@ -12,7 +12,6 @@ import java.io.InputStreamReader;
 import java.net.Inet4Address;
 import java.net.UnknownHostException;
 import java.util.Optional;
-import java.util.zip.GZIPInputStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 

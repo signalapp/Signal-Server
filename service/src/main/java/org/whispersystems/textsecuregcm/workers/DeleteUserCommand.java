@@ -9,11 +9,6 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsyncClientBuilder;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
-import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import io.dropwizard.Application;
 import io.dropwizard.cli.EnvironmentCommand;
@@ -59,6 +54,9 @@ import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.ReservedUsernames;
 import org.whispersystems.textsecuregcm.storage.Usernames;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
+import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
 public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfiguration> {
 
@@ -100,64 +98,20 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
       FaultTolerantDatabase accountDatabase             = new FaultTolerantDatabase("account_database_delete_user", accountJdbi, configuration.getAccountsDatabaseConfiguration().getCircuitBreakerConfiguration());
       ClientResources       redisClusterClientResources = ClientResources.builder().build();
 
-      AmazonDynamoDBClientBuilder clientBuilder = AmazonDynamoDBClientBuilder
-              .standard()
-              .withRegion(configuration.getMessageDynamoDbConfiguration().getRegion())
-              .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(((int) configuration.getMessageDynamoDbConfiguration().getClientExecutionTimeout().toMillis()))
-                                                                .withRequestTimeout((int) configuration.getMessageDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
-              .withCredentials(InstanceProfileCredentialsProvider.getInstance());
-
-      AmazonDynamoDBClientBuilder keysDynamoDbClientBuilder = AmazonDynamoDBClientBuilder
-              .standard()
-              .withRegion(configuration.getKeysDynamoDbConfiguration().getRegion())
-              .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(((int) configuration.getKeysDynamoDbConfiguration().getClientExecutionTimeout().toMillis()))
-                                                                .withRequestTimeout((int) configuration.getKeysDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
-              .withCredentials(InstanceProfileCredentialsProvider.getInstance());
-
-      AmazonDynamoDBClientBuilder accountsDynamoDbClientBuilder = AmazonDynamoDBClientBuilder
-          .standard()
-          .withRegion(configuration.getAccountsDynamoDbConfiguration().getRegion())
-          .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(((int) configuration.getAccountsDynamoDbConfiguration().getClientExecutionTimeout().toMillis()))
-              .withRequestTimeout((int) configuration.getAccountsDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
-          .withCredentials(InstanceProfileCredentialsProvider.getInstance());
-
       ThreadPoolExecutor accountsDynamoDbMigrationThreadPool = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
           new LinkedBlockingDeque<>());
 
-      AmazonDynamoDBAsyncClientBuilder accountsDynamoDbAsyncClientBuilder = AmazonDynamoDBAsyncClientBuilder
-          .standard()
-          .withRegion(accountsDynamoDbClientBuilder.getRegion())
-          .withClientConfiguration(accountsDynamoDbClientBuilder.getClientConfiguration())
-          .withCredentials(accountsDynamoDbClientBuilder.getCredentials())
-          .withExecutorFactory(() -> accountsDynamoDbMigrationThreadPool);
-
-      AmazonDynamoDBClientBuilder migrationDeletedAccountsDynamoDbClientBuilder = AmazonDynamoDBClientBuilder
-          .standard()
-          .withRegion(configuration.getMigrationDeletedAccountsDynamoDbConfiguration().getRegion())
-          .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(((int) configuration.getMigrationDeletedAccountsDynamoDbConfiguration().getClientExecutionTimeout().toMillis()))
-              .withRequestTimeout((int) configuration.getMigrationDeletedAccountsDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
-          .withCredentials(InstanceProfileCredentialsProvider.getInstance());
-
-      AmazonDynamoDBClientBuilder migrationRetryAccountsDynamoDbClientBuilder = AmazonDynamoDBClientBuilder
-          .standard()
-          .withRegion(configuration.getMigrationRetryAccountsDynamoDbConfiguration().getRegion())
-          .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(((int) configuration.getMigrationRetryAccountsDynamoDbConfiguration().getClientExecutionTimeout().toMillis()))
-              .withRequestTimeout((int) configuration.getMigrationRetryAccountsDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
-          .withCredentials(InstanceProfileCredentialsProvider.getInstance());
-
-      AmazonDynamoDBClientBuilder reportMessageDynamoDbClientBuilder = AmazonDynamoDBClientBuilder
-          .standard()
-          .withRegion(configuration.getReportMessageDynamoDbConfiguration().getRegion())
-          .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(((int) configuration.getReportMessageDynamoDbConfiguration().getClientExecutionTimeout().toMillis()))
-              .withRequestTimeout((int) configuration.getReportMessageDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
-          .withCredentials(InstanceProfileCredentialsProvider.getInstance());
-
-      DynamoDB messageDynamoDb = new DynamoDB(clientBuilder.build());
-      DynamoDB preKeysDynamoDb = new DynamoDB(keysDynamoDbClientBuilder.build());
-      DynamoDB reportMessagesDynamoDb = new DynamoDB(reportMessageDynamoDbClientBuilder.build());
-
-      AmazonDynamoDB accountsDynamoDbClient = accountsDynamoDbClientBuilder.build();
-      AmazonDynamoDBAsync accountsDynamoDbAsyncClient = accountsDynamoDbAsyncClientBuilder.build();
+      DynamoDbClient reportMessagesDynamoDb = DynamoDbFromConfig.client(configuration.getReportMessageDynamoDbConfiguration(),
+          software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+      DynamoDbClient messageDynamoDb = DynamoDbFromConfig.client(configuration.getMessageDynamoDbConfiguration(),
+          software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+      DynamoDbClient preKeysDynamoDb = DynamoDbFromConfig.client(configuration.getKeysDynamoDbConfiguration(),
+          software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+      DynamoDbClient accountsDynamoDbClient = DynamoDbFromConfig.client(configuration.getAccountsDynamoDbConfiguration(),
+          software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+      DynamoDbAsyncClient accountsDynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(configuration.getAccountsDynamoDbConfiguration(),
+          software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create(),
+          accountsDynamoDbMigrationThreadPool);
 
       FaultTolerantRedisCluster cacheCluster = new FaultTolerantRedisCluster("main_cache_cluster", configuration.getCacheClusterConfiguration(), redisClusterClientResources);
 
@@ -173,14 +127,16 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
 
       ExperimentEnrollmentManager experimentEnrollmentManager = new ExperimentEnrollmentManager(dynamicConfigurationManager);
 
-      DynamoDB migrationDeletedAccountsDynamoDb = new DynamoDB(migrationDeletedAccountsDynamoDbClientBuilder.build());
-      DynamoDB migrationRetryAccountsDynamoDb = new DynamoDB(migrationRetryAccountsDynamoDbClientBuilder.build());
+      DynamoDbClient migrationDeletedAccountsDynamoDb = DynamoDbFromConfig.client(configuration.getMigrationDeletedAccountsDynamoDbConfiguration(),
+          software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+      DynamoDbClient migrationRetryAccountsDynamoDb = DynamoDbFromConfig.client(configuration.getMigrationRetryAccountsDynamoDbConfiguration(),
+          software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
       MigrationDeletedAccounts migrationDeletedAccounts = new MigrationDeletedAccounts(migrationDeletedAccountsDynamoDb, configuration.getMigrationDeletedAccountsDynamoDbConfiguration().getTableName());
       MigrationRetryAccounts migrationRetryAccounts = new MigrationRetryAccounts(migrationRetryAccountsDynamoDb, configuration.getMigrationRetryAccountsDynamoDbConfiguration().getTableName());
 
       Accounts                  accounts             = new Accounts(accountDatabase);
-      AccountsDynamoDb          accountsDynamoDb     = new AccountsDynamoDb(accountsDynamoDbClient, accountsDynamoDbAsyncClient, accountsDynamoDbMigrationThreadPool, new DynamoDB(accountsDynamoDbClient), configuration.getAccountsDynamoDbConfiguration().getTableName(), configuration.getAccountsDynamoDbConfiguration().getPhoneNumberTableName(), migrationDeletedAccounts, migrationRetryAccounts);
+      AccountsDynamoDb          accountsDynamoDb     = new AccountsDynamoDb(accountsDynamoDbClient, accountsDynamoDbAsyncClient, accountsDynamoDbMigrationThreadPool, configuration.getAccountsDynamoDbConfiguration().getTableName(), configuration.getAccountsDynamoDbConfiguration().getPhoneNumberTableName(), migrationDeletedAccounts, migrationRetryAccounts);
       Usernames                 usernames            = new Usernames(accountDatabase);
       Profiles                  profiles             = new Profiles(accountDatabase);
       ReservedUsernames         reservedUsernames    = new ReservedUsernames(accountDatabase);

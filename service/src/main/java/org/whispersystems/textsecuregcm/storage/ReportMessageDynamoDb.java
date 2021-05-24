@@ -1,13 +1,14 @@
 package org.whispersystems.textsecuregcm.storage;
 
-import com.amazonaws.services.dynamodbv2.document.DeleteItemOutcome;
-import com.amazonaws.services.dynamodbv2.document.DynamoDB;
-import com.amazonaws.services.dynamodbv2.document.Item;
-import com.amazonaws.services.dynamodbv2.document.Table;
-import com.amazonaws.services.dynamodbv2.document.spec.DeleteItemSpec;
-import com.amazonaws.services.dynamodbv2.model.ReturnValue;
+import org.whispersystems.textsecuregcm.util.AttributeValues;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 
 public class ReportMessageDynamoDb {
 
@@ -16,33 +17,30 @@ public class ReportMessageDynamoDb {
 
   static final Duration TIME_TO_LIVE = Duration.ofDays(7);
 
-  private final Table table;
+  private final DynamoDbClient db;
+  private final String tableName;
 
-  public ReportMessageDynamoDb(final DynamoDB dynamoDB, final String tableName) {
-
-    this.table = dynamoDB.getTable(tableName);
+  public ReportMessageDynamoDb(final DynamoDbClient dynamoDB, final String tableName) {
+    this.db = dynamoDB;
+    this.tableName = tableName;
   }
 
   public void store(byte[] hash) {
-
-    table.putItem(buildItemForHash(hash));
-  }
-
-  private Item buildItemForHash(byte[] hash) {
-    return new Item()
-        .withBinary(KEY_HASH, hash)
-        .withLong(ATTR_TTL, Instant.now().plus(TIME_TO_LIVE).getEpochSecond());
+    db.putItem(PutItemRequest.builder()
+        .tableName(tableName)
+        .item(Map.of(
+            KEY_HASH, AttributeValues.fromByteArray(hash),
+            ATTR_TTL, AttributeValues.fromLong(Instant.now().plus(TIME_TO_LIVE).getEpochSecond())
+        ))
+        .build());
   }
 
   public boolean remove(byte[] hash) {
-
-    final DeleteItemSpec deleteItemSpec = new DeleteItemSpec()
-        .withPrimaryKey(KEY_HASH, hash)
-        .withReturnValues(ReturnValue.ALL_OLD);
-
-    final DeleteItemOutcome outcome = table.deleteItem(deleteItemSpec);
-
-    return outcome.getItem() != null;
+    final DeleteItemResponse deleteItemResponse = db.deleteItem(DeleteItemRequest.builder()
+        .tableName(tableName)
+        .key(Map.of(KEY_HASH, AttributeValues.fromByteArray(hash)))
+        .returnValues(ReturnValue.ALL_OLD)
+        .build());
+    return !deleteItemResponse.attributes().isEmpty();
   }
-
 }

@@ -67,7 +67,7 @@ public class MessagesDynamoDbTest {
 
   @Before
   public void setup() {
-    messagesDynamoDb = new MessagesDynamoDb(dynamoDbRule.getDynamoDB(), MessagesDynamoDbRule.TABLE_NAME, Duration.ofDays(7));
+    messagesDynamoDb = new MessagesDynamoDb(dynamoDbRule.getDynamoDbClient(), MessagesDynamoDbRule.TABLE_NAME, Duration.ofDays(7));
   }
 
   @Test

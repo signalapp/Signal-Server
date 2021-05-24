@@ -11,26 +11,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync;
-import com.amazonaws.services.dynamodbv2.document.DynamoDB;
-import com.amazonaws.services.dynamodbv2.document.Item;
-import com.amazonaws.services.dynamodbv2.document.Page;
-import com.amazonaws.services.dynamodbv2.document.ScanOutcome;
-import com.amazonaws.services.dynamodbv2.document.Table;
-import com.amazonaws.services.dynamodbv2.document.spec.GetItemSpec;
-import com.amazonaws.services.dynamodbv2.document.spec.ScanSpec;
-import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
-import com.amazonaws.services.dynamodbv2.model.ConditionalCheckFailedException;
-import com.amazonaws.services.dynamodbv2.model.CreateTableRequest;
-import com.amazonaws.services.dynamodbv2.model.KeySchemaElement;
-import com.amazonaws.services.dynamodbv2.model.KeyType;
-import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
@@ -46,7 +32,22 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
-import org.whispersystems.textsecuregcm.util.UUIDUtil;
+import org.whispersystems.textsecuregcm.util.AttributeValues;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
+import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
+import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
+import software.amazon.awssdk.services.dynamodb.model.KeyType;
+import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
+import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
 class AccountsDynamoDbTest {
 
@@ -59,49 +60,75 @@ class AccountsDynamoDbTest {
   static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
       .tableName(ACCOUNTS_TABLE_NAME)
       .hashKey(AccountsDynamoDb.KEY_ACCOUNT_UUID)
-      .attributeDefinition(new AttributeDefinition(AccountsDynamoDb.KEY_ACCOUNT_UUID, ScalarAttributeType.B))
+      .attributeDefinition(AttributeDefinition.builder()
+          .attributeName(AccountsDynamoDb.KEY_ACCOUNT_UUID)
+          .attributeType(ScalarAttributeType.B)
+          .build())
       .build();
 
   private AccountsDynamoDb accountsDynamoDb;
 
-  private Table migrationDeletedAccountsTable;
-  private Table migrationRetryAccountsTable;
-
   @BeforeEach
   void setupAccountsDao() {
+    CreateTableRequest createNumbersTableRequest = CreateTableRequest.builder()
+        .tableName(NUMBERS_TABLE_NAME)
+        .keySchema(KeySchemaElement.builder()
+            .attributeName(AccountsDynamoDb.ATTR_ACCOUNT_E164)
+            .keyType(KeyType.HASH)
+            .build())
+        .attributeDefinitions(AttributeDefinition.builder()
+            .attributeName(AccountsDynamoDb.ATTR_ACCOUNT_E164)
+            .attributeType(ScalarAttributeType.S)
+            .build())
+        .provisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT)
+        .build();
 
-    CreateTableRequest createNumbersTableRequest = new CreateTableRequest()
-        .withTableName(NUMBERS_TABLE_NAME)
-        .withKeySchema(new KeySchemaElement(AccountsDynamoDb.ATTR_ACCOUNT_E164, KeyType.HASH))
-        .withAttributeDefinitions(new AttributeDefinition(AccountsDynamoDb.ATTR_ACCOUNT_E164, ScalarAttributeType.S))
-        .withProvisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT);
+    dynamoDbExtension.getDynamoDbClient().createTable(createNumbersTableRequest);
 
-    final Table numbersTable = dynamoDbExtension.getDynamoDB().createTable(createNumbersTableRequest);
+    final CreateTableRequest createMigrationDeletedAccountsTableRequest = CreateTableRequest.builder()
+        .tableName(MIGRATION_DELETED_ACCOUNTS_TABLE_NAME)
+        .keySchema(KeySchemaElement.builder()
+            .attributeName(MigrationDeletedAccounts.KEY_UUID)
+            .keyType(KeyType.HASH)
+            .build())
+        .attributeDefinitions(AttributeDefinition.builder()
+            .attributeName(MigrationDeletedAccounts.KEY_UUID)
+            .attributeType(ScalarAttributeType.B)
+            .build())
+        .provisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT)
+        .build();
 
-    final CreateTableRequest createMigrationDeletedAccountsTableRequest = new CreateTableRequest()
-        .withTableName(MIGRATION_DELETED_ACCOUNTS_TABLE_NAME)
-        .withKeySchema(new KeySchemaElement(MigrationDeletedAccounts.KEY_UUID, KeyType.HASH))
-        .withAttributeDefinitions(new AttributeDefinition(MigrationDeletedAccounts.KEY_UUID, ScalarAttributeType.B))
-        .withProvisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT);
+    dynamoDbExtension.getDynamoDbClient().createTable(createMigrationDeletedAccountsTableRequest);
 
-    migrationDeletedAccountsTable = dynamoDbExtension.getDynamoDB().createTable(createMigrationDeletedAccountsTableRequest);
+    MigrationDeletedAccounts migrationDeletedAccounts = new MigrationDeletedAccounts(
+        dynamoDbExtension.getDynamoDbClient(), MIGRATION_DELETED_ACCOUNTS_TABLE_NAME);
 
-    MigrationDeletedAccounts migrationDeletedAccounts = new MigrationDeletedAccounts(dynamoDbExtension.getDynamoDB(),
-        migrationDeletedAccountsTable.getTableName());
+    final CreateTableRequest createMigrationRetryAccountsTableRequest = CreateTableRequest.builder()
+        .tableName(MIGRATION_RETRY_ACCOUNTS_TABLE_NAME)
+        .keySchema(KeySchemaElement.builder()
+            .attributeName(MigrationRetryAccounts.KEY_UUID)
+            .keyType(KeyType.HASH)
+            .build())
+        .attributeDefinitions(AttributeDefinition.builder()
+            .attributeName(MigrationRetryAccounts.KEY_UUID)
+            .attributeType(ScalarAttributeType.B)
+            .build())
+        .provisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT)
+        .build();
 
-    final CreateTableRequest createMigrationRetryAccountsTableRequest = new CreateTableRequest()
-        .withTableName(MIGRATION_RETRY_ACCOUNTS_TABLE_NAME)
-        .withKeySchema(new KeySchemaElement(MigrationRetryAccounts.KEY_UUID, KeyType.HASH))
-        .withAttributeDefinitions(new AttributeDefinition(MigrationRetryAccounts.KEY_UUID, ScalarAttributeType.B))
-        .withProvisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT);
+    dynamoDbExtension.getDynamoDbClient().createTable(createMigrationRetryAccountsTableRequest);
 
-    migrationRetryAccountsTable = dynamoDbExtension.getDynamoDB().createTable(createMigrationRetryAccountsTableRequest);
+    MigrationRetryAccounts migrationRetryAccounts = new MigrationRetryAccounts((dynamoDbExtension.getDynamoDbClient()),
+        MIGRATION_RETRY_ACCOUNTS_TABLE_NAME);
 
-    MigrationRetryAccounts migrationRetryAccounts = new MigrationRetryAccounts((dynamoDbExtension.getDynamoDB()),
-        migrationRetryAccountsTable.getTableName());
-
-    this.accountsDynamoDb = new AccountsDynamoDb(dynamoDbExtension.getClient(), dynamoDbExtension.getAsyncClient(), new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, new LinkedBlockingDeque<>()), dynamoDbExtension.getDynamoDB(), dynamoDbExtension.getTableName(), numbersTable.getTableName(),
-        migrationDeletedAccounts, migrationRetryAccounts);
+    this.accountsDynamoDb = new AccountsDynamoDb(
+        dynamoDbExtension.getDynamoDbClient(),
+        dynamoDbExtension.getDynamoDbAsyncClient(),
+        new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, new LinkedBlockingDeque<>()),
+        dynamoDbExtension.getTableName(),
+        NUMBERS_TABLE_NAME,
+        migrationDeletedAccounts,
+        migrationRetryAccounts);
   }
 
   @Test
@@ -262,8 +289,12 @@ class AccountsDynamoDbTest {
 
     verifyRecentlyDeletedAccountsTableItemCount(1);
 
-    assertThat(migrationDeletedAccountsTable
-        .getItem(MigrationDeletedAccounts.primaryKey(deletedAccount.getUuid()))).isNotNull();
+    Map<String, AttributeValue> primaryKey = MigrationDeletedAccounts.primaryKey(deletedAccount.getUuid());
+    assertThat(dynamoDbExtension.getDynamoDbClient().getItem(GetItemRequest.builder()
+        .tableName(MIGRATION_DELETED_ACCOUNTS_TABLE_NAME)
+        .key(Map.of(MigrationDeletedAccounts.KEY_UUID, primaryKey.get(MigrationDeletedAccounts.KEY_UUID)))
+        .build()))
+        .isNotNull();
 
     accountsDynamoDb.deleteRecentlyDeletedUuids();
 
@@ -273,8 +304,10 @@ class AccountsDynamoDbTest {
   private void verifyRecentlyDeletedAccountsTableItemCount(int expectedItemCount) {
     int totalItems = 0;
 
-    for (Page<Item, ScanOutcome> page : migrationDeletedAccountsTable.scan(new ScanSpec()).pages()) {
-      for (Item ignored : page) {
+    for (ScanResponse page : dynamoDbExtension.getDynamoDbClient().scanPaginator(ScanRequest.builder()
+        .tableName(MIGRATION_DELETED_ACCOUNTS_TABLE_NAME)
+        .build())) {
+      for (Map<String, AttributeValue> item : page.items()) {
         totalItems++;
       }
     }
@@ -306,16 +339,15 @@ class AccountsDynamoDbTest {
     configuration.setRingBufferSizeInClosedState(2);
     configuration.setFailureRateThreshold(50);
 
-    final AmazonDynamoDB client = mock(AmazonDynamoDB.class);
-    final DynamoDB dynamoDB = new DynamoDB(client);
+    final DynamoDbClient client = mock(DynamoDbClient.class);
 
-    when(client.transactWriteItems(any()))
+    when(client.transactWriteItems(any(TransactWriteItemsRequest.class)))
         .thenThrow(RuntimeException.class);
 
-    when(client.updateItem(any()))
+    when(client.updateItem(any(UpdateItemRequest.class)))
         .thenThrow(RuntimeException.class);
 
-    AccountsDynamoDb accounts = new AccountsDynamoDb(client, mock(AmazonDynamoDBAsync.class), mock(ThreadPoolExecutor.class), dynamoDB, ACCOUNTS_TABLE_NAME, NUMBERS_TABLE_NAME, mock(
+    AccountsDynamoDb accounts = new AccountsDynamoDb(client, mock(DynamoDbAsyncClient.class), mock(ThreadPoolExecutor.class), ACCOUNTS_TABLE_NAME, NUMBERS_TABLE_NAME, mock(
         MigrationDeletedAccounts.class), mock(MigrationRetryAccounts.class));
     Account  account  = generateAccount("+14151112222", UUID.randomUUID());
 
@@ -408,20 +440,22 @@ class AccountsDynamoDbTest {
   }
 
   private void verifyStoredState(String number, UUID uuid, Account expecting) {
-    final Table accounts = dynamoDbExtension.getDynamoDB().getTable(dynamoDbExtension.getTableName());
+    final DynamoDbClient db = dynamoDbExtension.getDynamoDbClient();
 
-    Item item = accounts.getItem(new GetItemSpec()
-        .withPrimaryKey(AccountsDynamoDb.KEY_ACCOUNT_UUID, UUIDUtil.toByteBuffer(uuid))
-        .withConsistentRead(true));
+    final GetItemResponse get = db.getItem(GetItemRequest.builder()
+        .tableName(dynamoDbExtension.getTableName())
+        .key(Map.of(AccountsDynamoDb.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid)))
+        .consistentRead(true)
+        .build());
 
-    if (item != null) {
-      String data = new String(item.getBinary(AccountsDynamoDb.ATTR_ACCOUNT_DATA), StandardCharsets.UTF_8);
+    if (get.hasItem()) {
+      String data = new String(get.item().get(AccountsDynamoDb.ATTR_ACCOUNT_DATA).b().asByteArray(), StandardCharsets.UTF_8);
       assertThat(data).isNotEmpty();
 
-      assertThat(item.getNumber(AccountsDynamoDb.ATTR_MIGRATION_VERSION).intValue())
+      assertThat(AttributeValues.getInt(get.item(), AccountsDynamoDb.ATTR_MIGRATION_VERSION, -1))
           .isEqualTo(expecting.getDynamoDbMigrationVersion());
 
-      Account result = AccountsDynamoDb.fromItem(item);
+      Account result = AccountsDynamoDb.fromItem(get.item());
       verifyStoredState(number, uuid, result, expecting);
     } else {
       throw new AssertionError("No data");

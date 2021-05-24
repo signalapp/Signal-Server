@@ -9,8 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
-import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -20,6 +18,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
+import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
 class PushChallengeDynamoDbTest {
 
@@ -34,12 +34,15 @@ class PushChallengeDynamoDbTest {
   static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
       .tableName(TABLE_NAME)
       .hashKey(PushChallengeDynamoDb.KEY_ACCOUNT_UUID)
-      .attributeDefinition(new AttributeDefinition(PushChallengeDynamoDb.KEY_ACCOUNT_UUID, ScalarAttributeType.B))
+      .attributeDefinition(AttributeDefinition.builder()
+          .attributeName(PushChallengeDynamoDb.KEY_ACCOUNT_UUID)
+          .attributeType(ScalarAttributeType.B)
+          .build())
       .build();
 
   @BeforeEach
   void setUp() {
-    this.pushChallengeDynamoDb = new PushChallengeDynamoDb(dynamoDbExtension.getDynamoDB(), TABLE_NAME, Clock.fixed(
+    this.pushChallengeDynamoDb = new PushChallengeDynamoDb(dynamoDbExtension.getDynamoDbClient(), TABLE_NAME, Clock.fixed(
         Instant.ofEpochMilli(CURRENT_TIME_MILLIS), ZoneId.systemDefault()));
   }
 

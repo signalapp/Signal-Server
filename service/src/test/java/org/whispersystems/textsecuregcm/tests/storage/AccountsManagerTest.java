@@ -20,7 +20,6 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
-import com.amazonaws.services.dynamodbv2.model.ConditionalCheckFailedException;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.util.HashSet;
@@ -49,6 +48,7 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
+import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 
 class AccountsManagerTest {
 
