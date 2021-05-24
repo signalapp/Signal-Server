@@ -112,6 +112,7 @@ public class AccountsManager {
 
     this.migrationComparisonMapper = mapper.copy();
     migrationComparisonMapper.addMixIn(Account.class, AccountComparisonMixin.class);
+    migrationComparisonMapper.addMixIn(Device.class, DeviceComparisonMixin.class);
 
     this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.experimentEnrollmentManager = experimentEnrollmentManager;
@@ -459,10 +460,6 @@ public class AccountsManager {
     }
 
     try {
-      if (!serializedEquals(databaseAccount.getRegistrationLock(), dynamoAccount.getRegistrationLock())) {
-        return Optional.of("registrationLock");
-      }
-
       if (!serializedEquals(databaseAccount.getDevices(), dynamoAccount.getDevices())) {
         return Optional.of("devices");
       }
@@ -530,6 +527,13 @@ public class AccountsManager {
 
     @JsonIgnore
     private int dynamoDbMigrationVersion;
+
+  }
+
+  private static abstract class DeviceComparisonMixin extends Device {
+
+    @JsonIgnore
+    private long lastSeen;
 
   }
 

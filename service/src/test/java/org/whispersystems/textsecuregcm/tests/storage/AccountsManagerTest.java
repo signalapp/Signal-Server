@@ -41,6 +41,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsDynamoDb;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
@@ -406,6 +407,37 @@ class AccountsManagerTest {
     assertEquals(Optional.of("dbMissing"), accountsManager.compareAccounts(Optional.empty(), Optional.of(a1)));
 
     final Account a2 = new Account("+14152222222", uuidA, new HashSet<>(), new byte[16]);
+
+    assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
+
+    {
+      Device device1 = new Device();
+      device1.setId(1L);
+
+      a1.addDevice(device1);
+
+      assertEquals(Optional.of("devices"), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
+
+      Device device2 = new Device();
+      device2.setId(1L);
+
+      a2.addDevice(device2);
+
+      assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
+
+      device1.setLastSeen(1L);
+
+      assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
+
+      device1.setName("name");
+
+      assertEquals(Optional.of("devices"), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
+
+      a1.removeDevice(1L);
+      a2.removeDevice(1L);
+
+      assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
+    }
 
     assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
 
