@@ -460,6 +460,12 @@ public class AccountsManager {
     }
 
     try {
+      if (databaseAccount.getMasterDevice().isPresent() && dynamoAccount.getMasterDevice().isPresent()) {
+        if (!Objects.equals(databaseAccount.getMasterDevice().get().getSignedPreKey(), dynamoAccount.getMasterDevice().get().getSignedPreKey())) {
+          return Optional.of("masterDeviceSignedPreKey");
+        }
+      }
+
       if (!serializedEquals(databaseAccount.getDevices(), dynamoAccount.getDevices())) {
         return Optional.of("devices");
       }
@@ -470,10 +476,6 @@ public class AccountsManager {
 
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
-    }
-
-    if (databaseAccount.getDynamoDbMigrationVersion() != dynamoAccount.getDynamoDbMigrationVersion()) {
-      return Optional.of("migrationVersion");
     }
 
     return Optional.empty();

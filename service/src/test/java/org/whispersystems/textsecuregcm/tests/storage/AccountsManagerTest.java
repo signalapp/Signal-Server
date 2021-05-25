@@ -32,6 +32,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicAccountsDynamoDbMigrationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
@@ -433,6 +434,11 @@ class AccountsManagerTest {
 
       assertEquals(Optional.of("devices"), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
 
+      device1.setSignedPreKey(new SignedPreKey(1L, "123", "456"));
+      device2.setSignedPreKey(new SignedPreKey(2L, "123", "456"));
+
+      assertEquals(Optional.of("masterDeviceSignedPreKey"), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
+
       a1.removeDevice(1L);
       a2.removeDevice(1L);
 
@@ -443,7 +449,7 @@ class AccountsManagerTest {
 
     a1.setDynamoDbMigrationVersion(1);
 
-    assertEquals(Optional.of("migrationVersion"), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
+    assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
 
     a2.setProfileName("name");
 
