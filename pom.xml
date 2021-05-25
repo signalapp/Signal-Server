@@ -41,7 +41,7 @@
     <resilience4j.version>1.5.0</resilience4j.version>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <TextSecureServer.version>5.93</TextSecureServer.version>
+    <TextSecureServer.version>5.94</TextSecureServer.version>
   </properties>
 
   <groupId>org.whispersystems.textsecure</groupId>
