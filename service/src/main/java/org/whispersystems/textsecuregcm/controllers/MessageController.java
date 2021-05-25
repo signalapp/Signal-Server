@@ -76,6 +76,7 @@ import org.whispersystems.textsecuregcm.entities.MultiRecipientMessage.Recipient
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
 import org.whispersystems.textsecuregcm.entities.SendMessageResponse;
+import org.whispersystems.textsecuregcm.entities.SendMultiRecipientMessageResponse;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeException;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
@@ -417,7 +418,7 @@ public class MessageController {
         uuids404.add(destinationAccount.getUuid());
       }
     }
-    return Response.ok(new SendMessageResponse(uuids404)).build();
+    return Response.ok(new SendMultiRecipientMessageResponse(uuids404)).build();
   }
 
   private void checkAccessKeys(CombinedUnidentifiedSenderAccessKeys accessKeys, Map<UUID, Account> uuidToAccountMap) {
