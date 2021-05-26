@@ -9,10 +9,13 @@ config/production.yml
 config/federated.yml
 config/staging.yml
 config/testing.yml
-service/config/production.yml
-service/config/federated.yml
-service/config/staging.yml
-service/config/testing.yml
+config/deploy.properties
+/service/config/production.yml
+/service/config/federated.yml
+/service/config/staging.yml
+/service/config/testing.yml
+/service/config/deploy.properties
+/service/dependency-reduced-pom.xml
 .opsmanage
 put.sh
 deployer-staging.properties
