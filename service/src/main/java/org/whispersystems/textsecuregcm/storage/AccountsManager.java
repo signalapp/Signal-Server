@@ -21,12 +21,16 @@ import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
+import net.logstash.logback.argument.StructuredArguments;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
@@ -464,6 +468,10 @@ public class AccountsManager {
         if (!Objects.equals(databaseAccount.getMasterDevice().get().getSignedPreKey(), dynamoAccount.getMasterDevice().get().getSignedPreKey())) {
           return Optional.of("masterDeviceSignedPreKey");
         }
+
+        if (!Objects.equals(databaseAccount.getMasterDevice().get().getPushTimestamp(), dynamoAccount.getMasterDevice().get().getPushTimestamp())) {
+          return Optional.of("masterDevicePushTimestamp");
+        }
       }
 
       if (!serializedEquals(databaseAccount.getDevices(), dynamoAccount.getDevices())) {
@@ -520,9 +528,24 @@ public class AccountsManager {
 
           if (maybeUUid.isPresent()
               && dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration().isLogMismatches()) {
-            logger.info("Mismatched {} for {}", mismatchDescription, maybeUUid.get());
+
+            final String abbreviatedCallChain = getAbbreviatedCallChain(new RuntimeException().getStackTrace());
+
+            logger.info("Mismatched account data: {}", StructuredArguments.entries(Map.of(
+                "type", mismatchDescription,
+                "uuid", maybeUUid.get(),
+                "callChain", abbreviatedCallChain
+            )));
           }
         });
+  }
+
+  private String getAbbreviatedCallChain(final StackTraceElement[] stackTrace) {
+    return Arrays.stream(stackTrace)
+        .filter(stackTraceElement -> stackTraceElement.getClassName().contains("org.whispersystems"))
+        .filter(stackTraceElement -> !(stackTraceElement.getClassName().endsWith("AccountsManager") && stackTraceElement.getMethodName().contains("compare")))
+        .map(stackTraceElement -> StringUtils.substringAfterLast(stackTraceElement.getClassName(), ".") + ":" + stackTraceElement.getMethodName())
+        .collect(Collectors.joining(" -> "));
   }
 
   private static abstract class AccountComparisonMixin extends Account {

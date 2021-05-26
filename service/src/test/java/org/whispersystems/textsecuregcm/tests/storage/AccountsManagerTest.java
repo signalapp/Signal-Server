@@ -385,7 +385,7 @@ class AccountsManagerTest {
   }
 
   @Test
-  void testCompareAccounts() {
+  void testCompareAccounts() throws Exception {
     RedisAdvancedClusterCommands<String, String> commands            = mock(RedisAdvancedClusterCommands.class);
     FaultTolerantRedisCluster                    cacheCluster        = RedisClusterHelper.buildMockRedisCluster(commands);
     Accounts                                     accounts            = mock(Accounts.class);
@@ -434,10 +434,23 @@ class AccountsManagerTest {
 
       assertEquals(Optional.of("devices"), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
 
+      device1.setName(null);
+
       device1.setSignedPreKey(new SignedPreKey(1L, "123", "456"));
       device2.setSignedPreKey(new SignedPreKey(2L, "123", "456"));
 
       assertEquals(Optional.of("masterDeviceSignedPreKey"), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
+
+      device1.setSignedPreKey(null);
+      device2.setSignedPreKey(null);
+
+      assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
+
+      device1.setApnId("123");
+      Thread.sleep(5);
+      device2.setApnId("123");
+
+      assertEquals(Optional.of("masterDevicePushTimestamp"), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
 
       a1.removeDevice(1L);
       a2.removeDevice(1L);
