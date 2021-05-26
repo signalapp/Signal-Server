@@ -5,16 +5,10 @@
   <parent>
     <artifactId>TextSecureServer</artifactId>
     <groupId>org.whispersystems.textsecure</groupId>
-    <version>1.0</version>
+    <version>JGITVER</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
-
   <artifactId>service</artifactId>
-  <version>${TextSecureServer.version}</version>
-
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  </properties>
 
   <dependencies>
     <dependency>
@@ -33,28 +27,27 @@
     <dependency>
       <groupId>org.whispersystems.textsecure</groupId>
       <artifactId>redis-dispatch</artifactId>
-      <version>${TextSecureServer.version}</version>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>org.whispersystems.textsecure</groupId>
       <artifactId>websocket-resources</artifactId>
-      <version>${TextSecureServer.version}</version>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>org.whispersystems.textsecure</groupId>
       <artifactId>gcm-sender-async</artifactId>
-      <version>${TextSecureServer.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>com.google.guava</groupId>
-          <artifactId>guava</artifactId>
-        </exclusion>
-      </exclusions>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>org.signal</groupId>
       <artifactId>zkgroup-java</artifactId>
       <version>0.7.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.whispersystems</groupId>
+      <artifactId>curve25519-java</artifactId>
+      <version>0.5.0</version>
     </dependency>
 
     <dependency>
@@ -134,7 +127,6 @@
     <dependency>
       <groupId>net.logstash.logback</groupId>
       <artifactId>logstash-logback-encoder</artifactId>
-      <version>6.6</version>
     </dependency>
 
     <dependency>
@@ -178,8 +170,6 @@
     <dependency>
       <groupId>org.glassfish.jaxb</groupId>
       <artifactId>jaxb-runtime</artifactId>
-      <version>2.3.1</version>
-      <scope>runtime</scope>
     </dependency>
 
     <dependency>
@@ -204,17 +194,10 @@
     <dependency>
       <groupId>commons-codec</groupId>
       <artifactId>commons-codec</artifactId>
-      <version>1.13</version>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-csv</artifactId>
-      <version>1.8</version>
-    </dependency>
-    <dependency>
-      <groupId>io.vavr</groupId>
-      <artifactId>vavr</artifactId>
-      <version>0.10.2</version>
     </dependency>
 
     <dependency>
@@ -225,12 +208,6 @@
     <dependency>
       <groupId>io.github.resilience4j</groupId>
       <artifactId>resilience4j-circuitbreaker</artifactId>
-      <exclusions>
-        <exclusion>
-          <groupId>org.slf4j</groupId>
-          <artifactId>slf4j-api</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
     <dependency>
       <groupId>io.github.resilience4j</groupId>
@@ -299,76 +276,52 @@
     <dependency>
       <groupId>redis.clients</groupId>
       <artifactId>jedis</artifactId>
-      <version>2.9.0</version>
-      <type>jar</type>
-      <scope>compile</scope>
     </dependency>
 
     <dependency>
       <groupId>io.lettuce</groupId>
       <artifactId>lettuce-core</artifactId>
-      <version>6.0.4.RELEASE</version>
     </dependency>
 
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
-      <version>9.4-1201-jdbc41</version>
       <scope>runtime</scope>
     </dependency>
-    <dependency>
-      <groupId>org.whispersystems</groupId>
-      <artifactId>curve25519-java</artifactId>
-      <version>0.5.0</version>
-    </dependency>
-
 
     <dependency>
       <groupId>com.eatthepath</groupId>
       <artifactId>pushy</artifactId>
-      <version>${pushy.version}</version>
     </dependency>
     <dependency>
       <groupId>com.eatthepath</groupId>
       <artifactId>pushy-dropwizard-metrics-listener</artifactId>
-      <version>${pushy.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>io.dropwizard.metrics</groupId>
-          <artifactId>metrics-core</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-tcnative-boringssl-static</artifactId>
-      <version>2.0.34.Final</version>
       <scope>runtime</scope>
     </dependency>
 
     <dependency>
       <groupId>com.vdurmont</groupId>
       <artifactId>semver4j</artifactId>
-      <version>3.1.0</version>
     </dependency>
 
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
-      <version>30.1.1-jre</version>
     </dependency>
 
     <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
-      <version>2.6.1</version>
     </dependency>
 
     <dependency>
       <groupId>com.googlecode.libphonenumber</groupId>
       <artifactId>libphonenumber</artifactId>
-      <version>8.12.21</version>
     </dependency>
 
     <dependency>
@@ -470,12 +423,12 @@
 
 
   <build>
-    <finalName>${parent.artifactId}-${TextSecureServer.version}</finalName>
+    <finalName>${project.parent.artifactId}-${project.version}</finalName>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
-        <version>1.6</version>
+        <version>3.2.4</version>
         <configuration>
           <createDependencyReducedPom>true</createDependencyReducedPom>
           <filters>
@@ -508,8 +461,9 @@
       </plugin>
 
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-assembly-plugin</artifactId>
-        <version>2.4</version>
+        <version>3.3.0</version>
         <configuration>
           <descriptors>
             <descriptor>assembly.xml</descriptor>

@@ -5,18 +5,15 @@
   <parent>
     <artifactId>TextSecureServer</artifactId>
     <groupId>org.whispersystems.textsecure</groupId>
-    <version>1.0</version>
+    <version>JGITVER</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
-
   <artifactId>gcm-sender-async</artifactId>
-  <version>${TextSecureServer.version}</version>
 
   <dependencies>
     <dependency>
       <groupId>io.github.resilience4j</groupId>
       <artifactId>resilience4j-retry</artifactId>
-      <version>${resilience4j.version}</version>
     </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
@@ -42,6 +39,11 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>jcl-over-slf4j</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-nop</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

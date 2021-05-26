@@ -5,12 +5,10 @@
   <parent>
     <artifactId>TextSecureServer</artifactId>
     <groupId>org.whispersystems.textsecure</groupId>
-    <version>1.0</version>
+    <version>JGITVER</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
-
   <artifactId>websocket-resources</artifactId>
-  <version>${TextSecureServer.version}</version>
 
   <dependencies>
     <dependency>
@@ -85,7 +83,6 @@
     <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
-      <version>2.6.1</version>
     </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>
@@ -103,7 +100,6 @@
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-inline</artifactId>
-      <version>${mockito.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

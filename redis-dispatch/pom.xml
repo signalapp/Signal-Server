@@ -5,12 +5,10 @@
   <parent>
     <artifactId>TextSecureServer</artifactId>
     <groupId>org.whispersystems.textsecure</groupId>
-    <version>1.0</version>
+    <version>JGITVER</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
-
   <artifactId>redis-dispatch</artifactId>
-  <version>${TextSecureServer.version}</version>
 
   <dependencies>
     <dependency>
