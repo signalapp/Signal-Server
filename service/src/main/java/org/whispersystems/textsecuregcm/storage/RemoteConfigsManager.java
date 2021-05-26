@@ -21,9 +21,10 @@ public class RemoteConfigsManager implements Managed {
   private final Logger logger = LoggerFactory.getLogger(RemoteConfigsManager.class);
 
   private final RemoteConfigs remoteConfigs;
-  private final long          sleepInterval;
 
   private final AtomicReference<List<RemoteConfig>> cachedConfigs = new AtomicReference<>(new LinkedList<>());
+
+  private final Thread refreshThread;
 
   public RemoteConfigsManager(RemoteConfigs remoteConfigs) {
     this(remoteConfigs, TimeUnit.SECONDS.toMillis(10));
@@ -32,24 +33,26 @@ public class RemoteConfigsManager implements Managed {
   @VisibleForTesting
   public RemoteConfigsManager(RemoteConfigs remoteConfigs, long sleepInterval) {
     this.remoteConfigs = remoteConfigs;
-    this.sleepInterval = sleepInterval;
+    this.refreshThread = new Thread(() -> {
+        while (!Thread.currentThread().isInterrupted()) {
+          try {
+            refreshCache();
+          } catch (Throwable t) {
+            logger.warn("Error updating remote configs cache", t);
+          }
+
+          Util.sleepQuietly(sleepInterval);
+        }
+      });
+    this.refreshThread.setName(getClass().getSimpleName());
+    this.refreshThread.setDaemon(true);
   }
 
   @Override
   public void start() {
     refreshCache();
 
-    new Thread(() -> {
-      while (true) {
-        try {
-          refreshCache();
-        } catch (Throwable t) {
-          logger.warn("Error updating remote configs cache", t);
-        }
-
-        Util.sleep(sleepInterval);
-      }
-    }).start();
+    refreshThread.start();
   }
 
   private void refreshCache() {
@@ -67,6 +70,11 @@ public class RemoteConfigsManager implements Managed {
     }
   }
 
+  @VisibleForTesting
+  Thread getRefreshThread() {
+    return refreshThread;
+  }
+
   public List<RemoteConfig> getAll() {
     return cachedConfigs.get();
   }
@@ -80,7 +88,7 @@ public class RemoteConfigsManager implements Managed {
   }
 
   @Override
-  public void stop() throws Exception {
-
+  public void stop() {
+    refreshThread.interrupt();
   }
 }

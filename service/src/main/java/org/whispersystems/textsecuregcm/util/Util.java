@@ -5,6 +5,7 @@
 package org.whispersystems.textsecuregcm.util;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
+
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.security.MessageDigest;
@@ -146,10 +147,23 @@ public class Util {
     return Util.toIntExact(System.currentTimeMillis() / 1000 / 60 / 60 / 24);
   }
 
+  /**
+   * @deprecated Favor {@link #sleepQuietly(long)} which restores the interrupt status.
+   */
+  @Deprecated
   public static void sleep(long i) {
     try {
       Thread.sleep(i);
     } catch (InterruptedException ie) {}
+  }
+
+  public static void sleepQuietly(long ms) {
+      try {
+        Thread.sleep(ms);
+      } catch (InterruptedException ie) {
+        // see https://pskb-prod.herokuapp.com/java-and-j2ee/don-t-swallow-interruptedexception-call-thread-currentthread-interrupt-instead
+        Thread.currentThread().interrupt();
+      }
   }
 
   public static void wait(Object object) {

@@ -4,11 +4,13 @@ import org.junit.Test;
 import org.whispersystems.textsecuregcm.entities.CurrencyConversionEntityList;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -123,4 +125,27 @@ public class CurrencyConversionManagerTest {
 
   }
 
+  @Test
+  public void testStartStop() throws Exception {
+      FixerClient fixerClient = mock(FixerClient.class);
+      FtxClient   ftxClient   = mock(FtxClient.class);
+
+      when(ftxClient.getSpotPrice(eq("FOO"), eq("USD"))).thenReturn(2.35);
+      when(fixerClient.getConversionsForBase(eq("USD"))).thenReturn(Map.of("EUR", 0.822876, "FJD", 2.0577,"FKP", 0.743446));
+
+      CurrencyConversionManager manager = new CurrencyConversionManager(fixerClient, ftxClient, List.of("FOO"));
+
+      assertThat(manager.getCurrencyConversions()).isEmpty();
+      try {
+          manager.start();
+
+          await().atMost(Duration.ofSeconds(1))
+                 .until(() -> manager.getCurrencyConversions().isPresent());
+      } finally {
+          manager.stop();
+      }
+
+      await().atMost(Duration.ofSeconds(1))
+             .until(() -> !manager.getUpdateThread().isAlive());
+  }
 }

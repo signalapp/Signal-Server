@@ -9,16 +9,19 @@ import com.opentable.db.postgres.embedded.LiquibasePreparer;
 import com.opentable.db.postgres.junit.EmbeddedPostgresRules;
 import com.opentable.db.postgres.junit.PreparedDbRule;
 import org.jdbi.v3.core.Jdbi;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 public class RemoteConfigsManagerTest {
 
@@ -32,6 +35,17 @@ public class RemoteConfigsManagerTest {
     RemoteConfigs remoteConfigs = new RemoteConfigs(new FaultTolerantDatabase("remote_configs-test", Jdbi.create(db.getTestDatabase()), new CircuitBreakerConfiguration()));
     this.remoteConfigs = new RemoteConfigsManager(remoteConfigs, 500);
     this.remoteConfigs.start();
+    assertThat(this.remoteConfigs.getRefreshThread().isAlive())
+      .as("refresh thread")
+      .isTrue();
+  }
+
+  @After
+  public void tearDown() {
+    this.remoteConfigs.stop();
+
+    await().atMost(Duration.ofSeconds(1))
+           .until(() -> !remoteConfigs.getRefreshThread().isAlive());
   }
 
   @Test

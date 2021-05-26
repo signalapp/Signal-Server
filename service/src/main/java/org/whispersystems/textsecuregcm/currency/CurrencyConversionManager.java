@@ -1,6 +1,7 @@
 package org.whispersystems.textsecuregcm.currency;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.dropwizard.lifecycle.Managed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.CurrencyConversionEntity;
@@ -16,8 +17,6 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import io.dropwizard.lifecycle.Managed;
-
 public class CurrencyConversionManager implements Managed {
 
   private static final Logger logger = LoggerFactory.getLogger(CurrencyConversionManager.class);
@@ -29,7 +28,7 @@ public class CurrencyConversionManager implements Managed {
   private final FtxClient    ftxClient;
   private final List<String> currencies;
 
-  private AtomicReference<CurrencyConversionEntityList> cached = new AtomicReference<>(null);
+  private final AtomicReference<CurrencyConversionEntityList> cached = new AtomicReference<>();
 
   private long fixerUpdatedTimestamp;
   private long ftxUpdatedTimestamp;
@@ -37,10 +36,25 @@ public class CurrencyConversionManager implements Managed {
   private Map<String, Double> cachedFixerValues;
   private Map<String, Double> cachedFtxValues;
 
+  private final Thread updateThread;
+
   public CurrencyConversionManager(FixerClient fixerClient, FtxClient ftxClient, List<String> currencies) {
     this.fixerClient = fixerClient;
     this.ftxClient   = ftxClient;
     this.currencies  = currencies;
+    this.updateThread = new Thread(() -> {
+        while (!Thread.currentThread().isInterrupted()) {
+          try {
+            updateCacheIfNecessary();
+          } catch (Throwable t) {
+            logger.warn("Error updating currency conversions", t);
+          }
+
+          Util.sleepQuietly(15000);
+        }
+      });
+      updateThread.setName(getClass().getSimpleName());
+      updateThread.setDaemon(true);
   }
 
   public Optional<CurrencyConversionEntityList> getCurrencyConversions() {
@@ -49,22 +63,12 @@ public class CurrencyConversionManager implements Managed {
 
   @Override
   public void start() throws Exception {
-    new Thread(() -> {
-      for (;;) {
-        try {
-          updateCacheIfNecessary();
-        } catch (Throwable t) {
-          logger.warn("Error updating currency conversions", t);
-        }
-
-        Util.sleep(15000);
-      }
-    }).start();
+    updateThread.start();
   }
 
   @Override
   public void stop() throws Exception {
-
+    updateThread.interrupt();
   }
 
   @VisibleForTesting
@@ -114,4 +118,8 @@ public class CurrencyConversionManager implements Managed {
     this.ftxUpdatedTimestamp = timestamp;
   }
 
+  @VisibleForTesting
+  Thread getUpdateThread() {
+      return this.updateThread;
+  }
 }
