@@ -1,0 +1,14 @@
+<configuration xmlns="http://jgitver.github.io/maven/configuration/1.1.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://jgitver.github.io/maven/configuration/1.1.0 https://jgitver.github.io/maven/configuration/jgitver-configuration-v1_1_0.xsd">
+  <useDirty>true</useDirty>
+  <useDefaultBranchingPolicy>false</useDefaultBranchingPolicy>
+  <branchPolicies>
+    <branchPolicy>
+      <pattern>(.*)</pattern>
+      <transformations>
+        <transformation>IGNORE</transformation>
+      </transformations>
+    </branchPolicy>
+  </branchPolicies>
+</configuration>
