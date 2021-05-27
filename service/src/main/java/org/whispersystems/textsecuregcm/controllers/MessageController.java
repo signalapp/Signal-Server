@@ -134,6 +134,7 @@ public class MessageController {
 
   private final ClusterLuaScript recordInternationalUnsealedSenderMetricsScript;
 
+  private static final String LEGACY_MESSAGE_SENT_COUNTER = name(MessageController.class, "legacyMessageSent");
   private static final String SENT_MESSAGE_COUNTER_NAME                          = name(MessageController.class, "sentMessages");
   private static final String REJECT_UNSEALED_SENDER_COUNTER_NAME                = name(MessageController.class, "rejectUnsealedSenderLimit");
   private static final String INTERNATIONAL_UNSEALED_SENDER_COUNTER_NAME         = name(MessageController.class, "internationalUnsealedSender");
@@ -615,6 +616,7 @@ public class MessageController {
       }
 
       if (messageBody.isPresent()) {
+        Metrics.counter(LEGACY_MESSAGE_SENT_COUNTER).increment();
         messageBuilder.setLegacyMessage(ByteString.copyFrom(messageBody.get()));
       }
 
