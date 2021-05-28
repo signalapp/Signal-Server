@@ -18,8 +18,12 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.util.Util;
 
+import javax.validation.ConstraintViolation;
+import javax.validation.Validation;
+import javax.validation.Validator;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -32,15 +36,18 @@ public class DynamicConfigurationManager {
   private final AmazonAppConfig appConfigClient;
 
   private final AtomicReference<DynamicConfiguration>   configuration    = new AtomicReference<>();
-  private final Logger                                  logger           = LoggerFactory.getLogger(DynamicConfigurationManager.class);
 
   private GetConfigurationResult lastConfigResult;
 
   private boolean initialized = false;
 
-  public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper(new YAMLFactory())
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper(new YAMLFactory())
       .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
       .registerModule(new JavaTimeModule());
+
+  private static final Validator VALIDATOR = Validation.buildDefaultValidatorFactory().getValidator();
+
+  private static final Logger logger = LoggerFactory.getLogger(DynamicConfigurationManager.class);
 
   public DynamicConfigurationManager(String application, String environment, String configurationName) {
     this(AmazonAppConfigClient.builder()
@@ -104,9 +111,28 @@ public class DynamicConfigurationManager {
 
     if (!StringUtils.equals(lastConfigResult.getConfigurationVersion(), previousVersion)) {
       logger.info("Received new config version: {}", lastConfigResult.getConfigurationVersion());
-      maybeDynamicConfiguration = Optional.of(OBJECT_MAPPER.readValue(StandardCharsets.UTF_8.decode(lastConfigResult.getContent().asReadOnlyBuffer()).toString(), DynamicConfiguration.class));
+
+      maybeDynamicConfiguration =
+          parseConfiguration(StandardCharsets.UTF_8.decode(lastConfigResult.getContent().asReadOnlyBuffer()).toString());
     } else {
       // No change since last version
+      maybeDynamicConfiguration = Optional.empty();
+    }
+
+    return maybeDynamicConfiguration;
+  }
+
+  @VisibleForTesting
+  public static Optional<DynamicConfiguration> parseConfiguration(final String configurationYaml) throws JsonProcessingException {
+    final DynamicConfiguration configuration = OBJECT_MAPPER.readValue(configurationYaml, DynamicConfiguration.class);
+    final Set<ConstraintViolation<DynamicConfiguration>> violations = VALIDATOR.validate(configuration);
+
+    final Optional<DynamicConfiguration> maybeDynamicConfiguration;
+
+    if (violations.isEmpty()) {
+      maybeDynamicConfiguration = Optional.of(configuration);
+    } else {
+      logger.warn("Failed to validate configuration: {}", violations);
       maybeDynamicConfiguration = Optional.empty();
     }
 
