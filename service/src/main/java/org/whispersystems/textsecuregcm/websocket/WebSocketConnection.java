@@ -171,7 +171,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
             messagesManager.delete(account.getUuid(), device.getId(), storedMessageInfo.get().getGuid());
           }
 
-          if (message.getType() != Envelope.Type.RECEIPT) {
+          if (message.getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT) {
             recordMessageDeliveryDuration(message.getTimestamp(), device);
             sendDeliveryReceiptFor(message);
           }

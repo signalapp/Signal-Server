@@ -478,7 +478,7 @@ class MessageControllerTest {
 
     List<OutgoingMessageEntity> messages = new LinkedList<>() {{
       add(new OutgoingMessageEntity(1L, false, messageGuidOne, Envelope.Type.CIPHERTEXT_VALUE, null, timestampOne, "+14152222222", sourceUuid, 2, "hi there".getBytes(), null, 0));
-      add(new OutgoingMessageEntity(2L, false, null, Envelope.Type.RECEIPT_VALUE, null, timestampTwo, "+14152222222", sourceUuid, 2, null, null, 0));
+      add(new OutgoingMessageEntity(2L, false, null, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, null, timestampTwo, "+14152222222", sourceUuid, 2, null, null, 0));
     }};
 
     OutgoingMessageEntityList messagesList = new OutgoingMessageEntityList(messages, false);
@@ -515,7 +515,7 @@ class MessageControllerTest {
 
     List<OutgoingMessageEntity> messages = new LinkedList<OutgoingMessageEntity>() {{
       add(new OutgoingMessageEntity(1L, false, UUID.randomUUID(), Envelope.Type.CIPHERTEXT_VALUE, null, timestampOne, "+14152222222", UUID.randomUUID(), 2, "hi there".getBytes(), null, 0));
-      add(new OutgoingMessageEntity(2L, false, UUID.randomUUID(), Envelope.Type.RECEIPT_VALUE, null, timestampTwo, "+14152222222", UUID.randomUUID(), 2, null, null, 0));
+      add(new OutgoingMessageEntity(2L, false, UUID.randomUUID(), Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, null, timestampTwo, "+14152222222", UUID.randomUUID(), 2, null, null, 0));
     }};
 
     OutgoingMessageEntityList messagesList = new OutgoingMessageEntityList(messages, false);
@@ -546,7 +546,7 @@ class MessageControllerTest {
 
     when(messagesManager.delete(AuthHelper.VALID_UUID, 1, "+14152222222", 31338))
         .thenReturn(Optional.of(new OutgoingMessageEntity(31337L, true, null,
-                                                          Envelope.Type.RECEIPT_VALUE,
+                                                          Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE,
                                                           null, System.currentTimeMillis(),
                                                           "+14152222222", sourceUuid, 1, null, null, 0)));
 

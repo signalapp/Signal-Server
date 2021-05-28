@@ -25,8 +25,10 @@ message Envelope {
     CIPHERTEXT          = 1;
     KEY_EXCHANGE        = 2;
     PREKEY_BUNDLE       = 3;
-    RECEIPT             = 5;
+    SERVER_DELIVERY_RECEIPT = 5;
     UNIDENTIFIED_SENDER = 6;
+    reserved 7;
+    PLAINTEXT_CONTENT = 8;  // for decryption error receipts
   }
 
   optional Type   type             = 1;

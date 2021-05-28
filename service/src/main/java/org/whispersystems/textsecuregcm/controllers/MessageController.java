@@ -549,7 +549,7 @@ public class MessageController {
                                                                        account.getAuthenticatedDevice().get().getId(),
                                                                        source, timestamp);
 
-      if (message.isPresent() && message.get().getType() != Envelope.Type.RECEIPT_VALUE) {
+      if (message.isPresent() && message.get().getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE) {
         receiptSender.sendReceipt(account,
                                   message.get().getSource(),
                                   message.get().getTimestamp());
@@ -571,7 +571,7 @@ public class MessageController {
 
       if (message.isPresent()) {
         WebSocketConnection.recordMessageDeliveryDuration(message.get().getTimestamp(), account.getAuthenticatedDevice().get());
-        if (!Util.isEmpty(message.get().getSource()) && message.get().getType() != Envelope.Type.RECEIPT_VALUE) {
+        if (!Util.isEmpty(message.get().getSource()) && message.get().getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE) {
           receiptSender.sendReceipt(account, message.get().getSource(), message.get().getTimestamp());
         }
       }
@@ -605,7 +605,7 @@ public class MessageController {
       Optional<byte[]> messageContent = getMessageContent(incomingMessage);
       Envelope.Builder messageBuilder = Envelope.newBuilder();
 
-      messageBuilder.setType(Envelope.Type.valueOf(incomingMessage.getType()))
+      messageBuilder.setType(Envelope.Type.forNumber(incomingMessage.getType()))
                     .setTimestamp(timestamp == 0 ? System.currentTimeMillis() : timestamp)
                     .setServerTimestamp(System.currentTimeMillis());
 

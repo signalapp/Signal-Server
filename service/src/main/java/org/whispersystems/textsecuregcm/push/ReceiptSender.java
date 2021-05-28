@@ -43,7 +43,7 @@ public class ReceiptSender {
                                                   .setSourceUuid(source.getUuid().toString())
                                                   .setSourceDevice((int) source.getAuthenticatedDevice().get().getId())
                                                   .setTimestamp(messageId)
-                                                  .setType(Envelope.Type.RECEIPT);
+                                                  .setType(Envelope.Type.SERVER_DELIVERY_RECEIPT);
 
     if (source.getRelay().isPresent()) {
       message.setRelay(source.getRelay().get());

@@ -823,7 +823,7 @@ public class WebSocketConnectionTest {
   }
 
   private OutgoingMessageEntity createMessage(long id, boolean cached, String sender, UUID senderUuid, long timestamp, boolean receipt, String content) {
-    return new OutgoingMessageEntity(id, cached, UUID.randomUUID(), receipt ? Envelope.Type.RECEIPT_VALUE : Envelope.Type.CIPHERTEXT_VALUE,
+    return new OutgoingMessageEntity(id, cached, UUID.randomUUID(), receipt ? Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE : Envelope.Type.CIPHERTEXT_VALUE,
                                      null, timestamp, sender, senderUuid, 1, content.getBytes(), null, 0);
   }
 
