@@ -4,7 +4,16 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.codahale.metrics.SharedMetricRegistries;
+import java.security.KeyStore;
+import java.security.cert.CertificateException;
+import javax.net.ssl.SSLContext;
+import javax.ws.rs.client.Client;
+import javax.ws.rs.client.ClientBuilder;
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.core.MediaType;
 import org.glassfish.jersey.SslConfigurator;
 import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature;
 import org.whispersystems.textsecuregcm.configuration.DirectoryServerConfiguration;
@@ -13,16 +22,6 @@ import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationResponse
 import org.whispersystems.textsecuregcm.util.CertificateExpirationGauge;
 import org.whispersystems.textsecuregcm.util.CertificateUtil;
 import org.whispersystems.textsecuregcm.util.Constants;
-
-import javax.net.ssl.SSLContext;
-import javax.ws.rs.client.Client;
-import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.Entity;
-import javax.ws.rs.core.MediaType;
-import java.security.KeyStore;
-import java.security.cert.CertificateException;
-
-import static com.codahale.metrics.MetricRegistry.name;
 
 public class DirectoryReconciliationClient {
 
@@ -45,6 +44,13 @@ public class DirectoryReconciliationClient {
                  .path("/v2/directory/reconcile")
                  .request(MediaType.APPLICATION_JSON_TYPE)
                  .put(Entity.json(request), DirectoryReconciliationResponse.class);
+  }
+
+  public DirectoryReconciliationResponse delete(DirectoryReconciliationRequest request) {
+    return client.target(replicationUrl)
+        .path("/v3/directory/deletes")
+        .request(MediaType.APPLICATION_JSON_TYPE)
+        .put(Entity.json(request), DirectoryReconciliationResponse.class);
   }
 
   private static Client initializeClient(DirectoryServerConfiguration directoryServerConfiguration)
