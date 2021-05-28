@@ -71,6 +71,7 @@ public class AccountsManager {
   private final Accounts                  accounts;
   private final AccountsDynamoDb          accountsDynamoDb;
   private final FaultTolerantRedisCluster cacheCluster;
+  private final DeletedAccounts           deletedAccounts;
   private final DirectoryQueue            directoryQueue;
   private final KeysDynamoDb              keysDynamoDb;
   private final MessagesManager           messagesManager;
@@ -97,14 +98,18 @@ public class AccountsManager {
     }
   }
 
-  public AccountsManager(Accounts accounts, AccountsDynamoDb accountsDynamoDb, FaultTolerantRedisCluster cacheCluster, final DirectoryQueue directoryQueue,
+  public AccountsManager(Accounts accounts, AccountsDynamoDb accountsDynamoDb, FaultTolerantRedisCluster cacheCluster,
+      final DeletedAccounts deletedAccounts,
+      final DirectoryQueue directoryQueue,
       final KeysDynamoDb keysDynamoDb, final MessagesManager messagesManager, final UsernamesManager usernamesManager,
       final ProfilesManager profilesManager, final SecureStorageClient secureStorageClient,
       final SecureBackupClient secureBackupClient,
-      final ExperimentEnrollmentManager experimentEnrollmentManager, final DynamicConfigurationManager dynamicConfigurationManager) {
+      final ExperimentEnrollmentManager experimentEnrollmentManager,
+      final DynamicConfigurationManager dynamicConfigurationManager) {
     this.accounts            = accounts;
     this.accountsDynamoDb    = accountsDynamoDb;
     this.cacheCluster        = cacheCluster;
+    this.deletedAccounts     = deletedAccounts;
     this.directoryQueue      = directoryQueue;
     this.keysDynamoDb        = keysDynamoDb;
     this.messagesManager     = messagesManager;
@@ -262,6 +267,8 @@ public class AccountsManager {
             Metrics.counter(DYNAMO_MIGRATION_ERROR_COUNTER_NAME, "action", "delete").increment();
           }
       }
+
+      deletedAccounts.put(account.getUuid(), account.getNumber());
 
     } catch (final Exception e) {
       logger.warn("Failed to delete account", e);

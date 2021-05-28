@@ -160,6 +160,11 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
+  private DynamoDbConfiguration deletedAccountsDynamoDb;
+
+  @Valid
+  @NotNull
+  @JsonProperty
   private DynamoDbConfiguration pushChallengeDynamoDb;
 
   @Valid
@@ -379,6 +384,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public DynamoDbConfiguration getMigrationRetryAccountsDynamoDbConfiguration() {
     return migrationRetryAccountsDynamoDb;
+  }
+
+  public DynamoDbConfiguration getDeletedAccountsDynamoDbConfiguration() {
+    return deletedAccountsDynamoDb;
   }
 
   public DatabaseConfiguration getAbuseDatabaseConfiguration() {

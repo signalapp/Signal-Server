@@ -41,6 +41,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsDynamoDb;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
@@ -70,6 +71,7 @@ class AccountsManagerTest {
     FaultTolerantRedisCluster                    cacheCluster        = RedisClusterHelper.buildMockRedisCluster(commands);
     Accounts                                     accounts            = mock(Accounts.class);
     AccountsDynamoDb                             accountsDynamoDb    = mock(AccountsDynamoDb.class);
+    DeletedAccounts                              deletedAccounts     = mock(DeletedAccounts.class);
     DirectoryQueue                               directoryQueue      = mock(DirectoryQueue.class);
     KeysDynamoDb                                 keysDynamoDb        = mock(KeysDynamoDb.class);
     MessagesManager                              messagesManager     = mock(MessagesManager.class);
@@ -85,7 +87,8 @@ class AccountsManagerTest {
     when(commands.get(eq("AccountMap::+14152222222"))).thenReturn(uuid.toString());
     when(commands.get(eq("Account3::" + uuid.toString()))).thenReturn("{\"number\": \"+14152222222\", \"name\": \"test\"}");
 
-    AccountsManager   accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
+    AccountsManager   accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, deletedAccounts,
+        directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
     Optional<Account> account         = accountsManager.get("+14152222222");
 
     assertTrue(account.isPresent());
@@ -120,6 +123,7 @@ class AccountsManagerTest {
     FaultTolerantRedisCluster                    cacheCluster        = RedisClusterHelper.buildMockRedisCluster(commands);
     Accounts                                     accounts            = mock(Accounts.class);
     AccountsDynamoDb                             accountsDynamoDb    = mock(AccountsDynamoDb.class);
+    DeletedAccounts                              deletedAccounts     = mock(DeletedAccounts.class);
     DirectoryQueue                               directoryQueue      = mock(DirectoryQueue.class);
     KeysDynamoDb                                 keysDynamoDb        = mock(KeysDynamoDb.class);
     MessagesManager                              messagesManager     = mock(MessagesManager.class);
@@ -134,7 +138,8 @@ class AccountsManagerTest {
 
     when(commands.get(eq("Account3::" + uuid.toString()))).thenReturn("{\"number\": \"+14152222222\", \"name\": \"test\"}");
 
-    AccountsManager   accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
+    AccountsManager   accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, deletedAccounts,
+        directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
     Optional<Account> account         = accountsManager.get(uuid);
 
     assertTrue(account.isPresent());
@@ -157,6 +162,7 @@ class AccountsManagerTest {
     FaultTolerantRedisCluster                    cacheCluster        = RedisClusterHelper.buildMockRedisCluster(commands);
     Accounts                                     accounts            = mock(Accounts.class);
     AccountsDynamoDb                             accountsDynamoDb    = mock(AccountsDynamoDb.class);
+    DeletedAccounts                              deletedAccounts     = mock(DeletedAccounts.class);
     DirectoryQueue                               directoryQueue      = mock(DirectoryQueue.class);
     KeysDynamoDb                                 keysDynamoDb        = mock(KeysDynamoDb.class);
     MessagesManager                              messagesManager     = mock(MessagesManager.class);
@@ -172,7 +178,8 @@ class AccountsManagerTest {
     when(commands.get(eq("AccountMap::+14152222222"))).thenReturn(null);
     when(accounts.get(eq("+14152222222"))).thenReturn(Optional.of(account));
 
-    AccountsManager   accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
+    AccountsManager   accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, deletedAccounts,
+        directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
     Optional<Account> retrieved       = accountsManager.get("+14152222222");
 
     assertTrue(retrieved.isPresent());
@@ -198,6 +205,7 @@ class AccountsManagerTest {
     FaultTolerantRedisCluster                    cacheCluster        = RedisClusterHelper.buildMockRedisCluster(commands);
     Accounts                                     accounts            = mock(Accounts.class);
     AccountsDynamoDb                             accountsDynamoDb    = mock(AccountsDynamoDb.class);
+    DeletedAccounts                              deletedAccounts     = mock(DeletedAccounts.class);
     DirectoryQueue                               directoryQueue      = mock(DirectoryQueue.class);
     KeysDynamoDb                                 keysDynamoDb        = mock(KeysDynamoDb.class);
     MessagesManager                              messagesManager     = mock(MessagesManager.class);
@@ -213,7 +221,8 @@ class AccountsManagerTest {
     when(commands.get(eq("Account3::" + uuid))).thenReturn(null);
     when(accounts.get(eq(uuid))).thenReturn(Optional.of(account));
 
-    AccountsManager   accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
+    AccountsManager   accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, deletedAccounts,
+        directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
     Optional<Account> retrieved       = accountsManager.get(uuid);
 
     assertTrue(retrieved.isPresent());
@@ -238,6 +247,7 @@ class AccountsManagerTest {
     FaultTolerantRedisCluster                    cacheCluster        = RedisClusterHelper.buildMockRedisCluster(commands);
     Accounts                                     accounts            = mock(Accounts.class);
     AccountsDynamoDb                             accountsDynamoDb    = mock(AccountsDynamoDb.class);
+    DeletedAccounts                              deletedAccounts     = mock(DeletedAccounts.class);
     DirectoryQueue                               directoryQueue      = mock(DirectoryQueue.class);
     KeysDynamoDb                                 keysDynamoDb        = mock(KeysDynamoDb.class);
     MessagesManager                              messagesManager     = mock(MessagesManager.class);
@@ -253,7 +263,8 @@ class AccountsManagerTest {
     when(commands.get(eq("AccountMap::+14152222222"))).thenThrow(new RedisException("Connection lost!"));
     when(accounts.get(eq("+14152222222"))).thenReturn(Optional.of(account));
 
-    AccountsManager   accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
+    AccountsManager   accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, deletedAccounts,
+        directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
     Optional<Account> retrieved       = accountsManager.get("+14152222222");
 
     assertTrue(retrieved.isPresent());
@@ -278,6 +289,7 @@ class AccountsManagerTest {
     FaultTolerantRedisCluster                    cacheCluster        = RedisClusterHelper.buildMockRedisCluster(commands);
     Accounts                                     accounts            = mock(Accounts.class);
     AccountsDynamoDb                             accountsDynamoDb    = mock(AccountsDynamoDb.class);
+    DeletedAccounts                              deletedAccounts     = mock(DeletedAccounts.class);
     DirectoryQueue                               directoryQueue      = mock(DirectoryQueue.class);
     KeysDynamoDb                                 keysDynamoDb        = mock(KeysDynamoDb.class);
     MessagesManager                              messagesManager     = mock(MessagesManager.class);
@@ -293,7 +305,8 @@ class AccountsManagerTest {
     when(commands.get(eq("Account3::" + uuid))).thenThrow(new RedisException("Connection lost!"));
     when(accounts.get(eq(uuid))).thenReturn(Optional.of(account));
 
-    AccountsManager   accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
+    AccountsManager   accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, deletedAccounts,
+        directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
     Optional<Account> retrieved       = accountsManager.get(uuid);
 
     assertTrue(retrieved.isPresent());
@@ -318,6 +331,7 @@ class AccountsManagerTest {
     FaultTolerantRedisCluster                    cacheCluster        = RedisClusterHelper.buildMockRedisCluster(commands);
     Accounts                                     accounts            = mock(Accounts.class);
     AccountsDynamoDb                             accountsDynamoDb    = mock(AccountsDynamoDb.class);
+    DeletedAccounts                              deletedAccounts     = mock(DeletedAccounts.class);
     DirectoryQueue                               directoryQueue      = mock(DirectoryQueue.class);
     KeysDynamoDb                                 keysDynamoDb        = mock(KeysDynamoDb.class);
     MessagesManager                              messagesManager     = mock(MessagesManager.class);
@@ -332,7 +346,8 @@ class AccountsManagerTest {
 
     when(commands.get(eq("Account3::" + uuid))).thenReturn(null);
 
-    AccountsManager   accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
+    AccountsManager   accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, deletedAccounts,
+        directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
 
     assertEquals(0, account.getDynamoDbMigrationVersion());
 
@@ -353,6 +368,7 @@ class AccountsManagerTest {
     FaultTolerantRedisCluster                    cacheCluster        = RedisClusterHelper.buildMockRedisCluster(commands);
     Accounts                                     accounts            = mock(Accounts.class);
     AccountsDynamoDb                             accountsDynamoDb    = mock(AccountsDynamoDb.class);
+    DeletedAccounts                              deletedAccounts     = mock(DeletedAccounts.class);
     DirectoryQueue                               directoryQueue      = mock(DirectoryQueue.class);
     KeysDynamoDb                                 keysDynamoDb        = mock(KeysDynamoDb.class);
     MessagesManager                              messagesManager     = mock(MessagesManager.class);
@@ -368,7 +384,8 @@ class AccountsManagerTest {
     when(commands.get(eq("Account3::" + uuid))).thenReturn(null);
     doThrow(ConditionalCheckFailedException.class).when(accountsDynamoDb).update(any(Account.class));
 
-    AccountsManager   accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
+    AccountsManager   accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, deletedAccounts,
+        directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
 
     assertEquals(0, account.getDynamoDbMigrationVersion());
 
@@ -390,6 +407,7 @@ class AccountsManagerTest {
     FaultTolerantRedisCluster                    cacheCluster        = RedisClusterHelper.buildMockRedisCluster(commands);
     Accounts                                     accounts            = mock(Accounts.class);
     AccountsDynamoDb                             accountsDynamoDb    = mock(AccountsDynamoDb.class);
+    DeletedAccounts                              deletedAccounts     = mock(DeletedAccounts.class);
     DirectoryQueue                               directoryQueue      = mock(DirectoryQueue.class);
     KeysDynamoDb                                 keysDynamoDb        = mock(KeysDynamoDb.class);
     MessagesManager                              messagesManager     = mock(MessagesManager.class);
@@ -398,7 +416,8 @@ class AccountsManagerTest {
     SecureBackupClient                           secureBackupClient  = mock(SecureBackupClient.class);
     SecureStorageClient                          secureStorageClient = mock(SecureStorageClient.class);
 
-    AccountsManager   accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
+    AccountsManager   accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, deletedAccounts,
+        directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
 
     assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.empty(), Optional.empty()));
 

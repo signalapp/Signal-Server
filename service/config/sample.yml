@@ -89,6 +89,10 @@ accountsDynamoDb: # DynamoDB table configuration
   tableName:
   phoneNumberTableName:
 
+deletedAccountsDynamoDb: # DynamoDb table configuration
+  region:
+  tableName:
+
 migrationDeletedAccountsDynamoDb: # DynamoDB table configuration
   region:
   tableName:
