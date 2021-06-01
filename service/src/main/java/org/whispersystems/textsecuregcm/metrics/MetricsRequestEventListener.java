@@ -29,18 +29,18 @@ import java.util.regex.Pattern;
 /**
  * Gathers and reports request-level metrics.
  */
-class MetricsRequestEventListener implements RequestEventListener {
+public class MetricsRequestEventListener implements RequestEventListener {
 
-    static final  String REQUEST_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "request");
-    static final  String PATH_TAG             = "path";
-    static final  String STATUS_CODE_TAG      = "status";
-    static final  String TRAFFIC_SOURCE_TAG   = "trafficSource";
+    public static final String REQUEST_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "request");
+    public static final String ANDROID_REQUEST_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "androidRequest");
+    public static final String DESKTOP_REQUEST_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "desktopRequest");
+    public static final String IOS_REQUEST_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "iosRequest");
 
-    static final String ANDROID_REQUEST_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "androidRequest");
-    static final String DESKTOP_REQUEST_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "desktopRequest");
-    static final String IOS_REQUEST_COUNTER_NAME     = MetricRegistry.name(MetricsRequestEventListener.class, "iosRequest");
-    static final String OS_TAG                       = "os";
-    static final String SDK_TAG                      = "sdkVersion";
+    static final String PATH_TAG = "path";
+    static final String STATUS_CODE_TAG = "status";
+    static final String TRAFFIC_SOURCE_TAG = "trafficSource";
+    static final String OS_TAG = "os";
+    static final String SDK_TAG = "sdkVersion";
 
     private static final Set<String> ACCEPTABLE_DESKTOP_OS_STRINGS = Set.of("linux", "macos", "windows");
 

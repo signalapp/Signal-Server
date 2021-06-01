@@ -39,6 +39,8 @@ import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import io.lettuce.core.resource.ClientResources;
 import io.micrometer.core.instrument.Clock;
+import io.micrometer.core.instrument.Meter;
+import io.micrometer.core.instrument.Meter.Id;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
@@ -122,6 +124,7 @@ import org.whispersystems.textsecuregcm.metrics.FreeMemoryGauge;
 import org.whispersystems.textsecuregcm.metrics.GarbageCollectionGauges;
 import org.whispersystems.textsecuregcm.metrics.MaxFileDescriptorGauge;
 import org.whispersystems.textsecuregcm.metrics.MetricsApplicationEventListener;
+import org.whispersystems.textsecuregcm.metrics.MetricsRequestEventListener;
 import org.whispersystems.textsecuregcm.metrics.NetworkReceivedGauge;
 import org.whispersystems.textsecuregcm.metrics.NetworkSentGauge;
 import org.whispersystems.textsecuregcm.metrics.NstatCounters;
@@ -244,7 +247,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
   @Override
   public void run(WhisperServerConfiguration config, Environment environment)
       throws Exception {
+
     SharedMetricRegistries.add(Constants.METRICS_NAME, environment.metrics());
+
+    final DistributionStatisticConfig defaultDistributionStatisticConfig = DistributionStatisticConfig.builder()
+        .percentiles(.75, .95, .99, .999)
+        .build();
 
     final WavefrontConfig wavefrontConfig = new WavefrontConfig() {
       @Override
@@ -266,10 +274,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     Metrics.addRegistry(new WavefrontMeterRegistry(wavefrontConfig, Clock.SYSTEM) {
       @Override
       protected DistributionStatisticConfig defaultHistogramConfig() {
-        return DistributionStatisticConfig.builder()
-                .percentiles(.75, .95, .99, .999)
-                .build()
-                .merge(super.defaultHistogramConfig());
+        return defaultDistributionStatisticConfig.merge(super.defaultHistogramConfig());
       }
     });
 
@@ -285,6 +290,17 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
           return config.getDatadogConfiguration().getApiKey();
         }
       }, Clock.SYSTEM);
+
+      datadogMeterRegistry.config().meterFilter(new MeterFilter() {
+        @Override
+        public DistributionStatisticConfig configure(final Id id, final DistributionStatisticConfig config) {
+          return defaultDistributionStatisticConfig.merge(config);
+        }
+      })
+          .meterFilter(MeterFilter.denyNameStartsWith(MetricsRequestEventListener.REQUEST_COUNTER_NAME))
+          .meterFilter(MeterFilter.denyNameStartsWith(MetricsRequestEventListener.ANDROID_REQUEST_COUNTER_NAME))
+          .meterFilter(MeterFilter.denyNameStartsWith(MetricsRequestEventListener.DESKTOP_REQUEST_COUNTER_NAME))
+          .meterFilter(MeterFilter.denyNameStartsWith(MetricsRequestEventListener.IOS_REQUEST_COUNTER_NAME));
 
       Metrics.addRegistry(datadogMeterRegistry);
     }
