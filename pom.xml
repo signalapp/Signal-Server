@@ -34,7 +34,7 @@
     <commons-codec.version>1.15</commons-codec.version>
     <commons-csv.version>1.8</commons-csv.version>
     <commons-io.version>2.9.0</commons-io.version>
-    <dropwizard.version>2.0.21</dropwizard.version>
+    <dropwizard.version>2.0.22</dropwizard.version>
     <guava.version>30.1.1-jre</guava.version>
     <jaxb.version>2.3.1</jaxb.version>
     <jedis.version>2.9.0</jedis.version>
