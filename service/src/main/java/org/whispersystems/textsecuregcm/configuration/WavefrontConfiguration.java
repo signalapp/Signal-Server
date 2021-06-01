@@ -9,7 +9,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.validation.constraints.Positive;
 
-public class MicrometerConfiguration {
+public class WavefrontConfiguration {
 
     @JsonProperty
     private String uri;

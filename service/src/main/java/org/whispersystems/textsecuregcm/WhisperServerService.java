@@ -40,7 +40,10 @@ import io.dropwizard.setup.Environment;
 import io.lettuce.core.resource.ClientResources;
 import io.micrometer.core.instrument.Clock;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
+import io.micrometer.datadog.DatadogConfig;
+import io.micrometer.datadog.DatadogMeterRegistry;
 import io.micrometer.wavefront.WavefrontConfig;
 import io.micrometer.wavefront.WavefrontMeterRegistry;
 import java.net.http.HttpClient;
@@ -251,12 +254,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
       @Override
       public String uri() {
-        return config.getMicrometerConfiguration().getUri();
+        return config.getWavefrontConfiguration().getUri();
       }
 
       @Override
       public int batchSize() {
-        return config.getMicrometerConfiguration().getBatchSize();
+        return config.getWavefrontConfiguration().getBatchSize();
       }
     };
 
@@ -269,6 +272,22 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                 .merge(super.defaultHistogramConfig());
       }
     });
+
+    {
+      final DatadogMeterRegistry datadogMeterRegistry = new DatadogMeterRegistry(new DatadogConfig() {
+        @Override
+        public String get(final String key) {
+          return null;
+        }
+
+        @Override
+        public String apiKey() {
+          return config.getDatadogConfiguration().getApiKey();
+        }
+      }, Clock.SYSTEM);
+
+      Metrics.addRegistry(datadogMeterRegistry);
+    }
 
     environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     environment.getObjectMapper().setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);

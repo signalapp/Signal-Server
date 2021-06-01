@@ -21,6 +21,7 @@ import org.whispersystems.textsecuregcm.configuration.AppConfigConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AwsAttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DatabaseConfiguration;
+import org.whispersystems.textsecuregcm.configuration.DatadogConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbConfiguration;
@@ -29,7 +30,7 @@ import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguratio
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageDynamoDbConfiguration;
-import org.whispersystems.textsecuregcm.configuration.MicrometerConfiguration;
+import org.whispersystems.textsecuregcm.configuration.WavefrontConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PaymentsServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PushConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
@@ -79,7 +80,12 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
-  private MicrometerConfiguration micrometer;
+  private WavefrontConfiguration wavefront;
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private DatadogConfiguration datadog;
 
   @NotNull
   @Valid
@@ -393,8 +399,12 @@ public class WhisperServerConfiguration extends Configuration {
     return cdn;
   }
 
-  public MicrometerConfiguration getMicrometerConfiguration() {
-    return micrometer;
+  public WavefrontConfiguration getWavefrontConfiguration() {
+    return wavefront;
+  }
+
+  public DatadogConfiguration getDatadogConfiguration() {
+    return datadog;
   }
 
   public UnidentifiedDeliveryConfiguration getDeliveryCertificate() {
