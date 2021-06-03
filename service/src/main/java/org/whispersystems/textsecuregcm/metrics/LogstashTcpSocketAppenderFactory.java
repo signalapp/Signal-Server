@@ -26,6 +26,7 @@ import java.time.Duration;
 import javax.validation.constraints.NotEmpty;
 import net.logstash.logback.appender.LogstashTcpSocketAppender;
 import net.logstash.logback.encoder.LogstashEncoder;
+import org.whispersystems.textsecuregcm.WhisperServerVersion;
 
 @JsonTypeName("logstashtcpsocket")
 public class LogstashTcpSocketAppenderFactory extends AbstractAppenderFactory<ILoggingEvent> {
@@ -83,7 +84,8 @@ public class LogstashTcpSocketAppenderFactory extends AbstractAppenderFactory<IL
     }
     customFieldsNode.set("service", TextNode.valueOf("chat"));
     customFieldsNode.set("ddsource", TextNode.valueOf("logstash"));
-    customFieldsNode.set("ddtags", TextNode.valueOf("env:" + environment));
+    customFieldsNode.set("ddtags", TextNode.valueOf("env:" + environment + ",version:" + WhisperServerVersion.getServerVersion()));
+
     encoder.setCustomFields(customFieldsNode.toString());
     final LayoutWrappingEncoder<ILoggingEvent> prefix = new LayoutWrappingEncoder<>();
     final PatternLayout layout = new PatternLayout();
