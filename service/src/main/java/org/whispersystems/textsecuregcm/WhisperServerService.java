@@ -293,6 +293,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         public String apiKey() {
           return config.getDatadogConfiguration().getApiKey();
         }
+
+        @Override
+        public Duration step() {
+          return config.getDatadogConfiguration().getStep();
+        }
       }, Clock.SYSTEM);
 
       datadogMeterRegistry.config().meterFilter(new MeterFilter() {
