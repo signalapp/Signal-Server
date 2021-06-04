@@ -99,7 +99,7 @@ public class KeysDynamoDb extends AbstractDynamoDbStore {
               .returnValues(ReturnValue.ALL_OLD)
               .build();
           DeleteItemResponse deleteItemResponse = db().deleteItem(deleteItemRequest);
-          if (deleteItemResponse.attributes() != null) {
+          if (deleteItemResponse.hasAttributes()) {
             return Optional.of(getPreKeyFromItem(deleteItemResponse.attributes()));
           }
 
