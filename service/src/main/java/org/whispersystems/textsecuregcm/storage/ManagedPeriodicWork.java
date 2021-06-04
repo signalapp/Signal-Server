@@ -14,7 +14,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 
 public abstract class ManagedPeriodicWork implements Managed, Runnable {
 
-  private static final Logger logger = LoggerFactory.getLogger(ManagedPeriodicWork.class);
+  private final Logger logger = LoggerFactory.getLogger(getClass());
 
   private final ManagedPeriodicWorkCache cache;
   private final Duration workerTtl;
@@ -58,7 +58,7 @@ public abstract class ManagedPeriodicWork implements Managed, Runnable {
         execute();
         sleepWhileRunning(runInterval);
       } catch (final Exception e) {
-        logger.warn("Error in crawl crawl", e);
+        logger.warn("Error in execution", e);
 
         // wait a bit, in case the error is caused by external instability
         Util.sleep(10_000);
@@ -78,16 +78,19 @@ public abstract class ManagedPeriodicWork implements Managed, Runnable {
       try {
         final long startTimeMs = System.currentTimeMillis();
 
+        logger.info("Starting execution");
         doPeriodicWork();
+        logger.info("Execution complete");
 
         final long endTimeMs = System.currentTimeMillis();
         final Duration sleepInterval = runInterval.minusMillis(endTimeMs - startTimeMs);
         if (sleepInterval.getSeconds() > 0) {
+          logger.info("Sleeping for {}", sleepInterval);
           sleepWhileRunning(sleepInterval);
         }
 
       } catch (final Exception e) {
-        logger.warn("Failed to process chunk", e);
+        logger.warn("Periodic work failed", e);
 
         // wait a full interval for recovery
         sleepWhileRunning(runInterval);
