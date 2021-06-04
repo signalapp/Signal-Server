@@ -20,11 +20,19 @@ public class DatadogConfiguration {
   @NotNull
   private Duration step = Duration.ofSeconds(10);
 
+  @JsonProperty
+  @NotBlank
+  private String environment;
+
   public String getApiKey() {
     return apiKey;
   }
 
   public Duration getStep() {
     return step;
+  }
+
+  public String getEnvironment() {
+    return environment;
   }
 }

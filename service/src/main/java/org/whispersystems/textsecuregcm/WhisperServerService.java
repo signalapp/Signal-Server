@@ -34,6 +34,7 @@ import io.lettuce.core.resource.ClientResources;
 import io.micrometer.core.instrument.Clock;
 import io.micrometer.core.instrument.Meter.Id;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import io.micrometer.datadog.DatadogConfig;
@@ -309,16 +310,21 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         }
       }, Clock.SYSTEM);
 
-      datadogMeterRegistry.config().meterFilter(new MeterFilter() {
-        @Override
-        public DistributionStatisticConfig configure(final Id id, final DistributionStatisticConfig config) {
-          return defaultDistributionStatisticConfig.merge(config);
-        }
-      })
+      datadogMeterRegistry.config().commonTags(
+          Tags.of(
+              "service", "chat",
+              "version", WhisperServerVersion.getServerVersion(),
+              "env", config.getDatadogConfiguration().getEnvironment()))
           .meterFilter(MeterFilter.denyNameStartsWith(MetricsRequestEventListener.REQUEST_COUNTER_NAME))
           .meterFilter(MeterFilter.denyNameStartsWith(MetricsRequestEventListener.ANDROID_REQUEST_COUNTER_NAME))
           .meterFilter(MeterFilter.denyNameStartsWith(MetricsRequestEventListener.DESKTOP_REQUEST_COUNTER_NAME))
-          .meterFilter(MeterFilter.denyNameStartsWith(MetricsRequestEventListener.IOS_REQUEST_COUNTER_NAME));
+          .meterFilter(MeterFilter.denyNameStartsWith(MetricsRequestEventListener.IOS_REQUEST_COUNTER_NAME))
+          .meterFilter(new MeterFilter() {
+            @Override
+            public DistributionStatisticConfig configure(final Id id, final DistributionStatisticConfig config) {
+              return defaultDistributionStatisticConfig.merge(config);
+            }
+          });
 
       Metrics.addRegistry(datadogMeterRegistry);
     }
