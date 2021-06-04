@@ -17,19 +17,19 @@ public abstract class ManagedPeriodicWork implements Managed, Runnable {
   private static final Logger logger = LoggerFactory.getLogger(ManagedPeriodicWork.class);
 
   private final ManagedPeriodicWorkCache cache;
+  private final Duration workerTtl;
+  private final Duration runInterval;
   private final String workerId;
 
   private final AtomicBoolean running = new AtomicBoolean(false);
   private boolean finished;
 
-  public ManagedPeriodicWork(final ManagedPeriodicWorkCache cache) {
+  public ManagedPeriodicWork(final ManagedPeriodicWorkCache cache, final Duration workerTtl, final Duration runInterval) {
     this.cache = cache;
+    this.workerTtl = workerTtl;
+    this.runInterval = runInterval;
     this.workerId = UUID.randomUUID().toString();
   }
-
-  abstract protected Duration getWorkerTtl();
-
-  abstract protected Duration getRunInterval();
 
   abstract protected void doPeriodicWork() throws Exception;
 
@@ -56,7 +56,7 @@ public abstract class ManagedPeriodicWork implements Managed, Runnable {
     while(running.get()) {
       try {
         execute();
-        sleepWhileRunning(getRunInterval());
+        sleepWhileRunning(runInterval);
       } catch (final Exception e) {
         logger.warn("Error in crawl crawl", e);
 
@@ -73,7 +73,7 @@ public abstract class ManagedPeriodicWork implements Managed, Runnable {
 
   private void execute() {
 
-    if (cache.claimActiveWork(workerId, getWorkerTtl())) {
+    if (cache.claimActiveWork(workerId, workerTtl)) {
 
       try {
         final long startTimeMs = System.currentTimeMillis();
@@ -81,7 +81,7 @@ public abstract class ManagedPeriodicWork implements Managed, Runnable {
         doPeriodicWork();
 
         final long endTimeMs = System.currentTimeMillis();
-        final Duration sleepInterval = getRunInterval().minusMillis(endTimeMs - startTimeMs);
+        final Duration sleepInterval = runInterval.minusMillis(endTimeMs - startTimeMs);
         if (sleepInterval.getSeconds() > 0) {
           sleepWhileRunning(sleepInterval);
         }
@@ -90,7 +90,7 @@ public abstract class ManagedPeriodicWork implements Managed, Runnable {
         logger.warn("Failed to process chunk", e);
 
         // wait a full interval for recovery
-        sleepWhileRunning(getRunInterval());
+        sleepWhileRunning(runInterval);
 
       } finally {
         cache.releaseActiveWork(workerId);

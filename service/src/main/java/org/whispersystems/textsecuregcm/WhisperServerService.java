@@ -156,9 +156,8 @@ import org.whispersystems.textsecuregcm.storage.AccountsDynamoDbMigrator;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ActiveUserCounter;
 import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
-import org.whispersystems.textsecuregcm.storage.DeletedAccountsTableCrawler;
-import org.whispersystems.textsecuregcm.storage.DeletedAccountsTableCrawlerCache;
 import org.whispersystems.textsecuregcm.storage.DeletedAccountsDirectoryReconciler;
+import org.whispersystems.textsecuregcm.storage.DeletedAccountsTableCrawler;
 import org.whispersystems.textsecuregcm.storage.DirectoryReconciler;
 import org.whispersystems.textsecuregcm.storage.DirectoryReconciliationClient;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
@@ -495,8 +494,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(cacheCluster);
     AccountDatabaseCrawler      accountDatabaseCrawler      = new AccountDatabaseCrawler(accountsManager, accountDatabaseCrawlerCache, accountDatabaseCrawlerListeners, config.getAccountDatabaseCrawlerConfiguration().getChunkSize(), config.getAccountDatabaseCrawlerConfiguration().getChunkIntervalMs());
 
-    DeletedAccountsTableCrawlerCache deletedAccountsTableCrawlerCache = new DeletedAccountsTableCrawlerCache(cacheCluster);
-    DeletedAccountsTableCrawler deletedAccountsTableCrawler = new DeletedAccountsTableCrawler(deletedAccounts, deletedAccountsTableCrawlerCache, deletedAccountsDirectoryReconcilers);
+    DeletedAccountsTableCrawler deletedAccountsTableCrawler = new DeletedAccountsTableCrawler(deletedAccounts, deletedAccountsDirectoryReconcilers, cacheCluster);
 
     apnSender.setApnFallbackManager(apnFallbackManager);
     environment.lifecycle().manage(apnFallbackManager);
