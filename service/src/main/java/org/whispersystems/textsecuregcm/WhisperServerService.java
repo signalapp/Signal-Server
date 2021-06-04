@@ -6,12 +6,10 @@ package org.whispersystems.textsecuregcm;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.codahale.metrics.SharedMetricRegistries;
@@ -34,7 +32,6 @@ import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import io.lettuce.core.resource.ClientResources;
 import io.micrometer.core.instrument.Clock;
-import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Meter.Id;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.config.MeterFilter;
@@ -198,8 +195,6 @@ import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.CheckDynamicConfigurationCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
-import org.whispersystems.textsecuregcm.workers.GetRedisCommandStatsCommand;
-import org.whispersystems.textsecuregcm.workers.GetRedisSlowlogCommand;
 import org.whispersystems.textsecuregcm.workers.ServerVersionCommand;
 import org.whispersystems.textsecuregcm.workers.SetCrawlerAccelerationTask;
 import org.whispersystems.textsecuregcm.workers.SetRequestLoggingEnabledTask;
@@ -207,14 +202,8 @@ import org.whispersystems.textsecuregcm.workers.VacuumCommand;
 import org.whispersystems.textsecuregcm.workers.ZkParamsCommand;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
-import software.amazon.awssdk.core.client.config.ClientAsyncConfiguration;
-import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
-import software.amazon.awssdk.core.client.config.SdkAdvancedAsyncClientOption;
-import software.amazon.awssdk.http.SdkHttpClient;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClientBuilder;
 
 public class WhisperServerService extends Application<WhisperServerConfiguration> {
 
@@ -224,8 +213,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new DeleteUserCommand());
     bootstrap.addCommand(new CertificateCommand());
     bootstrap.addCommand(new ZkParamsCommand());
-    bootstrap.addCommand(new GetRedisSlowlogCommand());
-    bootstrap.addCommand(new GetRedisCommandStatsCommand());
     bootstrap.addCommand(new ServerVersionCommand());
     bootstrap.addCommand(new CheckDynamicConfigurationCommand());
 
