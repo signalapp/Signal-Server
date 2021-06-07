@@ -49,6 +49,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -65,6 +66,8 @@ import org.jdbi.v3.core.Jdbi;
 import org.signal.zkgroup.ServerSecretParams;
 import org.signal.zkgroup.auth.ServerZkAuthOperations;
 import org.signal.zkgroup.profiles.ServerZkProfileOperations;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.dispatch.DispatchManager;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
@@ -210,6 +213,8 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
 public class WhisperServerService extends Application<WhisperServerConfiguration> {
 
+  private static final Logger log = LoggerFactory.getLogger(WhisperServerService.class);
+
   @Override
   public void initialize(Bootstrap<WhisperServerConfiguration> bootstrap) {
     bootstrap.addCommand(new VacuumCommand());
@@ -281,8 +286,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         String localHostName = "unknown";
 
         try {
-          localHostName = InetAddress.getLocalHost().getHostName();
-        } catch (final UnknownHostException ignored) {
+          localHostName = InetAddress.getLocalHost().getHostName().toLowerCase(Locale.US);
+          log.info("Setting host tag to {}", localHostName);
+        } catch (final UnknownHostException e) {
+          log.warn("Failed to get hostname", e);
         }
 
         hostname = localHostName;
