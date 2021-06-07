@@ -275,7 +275,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     });
 
     {
-      final String host;
+      final String hostname;
 
       {
         String localHostName = "unknown";
@@ -285,7 +285,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         } catch (final UnknownHostException ignored) {
         }
 
-        host = localHostName;
+        hostname = localHostName;
       }
 
       final DatadogMeterRegistry datadogMeterRegistry = new DatadogMeterRegistry(new DatadogConfig() {
@@ -306,13 +306,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
         @Override
         public String hostTag() {
-          return host;
+          return "host";
         }
       }, Clock.SYSTEM);
 
       datadogMeterRegistry.config().commonTags(
           Tags.of(
               "service", "chat",
+              "host", hostname,
               "version", WhisperServerVersion.getServerVersion(),
               "env", config.getDatadogConfiguration().getEnvironment()))
           .meterFilter(MeterFilter.denyNameStartsWith(MetricsRequestEventListener.REQUEST_COUNTER_NAME))
