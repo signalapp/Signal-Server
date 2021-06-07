@@ -21,9 +21,6 @@ twilio: # Twilio gateway configuration
 push:
   queueSize: # Size of push pending queue
 
-redphone:
-  authKey: # Deprecated
-
 turn: # TURN server configuration
   secret: # TURN server secret
   uris:
@@ -36,6 +33,23 @@ cacheCluster: # Redis server configuration for cache cluster
   urls:
     - redis://redis.example.com:6379/
 
+clientPresenceCluster: # Redis server configuration for client presence cluster
+  urls:
+    - redis://redis.example.com:6379/
+
+pubsub: # Redis server configuration for pubsub cluster
+  url: redis://redis.example.com:6379/
+  replicaUrls:
+    - redis://redis.example.com:6379/
+
+pushSchedulerCluster: # Redis server configuration for push scheduler cluster
+  urls:
+    - redis://redis.example.com:6379/
+
+rateLimitersCluster: # Redis server configuration for rate limiters cluster
+  urls:
+    - redis://redis.example.com:6379/
+
 directory:
   client: # Configuration for interfacing with Contact Discovery Service cluster
     userAuthenticationTokenSharedSecret: # hex-encoded secret shared with CDS used to generate auth tokens for Signal users
@@ -43,13 +57,13 @@ directory:
   sqs:
     accessKey:      # AWS SQS accessKey
     accessSecret:   # AWS SQS accessSecret
-    queueUrl:       # AWS SQS queue url
-  server:
-    replicationUrl:                # CDS replication endpoint base url
-    replicationPassword:           # CDS replication endpoint password
-    replicationCaCertificate:      # CDS replication endpoint TLS certificate trust root
-    reconciliationChunkSize:       # CDS reconciliation chunk size
-    reconciliationChunkIntervalMs: # CDS reconciliation chunk interval, in milliseconds
+    queueUrls:      # AWS SQS queue urls
+      - https://sqs.example.com/directory.fifo
+  server: # One or more CDS servers
+    - replicationName:               # CDS replication name
+      replicationUrl:                # CDS replication endpoint base url
+      replicationPassword:           # CDS replication endpoint password
+      replicationCaCertificate:      # CDS replication endpoint TLS certificate trust root
 
 messageCache: # Redis server configuration for message store cache
   persistDelayMinutes:
@@ -58,15 +72,38 @@ messageCache: # Redis server configuration for message store cache
     urls:
       - redis://redis.example.com:6379/
 
-messageStore: # Postgresql database configuration for message store
-  driverClass: org.postgresql.Driver
-  user:
-  password:
-  url:
-
 metricsCluster:
   urls:
     - redis://redis.example.com:6379/
+
+messageDynamoDb: # DynamoDB table configuration
+  region:
+  tableName:
+
+keysDynamoDb: # DynamoDB table configuration
+  region:
+  tableName:
+
+accountsDynamoDb: # DynamoDB table configuration
+  region:
+  tableName:
+  phoneNumberTableName:
+
+migrationDeletedAccountsDynamoDb: # DynamoDB table configuration
+  region:
+  tableName:
+
+migrationRetryAccountsDynamoDb: # DynamoDB table configuration
+  region:
+  tableName:
+
+pushChallengeDynamoDb: # DynamoDB table configuration
+  region:
+  tableName:
+
+reportMessageDynamoDb: # DynamoDB table configuration
+  region:
+  tableName:
 
 awsAttachments: # AWS S3 configuration
   accessKey:
@@ -81,17 +118,21 @@ gcpAttachments: # GCP Storage configuration
   pathPrefix:
   rsaSigningKey:
 
-profiles: # AWS S3 configuration
-  accessKey:
-  accessSecret:
-  bucket:
-  region:
-
-database: # Postgresql database configuration
+abuseDatabase: # Postgresql database configuration
   driverClass: org.postgresql.Driver
   user:
   password:
   url:
+
+accountsDatabase: # Postgresql database configuration
+  driverClass: org.postgresql.Driver
+  user:
+  password:
+  url:
+
+accountDatabaseCrawler:
+  chunkSize: # accounts per run
+  chunkIntervalMs: # time per run
 
 apn: # Apple Push Notifications configuration
   sandbox: true
@@ -104,11 +145,52 @@ gcm: # GCM Configuration
   senderId:
   apiKey:
 
-micrometer: # Micrometer metrics config
-  - name: "example"
-  - uri: "https://metrics.example.com/"
-  - apiKey:
-  - accountId:
+cdn:
+  accessKey: # AWS Access Key ID
+  accessSecret: # AWS Access Secret
+  bucket: # S3 Bucket name
+  region: # AWS region
+
+wavefront: # Wavefront micrometer metrics config
+  uri: # Wavefront proxy endpoint
+  batchSize: # Number of measurements to send per request
+
+datadog:
+  apiKey:
+  environment:
+
+unidentifiedDelivery:
+  certificate:
+  privateKey:
+  expiresDays:
+
+voiceVerification:
+  url: https://cdn-ca.signal.org/verification/
+  locales:
+    - en
+
+recaptcha:
+  secret:
+
+storageService:
+  uri:
+  userAuthenticationTokenSharedSecret:
+  storageCaCertificate:
+
+backupService:
+  uri:
+  userAuthenticationTokenSharedSecret:
+  backupCaCertificate:
+
+zkConfig:
+  serverPublic:
+  serverSecret:
+  enabled:
+
+appConfig:
+  application:
+  environment:
+  configuration:
 
 remoteConfig:
   authorizedTokens:
@@ -118,8 +200,21 @@ remoteConfig:
     - # Nth authorized token
   globalConfig: # keys and values that are given to clients on GET /v1/config
 
-paymentService:
+
+paymentsService:
   userAuthenticationTokenSharedSecret: # hex-encoded 32-byte secret shared with MobileCoin services used to generate auth tokens for Signal users
+
+torExitNodeList:
+  s3Region:
+  s3Bucket:
+  objectKey:
+  maxSize:
+
+asnTable:
+  s3Region:
+  s3Bucket:
+  objectKey:
+  maxSize:
 
 donation:
   uri: # value
