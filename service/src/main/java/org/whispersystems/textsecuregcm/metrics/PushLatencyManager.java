@@ -10,6 +10,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.lettuce.core.SetArgs;
 import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 
 import java.time.Duration;
@@ -49,7 +50,7 @@ public class PushLatencyManager {
     public void recordQueueRead(final UUID accountUuid, final long deviceId, final String userAgent) {
         getLatencyAndClearTimestamp(accountUuid, deviceId, System.currentTimeMillis()).thenAccept(latency -> {
             if (latency != null) {
-                Metrics.timer(TIMER_NAME, UserAgentTagUtil.getUserAgentTags(userAgent)).record(latency, TimeUnit.MILLISECONDS);
+                Metrics.timer(TIMER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).record(latency, TimeUnit.MILLISECONDS);
             }
         });
     }
