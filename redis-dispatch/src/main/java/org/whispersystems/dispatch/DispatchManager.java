@@ -59,9 +59,7 @@ public class DispatchManager extends Thread {
       logger.warn("Subscription error", e);
     }
 
-    if (previous.isPresent()) {
-      dispatchUnsubscription(name, previous.get());
-    }
+    previous.ifPresent(channel -> dispatchUnsubscription(name, channel));
   }
 
   public synchronized void unsubscribe(String name, DispatchChannel channel) {
@@ -132,46 +130,28 @@ public class DispatchManager extends Thread {
   }
 
   private void resubscribeAll() {
-    new Thread() {
-      @Override
-      public void run() {
-        synchronized (DispatchManager.this) {
-          try {
-            for (String name : subscriptions.keySet()) {
-              pubSubConnection.subscribe(name);
-            }
-          } catch (IOException e) {
-            logger.warn("***** RESUBSCRIPTION ERROR *****", e);
+    new Thread(() -> {
+      synchronized (DispatchManager.this) {
+        try {
+          for (String name : subscriptions.keySet()) {
+            pubSubConnection.subscribe(name);
           }
+        } catch (IOException e) {
+          logger.warn("***** RESUBSCRIPTION ERROR *****", e);
         }
       }
-    }.start();
+    }).start();
   }
 
   private void dispatchMessage(final String name, final DispatchChannel channel, final byte[] message) {
-    executor.execute(new Runnable() {
-      @Override
-      public void run() {
-        channel.onDispatchMessage(name, message);
-      }
-    });
+    executor.execute(() -> channel.onDispatchMessage(name, message));
   }
 
   private void dispatchSubscription(final String name, final DispatchChannel channel) {
-    executor.execute(new Runnable() {
-      @Override
-      public void run() {
-        channel.onDispatchSubscribed(name);
-      }
-    });
+    executor.execute(() -> channel.onDispatchSubscribed(name));
   }
 
   private void dispatchUnsubscription(final String name, final DispatchChannel channel) {
-    executor.execute(new Runnable() {
-      @Override
-      public void run() {
-        channel.onDispatchUnsubscribed(name);
-      }
-    });
+    executor.execute(() -> channel.onDispatchUnsubscribed(name));
   }
 }
