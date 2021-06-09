@@ -21,6 +21,7 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.util.HostnameUtil;
 
 import javax.ws.rs.core.UriBuilder;
 import java.io.ByteArrayOutputStream;
@@ -83,7 +84,7 @@ public class JsonMetricsReporter extends ScheduledReporter {
   {
     super(registry, "json-reporter", filter, rateUnit, durationUnit, Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("json-reporter")), true, disabledMetricAttributes);
     this.httpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).build();
-    this.uri        = UriBuilder.fromUri(uri).queryParam("h", InetAddress.getLocalHost().getHostName()).build();
+    this.uri        = UriBuilder.fromUri(uri).queryParam("h", HostnameUtil.getLocalHostname()).build();
   }
 
   @Override

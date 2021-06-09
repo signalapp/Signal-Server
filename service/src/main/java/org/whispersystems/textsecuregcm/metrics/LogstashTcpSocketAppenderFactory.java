@@ -27,6 +27,7 @@ import javax.validation.constraints.NotEmpty;
 import net.logstash.logback.appender.LogstashTcpSocketAppender;
 import net.logstash.logback.encoder.LogstashEncoder;
 import org.whispersystems.textsecuregcm.WhisperServerVersion;
+import org.whispersystems.textsecuregcm.util.HostnameUtil;
 
 @JsonTypeName("logstashtcpsocket")
 public class LogstashTcpSocketAppenderFactory extends AbstractAppenderFactory<ILoggingEvent> {
@@ -77,11 +78,7 @@ public class LogstashTcpSocketAppenderFactory extends AbstractAppenderFactory<IL
 
     final LogstashEncoder encoder = new LogstashEncoder();
     final ObjectNode customFieldsNode = new ObjectNode(JsonNodeFactory.instance);
-    try {
-      customFieldsNode.set("host", TextNode.valueOf(InetAddress.getLocalHost().getHostName()));
-    } catch (UnknownHostException e) {
-      customFieldsNode.set("host", TextNode.valueOf("unknown"));
-    }
+    customFieldsNode.set("host", TextNode.valueOf(HostnameUtil.getLocalHostname()));
     customFieldsNode.set("service", TextNode.valueOf("chat"));
     customFieldsNode.set("ddsource", TextNode.valueOf("logstash"));
     customFieldsNode.set("ddtags", TextNode.valueOf("env:" + environment + ",version:" + WhisperServerVersion.getServerVersion()));
