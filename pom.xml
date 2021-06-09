@@ -35,6 +35,7 @@
     <commons-csv.version>1.8</commons-csv.version>
     <commons-io.version>2.9.0</commons-io.version>
     <dropwizard.version>2.0.22</dropwizard.version>
+    <dropwizard-metrics-datadog.version>1.1.13</dropwizard-metrics-datadog.version>
     <guava.version>30.1.1-jre</guava.version>
     <jaxb.version>2.3.1</jaxb.version>
     <jedis.version>2.9.0</jedis.version>
@@ -170,6 +171,11 @@
         <groupId>org.apache.commons</groupId>
         <artifactId>commons-csv</artifactId>
         <version>${commons-csv.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.coursera</groupId>
+        <artifactId>dropwizard-metrics-datadog</artifactId>
+        <version>${dropwizard-metrics-datadog.version}</version>
       </dependency>
       <dependency>
         <groupId>org.glassfish.jaxb</groupId>
