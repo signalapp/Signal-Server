@@ -18,8 +18,13 @@ public class RateLimitResetMetricsManager {
   }
 
   void initializeFunctionCounters(String counterKey, String hllKey) {
-    FunctionCounter.builder(counterKey, null, (ignored) ->
-        metricsCluster.<Long>withCluster(conn -> conn.sync().pfcount(hllKey))).register(meterRegistry);
+    FunctionCounter
+        .builder(counterKey, this, manager -> manager.getCount(hllKey))
+        .register(meterRegistry);
+  }
+
+  Long getCount(final String hllKey) {
+    return  metricsCluster.<Long>withCluster(conn -> conn.sync().pfcount(hllKey));
   }
 
   void recordMetrics(Account account, boolean enforced, String counterKey, String hllEnforcedKey, String hllTotalKey,

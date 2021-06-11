@@ -18,7 +18,7 @@ public class PreKeyRateLimiter {
 
   private static final String RATE_LIMIT_RESET_COUNTER_NAME = name(PreKeyRateLimiter.class, "reset");
   private static final String RATE_LIMITED_PREKEYS_COUNTER_NAME = name(PreKeyRateLimiter.class, "rateLimited");
-  private static final String RATE_LIMITED_PREKEYS_TOTAL_ACCOUNTS_COUNTER_NAME = name(PreKeyRateLimiter.class, "rateLimited");
+  private static final String RATE_LIMITED_PREKEYS_TOTAL_ACCOUNTS_COUNTER_NAME = name(PreKeyRateLimiter.class, "rateLimitedTotal");
   private static final String RATE_LIMITED_PREKEYS_ACCOUNTS_ENFORCED_COUNTER_NAME = name(PreKeyRateLimiter.class, "rateLimitedAccountsEnforced");
   private static final String RATE_LIMITED_PREKEYS_ACCOUNTS_UNENFORCED_COUNTER_NAME = name(PreKeyRateLimiter.class, "rateLimitedAccountsUnenforced");
 
