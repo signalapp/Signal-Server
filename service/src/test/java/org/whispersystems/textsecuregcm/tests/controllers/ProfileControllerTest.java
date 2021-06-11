@@ -18,7 +18,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import com.amazonaws.services.s3.AmazonS3;
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit.ResourceTestRule;
@@ -61,6 +60,8 @@ import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 
 public class ProfileControllerTest {
 
@@ -71,7 +72,7 @@ public class ProfileControllerTest {
   private static RateLimiter      rateLimiter         = mock(RateLimiter.class     );
   private static RateLimiter      usernameRateLimiter = mock(RateLimiter.class     );
 
-  private static AmazonS3                  s3client            = mock(AmazonS3.class);
+  private static S3Client                  s3client            = mock(S3Client.class);
   private static PostPolicyGenerator       postPolicyGenerator = new PostPolicyGenerator("us-west-1", "profile-bucket", "accessKey");
   private static PolicySigner              policySigner        = new PolicySigner("accessSecret", "us-west-1");
   private static ServerZkProfileOperations zkProfileOperations = mock(ServerZkProfileOperations.class);
@@ -419,7 +420,7 @@ public class ProfileControllerTest {
 
     verify(profilesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO), eq("validversion"));
     verify(profilesManager, times(1)).set(eq(AuthHelper.VALID_UUID_TWO), profileArgumentCaptor.capture());
-    verify(s3client, times(1)).deleteObject(eq("profilesBucket"), eq("profiles/validavatar"));
+    verify(s3client, times(1)).deleteObject(eq(DeleteObjectRequest.builder().bucket("profilesBucket").key("profiles/validavatar").build()));
 
     assertThat(profileArgumentCaptor.getValue().getCommitment()).isEqualTo(commitment.serialize());
     assertThat(profileArgumentCaptor.getValue().getAvatar()).startsWith("profiles/");
@@ -444,7 +445,7 @@ public class ProfileControllerTest {
 
     verify(profilesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO), eq("validversion"));
     verify(profilesManager, times(1)).set(eq(AuthHelper.VALID_UUID_TWO), profileArgumentCaptor.capture());
-    verify(s3client, times(1)).deleteObject(eq("profilesBucket"), eq("profiles/validavatar"));
+    verify(s3client, times(1)).deleteObject(eq(DeleteObjectRequest.builder().bucket("profilesBucket").key("profiles/validavatar").build()));
 
     assertThat(profileArgumentCaptor.getValue().getCommitment()).isEqualTo(commitment.serialize());
     assertThat(profileArgumentCaptor.getValue().getAvatar()).startsWith("profiles/");

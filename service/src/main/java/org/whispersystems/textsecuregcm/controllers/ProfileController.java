@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
-import com.amazonaws.services.s3.AmazonS3;
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
 import java.security.SecureRandom;
@@ -60,6 +59,8 @@ import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/profile")
@@ -78,7 +79,7 @@ public class ProfileController {
   private final ServerZkProfileOperations zkProfileOperations;
   private final boolean                   isZkEnabled;
 
-  private final AmazonS3            s3client;
+  private final S3Client            s3client;
   private final String              bucket;
 
   public ProfileController(RateLimiters rateLimiters,
@@ -86,7 +87,7 @@ public class ProfileController {
       ProfilesManager profilesManager,
       UsernamesManager usernamesManager,
       DynamicConfigurationManager dynamicConfigurationManager,
-      AmazonS3 s3client,
+      S3Client s3client,
       PostPolicyGenerator policyGenerator,
       PolicySigner policySigner,
       String bucket,
@@ -147,7 +148,10 @@ public class ProfileController {
         currentAvatar = Optional.of(account.getAvatar());
       }
 
-      currentAvatar.ifPresent(s -> s3client.deleteObject(bucket, s));
+      currentAvatar.ifPresent(s -> s3client.deleteObject(DeleteObjectRequest.builder()
+              .bucket(bucket)
+              .key(s)
+              .build()));
 
       response = Optional.of(generateAvatarUploadForm(avatar));
     }
@@ -372,7 +376,10 @@ public class ProfileController {
     ProfileAvatarUploadAttributes profileAvatarUploadAttributes = generateAvatarUploadForm(objectName);
 
     if (previousAvatar != null && previousAvatar.startsWith("profiles/")) {
-      s3client.deleteObject(bucket, previousAvatar);
+      s3client.deleteObject(DeleteObjectRequest.builder()
+          .bucket(bucket)
+          .key(previousAvatar)
+          .build());
     }
 
     account.setAvatar(objectName);
