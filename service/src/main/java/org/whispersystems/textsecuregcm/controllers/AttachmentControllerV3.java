@@ -74,11 +74,10 @@ public class AttachmentControllerV3 extends AttachmentControllerBase {
   }
 
   private static Map<String, String> getHeaderMap(@Nonnull CanonicalRequest canonicalRequest) {
-    Map<String, String> result = new HashMap<>(3);
-    result.put("host", canonicalRequest.getDomain());
-    result.put("x-goog-content-length-range", "1," + canonicalRequest.getMaxSizeInBytes());
-    result.put("x-goog-resumable", "start");
-    return result;
+    return Map.of(
+      "host", canonicalRequest.getDomain(),
+      "x-goog-content-length-range", "1," + canonicalRequest.getMaxSizeInBytes(),
+      "x-goog-resumable", "start");
   }
 
   private String generateAttachmentKey() {
