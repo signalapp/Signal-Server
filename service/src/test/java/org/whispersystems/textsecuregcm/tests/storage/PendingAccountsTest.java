@@ -37,7 +37,7 @@ class PendingAccountsTest {
 
   @Test
   void testStore() throws SQLException {
-    pendingAccounts.insert("+14151112222", "1234", 1111, null);
+    pendingAccounts.insert("+14151112222", new StoredVerificationCode("1234", 1111, null, null));
 
     PreparedStatement statement = db.getTestDatabase().getConnection().prepareStatement("SELECT * FROM pending_accounts WHERE number = ?");
     statement.setString(1, "+14151112222");
@@ -57,7 +57,7 @@ class PendingAccountsTest {
 
   @Test
   void testStoreWithPushChallenge() throws SQLException {
-    pendingAccounts.insert("+14151112222", null, 1111,  "112233");
+    pendingAccounts.insert("+14151112222", new StoredVerificationCode(null, 1111,  "112233", null));
 
     PreparedStatement statement = db.getTestDatabase().getConnection().prepareStatement("SELECT * FROM pending_accounts WHERE number = ?");
     statement.setString(1, "+14151112222");
@@ -77,7 +77,7 @@ class PendingAccountsTest {
 
   @Test
   void testStoreWithTwilioVerificationSid() throws SQLException {
-    pendingAccounts.insert("+14151112222", null, 1111, null, "id1");
+    pendingAccounts.insert("+14151112222", new StoredVerificationCode(null, 1111, null, "id1"));
 
     PreparedStatement statement = db.getTestDatabase().getConnection()
         .prepareStatement("SELECT * FROM pending_accounts WHERE number = ?");
@@ -99,41 +99,41 @@ class PendingAccountsTest {
 
   @Test
   void testRetrieve() throws Exception {
-    pendingAccounts.insert("+14151112222", "4321", 2222, null);
-    pendingAccounts.insert("+14151113333", "1212", 5555, null);
+    pendingAccounts.insert("+14151112222", new StoredVerificationCode("4321", 2222, null, null));
+    pendingAccounts.insert("+14151113333", new StoredVerificationCode("1212", 5555, null, null));
 
-    Optional<StoredVerificationCode> verificationCode = pendingAccounts.getCodeForNumber("+14151112222");
+    Optional<StoredVerificationCode> verificationCode = pendingAccounts.findForNumber("+14151112222");
 
     assertThat(verificationCode.isPresent()).isTrue();
     assertThat(verificationCode.get().getCode()).isEqualTo("4321");
     assertThat(verificationCode.get().getTimestamp()).isEqualTo(2222);
 
-    Optional<StoredVerificationCode> missingCode = pendingAccounts.getCodeForNumber("+11111111111");
+    Optional<StoredVerificationCode> missingCode = pendingAccounts.findForNumber("+11111111111");
     assertThat(missingCode.isPresent()).isFalse();
   }
 
   @Test
   void testRetrieveWithPushChallenge() throws Exception {
-    pendingAccounts.insert("+14151112222", "4321", 2222, "bar");
-    pendingAccounts.insert("+14151113333", "1212", 5555, "bang");
+    pendingAccounts.insert("+14151112222", new StoredVerificationCode("4321", 2222, "bar", null));
+    pendingAccounts.insert("+14151113333", new StoredVerificationCode("1212", 5555, "bang", null));
 
-    Optional<StoredVerificationCode> verificationCode = pendingAccounts.getCodeForNumber("+14151112222");
+    Optional<StoredVerificationCode> verificationCode = pendingAccounts.findForNumber("+14151112222");
 
     assertThat(verificationCode.isPresent()).isTrue();
     assertThat(verificationCode.get().getCode()).isEqualTo("4321");
     assertThat(verificationCode.get().getTimestamp()).isEqualTo(2222);
     assertThat(verificationCode.get().getPushCode()).isEqualTo("bar");
 
-    Optional<StoredVerificationCode> missingCode = pendingAccounts.getCodeForNumber("+11111111111");
+    Optional<StoredVerificationCode> missingCode = pendingAccounts.findForNumber("+11111111111");
     assertThat(missingCode.isPresent()).isFalse();
   }
 
   @Test
   void testRetrieveWithTwilioVerificationSid() throws Exception {
-    pendingAccounts.insert("+14151112222", "4321", 2222, "bar", "id1");
-    pendingAccounts.insert("+14151113333", "1212", 5555, "bang", "id2");
+    pendingAccounts.insert("+14151112222", new StoredVerificationCode("4321", 2222, "bar", "id1"));
+    pendingAccounts.insert("+14151113333", new StoredVerificationCode("1212", 5555, "bang", "id2"));
 
-    Optional<StoredVerificationCode> verificationCode = pendingAccounts.getCodeForNumber("+14151112222");
+    Optional<StoredVerificationCode> verificationCode = pendingAccounts.findForNumber("+14151112222");
 
     assertThat(verificationCode).isPresent();
     assertThat(verificationCode.get().getCode()).isEqualTo("4321");
@@ -141,16 +141,16 @@ class PendingAccountsTest {
     assertThat(verificationCode.get().getPushCode()).isEqualTo("bar");
     assertThat(verificationCode.get().getTwilioVerificationSid()).contains("id1");
 
-    Optional<StoredVerificationCode> missingCode = pendingAccounts.getCodeForNumber("+11111111111");
+    Optional<StoredVerificationCode> missingCode = pendingAccounts.findForNumber("+11111111111");
     assertThat(missingCode).isNotPresent();
   }
 
   @Test
   void testOverwrite() throws Exception {
-    pendingAccounts.insert("+14151112222", "4321", 2222, null);
-    pendingAccounts.insert("+14151112222", "4444", 3333, null);
+    pendingAccounts.insert("+14151112222", new StoredVerificationCode("4321", 2222, null, null));
+    pendingAccounts.insert("+14151112222", new StoredVerificationCode("4444", 3333, null, null));
 
-    Optional<StoredVerificationCode> verificationCode = pendingAccounts.getCodeForNumber("+14151112222");
+    Optional<StoredVerificationCode> verificationCode = pendingAccounts.findForNumber("+14151112222");
 
     assertThat(verificationCode.isPresent()).isTrue();
     assertThat(verificationCode.get().getCode()).isEqualTo("4444");
@@ -159,10 +159,10 @@ class PendingAccountsTest {
 
   @Test
   void testOverwriteWithPushToken() throws Exception {
-    pendingAccounts.insert("+14151112222", "4321", 2222, "bar");
-    pendingAccounts.insert("+14151112222", "4444", 3333, "bang");
+    pendingAccounts.insert("+14151112222", new StoredVerificationCode("4321", 2222, "bar", null));
+    pendingAccounts.insert("+14151112222", new StoredVerificationCode("4444", 3333, "bang", null));
 
-    Optional<StoredVerificationCode> verificationCode = pendingAccounts.getCodeForNumber("+14151112222");
+    Optional<StoredVerificationCode> verificationCode = pendingAccounts.findForNumber("+14151112222");
 
     assertThat(verificationCode.isPresent()).isTrue();
     assertThat(verificationCode.get().getCode()).isEqualTo("4444");
@@ -172,10 +172,10 @@ class PendingAccountsTest {
 
   @Test
   void testOverwriteWithTwilioVerificationSid() throws Exception {
-    pendingAccounts.insert("+14151112222", "4321", 2222, "bar", "id1");
-    pendingAccounts.insert("+14151112222", "4444", 3333, "bang", "id2");
+    pendingAccounts.insert("+14151112222", new StoredVerificationCode("4321", 2222, "bar", "id1"));
+    pendingAccounts.insert("+14151112222", new StoredVerificationCode("4444", 3333, "bang", "id2"));
 
-    Optional<StoredVerificationCode> verificationCode = pendingAccounts.getCodeForNumber("+14151112222");
+    Optional<StoredVerificationCode> verificationCode = pendingAccounts.findForNumber("+14151112222");
 
     assertThat(verificationCode.isPresent()).isTrue();
     assertThat(verificationCode.get().getCode()).isEqualTo("4444");
@@ -186,11 +186,11 @@ class PendingAccountsTest {
 
   @Test
   void testVacuum() {
-    pendingAccounts.insert("+14151112222", "4321", 2222, null);
-    pendingAccounts.insert("+14151112222", "4444", 3333, null);
+    pendingAccounts.insert("+14151112222", new StoredVerificationCode("4321", 2222, null, null));
+    pendingAccounts.insert("+14151112222", new StoredVerificationCode("4444", 3333, null, null));
     pendingAccounts.vacuum();
 
-    Optional<StoredVerificationCode> verificationCode = pendingAccounts.getCodeForNumber("+14151112222");
+    Optional<StoredVerificationCode> verificationCode = pendingAccounts.findForNumber("+14151112222");
 
     assertThat(verificationCode.isPresent()).isTrue();
     assertThat(verificationCode.get().getCode()).isEqualTo("4444");
@@ -199,10 +199,10 @@ class PendingAccountsTest {
 
   @Test
   void testRemove() {
-    pendingAccounts.insert("+14151112222", "4321", 2222, "bar");
-    pendingAccounts.insert("+14151113333", "1212", 5555, null);
+    pendingAccounts.insert("+14151112222", new StoredVerificationCode("4321", 2222, "bar", null));
+    pendingAccounts.insert("+14151113333", new StoredVerificationCode("1212", 5555, null, null));
 
-    Optional<StoredVerificationCode> verificationCode = pendingAccounts.getCodeForNumber("+14151112222");
+    Optional<StoredVerificationCode> verificationCode = pendingAccounts.findForNumber("+14151112222");
 
     assertThat(verificationCode.isPresent()).isTrue();
     assertThat(verificationCode.get().getCode()).isEqualTo("4321");
@@ -210,10 +210,10 @@ class PendingAccountsTest {
 
     pendingAccounts.remove("+14151112222");
 
-    verificationCode = pendingAccounts.getCodeForNumber("+14151112222");
+    verificationCode = pendingAccounts.findForNumber("+14151112222");
     assertThat(verificationCode.isPresent()).isFalse();
 
-    verificationCode = pendingAccounts.getCodeForNumber("+14151113333");
+    verificationCode = pendingAccounts.findForNumber("+14151113333");
     assertThat(verificationCode.isPresent()).isTrue();
     assertThat(verificationCode.get().getCode()).isEqualTo("1212");
     assertThat(verificationCode.get().getTimestamp()).isEqualTo(5555);

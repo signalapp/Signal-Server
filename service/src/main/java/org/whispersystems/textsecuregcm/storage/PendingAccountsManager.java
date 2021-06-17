@@ -16,8 +16,7 @@ public class PendingAccountsManager {
   }
 
   public void store(String number, StoredVerificationCode code) {
-    pendingAccounts.insert(number, code.getCode(), code.getTimestamp(), code.getPushCode(),
-        code.getTwilioVerificationSid().orElse(null));
+    pendingAccounts.insert(number, code);
   }
 
   public void remove(String number) {
@@ -25,6 +24,6 @@ public class PendingAccountsManager {
   }
 
   public Optional<StoredVerificationCode> getCodeForNumber(String number) {
-    return pendingAccounts.getCodeForNumber(number);
+    return pendingAccounts.findForNumber(number);
   }
 }

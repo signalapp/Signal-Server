@@ -38,7 +38,7 @@ public class PendingDevicesTest {
 
   @Test
   public void testStore() throws SQLException {
-    pendingDevices.insert("+14151112222", "1234", 1111);
+    pendingDevices.insert("+14151112222", new StoredVerificationCode("1234", 1111, null, null));
 
     PreparedStatement statement = db.getTestDatabase().getConnection().prepareStatement("SELECT * FROM pending_devices WHERE number = ?");
     statement.setString(1, "+14151112222");
@@ -57,25 +57,25 @@ public class PendingDevicesTest {
 
   @Test
   public void testRetrieve() throws Exception {
-    pendingDevices.insert("+14151112222", "4321", 2222);
-    pendingDevices.insert("+14151113333", "1212", 5555);
+    pendingDevices.insert("+14151112222", new StoredVerificationCode("4321", 2222, null, null));
+    pendingDevices.insert("+14151113333", new StoredVerificationCode("1212", 5555, null, null));
 
-    Optional<StoredVerificationCode> verificationCode = pendingDevices.getCodeForNumber("+14151112222");
+    Optional<StoredVerificationCode> verificationCode = pendingDevices.findForNumber("+14151112222");
 
     assertThat(verificationCode.isPresent()).isTrue();
     assertThat(verificationCode.get().getCode()).isEqualTo("4321");
     assertThat(verificationCode.get().getTimestamp()).isEqualTo(2222);
 
-    Optional<StoredVerificationCode> missingCode = pendingDevices.getCodeForNumber("+11111111111");
+    Optional<StoredVerificationCode> missingCode = pendingDevices.findForNumber("+11111111111");
     assertThat(missingCode.isPresent()).isFalse();
   }
 
   @Test
   public void testOverwrite() throws Exception {
-    pendingDevices.insert("+14151112222", "4321", 2222);
-    pendingDevices.insert("+14151112222", "4444", 3333);
+    pendingDevices.insert("+14151112222", new StoredVerificationCode("4321", 2222, null, null));
+    pendingDevices.insert("+14151112222", new StoredVerificationCode("4444", 3333, null, null));
 
-    Optional<StoredVerificationCode> verificationCode = pendingDevices.getCodeForNumber("+14151112222");
+    Optional<StoredVerificationCode> verificationCode = pendingDevices.findForNumber("+14151112222");
 
     assertThat(verificationCode.isPresent()).isTrue();
     assertThat(verificationCode.get().getCode()).isEqualTo("4444");
@@ -84,10 +84,10 @@ public class PendingDevicesTest {
 
   @Test
   public void testRemove() {
-    pendingDevices.insert("+14151112222", "4321", 2222);
-    pendingDevices.insert("+14151113333", "1212", 5555);
+    pendingDevices.insert("+14151112222", new StoredVerificationCode("4321", 2222, null, null));
+    pendingDevices.insert("+14151113333", new StoredVerificationCode("1212", 5555, null, null));
 
-    Optional<StoredVerificationCode> verificationCode = pendingDevices.getCodeForNumber("+14151112222");
+    Optional<StoredVerificationCode> verificationCode = pendingDevices.findForNumber("+14151112222");
 
     assertThat(verificationCode.isPresent()).isTrue();
     assertThat(verificationCode.get().getCode()).isEqualTo("4321");
@@ -95,10 +95,10 @@ public class PendingDevicesTest {
 
     pendingDevices.remove("+14151112222");
 
-    verificationCode = pendingDevices.getCodeForNumber("+14151112222");
+    verificationCode = pendingDevices.findForNumber("+14151112222");
     assertThat(verificationCode.isPresent()).isFalse();
 
-    verificationCode = pendingDevices.getCodeForNumber("+14151113333");
+    verificationCode = pendingDevices.findForNumber("+14151113333");
     assertThat(verificationCode.isPresent()).isTrue();
     assertThat(verificationCode.get().getCode()).isEqualTo("1212");
     assertThat(verificationCode.get().getTimestamp()).isEqualTo(5555);

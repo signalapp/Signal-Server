@@ -16,7 +16,7 @@ public class PendingDevicesManager {
   }
 
   public void store(String number, StoredVerificationCode code) {
-    pendingDevices.insert(number, code.getCode(), code.getTimestamp());
+    pendingDevices.insert(number, code);
   }
 
   public void remove(String number) {
@@ -24,6 +24,6 @@ public class PendingDevicesManager {
   }
 
   public Optional<StoredVerificationCode> getCodeForNumber(String number) {
-    return pendingDevices.getCodeForNumber(number);
+    return pendingDevices.findForNumber(number);
   }
 }
