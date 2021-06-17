@@ -5,10 +5,12 @@
 
 package org.whispersystems.textsecuregcm.auth;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import org.whispersystems.textsecuregcm.util.Util;
 
+import javax.annotation.Nullable;
 import java.security.MessageDigest;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -16,25 +18,25 @@ import java.util.concurrent.TimeUnit;
 public class StoredVerificationCode {
 
   @JsonProperty
-  private String code;
+  private final String code;
 
   @JsonProperty
-  private long timestamp;
+  private final long timestamp;
 
   @JsonProperty
-  private String pushCode;
+  private final String pushCode;
 
   @JsonProperty
-  private String twilioVerificationSid;
+  @Nullable
+  private final String twilioVerificationSid;
 
-  public StoredVerificationCode() {
-  }
+  @JsonCreator
+  public StoredVerificationCode(
+      @JsonProperty("code") final String code,
+      @JsonProperty("timestamp") final long timestamp,
+      @JsonProperty("pushCode") final String pushCode,
+      @JsonProperty("twilioVerificationSid") @Nullable final String twilioVerificationSid) {
 
-  public StoredVerificationCode(String code, long timestamp, String pushCode) {
-    this(code, timestamp, pushCode, null);
-  }
-
-  public StoredVerificationCode(String code, long timestamp, String pushCode, String twilioVerificationSid) {
     this.code = code;
     this.timestamp = timestamp;
     this.pushCode = pushCode;

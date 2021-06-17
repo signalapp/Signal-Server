@@ -184,7 +184,8 @@ public class AccountController {
     String                 pushChallenge          = generatePushChallenge();
     StoredVerificationCode storedVerificationCode = new StoredVerificationCode(null,
                                                                                System.currentTimeMillis(),
-                                                                               pushChallenge);
+                                                                               pushChallenge,
+                                                                               null);
 
     pendingAccounts.store(number, storedVerificationCode);
 
