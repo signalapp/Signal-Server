@@ -440,8 +440,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     SecureStorageClient        secureStorageClient        = new SecureStorageClient(storageCredentialsGenerator, storageServiceExecutor, config.getSecureStorageServiceConfiguration());
     ClientPresenceManager      clientPresenceManager      = new ClientPresenceManager(clientPresenceCluster, recurringJobExecutor, keyspaceNotificationDispatchExecutor);
     DirectoryQueue             directoryQueue             = new DirectoryQueue(config.getDirectoryConfiguration().getSqsConfiguration());
-    PendingAccountsManager     pendingAccountsManager     = new PendingAccountsManager(pendingAccounts, cacheCluster);
-    PendingDevicesManager      pendingDevicesManager      = new PendingDevicesManager(pendingDevices, cacheCluster);
+    PendingAccountsManager     pendingAccountsManager     = new PendingAccountsManager(pendingAccounts);
+    PendingDevicesManager      pendingDevicesManager      = new PendingDevicesManager(pendingDevices);
     UsernamesManager           usernamesManager           = new UsernamesManager(usernames, reservedUsernames, cacheCluster);
     ProfilesManager            profilesManager            = new ProfilesManager(profiles, cacheCluster);
     MessagesCache              messagesCache              = new MessagesCache(messagesCluster, messagesCluster, keyspaceNotificationDispatchExecutor);
