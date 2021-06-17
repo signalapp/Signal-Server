@@ -20,10 +20,10 @@ class DeletedAccountsTest {
   @RegisterExtension
   static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
       .tableName("deleted_accounts_test")
-      .hashKey(DeletedAccounts.KEY_ACCOUNT_UUID)
+      .hashKey(DeletedAccounts.KEY_ACCOUNT_E164)
       .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(DeletedAccounts.KEY_ACCOUNT_UUID)
-          .attributeType(ScalarAttributeType.B).build())
+          .attributeName(DeletedAccounts.KEY_ACCOUNT_E164)
+          .attributeType(ScalarAttributeType.S).build())
       .build();
 
   @Test
@@ -38,20 +38,20 @@ class DeletedAccountsTest {
     String firstNumber = "+14152221234";
     String secondNumber = "+14152225678";
 
-    assertTrue(deletedAccounts.list(1).isEmpty());
+    assertTrue(deletedAccounts.listAccountsToReconcile(1).isEmpty());
 
     deletedAccounts.put(firstUuid, firstNumber);
     deletedAccounts.put(secondUuid, secondNumber);
 
-    assertEquals(1, deletedAccounts.list(1).size());
+    assertEquals(1, deletedAccounts.listAccountsToReconcile(1).size());
 
-    assertTrue(deletedAccounts.list(10).containsAll(
+    assertTrue(deletedAccounts.listAccountsToReconcile(10).containsAll(
         List.of(
             new Pair<>(firstUuid, firstNumber),
             new Pair<>(secondUuid, secondNumber))));
 
-    deletedAccounts.delete(List.of(firstUuid, secondUuid));
+    deletedAccounts.markReconciled(List.of(firstNumber, secondNumber));
 
-    assertTrue(deletedAccounts.list(10).isEmpty());
+    assertTrue(deletedAccounts.listAccountsToReconcile(10).isEmpty());
   }
 }

@@ -43,7 +43,7 @@ public class DeletedAccountsTableCrawler extends ManagedPeriodicWork {
   @Override
   public void doPeriodicWork() throws Exception {
 
-    final List<Pair<UUID, String>> deletedAccounts = this.deletedAccounts.list(MAX_BATCH_SIZE);
+    final List<Pair<UUID, String>> deletedAccounts = this.deletedAccounts.listAccountsToReconcile(MAX_BATCH_SIZE);
 
     final List<User> deletedUsers = deletedAccounts.stream()
         .map(pair -> new User(pair.first(), pair.second()))
@@ -53,16 +53,16 @@ public class DeletedAccountsTableCrawler extends ManagedPeriodicWork {
       reconciler.onCrawlChunk(deletedUsers);
     }
 
-    final List<UUID> deletedUuids = deletedAccounts.stream()
-        .map(Pair::first)
+    final List<String> reconciledPhoneNumbers = deletedAccounts.stream()
+        .map(Pair::second)
         .collect(Collectors.toList());
 
-    this.deletedAccounts.delete(deletedUuids);
+    this.deletedAccounts.markReconciled(reconciledPhoneNumbers);
 
     DistributionSummary.builder(BATCH_SIZE_DISTRIBUTION_NAME)
         .publishPercentileHistogram()
         .register(Metrics.globalRegistry)
-        .record(deletedUuids.size());
+        .record(reconciledPhoneNumbers.size());
   }
 
 }
