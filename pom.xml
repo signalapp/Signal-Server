@@ -43,7 +43,7 @@
     <libphonenumber.version>8.12.23</libphonenumber.version>
     <logstash.logback.version>6.6</logstash.logback.version>
     <micrometer.version>1.5.3</micrometer.version>
-    <mockito.version>2.25.1</mockito.version>
+    <mockito.version>3.11.1</mockito.version>
     <netty.version>4.1.65.Final</netty.version>
     <netty.tcnative-boringssl-static.version>2.0.39.Final</netty.tcnative-boringssl-static.version>
     <opentest4j.version>1.2.0</opentest4j.version>
