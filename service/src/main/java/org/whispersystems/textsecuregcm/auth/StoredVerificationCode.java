@@ -7,15 +7,11 @@ package org.whispersystems.textsecuregcm.auth;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
-import com.google.common.annotations.VisibleForTesting;
-import org.whispersystems.textsecuregcm.util.Util;
-
-import javax.annotation.Nullable;
 import java.security.MessageDigest;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Optional;
+import javax.annotation.Nullable;
+import org.whispersystems.textsecuregcm.util.Util;
 
 public class StoredVerificationCode {
 
@@ -64,15 +60,6 @@ public class StoredVerificationCode {
   }
 
   public boolean isValid(String theirCodeString) {
-    return isValid(theirCodeString, Instant.now());
-  }
-
-  @VisibleForTesting
-  boolean isValid(String theirCodeString, Instant currentTime) {
-    if (Instant.ofEpochMilli(timestamp).plus(EXPIRATION).isBefore(currentTime)) {
-      return false;
-    }
-
     if (Util.isEmpty(code) || Util.isEmpty(theirCodeString)) {
       return false;
     }
