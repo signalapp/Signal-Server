@@ -46,7 +46,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
-import org.whispersystems.textsecuregcm.storage.PendingDevicesManager;
+import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
 
@@ -54,7 +54,7 @@ import org.whispersystems.textsecuregcm.util.VerificationCode;
 public class DeviceControllerTest {
   @Path("/v1/devices")
   static class DumbVerificationDeviceController extends DeviceController {
-    public DumbVerificationDeviceController(PendingDevicesManager pendingDevices,
+    public DumbVerificationDeviceController(StoredVerificationCodeManager pendingDevices,
                                             AccountsManager accounts,
                                             MessagesManager messages,
                                             DirectoryQueue cdsSender,
@@ -70,7 +70,7 @@ public class DeviceControllerTest {
     }
   }
 
-  private PendingDevicesManager pendingDevicesManager = mock(PendingDevicesManager.class);
+  private StoredVerificationCodeManager pendingDevicesManager = mock(StoredVerificationCodeManager.class);
   private AccountsManager       accountsManager       = mock(AccountsManager.class       );
   private MessagesManager       messagesManager       = mock(MessagesManager.class);
   private DirectoryQueue        directoryQueue        = mock(DirectoryQueue.class);

@@ -76,7 +76,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
-import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
+import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.Hex;
@@ -107,7 +107,7 @@ class AccountControllerTest {
   private static final String VALID_CAPTCHA_TOKEN   = "valid_token";
   private static final String INVALID_CAPTCHA_TOKEN = "invalid_token";
 
-  private static PendingAccountsManager pendingAccountsManager = mock(PendingAccountsManager.class);
+  private static StoredVerificationCodeManager pendingAccountsManager = mock(StoredVerificationCodeManager.class);
   private static AccountsManager        accountsManager        = mock(AccountsManager.class);
   private static AbusiveHostRules       abusiveHostRules       = mock(AbusiveHostRules.class);
   private static RateLimiters           rateLimiters           = mock(RateLimiters.class);

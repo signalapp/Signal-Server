@@ -5,76 +5,87 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
+import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
+import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
+import java.util.Objects;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-abstract class VerificationCodeStoreTest {
+class VerificationCodeStoreTest {
 
+  private VerificationCodeStore verificationCodeStore;
+
+  private static final String TABLE_NAME = "verification_code_test";
+  
   private static final String PHONE_NUMBER = "+14151112222";
 
-  protected abstract VerificationCodeStore getVerificationCodeStore();
+  @RegisterExtension
+  static final DynamoDbExtension DYNAMO_DB_EXTENSION = DynamoDbExtension.builder()
+      .tableName(TABLE_NAME)
+      .hashKey(VerificationCodeStore.KEY_E164)
+      .attributeDefinition(AttributeDefinition.builder()
+          .attributeName(VerificationCodeStore.KEY_E164)
+          .attributeType(ScalarAttributeType.S)
+          .build())
+      .build();
 
-  protected abstract boolean expectNullPushCode();
-
-  protected abstract boolean expectEmptyTwilioSid();
+  @BeforeEach
+  void setUp() {
+    verificationCodeStore = new VerificationCodeStore(DYNAMO_DB_EXTENSION.getDynamoDbClient(), TABLE_NAME);
+  }
 
   @Test
   void testStoreAndFind() {
-    assertEquals(Optional.empty(), getVerificationCodeStore().findForNumber(PHONE_NUMBER));
+    assertEquals(Optional.empty(), verificationCodeStore.findForNumber(PHONE_NUMBER));
 
     final StoredVerificationCode originalCode = new StoredVerificationCode("1234", 1111, "abcd", "0987");
     final StoredVerificationCode secondCode = new StoredVerificationCode("5678", 2222, "efgh", "7890");
 
-    getVerificationCodeStore().insert(PHONE_NUMBER, originalCode);
-
+    verificationCodeStore.insert(PHONE_NUMBER, originalCode);
     {
-      final Optional<StoredVerificationCode> maybeRetrievedCode = getVerificationCodeStore().findForNumber(PHONE_NUMBER);
+      final Optional<StoredVerificationCode> maybeCode = verificationCodeStore.findForNumber(PHONE_NUMBER);
 
-      assertTrue(maybeRetrievedCode.isPresent());
-      compareStoredVerificationCode(originalCode, maybeRetrievedCode.get());
+      assertTrue(maybeCode.isPresent());
+      assertTrue(storedVerificationCodesAreEqual(originalCode, maybeCode.get()));
     }
 
-    getVerificationCodeStore().insert(PHONE_NUMBER, secondCode);
-
+    verificationCodeStore.insert(PHONE_NUMBER, secondCode);
     {
-      final Optional<StoredVerificationCode> maybeRetrievedCode = getVerificationCodeStore().findForNumber(PHONE_NUMBER);
+      final Optional<StoredVerificationCode> maybeCode = verificationCodeStore.findForNumber(PHONE_NUMBER);
 
-      assertTrue(maybeRetrievedCode.isPresent());
-      compareStoredVerificationCode(secondCode, maybeRetrievedCode.get());
+      assertTrue(maybeCode.isPresent());
+      assertTrue(storedVerificationCodesAreEqual(secondCode, maybeCode.get()));
     }
   }
 
   @Test
   void testRemove() {
-    assertEquals(Optional.empty(), getVerificationCodeStore().findForNumber(PHONE_NUMBER));
+    assertEquals(Optional.empty(), verificationCodeStore.findForNumber(PHONE_NUMBER));
 
-    getVerificationCodeStore().insert(PHONE_NUMBER, new StoredVerificationCode("1234", 1111, "abcd", "0987"));
-    assertTrue(getVerificationCodeStore().findForNumber(PHONE_NUMBER).isPresent());
+    verificationCodeStore.insert(PHONE_NUMBER, new StoredVerificationCode("1234", 1111, "abcd", "0987"));
+    assertTrue(verificationCodeStore.findForNumber(PHONE_NUMBER).isPresent());
 
-    getVerificationCodeStore().remove(PHONE_NUMBER);
-    assertFalse(getVerificationCodeStore().findForNumber(PHONE_NUMBER).isPresent());
+    verificationCodeStore.remove(PHONE_NUMBER);
+    assertFalse(verificationCodeStore.findForNumber(PHONE_NUMBER).isPresent());
   }
 
-  private void compareStoredVerificationCode(final StoredVerificationCode original, final StoredVerificationCode retrieved) {
-    assertEquals(original.getCode(), retrieved.getCode());
-    assertEquals(original.getTimestamp(), retrieved.getTimestamp());
-
-    if (expectNullPushCode()) {
-      assertNull(retrieved.getPushCode());
-    } else {
-      assertEquals(original.getPushCode(), retrieved.getPushCode());
+  private static boolean storedVerificationCodesAreEqual(final StoredVerificationCode first, final StoredVerificationCode second) {
+    if (first == null && second == null) {
+      return true;
+    } else if (first == null || second == null) {
+      return false;
     }
 
-    if (expectEmptyTwilioSid()) {
-      assertEquals(Optional.empty(), retrieved.getTwilioVerificationSid());
-    } else {
-      assertEquals(original.getTwilioVerificationSid(), retrieved.getTwilioVerificationSid());
-    }
+    return Objects.equals(first.getCode(), second.getCode()) &&
+        first.getTimestamp() == second.getTimestamp() &&
+        Objects.equals(first.getPushCode(), second.getPushCode()) &&
+        Objects.equals(first.getTwilioVerificationSid(), second.getTwilioVerificationSid());
   }
 }

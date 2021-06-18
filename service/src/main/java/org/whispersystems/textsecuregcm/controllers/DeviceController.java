@@ -24,7 +24,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
-import org.whispersystems.textsecuregcm.storage.PendingDevicesManager;
+import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
@@ -55,14 +55,14 @@ public class DeviceController {
 
   private static final int MAX_DEVICES = 6;
 
-  private final PendingDevicesManager pendingDevices;
+  private final StoredVerificationCodeManager pendingDevices;
   private final AccountsManager       accounts;
   private final MessagesManager       messages;
   private final RateLimiters          rateLimiters;
   private final Map<String, Integer>  maxDeviceConfiguration;
   private final DirectoryQueue        directoryQueue;
 
-  public DeviceController(PendingDevicesManager pendingDevices,
+  public DeviceController(StoredVerificationCodeManager pendingDevices,
                           AccountsManager accounts,
                           MessagesManager messages,
                           DirectoryQueue directoryQueue,

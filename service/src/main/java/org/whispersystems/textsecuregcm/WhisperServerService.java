@@ -166,10 +166,6 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.MigrationDeletedAccounts;
 import org.whispersystems.textsecuregcm.storage.MigrationRetryAccounts;
 import org.whispersystems.textsecuregcm.storage.MigrationRetryAccountsTableCrawler;
-import org.whispersystems.textsecuregcm.storage.PendingAccounts;
-import org.whispersystems.textsecuregcm.storage.PendingAccountsManager;
-import org.whispersystems.textsecuregcm.storage.PendingDevices;
-import org.whispersystems.textsecuregcm.storage.PendingDevicesManager;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
@@ -181,9 +177,10 @@ import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.ReservedUsernames;
+import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.Usernames;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
-import org.whispersystems.textsecuregcm.storage.VerificationCodeStoreDynamoDb;
+import org.whispersystems.textsecuregcm.storage.VerificationCodeStore;
 import org.whispersystems.textsecuregcm.util.AsnManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
@@ -356,8 +353,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     Accounts          accounts          = new Accounts(accountDatabase);
     AccountsDynamoDb  accountsDynamoDb  = new AccountsDynamoDb(accountsDynamoDbClient, accountsDynamoDbAsyncClient, accountsDynamoDbMigrationThreadPool, config.getAccountsDynamoDbConfiguration().getTableName(), config.getAccountsDynamoDbConfiguration().getPhoneNumberTableName(), migrationDeletedAccounts, migrationRetryAccounts);
-    PendingAccounts   pendingAccounts   = new PendingAccounts(accountDatabase);
-    PendingDevices    pendingDevices    = new PendingDevices (accountDatabase);
     Usernames         usernames         = new Usernames(accountDatabase);
     ReservedUsernames reservedUsernames = new ReservedUsernames(accountDatabase);
     Profiles          profiles          = new Profiles(accountDatabase);
@@ -367,8 +362,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     RemoteConfigs     remoteConfigs     = new RemoteConfigs(accountDatabase);
     PushChallengeDynamoDb pushChallengeDynamoDb = new PushChallengeDynamoDb(pushChallengeDynamoDbClient, config.getPushChallengeDynamoDbConfiguration().getTableName());
     ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(reportMessageDynamoDbClient, config.getReportMessageDynamoDbConfiguration().getTableName());
-    VerificationCodeStoreDynamoDb pendingAccountsDynamoDb = new VerificationCodeStoreDynamoDb(pendingAccountsDynamoDbClient, config.getPendingAccountsDynamoDbConfiguration().getTableName());
-    VerificationCodeStoreDynamoDb pendingDevicesDynamoDb = new VerificationCodeStoreDynamoDb(pendingDevicesDynamoDbClient, config.getPendingDevicesDynamoDbConfiguration().getTableName());
+    VerificationCodeStore pendingAccounts = new VerificationCodeStore(pendingAccountsDynamoDbClient, config.getPendingAccountsDynamoDbConfiguration().getTableName());
+    VerificationCodeStore pendingDevices = new VerificationCodeStore(pendingDevicesDynamoDbClient, config.getPendingDevicesDynamoDbConfiguration().getTableName());
 
     RedisClientFactory  pubSubClientFactory = new RedisClientFactory("pubsub_cache", config.getPubsubCacheConfiguration().getUrl(), config.getPubsubCacheConfiguration().getReplicaUrls(), config.getPubsubCacheConfiguration().getCircuitBreakerConfiguration());
     ReplicatedJedisPool pubsubClient        = pubSubClientFactory.getRedisClientPool();
@@ -425,8 +420,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     SecureStorageClient        secureStorageClient        = new SecureStorageClient(storageCredentialsGenerator, storageServiceExecutor, config.getSecureStorageServiceConfiguration());
     ClientPresenceManager      clientPresenceManager      = new ClientPresenceManager(clientPresenceCluster, recurringJobExecutor, keyspaceNotificationDispatchExecutor);
     DirectoryQueue             directoryQueue             = new DirectoryQueue(config.getDirectoryConfiguration().getSqsConfiguration());
-    PendingAccountsManager     pendingAccountsManager     = new PendingAccountsManager(pendingAccounts, pendingAccountsDynamoDb, dynamicConfigurationManager);
-    PendingDevicesManager      pendingDevicesManager      = new PendingDevicesManager(pendingDevices, pendingDevicesDynamoDb, dynamicConfigurationManager);
+    StoredVerificationCodeManager pendingAccountsManager  = new StoredVerificationCodeManager(pendingAccounts);
+    StoredVerificationCodeManager pendingDevicesManager   = new StoredVerificationCodeManager(pendingDevices);
     UsernamesManager           usernamesManager           = new UsernamesManager(usernames, reservedUsernames, cacheCluster);
     ProfilesManager            profilesManager            = new ProfilesManager(profiles, cacheCluster);
     MessagesCache              messagesCache              = new MessagesCache(messagesCluster, messagesCluster, keyspaceNotificationDispatchExecutor);

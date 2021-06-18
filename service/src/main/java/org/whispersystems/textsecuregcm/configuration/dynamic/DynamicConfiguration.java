@@ -51,14 +51,6 @@ public class DynamicConfiguration {
   @Valid
   private DynamicRateLimitChallengeConfiguration rateLimitChallenge = new DynamicRateLimitChallengeConfiguration();
 
-  @JsonProperty
-  @Valid
-  private DynamicVerificationCodeStoreMigrationConfiguration pendingAccountsMigration = new DynamicVerificationCodeStoreMigrationConfiguration();
-
-  @JsonProperty
-  @Valid
-  private DynamicVerificationCodeStoreMigrationConfiguration pendingDevicesMigration = new DynamicVerificationCodeStoreMigrationConfiguration();
-
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -108,13 +100,5 @@ public class DynamicConfiguration {
 
   public DynamicRateLimitChallengeConfiguration getRateLimitChallengeConfiguration() {
     return rateLimitChallenge;
-  }
-
-  public DynamicVerificationCodeStoreMigrationConfiguration getPendingAccountsMigrationConfiguration() {
-    return pendingAccountsMigration;
-  }
-
-  public DynamicVerificationCodeStoreMigrationConfiguration getPendingDevicesMigrationConfiguration() {
-    return pendingDevicesMigration;
   }
 }
