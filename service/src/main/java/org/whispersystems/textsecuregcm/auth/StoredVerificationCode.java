@@ -8,12 +8,14 @@ package org.whispersystems.textsecuregcm.auth;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import javax.annotation.Nullable;
 import java.security.MessageDigest;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 public class StoredVerificationCode {
 
@@ -29,6 +31,8 @@ public class StoredVerificationCode {
   @JsonProperty
   @Nullable
   private final String twilioVerificationSid;
+
+  public static final Duration EXPIRATION = Duration.ofMinutes(10);
 
   @JsonCreator
   public StoredVerificationCode(
@@ -60,7 +64,12 @@ public class StoredVerificationCode {
   }
 
   public boolean isValid(String theirCodeString) {
-    if (timestamp + TimeUnit.MINUTES.toMillis(10) < System.currentTimeMillis()) {
+    return isValid(theirCodeString, Instant.now());
+  }
+
+  @VisibleForTesting
+  boolean isValid(String theirCodeString, Instant currentTime) {
+    if (Instant.ofEpochMilli(timestamp).plus(EXPIRATION).isBefore(currentTime)) {
       return false;
     }
 
