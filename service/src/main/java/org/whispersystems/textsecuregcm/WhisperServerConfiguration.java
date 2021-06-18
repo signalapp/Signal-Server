@@ -170,6 +170,16 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
+  private DynamoDbConfiguration pendingAccountsDynamoDb;
+
+  @Valid
+  @NotNull
+  @JsonProperty
+  private DynamoDbConfiguration pendingDevicesDynamoDb;
+
+  @Valid
+  @NotNull
+  @JsonProperty
   private DatabaseConfiguration abuseDatabase;
 
   @Valid
@@ -463,6 +473,14 @@ public class WhisperServerConfiguration extends Configuration {
 
   public DynamoDbConfiguration getReportMessageDynamoDbConfiguration() {
     return reportMessageDynamoDb;
+  }
+
+  public DynamoDbConfiguration getPendingAccountsDynamoDbConfiguration() {
+    return pendingAccountsDynamoDb;
+  }
+
+  public DynamoDbConfiguration getPendingDevicesDynamoDbConfiguration() {
+    return pendingDevicesDynamoDb;
   }
 
   public MonitoredS3ObjectConfiguration getTorExitNodeListConfiguration() {
