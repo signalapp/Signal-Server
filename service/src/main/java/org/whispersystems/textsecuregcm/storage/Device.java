@@ -276,10 +276,13 @@ public class Device {
     @JsonProperty
     private boolean senderKey;
 
+    @JsonProperty
+    private boolean announcementGroup;
+
     public DeviceCapabilities() {}
 
     public DeviceCapabilities(boolean gv2, final boolean gv2_2, final boolean gv2_3, boolean storage, boolean transfer,
-        boolean gv1Migration, final boolean senderKey) {
+        boolean gv1Migration, final boolean senderKey, final boolean announcementGroup) {
       this.gv2 = gv2;
       this.gv2_2 = gv2_2;
       this.gv2_3 = gv2_3;
@@ -287,6 +290,7 @@ public class Device {
       this.transfer = transfer;
       this.gv1Migration = gv1Migration;
       this.senderKey = senderKey;
+      this.announcementGroup = announcementGroup;
     }
 
     public boolean isGv2() {
@@ -315,6 +319,10 @@ public class Device {
 
     public boolean isSenderKey() {
       return senderKey;
+    }
+
+    public boolean isAnnouncementGroup() {
+      return announcementGroup;
     }
   }
 }

@@ -125,6 +125,7 @@ public class ProfileControllerTest {
     when(profileAccount.isGroupsV2Supported()).thenReturn(false);
     when(profileAccount.isGv1MigrationSupported()).thenReturn(false);
     when(profileAccount.isSenderKeySupported()).thenReturn(false);
+    when(profileAccount.isAnnouncementGroupSupported()).thenReturn(false);
     when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.empty());
 
     Account capabilitiesAccount = mock(Account.class);
@@ -136,6 +137,7 @@ public class ProfileControllerTest {
     when(capabilitiesAccount.isGroupsV2Supported()).thenReturn(true);
     when(capabilitiesAccount.isGv1MigrationSupported()).thenReturn(true);
     when(capabilitiesAccount.isSenderKeySupported()).thenReturn(true);
+    when(capabilitiesAccount.isAnnouncementGroupSupported()).thenReturn(true);
 
     when(accountsManager.get(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(profileAccount));
     when(accountsManager.get(AuthHelper.VALID_UUID_TWO)).thenReturn(Optional.of(profileAccount));
@@ -274,6 +276,7 @@ public class ProfileControllerTest {
     assertThat(profile.getCapabilities().isGv2()).isTrue();
     assertThat(profile.getCapabilities().isGv1Migration()).isTrue();
     assertThat(profile.getCapabilities().isSenderKey()).isTrue();
+    assertThat(profile.getCapabilities().isAnnouncementGroup()).isTrue();
 
     profile = resources
         .getJerseyTest()
@@ -285,6 +288,7 @@ public class ProfileControllerTest {
     assertThat(profile.getCapabilities().isGv2()).isFalse();
     assertThat(profile.getCapabilities().isGv1Migration()).isFalse();
     assertThat(profile.getCapabilities().isSenderKey()).isFalse();
+    assertThat(profile.getCapabilities().isAnnouncementGroup()).isFalse();
   }
 
   @Test

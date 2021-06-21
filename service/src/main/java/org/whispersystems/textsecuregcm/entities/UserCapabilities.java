@@ -14,7 +14,8 @@ public class UserCapabilities {
     return new UserCapabilities(
         account.isGroupsV2Supported(),
         account.isGv1MigrationSupported(),
-        account.isSenderKeySupported());
+        account.isSenderKeySupported(),
+        account.isAnnouncementGroupSupported());
   }
 
   @JsonProperty
@@ -26,12 +27,16 @@ public class UserCapabilities {
   @JsonProperty
   private boolean senderKey;
 
+  @JsonProperty
+  private boolean announcementGroup;
+
   public UserCapabilities() {}
 
-  public UserCapabilities(boolean gv2, boolean gv1Migration, final boolean senderKey) {
+  public UserCapabilities(boolean gv2, boolean gv1Migration, final boolean senderKey, final boolean announcementGroup) {
     this.gv2  = gv2;
     this.gv1Migration = gv1Migration;
     this.senderKey = senderKey;
+    this.announcementGroup = announcementGroup;
   }
 
   public boolean isGv2() {
@@ -44,5 +49,9 @@ public class UserCapabilities {
 
   public boolean isSenderKey() {
     return senderKey;
+  }
+
+  public boolean isAnnouncementGroup() {
+    return announcementGroup;
   }
 }

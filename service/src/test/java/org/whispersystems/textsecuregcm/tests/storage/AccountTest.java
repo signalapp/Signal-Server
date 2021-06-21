@@ -43,6 +43,10 @@ public class AccountTest {
   private final Device senderKeyIncapableDevice = mock(Device.class);
   private final Device senderKeyIncapableExpiredDevice = mock(Device.class);
 
+  private final Device announcementGroupCapableDevice = mock(Device.class);
+  private final Device announcementGroupIncapableDevice = mock(Device.class);
+  private final Device announcementGroupIncapableExpiredDevice = mock(Device.class);
+
   @Before
   public void setup() {
     when(oldMasterDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(366));
@@ -78,28 +82,40 @@ public class AccountTest {
     when(gv2IncapableExpiredDevice.isEnabled()).thenReturn(false);
 
     when(gv1MigrationCapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, false));
+        new DeviceCapabilities(true, true, true, true, true, true, false, false));
     when(gv1MigrationCapableDevice.isEnabled()).thenReturn(true);
 
     when(gv1MigrationIncapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, false, false));
+        new DeviceCapabilities(true, true, true, true, true, false, false, false));
     when(gv1MigrationIncapableDevice.isEnabled()).thenReturn(true);
 
     when(gv1MigrationIncapableExpiredDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, false, false));
+        new DeviceCapabilities(true, true, true, true, true, false, false, false));
     when(gv1MigrationIncapableExpiredDevice.isEnabled()).thenReturn(false);
 
     when(senderKeyCapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, true));
+        new DeviceCapabilities(true, true, true, true, true, true, true, false));
     when(senderKeyCapableDevice.isEnabled()).thenReturn(true);
 
     when(senderKeyIncapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, false));
+        new DeviceCapabilities(true, true, true, true, true, true, false, false));
     when(senderKeyIncapableDevice.isEnabled()).thenReturn(true);
 
     when(senderKeyIncapableExpiredDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, false));
+        new DeviceCapabilities(true, true, true, true, true, true, false, false));
     when(senderKeyIncapableExpiredDevice.isEnabled()).thenReturn(false);
+
+    when(announcementGroupCapableDevice.getCapabilities()).thenReturn(
+        new DeviceCapabilities(true, true, true, true, true, true, true, true));
+    when(announcementGroupCapableDevice.isEnabled()).thenReturn(true);
+
+    when(announcementGroupIncapableDevice.getCapabilities()).thenReturn(
+        new DeviceCapabilities(true, true, true, true, true, true, true, false));
+    when(announcementGroupIncapableDevice.isEnabled()).thenReturn(true);
+
+    when(announcementGroupIncapableExpiredDevice.getCapabilities()).thenReturn(
+        new DeviceCapabilities(true, true, true, true, true, true, true, false));
+    when(announcementGroupIncapableExpiredDevice.isEnabled()).thenReturn(false);
   }
 
   @Test
@@ -232,5 +248,18 @@ public class AccountTest {
     assertThat(new Account("+18005551234", UUID.randomUUID(),
         Set.of(senderKeyCapableDevice, senderKeyIncapableExpiredDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isSenderKeySupported()).isTrue();
+  }
+
+  @Test
+  public void isAnnouncementGroupSupported() {
+    assertThat(new Account("+18005551234", UUID.randomUUID(),
+        Set.of(announcementGroupCapableDevice),
+        "1234".getBytes(StandardCharsets.UTF_8)).isAnnouncementGroupSupported()).isTrue();
+    assertThat(new Account("+18005551234", UUID.randomUUID(),
+        Set.of(announcementGroupCapableDevice, announcementGroupIncapableDevice),
+        "1234".getBytes(StandardCharsets.UTF_8)).isAnnouncementGroupSupported()).isFalse();
+    assertThat(new Account("+18005551234", UUID.randomUUID(),
+        Set.of(announcementGroupCapableDevice, announcementGroupIncapableExpiredDevice),
+        "1234".getBytes(StandardCharsets.UTF_8)).isAnnouncementGroupSupported()).isTrue();
   }
 }

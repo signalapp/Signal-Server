@@ -151,6 +151,12 @@ public class Account implements Principal  {
         .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isSenderKey());
   }
 
+  public boolean isAnnouncementGroupSupported() {
+    return devices.stream()
+        .filter(Device::isEnabled)
+        .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isAnnouncementGroup());
+  }
+
   public boolean isEnabled() {
     return getMasterDevice().map(Device::isEnabled).orElse(false);
   }

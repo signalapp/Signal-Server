@@ -70,7 +70,7 @@ public class DeviceTest {
     @Parameters(method = "argumentsForTestIsGroupsV2Supported")
     public void testIsGroupsV2Supported(final boolean master, final String apnId, final boolean gv2Capability, final boolean gv2_2Capability, final boolean gv2_3Capability, final boolean expectGv2Supported) {
         final Device.DeviceCapabilities capabilities = new Device.DeviceCapabilities(gv2Capability, gv2_2Capability, gv2_3Capability, false, false, false,
-            false);
+            false, false);
         final Device                    device       = new Device(master ? 1 : 2, "test", "auth-token", "salt",
             null, apnId, null, false, 1, null, 0, 0, "user-agent", 0, capabilities);
 

@@ -157,19 +157,19 @@ class MessageControllerTest {
     Set<Device> singleDeviceList = new HashSet<Device>() {{
       add(new Device(1, null, "foo", "bar",
           "isgcm", null, null, false, 111, new SignedPreKey(333, "baz", "boop"), System.currentTimeMillis(), System.currentTimeMillis(), "Test", 0, new Device.DeviceCapabilities(true, false, false, true, true, false,
-          false)));
+          false, false)));
     }};
 
     Set<Device> multiDeviceList = new HashSet<Device>() {{
       add(new Device(1, null, "foo", "bar",
           "isgcm", null, null, false, 222, new SignedPreKey(111, "foo", "bar"), System.currentTimeMillis(), System.currentTimeMillis(), "Test", 0, new Device.DeviceCapabilities(true, false, false, true, false, false,
-          false)));
+          false, false)));
       add(new Device(2, null, "foo", "bar",
           "isgcm", null, null, false, 333, new SignedPreKey(222, "oof", "rab"), System.currentTimeMillis(), System.currentTimeMillis(), "Test", 0, new Device.DeviceCapabilities(true, false, false, true, false, false,
-          false)));
+          false, false)));
       add(new Device(3, null, "foo", "bar",
           "isgcm", null, null, false, 444, null, System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31), System.currentTimeMillis(), "Test", 0, new Device.DeviceCapabilities(false, false, false, false, false, false,
-          false)));
+          false, false)));
     }};
 
     Account singleDeviceAccount  = new Account(SINGLE_DEVICE_RECIPIENT, SINGLE_DEVICE_UUID, singleDeviceList, "1234".getBytes());
