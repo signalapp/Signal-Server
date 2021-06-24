@@ -16,7 +16,7 @@ public abstract class ManagedPeriodicWork implements Managed, Runnable {
 
   private final Logger logger = LoggerFactory.getLogger(getClass());
 
-  private final ManagedPeriodicWorkCache cache;
+  private final ManagedPeriodicWorkLock lock;
   private final Duration workerTtl;
   private final Duration runInterval;
   private final String workerId;
@@ -24,8 +24,8 @@ public abstract class ManagedPeriodicWork implements Managed, Runnable {
   private final AtomicBoolean running = new AtomicBoolean(false);
   private boolean finished;
 
-  public ManagedPeriodicWork(final ManagedPeriodicWorkCache cache, final Duration workerTtl, final Duration runInterval) {
-    this.cache = cache;
+  public ManagedPeriodicWork(final ManagedPeriodicWorkLock lock, final Duration workerTtl, final Duration runInterval) {
+    this.lock = lock;
     this.workerTtl = workerTtl;
     this.runInterval = runInterval;
     this.workerId = UUID.randomUUID().toString();
@@ -73,7 +73,7 @@ public abstract class ManagedPeriodicWork implements Managed, Runnable {
 
   private void execute() {
 
-    if (cache.claimActiveWork(workerId, workerTtl)) {
+    if (lock.claimActiveWork(workerId, workerTtl)) {
 
       try {
         final long startTimeMs = System.currentTimeMillis();
@@ -96,7 +96,7 @@ public abstract class ManagedPeriodicWork implements Managed, Runnable {
         sleepWhileRunning(runInterval);
 
       } finally {
-        cache.releaseActiveWork(workerId);
+        lock.releaseActiveWork(workerId);
       }
     }
   }

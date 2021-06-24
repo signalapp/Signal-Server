@@ -12,14 +12,14 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 
-public class ManagedPeriodicWorkCache {
+public class ManagedPeriodicWorkLock {
 
   private final String activeWorkerKey;
 
   private final FaultTolerantRedisCluster cacheCluster;
   private final ClusterLuaScript unlockClusterScript;
 
-  public ManagedPeriodicWorkCache(final String activeWorkerKey, final FaultTolerantRedisCluster cacheCluster) throws IOException {
+  public ManagedPeriodicWorkLock(final String activeWorkerKey, final FaultTolerantRedisCluster cacheCluster) throws IOException {
     this.activeWorkerKey = activeWorkerKey;
     this.cacheCluster = cacheCluster;
     this.unlockClusterScript = ClusterLuaScript.fromResource(cacheCluster, "lua/periodic_worker/unlock.lua", ScriptOutputType.INTEGER);

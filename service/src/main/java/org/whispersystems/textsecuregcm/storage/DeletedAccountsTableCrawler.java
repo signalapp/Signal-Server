@@ -34,7 +34,7 @@ public class DeletedAccountsTableCrawler extends ManagedPeriodicWork {
       final List<DeletedAccountsDirectoryReconciler> reconcilers,
       final FaultTolerantRedisCluster cluster) throws IOException {
 
-    super(new ManagedPeriodicWorkCache(ACTIVE_WORKER_KEY, cluster), WORKER_TTL, RUN_INTERVAL);
+    super(new ManagedPeriodicWorkLock(ACTIVE_WORKER_KEY, cluster), WORKER_TTL, RUN_INTERVAL);
 
     this.deletedAccounts = deletedAccounts;
     this.reconcilers = reconcilers;
