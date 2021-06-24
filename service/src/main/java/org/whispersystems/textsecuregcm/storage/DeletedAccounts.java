@@ -14,9 +14,8 @@ import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.Pair;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.PutRequest;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
-import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
 public class DeletedAccounts extends AbstractDynamoDbStore {
 
@@ -24,16 +23,18 @@ public class DeletedAccounts extends AbstractDynamoDbStore {
   static final String KEY_ACCOUNT_E164 = "P";
   static final String ATTR_ACCOUNT_UUID = "U";
   static final String ATTR_EXPIRES = "E";
-  static final String ATTR_RECONCILED_IN_CDS = "R";
+  static final String ATTR_NEEDS_CDS_RECONCILIATION = "R";
 
   static final Duration TIME_TO_LIVE = Duration.ofDays(30);
 
   private final String tableName;
+  private final String needsReconciliationIndexName;
 
-  public DeletedAccounts(final DynamoDbClient dynamoDb, final String tableName) {
+  public DeletedAccounts(final DynamoDbClient dynamoDb, final String tableName, final String needsReconciliationIndexName) {
 
     super(dynamoDb);
     this.tableName = tableName;
+    this.needsReconciliationIndexName = needsReconciliationIndexName;
   }
 
   public void put(UUID uuid, String e164) {
@@ -43,7 +44,7 @@ public class DeletedAccounts extends AbstractDynamoDbStore {
             KEY_ACCOUNT_E164, AttributeValues.fromString(e164),
             ATTR_ACCOUNT_UUID, AttributeValues.fromUUID(uuid),
             ATTR_EXPIRES, AttributeValues.fromLong(Instant.now().plus(TIME_TO_LIVE).getEpochSecond()),
-            ATTR_RECONCILED_IN_CDS, AttributeValues.fromBoolean(false)))
+            ATTR_NEEDS_CDS_RECONCILIATION, AttributeValues.fromInt(1)))
         .build());
   }
 
@@ -51,13 +52,7 @@ public class DeletedAccounts extends AbstractDynamoDbStore {
 
     final ScanRequest scanRequest = ScanRequest.builder()
         .tableName(tableName)
-        .filterExpression("#reconciled = :reconciled")
-        .expressionAttributeNames(Map.of(
-            "#reconciled", ATTR_RECONCILED_IN_CDS
-        ))
-        .expressionAttributeValues(Map.of(
-            ":reconciled", AttributeValues.fromBoolean(false)
-        ))
+        .indexName(needsReconciliationIndexName)
         .limit(max)
         .build();
 
@@ -70,18 +65,19 @@ public class DeletedAccounts extends AbstractDynamoDbStore {
   }
 
   public void markReconciled(final List<String> phoneNumbersReconciled) {
-    writeInBatches(phoneNumbersReconciled, phoneNumbers -> {
 
-      final List<WriteRequest> updates = phoneNumbers.stream()
-          .map(phoneNumber -> WriteRequest.builder()
-              .putRequest(PutRequest.builder().item(
-                  Map.of(KEY_ACCOUNT_E164, AttributeValues.fromString(phoneNumber),
-                      ATTR_RECONCILED_IN_CDS, AttributeValues.fromBoolean(true))
-              ).build()).build()
-          ).collect(Collectors.toList());
-
-      executeTableWriteItemsUntilComplete(Map.of(tableName, updates));
-    });
+    phoneNumbersReconciled.forEach(number -> db().updateItem(
+        UpdateItemRequest.builder()
+            .tableName(tableName)
+            .key(Map.of(
+                KEY_ACCOUNT_E164, AttributeValues.fromString(number)
+            ))
+            .updateExpression("REMOVE #needs_reconciliation")
+            .expressionAttributeNames(Map.of(
+                "#needs_reconciliation", ATTR_NEEDS_CDS_RECONCILIATION
+            ))
+            .build()
+    ));
   }
 
 }

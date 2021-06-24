@@ -22,6 +22,7 @@ import org.whispersystems.textsecuregcm.configuration.AwsAttachmentsConfiguratio
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DatabaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DatadogConfiguration;
+import org.whispersystems.textsecuregcm.configuration.DeletedAccountsDynamoDbConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbConfiguration;
@@ -160,7 +161,7 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private DynamoDbConfiguration deletedAccountsDynamoDb;
+  private DeletedAccountsDynamoDbConfiguration deletedAccountsDynamoDb;
 
   @Valid
   @NotNull
@@ -386,7 +387,7 @@ public class WhisperServerConfiguration extends Configuration {
     return migrationRetryAccountsDynamoDb;
   }
 
-  public DynamoDbConfiguration getDeletedAccountsDynamoDbConfiguration() {
+  public DeletedAccountsDynamoDbConfiguration getDeletedAccountsDynamoDbConfiguration() {
     return deletedAccountsDynamoDb;
   }
 
