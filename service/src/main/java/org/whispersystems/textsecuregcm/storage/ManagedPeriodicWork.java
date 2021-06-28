@@ -14,7 +14,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -31,8 +31,7 @@ public abstract class ManagedPeriodicWork implements Managed {
   private final String workerId;
   private final ScheduledExecutorService executorService;
 
-  private final AtomicBoolean started = new AtomicBoolean(false);
-
+  @Nullable
   private ScheduledFuture<?> scheduledFuture;
 
   public ManagedPeriodicWork(final ManagedPeriodicWorkLock lock, final Duration workerTtl, final Duration runInterval, final ScheduledExecutorService scheduledExecutorService) {
@@ -41,20 +40,14 @@ public abstract class ManagedPeriodicWork implements Managed {
     this.runInterval = runInterval;
     this.workerId = UUID.randomUUID().toString();
     this.executorService = scheduledExecutorService;
-
-    Metrics.gauge(name(getClass(), FUTURE_DONE_GAUGE_NAME), this, ManagedPeriodicWork::isFutureDone);
   }
 
   abstract protected void doPeriodicWork() throws Exception;
 
-  int isFutureDone() {
-    return scheduledFuture.isDone() ? 1 : 0;
-  }
-
   @Override
   public synchronized void start() throws Exception {
 
-    if (started.getAndSet(true)) {
+    if (scheduledFuture != null) {
       return;
     }
 
@@ -68,6 +61,8 @@ public abstract class ManagedPeriodicWork implements Managed {
           Util.sleep(10_000);
         }
     }, 0, runInterval.getSeconds(), TimeUnit.SECONDS);
+
+    Metrics.gauge(name(getClass(), FUTURE_DONE_GAUGE_NAME), scheduledFuture, future -> future.isDone() ? 1 : 0);
   }
 
   @Override
