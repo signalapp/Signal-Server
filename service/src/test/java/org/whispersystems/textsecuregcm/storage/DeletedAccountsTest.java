@@ -54,14 +54,17 @@ class DeletedAccountsTest {
 
     UUID firstUuid = UUID.randomUUID();
     UUID secondUuid = UUID.randomUUID();
+    UUID thirdUuid = UUID.randomUUID();
 
     String firstNumber = "+14152221234";
     String secondNumber = "+14152225678";
+    String thirdNumber = "+14159998765";
 
     assertTrue(deletedAccounts.listAccountsToReconcile(1).isEmpty());
 
     deletedAccounts.put(firstUuid, firstNumber);
     deletedAccounts.put(secondUuid, secondNumber);
+    deletedAccounts.put(thirdUuid, thirdNumber);
 
     assertEquals(1, deletedAccounts.listAccountsToReconcile(1).size());
 
@@ -72,6 +75,10 @@ class DeletedAccountsTest {
 
     deletedAccounts.markReconciled(List.of(firstNumber, secondNumber));
 
-    assertTrue(deletedAccounts.listAccountsToReconcile(10).isEmpty());
+    assertEquals(List.of(new Pair<>(thirdUuid, thirdNumber)), deletedAccounts.listAccountsToReconcile(10));
+
+    deletedAccounts.markReconciled(List.of(thirdNumber));
+
+    assertTrue(deletedAccounts.listAccountsToReconcile(1).isEmpty());
   }
 }
