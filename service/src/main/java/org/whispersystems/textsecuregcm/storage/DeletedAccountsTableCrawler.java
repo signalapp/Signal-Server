@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationRequest.User;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
@@ -32,9 +33,10 @@ public class DeletedAccountsTableCrawler extends ManagedPeriodicWork {
   public DeletedAccountsTableCrawler(
       final DeletedAccounts deletedAccounts,
       final List<DeletedAccountsDirectoryReconciler> reconcilers,
-      final FaultTolerantRedisCluster cluster) throws IOException {
+      final FaultTolerantRedisCluster cluster,
+      final ScheduledExecutorService executorService) throws IOException {
 
-    super(new ManagedPeriodicWorkLock(ACTIVE_WORKER_KEY, cluster), WORKER_TTL, RUN_INTERVAL);
+    super(new ManagedPeriodicWorkLock(ACTIVE_WORKER_KEY, cluster), WORKER_TTL, RUN_INTERVAL, executorService);
 
     this.deletedAccounts = deletedAccounts;
     this.reconcilers = reconcilers;
