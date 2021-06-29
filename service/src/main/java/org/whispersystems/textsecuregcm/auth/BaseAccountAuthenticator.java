@@ -53,14 +53,14 @@ public class BaseAccountAuthenticator {
       AuthorizationHeader authorizationHeader = AuthorizationHeader.fromUserAndPassword(basicCredentials.getUsername(), basicCredentials.getPassword());
       Optional<Account>   account             = accountsManager.get(authorizationHeader.getIdentifier());
 
-      if (!account.isPresent()) {
+      if (account.isEmpty()) {
         failureReason = "noSuchAccount";
         return Optional.empty();
       }
 
       Optional<Device> device = account.get().getDevice(authorizationHeader.getDeviceId());
 
-      if (!device.isPresent()) {
+      if (device.isEmpty()) {
         failureReason = "noSuchDevice";
         return Optional.empty();
       }
