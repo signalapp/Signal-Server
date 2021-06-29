@@ -5,44 +5,33 @@
 
 package org.whispersystems.textsecuregcm.auth;
 
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.auth.basic.BasicCredentials;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.Util;
-
+import io.micrometer.core.instrument.Tags;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
-
-import static com.codahale.metrics.MetricRegistry.name;
+import org.apache.commons.lang3.StringUtils;
+import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.util.Util;
 
 public class BaseAccountAuthenticator {
 
-  private final MetricRegistry metricRegistry               = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private final Meter          authenticationFailedMeter    = metricRegistry.meter(name(getClass(), "authentication", "failed"         ));
-  private final Meter          authenticationSucceededMeter = metricRegistry.meter(name(getClass(), "authentication", "succeeded"      ));
-  private final Meter          noSuchAccountMeter           = metricRegistry.meter(name(getClass(), "authentication", "noSuchAccount"  ));
-  private final Meter          noSuchDeviceMeter            = metricRegistry.meter(name(getClass(), "authentication", "noSuchDevice"   ));
-  private final Meter          accountDisabledMeter         = metricRegistry.meter(name(getClass(), "authentication", "accountDisabled"));
-  private final Meter          deviceDisabledMeter          = metricRegistry.meter(name(getClass(), "authentication", "deviceDisabled" ));
-  private final Meter          invalidAuthHeaderMeter       = metricRegistry.meter(name(getClass(), "authentication", "invalidHeader"  ));
+  private static final String AUTHENTICATION_COUNTER_NAME = name(BaseAccountAuthenticator.class, "authentication");
+  private static final String AUTHENTICATION_SUCCEEDED_TAG_NAME = "succeeded";
+  private static final String AUTHENTICATION_FAILURE_REASON_TAG_NAME = "reason";
+  private static final String AUTHENTICATION_ENABLED_REQUIRED_TAG_NAME = "enabledRequired";
 
   private final String daysSinceLastSeenDistributionName = name(getClass(), "authentication", "daysSinceLastSeen");
 
   private static final String IS_PRIMARY_DEVICE_TAG = "isPrimary";
-
-  private final Logger logger = LoggerFactory.getLogger(BaseAccountAuthenticator.class);
 
   private final AccountsManager accountsManager;
   private final Clock           clock;
@@ -58,46 +47,58 @@ public class BaseAccountAuthenticator {
   }
 
   public Optional<Account> authenticate(BasicCredentials basicCredentials, boolean enabledRequired) {
+    boolean succeeded = false;
+    String failureReason = null;
+
     try {
       AuthorizationHeader authorizationHeader = AuthorizationHeader.fromUserAndPassword(basicCredentials.getUsername(), basicCredentials.getPassword());
       Optional<Account>   account             = accountsManager.get(authorizationHeader.getIdentifier());
 
       if (!account.isPresent()) {
-        noSuchAccountMeter.mark();
+        failureReason = "noSuchAccount";
         return Optional.empty();
       }
 
       Optional<Device> device = account.get().getDevice(authorizationHeader.getDeviceId());
 
       if (!device.isPresent()) {
-        noSuchDeviceMeter.mark();
+        failureReason = "noSuchDevice";
         return Optional.empty();
       }
 
       if (enabledRequired) {
         if (!device.get().isEnabled()) {
-          deviceDisabledMeter.mark();
+          failureReason = "deviceDisabled";
           return Optional.empty();
         }
 
         if (!account.get().isEnabled()) {
-          accountDisabledMeter.mark();
+          failureReason = "accountDisabled";
           return Optional.empty();
         }
       }
 
       if (device.get().getAuthenticationCredentials().verify(basicCredentials.getPassword())) {
-        authenticationSucceededMeter.mark();
+        succeeded = true;
         account.get().setAuthenticatedDevice(device.get());
         updateLastSeen(account.get(), device.get());
         return account;
       }
 
-      authenticationFailedMeter.mark();
       return Optional.empty();
     } catch (IllegalArgumentException | InvalidAuthorizationHeaderException iae) {
-      invalidAuthHeaderMeter.mark();
+      failureReason = "invalidHeader";
       return Optional.empty();
+    } finally {
+      Tags tags = Tags.of(
+          AUTHENTICATION_SUCCEEDED_TAG_NAME, String.valueOf(succeeded),
+          AUTHENTICATION_ENABLED_REQUIRED_TAG_NAME, String.valueOf(enabledRequired));
+
+      if (StringUtils.isNotBlank(failureReason)) {
+        tags = tags.and(AUTHENTICATION_FAILURE_REASON_TAG_NAME, failureReason);
+      }
+
+      Metrics.counter(AUTHENTICATION_COUNTER_NAME, tags).increment();
     }
   }
 
