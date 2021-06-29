@@ -28,6 +28,7 @@ public class BaseAccountAuthenticator {
   private static final String AUTHENTICATION_SUCCEEDED_TAG_NAME = "succeeded";
   private static final String AUTHENTICATION_FAILURE_REASON_TAG_NAME = "reason";
   private static final String AUTHENTICATION_ENABLED_REQUIRED_TAG_NAME = "enabledRequired";
+  private static final String AUTHENTICATION_CREDENTIAL_TYPE_TAG_NAME = "credentialType";
 
   private static final String DAYS_SINCE_LAST_SEEN_DISTRIBUTION_NAME = name(BaseAccountAuthenticator.class, "daysSinceLastSeen");
   private static final String IS_PRIMARY_DEVICE_TAG = "isPrimary";
@@ -48,10 +49,13 @@ public class BaseAccountAuthenticator {
   public Optional<Account> authenticate(BasicCredentials basicCredentials, boolean enabledRequired) {
     boolean succeeded = false;
     String failureReason = null;
+    String credentialType = null;
 
     try {
       AuthorizationHeader authorizationHeader = AuthorizationHeader.fromUserAndPassword(basicCredentials.getUsername(), basicCredentials.getPassword());
       Optional<Account>   account             = accountsManager.get(authorizationHeader.getIdentifier());
+
+      credentialType = authorizationHeader.getIdentifier().hasNumber() ? "e164" : "uuid";
 
       if (account.isEmpty()) {
         failureReason = "noSuchAccount";
@@ -95,6 +99,10 @@ public class BaseAccountAuthenticator {
 
       if (StringUtils.isNotBlank(failureReason)) {
         tags = tags.and(AUTHENTICATION_FAILURE_REASON_TAG_NAME, failureReason);
+      }
+
+      if (StringUtils.isNotBlank(credentialType)) {
+        tags = tags.and(AUTHENTICATION_CREDENTIAL_TYPE_TAG_NAME, credentialType);
       }
 
       Metrics.counter(AUTHENTICATION_COUNTER_NAME, tags).increment();
