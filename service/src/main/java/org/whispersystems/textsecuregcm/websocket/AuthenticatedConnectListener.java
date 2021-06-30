@@ -68,6 +68,11 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
                                                                              context.getClient(),
                                                                              retrySchedulingExecutor);
 
+      // TODO Remove once PIN-based reglocks have been deprecated
+      if (account.getRegistrationLock().requiresClientRegistrationLock() && account.getRegistrationLock().hasDeprecatedPin()) {
+        log.info("User-Agent with deprecated PIN-based registration lock: {}", context.getClient().getUserAgent());
+      }
+
       openWebsocketCounter.inc();
       RedisOperation.unchecked(() -> apnFallbackManager.cancel(account, device));
 

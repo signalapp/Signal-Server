@@ -527,7 +527,10 @@ public class AccountController {
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/pin/")
-  public void setPin(@Auth Account account, @Valid DeprecatedPin accountLock) {
+  public void setPin(@Auth Account account, @Valid DeprecatedPin accountLock, @HeaderParam("User-Agent") String userAgent) {
+    // TODO Remove once PIN-based reglocks have been deprecated
+    logger.info("PIN set by User-Agent: {}", userAgent);
+
     account.setPin(accountLock.getPin());
     account.setRegistrationLock(null, null);
 
@@ -537,7 +540,10 @@ public class AccountController {
   @Timed
   @DELETE
   @Path("/pin/")
-  public void removePin(@Auth Account account) {
+  public void removePin(@Auth Account account, @HeaderParam("User-Agent") String userAgent) {
+    // TODO Remove once PIN-based reglocks have been deprecated
+    logger.info("PIN removed by User-Agent: {}", userAgent);
+
     account.setPin(null);
     accounts.update(account);
   }
