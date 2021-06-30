@@ -5,17 +5,15 @@
 
 package org.whispersystems.textsecuregcm.sqs;
 
-import com.amazonaws.services.sqs.AmazonSQS;
-import com.amazonaws.services.sqs.model.MessageAttributeValue;
-import com.amazonaws.services.sqs.model.SendMessageBatchRequest;
-import com.amazonaws.services.sqs.model.SendMessageRequest;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.storage.Account;
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.MessageAttributeValue;
+import software.amazon.awssdk.services.sqs.model.SendMessageBatchRequest;
 
 import java.util.List;
 import java.util.Map;
@@ -33,7 +31,7 @@ public class DirectoryQueueTest {
     @Test
     @Parameters(method = "argumentsForTestRefreshRegisteredUser")
     public void testRefreshRegisteredUser(final boolean accountEnabled, final boolean accountDiscoverableByPhoneNumber, final String expectedAction) {
-        final AmazonSQS      sqs            = mock(AmazonSQS.class);
+        final SqsClient sqs            = mock(SqsClient.class);
         final DirectoryQueue directoryQueue = new DirectoryQueue(List.of("sqs://test"), sqs);
 
         final Account account = mock(Account.class);
@@ -47,15 +45,15 @@ public class DirectoryQueueTest {
         final ArgumentCaptor<SendMessageBatchRequest> requestCaptor = ArgumentCaptor.forClass(SendMessageBatchRequest.class);
         verify(sqs).sendMessageBatch(requestCaptor.capture());
 
-        assertEquals(1, requestCaptor.getValue().getEntries().size());
+        assertEquals(1, requestCaptor.getValue().entries().size());
 
-        final Map<String, MessageAttributeValue> messageAttributes = requestCaptor.getValue().getEntries().get(0).getMessageAttributes();
-        assertEquals(new MessageAttributeValue().withDataType("String").withStringValue(expectedAction), messageAttributes.get("action"));
+        final Map<String, MessageAttributeValue> messageAttributes = requestCaptor.getValue().entries().get(0).messageAttributes();
+        assertEquals(MessageAttributeValue.builder().dataType("String").stringValue(expectedAction).build(), messageAttributes.get("action"));
     }
 
     @Test
     public void testRefreshBatch() {
-        final AmazonSQS sqs = mock(AmazonSQS.class);
+        final SqsClient sqs = mock(SqsClient.class);
         final DirectoryQueue directoryQueue = new DirectoryQueue(List.of("sqs://test"), sqs);
 
         final Account discoverableAccount = mock(Account.class);
@@ -75,22 +73,22 @@ public class DirectoryQueueTest {
         final ArgumentCaptor<SendMessageBatchRequest> requestCaptor = ArgumentCaptor.forClass(SendMessageBatchRequest.class);
         verify(sqs).sendMessageBatch(requestCaptor.capture());
 
-        assertEquals(2, requestCaptor.getValue().getEntries().size());
+        assertEquals(2, requestCaptor.getValue().entries().size());
 
-        final Map<String, MessageAttributeValue> discoverableAccountAttributes = requestCaptor.getValue().getEntries().get(0).getMessageAttributes();
-        assertEquals(new MessageAttributeValue().withDataType("String").withStringValue(discoverableAccount.getNumber()), discoverableAccountAttributes.get("id"));
-        assertEquals(new MessageAttributeValue().withDataType("String").withStringValue(discoverableAccount.getUuid().toString()), discoverableAccountAttributes.get("uuid"));
-        assertEquals(new MessageAttributeValue().withDataType("String").withStringValue("add"), discoverableAccountAttributes.get("action"));
+        final Map<String, MessageAttributeValue> discoverableAccountAttributes = requestCaptor.getValue().entries().get(0).messageAttributes();
+        assertEquals(MessageAttributeValue.builder().dataType("String").stringValue(discoverableAccount.getNumber()).build(), discoverableAccountAttributes.get("id"));
+        assertEquals(MessageAttributeValue.builder().dataType("String").stringValue(discoverableAccount.getUuid().toString()).build(), discoverableAccountAttributes.get("uuid"));
+        assertEquals(MessageAttributeValue.builder().dataType("String").stringValue("add").build(), discoverableAccountAttributes.get("action"));
 
-        final Map<String, MessageAttributeValue> undiscoverableAccountAttributes = requestCaptor.getValue().getEntries().get(1).getMessageAttributes();
-        assertEquals(new MessageAttributeValue().withDataType("String").withStringValue(undiscoverableAccount.getNumber()), undiscoverableAccountAttributes.get("id"));
-        assertEquals(new MessageAttributeValue().withDataType("String").withStringValue(undiscoverableAccount.getUuid().toString()), undiscoverableAccountAttributes.get("uuid"));
-        assertEquals(new MessageAttributeValue().withDataType("String").withStringValue("delete"), undiscoverableAccountAttributes.get("action"));
+        final Map<String, MessageAttributeValue> undiscoverableAccountAttributes = requestCaptor.getValue().entries().get(1).messageAttributes();
+        assertEquals(MessageAttributeValue.builder().dataType("String").stringValue(undiscoverableAccount.getNumber()).build(), undiscoverableAccountAttributes.get("id"));
+        assertEquals(MessageAttributeValue.builder().dataType("String").stringValue(undiscoverableAccount.getUuid().toString()).build(), undiscoverableAccountAttributes.get("uuid"));
+        assertEquals(MessageAttributeValue.builder().dataType("String").stringValue("delete").build(), undiscoverableAccountAttributes.get("action"));
     }
 
     @Test
     public void testSendMessageMultipleQueues() {
-        final AmazonSQS      sqs            = mock(AmazonSQS.class);
+        final SqsClient      sqs            = mock(SqsClient.class);
         final DirectoryQueue directoryQueue = new DirectoryQueue(List.of("sqs://first", "sqs://second"), sqs);
 
         final Account account = mock(Account.class);
@@ -105,10 +103,10 @@ public class DirectoryQueueTest {
         verify(sqs, times(2)).sendMessageBatch(requestCaptor.capture());
 
         for (final SendMessageBatchRequest sendMessageBatchRequest : requestCaptor.getAllValues()) {
-            assertEquals(1, requestCaptor.getValue().getEntries().size());
+            assertEquals(1, requestCaptor.getValue().entries().size());
 
-            final Map<String, MessageAttributeValue> messageAttributes = sendMessageBatchRequest.getEntries().get(0).getMessageAttributes();
-            assertEquals(new MessageAttributeValue().withDataType("String").withStringValue("add"), messageAttributes.get("action"));
+            final Map<String, MessageAttributeValue> messageAttributes = sendMessageBatchRequest.entries().get(0).messageAttributes();
+            assertEquals(MessageAttributeValue.builder().dataType("String").stringValue("add").build(), messageAttributes.get("action"));
         }
     }
 

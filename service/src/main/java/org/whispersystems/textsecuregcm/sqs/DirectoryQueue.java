@@ -6,16 +6,6 @@ package org.whispersystems.textsecuregcm.sqs;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import com.amazonaws.AmazonClientException;
-import com.amazonaws.AmazonServiceException;
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.services.sqs.AmazonSQS;
-import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
-import com.amazonaws.services.sqs.model.MessageAttributeValue;
-import com.amazonaws.services.sqs.model.SendMessageBatchRequest;
-import com.amazonaws.services.sqs.model.SendMessageBatchRequestEntry;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
@@ -32,6 +22,15 @@ import org.whispersystems.textsecuregcm.configuration.SqsConfiguration;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Pair;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.core.exception.SdkServiceException;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sqs.model.MessageAttributeValue;
+import software.amazon.awssdk.services.sqs.model.SendMessageBatchRequest;
+import software.amazon.awssdk.services.sqs.model.SendMessageBatchRequestEntry;
 
 public class DirectoryQueue {
 
@@ -43,20 +42,23 @@ public class DirectoryQueue {
   private final Timer sendMessageBatchTimer = metricRegistry.timer(name(DirectoryQueue.class, "sendMessageBatch"));
 
   private final List<String>   queueUrls;
-  private final AmazonSQS      sqs;
+  private final SqsClient      sqs;
 
   public DirectoryQueue(SqsConfiguration sqsConfig) {
-    final AWSCredentials               credentials         = new BasicAWSCredentials(sqsConfig.getAccessKey(), sqsConfig.getAccessSecret());
-    final AWSStaticCredentialsProvider credentialsProvider = new AWSStaticCredentialsProvider(credentials);
+    StaticCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create(
+        sqsConfig.getAccessKey(), sqsConfig.getAccessSecret()));
 
     this.queueUrls = sqsConfig.getQueueUrls();
-    this.sqs       = AmazonSQSClientBuilder.standard().withRegion(sqsConfig.getRegion()).withCredentials(credentialsProvider).build();
+    this.sqs = SqsClient.builder()
+        .region(Region.of(sqsConfig.getRegion()))
+        .credentialsProvider(credentialsProvider)
+        .build();
   }
 
   @VisibleForTesting
-  DirectoryQueue(final List<String> queueUrls, final AmazonSQS sqs) {
+  DirectoryQueue(final List<String> queueUrls, final SqsClient sqs) {
     this.queueUrls = queueUrls;
-    this.sqs       = sqs;
+    this.sqs = sqs;
   }
 
   public void refreshRegisteredUser(final Account account) {
@@ -82,28 +84,30 @@ public class DirectoryQueue {
           final Account account = pair.first();
           final String action = pair.second();
 
-          return new SendMessageBatchRequestEntry()
-              .withMessageBody("-")
-              .withId(UUID.randomUUID().toString())
-              .withMessageDeduplicationId(UUID.randomUUID().toString())
-              .withMessageGroupId(account.getNumber())
-              .withMessageAttributes(Map.of(
-                  "id", new MessageAttributeValue().withDataType("String").withStringValue(account.getNumber()),
-                  "uuid", new MessageAttributeValue().withDataType("String").withStringValue(account.getUuid().toString()),
-                  "action", new MessageAttributeValue().withDataType("String").withStringValue(action)
-              ));
+          return SendMessageBatchRequestEntry.builder()
+              .messageBody("-")
+              .id(UUID.randomUUID().toString())
+              .messageDeduplicationId(UUID.randomUUID().toString())
+              .messageGroupId(account.getNumber())
+              .messageAttributes(Map.of(
+                  "id", MessageAttributeValue.builder().dataType("String").stringValue(account.getNumber()).build(),
+                  "uuid", MessageAttributeValue.builder().dataType("String").stringValue(account.getUuid().toString()).build(),
+                  "action", MessageAttributeValue.builder().dataType("String").stringValue(action).build()
+              ))
+              .build();
         }).collect(Collectors.toList());
 
-        final SendMessageBatchRequest sendMessageBatchRequest = new SendMessageBatchRequest()
-            .withQueueUrl(queueUrl)
-            .withEntries(entries);
+        final SendMessageBatchRequest sendMessageBatchRequest = SendMessageBatchRequest.builder()
+            .queueUrl(queueUrl)
+            .entries(entries)
+            .build();
 
         try (final Timer.Context ignored = sendMessageBatchTimer.time()) {
           sqs.sendMessageBatch(sendMessageBatchRequest);
-        } catch (AmazonServiceException ex) {
+        } catch (SdkServiceException ex) {
           serviceErrorMeter.mark();
           logger.warn("sqs service error: ", ex);
-        } catch (AmazonClientException ex) {
+        } catch (SdkClientException ex) {
           clientErrorMeter.mark();
           logger.warn("sqs client error: ", ex);
         } catch (Throwable t) {
@@ -112,5 +116,4 @@ public class DirectoryQueue {
       }
     }
   }
-
 }
