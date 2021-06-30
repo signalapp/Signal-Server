@@ -5,17 +5,16 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
-import org.signal.zkgroup.auth.ServerZkAuthOperations;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
-import org.whispersystems.textsecuregcm.entities.DeliveryCertificate;
-import org.whispersystems.textsecuregcm.entities.GroupCredentials;
-import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.util.Util;
-
+import io.micrometer.core.instrument.Metrics;
+import java.io.IOException;
+import java.security.InvalidKeyException;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Optional;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -24,21 +23,23 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import java.io.IOException;
-import java.security.InvalidKeyException;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Optional;
+import org.signal.zkgroup.auth.ServerZkAuthOperations;
+import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
+import org.whispersystems.textsecuregcm.entities.DeliveryCertificate;
+import org.whispersystems.textsecuregcm.entities.GroupCredentials;
+import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.util.Util;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/certificate")
 public class CertificateController {
 
-  private final Logger logger = LoggerFactory.getLogger(CertificateController.class);
-
   private final CertificateGenerator   certificateGenerator;
   private final ServerZkAuthOperations serverZkAuthOperations;
   private final boolean                isZkEnabled;
+
+  private static final String GENERATE_DELIVERY_CERTIFICATE_COUNTER_NAME = name(CertificateGenerator.class, "generateCertificate");
+  private static final String INCLUDE_E164_TAG_NAME = "includeE164";
 
   public CertificateController(CertificateGenerator certificateGenerator, ServerZkAuthOperations serverZkAuthOperations, boolean isZkEnabled) {
     this.certificateGenerator   = certificateGenerator;
@@ -51,8 +52,8 @@ public class CertificateController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/delivery")
   public DeliveryCertificate getDeliveryCertificate(@Auth Account account,
-                                                    @QueryParam("includeE164") Optional<Boolean> includeE164)
-      throws IOException, InvalidKeyException
+                                                    @QueryParam("includeE164") Optional<Boolean> maybeIncludeE164)
+      throws InvalidKeyException
   {
     if (account.getAuthenticatedDevice().isEmpty()) {
       throw new AssertionError();
@@ -61,7 +62,11 @@ public class CertificateController {
       throw new WebApplicationException(Response.Status.BAD_REQUEST);
     }
 
-    return new DeliveryCertificate(certificateGenerator.createFor(account, account.getAuthenticatedDevice().get(), includeE164.orElse(true)));
+    final boolean includeE164 = maybeIncludeE164.orElse(true);
+
+    Metrics.counter(GENERATE_DELIVERY_CERTIFICATE_COUNTER_NAME, INCLUDE_E164_TAG_NAME, String.valueOf(includeE164)).increment();
+
+    return new DeliveryCertificate(certificateGenerator.createFor(account, account.getAuthenticatedDevice().get(), includeE164));
   }
 
   @Timed
