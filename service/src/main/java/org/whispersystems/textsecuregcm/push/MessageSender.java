@@ -120,7 +120,7 @@ public class MessageSender implements Managed {
   }
 
   private void sendGcmNotification(Account account, Device device) {
-    GcmMessage gcmMessage = new GcmMessage(device.getGcmId(), account.getNumber(),
+    GcmMessage gcmMessage = new GcmMessage(device.getGcmId(), account.getUuid(),
                                            (int)device.getId(), GcmMessage.Type.NOTIFICATION, Optional.empty());
 
     gcmSender.sendMessage(gcmMessage);
@@ -132,10 +132,10 @@ public class MessageSender implements Managed {
     ApnMessage apnMessage;
 
     if (!Util.isEmpty(device.getVoipApnId())) {
-      apnMessage = new ApnMessage(device.getVoipApnId(), account.getNumber(), device.getId(), true, Type.NOTIFICATION, Optional.empty());
+      apnMessage = new ApnMessage(device.getVoipApnId(), account.getUuid(), device.getId(), true, Type.NOTIFICATION, Optional.empty());
       RedisOperation.unchecked(() -> apnFallbackManager.schedule(account, device));
     } else {
-      apnMessage = new ApnMessage(device.getApnId(), account.getNumber(), device.getId(), false, Type.NOTIFICATION, Optional.empty());
+      apnMessage = new ApnMessage(device.getApnId(), account.getUuid(), device.getId(), false, Type.NOTIFICATION, Optional.empty());
     }
 
     apnSender.sendMessage(apnMessage);

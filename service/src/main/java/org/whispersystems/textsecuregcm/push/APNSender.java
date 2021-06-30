@@ -27,8 +27,8 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -84,17 +84,19 @@ public class APNSender implements Managed {
                                                          Instant.ofEpochMilli(message.getExpirationTime()),
                                                          message.isVoip());
 
-    Futures.addCallback(future, new FutureCallback<ApnResult>() {
+    Futures.addCallback(future, new FutureCallback<>() {
       @Override
       public void onSuccess(@Nullable ApnResult result) {
-        if (message.getChallengeData().isPresent()) return;
+        if (message.getChallengeData().isPresent()) {
+          return;
+        }
 
         if (result == null) {
           logger.warn("*** RECEIVED NULL APN RESULT ***");
         } else if (result.getStatus() == ApnResult.Status.NO_SUCH_USER) {
-          handleUnregisteredUser(message.getApnId(), message.getNumber(), message.getDeviceId());
+          message.getUuid().ifPresent(uuid -> handleUnregisteredUser(message.getApnId(), uuid, message.getDeviceId()));
         } else if (result.getStatus() == ApnResult.Status.GENERIC_FAILURE) {
-          logger.warn("*** Got APN generic failure: " + result.getReason() + ", " + message.getNumber());
+          logger.warn("*** Got APN generic failure: " + result.getReason() + ", " + message.getUuid());
         }
       }
 
@@ -120,21 +122,21 @@ public class APNSender implements Managed {
     this.fallbackManager = fallbackManager;
   }
 
-  private void handleUnregisteredUser(String registrationId, String number, long deviceId) {
+  private void handleUnregisteredUser(String registrationId, UUID uuid, long deviceId) {
 //    logger.info("Got APN Unregistered: " + number + "," + deviceId);
 
-    Optional<Account> account = accountsManager.get(number);
+    Optional<Account> account = accountsManager.get(uuid);
 
-    if (!account.isPresent()) {
-      logger.info("No account found: " + number);
+    if (account.isEmpty()) {
+      logger.info("No account found: {}", uuid);
       unregisteredEventStale.mark();
       return;
     }
 
     Optional<Device> device = account.get().getDevice(deviceId);
 
-    if (!device.isPresent()) {
-      logger.info("No device found: " + number);
+    if (device.isEmpty()) {
+      logger.info("No device found: {}", uuid);
       unregisteredEventStale.mark();
       return;
     }
@@ -157,7 +159,7 @@ public class APNSender implements Managed {
 
     if (tokenTimestamp != 0 && System.currentTimeMillis() < tokenTimestamp + TimeUnit.SECONDS.toMillis(10))
     {
-      logger.info("APN Unregister push timestamp is more recent: " + tokenTimestamp + ", " + number);
+      logger.info("APN Unregister push timestamp is more recent: {}, {}", tokenTimestamp, uuid);
       unregisteredEventStale.mark();
       return;
     }

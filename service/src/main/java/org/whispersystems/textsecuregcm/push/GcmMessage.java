@@ -6,7 +6,9 @@
 package org.whispersystems.textsecuregcm.push;
 
 
+import javax.annotation.Nullable;
 import java.util.Optional;
+import java.util.UUID;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class GcmMessage {
@@ -16,14 +18,16 @@ public class GcmMessage {
   }
 
   private final String           gcmId;
-  private final String           number;
   private final int              deviceId;
   private final Type             type;
   private final Optional<String> data;
 
-  public GcmMessage(String gcmId, String number, int deviceId, Type type, Optional<String> data) {
+  @Nullable
+  private final UUID             uuid;
+
+  public GcmMessage(String gcmId, @Nullable UUID uuid, int deviceId, Type type, Optional<String> data) {
     this.gcmId    = gcmId;
-    this.number   = number;
+    this.uuid     = uuid;
     this.deviceId = deviceId;
     this.type     = type;
     this.data     = data;
@@ -33,8 +37,8 @@ public class GcmMessage {
     return gcmId;
   }
 
-  public String getNumber() {
-    return number;
+  public Optional<UUID> getUuid() {
+    return Optional.ofNullable(uuid);
   }
 
   public Type getType() {

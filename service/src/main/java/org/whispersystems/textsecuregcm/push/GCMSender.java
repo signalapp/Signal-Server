@@ -119,8 +119,8 @@ public class GCMSender {
   }
 
   private void handleCanonicalRegistrationId(GcmMessage message, Result result) {
-    logger.warn(String.format("Actually received 'CanonicalRegistrationId' ::: (canonical=%s), (original=%s)",
-                              result.getCanonicalRegistrationId(), message.getGcmId()));
+    logger.warn("Actually received 'CanonicalRegistrationId' ::: (canonical={}}), (original={}})",
+        result.getCanonicalRegistrationId(), message.getGcmId());
 
     getAccountForEvent(message).ifPresent(account ->
         accountsManager.updateDevice(
@@ -132,15 +132,14 @@ public class GCMSender {
   }
 
   private void handleGenericError(GcmMessage message, Result result) {
-    logger.warn(String.format("Unrecoverable Error ::: (error=%s), (gcm_id=%s), " +
-                              "(destination=%s), (device_id=%d)",
-                              result.getError(), message.getGcmId(), message.getNumber(),
-                              message.getDeviceId()));
+    logger.warn("Unrecoverable Error ::: (error={}}), (gcm_id={}}), (destination={}}), (device_id={}})",
+        result.getError(), message.getGcmId(), message.getUuid(), message.getDeviceId());
+
     failure.mark();
   }
 
   private Optional<Account> getAccountForEvent(GcmMessage message) {
-    Optional<Account> account = accountsManager.get(message.getNumber());
+    Optional<Account> account = message.getUuid().flatMap(accountsManager::get);
 
     if (account.isPresent()) {
       Optional<Device> device = account.get().getDevice(message.getDeviceId());

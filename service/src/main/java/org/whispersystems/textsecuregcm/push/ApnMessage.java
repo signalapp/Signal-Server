@@ -7,7 +7,9 @@ package org.whispersystems.textsecuregcm.push;
 
 import com.google.common.annotations.VisibleForTesting;
 
+import javax.annotation.Nullable;
 import java.util.Optional;
+import java.util.UUID;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class ApnMessage {
@@ -23,15 +25,17 @@ public class ApnMessage {
   public static final long   MAX_EXPIRATION                   = Integer.MAX_VALUE * 1000L;
 
   private final String           apnId;
-  private final String           number;
   private final long             deviceId;
   private final boolean          isVoip;
   private final Type             type;
   private final Optional<String> challengeData;
 
-  public ApnMessage(String apnId, String number, long deviceId, boolean isVoip, Type type, Optional<String> challengeData) {
+  @Nullable
+  private final UUID             uuid;
+
+  public ApnMessage(String apnId, @Nullable UUID uuid, long deviceId, boolean isVoip, Type type, Optional<String> challengeData) {
     this.apnId         = apnId;
-    this.number        = number;
+    this.uuid          = uuid;
     this.deviceId      = deviceId;
     this.isVoip        = isVoip;
     this.type          = type;
@@ -71,8 +75,8 @@ public class ApnMessage {
     return MAX_EXPIRATION;
   }
 
-  public String getNumber() {
-    return number;
+  public Optional<UUID> getUuid() {
+    return Optional.ofNullable(uuid);
   }
 
   public long getDeviceId() {

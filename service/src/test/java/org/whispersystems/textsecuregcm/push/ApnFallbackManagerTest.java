@@ -103,7 +103,7 @@ public class ApnFallbackManagerTest extends AbstractRedisClusterTest {
         final ApnMessage message = messageCaptor.getValue();
 
         assertEquals(VOIP_APN_ID, message.getApnId());
-        assertEquals(ACCOUNT_NUMBER, message.getNumber());
+        assertEquals(Optional.of(ACCOUNT_UUID), message.getUuid());
         assertEquals(DEVICE_ID, message.getDeviceId());
 
         assertEquals(0, worker.processNextSlot());

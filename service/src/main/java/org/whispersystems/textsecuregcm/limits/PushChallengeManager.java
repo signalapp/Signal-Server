@@ -69,10 +69,10 @@ public class PushChallengeManager {
       sent = true;
 
       if (StringUtils.isNotBlank(masterDevice.getGcmId())) {
-        gcmSender.sendMessage(new GcmMessage(masterDevice.getGcmId(), account.getNumber(), 0, GcmMessage.Type.RATE_LIMIT_CHALLENGE, Optional.of(tokenHex)));
+        gcmSender.sendMessage(new GcmMessage(masterDevice.getGcmId(), account.getUuid(), 0, GcmMessage.Type.RATE_LIMIT_CHALLENGE, Optional.of(tokenHex)));
         platform = ClientPlatform.ANDROID.name().toLowerCase();
       } else if (StringUtils.isNotBlank(masterDevice.getApnId())) {
-        apnSender.sendMessage(new ApnMessage(masterDevice.getApnId(), account.getNumber(), 0, false, Type.RATE_LIMIT_CHALLENGE, Optional.of(tokenHex)));
+        apnSender.sendMessage(new ApnMessage(masterDevice.getApnId(), account.getUuid(), 0, false, Type.RATE_LIMIT_CHALLENGE, Optional.of(tokenHex)));
         platform = ClientPlatform.IOS.name().toLowerCase();
       } else {
         throw new AssertionError();

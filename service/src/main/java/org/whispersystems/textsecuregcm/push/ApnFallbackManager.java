@@ -193,7 +193,7 @@ public class ApnFallbackManager implements Managed {
       return;
     }
 
-    apnSender.sendMessage(new ApnMessage(apnId, account.getNumber(), device.getId(), true, Type.NOTIFICATION, Optional.empty()));
+    apnSender.sendMessage(new ApnMessage(apnId, account.getUuid(), device.getId(), true, Type.NOTIFICATION, Optional.empty()));
     retry.mark();
   }
 

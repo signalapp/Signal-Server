@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.junit.Test;
 import org.whispersystems.gcm.server.Message;
@@ -43,7 +44,7 @@ public class GCMSenderTest {
 
     AccountsHelper.setupMockUpdate(accountsManager);
 
-    GcmMessage message = new GcmMessage("foo", "+12223334444", 1, GcmMessage.Type.NOTIFICATION, Optional.empty());
+    GcmMessage message = new GcmMessage("foo", UUID.randomUUID(), 1, GcmMessage.Type.NOTIFICATION, Optional.empty());
     GCMSender gcmSender = new GCMSender(executorService, accountsManager, sender);
 
     CompletableFuture<Result> successFuture = CompletableFuture.completedFuture(successResult);
@@ -57,8 +58,8 @@ public class GCMSenderTest {
 
   @Test
   public void testSendUninstalled() {
-    String destinationNumber = "+12223334444";
-    String gcmId             = "foo";
+    UUID destinationUuid = UUID.randomUUID();
+    String gcmId = "foo";
 
     AccountsManager            accountsManager = mock(AccountsManager.class);
     Sender                     sender          = mock(Sender.class         );
@@ -71,7 +72,7 @@ public class GCMSenderTest {
     AccountsHelper.setupMockUpdate(accountsManager);
 
     when(destinationAccount.getDevice(1)).thenReturn(Optional.of(destinationDevice));
-    when(accountsManager.get(destinationNumber)).thenReturn(Optional.of(destinationAccount));
+    when(accountsManager.get(destinationUuid)).thenReturn(Optional.of(destinationAccount));
     when(destinationDevice.getGcmId()).thenReturn(gcmId);
 
     when(invalidResult.isInvalidRegistrationId()).thenReturn(true);
@@ -79,7 +80,7 @@ public class GCMSenderTest {
     when(invalidResult.hasCanonicalRegistrationId()).thenReturn(false);
     when(invalidResult.isSuccess()).thenReturn(true);
 
-    GcmMessage message = new GcmMessage(gcmId, destinationNumber, 1, GcmMessage.Type.NOTIFICATION, Optional.empty());
+    GcmMessage message = new GcmMessage(gcmId, destinationUuid, 1, GcmMessage.Type.NOTIFICATION, Optional.empty());
     GCMSender gcmSender = new GCMSender(executorService, accountsManager, sender);
 
     CompletableFuture<Result> invalidFuture = CompletableFuture.completedFuture(invalidResult);
@@ -89,14 +90,14 @@ public class GCMSenderTest {
     gcmSender.sendMessage(message);
 
     verify(sender, times(1)).send(any(Message.class));
-    verify(accountsManager, times(1)).get(eq(destinationNumber));
+    verify(accountsManager, times(1)).get(eq(destinationUuid));
     verify(accountsManager, times(1)).updateDevice(eq(destinationAccount), eq(1L), any());
     verify(destinationDevice, times(1)).setUninstalledFeedbackTimestamp(eq(Util.todayInMillis()));
   }
 
   @Test
   public void testCanonicalId() {
-    String destinationNumber = "+12223334444";
+    UUID destinationUuid     = UUID.randomUUID();
     String gcmId             = "foo";
     String canonicalId       = "bar";
 
@@ -109,7 +110,7 @@ public class GCMSenderTest {
     Device         destinationDevice  = mock(Device.class        );
 
     when(destinationAccount.getDevice(1)).thenReturn(Optional.of(destinationDevice));
-    when(accountsManager.get(destinationNumber)).thenReturn(Optional.of(destinationAccount));
+    when(accountsManager.get(destinationUuid)).thenReturn(Optional.of(destinationAccount));
     when(destinationDevice.getGcmId()).thenReturn(gcmId);
 
     AccountsHelper.setupMockUpdate(accountsManager);
@@ -120,7 +121,7 @@ public class GCMSenderTest {
     when(canonicalResult.isSuccess()).thenReturn(false);
     when(canonicalResult.getCanonicalRegistrationId()).thenReturn(canonicalId);
 
-    GcmMessage message = new GcmMessage(gcmId, destinationNumber, 1, GcmMessage.Type.NOTIFICATION, Optional.empty());
+    GcmMessage message = new GcmMessage(gcmId, destinationUuid, 1, GcmMessage.Type.NOTIFICATION, Optional.empty());
     GCMSender gcmSender = new GCMSender(executorService, accountsManager, sender);
 
     CompletableFuture<Result> invalidFuture = CompletableFuture.completedFuture(canonicalResult);
@@ -130,7 +131,7 @@ public class GCMSenderTest {
     gcmSender.sendMessage(message);
 
     verify(sender, times(1)).send(any(Message.class));
-    verify(accountsManager, times(1)).get(eq(destinationNumber));
+    verify(accountsManager, times(1)).get(eq(destinationUuid));
     verify(accountsManager, times(1)).updateDevice(eq(destinationAccount), eq(1L), any());
     verify(destinationDevice, times(1)).setGcmId(eq(canonicalId));
   }
