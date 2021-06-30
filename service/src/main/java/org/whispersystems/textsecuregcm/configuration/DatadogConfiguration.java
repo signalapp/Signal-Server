@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import java.time.Duration;
@@ -24,6 +25,10 @@ public class DatadogConfiguration {
   @NotBlank
   private String environment;
 
+  @JsonProperty
+  @Min(1)
+  private int batchSize = 5_000;
+
   public String getApiKey() {
     return apiKey;
   }
@@ -34,5 +39,9 @@ public class DatadogConfiguration {
 
   public String getEnvironment() {
     return environment;
+  }
+
+  public int getBatchSize() {
+    return batchSize;
   }
 }

@@ -298,6 +298,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         }
 
         @Override
+        public int batchSize() {
+          return config.getDatadogConfiguration().getBatchSize();
+        }
+
+        @Override
         public String hostTag() {
           return "host";
         }
