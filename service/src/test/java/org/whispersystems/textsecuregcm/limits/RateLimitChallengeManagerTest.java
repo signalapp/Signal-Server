@@ -7,12 +7,13 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.vdurmont.semver4j.Semver;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -66,6 +67,8 @@ class RateLimitChallengeManagerTest {
   @ValueSource(booleans = {true, false})
   void answerPushChallenge(final boolean successfulChallenge) throws RateLimitExceededException {
     final Account account = mock(Account.class);
+    when(account.getUuid()).thenReturn(UUID.randomUUID());
+
     when(pushChallengeManager.answerChallenge(eq(account), any())).thenReturn(successfulChallenge);
 
     when(rateLimiters.getPushChallengeAttemptLimiter()).thenReturn(mock(RateLimiter.class));
@@ -78,8 +81,8 @@ class RateLimitChallengeManagerTest {
       verify(preKeyRateLimiter).handleRateLimitReset(account);
       verify(unsealedSenderRateLimiter).handleRateLimitReset(account);
     } else {
-      verifyZeroInteractions(preKeyRateLimiter);
-      verifyZeroInteractions(unsealedSenderRateLimiter);
+      verifyNoInteractions(preKeyRateLimiter);
+      verifyNoInteractions(unsealedSenderRateLimiter);
     }
   }
 
@@ -88,6 +91,7 @@ class RateLimitChallengeManagerTest {
   void answerRecaptchaChallenge(final boolean successfulChallenge) throws RateLimitExceededException {
     final Account account = mock(Account.class);
     when(account.getNumber()).thenReturn("+18005551234");
+    when(account.getUuid()).thenReturn(UUID.randomUUID());
 
     when(recaptchaClient.verify(any(), any())).thenReturn(successfulChallenge);
 
@@ -101,8 +105,8 @@ class RateLimitChallengeManagerTest {
       verify(preKeyRateLimiter).handleRateLimitReset(account);
       verify(unsealedSenderRateLimiter).handleRateLimitReset(account);
     } else {
-      verifyZeroInteractions(preKeyRateLimiter);
-      verifyZeroInteractions(unsealedSenderRateLimiter);
+      verifyNoInteractions(preKeyRateLimiter);
+      verifyNoInteractions(unsealedSenderRateLimiter);
     }
   }
 
@@ -150,14 +154,17 @@ class RateLimitChallengeManagerTest {
     when(rateLimiters.getPushChallengeAttemptLimiter()).thenReturn(pushChallengeAttemptLimiter);
     when(rateLimiters.getPushChallengeSuccessLimiter()).thenReturn(pushChallengeSuccessLimiter);
 
-    when(recaptchaChallengeAttemptLimiter.hasAvailablePermits(any(), anyInt())).thenReturn(captchaAttemptPermitted);
-    when(recaptchaChallengeSuccessLimiter.hasAvailablePermits(any(), anyInt())).thenReturn(captchaSuccessPermitted);
-    when(pushChallengeAttemptLimiter.hasAvailablePermits(any(), anyInt())).thenReturn(pushAttemptPermitted);
-    when(pushChallengeSuccessLimiter.hasAvailablePermits(any(), anyInt())).thenReturn(pushSuccessPermitted);
+    when(recaptchaChallengeAttemptLimiter.hasAvailablePermits(any(UUID.class), anyInt())).thenReturn(captchaAttemptPermitted);
+    when(recaptchaChallengeSuccessLimiter.hasAvailablePermits(any(UUID.class), anyInt())).thenReturn(captchaSuccessPermitted);
+    when(pushChallengeAttemptLimiter.hasAvailablePermits(any(UUID.class), anyInt())).thenReturn(pushAttemptPermitted);
+    when(pushChallengeSuccessLimiter.hasAvailablePermits(any(UUID.class), anyInt())).thenReturn(pushSuccessPermitted);
 
     final int expectedLength = (expectCaptcha ? 1 : 0) + (expectPushChallenge ? 1 : 0);
 
-    final List<String> options = rateLimitChallengeManager.getChallengeOptions(mock(Account.class));
+    final Account account = mock(Account.class);
+    when(account.getUuid()).thenReturn(UUID.randomUUID());
+
+    final List<String> options = rateLimitChallengeManager.getChallengeOptions(account);
     assertEquals(expectedLength, options.size());
 
     if (expectCaptcha) {

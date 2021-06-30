@@ -40,11 +40,9 @@ import org.whispersystems.textsecuregcm.limits.PreKeyRateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeException;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -57,7 +55,6 @@ public class KeysController {
   private final AccountsManager             accounts;
   private final PreKeyRateLimiter           preKeyRateLimiter;
 
-  private final DynamicConfigurationManager dynamicConfigurationManager;
   private final RateLimitChallengeManager rateLimitChallengeManager;
 
   private static final String PREKEY_REQUEST_COUNTER_NAME = name(KeysController.class, "preKeyGet");
@@ -69,15 +66,12 @@ public class KeysController {
 
   public KeysController(RateLimiters rateLimiters, KeysDynamoDb keysDynamoDb, AccountsManager accounts,
       PreKeyRateLimiter preKeyRateLimiter,
-      DynamicConfigurationManager dynamicConfigurationManager,
       RateLimitChallengeManager rateLimitChallengeManager) {
     this.rateLimiters                = rateLimiters;
     this.keysDynamoDb                = keysDynamoDb;
     this.accounts                    = accounts;
     this.preKeyRateLimiter           = preKeyRateLimiter;
-
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
-    this.rateLimitChallengeManager = rateLimitChallengeManager;
+    this.rateLimitChallengeManager   = rateLimitChallengeManager;
   }
 
   @GET
@@ -152,7 +146,7 @@ public class KeysController {
     }
 
     if (account.isPresent()) {
-      rateLimiters.getPreKeysLimiter().validate(account.get().getNumber() + "." + account.get().getAuthenticatedDevice().get().getId() +  "__" + target.get().getNumber() + "." + deviceId);
+      rateLimiters.getPreKeysLimiter().validate(account.get().getUuid() + "." + account.get().getAuthenticatedDevice().get().getId() +  "__" + target.get().getUuid() + "." + deviceId);
 
       try {
         preKeyRateLimiter.validate(account.get());

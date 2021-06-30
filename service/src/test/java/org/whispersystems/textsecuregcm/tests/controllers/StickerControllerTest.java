@@ -6,7 +6,6 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -35,8 +34,8 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 @ExtendWith(DropwizardExtensionsSupport.class)
 class StickerControllerTest {
 
-  private static RateLimiter  rateLimiter  = mock(RateLimiter.class );
-  private static RateLimiters rateLimiters = mock(RateLimiters.class);
+  private static final RateLimiter  rateLimiter  = mock(RateLimiter.class );
+  private static final RateLimiters rateLimiters = mock(RateLimiters.class);
 
   private static final ResourceExtension resources = ResourceExtension.builder()
                                                                       .addProvider(AuthHelper.getAuthFilter())
@@ -86,7 +85,7 @@ class StickerControllerTest {
     }
 
     verify(rateLimiters, times(1)).getStickerPackLimiter();
-    verify(rateLimiter, times(1)).validate(eq(AuthHelper.VALID_NUMBER));
+    verify(rateLimiter, times(1)).validate(AuthHelper.VALID_UUID);
   }
 
   @Test

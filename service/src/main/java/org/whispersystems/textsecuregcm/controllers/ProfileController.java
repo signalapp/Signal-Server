@@ -210,7 +210,7 @@ public class ProfileController {
       }
 
       if (requestAccount.isPresent()) {
-        rateLimiters.getProfileLimiter().validate(requestAccount.get().getNumber());
+        rateLimiters.getProfileLimiter().validate(requestAccount.get().getUuid());
       }
 
       Optional<Account> accountProfile = accountsManager.get(uuid);
@@ -260,7 +260,7 @@ public class ProfileController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/username/{username}")
   public Profile getProfileByUsername(@Auth Account account, @PathParam("username") String username) throws RateLimitExceededException {
-    rateLimiters.getUsernameLookupLimiter().validate(account.getUuid().toString());
+    rateLimiters.getUsernameLookupLimiter().validate(account.getUuid());
 
     username = username.toLowerCase();
 
@@ -341,7 +341,7 @@ public class ProfileController {
     }
 
     if (requestAccount.isPresent()) {
-      rateLimiters.getProfileLimiter().validate(requestAccount.get().getNumber());
+      rateLimiters.getProfileLimiter().validate(requestAccount.get().getUuid());
     }
 
     Optional<Account> accountProfile = accountsManager.get(identifier);

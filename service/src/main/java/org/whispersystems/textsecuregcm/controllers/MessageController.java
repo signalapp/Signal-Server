@@ -257,7 +257,7 @@ public class MessageController {
       assert(destination.isPresent());
 
       if (source.isPresent() && !source.get().isFor(destinationName)) {
-        rateLimiters.getMessagesLimiter().validate(source.get().getNumber() + "__" + destination.get().getUuid());
+        rateLimiters.getMessagesLimiter().validate(source.get().getUuid(), destination.get().getUuid());
 
         final String senderCountryCode = Util.getCountryCode(source.get().getNumber());
 

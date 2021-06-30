@@ -49,7 +49,7 @@ public class AttachmentControllerV1 extends AttachmentControllerBase {
       throws RateLimitExceededException
   {
     if (account.isRateLimited()) {
-      rateLimiters.getAttachmentLimiter().validate(account.getNumber());
+      rateLimiters.getAttachmentLimiter().validate(account.getUuid());
     }
 
     long attachmentId = generateAttachmentId();

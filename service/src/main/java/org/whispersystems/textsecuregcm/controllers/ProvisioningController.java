@@ -6,13 +6,8 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
-import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
-import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.push.ProvisioningManager;
-import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.websocket.InvalidWebsocketAddressException;
-import org.whispersystems.textsecuregcm.websocket.ProvisioningAddress;
-
+import io.dropwizard.auth.Auth;
+import java.util.Base64;
 import javax.validation.Valid;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.PUT;
@@ -22,10 +17,11 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import java.io.IOException;
-import java.util.Base64;
-
-import io.dropwizard.auth.Auth;
+import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
+import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.push.ProvisioningManager;
+import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.websocket.ProvisioningAddress;
 
 @Path("/v1/provisioning")
 public class ProvisioningController {
@@ -46,9 +42,9 @@ public class ProvisioningController {
   public void sendProvisioningMessage(@Auth                     Account source,
                                       @PathParam("destination") String destinationName,
                                       @Valid                    ProvisioningMessage message)
-      throws RateLimitExceededException, InvalidWebsocketAddressException, IOException
-  {
-    rateLimiters.getMessagesLimiter().validate(source.getNumber());
+      throws RateLimitExceededException {
+
+    rateLimiters.getMessagesLimiter().validate(source.getUuid());
 
     if (!provisioningManager.sendProvisioningMessage(new ProvisioningAddress(destinationName, 0),
                                                      Base64.getDecoder().decode(message.getBody())))

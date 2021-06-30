@@ -112,7 +112,7 @@ public class DeviceController {
   public VerificationCode createDeviceToken(@Auth Account account)
       throws RateLimitExceededException, DeviceLimitExceededException
   {
-    rateLimiters.getAllocateDeviceLimiter().validate(account.getNumber());
+    rateLimiters.getAllocateDeviceLimiter().validate(account.getUuid());
 
     int maxDeviceLimit = MAX_DEVICES;
 

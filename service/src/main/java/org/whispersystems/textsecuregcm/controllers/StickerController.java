@@ -49,7 +49,7 @@ public class StickerController {
                                                          @PathParam("count") @Min(1) @Max(201) int stickerCount)
       throws RateLimitExceededException
   {
-    rateLimiters.getStickerPackLimiter().validate(account.getNumber());
+    rateLimiters.getStickerPackLimiter().validate(account.getUuid());
 
     ZonedDateTime             now               = ZonedDateTime.now(ZoneOffset.UTC);
     String                    packId            = generatePackId();

@@ -49,7 +49,7 @@ class PreKeyRateLimiterTest {
   void enforcementConfiguration() throws RateLimitExceededException {
 
     doThrow(RateLimitExceededException.class)
-      .when(dailyPreKeyLimiter).validate(any());
+      .when(dailyPreKeyLimiter).validate(any(UUID.class));
 
     when(rateLimitChallengeConfiguration.isPreKeyLimitEnforced()).thenReturn(false);
 

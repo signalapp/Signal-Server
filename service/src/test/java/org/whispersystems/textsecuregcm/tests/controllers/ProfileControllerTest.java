@@ -185,7 +185,7 @@ class ProfileControllerTest {
 
     verify(accountsManager, times(1)).get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasUuid() && identifier.getUuid().equals(AuthHelper.VALID_UUID_TWO)));
     verify(usernamesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO));
-    verify(rateLimiter, times(1)).validate(eq(AuthHelper.VALID_NUMBER));
+    verify(rateLimiter, times(1)).validate(AuthHelper.VALID_UUID);
   }
 
   @Test
@@ -206,7 +206,7 @@ class ProfileControllerTest {
 
     verify(accountsManager, times(1)).get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(AuthHelper.VALID_NUMBER_TWO)));
     verifyNoMoreInteractions(usernamesManager);
-    verify(rateLimiter, times(1)).validate(eq(AuthHelper.VALID_NUMBER));
+    verify(rateLimiter, times(1)).validate(AuthHelper.VALID_UUID);
   }
 
   @Test
@@ -225,7 +225,7 @@ class ProfileControllerTest {
 
     verify(accountsManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO));
     verify(usernamesManager, times(1)).get(eq("n00bkiller"));
-    verify(usernameRateLimiter, times(1)).validate(eq(AuthHelper.VALID_UUID.toString()));
+    verify(usernameRateLimiter, times(1)).validate(eq(AuthHelper.VALID_UUID));
   }
 
   @Test
@@ -260,7 +260,7 @@ class ProfileControllerTest {
     assertThat(response.getStatus()).isEqualTo(404);
 
     verify(usernamesManager, times(1)).get(eq("n00bkillerzzzzz"));
-    verify(usernameRateLimiter, times(1)).validate(eq(AuthHelper.VALID_UUID.toString()));
+    verify(usernameRateLimiter, times(1)).validate(eq(AuthHelper.VALID_UUID));
   }
 
 
@@ -587,7 +587,7 @@ class ProfileControllerTest {
     verify(usernamesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO));
     verify(profilesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO), eq("validversion"));
 
-    verify(rateLimiter, times(1)).validate(eq(AuthHelper.VALID_NUMBER));
+    verify(rateLimiter, times(1)).validate(AuthHelper.VALID_UUID);
   }
 
   @Test

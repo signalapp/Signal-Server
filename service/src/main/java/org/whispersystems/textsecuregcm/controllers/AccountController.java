@@ -207,17 +207,17 @@ public class AccountController {
       throw new WebApplicationException(Response.status(400).build());
     }
 
-    String requester = ForwardedIpUtil.getMostRecentProxy(forwardedFor).orElseThrow();
+    String sourceHost = ForwardedIpUtil.getMostRecentProxy(forwardedFor).orElseThrow();
 
     Optional<StoredVerificationCode> storedChallenge = pendingAccounts.getCodeForNumber(number);
-    CaptchaRequirement               requirement     = requiresCaptcha(number, transport, forwardedFor, requester, captcha, storedChallenge, pushChallenge);
+    CaptchaRequirement               requirement     = requiresCaptcha(number, transport, forwardedFor, sourceHost, captcha, storedChallenge, pushChallenge);
 
     if (requirement.isCaptchaRequired()) {
       captchaRequiredMeter.mark();
 
-      if (requirement.isAutoBlock() && shouldAutoBlock(requester)) {
-        logger.info("Auto-block: " + requester);
-        abusiveHostRules.setBlockedHost(requester, "Auto-Block");
+      if (requirement.isAutoBlock() && shouldAutoBlock(sourceHost)) {
+        logger.info("Auto-block: {}", sourceHost);
+        abusiveHostRules.setBlockedHost(sourceHost, "Auto-Block");
       }
 
       return Response.status(402).build();
@@ -405,7 +405,7 @@ public class AccountController {
   @Path("/turn/")
   @Produces(MediaType.APPLICATION_JSON)
   public TurnToken getTurnToken(@Auth Account account) throws RateLimitExceededException {
-    rateLimiters.getTurnLimiter().validate(account.getNumber());
+    rateLimiters.getTurnLimiter().validate(account.getUuid());
     return turnTokenGenerator.generate();
   }
 
@@ -568,7 +568,7 @@ public class AccountController {
   @Path("/username/{username}")
   @Produces(MediaType.APPLICATION_JSON)
   public Response setUsername(@Auth Account account, @PathParam("username") String username) throws RateLimitExceededException {
-    rateLimiters.getUsernameSetLimiter().validate(account.getUuid().toString());
+    rateLimiters.getUsernameSetLimiter().validate(account.getUuid());
 
     if (username == null || username.isEmpty()) {
       return Response.status(Response.Status.BAD_REQUEST).build();
@@ -588,14 +588,14 @@ public class AccountController {
   }
 
   private CaptchaRequirement requiresCaptcha(String number, String transport, String forwardedFor,
-                                             String requester,
+                                             String                           sourceHost,
                                              Optional<String>                 captchaToken,
                                              Optional<StoredVerificationCode> storedVerificationCode,
                                              Optional<String>                 pushChallenge)
   {
 
     if (captchaToken.isPresent()) {
-      boolean validToken = recaptchaClient.verify(captchaToken.get(), requester);
+      boolean validToken = recaptchaClient.verify(captchaToken.get(), sourceHost);
 
       if (validToken) {
         captchaSuccessMeter.mark();
@@ -633,18 +633,18 @@ public class AccountController {
       }
     }
 
-    List<AbusiveHostRule> abuseRules = abusiveHostRules.getAbusiveHostRulesFor(requester);
+    List<AbusiveHostRule> abuseRules = abusiveHostRules.getAbusiveHostRulesFor(sourceHost);
 
     for (AbusiveHostRule abuseRule : abuseRules) {
       if (abuseRule.isBlocked()) {
-        logger.info("Blocked host: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
+        logger.info("Blocked host: {}, {}, {} ({})", transport, number, sourceHost, forwardedFor);
         blockedHostMeter.mark();
         return new CaptchaRequirement(true, false);
       }
 
       if (!abuseRule.getRegions().isEmpty()) {
         if (abuseRule.getRegions().stream().noneMatch(number::startsWith)) {
-          logger.info("Restricted host: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
+          logger.info("Restricted host: {}, {}, {} ({})", transport, number, sourceHost, forwardedFor);
           filteredHostMeter.mark();
           return new CaptchaRequirement(true, false);
         }
@@ -652,9 +652,9 @@ public class AccountController {
     }
 
     try {
-      rateLimiters.getSmsVoiceIpLimiter().validate(requester);
+      rateLimiters.getSmsVoiceIpLimiter().validate(sourceHost);
     } catch (RateLimitExceededException e) {
-      logger.info("Rate limited exceeded: " + transport + ", " + number + ", " + requester + " (" + forwardedFor + ")");
+      logger.info("Rate limit exceeded: {}, {}, {} ({})", transport, number, sourceHost, forwardedFor);
       rateLimitedHostMeter.mark();
       return new CaptchaRequirement(true, true);
     }
@@ -662,7 +662,7 @@ public class AccountController {
     try {
       rateLimiters.getSmsVoicePrefixLimiter().validate(Util.getNumberPrefix(number));
     } catch (RateLimitExceededException e) {
-      logger.info("Prefix rate limit exceeded: " + transport + ", " + number + ", (" + forwardedFor + ")");
+      logger.info("Prefix rate limit exceeded: {}, {}, {} ({})", transport, number, sourceHost, forwardedFor);
       rateLimitedPrefixMeter.mark();
       return new CaptchaRequirement(true, true);
     }
@@ -682,9 +682,9 @@ public class AccountController {
     accounts.delete(account, AccountsManager.DeletionReason.USER_REQUEST);
   }
 
-  private boolean shouldAutoBlock(String requester) {
+  private boolean shouldAutoBlock(String sourceHost) {
     try {
-      rateLimiters.getAutoBlockLimiter().validate(requester);
+      rateLimiters.getAutoBlockLimiter().validate(sourceHost);
     } catch (RateLimitExceededException e) {
       return true;
     }

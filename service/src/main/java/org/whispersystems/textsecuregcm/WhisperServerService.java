@@ -567,7 +567,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             smsSender, dynamicConfigurationManager, turnTokenGenerator, config.getTestDevices(),
             transitionalRecaptchaClient, gcmSender, apnSender, backupCredentialsGenerator,
             verifyExperimentEnrollmentManager));
-    environment.jersey().register(new KeysController(rateLimiters, keysDynamoDb, accountsManager, preKeyRateLimiter, dynamicConfigurationManager, rateLimitChallengeManager));
+    environment.jersey().register(new KeysController(rateLimiters, keysDynamoDb, accountsManager, preKeyRateLimiter, rateLimitChallengeManager));
 
     final List<Object> commonControllers = List.of(
         new AttachmentControllerV1(rateLimiters, config.getAwsAttachmentsConfiguration().getAccessKey(), config.getAwsAttachmentsConfiguration().getAccessSecret(), config.getAwsAttachmentsConfiguration().getBucket()),

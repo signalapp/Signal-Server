@@ -58,7 +58,7 @@ public class AttachmentControllerV3 extends AttachmentControllerBase {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/form/upload")
   public AttachmentDescriptorV3 getAttachmentUploadForm(@Auth Account account) throws RateLimitExceededException {
-    rateLimiter.validate(account.getNumber());
+    rateLimiter.validate(account.getUuid());
 
     final ZonedDateTime now                 = ZonedDateTime.now(ZoneOffset.UTC);
     final String key                        = generateAttachmentKey();

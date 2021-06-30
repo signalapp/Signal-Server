@@ -60,7 +60,6 @@ import org.whispersystems.textsecuregcm.mappers.RateLimitChallengeExceptionMappe
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
@@ -95,8 +94,6 @@ class KeysControllerTest {
   private final static RateLimitChallengeManager   rateLimitChallengeManager   = mock(RateLimitChallengeManager.class  );
   private final static Account                     existsAccount               = mock(Account.class                    );
 
-  private final static DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
-
   private static final RateLimiters          rateLimiters  = mock(RateLimiters.class);
   private static final RateLimiter           rateLimiter   = mock(RateLimiter.class );
 
@@ -105,7 +102,7 @@ class KeysControllerTest {
                                                             .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new RateLimitChallengeExceptionMapper(rateLimitChallengeManager))
-                                                            .addResource(new KeysController(rateLimiters, keysDynamoDb, accounts, preKeyRateLimiter, dynamicConfigurationManager, rateLimitChallengeManager))
+                                                            .addResource(new KeysController(rateLimiters, keysDynamoDb, accounts, preKeyRateLimiter, rateLimitChallengeManager))
                                                             .build();
 
   @BeforeEach
@@ -186,7 +183,6 @@ class KeysControllerTest {
         existsAccount,
         rateLimiters,
         rateLimiter,
-        dynamicConfigurationManager,
         rateLimitChallengeManager
     );
   }
