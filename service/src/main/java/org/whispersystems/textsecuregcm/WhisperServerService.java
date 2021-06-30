@@ -35,7 +35,6 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
-import io.micrometer.datadog.DatadogConfig;
 import io.micrometer.datadog.DatadogMeterRegistry;
 import io.micrometer.wavefront.WavefrontConfig;
 import io.micrometer.wavefront.WavefrontMeterRegistry;
@@ -282,32 +281,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     });
 
     {
-      final DatadogMeterRegistry datadogMeterRegistry = new DatadogMeterRegistry(new DatadogConfig() {
-        @Override
-        public String get(final String key) {
-          return null;
-        }
-
-        @Override
-        public String apiKey() {
-          return config.getDatadogConfiguration().getApiKey();
-        }
-
-        @Override
-        public Duration step() {
-          return config.getDatadogConfiguration().getStep();
-        }
-
-        @Override
-        public int batchSize() {
-          return config.getDatadogConfiguration().getBatchSize();
-        }
-
-        @Override
-        public String hostTag() {
-          return "host";
-        }
-      }, Clock.SYSTEM);
+      final DatadogMeterRegistry datadogMeterRegistry = new DatadogMeterRegistry(config.getDatadogConfiguration(), Clock.SYSTEM);
 
       datadogMeterRegistry.config().commonTags(
           Tags.of(

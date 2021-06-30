@@ -6,12 +6,13 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.micrometer.datadog.DatadogConfig;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import java.time.Duration;
 
-public class DatadogConfiguration {
+public class DatadogConfiguration implements DatadogConfig {
 
   @JsonProperty
   @NotBlank
@@ -29,11 +30,13 @@ public class DatadogConfiguration {
   @Min(1)
   private int batchSize = 5_000;
 
-  public String getApiKey() {
+  @Override
+  public String apiKey() {
     return apiKey;
   }
 
-  public Duration getStep() {
+  @Override
+  public Duration step() {
     return step;
   }
 
@@ -41,7 +44,18 @@ public class DatadogConfiguration {
     return environment;
   }
 
-  public int getBatchSize() {
+  @Override
+  public int batchSize() {
     return batchSize;
+  }
+
+  @Override
+  public String hostTag() {
+    return "host";
+  }
+
+  @Override
+  public String get(final String key) {
+    return null;
   }
 }
