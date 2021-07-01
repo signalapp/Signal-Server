@@ -10,10 +10,11 @@ import io.dropwizard.lifecycle.Managed;
 import io.micrometer.core.instrument.Metrics;
 import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,8 +32,12 @@ public abstract class ManagedPeriodicWork implements Managed {
   private final String workerId;
   private final ScheduledExecutorService executorService;
 
+  private Duration sleepDurationAfterUnexpectedException = Duration.ofSeconds(10);
+
+
   @Nullable
   private ScheduledFuture<?> scheduledFuture;
+  private AtomicReference<CompletableFuture<Void>> activeExecutionFuture = new AtomicReference<>(CompletableFuture.completedFuture(null));
 
   public ManagedPeriodicWork(final ManagedPeriodicWorkLock lock, final Duration workerTtl, final Duration runInterval, final ScheduledExecutorService scheduledExecutorService) {
     this.lock = lock;
@@ -58,7 +63,7 @@ public abstract class ManagedPeriodicWork implements Managed {
           logger.warn("Error in execution", e);
 
           // wait a bit, in case the error is caused by external instability
-          Util.sleep(10_000);
+          Util.sleep(sleepDurationAfterUnexpectedException.toMillis());
         }
     }, 0, runInterval.getSeconds(), TimeUnit.SECONDS);
 
@@ -69,27 +74,28 @@ public abstract class ManagedPeriodicWork implements Managed {
   public synchronized void stop() throws Exception {
 
     if (scheduledFuture != null) {
+
       scheduledFuture.cancel(false);
 
-      boolean terminated = false;
-      while (!terminated) {
-        try {
-          scheduledFuture.get(5, TimeUnit.MINUTES);
-          terminated = true;
-        } catch (final TimeoutException e) {
-          logger.warn("worker not yet terminated");
-        } catch (final Exception e) {
-          logger.warn("worker terminated exceptionally", e);
-          terminated = true;
-        }
+      try {
+        activeExecutionFuture.get().join();
+      } catch (final Exception e) {
+        logger.warn("error while awaiting final execution", e);
       }
     }
+  }
+
+  public void setSleepDurationAfterUnexpectedException(final Duration sleepDurationAfterUnexpectedException) {
+    this.sleepDurationAfterUnexpectedException = sleepDurationAfterUnexpectedException;
   }
 
   private void execute() {
 
     if (lock.claimActiveWork(workerId, workerTtl)) {
       try {
+
+        activeExecutionFuture.set(new CompletableFuture<>());
+
         logger.info("Starting execution");
         doPeriodicWork();
         logger.info("Execution complete");
@@ -98,10 +104,11 @@ public abstract class ManagedPeriodicWork implements Managed {
         logger.warn("Periodic work failed", e);
 
         // wait a bit, in case the error is caused by external instability
-        Util.sleep(10_000);
+        Util.sleep(sleepDurationAfterUnexpectedException.toMillis());
 
       } finally {
         lock.releaseActiveWork(workerId);
+        activeExecutionFuture.get().complete(null);
       }
     }
   }
