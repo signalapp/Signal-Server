@@ -92,6 +92,7 @@ accountsDynamoDb: # DynamoDB table configuration
 deletedAccountsDynamoDb: # DynamoDb table configuration
   region:
   tableName:
+  needsReconciliationIndexName:
 
 migrationDeletedAccountsDynamoDb: # DynamoDB table configuration
   region:
