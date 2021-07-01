@@ -107,8 +107,11 @@ public abstract class ManagedPeriodicWork implements Managed {
         Util.sleep(sleepDurationAfterUnexpectedException.toMillis());
 
       } finally {
-        lock.releaseActiveWork(workerId);
-        activeExecutionFuture.get().complete(null);
+        try {
+          lock.releaseActiveWork(workerId);
+        } finally {
+          activeExecutionFuture.get().complete(null);
+        }
       }
     }
   }

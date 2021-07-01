@@ -9,8 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -58,10 +58,10 @@ class ManagedPeriodicWorkTest {
 
     testWork.stop();
 
-    verify(lock, times(1)).claimActiveWork(anyString(), any(Duration.class));
-    verify(lock, times(1)).releaseActiveWork(anyString());
+    verify(lock, atLeastOnce()).claimActiveWork(anyString(), any(Duration.class));
+    verify(lock, atLeastOnce()).releaseActiveWork(anyString());
 
-    assertEquals(1, testWork.getCount());
+    assertTrue(1 <= testWork.getCount());
   }
 
   @Test
@@ -85,10 +85,10 @@ class ManagedPeriodicWorkTest {
 
     assertTrue(runMillis > 500);
 
-    verify(lock, times(1)).claimActiveWork(anyString(), any(Duration.class));
-    verify(lock, times(1)).releaseActiveWork(anyString());
+    verify(lock, atLeastOnce()).claimActiveWork(anyString(), any(Duration.class));
+    verify(lock, atLeastOnce()).releaseActiveWork(anyString());
 
-    assertEquals(1, testWork.getCount());
+    assertTrue(1 <= testWork.getCount());
   }
 
   @Test
@@ -107,8 +107,8 @@ class ManagedPeriodicWorkTest {
 
     testWork.stop();
 
-    verify(lock, times(1)).claimActiveWork(anyString(), any(Duration.class));
-    verify(lock, times(1)).releaseActiveWork(anyString());
+    verify(lock, atLeastOnce()).claimActiveWork(anyString(), any(Duration.class));
+    verify(lock, atLeastOnce()).releaseActiveWork(anyString());
 
     assertEquals(0, testWork.getCount());
   }
