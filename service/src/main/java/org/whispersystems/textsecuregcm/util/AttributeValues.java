@@ -43,10 +43,6 @@ public class AttributeValues {
     return AttributeValue.builder().b(value).build();
   }
 
-  public static AttributeValue fromBoolean(boolean value) {
-    return AttributeValue.builder().bool(value).build();
-  }
-
   private static int toInt(AttributeValue av) {
     return Integer.parseInt(av.n());
   }
