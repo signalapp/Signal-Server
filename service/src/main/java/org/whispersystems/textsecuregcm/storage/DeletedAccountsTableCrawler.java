@@ -61,9 +61,7 @@ public class DeletedAccountsTableCrawler extends ManagedPeriodicWork {
 
     this.deletedAccounts.markReconciled(reconciledPhoneNumbers);
 
-    DistributionSummary.builder(BATCH_SIZE_DISTRIBUTION_NAME)
-        .publishPercentileHistogram()
-        .register(Metrics.globalRegistry)
+    Metrics.summary(BATCH_SIZE_DISTRIBUTION_NAME)
         .record(reconciledPhoneNumbers.size());
   }
 
