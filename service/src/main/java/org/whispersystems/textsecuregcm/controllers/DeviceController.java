@@ -99,9 +99,11 @@ public class DeviceController {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
+    messages.clear(account.getUuid(), deviceId);
     account.removeDevice(deviceId);
     accounts.update(account);
     directoryQueue.refreshRegisteredUser(account);
+    // ensure any messages that came in after the first clear() are also removed
     messages.clear(account.getUuid(), deviceId);
   }
 

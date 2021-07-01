@@ -6,8 +6,10 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -338,4 +340,28 @@ public class DeviceControllerTest {
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(200);
   }
+
+  @Test
+  public void deviceRemovalClearsMessages() {
+
+    // this is a static mock, so it might have previous invocations
+    clearInvocations(AuthHelper.VALID_ACCOUNT);
+
+    final long deviceId = 2;
+
+    final Response response = resources
+        .getJerseyTest()
+        .target("/v1/devices/" + deviceId)
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+        .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
+        .delete();
+
+    assertThat(response.getStatus()).isEqualTo(204);
+
+    verify(messagesManager, times(2)).clear(AuthHelper.VALID_UUID, deviceId);
+    verify(accountsManager, times(1)).update(AuthHelper.VALID_ACCOUNT);
+    verify(AuthHelper.VALID_ACCOUNT).removeDevice(deviceId);
+  }
+
 }
