@@ -20,7 +20,7 @@ public class RedisInputStream {
   }
 
   public String readLine() throws IOException {
-    ByteArrayOutputStream boas = new ByteArrayOutputStream();
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
     boolean foundCr = false;
 
@@ -31,14 +31,14 @@ public class RedisInputStream {
         throw new IOException("Stream closed!");
       }
 
-      boas.write(character);
+      baos.write(character);
 
       if      (foundCr && character == LF) break;
       else if (character == CR)            foundCr = true;
       else if (foundCr)                    foundCr = false;
     }
 
-    byte[] data = boas.toByteArray();
+    byte[] data = baos.toByteArray();
     return new String(data, 0, data.length-2);
   }
 
