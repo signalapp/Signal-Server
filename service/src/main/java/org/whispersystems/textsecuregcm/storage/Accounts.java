@@ -9,6 +9,7 @@ import static com.codahale.metrics.MetricRegistry.name;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
+import com.codahale.metrics.Timer.Context;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
@@ -103,20 +104,21 @@ public class Accounts implements AccountStore {
     }));
   }
 
-  public List<Account> getAllFrom(UUID from, int length) {
-    return database.with(jdbi -> jdbi.withHandle(handle -> {
-      try (Timer.Context ignored = getAllFromOffsetTimer.time()) {
+  public AccountCrawlChunk getAllFrom(UUID from, int length) {
+    final List<Account> accounts = database.with(jdbi -> jdbi.withHandle(handle -> {
+      try (Context ignored = getAllFromOffsetTimer.time()) {
         return handle.createQuery("SELECT * FROM accounts WHERE " + UID + " > :from ORDER BY " + UID + " LIMIT :limit")
-                     .bind("from", from)
-                     .bind("limit", length)
-                     .mapTo(Account.class)
-                     .list();
+            .bind("from", from)
+            .bind("limit", length)
+            .mapTo(Account.class)
+            .list();
       }
     }));
+    return buildChunkForAccounts(accounts);
   }
 
-  public List<Account> getAllFrom(int length) {
-    return database.with(jdbi -> jdbi.withHandle(handle -> {
+  public AccountCrawlChunk getAllFrom(int length) {
+    final List<Account> accounts = database.with(jdbi -> jdbi.withHandle(handle -> {
       try (Timer.Context ignored = getAllFromTimer.time()) {
         return handle.createQuery("SELECT * FROM accounts ORDER BY " + UID + " LIMIT :limit")
                      .bind("limit", length)
@@ -124,6 +126,12 @@ public class Accounts implements AccountStore {
                      .list();
       }
     }));
+
+    return buildChunkForAccounts(accounts);
+  }
+
+  private AccountCrawlChunk buildChunkForAccounts(final List<Account> accounts) {
+    return new AccountCrawlChunk(accounts, accounts.isEmpty() ? null : accounts.get(accounts.size() - 1).getUuid());
   }
 
   @Override

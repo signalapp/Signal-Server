@@ -23,6 +23,12 @@ public class DynamicAccountsDynamoDbMigrationConfiguration {
   @JsonProperty
   boolean logMismatches;
 
+  @JsonProperty
+  boolean dynamoCrawlerEnabled;
+
+  @JsonProperty
+  int dynamoCrawlerScanPageSize = 10;
+
   public boolean isBackgroundMigrationEnabled() {
     return backgroundMigrationEnabled;
   }
@@ -58,5 +64,13 @@ public class DynamicAccountsDynamoDbMigrationConfiguration {
 
   public boolean isLogMismatches() {
     return logMismatches;
+  }
+
+  public boolean isDynamoCrawlerEnabled() {
+    return dynamoCrawlerEnabled;
+  }
+
+  public int getDynamoCrawlerScanPageSize() {
+    return dynamoCrawlerScanPageSize;
   }
 }

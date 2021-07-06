@@ -38,6 +38,7 @@ import org.junit.Test;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountCrawlChunk;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
@@ -189,19 +190,19 @@ public class AccountsTest {
 
     users.sort((account, t1) -> UUIDComparator.staticCompare(account.getUuid(), t1.getUuid()));
 
-    List<Account> retrieved = accounts.getAllFrom(10);
-    assertThat(retrieved.size()).isEqualTo(10);
+    AccountCrawlChunk retrieved = accounts.getAllFrom(10);
+    assertThat(retrieved.getAccounts().size()).isEqualTo(10);
 
-    for (int i=0;i<retrieved.size();i++) {
-      verifyStoredState(users.get(i).getNumber(), users.get(i).getUuid(), retrieved.get(i), users.get(i));
+    for (int i=0;i<retrieved.getAccounts().size();i++) {
+      verifyStoredState(users.get(i).getNumber(), users.get(i).getUuid(), retrieved.getAccounts().get(i), users.get(i));
     }
 
     for (int j=0;j<9;j++) {
-      retrieved = accounts.getAllFrom(retrieved.get(9).getUuid(), 10);
-      assertThat(retrieved.size()).isEqualTo(10);
+      retrieved = accounts.getAllFrom(retrieved.getLastUuid().orElseThrow(), 10);
+      assertThat(retrieved.getAccounts().size()).isEqualTo(10);
 
-      for (int i=0;i<retrieved.size();i++) {
-        verifyStoredState(users.get(10 + (j * 10) + i).getNumber(), users.get(10 + (j * 10) + i).getUuid(), retrieved.get(i), users.get(10 + (j * 10) + i));
+      for (int i=0;i<retrieved.getAccounts().size();i++) {
+        verifyStoredState(users.get(10 + (j * 10) + i).getNumber(), users.get(10 + (j * 10) + i).getUuid(), retrieved.getAccounts().get(i), users.get(10 + (j * 10) + i));
       }
     }
   }

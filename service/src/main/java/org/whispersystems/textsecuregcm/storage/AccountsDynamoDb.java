@@ -1,3 +1,7 @@
+/*
+ * Copyright 2013-2021 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
 package org.whispersystems.textsecuregcm.storage;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -31,6 +35,7 @@ import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.Put;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValuesOnConditionCheckFailure;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
 import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException;
@@ -62,6 +67,8 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
   private static final Timer UPDATE_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "update"));
   private static final Timer GET_BY_NUMBER_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "getByNumber"));
   private static final Timer GET_BY_UUID_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "getByUuid"));
+  private static final Timer GET_ALL_FROM_START_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "getAllFrom"));
+  private static final Timer GET_ALL_FROM_OFFSET_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "getAllFromOffset"));
   private static final Timer DELETE_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "delete"));
 
   private final Logger logger = LoggerFactory.getLogger(AccountsDynamoDb.class);
@@ -230,6 +237,33 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
     });
   }
 
+  public AccountCrawlChunk getAllFrom(final UUID from, final int maxCount, final int pageSize) {
+    final ScanRequest.Builder scanRequestBuilder = ScanRequest.builder()
+        .limit(pageSize)
+        .exclusiveStartKey(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(from)));
+
+    return scanForChunk(scanRequestBuilder, maxCount, GET_ALL_FROM_OFFSET_TIMER);
+  }
+
+  public AccountCrawlChunk getAllFromStart(final int maxCount, final int pageSize) {
+    final ScanRequest.Builder scanRequestBuilder = ScanRequest.builder()
+        .limit(pageSize);
+
+    return scanForChunk(scanRequestBuilder, maxCount, GET_ALL_FROM_START_TIMER);
+  }
+
+  private AccountCrawlChunk scanForChunk(final ScanRequest.Builder scanRequestBuilder, final int maxCount, final Timer timer) {
+
+    scanRequestBuilder.tableName(accountsTableName);
+
+    final List<Account> accounts = timer.record(() -> scan(scanRequestBuilder.build(), maxCount)
+        .stream()
+        .map(AccountsDynamoDb::fromItem)
+        .collect(Collectors.toList()));
+
+    return new AccountCrawlChunk(accounts, accounts.size() > 0 ? accounts.get(accounts.size() - 1).getUuid() : null);
+  }
+
   private void delete(UUID uuid, boolean saveInDeletedAccountsTable) {
 
     if (saveInDeletedAccountsTable) {
@@ -332,7 +366,7 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
           return;
         }
         try {
-          migrationRetryAccounts.put(account.getUuid()); 
+          migrationRetryAccounts.put(account.getUuid());
         } catch (final Exception e) {
           logger.error("Could not store account {}", account.getUuid());
         }

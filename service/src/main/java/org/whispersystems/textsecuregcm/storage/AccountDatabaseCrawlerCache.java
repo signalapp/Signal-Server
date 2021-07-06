@@ -21,6 +21,8 @@ public class AccountDatabaseCrawlerCache {
   private static final String LAST_UUID_KEY     = "account_database_crawler_cache_last_uuid";
   private static final String ACCELERATE_KEY    = "account_database_crawler_cache_accelerate";
 
+  private static final String LAST_UUID_DYNAMO_KEY  = "account_database_crawler_cache_last_uuid_dynamo";
+
   private static final long LAST_NUMBER_TTL_MS  = 86400_000L;
 
   private final FaultTolerantRedisCluster cacheCluster;
@@ -63,6 +65,21 @@ public class AccountDatabaseCrawlerCache {
       cacheCluster.useCluster(connection -> connection.sync().psetex(LAST_UUID_KEY, LAST_NUMBER_TTL_MS, lastUuid.get().toString()));
     } else {
       cacheCluster.useCluster(connection -> connection.sync().del(LAST_UUID_KEY));
+    }
+  }
+
+  public Optional<UUID> getLastUuidDynamo() {
+    final String lastUuidString = cacheCluster.withCluster(connection -> connection.sync().get(LAST_UUID_DYNAMO_KEY));
+
+    if (lastUuidString == null) return Optional.empty();
+    else                        return Optional.of(UUID.fromString(lastUuidString));
+  }
+
+  public void setLastUuidDynamo(Optional<UUID> lastUuid) {
+    if (lastUuid.isPresent()) {
+      cacheCluster.useCluster(connection -> connection.sync().psetex(LAST_UUID_DYNAMO_KEY, LAST_NUMBER_TTL_MS, lastUuid.get().toString()));
+    } else {
+      cacheCluster.useCluster(connection -> connection.sync().del(LAST_UUID_DYNAMO_KEY));
     }
   }
 

@@ -4,24 +4,23 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationRequest;
-import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationResponse;
-import org.whispersystems.textsecuregcm.util.Constants;
-
-import javax.ws.rs.ProcessingException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-
-import static com.codahale.metrics.MetricRegistry.name;
+import javax.ws.rs.ProcessingException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationRequest;
+import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationResponse;
+import org.whispersystems.textsecuregcm.util.Constants;
 
 public class DirectoryReconciler extends AccountDatabaseCrawlerListener {
 
@@ -31,6 +30,8 @@ public class DirectoryReconciler extends AccountDatabaseCrawlerListener {
   private final DirectoryReconciliationClient reconciliationClient;
   private final Timer                         sendChunkTimer;
   private final Meter                         sendChunkErrorMeter;
+
+  private boolean useV3Endpoints;
 
   public DirectoryReconciler(String name, DirectoryReconciliationClient reconciliationClient) {
     this.reconciliationClient = reconciliationClient;
@@ -45,6 +46,10 @@ public class DirectoryReconciler extends AccountDatabaseCrawlerListener {
   public void onCrawlEnd(Optional<UUID> fromUuid) {
     DirectoryReconciliationRequest  request  = new DirectoryReconciliationRequest(fromUuid.orElse(null), null, Collections.emptyList());
     sendChunk(request);
+
+    if (useV3Endpoints) {
+      reconciliationClient.complete();
+    }
   }
 
   @Override
@@ -76,7 +81,12 @@ public class DirectoryReconciler extends AccountDatabaseCrawlerListener {
 
   private DirectoryReconciliationResponse sendChunk(DirectoryReconciliationRequest request) {
     try (Timer.Context timer = sendChunkTimer.time()) {
-      DirectoryReconciliationResponse response = reconciliationClient.sendChunk(request);
+      DirectoryReconciliationResponse response;
+      if (useV3Endpoints) {
+        response = reconciliationClient.sendChunkV3(request);
+      } else {
+        response = reconciliationClient.sendChunk(request);
+      }
       if (response.getStatus() != DirectoryReconciliationResponse.Status.OK) {
         sendChunkErrorMeter.mark();
         logger.warn("reconciliation error: " + response.getStatus());
@@ -89,4 +99,7 @@ public class DirectoryReconciler extends AccountDatabaseCrawlerListener {
     }
   }
 
+  public void setUseV3Endpoints(final boolean useV3Endpoints) {
+    this.useV3Endpoints = useV3Endpoints;
+  }
 }

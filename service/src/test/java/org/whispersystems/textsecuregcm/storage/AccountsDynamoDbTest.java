@@ -1,21 +1,24 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 package org.whispersystems.textsecuregcm.storage;
 
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.uuid.UUIDComparator;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
@@ -254,6 +257,55 @@ class AccountsDynamoDbTest {
     accountsDynamoDb.update(account);
 
     verifyStoredState("+14151112222", account.getUuid(), account);
+  }
+
+  @Test
+  void testRetrieveFrom() {
+    List<Account> users = new ArrayList<>();
+
+    for (int i = 1; i <= 100; i++) {
+      Account account = generateAccount("+1" + String.format("%03d", i), UUID.randomUUID());
+      users.add(account);
+      accountsDynamoDb.create(account);
+    }
+
+    users.sort((account, t1) -> UUIDComparator.staticCompare(account.getUuid(), t1.getUuid()));
+
+    AccountCrawlChunk retrieved = accountsDynamoDb.getAllFromStart(10, 1);
+    assertThat(retrieved.getAccounts().size()).isEqualTo(10);
+
+    for (int i = 0; i < retrieved.getAccounts().size(); i++) {
+      final Account retrievedAccount = retrieved.getAccounts().get(i);
+
+      final Account expectedAccount = users.stream()
+          .filter(account -> account.getUuid().equals(retrievedAccount.getUuid()))
+          .findAny()
+          .orElseThrow();
+
+      verifyStoredState(expectedAccount.getNumber(), expectedAccount.getUuid(), retrievedAccount, expectedAccount);
+
+      users.remove(expectedAccount);
+    }
+
+    for (int j = 0; j < 9; j++) {
+      retrieved = accountsDynamoDb.getAllFrom(retrieved.getLastUuid().orElseThrow(), 10, 1);
+      assertThat(retrieved.getAccounts().size()).isEqualTo(10);
+
+      for (int i = 0; i < retrieved.getAccounts().size(); i++) {
+        final Account retrievedAccount = retrieved.getAccounts().get(i);
+
+        final Account expectedAccount = users.stream()
+            .filter(account -> account.getUuid().equals(retrievedAccount.getUuid()))
+            .findAny()
+            .orElseThrow();
+
+        verifyStoredState(expectedAccount.getNumber(), expectedAccount.getUuid(), retrievedAccount, expectedAccount);
+
+        users.remove(expectedAccount);
+      }
+    }
+
+    assertThat(users).isEmpty();
   }
 
   @Test

@@ -5,21 +5,24 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertFalse;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.junit.Before;
+import org.junit.Test;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicAccountsDynamoDbMigrationConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
 
 public class AccountDatabaseCrawlerIntegrationTest extends AbstractRedisClusterTest {
 
@@ -31,6 +34,8 @@ public class AccountDatabaseCrawlerIntegrationTest extends AbstractRedisClusterT
 
   private AccountsManager accountsManager;
   private AccountDatabaseCrawlerListener listener;
+
+  private DynamicConfigurationManager dynamicConfigurationManager;
 
   private AccountDatabaseCrawler accountDatabaseCrawler;
 
@@ -47,16 +52,22 @@ public class AccountDatabaseCrawlerIntegrationTest extends AbstractRedisClusterT
     accountsManager = mock(AccountsManager.class);
     listener = mock(AccountDatabaseCrawlerListener.class);
 
+    dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
+
     when(firstAccount.getUuid()).thenReturn(FIRST_UUID);
     when(secondAccount.getUuid()).thenReturn(SECOND_UUID);
 
-    when(accountsManager.getAllFrom(CHUNK_SIZE)).thenReturn(List.of(firstAccount));
-    when(accountsManager.getAllFrom(FIRST_UUID, CHUNK_SIZE))
-        .thenReturn(List.of(secondAccount))
-        .thenReturn(Collections.emptyList());
+    when(accountsManager.getAllFrom(CHUNK_SIZE)).thenReturn(new AccountCrawlChunk(List.of(firstAccount), FIRST_UUID));
+    when(accountsManager.getAllFrom(any(UUID.class), eq(CHUNK_SIZE)))
+        .thenReturn(new AccountCrawlChunk(List.of(secondAccount), SECOND_UUID))
+        .thenReturn(new AccountCrawlChunk(Collections.emptyList(), null));
+
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+    when(dynamicConfiguration.getAccountsDynamoDbMigrationConfiguration()).thenReturn(mock(DynamicAccountsDynamoDbMigrationConfiguration.class));
 
     final AccountDatabaseCrawlerCache crawlerCache = new AccountDatabaseCrawlerCache(getRedisCluster());
-    accountDatabaseCrawler = new AccountDatabaseCrawler(accountsManager, crawlerCache, List.of(listener), CHUNK_SIZE, CHUNK_INTERVAL_MS);
+    accountDatabaseCrawler = new AccountDatabaseCrawler(accountsManager, crawlerCache, List.of(listener), CHUNK_SIZE, CHUNK_INTERVAL_MS, dynamicConfigurationManager);
   }
 
   @Test

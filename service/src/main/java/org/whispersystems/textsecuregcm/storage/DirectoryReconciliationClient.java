@@ -46,11 +46,25 @@ public class DirectoryReconciliationClient {
                  .put(Entity.json(request), DirectoryReconciliationResponse.class);
   }
 
+  public DirectoryReconciliationResponse sendChunkV3(DirectoryReconciliationRequest request) {
+    return client.target(replicationUrl)
+                 .path("/v3/directory/exists")
+                 .request(MediaType.APPLICATION_JSON_TYPE)
+                 .put(Entity.json(request), DirectoryReconciliationResponse.class);
+  }
+
   public DirectoryReconciliationResponse delete(DirectoryReconciliationRequest request) {
     return client.target(replicationUrl)
         .path("/v3/directory/deletes")
         .request(MediaType.APPLICATION_JSON_TYPE)
         .put(Entity.json(request), DirectoryReconciliationResponse.class);
+  }
+
+  public DirectoryReconciliationResponse complete() {
+    return client.target(replicationUrl)
+        .path("/v3/directory/complete")
+        .request(MediaType.APPLICATION_JSON_TYPE)
+        .post(null, DirectoryReconciliationResponse.class);
   }
 
   private static Client initializeClient(DirectoryServerConfiguration directoryServerConfiguration)

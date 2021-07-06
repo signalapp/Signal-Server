@@ -19,7 +19,6 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -234,12 +233,24 @@ public class AccountsManager {
   }
 
 
-  public List<Account> getAllFrom(int length) {
+  public AccountCrawlChunk getAllFrom(int length) {
     return accounts.getAllFrom(length);
   }
 
-  public List<Account> getAllFrom(UUID uuid, int length) {
+  public AccountCrawlChunk getAllFrom(UUID uuid, int length) {
     return accounts.getAllFrom(uuid, length);
+  }
+
+  public AccountCrawlChunk getAllFromDynamo(int length) {
+    final int maxPageSize = dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration()
+        .getDynamoCrawlerScanPageSize();
+    return accountsDynamoDb.getAllFromStart(length, maxPageSize);
+  }
+
+  public AccountCrawlChunk getAllFromDynamo(UUID uuid, int length) {
+    final int maxPageSize = dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration()
+        .getDynamoCrawlerScanPageSize();
+    return accountsDynamoDb.getAllFrom(uuid, length, maxPageSize);
   }
 
   public void delete(final Account account, final DeletionReason deletionReason) {
