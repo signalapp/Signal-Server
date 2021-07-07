@@ -14,6 +14,8 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.util.Set;
+import java.util.UUID;
 import java.util.function.Consumer;
 import org.mockito.MockingDetails;
 import org.mockito.stubbing.Stubbing;
@@ -37,6 +39,24 @@ public class AccountsHelper {
       account.getDevice(deviceId).ifPresent(answer.getArgument(2, Consumer.class));
 
       return copyAndMarkStale(account);
+    });
+  }
+
+  public static void setupMockGet(final AccountsManager mockAccountsManager, final Set<Account> mockAccounts) {
+    when(mockAccountsManager.get(any(UUID.class))).thenAnswer(answer -> {
+
+      final UUID uuid = answer.getArgument(0, UUID.class);
+
+      return mockAccounts.stream()
+          .filter(account -> uuid.equals(account.getUuid()))
+          .findFirst()
+          .map(account -> {
+            try {
+              return copyAndMarkStale(account);
+            } catch (final Exception e) {
+              throw new RuntimeException(e);
+            }
+          });
     });
   }
 

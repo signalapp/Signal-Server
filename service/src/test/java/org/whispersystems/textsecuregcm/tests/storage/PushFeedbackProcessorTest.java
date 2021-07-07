@@ -15,6 +15,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
+import static org.whispersystems.textsecuregcm.tests.util.AccountsHelper.eqUuid;
 
 import java.util.Collections;
 import java.util.List;
@@ -83,6 +84,11 @@ class PushFeedbackProcessorTest {
     when(stillActiveAccount.getDevices()).thenReturn(Set.of(stillActiveDevice));
     when(undiscoverableAccount.getDevices()).thenReturn(Set.of(undiscoverableDevice));
 
+    when(mixedAccount.getUuid()).thenReturn(UUID.randomUUID());
+    when(freshAccount.getUuid()).thenReturn(UUID.randomUUID());
+    when(cleanAccount.getUuid()).thenReturn(UUID.randomUUID());
+    when(stillActiveAccount.getUuid()).thenReturn(UUID.randomUUID());
+
     when(uninstalledAccount.isEnabled()).thenReturn(true);
     when(uninstalledAccount.isDiscoverableByPhoneNumber()).thenReturn(true);
     when(uninstalledAccount.getUuid()).thenReturn(UUID.randomUUID());
@@ -92,6 +98,8 @@ class PushFeedbackProcessorTest {
     when(undiscoverableAccount.isDiscoverableByPhoneNumber()).thenReturn(false);
     when(undiscoverableAccount.getUuid()).thenReturn(UUID.randomUUID());
     when(undiscoverableAccount.getNumber()).thenReturn("+18005559876");
+
+    AccountsHelper.setupMockGet(accountsManager, Set.of(uninstalledAccount, mixedAccount, freshAccount, cleanAccount, stillActiveAccount, undiscoverableAccount));
   }
 
 
@@ -113,7 +121,7 @@ class PushFeedbackProcessorTest {
     verify(uninstalledDevice).setGcmId(isNull());
     verify(uninstalledDevice).setFetchesMessages(eq(false));
 
-    verify(accountsManager).update(eq(uninstalledAccount), any());
+    verify(accountsManager).update(eqUuid(uninstalledAccount), any());
 
     verify(uninstalledDeviceTwo).setApnId(isNull());
     verify(uninstalledDeviceTwo).setGcmId(isNull());
@@ -123,26 +131,26 @@ class PushFeedbackProcessorTest {
     verify(installedDevice, never()).setGcmId(any());
     verify(installedDevice, never()).setFetchesMessages(anyBoolean());
 
-    verify(accountsManager).update(eq(mixedAccount), any());
+    verify(accountsManager).update(eqUuid(mixedAccount), any());
 
     verify(recentUninstalledDevice, never()).setApnId(any());
     verify(recentUninstalledDevice, never()).setGcmId(any());
     verify(recentUninstalledDevice, never()).setFetchesMessages(anyBoolean());
 
-    verify(accountsManager, never()).update(eq(freshAccount), any());
+    verify(accountsManager, never()).update(eqUuid(freshAccount), any());
 
     verify(installedDeviceTwo, never()).setApnId(any());
     verify(installedDeviceTwo, never()).setGcmId(any());
     verify(installedDeviceTwo, never()).setFetchesMessages(anyBoolean());
 
-    verify(accountsManager, never()).update(eq(cleanAccount), any());
+    verify(accountsManager, never()).update(eqUuid(cleanAccount), any());
 
     verify(stillActiveDevice).setUninstalledFeedbackTimestamp(eq(0L));
     verify(stillActiveDevice, never()).setApnId(any());
     verify(stillActiveDevice, never()).setGcmId(any());
     verify(stillActiveDevice, never()).setFetchesMessages(anyBoolean());
 
-    verify(accountsManager).update(eq(stillActiveAccount), any());
+    verify(accountsManager).update(eqUuid(stillActiveAccount), any());
 
     final ArgumentCaptor<List<Account>> refreshedAccountArgumentCaptor = ArgumentCaptor.forClass(List.class);
     verify(directoryQueue).refreshRegisteredUsers(refreshedAccountArgumentCaptor.capture());

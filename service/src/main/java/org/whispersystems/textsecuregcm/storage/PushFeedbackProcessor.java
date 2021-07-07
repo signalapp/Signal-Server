@@ -60,30 +60,33 @@ public class PushFeedbackProcessor extends AccountDatabaseCrawlerListener {
       }
 
       if (update) {
-        account = accountsManager.update(account, a -> {
-          for (Device device: a.getDevices()) {
-            if (deviceNeedsUpdate(device)) {
-              if (deviceExpired(device)) {
-                if (!Util.isEmpty(device.getApnId())) {
-                  if (device.getId() == 1) {
-                    device.setUserAgent("OWI");
-                  } else {
-                    device.setUserAgent("OWP");
+        // fetch a new version, since the chunk is shared and implicitly read-only
+        accountsManager.get(account.getUuid()).ifPresent(accountToUpdate -> {
+          Account updatedAccount = accountsManager.update(accountToUpdate, a -> {
+            for (Device device : a.getDevices()) {
+              if (deviceNeedsUpdate(device)) {
+                if (deviceExpired(device)) {
+                  if (!Util.isEmpty(device.getApnId())) {
+                    if (device.getId() == 1) {
+                      device.setUserAgent("OWI");
+                    } else {
+                      device.setUserAgent("OWP");
+                    }
+                  } else if (!Util.isEmpty(device.getGcmId())) {
+                    device.setUserAgent("OWA");
                   }
-                } else if (!Util.isEmpty(device.getGcmId())) {
-                  device.setUserAgent("OWA");
+                  device.setGcmId(null);
+                  device.setApnId(null);
+                  device.setVoipApnId(null);
+                  device.setFetchesMessages(false);
+                } else {
+                  device.setUninstalledFeedbackTimestamp(0);
                 }
-                device.setGcmId(null);
-                device.setApnId(null);
-                device.setVoipApnId(null);
-                device.setFetchesMessages(false);
-              } else {
-                device.setUninstalledFeedbackTimestamp(0);
               }
             }
-          }
+          });
+          directoryUpdateAccounts.add(updatedAccount);
         });
-        directoryUpdateAccounts.add(account);
       }
     }
 
