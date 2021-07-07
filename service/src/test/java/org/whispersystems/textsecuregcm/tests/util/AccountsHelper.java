@@ -26,11 +26,22 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 public class AccountsHelper {
 
   public static void setupMockUpdate(final AccountsManager mockAccountsManager) {
+    setupMockUpdate(mockAccountsManager, true);
+  }
+
+  /**
+   * Only for use by {@link AuthHelper}
+   */
+  public static void setupMockUpdateForAuthHelper(final AccountsManager mockAccountsManager) {
+    setupMockUpdate(mockAccountsManager, false);
+  }
+
+  private static void setupMockUpdate(final AccountsManager mockAccountsManager, final boolean markStale) {
     when(mockAccountsManager.update(any(), any())).thenAnswer(answer -> {
       final Account account = answer.getArgument(0, Account.class);
       answer.getArgument(1, Consumer.class).accept(account);
 
-      return copyAndMarkStale(account);
+      return markStale ? copyAndMarkStale(account) : account;
     });
 
     when(mockAccountsManager.updateDevice(any(), anyLong(), any())).thenAnswer(answer -> {
@@ -38,7 +49,7 @@ public class AccountsHelper {
       final Long deviceId = answer.getArgument(1, Long.class);
       account.getDevice(deviceId).ifPresent(answer.getArgument(2, Consumer.class));
 
-      return copyAndMarkStale(account);
+      return markStale ? copyAndMarkStale(account) : account;
     });
   }
 

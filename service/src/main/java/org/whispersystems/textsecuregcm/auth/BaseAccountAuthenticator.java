@@ -83,8 +83,7 @@ public class BaseAccountAuthenticator {
       if (device.get().getAuthenticationCredentials().verify(basicCredentials.getPassword())) {
         succeeded = true;
         account.get().setAuthenticatedDevice(device.get());
-        updateLastSeen(account.get(), device.get());
-        return account;
+        return Optional.of(updateLastSeen(account.get(), device.get()));
       }
 
       return Optional.empty();
@@ -109,7 +108,7 @@ public class BaseAccountAuthenticator {
   }
 
   @VisibleForTesting
-  public void updateLastSeen(Account account, Device device) {
+  public Account updateLastSeen(Account account, Device device) {
     final long lastSeenOffsetSeconds   = Math.abs(account.getUuid().getLeastSignificantBits()) % ChronoUnit.DAYS.getDuration().toSeconds();
     final long todayInMillisWithOffset = Util.todayInMillisGivenOffsetFromNow(clock, Duration.ofSeconds(lastSeenOffsetSeconds).negated());
 
@@ -117,8 +116,10 @@ public class BaseAccountAuthenticator {
       Metrics.summary(DAYS_SINCE_LAST_SEEN_DISTRIBUTION_NAME, IS_PRIMARY_DEVICE_TAG, String.valueOf(device.isMaster()))
           .record(Duration.ofMillis(todayInMillisWithOffset - device.getLastSeen()).toDays());
 
-      accountsManager.updateDevice(account, device.getId(), d -> d.setLastSeen(Util.todayInMillis(clock)));
+      return accountsManager.updateDevice(account, device.getId(), d -> d.setLastSeen(Util.todayInMillis(clock)));
     }
+
+    return account;
   }
 
 }
