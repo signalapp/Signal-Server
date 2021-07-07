@@ -82,8 +82,9 @@ public class BaseAccountAuthenticator {
 
       if (device.get().getAuthenticationCredentials().verify(basicCredentials.getPassword())) {
         succeeded = true;
-        account.get().setAuthenticatedDevice(device.get());
-        return Optional.of(updateLastSeen(account.get(), device.get()));
+        final Account authenticatedAccount = updateLastSeen(account.get(), device.get());
+        authenticatedAccount.setAuthenticatedDevice(device.get());
+        return Optional.of(authenticatedAccount);
       }
 
       return Optional.empty();
