@@ -23,6 +23,7 @@ import org.whispersystems.textsecuregcm.push.GcmMessage;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.SynchronousExecutorService;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -39,6 +40,8 @@ public class GCMSenderTest {
     when(successResult.isUnregistered()).thenReturn(false);
     when(successResult.hasCanonicalRegistrationId()).thenReturn(false);
     when(successResult.isSuccess()).thenReturn(true);
+
+    AccountsHelper.setupMockUpdate(accountsManager);
 
     GcmMessage message = new GcmMessage("foo", "+12223334444", 1, GcmMessage.Type.NOTIFICATION, Optional.empty());
     GCMSender gcmSender = new GCMSender(executorService, accountsManager, sender);
@@ -65,6 +68,8 @@ public class GCMSenderTest {
     Account destinationAccount = mock(Account.class);
     Device  destinationDevice  = mock(Device.class );
 
+    AccountsHelper.setupMockUpdate(accountsManager);
+
     when(destinationAccount.getDevice(1)).thenReturn(Optional.of(destinationDevice));
     when(accountsManager.get(destinationNumber)).thenReturn(Optional.of(destinationAccount));
     when(destinationDevice.getGcmId()).thenReturn(gcmId);
@@ -85,7 +90,7 @@ public class GCMSenderTest {
 
     verify(sender, times(1)).send(any(Message.class));
     verify(accountsManager, times(1)).get(eq(destinationNumber));
-    verify(accountsManager, times(1)).update(eq(destinationAccount));
+    verify(accountsManager, times(1)).updateDevice(eq(destinationAccount), eq(1L), any());
     verify(destinationDevice, times(1)).setUninstalledFeedbackTimestamp(eq(Util.todayInMillis()));
   }
 
@@ -107,6 +112,8 @@ public class GCMSenderTest {
     when(accountsManager.get(destinationNumber)).thenReturn(Optional.of(destinationAccount));
     when(destinationDevice.getGcmId()).thenReturn(gcmId);
 
+    AccountsHelper.setupMockUpdate(accountsManager);
+
     when(canonicalResult.isInvalidRegistrationId()).thenReturn(false);
     when(canonicalResult.isUnregistered()).thenReturn(false);
     when(canonicalResult.hasCanonicalRegistrationId()).thenReturn(true);
@@ -124,7 +131,7 @@ public class GCMSenderTest {
 
     verify(sender, times(1)).send(any(Message.class));
     verify(accountsManager, times(1)).get(eq(destinationNumber));
-    verify(accountsManager, times(1)).update(eq(destinationAccount));
+    verify(accountsManager, times(1)).updateDevice(eq(destinationAccount), eq(1L), any());
     verify(destinationDevice, times(1)).setGcmId(eq(canonicalId));
   }
 

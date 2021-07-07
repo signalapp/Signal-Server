@@ -100,8 +100,7 @@ public class DeviceController {
     }
 
     messages.clear(account.getUuid(), deviceId);
-    account.removeDevice(deviceId);
-    accounts.update(account);
+    account = accounts.update(account, a -> a.removeDevice(deviceId));
     directoryQueue.refreshRegisteredUser(account);
     // ensure any messages that came in after the first clear() are also removed
     messages.clear(account.getUuid(), deviceId);
@@ -192,15 +191,16 @@ public class DeviceController {
       device.setName(accountAttributes.getName());
       device.setAuthenticationCredentials(new AuthenticationCredentials(password));
       device.setFetchesMessages(accountAttributes.getFetchesMessages());
-      device.setId(account.get().getNextDeviceId());
       device.setRegistrationId(accountAttributes.getRegistrationId());
       device.setLastSeen(Util.todayInMillis());
       device.setCreated(System.currentTimeMillis());
       device.setCapabilities(accountAttributes.getCapabilities());
 
-      account.get().addDevice(device);
-      messages.clear(account.get().getUuid(), device.getId());
-      accounts.update(account.get());
+      accounts.update(account.get(), a -> {
+        device.setId(account.get().getNextDeviceId());
+        messages.clear(account.get().getUuid(), device.getId());
+        a.addDevice(device);
+      });;
 
       pendingDevices.remove(number);
 
@@ -224,8 +224,8 @@ public class DeviceController {
   @Path("/capabilities")
   public void setCapabiltities(@Auth Account account, @Valid DeviceCapabilities capabilities) {
     assert(account.getAuthenticatedDevice().isPresent());
-    account.getAuthenticatedDevice().get().setCapabilities(capabilities);
-    accounts.update(account);
+    final long deviceId = account.getAuthenticatedDevice().get().getId();
+    accounts.updateDevice(account, deviceId, d -> d.setCapabilities(capabilities));
   }
 
   @VisibleForTesting protected VerificationCode generateVerificationCode() {

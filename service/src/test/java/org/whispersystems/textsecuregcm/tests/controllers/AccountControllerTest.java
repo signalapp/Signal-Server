@@ -11,6 +11,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
+import static org.whispersystems.textsecuregcm.tests.util.AccountsHelper.eqUuid;
 
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
@@ -78,6 +79,7 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
+import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -170,6 +172,8 @@ class AccountControllerTest {
 
     new SecureRandom().nextBytes(registration_lock_key);
     AuthenticationCredentials registrationLockCredentials = new AuthenticationCredentials(Hex.toStringCondensed(registration_lock_key));
+
+    AccountsHelper.setupMockUpdate(accountsManager);
 
     when(rateLimiters.getSmsDestinationLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getVoiceDestinationLimiter()).thenReturn(rateLimiter);
@@ -1352,7 +1356,7 @@ class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
 
     verify(AuthHelper.DISABLED_DEVICE, times(1)).setGcmId(eq("c00lz0rz"));
-    verify(accountsManager, times(1)).update(eq(AuthHelper.DISABLED_ACCOUNT));
+    verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.DISABLED_ACCOUNT), anyLong(), any());
     verify(directoryQueue, never()).refreshRegisteredUser(any(Account.class));
   }
 
@@ -1368,7 +1372,7 @@ class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
 
     verify(AuthHelper.DISABLED_DEVICE, times(1)).setGcmId(eq("z000"));
-    verify(accountsManager, times(1)).update(eq(AuthHelper.DISABLED_ACCOUNT));
+    verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.DISABLED_ACCOUNT), anyLong(), any());
     verify(directoryQueue, never()).refreshRegisteredUser(any(Account.class));
   }
 
@@ -1385,7 +1389,7 @@ class AccountControllerTest {
 
     verify(AuthHelper.DISABLED_DEVICE, times(1)).setApnId(eq("first"));
     verify(AuthHelper.DISABLED_DEVICE, times(1)).setVoipApnId(eq("second"));
-    verify(accountsManager, times(1)).update(eq(AuthHelper.DISABLED_ACCOUNT));
+    verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.DISABLED_ACCOUNT), anyLong(), any());
     verify(directoryQueue, never()).refreshRegisteredUser(any(Account.class));
   }
 
@@ -1402,7 +1406,7 @@ class AccountControllerTest {
 
     verify(AuthHelper.DISABLED_DEVICE, times(1)).setApnId(eq("first"));
     verify(AuthHelper.DISABLED_DEVICE, times(1)).setVoipApnId(null);
-    verify(accountsManager, times(1)).update(eq(AuthHelper.DISABLED_ACCOUNT));
+    verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.DISABLED_ACCOUNT), anyLong(), any());
     verify(directoryQueue, never()).refreshRegisteredUser(any(Account.class));
   }
 
@@ -1419,7 +1423,7 @@ class AccountControllerTest {
 
     verify(AuthHelper.DISABLED_DEVICE, times(1)).setApnId(eq("third"));
     verify(AuthHelper.DISABLED_DEVICE, times(1)).setVoipApnId(eq("fourth"));
-    verify(accountsManager, times(1)).update(eq(AuthHelper.DISABLED_ACCOUNT));
+    verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.DISABLED_ACCOUNT), anyLong(), any());
     verify(directoryQueue, never()).refreshRegisteredUser(any(Account.class));
   }
 
@@ -1544,7 +1548,7 @@ class AccountControllerTest {
                     .put(Entity.json(new AccountAttributes(false, 2222, null, null, null, true, null)));
 
     assertThat(response.getStatus()).isEqualTo(204);
-    verify(directoryQueue, times(1)).refreshRegisteredUser(AuthHelper.UNDISCOVERABLE_ACCOUNT);
+    verify(directoryQueue, times(1)).refreshRegisteredUser(eqUuid(AuthHelper.UNDISCOVERABLE_ACCOUNT));
   }
 
   @Test
@@ -1557,7 +1561,7 @@ class AccountControllerTest {
                     .put(Entity.json(new AccountAttributes(false, 2222, null, null, null, false, null)));
 
     assertThat(response.getStatus()).isEqualTo(204);
-    verify(directoryQueue, times(1)).refreshRegisteredUser(AuthHelper.VALID_ACCOUNT);
+    verify(directoryQueue, times(1)).refreshRegisteredUser(eqUuid(AuthHelper.VALID_ACCOUNT));
   }
 
   @Test

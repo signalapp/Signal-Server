@@ -167,6 +167,12 @@ public class AccountsTest {
 
     accounts.update(account);
 
+    account.setProfileName("profileName");
+
+    accounts.update(account);
+
+    assertThat(account.getVersion()).isEqualTo(2);
+
     Optional<Account> retrieved = accounts.get("+14151112222");
 
     assertThat(retrieved.isPresent()).isTrue();
@@ -359,6 +365,7 @@ public class AccountsTest {
     assertThat(result.getNumber()).isEqualTo(number);
     assertThat(result.getLastSeen()).isEqualTo(expecting.getLastSeen());
     assertThat(result.getUuid()).isEqualTo(uuid);
+    assertThat(result.getVersion()).isEqualTo(expecting.getVersion());
     assertThat(Arrays.equals(result.getUnidentifiedAccessKey().get(), expecting.getUnidentifiedAccessKey().get())).isTrue();
 
     for (Device expectingDevice : expecting.getDevices()) {

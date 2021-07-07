@@ -110,8 +110,8 @@ public class GCMSender {
       Device device = account.get().getDevice(message.getDeviceId()).get();
 
       if (device.getUninstalledFeedbackTimestamp() == 0) {
-        device.setUninstalledFeedbackTimestamp(Util.todayInMillis());
-        accountsManager.update(account.get());
+        accountsManager.updateDevice(account.get(), message.getDeviceId(), d ->
+              d.setUninstalledFeedbackTimestamp(Util.todayInMillis()));
       }
     }
 
@@ -122,15 +122,11 @@ public class GCMSender {
     logger.warn(String.format("Actually received 'CanonicalRegistrationId' ::: (canonical=%s), (original=%s)",
                               result.getCanonicalRegistrationId(), message.getGcmId()));
 
-    Optional<Account> account = getAccountForEvent(message);
-
-    if (account.isPresent()) {
-      //noinspection OptionalGetWithoutIsPresent
-      Device device = account.get().getDevice(message.getDeviceId()).get();
-      device.setGcmId(result.getCanonicalRegistrationId());
-
-      accountsManager.update(account.get());
-    }
+    getAccountForEvent(message).ifPresent(account ->
+        accountsManager.updateDevice(
+            account,
+            message.getDeviceId(),
+            d -> d.setGcmId(result.getCanonicalRegistrationId())));
 
     canonical.mark();
   }

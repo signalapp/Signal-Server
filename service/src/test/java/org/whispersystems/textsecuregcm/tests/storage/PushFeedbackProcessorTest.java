@@ -5,16 +5,16 @@
 
 package org.whispersystems.textsecuregcm.tests.storage;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.mockito.ArgumentCaptor;
-import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
-import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
-import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.PushFeedbackProcessor;
-import org.whispersystems.textsecuregcm.util.Util;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyBoolean;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.isNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.List;
@@ -22,11 +22,20 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
+import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.PushFeedbackProcessor;
+import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
+import org.whispersystems.textsecuregcm.util.Util;
 
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.*;
-
-public class PushFeedbackProcessorTest {
+class PushFeedbackProcessorTest {
 
   private AccountsManager accountsManager = mock(AccountsManager.class);
   private DirectoryQueue  directoryQueue  = mock(DirectoryQueue.class);
@@ -46,8 +55,10 @@ public class PushFeedbackProcessorTest {
   private Device stillActiveDevice       = mock(Device.class);
   private Device undiscoverableDevice    = mock(Device.class);
 
-  @Before
-  public void setup() {
+  @BeforeEach
+  void setup() {
+    AccountsHelper.setupMockUpdate(accountsManager);
+
     when(uninstalledDevice.getUninstalledFeedbackTimestamp()).thenReturn(Util.todayInMillis() - TimeUnit.DAYS.toMillis(2));
     when(uninstalledDevice.getLastSeen()).thenReturn(Util.todayInMillis() - TimeUnit.DAYS.toMillis(2));
     when(uninstalledDeviceTwo.getUninstalledFeedbackTimestamp()).thenReturn(Util.todayInMillis() - TimeUnit.DAYS.toMillis(3));
@@ -85,7 +96,7 @@ public class PushFeedbackProcessorTest {
 
 
   @Test
-  public void testEmpty() throws AccountDatabaseCrawlerRestartException {
+  void testEmpty() throws AccountDatabaseCrawlerRestartException {
     PushFeedbackProcessor processor = new PushFeedbackProcessor(accountsManager, directoryQueue);
     processor.timeAndProcessCrawlChunk(Optional.of(UUID.randomUUID()), Collections.emptyList());
 
@@ -94,7 +105,7 @@ public class PushFeedbackProcessorTest {
   }
 
   @Test
-  public void testUpdate() throws AccountDatabaseCrawlerRestartException {
+  void testUpdate() throws AccountDatabaseCrawlerRestartException {
     PushFeedbackProcessor processor = new PushFeedbackProcessor(accountsManager, directoryQueue);
     processor.timeAndProcessCrawlChunk(Optional.of(UUID.randomUUID()), List.of(uninstalledAccount, mixedAccount, stillActiveAccount, freshAccount, cleanAccount, undiscoverableAccount));
 
@@ -102,7 +113,7 @@ public class PushFeedbackProcessorTest {
     verify(uninstalledDevice).setGcmId(isNull());
     verify(uninstalledDevice).setFetchesMessages(eq(false));
 
-    verify(accountsManager).update(eq(uninstalledAccount));
+    verify(accountsManager).update(eq(uninstalledAccount), any());
 
     verify(uninstalledDeviceTwo).setApnId(isNull());
     verify(uninstalledDeviceTwo).setGcmId(isNull());
@@ -112,33 +123,35 @@ public class PushFeedbackProcessorTest {
     verify(installedDevice, never()).setGcmId(any());
     verify(installedDevice, never()).setFetchesMessages(anyBoolean());
 
-    verify(accountsManager).update(eq(mixedAccount));
+    verify(accountsManager).update(eq(mixedAccount), any());
 
     verify(recentUninstalledDevice, never()).setApnId(any());
     verify(recentUninstalledDevice, never()).setGcmId(any());
     verify(recentUninstalledDevice, never()).setFetchesMessages(anyBoolean());
 
-    verify(accountsManager, never()).update(eq(freshAccount));
+    verify(accountsManager, never()).update(eq(freshAccount), any());
 
     verify(installedDeviceTwo, never()).setApnId(any());
     verify(installedDeviceTwo, never()).setGcmId(any());
     verify(installedDeviceTwo, never()).setFetchesMessages(anyBoolean());
 
-    verify(accountsManager, never()).update(eq(cleanAccount));
+    verify(accountsManager, never()).update(eq(cleanAccount), any());
 
     verify(stillActiveDevice).setUninstalledFeedbackTimestamp(eq(0L));
     verify(stillActiveDevice, never()).setApnId(any());
     verify(stillActiveDevice, never()).setGcmId(any());
     verify(stillActiveDevice, never()).setFetchesMessages(anyBoolean());
 
-    verify(accountsManager).update(eq(stillActiveAccount));
+    verify(accountsManager).update(eq(stillActiveAccount), any());
 
     final ArgumentCaptor<List<Account>> refreshedAccountArgumentCaptor = ArgumentCaptor.forClass(List.class);
     verify(directoryQueue).refreshRegisteredUsers(refreshedAccountArgumentCaptor.capture());
 
-    assertTrue(refreshedAccountArgumentCaptor.getValue().containsAll(List.of(undiscoverableAccount, uninstalledAccount)));
+    final List<UUID> refreshedUuids = refreshedAccountArgumentCaptor.getValue().stream()
+        .map(Account::getUuid)
+        .collect(Collectors.toList());
+
+    assertTrue(refreshedUuids.containsAll(List.of(undiscoverableAccount.getUuid(), uninstalledAccount.getUuid())));
   }
-
-
 
 }

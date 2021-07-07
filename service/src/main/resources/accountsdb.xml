@@ -375,4 +375,10 @@
     </addColumn>
   </changeSet>
 
+  <changeSet id="25" author="chris">
+    <addColumn tableName="accounts">
+      <column name="version" type="int" defaultValue="0"/>
+    </addColumn>
+  </changeSet>
+
 </databaseChangeLog>

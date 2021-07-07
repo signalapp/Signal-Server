@@ -50,6 +50,7 @@ import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
+import software.amazon.awssdk.services.dynamodb.model.TransactionConflictException;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
 class AccountsDynamoDbTest {
@@ -211,6 +212,10 @@ class AccountsDynamoDbTest {
 
     verifyStoredState("+14151112222", account.getUuid(), account);
 
+    account.setProfileName("name");
+
+    accountsDynamoDb.update(account);
+
     UUID secondUuid = UUID.randomUUID();
 
     device = generateDevice(1);
@@ -252,11 +257,42 @@ class AccountsDynamoDbTest {
 
     assertThatThrownBy(() -> accountsDynamoDb.update(unknownAccount)).isInstanceOfAny(ConditionalCheckFailedException.class);
 
-    account.setDynamoDbMigrationVersion(5);
+    account.setProfileName("name");
+
+    accountsDynamoDb.update(account);
+
+    assertThat(account.getVersion()).isEqualTo(2);
+
+    verifyStoredState("+14151112222", account.getUuid(), account);
+
+    account.setVersion(1);
+
+    assertThatThrownBy(() -> accountsDynamoDb.update(account)).isInstanceOfAny(ContestedOptimisticLockException.class);
+
+    account.setVersion(2);
+    account.setProfileName("name2");
 
     accountsDynamoDb.update(account);
 
     verifyStoredState("+14151112222", account.getUuid(), account);
+  }
+
+  @Test
+  void testUpdateWithMockTransactionConflictException() {
+
+    final DynamoDbClient dynamoDbClient = mock(DynamoDbClient.class);
+    accountsDynamoDb = new AccountsDynamoDb(dynamoDbClient, mock(DynamoDbAsyncClient.class),
+        new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, new LinkedBlockingDeque<>()),
+        dynamoDbExtension.getTableName(), NUMBERS_TABLE_NAME, mock(MigrationDeletedAccounts.class),
+        mock(MigrationRetryAccounts.class));
+
+    when(dynamoDbClient.updateItem(any(UpdateItemRequest.class)))
+        .thenThrow(TransactionConflictException.class);
+
+    Device  device  = generateDevice (1                                            );
+    Account account = generateAccount("+14151112222", UUID.randomUUID(), Collections.singleton(device));
+
+    assertThatThrownBy(() -> accountsDynamoDb.update(account)).isInstanceOfAny(ContestedOptimisticLockException.class);
   }
 
   @Test
@@ -463,7 +499,7 @@ class AccountsDynamoDbTest {
     assertThat(migrated).isFalse();
     verifyStoredState("+14151112222", firstUuid, account);
 
-    account.setDynamoDbMigrationVersion(account.getDynamoDbMigrationVersion() + 1);
+    account.setVersion(account.getVersion() + 1);
 
     migrated = accountsDynamoDb.migrate(account).get();
 
@@ -504,8 +540,8 @@ class AccountsDynamoDbTest {
       String data = new String(get.item().get(AccountsDynamoDb.ATTR_ACCOUNT_DATA).b().asByteArray(), StandardCharsets.UTF_8);
       assertThat(data).isNotEmpty();
 
-      assertThat(AttributeValues.getInt(get.item(), AccountsDynamoDb.ATTR_MIGRATION_VERSION, -1))
-          .isEqualTo(expecting.getDynamoDbMigrationVersion());
+      assertThat(AttributeValues.getInt(get.item(), AccountsDynamoDb.ATTR_VERSION, -1))
+          .isEqualTo(expecting.getVersion());
 
       Account result = AccountsDynamoDb.fromItem(get.item());
       verifyStoredState(number, uuid, result, expecting);
@@ -518,6 +554,7 @@ class AccountsDynamoDbTest {
     assertThat(result.getNumber()).isEqualTo(number);
     assertThat(result.getLastSeen()).isEqualTo(expecting.getLastSeen());
     assertThat(result.getUuid()).isEqualTo(uuid);
+    assertThat(result.getVersion()).isEqualTo(expecting.getVersion());
     assertThat(Arrays.equals(result.getUnidentifiedAccessKey().get(), expecting.getUnidentifiedAccessKey().get())).isTrue();
 
     for (Device expectingDevice : expecting.getDevices()) {

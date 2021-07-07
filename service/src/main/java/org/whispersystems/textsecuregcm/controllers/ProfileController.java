@@ -156,10 +156,11 @@ public class ProfileController {
       response = Optional.of(generateAvatarUploadForm(avatar));
     }
 
-    account.setProfileName(request.getName());
-    account.setAvatar(avatar);
-    account.setCurrentProfileVersion(request.getVersion());
-    accountsManager.update(account);
+    accountsManager.update(account, a -> {
+      a.setProfileName(request.getName());
+      a.setAvatar(avatar);
+      a.setCurrentProfileVersion(request.getVersion());
+    });
 
     if (response.isPresent()) return Response.ok(response).build();
     else                      return Response.ok().build();
@@ -317,8 +318,7 @@ public class ProfileController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/name/{name}")
   public void setProfile(@Auth Account account, @PathParam("name") @ExactlySize(value = {72, 108}, payload = {Unwrapping.Unwrap.class}) Optional<String> name) {
-    account.setProfileName(name.orElse(null));
-    accountsManager.update(account);
+    accountsManager.update(account, a -> a.setProfileName(name.orElse(null)));
   }
 
   @Deprecated
@@ -382,8 +382,7 @@ public class ProfileController {
           .build());
     }
 
-    account.setAvatar(objectName);
-    accountsManager.update(account);
+    accountsManager.update(account, a -> a.setAvatar(objectName));
 
     return profileAvatarUploadAttributes;
   }

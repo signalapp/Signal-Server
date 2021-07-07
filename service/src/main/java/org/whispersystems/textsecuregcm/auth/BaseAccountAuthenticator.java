@@ -9,7 +9,6 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.auth.basic.BasicCredentials;
-import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import java.time.Clock;
@@ -118,8 +117,7 @@ public class BaseAccountAuthenticator {
       Metrics.summary(DAYS_SINCE_LAST_SEEN_DISTRIBUTION_NAME, IS_PRIMARY_DEVICE_TAG, String.valueOf(device.isMaster()))
           .record(Duration.ofMillis(todayInMillisWithOffset - device.getLastSeen()).toDays());
 
-      device.setLastSeen(Util.todayInMillis(clock));
-      accountsManager.update(account);
+      accountsManager.updateDevice(account, device.getId(), d -> d.setLastSeen(Util.todayInMillis(clock)));
     }
   }
 

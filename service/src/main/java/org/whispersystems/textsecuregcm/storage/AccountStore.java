@@ -7,7 +7,7 @@ public interface AccountStore {
 
   boolean create(Account account);
 
-  void update(Account account);
+  void update(Account account) throws ContestedOptimisticLockException;
 
   Optional<Account> get(String number);
 

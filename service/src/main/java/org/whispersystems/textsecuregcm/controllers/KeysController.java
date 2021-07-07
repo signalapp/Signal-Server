@@ -104,17 +104,18 @@ public class KeysController {
     boolean updateAccount     = false;
 
     if (!preKeys.getSignedPreKey().equals(device.getSignedPreKey())) {
-      device.setSignedPreKey(preKeys.getSignedPreKey());
       updateAccount = true;
     }
 
     if (!preKeys.getIdentityKey().equals(account.getIdentityKey())) {
-      account.setIdentityKey(preKeys.getIdentityKey());
       updateAccount = true;
     }
 
     if (updateAccount) {
-      accounts.update(account);
+      account = accounts.update(account, a -> {
+        a.getDevice(device.getId()).ifPresent(d -> d.setSignedPreKey(preKeys.getSignedPreKey()));
+        a.setIdentityKey(preKeys.getIdentityKey());
+      });
 
       if (!wasAccountEnabled && account.isEnabled()) {
         directoryQueue.refreshRegisteredUser(account);
@@ -200,8 +201,7 @@ public class KeysController {
     Device  device            = account.getAuthenticatedDevice().get();
     boolean wasAccountEnabled = account.isEnabled();
 
-    device.setSignedPreKey(signedPreKey);
-    accounts.update(account);
+    account = accounts.updateDevice(account, device.getId(), d -> d.setSignedPreKey(signedPreKey));
 
     if (!wasAccountEnabled && account.isEnabled()) {
       directoryQueue.refreshRegisteredUser(account);

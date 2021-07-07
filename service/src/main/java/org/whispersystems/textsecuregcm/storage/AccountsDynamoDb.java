@@ -30,16 +30,20 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.CancellationReason;
+import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.Delete;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.Put;
+import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValuesOnConditionCheckFailure;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
 import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException;
+import software.amazon.awssdk.services.dynamodb.model.TransactionConflictException;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 
 public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountStore {
 
@@ -49,8 +53,8 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
   static final String ATTR_ACCOUNT_E164 = "P";
   // account, serialized to JSON
   static final String ATTR_ACCOUNT_DATA = "D";
-
-  static final String ATTR_MIGRATION_VERSION = "V";
+  // internal version for optimistic locking
+  static final String ATTR_VERSION = "V";
 
   private final DynamoDbClient client;
   private final DynamoDbAsyncClient asyncClient;
@@ -122,9 +126,17 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
             ByteBuffer actualAccountUuid = phoneNumberConstraintCancellationReason.item().get(KEY_ACCOUNT_UUID).b().asByteBuffer();
             account.setUuid(UUIDUtil.fromByteBuffer(actualAccountUuid));
 
+            final int version = get(account.getUuid()).get().getVersion();
+            account.setVersion(version);
+
             update(account);
 
             return false;
+          }
+
+          if ("TransactionConflict".equals(accountCancellationReason.code())) {
+            // this should only happen during concurrent update()s for an account  migration
+            throw new ContestedOptimisticLockException();
           }
 
           // this shouldn’t happen
@@ -146,7 +158,7 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
                 KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid),
                 ATTR_ACCOUNT_E164, AttributeValues.fromString(account.getNumber()),
                 ATTR_ACCOUNT_DATA, AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
-                ATTR_MIGRATION_VERSION, AttributeValues.fromInt(account.getDynamoDbMigrationVersion())))
+                ATTR_VERSION, AttributeValues.fromInt(account.getVersion())))
             .build())
         .build();
   }
@@ -172,28 +184,44 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
   }
 
   @Override
-  public void update(Account account) {
+  public void update(Account account) throws ContestedOptimisticLockException {
     UPDATE_TIMER.record(() -> {
       UpdateItemRequest updateItemRequest;
       try {
         updateItemRequest = UpdateItemRequest.builder()
             .tableName(accountsTableName)
             .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
-            .updateExpression("SET #data = :data, #version = :version")
-            .conditionExpression("attribute_exists(#number)")
+            .updateExpression("SET #data = :data ADD #version :version_increment")
+            .conditionExpression("attribute_exists(#number) AND #version = :version")
             .expressionAttributeNames(Map.of("#number", ATTR_ACCOUNT_E164,
                 "#data", ATTR_ACCOUNT_DATA,
-                "#version", ATTR_MIGRATION_VERSION))
+                "#version", ATTR_VERSION))
             .expressionAttributeValues(Map.of(
                 ":data", AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
-                ":version", AttributeValues.fromInt(account.getDynamoDbMigrationVersion())))
+                ":version", AttributeValues.fromInt(account.getVersion()),
+                ":version_increment", AttributeValues.fromInt(1)))
+            .returnValues(ReturnValue.UPDATED_NEW)
             .build();
 
       } catch (JsonProcessingException e) {
         throw new IllegalArgumentException(e);
       }
 
-      client.updateItem(updateItemRequest);
+      try {
+        UpdateItemResponse response = client.updateItem(updateItemRequest);
+
+        account.setVersion(AttributeValues.getInt(response.attributes(), "V", account.getVersion() + 1));
+      } catch (final TransactionConflictException e) {
+
+        throw new ContestedOptimisticLockException();
+
+      } catch (final ConditionalCheckFailedException e) {
+
+        // the exception doesn’t give details about which condition failed,
+        // but we can infer it was an optimistic locking failure if the UUID is known
+        throw get(account.getUuid()).isPresent() ? new ContestedOptimisticLockException() : e;
+      }
+
     });
   }
 
@@ -343,9 +371,9 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
           .conditionExpression("attribute_not_exists(#uuid) OR (attribute_exists(#uuid) AND #version < :version)")
           .expressionAttributeNames(Map.of(
               "#uuid", KEY_ACCOUNT_UUID,
-              "#version", ATTR_MIGRATION_VERSION))
+              "#version", ATTR_VERSION))
           .expressionAttributeValues(Map.of(
-              ":version", AttributeValues.fromInt(account.getDynamoDbMigrationVersion()))));
+              ":version", AttributeValues.fromInt(account.getVersion()))));
 
       final TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
           .transactItems(phoneNumberConstraintPut, accountPut).build();
@@ -395,6 +423,7 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
       Account account = SystemMapper.getMapper().readValue(item.get(ATTR_ACCOUNT_DATA).b().asByteArray(), Account.class);
       account.setNumber(item.get(ATTR_ACCOUNT_E164).s());
       account.setUuid(UUIDUtil.fromByteBuffer(item.get(KEY_ACCOUNT_UUID).b().asByteBuffer()));
+      account.setVersion(Integer.parseInt(item.get(ATTR_VERSION).n()));
 
       return account;
 

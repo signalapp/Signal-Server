@@ -439,12 +439,12 @@ public class AccountController {
       return;
     }
 
-    device.setApnId(null);
-    device.setVoipApnId(null);
-    device.setGcmId(registrationId.getGcmRegistrationId());
-    device.setFetchesMessages(false);
-
-    accounts.update(account);
+    account = accounts.updateDevice(account, device.getId(), d -> {
+      d.setApnId(null);
+      d.setVoipApnId(null);
+      d.setGcmId(registrationId.getGcmRegistrationId());
+      d.setFetchesMessages(false);
+    });
 
     if (!wasAccountEnabled && account.isEnabled()) {
       directoryQueue.refreshRegisteredUser(account);
@@ -457,11 +457,12 @@ public class AccountController {
   public void deleteGcmRegistrationId(@Auth DisabledPermittedAccount disabledPermittedAccount) {
     Account account = disabledPermittedAccount.getAccount();
     Device  device  = account.getAuthenticatedDevice().get();
-    device.setGcmId(null);
-    device.setFetchesMessages(false);
-    device.setUserAgent("OWA");
 
-    accounts.update(account);
+    account = accounts.updateDevice(account, device.getId(), d -> {
+      d.setGcmId(null);
+      d.setFetchesMessages(false);
+      d.setUserAgent("OWA");
+    });
     directoryQueue.refreshRegisteredUser(account);
   }
 
@@ -474,11 +475,12 @@ public class AccountController {
     Device  device            = account.getAuthenticatedDevice().get();
     boolean wasAccountEnabled = account.isEnabled();
 
-    device.setApnId(registrationId.getApnRegistrationId());
-    device.setVoipApnId(registrationId.getVoipRegistrationId());
-    device.setGcmId(null);
-    device.setFetchesMessages(false);
-    accounts.update(account);
+    account = accounts.updateDevice(account, device.getId(), d -> {
+      d.setApnId(registrationId.getApnRegistrationId());
+      d.setVoipApnId(registrationId.getVoipRegistrationId());
+      d.setGcmId(null);
+      d.setFetchesMessages(false);
+    });
 
     if (!wasAccountEnabled && account.isEnabled()) {
       directoryQueue.refreshRegisteredUser(account);
@@ -491,15 +493,16 @@ public class AccountController {
   public void deleteApnRegistrationId(@Auth DisabledPermittedAccount disabledPermittedAccount) {
     Account account = disabledPermittedAccount.getAccount();
     Device  device  = account.getAuthenticatedDevice().get();
-    device.setApnId(null);
-    device.setFetchesMessages(false);
-    if (device.getId() == 1) {
-      device.setUserAgent("OWI");
-    } else {
-      device.setUserAgent("OWP");
-    }
 
-    accounts.update(account);
+    accounts.updateDevice(account, device.getId(), d -> {
+      d.setApnId(null);
+      d.setFetchesMessages(false);
+      if (d.getId() == 1) {
+        d.setUserAgent("OWI");
+      } else {
+        d.setUserAgent("OWP");
+      }
+    });
     directoryQueue.refreshRegisteredUser(account);
   }
 
@@ -509,18 +512,18 @@ public class AccountController {
   @Path("/registration_lock")
   public void setRegistrationLock(@Auth Account account, @Valid RegistrationLock accountLock) {
     AuthenticationCredentials credentials = new AuthenticationCredentials(accountLock.getRegistrationLock());
-    account.setRegistrationLock(credentials.getHashedAuthenticationToken(), credentials.getSalt());
-    account.setPin(null);
 
-    accounts.update(account);
+    accounts.update(account, a -> {
+      a.setRegistrationLock(credentials.getHashedAuthenticationToken(), credentials.getSalt());
+      a.setPin(null);
+    });
   }
 
   @Timed
   @DELETE
   @Path("/registration_lock")
   public void removeRegistrationLock(@Auth Account account) {
-    account.setRegistrationLock(null, null);
-    accounts.update(account);
+    accounts.update(account, a -> a.setRegistrationLock(null, null));
   }
 
   @Timed
@@ -531,21 +534,21 @@ public class AccountController {
     // TODO Remove once PIN-based reglocks have been deprecated
     logger.info("PIN set by User-Agent: {}", userAgent);
 
-    account.setPin(accountLock.getPin());
-    account.setRegistrationLock(null, null);
-
-    accounts.update(account);
+    accounts.update(account, a -> {
+      a.setPin(accountLock.getPin());
+      a.setRegistrationLock(null, null);
+    });
   }
 
   @Timed
   @DELETE
   @Path("/pin/")
+
   public void removePin(@Auth Account account, @HeaderParam("User-Agent") String userAgent) {
     // TODO Remove once PIN-based reglocks have been deprecated
     logger.info("PIN removed by User-Agent: {}", userAgent);
 
-    account.setPin(null);
-    accounts.update(account);
+    accounts.update(account, a -> a.setPin(null));
   }
 
   @Timed
@@ -553,8 +556,8 @@ public class AccountController {
   @Path("/name/")
   public void setName(@Auth DisabledPermittedAccount disabledPermittedAccount, @Valid DeviceName deviceName) {
     Account account = disabledPermittedAccount.getAccount();
-    account.getAuthenticatedDevice().get().setName(deviceName.getDeviceName());
-    accounts.update(account);
+    Device device = account.getAuthenticatedDevice().get();
+    accounts.updateDevice(account, device.getId(), d -> d.setName(deviceName.getDeviceName()));
   }
 
   @Timed
@@ -572,24 +575,28 @@ public class AccountController {
                                    @Valid AccountAttributes attributes)
   {
     Account account = disabledPermittedAccount.getAccount();
-    Device  device  = account.getAuthenticatedDevice().get();
+    long deviceId = account.getAuthenticatedDevice().get().getId();
 
-    device.setFetchesMessages(attributes.getFetchesMessages());
-    device.setName(attributes.getName());
-    device.setLastSeen(Util.todayInMillis());
-    device.setCapabilities(attributes.getCapabilities());
-    device.setRegistrationId(attributes.getRegistrationId());
-    device.setUserAgent(userAgent);
+    account = accounts.update(account, a-> {
 
-    setAccountRegistrationLockFromAttributes(account, attributes);
+      a.getDevice(deviceId).ifPresent(d -> {
+            d.setFetchesMessages(attributes.getFetchesMessages());
+            d.setName(attributes.getName());
+            d.setLastSeen(Util.todayInMillis());
+            d.setCapabilities(attributes.getCapabilities());
+            d.setRegistrationId(attributes.getRegistrationId());
+            d.setUserAgent(userAgent);
+          });
+
+      setAccountRegistrationLockFromAttributes(a, attributes);
+
+      a.setUnidentifiedAccessKey(attributes.getUnidentifiedAccessKey());
+      a.setUnrestrictedUnidentifiedAccess(attributes.isUnrestrictedUnidentifiedAccess());
+      a.setDiscoverableByPhoneNumber(attributes.isDiscoverableByPhoneNumber());
+
+    });
 
     final boolean hasDiscoverabilityChange = (account.isDiscoverableByPhoneNumber() != attributes.isDiscoverableByPhoneNumber());
-
-    account.setUnidentifiedAccessKey(attributes.getUnidentifiedAccessKey());
-    account.setUnrestrictedUnidentifiedAccess(attributes.isUnrestrictedUnidentifiedAccess());
-    account.setDiscoverableByPhoneNumber(attributes.isDiscoverableByPhoneNumber());
-
-    accounts.update(account);
 
     if (hasDiscoverabilityChange) {
       directoryQueue.refreshRegisteredUser(account);
