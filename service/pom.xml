@@ -10,6 +10,19 @@
   <modelVersion>4.0.0</modelVersion>
   <artifactId>service</artifactId>
 
+  <pluginRepositories>
+    <pluginRepository>
+      <id>ossrh-snapshots</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </pluginRepository>
+  </pluginRepositories>
+
   <dependencies>
     <dependency>
       <groupId>jakarta.servlet</groupId>
@@ -526,12 +539,13 @@
       </plugin>
 
       <plugin>
-        <groupId>com.bazaarvoice.maven.plugins</groupId>
+        <groupId>org.signal</groupId>
         <artifactId>s3-upload-maven-plugin</artifactId>
-        <version>1.5</version>
+        <version>1.6-SNAPSHOT</version>
         <configuration>
           <source>${project.build.directory}/${project.build.finalName}-bin.tar.gz</source>
           <bucketName>${deploy.bucketName}</bucketName>
+          <region>${deploy.bucketRegion}</region>
           <destination>${project.build.finalName}-bin.tar.gz</destination>
         </configuration>
         <executions>
