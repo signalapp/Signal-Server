@@ -71,7 +71,7 @@ public class AccountsManager {
   private final Accounts                  accounts;
   private final AccountsDynamoDb          accountsDynamoDb;
   private final FaultTolerantRedisCluster cacheCluster;
-  private final DeletedAccounts           deletedAccounts;
+  private final DeletedAccountsManager deletedAccountsManager;
   private final DirectoryQueue            directoryQueue;
   private final KeysDynamoDb              keysDynamoDb;
   private final MessagesManager           messagesManager;
@@ -99,7 +99,7 @@ public class AccountsManager {
   }
 
   public AccountsManager(Accounts accounts, AccountsDynamoDb accountsDynamoDb, FaultTolerantRedisCluster cacheCluster,
-      final DeletedAccounts deletedAccounts,
+      final DeletedAccountsManager deletedAccountsManager,
       final DirectoryQueue directoryQueue,
       final KeysDynamoDb keysDynamoDb, final MessagesManager messagesManager, final UsernamesManager usernamesManager,
       final ProfilesManager profilesManager, final SecureStorageClient secureStorageClient,
@@ -109,7 +109,7 @@ public class AccountsManager {
     this.accounts            = accounts;
     this.accountsDynamoDb    = accountsDynamoDb;
     this.cacheCluster        = cacheCluster;
-    this.deletedAccounts     = deletedAccounts;
+    this.deletedAccountsManager = deletedAccountsManager;
     this.directoryQueue      = directoryQueue;
     this.keysDynamoDb        = keysDynamoDb;
     this.messagesManager     = messagesManager;
@@ -314,7 +314,7 @@ public class AccountsManager {
     return accountsDynamoDb.getAllFrom(uuid, length, maxPageSize);
   }
 
-  public void delete(final Account account, final DeletionReason deletionReason) {
+  public void delete(final Account account, final DeletionReason deletionReason) throws InterruptedException {
     try (final Timer.Context ignored = deleteTimer.time()) {
       final CompletableFuture<Void> deleteStorageServiceDataFuture = secureStorageClient.deleteStoredData(account.getUuid());
       final CompletableFuture<Void> deleteBackupServiceDataFuture = secureBackupClient.deleteBackups(account.getUuid());
@@ -340,9 +340,9 @@ public class AccountsManager {
           }
       }
 
-      deletedAccounts.put(account.getUuid(), account.getNumber());
+      deletedAccountsManager.put(account.getUuid(), account.getNumber());
 
-    } catch (final Exception e) {
+    } catch (final RuntimeException | InterruptedException e) {
       logger.warn("Failed to delete account", e);
 
       Metrics.counter(DELETE_ERROR_COUNTER_NAME,

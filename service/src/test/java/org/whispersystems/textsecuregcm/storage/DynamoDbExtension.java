@@ -1,6 +1,13 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import com.almworks.sqlite4java.SQLite;
+import com.amazonaws.ClientConfiguration;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.InstanceProfileCredentialsProvider;
+import com.amazonaws.client.builder.AwsClientBuilder;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.local.main.ServerRunner;
 import com.amazonaws.services.dynamodbv2.local.server.DynamoDBProxyServer;
 import java.net.ServerSocket;
@@ -46,6 +53,7 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
 
   private DynamoDbClient dynamoDB2;
   private DynamoDbAsyncClient dynamoAsyncDB2;
+  private AmazonDynamoDB legacyDynamoClient;
 
   private DynamoDbExtension(String tableName, String hashKey, String rangeKey, List<AttributeDefinition> attributeDefinitions, List<GlobalSecondaryIndex> globalSecondaryIndexes, long readCapacityUnits,
       long writeCapacityUnits) {
@@ -137,6 +145,11 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
         .credentialsProvider(StaticCredentialsProvider.create(
             AwsBasicCredentials.create("accessKey", "secretKey")))
         .build();
+    legacyDynamoClient = AmazonDynamoDBClientBuilder.standard()
+        .withEndpointConfiguration(
+            new AwsClientBuilder.EndpointConfiguration("http://localhost:" + port, "local-test-region"))
+        .withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials("accessKey", "secretKey")))
+        .build();
   }
 
   static class DynamoDbExtensionBuilder {
@@ -192,6 +205,10 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
 
   public DynamoDbAsyncClient getDynamoDbAsyncClient() {
     return dynamoAsyncDB2;
+  }
+
+  public AmazonDynamoDB getLegacyDynamoClient() {
+    return legacyDynamoClient;
   }
 
   public String getTableName() {

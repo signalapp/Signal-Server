@@ -738,7 +738,7 @@ public class AccountController {
   @Timed
   @DELETE
   @Path("/me")
-  public void deleteAccount(@Auth Account account) {
+  public void deleteAccount(@Auth Account account) throws InterruptedException {
     accounts.delete(account, AccountsManager.DeletionReason.USER_REQUEST);
   }
 

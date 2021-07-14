@@ -72,7 +72,7 @@ public class AccountCleanerTest {
   }
 
   @Test
-  public void testAccounts() throws AccountDatabaseCrawlerRestartException {
+  public void testAccounts() throws AccountDatabaseCrawlerRestartException, InterruptedException {
     AccountCleaner accountCleaner = new AccountCleaner(accountsManager);
     accountCleaner.onCrawlStart();
     accountCleaner.timeAndProcessCrawlChunk(Optional.empty(), Arrays.asList(deletedDisabledAccount, undeletedDisabledAccount, undeletedEnabledAccount));
@@ -86,7 +86,7 @@ public class AccountCleanerTest {
   }
 
   @Test
-  public void testMaxAccountUpdates() throws AccountDatabaseCrawlerRestartException {
+  public void testMaxAccountUpdates() throws AccountDatabaseCrawlerRestartException, InterruptedException {
     List<Account> accounts = new LinkedList<>();
     accounts.add(undeletedEnabledAccount);
 

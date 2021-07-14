@@ -6,13 +6,24 @@ package org.whispersystems.textsecuregcm.storage;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.Pair;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.BatchGetItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.BatchGetItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.KeysAndAttributes;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
@@ -27,6 +38,9 @@ public class DeletedAccounts extends AbstractDynamoDbStore {
 
   static final Duration TIME_TO_LIVE = Duration.ofDays(30);
 
+  // Note that this limit is imposed by DynamoDB itself; going above 100 will result in errors
+  static final int GET_BATCH_SIZE = 100;
+
   private final String tableName;
   private final String needsReconciliationIndexName;
 
@@ -37,7 +51,7 @@ public class DeletedAccounts extends AbstractDynamoDbStore {
     this.needsReconciliationIndexName = needsReconciliationIndexName;
   }
 
-  public void put(UUID uuid, String e164) {
+  void put(UUID uuid, String e164) {
     db().putItem(PutItemRequest.builder()
         .tableName(tableName)
         .item(Map.of(
@@ -48,7 +62,7 @@ public class DeletedAccounts extends AbstractDynamoDbStore {
         .build());
   }
 
-  public List<Pair<UUID, String>> listAccountsToReconcile(final int max) {
+  List<Pair<UUID, String>> listAccountsToReconcile(final int max) {
 
     final ScanRequest scanRequest = ScanRequest.builder()
         .tableName(tableName)
@@ -64,7 +78,42 @@ public class DeletedAccounts extends AbstractDynamoDbStore {
         .collect(Collectors.toList());
   }
 
-  public void markReconciled(final List<String> phoneNumbersReconciled) {
+  Set<String> getAccountsNeedingReconciliation(final Collection<String> e164s) {
+    final Queue<Map<String, AttributeValue>> pendingKeys = e164s.stream()
+        .map(e164 -> Map.of(KEY_ACCOUNT_E164, AttributeValues.fromString(e164)))
+        .collect(Collectors.toCollection(() -> new ArrayDeque<>(e164s.size())));
+
+    final Set<String> accountsNeedingReconciliation = new HashSet<>(e164s.size());
+    final List<Map<String, AttributeValue>> batchKeys = new ArrayList<>(GET_BATCH_SIZE);
+
+    while (!pendingKeys.isEmpty()) {
+      batchKeys.clear();
+
+      for (int i = 0; i < GET_BATCH_SIZE && !pendingKeys.isEmpty(); i++) {
+        batchKeys.add(pendingKeys.remove());
+      }
+
+      final BatchGetItemResponse response = db().batchGetItem(BatchGetItemRequest.builder()
+          .requestItems(Map.of(tableName, KeysAndAttributes.builder()
+              .consistentRead(true)
+              .keys(batchKeys)
+              .build()))
+          .build());
+
+      response.responses().getOrDefault(tableName, Collections.emptyList()).stream()
+          .filter(attributes -> AttributeValues.getInt(attributes, ATTR_NEEDS_CDS_RECONCILIATION, 0) == 1)
+          .map(attributes -> AttributeValues.getString(attributes, KEY_ACCOUNT_E164, null))
+          .forEach(accountsNeedingReconciliation::add);
+
+      if (response.hasUnprocessedKeys() && response.unprocessedKeys().containsKey(tableName)) {
+        pendingKeys.addAll(response.unprocessedKeys().get(tableName).keys());
+      }
+    }
+
+    return accountsNeedingReconciliation;
+  }
+
+  void markReconciled(final Collection<String> phoneNumbersReconciled) {
 
     phoneNumbersReconciled.forEach(number -> db().updateItem(
         UpdateItemRequest.builder()

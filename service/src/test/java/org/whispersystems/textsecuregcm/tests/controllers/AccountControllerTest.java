@@ -1565,7 +1565,7 @@ class AccountControllerTest {
   }
 
   @Test
-  void testDeleteAccount() {
+  void testDeleteAccount() throws InterruptedException {
     Response response =
             resources.getJerseyTest()
                      .target("/v1/accounts/me")
@@ -1574,6 +1574,21 @@ class AccountControllerTest {
                      .delete();
 
     assertThat(response.getStatus()).isEqualTo(204);
+    verify(accountsManager).delete(AuthHelper.VALID_ACCOUNT, AccountsManager.DeletionReason.USER_REQUEST);
+  }
+
+  @Test
+  void testDeleteAccountInterrupted() throws InterruptedException {
+    doThrow(InterruptedException.class).when(accountsManager).delete(any(), any());
+
+    Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/me")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+            .delete();
+
+    assertThat(response.getStatus()).isEqualTo(500);
     verify(accountsManager).delete(AuthHelper.VALID_ACCOUNT, AccountsManager.DeletionReason.USER_REQUEST);
   }
 

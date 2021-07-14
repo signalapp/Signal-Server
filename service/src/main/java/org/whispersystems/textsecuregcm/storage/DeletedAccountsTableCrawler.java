@@ -6,7 +6,6 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
 import java.time.Duration;
@@ -27,42 +26,41 @@ public class DeletedAccountsTableCrawler extends ManagedPeriodicWork {
   private static final int MAX_BATCH_SIZE = 5_000;
   private static final String BATCH_SIZE_DISTRIBUTION_NAME = name(DeletedAccountsTableCrawler.class, "batchSize");
 
-  private final DeletedAccounts deletedAccounts;
+  private final DeletedAccountsManager deletedAccountsManager;
   private final List<DeletedAccountsDirectoryReconciler> reconcilers;
 
   public DeletedAccountsTableCrawler(
-      final DeletedAccounts deletedAccounts,
+      final DeletedAccountsManager deletedAccountsManager,
       final List<DeletedAccountsDirectoryReconciler> reconcilers,
       final FaultTolerantRedisCluster cluster,
       final ScheduledExecutorService executorService) throws IOException {
 
     super(new ManagedPeriodicWorkLock(ACTIVE_WORKER_KEY, cluster), WORKER_TTL, RUN_INTERVAL, executorService);
 
-    this.deletedAccounts = deletedAccounts;
+    this.deletedAccountsManager = deletedAccountsManager;
     this.reconcilers = reconcilers;
   }
 
   @Override
   public void doPeriodicWork() throws Exception {
 
-    final List<Pair<UUID, String>> deletedAccounts = this.deletedAccounts.listAccountsToReconcile(MAX_BATCH_SIZE);
+    deletedAccountsManager.lockAndReconcileAccounts(MAX_BATCH_SIZE, deletedAccounts -> {
+      final List<User> deletedUsers = deletedAccounts.stream()
+          .map(pair -> new User(pair.first(), pair.second()))
+          .collect(Collectors.toList());
 
-    final List<User> deletedUsers = deletedAccounts.stream()
-        .map(pair -> new User(pair.first(), pair.second()))
-        .collect(Collectors.toList());
+      for (DeletedAccountsDirectoryReconciler reconciler : reconcilers) {
+        reconciler.onCrawlChunk(deletedUsers);
+      }
 
-    for (DeletedAccountsDirectoryReconciler reconciler : reconcilers) {
-      reconciler.onCrawlChunk(deletedUsers);
-    }
+      final List<String> reconciledPhoneNumbers = deletedAccounts.stream()
+          .map(Pair::second)
+          .collect(Collectors.toList());
 
-    final List<String> reconciledPhoneNumbers = deletedAccounts.stream()
-        .map(Pair::second)
-        .collect(Collectors.toList());
+      Metrics.summary(BATCH_SIZE_DISTRIBUTION_NAME).record(reconciledPhoneNumbers.size());
 
-    this.deletedAccounts.markReconciled(reconciledPhoneNumbers);
-
-    Metrics.summary(BATCH_SIZE_DISTRIBUTION_NAME)
-        .record(reconciledPhoneNumbers.size());
+      return reconciledPhoneNumbers;
+    });
   }
 
 }

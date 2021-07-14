@@ -7,8 +7,12 @@ package org.whispersystems.textsecuregcm.storage;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.util.Pair;
@@ -45,13 +49,17 @@ class DeletedAccountsTest {
           .build())
       .build();
 
-  @Test
-  void test() {
+  private DeletedAccounts deletedAccounts;
 
-    final DeletedAccounts deletedAccounts = new DeletedAccounts(dynamoDbExtension.getDynamoDbClient(),
+  @BeforeEach
+  void setUp() {
+    deletedAccounts = new DeletedAccounts(dynamoDbExtension.getDynamoDbClient(),
         dynamoDbExtension.getTableName(),
         NEEDS_RECONCILIATION_INDEX_NAME);
+  }
 
+  @Test
+  void testPutList() {
     UUID firstUuid = UUID.randomUUID();
     UUID secondUuid = UUID.randomUUID();
     UUID thirdUuid = UUID.randomUUID();
@@ -80,5 +88,43 @@ class DeletedAccountsTest {
     deletedAccounts.markReconciled(List.of(thirdNumber));
 
     assertTrue(deletedAccounts.listAccountsToReconcile(1).isEmpty());
+  }
+
+  @Test
+  void testGetAccountsNeedingReconciliation() {
+    final UUID firstUuid = UUID.randomUUID();
+    final UUID secondUuid = UUID.randomUUID();
+
+    final String firstNumber = "+14152221234";
+    final String secondNumber = "+14152225678";
+    final String thirdNumber = "+14159998765";
+
+    assertEquals(Collections.emptySet(),
+        deletedAccounts.getAccountsNeedingReconciliation(List.of(firstNumber, secondNumber, thirdNumber)));
+
+    deletedAccounts.put(firstUuid, firstNumber);
+    deletedAccounts.put(secondUuid, secondNumber);
+
+    assertEquals(Set.of(firstNumber, secondNumber),
+        deletedAccounts.getAccountsNeedingReconciliation(List.of(firstNumber, secondNumber, thirdNumber)));
+  }
+
+  @Test
+  void testGetAccountsNeedingReconciliationLargeBatch() {
+    final int itemCount = (DeletedAccounts.GET_BATCH_SIZE * 3) + 1;
+
+    final Set<String> expectedAccountsNeedingReconciliation = new HashSet<>(itemCount);
+
+    for (int i = 0; i < itemCount; i++) {
+      final String e164 = String.format("+18000555%04d", i);
+
+      deletedAccounts.put(UUID.randomUUID(), e164);
+      expectedAccountsNeedingReconciliation.add(e164);
+    }
+
+    final Set<String> accountsNeedingReconciliation =
+        deletedAccounts.getAccountsNeedingReconciliation(expectedAccountsNeedingReconciliation);
+
+    assertEquals(expectedAccountsNeedingReconciliation, accountsNeedingReconciliation);
   }
 }
