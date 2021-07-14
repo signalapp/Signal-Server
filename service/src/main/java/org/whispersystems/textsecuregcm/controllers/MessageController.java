@@ -148,6 +148,7 @@ public class MessageController {
   private static final String EPHEMERAL_TAG_NAME      = "ephemeral";
   private static final String SENDER_TYPE_TAG_NAME    = "senderType";
   private static final String SENDER_COUNTRY_TAG_NAME = "senderCountry";
+  private static final String DESTINATION_TYPE_TAG_NAME = "destinationType";
 
   private static final long MAX_MESSAGE_SIZE = DataSize.kibibytes(256).toBytes();
 
@@ -304,7 +305,8 @@ public class MessageController {
 
       final List<Tag> tags = List.of(UserAgentTagUtil.getPlatformTag(userAgent),
                                      Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(messages.isOnline())),
-                                     Tag.of(SENDER_TYPE_TAG_NAME, senderType));
+                                     Tag.of(SENDER_TYPE_TAG_NAME, senderType),
+                                     Tag.of(DESTINATION_TYPE_TAG_NAME, destinationName.hasNumber() ? "e164" : "uuid"));
 
       for (IncomingMessage incomingMessage : messages.getMessages()) {
         Optional<Device> destinationDevice = destination.get().getDevice(incomingMessage.getDestinationDeviceId());
