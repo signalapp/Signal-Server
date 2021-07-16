@@ -168,8 +168,7 @@ public class KeysDynamoDb extends AbstractDynamoDbStore {
     });
   }
 
-  @VisibleForTesting
-  void delete(final Account account, final long deviceId) {
+  public void delete(final Account account, final long deviceId) {
     DELETE_KEYS_FOR_DEVICE_TIMER.record(() -> {
       final QueryRequest queryRequest = QueryRequest.builder()
           .tableName(tableName)

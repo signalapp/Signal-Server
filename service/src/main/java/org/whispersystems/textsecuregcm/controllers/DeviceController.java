@@ -23,6 +23,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
+import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -58,6 +59,7 @@ public class DeviceController {
   private final StoredVerificationCodeManager pendingDevices;
   private final AccountsManager       accounts;
   private final MessagesManager       messages;
+  private final KeysDynamoDb          keys;
   private final RateLimiters          rateLimiters;
   private final Map<String, Integer>  maxDeviceConfiguration;
   private final DirectoryQueue        directoryQueue;
@@ -65,6 +67,7 @@ public class DeviceController {
   public DeviceController(StoredVerificationCodeManager pendingDevices,
                           AccountsManager accounts,
                           MessagesManager messages,
+                          KeysDynamoDb keys,
                           DirectoryQueue directoryQueue,
                           RateLimiters rateLimiters,
                           Map<String, Integer> maxDeviceConfiguration)
@@ -72,6 +75,7 @@ public class DeviceController {
     this.pendingDevices         = pendingDevices;
     this.accounts               = accounts;
     this.messages               = messages;
+    this.keys                   = keys;
     this.directoryQueue         = directoryQueue;
     this.rateLimiters           = rateLimiters;
     this.maxDeviceConfiguration = maxDeviceConfiguration;
@@ -102,6 +106,7 @@ public class DeviceController {
     messages.clear(account.getUuid(), deviceId);
     account = accounts.update(account, a -> a.removeDevice(deviceId));
     directoryQueue.refreshRegisteredUser(account);
+    keys.delete(account, deviceId);
     // ensure any messages that came in after the first clear() are also removed
     messages.clear(account.getUuid(), deviceId);
   }
