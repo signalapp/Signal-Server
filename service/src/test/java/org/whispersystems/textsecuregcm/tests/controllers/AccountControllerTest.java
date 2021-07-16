@@ -76,6 +76,7 @@ import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
@@ -122,6 +123,7 @@ class AccountControllerTest {
   private static SmsSender              smsSender              = mock(SmsSender.class);
   private static DirectoryQueue         directoryQueue         = mock(DirectoryQueue.class);
   private static MessagesManager        storedMessages         = mock(MessagesManager.class);
+  private static KeysDynamoDb           keys                   = mock(KeysDynamoDb.class);
   private static TurnTokenGenerator     turnTokenGenerator     = mock(TurnTokenGenerator.class);
   private static Account                senderPinAccount       = mock(Account.class);
   private static Account                senderRegLockAccount   = mock(Account.class);
@@ -155,6 +157,7 @@ class AccountControllerTest {
                                                                                                smsSender,
                                                                                                directoryQueue,
                                                                                                storedMessages,
+                                                                                               keys,
                                                                                                dynamicConfigurationManager,
                                                                                                turnTokenGenerator,
                                                                                                new HashMap<>(),
@@ -260,6 +263,7 @@ class AccountControllerTest {
         smsSender,
         directoryQueue,
         storedMessages,
+        keys,
         turnTokenGenerator,
         senderPinAccount,
         senderRegLockAccount,
@@ -1244,6 +1248,33 @@ class AccountControllerTest {
                             MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(200);
+  }
+
+  @Test
+  void testVerifyReregistration() throws InterruptedException {
+    final UUID existingUuid = UUID.randomUUID();
+    final Account existingAccount = mock(Account.class);
+
+    when(existingAccount.getUuid()).thenReturn(existingUuid);
+    when(accountsManager.get(SENDER)).thenReturn(Optional.of(existingAccount));
+
+    AccountCreationResult result =
+        resources.getJerseyTest()
+            .target(String.format("/v1/accounts/code/%s", "1234"))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(SENDER, "bar"))
+            .put(Entity.entity(new AccountAttributes(false, 2222, null, null, null, true, null),
+                MediaType.APPLICATION_JSON_TYPE), AccountCreationResult.class);
+
+    final ArgumentCaptor<Account> accountArgumentCaptor = ArgumentCaptor.forClass(Account.class);
+
+    verify(accountsManager, times(1)).create(accountArgumentCaptor.capture());
+    verify(directoryQueue, times(1)).refreshRegisteredUser(argThat(account -> SENDER.equals(account.getNumber())));
+
+    verify(storedMessages).clear(existingUuid);
+    verify(keys).delete(existingAccount);
+
+    assertThat(accountArgumentCaptor.getValue().isDiscoverableByPhoneNumber()).isTrue();
   }
 
   @Test

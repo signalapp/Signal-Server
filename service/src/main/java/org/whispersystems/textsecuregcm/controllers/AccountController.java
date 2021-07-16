@@ -75,6 +75,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
@@ -120,6 +121,7 @@ public class AccountController {
   private final SmsSender                          smsSender;
   private final DirectoryQueue                     directoryQueue;
   private final MessagesManager                    messagesManager;
+  private final KeysDynamoDb                       keys;
   private final DynamicConfigurationManager        dynamicConfigurationManager;
   private final TurnTokenGenerator                 turnTokenGenerator;
   private final Map<String, Integer>               testDevices;
@@ -138,6 +140,7 @@ public class AccountController {
                            SmsSender smsSenderFactory,
                            DirectoryQueue directoryQueue,
                            MessagesManager messagesManager,
+                           KeysDynamoDb keys,
                            DynamicConfigurationManager dynamicConfigurationManager,
                            TurnTokenGenerator turnTokenGenerator,
                            Map<String, Integer> testDevices,
@@ -155,6 +158,7 @@ public class AccountController {
     this.smsSender                         = smsSenderFactory;
     this.directoryQueue                    = directoryQueue;
     this.messagesManager                   = messagesManager;
+    this.keys                              = keys;
     this.dynamicConfigurationManager       = dynamicConfigurationManager;
     this.testDevices                       = testDevices;
     this.turnTokenGenerator                = turnTokenGenerator;
@@ -780,7 +784,12 @@ public class AccountController {
     }
 
     directoryQueue.refreshRegisteredUser(account);
-    maybeExistingAccount.ifPresent(definitelyExistingAccount -> messagesManager.clear(definitelyExistingAccount.getUuid()));
+
+    maybeExistingAccount.ifPresent(definitelyExistingAccount -> {
+      messagesManager.clear(definitelyExistingAccount.getUuid());
+      keys.delete(definitelyExistingAccount);
+    });
+
     pendingAccounts.remove(number);
 
     return account;
