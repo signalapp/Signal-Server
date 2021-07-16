@@ -1,31 +1,29 @@
 package org.whispersystems.textsecuregcm.storage;
 
-import com.amazonaws.ClientConfiguration;
-import com.amazonaws.auth.InstanceProfileCredentialsProvider;
-import com.amazonaws.services.appconfig.AmazonAppConfig;
-import com.amazonaws.services.appconfig.AmazonAppConfigClient;
-import com.amazonaws.services.appconfig.model.GetConfigurationRequest;
-import com.amazonaws.services.appconfig.model.GetConfigurationResult;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.common.annotations.VisibleForTesting;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.validation.ConstraintViolation;
+import javax.validation.Validation;
+import javax.validation.Validator;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.util.Util;
-
-import javax.validation.ConstraintViolation;
-import javax.validation.Validation;
-import javax.validation.Validator;
-import java.nio.charset.StandardCharsets;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.services.appconfig.AppConfigClient;
+import software.amazon.awssdk.services.appconfig.model.GetConfigurationRequest;
+import software.amazon.awssdk.services.appconfig.model.GetConfigurationResponse;
 
 public class DynamicConfigurationManager {
 
@@ -33,11 +31,11 @@ public class DynamicConfigurationManager {
   private final String          environment;
   private final String          configurationName;
   private final String          clientId;
-  private final AmazonAppConfig appConfigClient;
+  private final AppConfigClient appConfigClient;
 
   private final AtomicReference<DynamicConfiguration>   configuration    = new AtomicReference<>();
 
-  private GetConfigurationResult lastConfigResult;
+  private GetConfigurationResponse lastConfigResult;
 
   private boolean initialized = false;
 
@@ -50,15 +48,20 @@ public class DynamicConfigurationManager {
   private static final Logger logger = LoggerFactory.getLogger(DynamicConfigurationManager.class);
 
   public DynamicConfigurationManager(String application, String environment, String configurationName) {
-    this(AmazonAppConfigClient.builder()
-                              .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(10000).withRequestTimeout(10000))
-                              .withCredentials(InstanceProfileCredentialsProvider.getInstance())
-                              .build(),
-         application, environment, configurationName, UUID.randomUUID().toString());
+    this(AppConfigClient.builder()
+            .overrideConfiguration(ClientOverrideConfiguration.builder()
+                .apiCallTimeout(Duration.ofMillis(10000))
+                .apiCallAttemptTimeout(Duration.ofMillis(10000)).build())
+            /* To specify specific credential provider:
+               https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/credentials.html
+             */
+            .build(),
+        application, environment, configurationName, UUID.randomUUID().toString());
   }
 
   @VisibleForTesting
-  public DynamicConfigurationManager(AmazonAppConfig appConfigClient, String application, String environment, String configurationName, String clientId) {
+  public DynamicConfigurationManager(AppConfigClient appConfigClient, String application, String environment,
+      String configurationName, String clientId) {
     this.appConfigClient   = appConfigClient;
     this.application       = application;
     this.environment       = environment;
@@ -99,21 +102,24 @@ public class DynamicConfigurationManager {
   }
 
   private Optional<DynamicConfiguration> retrieveDynamicConfiguration() throws JsonProcessingException {
-    final String previousVersion = lastConfigResult != null ? lastConfigResult.getConfigurationVersion() : null;
+    final String previousVersion = lastConfigResult != null ? lastConfigResult.configurationVersion() : null;
 
-    lastConfigResult = appConfigClient.getConfiguration(new GetConfigurationRequest().withApplication(application)
-                                                                                     .withEnvironment(environment)
-                                                                                     .withConfiguration(configurationName)
-                                                                                     .withClientId(clientId)
-                                                                                     .withClientConfigurationVersion(previousVersion));
+    lastConfigResult = appConfigClient.getConfiguration(GetConfigurationRequest.builder()
+                                                                               .application(application)
+                                                                               .environment(environment)
+                                                                               .configuration(configurationName)
+                                                                               .clientId(clientId)
+                                                                               .clientConfigurationVersion(previousVersion)
+                                                                               .build());
 
     final Optional<DynamicConfiguration> maybeDynamicConfiguration;
 
-    if (!StringUtils.equals(lastConfigResult.getConfigurationVersion(), previousVersion)) {
-      logger.info("Received new config version: {}", lastConfigResult.getConfigurationVersion());
+    if (!StringUtils.equals(lastConfigResult.configurationVersion(), previousVersion)) {
+      logger.info("Received new config version: {}", lastConfigResult.configurationVersion());
 
       maybeDynamicConfiguration =
-          parseConfiguration(StandardCharsets.UTF_8.decode(lastConfigResult.getContent().asReadOnlyBuffer()).toString());
+          parseConfiguration(
+              StandardCharsets.UTF_8.decode(lastConfigResult.content().asByteBuffer().asReadOnlyBuffer()).toString());
     } else {
       // No change since last version
       maybeDynamicConfiguration = Optional.empty();
@@ -123,7 +129,8 @@ public class DynamicConfigurationManager {
   }
 
   @VisibleForTesting
-  public static Optional<DynamicConfiguration> parseConfiguration(final String configurationYaml) throws JsonProcessingException {
+  public static Optional<DynamicConfiguration> parseConfiguration(final String configurationYaml)
+      throws JsonProcessingException {
     final DynamicConfiguration configuration = OBJECT_MAPPER.readValue(configurationYaml, DynamicConfiguration.class);
     final Set<ConstraintViolation<DynamicConfiguration>> violations = VALIDATOR.validate(configuration);
 
