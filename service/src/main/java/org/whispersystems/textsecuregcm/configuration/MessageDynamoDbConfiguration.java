@@ -5,13 +5,12 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotEmpty;
 import java.time.Duration;
+import javax.validation.Valid;
 
 public class MessageDynamoDbConfiguration extends DynamoDbConfiguration {
 
-  private Duration timeToLive = Duration.ofDays(7);
+  private Duration timeToLive = Duration.ofDays(14);
 
   @Valid
   public Duration getTimeToLive() {
