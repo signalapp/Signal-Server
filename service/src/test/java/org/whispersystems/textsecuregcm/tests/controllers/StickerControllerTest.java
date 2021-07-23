@@ -14,14 +14,14 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
-import io.dropwizard.testing.junit.ResourceTestRule;
-import java.io.IOException;
+import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
+import io.dropwizard.testing.junit5.ResourceExtension;
 import java.util.Base64;
 import javax.ws.rs.core.Response;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.controllers.StickerController;
@@ -32,27 +32,27 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
-public class StickerControllerTest {
+@ExtendWith(DropwizardExtensionsSupport.class)
+class StickerControllerTest {
 
   private static RateLimiter  rateLimiter  = mock(RateLimiter.class );
   private static RateLimiters rateLimiters = mock(RateLimiters.class);
 
-  @ClassRule
-  public static final ResourceTestRule resources = ResourceTestRule.builder()
-                                                                   .addProvider(AuthHelper.getAuthFilter())
-                                                                   .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
-                                                                   .setMapper(SystemMapper.getMapper())
-                                                                   .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-                                                                   .addResource(new StickerController(rateLimiters, "foo", "bar", "us-east-1", "mybucket"))
-                                                                   .build();
+  private static final ResourceExtension resources = ResourceExtension.builder()
+                                                                      .addProvider(AuthHelper.getAuthFilter())
+                                                                      .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
+                                                                      .setMapper(SystemMapper.getMapper())
+                                                                      .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
+                                                                      .addResource(new StickerController(rateLimiters, "foo", "bar", "us-east-1", "mybucket"))
+                                                                      .build();
 
-  @Before
-  public void setup() {
+  @BeforeEach
+  void setup() {
     when(rateLimiters.getStickerPackLimiter()).thenReturn(rateLimiter);
   }
 
   @Test
-  public void testCreatePack() throws RateLimitExceededException, IOException {
+  void testCreatePack() throws RateLimitExceededException {
     StickerPackFormUploadAttributes attributes  = resources.getJerseyTest()
                                                            .target("/v1/sticker/pack/form/10")
                                                            .request()
@@ -90,7 +90,7 @@ public class StickerControllerTest {
   }
 
   @Test
-  public void testCreateTooLargePack() throws Exception {
+  void testCreateTooLargePack() {
     Response response = resources.getJerseyTest()
                         .target("/v1/sticker/pack/form/202")
                         .request()
@@ -98,7 +98,6 @@ public class StickerControllerTest {
                         .get();
 
     assertThat(response.getStatus()).isEqualTo(400);
-
   }
 
 }
