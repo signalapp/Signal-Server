@@ -5,6 +5,16 @@
 
 package org.whispersystems.textsecuregcm.metrics;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.vdurmont.semver4j.Semver;
@@ -13,8 +23,18 @@ import io.dropwizard.jersey.jackson.JacksonMessageBodyProvider;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
+import java.nio.ByteBuffer;
+import java.security.Principal;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Stream;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
@@ -25,9 +45,11 @@ import org.glassfish.jersey.server.ExtendedUriInfo;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.glassfish.jersey.uri.UriTemplate;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UserAgent;
@@ -38,33 +60,7 @@ import org.whispersystems.websocket.messages.protobuf.ProtobufWebSocketMessageFa
 import org.whispersystems.websocket.messages.protobuf.SubProtocol;
 import org.whispersystems.websocket.session.WebSocketSessionContextValueFactoryProvider;
 
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import java.nio.ByteBuffer;
-import java.security.Principal;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyIterable;
-import static org.mockito.ArgumentMatchers.anyVararg;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-@RunWith(JUnitParamsRunner.class)
-public class MetricsRequestEventListenerTest {
+class MetricsRequestEventListenerTest {
 
     private MeterRegistry               meterRegistry;
     private Counter                     counter;
@@ -72,8 +68,8 @@ public class MetricsRequestEventListenerTest {
 
     private static final TrafficSource TRAFFIC_SOURCE = TrafficSource.HTTP;
 
-    @Before
-    public void setup() {
+    @BeforeEach
+    void setup() {
         meterRegistry = mock(MeterRegistry.class);
         counter       = mock(Counter.class);
         listener      = new MetricsRequestEventListener(TRAFFIC_SOURCE, meterRegistry);
@@ -81,7 +77,7 @@ public class MetricsRequestEventListenerTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    public void testOnEvent() {
+    void testOnEvent() {
         final String path = "/test";
         final int statusCode = 200;
 
@@ -125,7 +121,7 @@ public class MetricsRequestEventListenerTest {
     }
 
     @Test
-    public void testActualRouteMessageSuccess() throws InvalidProtocolBufferException {
+    void testActualRouteMessageSuccess() throws InvalidProtocolBufferException {
         MetricsApplicationEventListener applicationEventListener = mock(MetricsApplicationEventListener.class);
         when(applicationEventListener.onRequest(any())).thenReturn(listener);
 
@@ -185,7 +181,7 @@ public class MetricsRequestEventListenerTest {
     }
 
     @Test
-    public void testActualRouteMessageSuccessNoUserAgent() throws InvalidProtocolBufferException {
+    void testActualRouteMessageSuccessNoUserAgent() throws InvalidProtocolBufferException {
         MetricsApplicationEventListener applicationEventListener = mock(MetricsApplicationEventListener.class);
         when(applicationEventListener.onRequest(any())).thenReturn(listener);
 
@@ -242,9 +238,9 @@ public class MetricsRequestEventListenerTest {
         assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "unrecognized")));
     }
 
-    @Test
-    @Parameters(method = "argumentsForTestRecordDesktopOperatingSystem")
-    public void testRecordDesktopOperatingSystem(final UserAgent userAgent, final String expectedOperatingSystem) {
+    @ParameterizedTest
+    @MethodSource
+    void testRecordDesktopOperatingSystem(final UserAgent userAgent, final String expectedOperatingSystem) {
         when(meterRegistry.counter(eq(MetricsRequestEventListener.DESKTOP_REQUEST_COUNTER_NAME), (String)any())).thenReturn(counter);
         listener.recordDesktopOperatingSystem(userAgent);
 
@@ -259,20 +255,20 @@ public class MetricsRequestEventListenerTest {
         }
     }
 
-    private static Object argumentsForTestRecordDesktopOperatingSystem() {
-        return new Object[] {
-                new Object[] { new UserAgent(ClientPlatform.DESKTOP, new Semver("1.2.3"), "Linux"),                      "linux" },
-                new Object[] { new UserAgent(ClientPlatform.DESKTOP, new Semver("1.2.3"), "macOS"),                      "macos" },
-                new Object[] { new UserAgent(ClientPlatform.DESKTOP, new Semver("1.2.3"), "Windows"),                    "windows" },
-                new Object[] { new UserAgent(ClientPlatform.DESKTOP, new Semver("1.2.3")),                               null },
-                new Object[] { new UserAgent(ClientPlatform.ANDROID, new Semver("4.68.3"), "Android/25"),                null },
-                new Object[] { new UserAgent(ClientPlatform.IOS, new Semver("3.9.0"), "(iPhone; iOS 12.2; Scale/3.00)"), null },
-        };
+    private static Stream<Arguments> testRecordDesktopOperatingSystem() {
+        return Stream.of(
+                Arguments.of( new UserAgent(ClientPlatform.DESKTOP, new Semver("1.2.3"), "Linux"),                      "linux" ),
+                Arguments.of( new UserAgent(ClientPlatform.DESKTOP, new Semver("1.2.3"), "macOS"),                      "macos" ),
+                Arguments.of( new UserAgent(ClientPlatform.DESKTOP, new Semver("1.2.3"), "Windows"),                    "windows" ),
+                Arguments.of( new UserAgent(ClientPlatform.DESKTOP, new Semver("1.2.3")),                               null ),
+                Arguments.of( new UserAgent(ClientPlatform.ANDROID, new Semver("4.68.3"), "Android/25"),                null ),
+                Arguments.of( new UserAgent(ClientPlatform.IOS, new Semver("3.9.0"), "(iPhone; iOS 12.2; Scale/3.00)"), null )
+            );
     }
 
-    @Test
-    @Parameters(method = "argumentsForTestRecordAndroidSdkVersion")
-    public void testRecordAndroidSdkVersion(final UserAgent userAgent, final String expectedSdkVersion) {
+    @ParameterizedTest
+    @MethodSource
+    void testRecordAndroidSdkVersion(final UserAgent userAgent, final String expectedSdkVersion) {
         when(meterRegistry.counter(eq(MetricsRequestEventListener.ANDROID_REQUEST_COUNTER_NAME), (String)any())).thenReturn(counter);
         listener.recordAndroidSdkVersion(userAgent);
 
@@ -287,21 +283,21 @@ public class MetricsRequestEventListenerTest {
         }
     }
 
-    private static Object argumentsForTestRecordAndroidSdkVersion() {
-        return new Object[] {
-                new Object[] { new UserAgent(ClientPlatform.ANDROID, new Semver("4.68.3"), "Android/1"),                     null },
-                new Object[] { new UserAgent(ClientPlatform.ANDROID, new Semver("4.68.3"), "Android/25"),                    "25" },
-                new Object[] { new UserAgent(ClientPlatform.ANDROID, new Semver("4.68.3"), "Android/700000"),                null },
-                new Object[] { new UserAgent(ClientPlatform.ANDROID, new Semver("4.68.3"), "Android/"),                      null },
-                new Object[] { new UserAgent(ClientPlatform.ANDROID, new Semver("4.68.3"), null),                            null },
-                new Object[] { new UserAgent(ClientPlatform.DESKTOP, new Semver("1.2.3"), "Linux"),                          null },
-                new Object[] { new UserAgent(ClientPlatform.IOS,     new Semver("3.9.0"), "(iPhone; iOS 12.2; Scale/3.00)"), null }
-        };
+    private static Stream<Arguments> testRecordAndroidSdkVersion() {
+        return Stream.of(
+                Arguments.of( new UserAgent(ClientPlatform.ANDROID, new Semver("4.68.3"), "Android/1"),                     null ),
+                Arguments.of( new UserAgent(ClientPlatform.ANDROID, new Semver("4.68.3"), "Android/25"),                    "25" ),
+                Arguments.of( new UserAgent(ClientPlatform.ANDROID, new Semver("4.68.3"), "Android/700000"),                null ),
+                Arguments.of( new UserAgent(ClientPlatform.ANDROID, new Semver("4.68.3"), "Android/"),                      null ),
+                Arguments.of( new UserAgent(ClientPlatform.ANDROID, new Semver("4.68.3"), null),                            null ),
+                Arguments.of( new UserAgent(ClientPlatform.DESKTOP, new Semver("1.2.3"), "Linux"),                          null ),
+                Arguments.of( new UserAgent(ClientPlatform.IOS,     new Semver("3.9.0"), "(iPhone; iOS 12.2; Scale/3.00)"), null )
+        );
     }
 
-    @Test
-    @Parameters(method = "argumentsForTestRecordIosVersion")
-    public void testRecordIosVersion(final UserAgent userAgent, final String expectedIosVersion) {
+    @ParameterizedTest
+    @MethodSource
+    void testRecordIosVersion(final UserAgent userAgent, final String expectedIosVersion) {
         when(meterRegistry.counter(eq(MetricsRequestEventListener.IOS_REQUEST_COUNTER_NAME), (String)any())).thenReturn(counter);
         listener.recordIosVersion(userAgent);
 
@@ -316,16 +312,16 @@ public class MetricsRequestEventListenerTest {
         }
     }
 
-    private static Object argumentsForTestRecordIosVersion() {
-        return new Object[] {
-                new Object[] { new UserAgent(ClientPlatform.IOS,     new Semver("3.9.0"), "iOS/14.2"),                        "14.2" },
-                new Object[] { new UserAgent(ClientPlatform.IOS,     new Semver("3.9.0"), "(iPhone; iOS 12.2; Scale/3.00)"),  "12.2" },
-                new Object[] { new UserAgent(ClientPlatform.IOS,     new Semver("3.9.0")),                                    null },
-                new Object[] { new UserAgent(ClientPlatform.IOS,     new Semver("3.9.0"), "iOS/bogus"),                       null },
-                new Object[] { new UserAgent(ClientPlatform.IOS,     new Semver("3.9.0"), "(iPhone; iOS bogus; Scale/3.00)"), null },
-                new Object[] { new UserAgent(ClientPlatform.ANDROID, new Semver("4.68.3"), "Android/25"),                     null },
-                new Object[] { new UserAgent(ClientPlatform.DESKTOP, new Semver("1.2.3"), "Linux"),                           null }
-        };
+    private static Stream<Arguments> testRecordIosVersion() {
+        return Stream.of(
+                Arguments.of( new UserAgent(ClientPlatform.IOS,     new Semver("3.9.0"), "iOS/14.2"),                        "14.2" ),
+                Arguments.of( new UserAgent(ClientPlatform.IOS,     new Semver("3.9.0"), "(iPhone; iOS 12.2; Scale/3.00)"),  "12.2" ),
+                Arguments.of( new UserAgent(ClientPlatform.IOS,     new Semver("3.9.0")),                                    null ),
+                Arguments.of( new UserAgent(ClientPlatform.IOS,     new Semver("3.9.0"), "iOS/bogus"),                       null ),
+                Arguments.of( new UserAgent(ClientPlatform.IOS,     new Semver("3.9.0"), "(iPhone; iOS bogus; Scale/3.00)"), null ),
+                Arguments.of( new UserAgent(ClientPlatform.ANDROID, new Semver("4.68.3"), "Android/25"),                     null ),
+                Arguments.of( new UserAgent(ClientPlatform.DESKTOP, new Semver("1.2.3"), "Linux"),                           null )
+        );
     }
 
     private static SubProtocol.WebSocketResponseMessage getResponse(ArgumentCaptor<ByteBuffer> responseCaptor) throws InvalidProtocolBufferException {
