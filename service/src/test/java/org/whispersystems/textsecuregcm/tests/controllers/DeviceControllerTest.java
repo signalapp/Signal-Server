@@ -5,12 +5,13 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -18,22 +19,24 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
-import io.dropwizard.testing.junit.ResourceTestRule;
+import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
+import io.dropwizard.testing.junit5.ResourceExtension;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 import javax.ws.rs.Path;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.ArgumentMatcher;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.controllers.DeviceController;
@@ -54,8 +57,8 @@ import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
 
-@RunWith(JUnitParamsRunner.class)
-public class DeviceControllerTest {
+@ExtendWith(DropwizardExtensionsSupport.class)
+class DeviceControllerTest {
   @Path("/v1/devices")
   static class DumbVerificationDeviceController extends DeviceController {
     public DumbVerificationDeviceController(StoredVerificationCodeManager pendingDevices,
@@ -75,39 +78,36 @@ public class DeviceControllerTest {
     }
   }
 
-  private StoredVerificationCodeManager pendingDevicesManager = mock(StoredVerificationCodeManager.class);
-  private AccountsManager       accountsManager       = mock(AccountsManager.class       );
-  private MessagesManager       messagesManager       = mock(MessagesManager.class);
-  private KeysDynamoDb          keys                  = mock(KeysDynamoDb.class);
-  private DirectoryQueue        directoryQueue        = mock(DirectoryQueue.class);
-  private RateLimiters          rateLimiters          = mock(RateLimiters.class          );
-  private RateLimiter           rateLimiter           = mock(RateLimiter.class           );
-  private Account               account               = mock(Account.class               );
-  private Account               maxedAccount          = mock(Account.class);
-  private Device                masterDevice          = mock(Device.class);
+  private static StoredVerificationCodeManager pendingDevicesManager = mock(StoredVerificationCodeManager.class);
+  private static AccountsManager       accountsManager       = mock(AccountsManager.class       );
+  private static MessagesManager       messagesManager       = mock(MessagesManager.class);
+  private static KeysDynamoDb          keys                  = mock(KeysDynamoDb.class);
+  private static DirectoryQueue        directoryQueue        = mock(DirectoryQueue.class);
+  private static RateLimiters          rateLimiters          = mock(RateLimiters.class          );
+  private static RateLimiter           rateLimiter           = mock(RateLimiter.class           );
+  private static Account               account               = mock(Account.class               );
+  private static Account               maxedAccount          = mock(Account.class);
+  private static Device                masterDevice          = mock(Device.class);
 
-  private Map<String, Integer>  deviceConfiguration   = new HashMap<String, Integer>() {{
+  private static Map<String, Integer>  deviceConfiguration   = new HashMap<>();
 
-  }};
-
-  @Rule
-  public final ResourceTestRule resources = ResourceTestRule.builder()
-                                                            .addProvider(AuthHelper.getAuthFilter())
-                                                            .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
-                                                            .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-                                                            .addProvider(new DeviceLimitExceededExceptionMapper())
-                                                            .addResource(new DumbVerificationDeviceController(pendingDevicesManager,
-                                                                                                              accountsManager,
-                                                                                                              messagesManager,
-                                                                                                              keys,
-                                                                                                              directoryQueue,
-                                                                                                              rateLimiters,
-                                                                                                              deviceConfiguration))
-                                                            .build();
+  private static final ResourceExtension resources = ResourceExtension.builder()
+                                                                .addProvider(AuthHelper.getAuthFilter())
+                                                                .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
+                                                                .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
+                                                                .addProvider(new DeviceLimitExceededExceptionMapper())
+                                                                .addResource(new DumbVerificationDeviceController(pendingDevicesManager,
+                                                                                                                  accountsManager,
+                                                                                                                  messagesManager,
+                                                                                                                  keys,
+                                                                                                                  directoryQueue,
+                                                                                                                  rateLimiters,
+                                                                                                                  deviceConfiguration))
+                                                                .build();
 
 
-  @Before
-  public void setup() throws Exception {
+  @BeforeEach
+  void setup() throws Exception {
     when(rateLimiters.getSmsDestinationLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getVoiceDestinationLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getVerifyLimiter()).thenReturn(rateLimiter);
@@ -135,8 +135,24 @@ public class DeviceControllerTest {
     AccountsHelper.setupMockUpdate(accountsManager);
   }
 
+  @AfterEach
+  void teardown() {
+    reset(
+        pendingDevicesManager,
+        accountsManager,
+        messagesManager,
+        keys,
+        directoryQueue,
+        rateLimiters,
+        rateLimiter,
+        account,
+        maxedAccount,
+        masterDevice
+    );
+  }
+
   @Test
-  public void validDeviceRegisterTest() throws Exception {
+  void validDeviceRegisterTest() throws Exception {
     VerificationCode deviceCode = resources.getJerseyTest()
                                            .target("/v1/devices/provisioning/code")
                                            .request()
@@ -161,7 +177,7 @@ public class DeviceControllerTest {
   }
 
   @Test
-  public void disabledDeviceRegisterTest() throws Exception {
+  void disabledDeviceRegisterTest() throws Exception {
     Response response = resources.getJerseyTest()
                                  .target("/v1/devices/provisioning/code")
                                  .request()
@@ -172,7 +188,7 @@ public class DeviceControllerTest {
   }
 
   @Test
-  public void invalidDeviceRegisterTest() throws Exception {
+  void invalidDeviceRegisterTest() throws Exception {
     VerificationCode deviceCode = resources.getJerseyTest()
                                            .target("/v1/devices/provisioning/code")
                                            .request()
@@ -194,7 +210,7 @@ public class DeviceControllerTest {
   }
 
   @Test
-  public void oldDeviceRegisterTest() throws Exception {
+  void oldDeviceRegisterTest() throws Exception {
     Response response = resources.getJerseyTest()
                                  .target("/v1/devices/1112223")
                                  .request()
@@ -208,7 +224,7 @@ public class DeviceControllerTest {
   }
 
   @Test
-  public void maxDevicesTest() throws Exception {
+  void maxDevicesTest() throws Exception {
     Response response = resources.getJerseyTest()
                                  .target("/v1/devices/provisioning/code")
                                  .request()
@@ -220,7 +236,7 @@ public class DeviceControllerTest {
   }
 
   @Test
-  public void longNameTest() throws Exception {
+  void longNameTest() throws Exception {
     Response response = resources.getJerseyTest()
                                  .target("/v1/devices/5678901")
                                  .request()
@@ -232,9 +248,9 @@ public class DeviceControllerTest {
     verifyNoMoreInteractions(messagesManager);
   }
 
-  @Test
-  @Parameters(method = "argumentsForDeviceDowngradeCapabilitiesTest")
-  public void deviceDowngradeCapabilitiesTest(final String userAgent, final boolean gv2, final boolean gv2_2, final boolean gv2_3, final int expectedStatus) throws Exception {
+  @ParameterizedTest
+  @MethodSource
+  void deviceDowngradeCapabilitiesTest(final String userAgent, final boolean gv2, final boolean gv2_2, final boolean gv2_3, final int expectedStatus) throws Exception {
     DeviceCapabilities deviceCapabilities = new DeviceCapabilities(gv2, gv2_2, gv2_3, true, false, true, true, true);
     AccountAttributes accountAttributes = new AccountAttributes(false, 1234, null, null, null, true, deviceCapabilities);
     Response response = resources.getJerseyTest()
@@ -251,30 +267,30 @@ public class DeviceControllerTest {
     }
   }
 
-  private static Object argumentsForDeviceDowngradeCapabilitiesTest() {
-    return new Object[] {
-            //             User-Agent                          gv2    gv2-2  gv2-3  expected
-            new Object[] { "Signal-Android/4.68.3 Android/25", false, false, false, 409 },
-            new Object[] { "Signal-Android/4.68.3 Android/25", true,  false, false, 409 },
-            new Object[] { "Signal-Android/4.68.3 Android/25", false, true,  false, 409 },
-            new Object[] { "Signal-Android/4.68.3 Android/25", false, false, true,  200 },
-            new Object[] { "Signal-iOS/3.9.0",                 false, false, false, 409 },
-            new Object[] { "Signal-iOS/3.9.0",                 true,  false, false, 409 },
-            new Object[] { "Signal-iOS/3.9.0",                 false, true,  false, 200 },
-            new Object[] { "Signal-iOS/3.9.0",                 false, false, true,  200 },
-            new Object[] { "Signal-Desktop/1.32.0-beta.3",     false, false, false, 409 },
-            new Object[] { "Signal-Desktop/1.32.0-beta.3",     true,  false, false, 409 },
-            new Object[] { "Signal-Desktop/1.32.0-beta.3",     false, true,  false, 409 },
-            new Object[] { "Signal-Desktop/1.32.0-beta.3",     false, false, true,  200 },
-            new Object[] { "Old client with unparsable UA",    false, false, false, 409 },
-            new Object[] { "Old client with unparsable UA",    true,  false, false, 409 },
-            new Object[] { "Old client with unparsable UA",    false, true,  false, 409 },
-            new Object[] { "Old client with unparsable UA",    false, false, true,  409 }
-    };
+  private static Stream<Arguments> deviceDowngradeCapabilitiesTest() {
+    return Stream.of(
+            //            User-Agent                          gv2    gv2-2  gv2-3  expected
+            Arguments.of( "Signal-Android/4.68.3 Android/25", false, false, false, 409 ),
+            Arguments.of( "Signal-Android/4.68.3 Android/25", true,  false, false, 409 ),
+            Arguments.of( "Signal-Android/4.68.3 Android/25", false, true,  false, 409 ),
+            Arguments.of( "Signal-Android/4.68.3 Android/25", false, false, true,  200 ),
+            Arguments.of( "Signal-iOS/3.9.0",                 false, false, false, 409 ),
+            Arguments.of( "Signal-iOS/3.9.0",                 true,  false, false, 409 ),
+            Arguments.of( "Signal-iOS/3.9.0",                 false, true,  false, 200 ),
+            Arguments.of( "Signal-iOS/3.9.0",                 false, false, true,  200 ),
+            Arguments.of( "Signal-Desktop/1.32.0-beta.3",     false, false, false, 409 ),
+            Arguments.of( "Signal-Desktop/1.32.0-beta.3",     true,  false, false, 409 ),
+            Arguments.of( "Signal-Desktop/1.32.0-beta.3",     false, true,  false, 409 ),
+            Arguments.of( "Signal-Desktop/1.32.0-beta.3",     false, false, true,  200 ),
+            Arguments.of( "Old client with unparsable UA",    false, false, false, 409 ),
+            Arguments.of( "Old client with unparsable UA",    true,  false, false, 409 ),
+            Arguments.of( "Old client with unparsable UA",    false, true,  false, 409 ),
+            Arguments.of( "Old client with unparsable UA",    false, false, true,  409 )
+    );
   }
 
   @Test
-  public void deviceDowngradeGv1MigrationTest() {
+  void deviceDowngradeGv1MigrationTest() {
     DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, false, false, true, true);
     AccountAttributes accountAttributes = new AccountAttributes(false, 1234, null, null, null, true, deviceCapabilities);
     Response response = resources.getJerseyTest()
@@ -299,7 +315,7 @@ public class DeviceControllerTest {
   }
 
   @Test
-  public void deviceDowngradeSenderKeyTest() {
+  void deviceDowngradeSenderKeyTest() {
     DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, false, true);
     AccountAttributes accountAttributes =
         new AccountAttributes(false, 1234, null, null, null, true, deviceCapabilities);
@@ -325,7 +341,7 @@ public class DeviceControllerTest {
   }
 
   @Test
-  public void deviceDowngradeAnnouncementGroupTest() {
+  void deviceDowngradeAnnouncementGroupTest() {
     DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, false);
     AccountAttributes accountAttributes =
         new AccountAttributes(false, 1234, null, null, null, true, deviceCapabilities);
@@ -351,7 +367,7 @@ public class DeviceControllerTest {
   }
 
   @Test
-  public void deviceRemovalClearsMessagesAndKeys() {
+  void deviceRemovalClearsMessagesAndKeys() {
 
     // this is a static mock, so it might have previous invocations
     clearInvocations(AuthHelper.VALID_ACCOUNT);
