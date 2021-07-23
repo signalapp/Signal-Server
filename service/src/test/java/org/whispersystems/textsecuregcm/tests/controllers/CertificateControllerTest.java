@@ -5,21 +5,22 @@
 
 package org.whispersystems.textsecuregcm.tests.controllers;
 
-import static junit.framework.TestCase.assertTrue;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
-import io.dropwizard.testing.junit.ResourceTestRule;
+import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
+import io.dropwizard.testing.junit5.ResourceExtension;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Base64;
 import javax.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.signal.zkgroup.InvalidInputException;
 import org.signal.zkgroup.ServerSecretParams;
 import org.signal.zkgroup.VerificationFailedException;
@@ -41,7 +42,8 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 
-public class CertificateControllerTest {
+@ExtendWith(DropwizardExtensionsSupport.class)
+class CertificateControllerTest {
 
   private static final String caPublicKey = "BWh+UOhT1hD8bkb+MFRvb6tVqhoG8YYGCzOd7mgjo8cV";
   private static final String caPrivateKey = "EO3Mnf0kfVlVnwSaqPoQnAxhnnGL1JTdXqktCKEe9Eo=";
@@ -63,17 +65,16 @@ public class CertificateControllerTest {
   }
 
 
-  @ClassRule
-  public static final ResourceTestRule resources = ResourceTestRule.builder()
-                                                                   .addProvider(AuthHelper.getAuthFilter())
-                                                                   .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
-                                                                   .setMapper(SystemMapper.getMapper())
-                                                                   .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-                                                                   .addResource(new CertificateController(certificateGenerator, serverZkAuthOperations, true))
-                                                                   .build();
+  private static final ResourceExtension resources = ResourceExtension.builder()
+                                                                      .addProvider(AuthHelper.getAuthFilter())
+                                                                      .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
+                                                                      .setMapper(SystemMapper.getMapper())
+                                                                      .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
+                                                                      .addResource(new CertificateController(certificateGenerator, serverZkAuthOperations, true))
+                                                                      .build();
 
   @Test
-  public void testValidCertificate() throws Exception {
+  void testValidCertificate() throws Exception {
     DeliveryCertificate certificateObject = resources.getJerseyTest()
                                                      .target("/v1/certificate/delivery")
                                                      .request()
@@ -94,11 +95,11 @@ public class CertificateControllerTest {
     assertEquals(certificate.getSenderDevice(), 1L);
     assertTrue(certificate.hasSenderUuid());
     assertEquals(AuthHelper.VALID_UUID.toString(), certificate.getSenderUuid());
-    assertTrue(Arrays.equals(certificate.getIdentityKey().toByteArray(), Base64.getDecoder().decode(AuthHelper.VALID_IDENTITY)));
+    assertArrayEquals(certificate.getIdentityKey().toByteArray(), Base64.getDecoder().decode(AuthHelper.VALID_IDENTITY));
   }
 
   @Test
-  public void testValidCertificateWithUuid() throws Exception {
+  void testValidCertificateWithUuid() throws Exception {
     DeliveryCertificate certificateObject = resources.getJerseyTest()
                                                      .target("/v1/certificate/delivery")
                                                      .queryParam("includeUuid", "true")
@@ -119,11 +120,11 @@ public class CertificateControllerTest {
     assertEquals(certificate.getSender(), AuthHelper.VALID_NUMBER);
     assertEquals(certificate.getSenderDevice(), 1L);
     assertEquals(certificate.getSenderUuid(), AuthHelper.VALID_UUID.toString());
-    assertTrue(Arrays.equals(certificate.getIdentityKey().toByteArray(), Base64.getDecoder().decode(AuthHelper.VALID_IDENTITY)));
+    assertArrayEquals(certificate.getIdentityKey().toByteArray(), Base64.getDecoder().decode(AuthHelper.VALID_IDENTITY));
   }
 
   @Test
-  public void testValidCertificateWithUuidNoE164() throws Exception {
+  void testValidCertificateWithUuidNoE164() throws Exception {
     DeliveryCertificate certificateObject = resources.getJerseyTest()
             .target("/v1/certificate/delivery")
             .queryParam("includeUuid", "true")
@@ -145,11 +146,11 @@ public class CertificateControllerTest {
     assertTrue(StringUtils.isBlank(certificate.getSender()));
     assertEquals(certificate.getSenderDevice(), 1L);
     assertEquals(certificate.getSenderUuid(), AuthHelper.VALID_UUID.toString());
-    assertTrue(Arrays.equals(certificate.getIdentityKey().toByteArray(), Base64.getDecoder().decode(AuthHelper.VALID_IDENTITY)));
+    assertArrayEquals(certificate.getIdentityKey().toByteArray(), Base64.getDecoder().decode(AuthHelper.VALID_IDENTITY));
   }
 
   @Test
-  public void testBadAuthentication() throws Exception {
+  void testBadAuthentication() throws Exception {
     Response response = resources.getJerseyTest()
                                  .target("/v1/certificate/delivery")
                                  .request()
@@ -161,7 +162,7 @@ public class CertificateControllerTest {
 
 
   @Test
-  public void testNoAuthentication() throws Exception {
+  void testNoAuthentication() throws Exception {
     Response response = resources.getJerseyTest()
                                  .target("/v1/certificate/delivery")
                                  .request()
@@ -172,7 +173,7 @@ public class CertificateControllerTest {
 
 
   @Test
-  public void testUnidentifiedAuthentication() throws Exception {
+  void testUnidentifiedAuthentication() throws Exception {
     Response response = resources.getJerseyTest()
                                  .target("/v1/certificate/delivery")
                                  .request()
@@ -183,7 +184,7 @@ public class CertificateControllerTest {
   }
 
   @Test
-  public void testDisabledAuthentication() throws Exception {
+  void testDisabledAuthentication() throws Exception {
     Response response = resources.getJerseyTest()
                                  .target("/v1/certificate/delivery")
                                  .request()
@@ -194,7 +195,7 @@ public class CertificateControllerTest {
   }
 
   @Test
-  public void testGetSingleAuthCredential() throws InvalidInputException, VerificationFailedException {
+  void testGetSingleAuthCredential() throws InvalidInputException, VerificationFailedException {
     GroupCredentials credentials = resources.getJerseyTest()
                                             .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + Util.currentDaysSinceEpoch())
                                             .request()
@@ -209,7 +210,7 @@ public class CertificateControllerTest {
   }
 
   @Test
-  public void testGetWeekLongAuthCredentials() throws InvalidInputException, VerificationFailedException {
+  void testGetWeekLongAuthCredentials() throws InvalidInputException, VerificationFailedException {
     GroupCredentials credentials = resources.getJerseyTest()
                                             .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + (Util.currentDaysSinceEpoch() + 7))
                                             .request()
@@ -227,7 +228,7 @@ public class CertificateControllerTest {
   }
 
   @Test
-  public void testTooManyDaysOut() throws InvalidInputException {
+  void testTooManyDaysOut() throws InvalidInputException {
     Response response = resources.getJerseyTest()
                                             .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + (Util.currentDaysSinceEpoch() + 8))
                                             .request()
@@ -238,7 +239,7 @@ public class CertificateControllerTest {
   }
 
   @Test
-  public void testBackwardsInTime() throws InvalidInputException {
+  void testBackwardsInTime() throws InvalidInputException {
     Response response = resources.getJerseyTest()
                                  .target("/v1/certificate/group/" + (Util.currentDaysSinceEpoch() - 1) + "/" + (Util.currentDaysSinceEpoch() + 7))
                                  .request()
@@ -249,7 +250,7 @@ public class CertificateControllerTest {
   }
 
   @Test
-  public void testBadAuth() throws InvalidInputException {
+  void testBadAuth() throws InvalidInputException {
     Response response = resources.getJerseyTest()
                                  .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + (Util.currentDaysSinceEpoch() + 7))
                                  .request()
