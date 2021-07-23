@@ -5,13 +5,35 @@
 
 package org.whispersystems.textsecuregcm.tests.controllers;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
-import io.dropwizard.testing.junit.ResourceTestRule;
+import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
+import io.dropwizard.testing.junit5.ResourceExtension;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.controllers.RemoteConfigController;
@@ -23,43 +45,23 @@ import org.whispersystems.textsecuregcm.storage.RemoteConfig;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
-import javax.ws.rs.client.Entity;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
+@ExtendWith(DropwizardExtensionsSupport.class)
+class RemoteConfigControllerTest {
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
+  private static final RemoteConfigsManager remoteConfigsManager = mock(RemoteConfigsManager.class);
+  private static final List<String>         remoteConfigsAuth    = List.of("foo", "bar");
 
-public class RemoteConfigControllerTest {
-
-  private final RemoteConfigsManager remoteConfigsManager = mock(RemoteConfigsManager.class);
-  private final List<String>         remoteConfigsAuth    = List.of("foo", "bar");
-
-  @Rule
-  public final ResourceTestRule resources = ResourceTestRule.builder()
-                                                            .addProvider(AuthHelper.getAuthFilter())
-                                                            .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
-                                                            .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-                                                            .addProvider(new DeviceLimitExceededExceptionMapper())
-                                                            .addResource(new RemoteConfigController(remoteConfigsManager, remoteConfigsAuth, Map.of("maxGroupSize", "42")))
-                                                            .build();
+  private static final ResourceExtension resources = ResourceExtension.builder()
+                                                                      .addProvider(AuthHelper.getAuthFilter())
+                                                                      .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
+                                                                      .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
+                                                                      .addProvider(new DeviceLimitExceededExceptionMapper())
+                                                                      .addResource(new RemoteConfigController(remoteConfigsManager, remoteConfigsAuth, Map.of("maxGroupSize", "42")))
+                                                                      .build();
 
 
-  @Before
-  public void setup() {
+  @BeforeEach
+  void setup() {
     when(remoteConfigsManager.getAll()).thenReturn(new LinkedList<>() {{
       add(new RemoteConfig("android.stickers", 25, Set.of(AuthHelper.DISABLED_UUID, AuthHelper.INVALID_UUID), null, null, null));
       add(new RemoteConfig("ios.stickers", 50, Set.of(), null, null, null));
@@ -74,8 +76,13 @@ public class RemoteConfigControllerTest {
     }});
   }
 
+  @AfterEach
+  void teardown() {
+    reset(remoteConfigsManager);
+  }
+
   @Test
-  public void testRetrieveConfig() {
+  void testRetrieveConfig() {
     UserRemoteConfigList configuration = resources.getJerseyTest()
                                                   .target("/v1/config/")
                                                   .request()
@@ -109,7 +116,7 @@ public class RemoteConfigControllerTest {
   }
 
   @Test
-  public void testRetrieveConfigNotSpecial() {
+  void testRetrieveConfigNotSpecial() {
     UserRemoteConfigList configuration = resources.getJerseyTest()
                                                   .target("/v1/config/")
                                                   .request()
@@ -143,7 +150,7 @@ public class RemoteConfigControllerTest {
   }
 
   @Test
-  public void testHashKeyLinkedConfigs() {
+  void testHashKeyLinkedConfigs() {
     boolean allUnlinkedConfigsMatched = true;
     for (AuthHelper.TestAccount testAccount : AuthHelper.TEST_ACCOUNTS) {
       UserRemoteConfigList configuration = resources.getJerseyTest().target("/v1/config/").request().header("Authorization", testAccount.getAuthHeader()).get(UserRemoteConfigList.class);
@@ -166,7 +173,7 @@ public class RemoteConfigControllerTest {
 
 
   @Test
-  public void testRetrieveConfigUnauthorized() {
+  void testRetrieveConfigUnauthorized() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/config/")
                                  .request()
@@ -180,7 +187,7 @@ public class RemoteConfigControllerTest {
 
 
   @Test
-  public void testSetConfig() {
+  void testSetConfig() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/config")
                                  .request()
@@ -199,7 +206,7 @@ public class RemoteConfigControllerTest {
   }
 
   @Test
-  public void testSetConfigValued() {
+  void testSetConfigValued() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/config")
                                  .request()
@@ -218,7 +225,7 @@ public class RemoteConfigControllerTest {
   }
 
   @Test
-  public void testSetConfigWithHashKey() {
+  void testSetConfigWithHashKey() {
     Response response1 = resources.getJerseyTest()
                                   .target("/v1/config")
                                   .request()
@@ -254,7 +261,7 @@ public class RemoteConfigControllerTest {
   }
 
   @Test
-  public void testSetConfigUnauthorized() {
+  void testSetConfigUnauthorized() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/config")
                                  .request()
@@ -267,7 +274,7 @@ public class RemoteConfigControllerTest {
   }
 
   @Test
-  public void testSetConfigMissingUnauthorized() {
+  void testSetConfigMissingUnauthorized() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/config")
                                  .request()
@@ -279,7 +286,7 @@ public class RemoteConfigControllerTest {
   }
 
   @Test
-  public void testSetConfigBadName() {
+  void testSetConfigBadName() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/config")
                                  .request()
@@ -292,7 +299,7 @@ public class RemoteConfigControllerTest {
   }
 
   @Test
-  public void testSetConfigEmptyName() {
+  void testSetConfigEmptyName() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/config")
                                  .request()
@@ -305,7 +312,7 @@ public class RemoteConfigControllerTest {
   }
 
   @Test
-  public void testSetGlobalConfig() {
+  void testSetGlobalConfig() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/config")
                                  .request()
@@ -316,7 +323,7 @@ public class RemoteConfigControllerTest {
   }
 
   @Test
-  public void testDelete() {
+  void testDelete() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/config/android.stickers")
                                  .request()
@@ -330,7 +337,7 @@ public class RemoteConfigControllerTest {
   }
 
   @Test
-  public void testDeleteUnauthorized() {
+  void testDeleteUnauthorized() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/config/android.stickers")
                                  .request()
@@ -343,7 +350,7 @@ public class RemoteConfigControllerTest {
   }
 
   @Test
-  public void testDeleteGlobalConfig() {
+  void testDeleteGlobalConfig() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/config/global.maxGroupSize")
                                  .request()
@@ -354,7 +361,7 @@ public class RemoteConfigControllerTest {
   }
 
   @Test
-  public void testMath() throws NoSuchAlgorithmException {
+  void testMath() throws NoSuchAlgorithmException {
     List<RemoteConfig>   remoteConfigList = remoteConfigsManager.getAll();
     Map<String, Integer> enabledMap       = new HashMap<>();
     MessageDigest        digest           = MessageDigest.getInstance("SHA1");
