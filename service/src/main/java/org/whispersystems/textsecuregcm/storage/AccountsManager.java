@@ -411,7 +411,7 @@ public class AccountsManager {
           }
       }
 
-      deletedAccountsManager.put(account.getUuid(), account.getNumber());
+      deletedAccountsManager.addRecentlyDeletedAccount(account.getUuid(), account.getNumber());
 
     } catch (final RuntimeException | InterruptedException e) {
       logger.warn("Failed to delete account", e);

@@ -13,6 +13,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
@@ -20,6 +21,9 @@ import java.util.stream.Collectors;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.Pair;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.BatchGetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.BatchGetItemResponse;
@@ -51,14 +55,31 @@ public class DeletedAccounts extends AbstractDynamoDbStore {
     this.needsReconciliationIndexName = needsReconciliationIndexName;
   }
 
-  void put(UUID uuid, String e164) {
+  void put(UUID uuid, String e164, boolean needsReconciliation) {
     db().putItem(PutItemRequest.builder()
         .tableName(tableName)
         .item(Map.of(
             KEY_ACCOUNT_E164, AttributeValues.fromString(e164),
             ATTR_ACCOUNT_UUID, AttributeValues.fromUUID(uuid),
             ATTR_EXPIRES, AttributeValues.fromLong(Instant.now().plus(TIME_TO_LIVE).getEpochSecond()),
-            ATTR_NEEDS_CDS_RECONCILIATION, AttributeValues.fromInt(1)))
+            ATTR_NEEDS_CDS_RECONCILIATION, AttributeValues.fromInt(needsReconciliation ? 1 : 0)))
+        .build());
+  }
+
+  Optional<UUID> findUuid(final String e164) {
+    final GetItemResponse response = db().getItem(GetItemRequest.builder()
+        .tableName(tableName)
+        .consistentRead(true)
+        .key(Map.of(KEY_ACCOUNT_E164, AttributeValues.fromString(e164)))
+        .build());
+
+    return Optional.ofNullable(AttributeValues.getUUID(response.item(), ATTR_ACCOUNT_UUID, null));
+  }
+
+  void remove(final String e164) {
+    db().deleteItem(DeleteItemRequest.builder()
+        .tableName(tableName)
+        .key(Map.of(KEY_ACCOUNT_E164, AttributeValues.fromString(e164)))
         .build());
   }
 

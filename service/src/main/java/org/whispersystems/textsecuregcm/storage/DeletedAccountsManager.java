@@ -15,9 +15,11 @@ import com.amazonaws.services.dynamodbv2.model.LockCurrentlyUnavailableException
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,8 +60,19 @@ public class DeletedAccountsManager {
             .build());
   }
 
-  public void put(final UUID uuid, final String e164) throws InterruptedException {
-    withLock(e164, () -> deletedAccounts.put(uuid, e164));
+  public void addRecentlyDeletedAccount(final UUID uuid, final String e164) throws InterruptedException {
+    withLock(e164, () -> deletedAccounts.put(uuid, e164, true));
+  }
+
+  public void lockAndTake(final String e164, final Consumer<Optional<UUID>> consumer) throws InterruptedException {
+    withLock(e164, () -> {
+      try {
+        consumer.accept(deletedAccounts.findUuid(e164));
+        deletedAccounts.remove(e164);
+      } catch (final Exception e) {
+        log.warn("Consumer threw an exception while holding lock on a deleted account record", e);
+      }
+    });
   }
 
   private void withLock(final String e164, final Runnable task) throws InterruptedException {

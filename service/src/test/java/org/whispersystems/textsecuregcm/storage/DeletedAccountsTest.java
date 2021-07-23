@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -70,9 +71,9 @@ class DeletedAccountsTest {
 
     assertTrue(deletedAccounts.listAccountsToReconcile(1).isEmpty());
 
-    deletedAccounts.put(firstUuid, firstNumber);
-    deletedAccounts.put(secondUuid, secondNumber);
-    deletedAccounts.put(thirdUuid, thirdNumber);
+    deletedAccounts.put(firstUuid, firstNumber, true);
+    deletedAccounts.put(secondUuid, secondNumber, true);
+    deletedAccounts.put(thirdUuid, thirdNumber, true);
 
     assertEquals(1, deletedAccounts.listAccountsToReconcile(1).size());
 
@@ -91,6 +92,34 @@ class DeletedAccountsTest {
   }
 
   @Test
+  void testPutFind() {
+    final UUID uuid = UUID.randomUUID();
+    final String e164 = "+18005551234";
+
+    assertEquals(Optional.empty(), deletedAccounts.findUuid(e164));
+
+    deletedAccounts.put(uuid, e164, true);
+
+    assertEquals(Optional.of(uuid), deletedAccounts.findUuid(e164));
+  }
+
+  @Test
+  void testRemove() {
+    final UUID uuid = UUID.randomUUID();
+    final String e164 = "+18005551234";
+
+    assertEquals(Optional.empty(), deletedAccounts.findUuid(e164));
+
+    deletedAccounts.put(uuid, e164, true);
+
+    assertEquals(Optional.of(uuid), deletedAccounts.findUuid(e164));
+
+    deletedAccounts.remove(e164);
+
+    assertEquals(Optional.empty(), deletedAccounts.findUuid(e164));
+  }
+
+  @Test
   void testGetAccountsNeedingReconciliation() {
     final UUID firstUuid = UUID.randomUUID();
     final UUID secondUuid = UUID.randomUUID();
@@ -102,8 +131,8 @@ class DeletedAccountsTest {
     assertEquals(Collections.emptySet(),
         deletedAccounts.getAccountsNeedingReconciliation(List.of(firstNumber, secondNumber, thirdNumber)));
 
-    deletedAccounts.put(firstUuid, firstNumber);
-    deletedAccounts.put(secondUuid, secondNumber);
+    deletedAccounts.put(firstUuid, firstNumber, true);
+    deletedAccounts.put(secondUuid, secondNumber, true);
 
     assertEquals(Set.of(firstNumber, secondNumber),
         deletedAccounts.getAccountsNeedingReconciliation(List.of(firstNumber, secondNumber, thirdNumber)));
@@ -118,7 +147,7 @@ class DeletedAccountsTest {
     for (int i = 0; i < itemCount; i++) {
       final String e164 = String.format("+18000555%04d", i);
 
-      deletedAccounts.put(UUID.randomUUID(), e164);
+      deletedAccounts.put(UUID.randomUUID(), e164, true);
       expectedAccountsNeedingReconciliation.add(e164);
     }
 
