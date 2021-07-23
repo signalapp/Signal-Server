@@ -5,13 +5,24 @@
 
 package org.whispersystems.textsecuregcm.tests.controllers;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
-import io.dropwizard.testing.junit.ResourceTestRule;
+import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
+import io.dropwizard.testing.junit5.ResourceExtension;
+import java.util.Collections;
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status.Family;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
@@ -19,37 +30,26 @@ import org.whispersystems.textsecuregcm.controllers.DirectoryController;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
-import javax.ws.rs.client.Entity;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status.Family;
-import java.util.Collections;
+@ExtendWith(DropwizardExtensionsSupport.class)
+class DirectoryControllerTest {
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+  private static final ExternalServiceCredentialGenerator directoryCredentialsGenerator = mock(ExternalServiceCredentialGenerator.class);
+  private static final ExternalServiceCredentials         validCredentials              = new ExternalServiceCredentials("username", "password");
 
-public class DirectoryControllerTest {
-
-  private final ExternalServiceCredentialGenerator directoryCredentialsGenerator = mock(ExternalServiceCredentialGenerator.class);
-  private final ExternalServiceCredentials         validCredentials              = new ExternalServiceCredentials("username", "password");
-
-  @Rule
-  public final ResourceTestRule resources = ResourceTestRule.builder()
+  private static final ResourceExtension resources = ResourceExtension.builder()
                                                             .addProvider(AuthHelper.getAuthFilter())
                                                             .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new DirectoryController(directoryCredentialsGenerator))
                                                             .build();
 
-  @Before
-  public void setup() {
+  @BeforeEach
+  void setup() {
     when(directoryCredentialsGenerator.generateFor(eq(AuthHelper.VALID_NUMBER))).thenReturn(validCredentials);
   }
 
   @Test
-  public void testFeedbackOk() {
+  void testFeedbackOk() {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/directory/feedback-v3/ok")
@@ -60,7 +60,7 @@ public class DirectoryControllerTest {
   }
 
   @Test
-  public void testGetAuthToken() {
+  void testGetAuthToken() {
     ExternalServiceCredentials token =
             resources.getJerseyTest()
                      .target("/v1/directory/auth")
@@ -72,7 +72,7 @@ public class DirectoryControllerTest {
   }
 
   @Test
-  public void testDisabledGetAuthToken() {
+  void testDisabledGetAuthToken() {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/directory/auth")
@@ -84,7 +84,7 @@ public class DirectoryControllerTest {
 
 
   @Test
-  public void testContactIntersection() {
+  void testContactIntersection() {
     Response response =
         resources.getJerseyTest()
                  .target("/v1/directory/tokens/")
