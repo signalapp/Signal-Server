@@ -12,9 +12,9 @@ import com.vdurmont.semver4j.SemverException;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
-import org.glassfish.jersey.server.ExtendedUriInfo;
 import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.glassfish.jersey.server.monitoring.RequestEventListener;
+import org.whispersystems.textsecuregcm.util.logging.UriInfoUtil;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgent;
@@ -71,7 +71,7 @@ public class MetricsRequestEventListener implements RequestEventListener {
         if (event.getType() == RequestEvent.Type.FINISHED) {
             if (!event.getUriInfo().getMatchedTemplates().isEmpty()) {
                 final List<Tag> tags = new ArrayList<>(5);
-                tags.add(Tag.of(PATH_TAG, getPathTemplate(event.getUriInfo())));
+                tags.add(Tag.of(PATH_TAG, UriInfoUtil.getPathTemplate(event.getUriInfo())));
                 tags.add(Tag.of(STATUS_CODE_TAG, String.valueOf(event.getContainerResponse().getStatus())));
                 tags.add(Tag.of(TRAFFIC_SOURCE_TAG, trafficSource.name().toLowerCase()));
 
@@ -149,14 +149,4 @@ public class MetricsRequestEventListener implements RequestEventListener {
         }
     }
 
-    @VisibleForTesting
-    static String getPathTemplate(final ExtendedUriInfo uriInfo) {
-        final StringBuilder pathBuilder = new StringBuilder();
-
-        for (int i = uriInfo.getMatchedTemplates().size() - 1; i >= 0; i--) {
-            pathBuilder.append(uriInfo.getMatchedTemplates().get(i).getTemplate());
-        }
-
-        return pathBuilder.toString();
-    }
 }

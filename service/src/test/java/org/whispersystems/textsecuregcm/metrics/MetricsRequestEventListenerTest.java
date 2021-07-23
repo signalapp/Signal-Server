@@ -125,18 +125,6 @@ public class MetricsRequestEventListenerTest {
     }
 
     @Test
-    public void testGetPathTemplate() {
-        final UriTemplate firstComponent = new UriTemplate("/first");
-        final UriTemplate secondComponent = new UriTemplate("/second");
-        final UriTemplate thirdComponent = new UriTemplate("/{param}/{moreDifferentParam}");
-
-        final ExtendedUriInfo uriInfo = mock(ExtendedUriInfo.class);
-        when(uriInfo.getMatchedTemplates()).thenReturn(Arrays.asList(thirdComponent, secondComponent, firstComponent));
-
-        assertEquals("/first/second/{param}/{moreDifferentParam}", MetricsRequestEventListener.getPathTemplate(uriInfo));
-    }
-
-    @Test
     public void testActualRouteMessageSuccess() throws InvalidProtocolBufferException {
         MetricsApplicationEventListener applicationEventListener = mock(MetricsApplicationEventListener.class);
         when(applicationEventListener.onRequest(any())).thenReturn(listener);

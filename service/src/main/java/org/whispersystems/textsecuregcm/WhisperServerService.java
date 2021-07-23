@@ -191,6 +191,7 @@ import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
 import org.whispersystems.textsecuregcm.util.HostnameUtil;
 import org.whispersystems.textsecuregcm.util.TorExitNodeManager;
+import org.whispersystems.textsecuregcm.util.logging.LoggingUnhandledExceptionMapper;
 import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
 import org.whispersystems.textsecuregcm.websocket.DeadLetterHandler;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningConnectListener;
@@ -625,18 +626,21 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
   }
 
   private void registerExceptionMappers(Environment environment, WebSocketEnvironment<Account> webSocketEnvironment, WebSocketEnvironment<Account> provisioningEnvironment) {
+    environment.jersey().register(new LoggingUnhandledExceptionMapper());
     environment.jersey().register(new IOExceptionMapper());
     environment.jersey().register(new RateLimitExceededExceptionMapper());
     environment.jersey().register(new InvalidWebsocketAddressExceptionMapper());
     environment.jersey().register(new DeviceLimitExceededExceptionMapper());
     environment.jersey().register(new RetryLaterExceptionMapper());
 
+    webSocketEnvironment.jersey().register(new LoggingUnhandledExceptionMapper());
     webSocketEnvironment.jersey().register(new IOExceptionMapper());
     webSocketEnvironment.jersey().register(new RateLimitExceededExceptionMapper());
     webSocketEnvironment.jersey().register(new InvalidWebsocketAddressExceptionMapper());
     webSocketEnvironment.jersey().register(new DeviceLimitExceededExceptionMapper());
     webSocketEnvironment.jersey().register(new RetryLaterExceptionMapper());
 
+    provisioningEnvironment.jersey().register(new LoggingUnhandledExceptionMapper());
     provisioningEnvironment.jersey().register(new IOExceptionMapper());
     provisioningEnvironment.jersey().register(new RateLimitExceededExceptionMapper());
     provisioningEnvironment.jersey().register(new InvalidWebsocketAddressExceptionMapper());
