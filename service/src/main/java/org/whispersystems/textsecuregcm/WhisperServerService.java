@@ -544,9 +544,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)));
     environment.jersey().register(new TimestampResponseFilter());
     environment.jersey().register(new VoiceVerificationController(config.getVoiceVerificationConfiguration().getUrl(), config.getVoiceVerificationConfiguration().getLocales()));
-    environment.jersey().register(new SecureStorageController(storageCredentialsGenerator));
-    environment.jersey().register(new SecureBackupController(backupCredentialsGenerator));
-    environment.jersey().register(new PaymentsController(currencyManager, paymentsCredentialsGenerator));
 
     ///
     WebSocketEnvironment<Account> webSocketEnvironment = new WebSocketEnvironment<>(environment, config.getWebSocketConfiguration(), 90000);
@@ -568,9 +565,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new DonationController(donationExecutor, config.getDonationConfiguration()),
         new KeysController(rateLimiters, keysDynamoDb, accountsManager, directoryQueue, preKeyRateLimiter, dynamicConfigurationManager, rateLimitChallengeManager),
         new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, messagesManager, unsealedSenderRateLimiter, apnFallbackManager, dynamicConfigurationManager, rateLimitChallengeManager, reportMessageManager, metricsCluster, declinedMessageReceiptExecutor),
+        new PaymentsController(currencyManager, paymentsCredentialsGenerator),
         new ProfileController(rateLimiters, accountsManager, profilesManager, usernamesManager, dynamicConfigurationManager, cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner, config.getCdnConfiguration().getBucket(), zkProfileOperations, isZkEnabled),
         new ProvisioningController(rateLimiters, provisioningManager),
         new RemoteConfigController(remoteConfigsManager, config.getRemoteConfigConfiguration().getAuthorizedTokens(), config.getRemoteConfigConfiguration().getGlobalConfig()),
+        new SecureBackupController(backupCredentialsGenerator),
+        new SecureStorageController(storageCredentialsGenerator),
         new StickerController(rateLimiters, config.getCdnConfiguration().getAccessKey(), config.getCdnConfiguration().getAccessSecret(), config.getCdnConfiguration().getRegion(), config.getCdnConfiguration().getBucket())
     );
     for (Object controller : commonControllers) {
