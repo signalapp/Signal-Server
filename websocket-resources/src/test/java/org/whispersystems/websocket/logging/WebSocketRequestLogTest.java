@@ -11,6 +11,7 @@ import io.dropwizard.logging.AbstractOutputStreamAppenderFactory;
 import org.glassfish.jersey.internal.MapPropertiesDelegate;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.ContainerResponse;
+import org.junit.Before;
 import org.junit.Test;
 import org.whispersystems.websocket.WebSocketSecurityContext;
 import org.whispersystems.websocket.session.ContextPrincipal;
@@ -29,6 +30,11 @@ import static org.mockito.Mockito.mock;
 
 public class WebSocketRequestLogTest {
 
+  @Before
+  public void beforeEachTest() {
+    Locale.setDefault(Locale.US);
+  }
+
   @Test
   public void testLogLineWithoutHeaders() throws InterruptedException {
     WebSocketSessionContext sessionContext = mock(WebSocketSessionContext.class);
@@ -37,7 +43,6 @@ public class WebSocketRequestLogTest {
     WebsocketRequestLoggerFactory requestLoggerFactory = new WebsocketRequestLoggerFactory();
     requestLoggerFactory.appenders = List.of(new ListAppenderFactory<>(listAppender));
 
-    Locale.setDefault(Locale.US);
     WebsocketRequestLog requestLog = requestLoggerFactory.build("test-logger");
     ContainerRequest    request    = new ContainerRequest (null, URI.create("/v1/test"), "GET", new WebSocketSecurityContext(new ContextPrincipal(sessionContext)), new MapPropertiesDelegate(new HashMap<>()), null);
     ContainerResponse   response   = new ContainerResponse(request, Response.ok("My response body").build());
@@ -59,7 +64,6 @@ public class WebSocketRequestLogTest {
     WebsocketRequestLoggerFactory requestLoggerFactory = new WebsocketRequestLoggerFactory();
     requestLoggerFactory.appenders = List.of(new ListAppenderFactory<>(listAppender));
 
-    Locale.setDefault(Locale.US);
     WebsocketRequestLog requestLog = requestLoggerFactory.build("test-logger");
     ContainerRequest    request    = new ContainerRequest (null, URI.create("/v1/test"), "GET", new WebSocketSecurityContext(new ContextPrincipal(sessionContext)), new MapPropertiesDelegate(new HashMap<>()), null);
     request.header("User-Agent", "SmertZeSmert");
