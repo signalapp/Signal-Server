@@ -574,8 +574,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new StickerController(rateLimiters, config.getCdnConfiguration().getAccessKey(), config.getCdnConfiguration().getAccessSecret(), config.getCdnConfiguration().getRegion(), config.getCdnConfiguration().getBucket())
     );
     for (Object controller : commonControllers) {
-      environment.jersey().register(controller);
-      webSocketEnvironment.jersey().register(controller);
+        environment.jersey().register(controller);
+        webSocketEnvironment.jersey().register(controller);
     }
 
     WebSocketEnvironment<Account> provisioningEnvironment = new WebSocketEnvironment<>(environment, webSocketEnvironment.getRequestLog(), 60000);
