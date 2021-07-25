@@ -22,6 +22,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -36,10 +37,10 @@ public class WebSocketRequestLogTest {
     WebsocketRequestLoggerFactory requestLoggerFactory = new WebsocketRequestLoggerFactory();
     requestLoggerFactory.appenders = List.of(new ListAppenderFactory<>(listAppender));
 
+    Locale.setDefault(Locale.US);
     WebsocketRequestLog requestLog = requestLoggerFactory.build("test-logger");
     ContainerRequest    request    = new ContainerRequest (null, URI.create("/v1/test"), "GET", new WebSocketSecurityContext(new ContextPrincipal(sessionContext)), new MapPropertiesDelegate(new HashMap<>()), null);
     ContainerResponse   response   = new ContainerResponse(request, Response.ok("My response body").build());
-
     requestLog.log("123.456.789.123", request, response);
 
     listAppender.waitForListSize(1);
@@ -57,6 +58,7 @@ public class WebSocketRequestLogTest {
     WebsocketRequestLoggerFactory requestLoggerFactory = new WebsocketRequestLoggerFactory();
     requestLoggerFactory.appenders = List.of(new ListAppenderFactory<>(listAppender));
 
+    Locale.setDefault(Locale.US);
     WebsocketRequestLog requestLog = requestLoggerFactory.build("test-logger");
     ContainerRequest    request    = new ContainerRequest (null, URI.create("/v1/test"), "GET", new WebSocketSecurityContext(new ContextPrincipal(sessionContext)), new MapPropertiesDelegate(new HashMap<>()), null);
     request.header("User-Agent", "SmertZeSmert");
