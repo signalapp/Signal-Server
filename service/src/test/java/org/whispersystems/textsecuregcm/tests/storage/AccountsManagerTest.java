@@ -75,6 +75,7 @@ class AccountsManagerTest {
   private ExperimentEnrollmentManager experimentEnrollmentManager;
   private KeysDynamoDb keys;
   private MessagesManager messagesManager;
+  private ProfilesManager profilesManager;
 
   private RedisAdvancedClusterCommands<String, String> commands;
   private AccountsManager accountsManager;
@@ -97,6 +98,7 @@ class AccountsManagerTest {
     experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
     keys = mock(KeysDynamoDb.class);
     messagesManager = mock(MessagesManager.class);
+    profilesManager = mock(ProfilesManager.class);
 
     //noinspection unchecked
     commands = mock(RedisAdvancedClusterCommands.class);
@@ -119,7 +121,7 @@ class AccountsManagerTest {
         keys,
         messagesManager,
         mock(UsernamesManager.class),
-        mock(ProfilesManager.class),
+        profilesManager,
         mock(StoredVerificationCodeManager.class),
         mock(SecureStorageClient.class),
         mock(SecureBackupClient.class),
@@ -545,6 +547,7 @@ class AccountsManagerTest {
     verify(accounts).create(argThat(account -> e164.equals(account.getNumber())));
     verifyNoInteractions(keys);
     verifyNoInteractions(messagesManager);
+    verifyNoInteractions(profilesManager);
   }
 
   @Test
@@ -563,6 +566,7 @@ class AccountsManagerTest {
     verify(accounts).create(argThat(account -> e164.equals(account.getNumber()) && existingUuid.equals(account.getUuid())));
     verify(keys).delete(existingUuid);
     verify(messagesManager).clear(existingUuid);
+    verify(profilesManager).deleteAll(existingUuid);
   }
 
   @Test
@@ -584,6 +588,7 @@ class AccountsManagerTest {
     verify(accounts).create(argThat(account -> e164.equals(account.getNumber()) && recentlyDeletedUuid.equals(account.getUuid())));
     verifyNoInteractions(keys);
     verifyNoInteractions(messagesManager);
+    verifyNoInteractions(profilesManager);
   }
 
   @ParameterizedTest

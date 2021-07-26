@@ -223,6 +223,7 @@ public class AccountsManager {
         if (!originalUuid.equals(actualUuid)) {
           messagesManager.clear(actualUuid);
           keysDynamoDb.delete(actualUuid);
+          profilesManager.deleteAll(actualUuid);
         }
 
         final Tags tags;
