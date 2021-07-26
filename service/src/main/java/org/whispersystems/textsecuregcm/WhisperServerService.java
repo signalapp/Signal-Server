@@ -515,6 +515,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(currencyManager);
     environment.lifecycle().manage(torExitNodeManager);
     environment.lifecycle().manage(asnManager);
+    environment.lifecycle().manage(directoryQueue);
 
     StaticCredentialsProvider cdnCredentialsProvider = StaticCredentialsProvider
         .create(AwsBasicCredentials.create(
