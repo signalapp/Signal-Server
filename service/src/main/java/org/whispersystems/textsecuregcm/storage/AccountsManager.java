@@ -143,90 +143,106 @@ public class AccountsManager {
   public Account create(final String number,
       final String password,
       final String signalAgent,
-      final AccountAttributes accountAttributes) {
+      final AccountAttributes accountAttributes) throws InterruptedException {
 
     try (Timer.Context ignored = createTimer.time()) {
-      Optional<Account> maybeExistingAccount = get(number);
+      final Account account = new Account();
 
-      Device device = new Device();
-      device.setId(Device.MASTER_ID);
-      device.setAuthenticationCredentials(new AuthenticationCredentials(password));
-      device.setFetchesMessages(accountAttributes.getFetchesMessages());
-      device.setRegistrationId(accountAttributes.getRegistrationId());
-      device.setName(accountAttributes.getName());
-      device.setCapabilities(accountAttributes.getCapabilities());
-      device.setCreated(System.currentTimeMillis());
-      device.setLastSeen(Util.todayInMillis());
-      device.setUserAgent(signalAgent);
+      deletedAccountsManager.lockAndTake(number, maybeRecentlyDeletedUuid -> {
+        Device device = new Device();
+        device.setId(Device.MASTER_ID);
+        device.setAuthenticationCredentials(new AuthenticationCredentials(password));
+        device.setFetchesMessages(accountAttributes.getFetchesMessages());
+        device.setRegistrationId(accountAttributes.getRegistrationId());
+        device.setName(accountAttributes.getName());
+        device.setCapabilities(accountAttributes.getCapabilities());
+        device.setCreated(System.currentTimeMillis());
+        device.setLastSeen(Util.todayInMillis());
+        device.setUserAgent(signalAgent);
 
-      Account account = new Account();
-      account.setNumber(number);
-      account.setUuid(UUID.randomUUID());
-      account.addDevice(device);
-      account.setRegistrationLockFromAttributes(accountAttributes);
-      account.setUnidentifiedAccessKey(accountAttributes.getUnidentifiedAccessKey());
-      account.setUnrestrictedUnidentifiedAccess(accountAttributes.isUnrestrictedUnidentifiedAccess());
-      account.setDiscoverableByPhoneNumber(accountAttributes.isDiscoverableByPhoneNumber());
+        account.setNumber(number);
+        account.setUuid(maybeRecentlyDeletedUuid.orElseGet(UUID::randomUUID));
+        account.addDevice(device);
+        account.setRegistrationLockFromAttributes(accountAttributes);
+        account.setUnidentifiedAccessKey(accountAttributes.getUnidentifiedAccessKey());
+        account.setUnrestrictedUnidentifiedAccess(accountAttributes.isUnrestrictedUnidentifiedAccess());
+        account.setDiscoverableByPhoneNumber(accountAttributes.isDiscoverableByPhoneNumber());
 
-      final UUID originalUuid = account.getUuid();
-      boolean freshUser = databaseCreate(account);
+        final UUID originalUuid = account.getUuid();
 
-      // databaseCreate() sometimes updates the UUID, if there was a number conflict.
-      // for metrics, we want dynamo to run with the same original UUID
-      final UUID actualUuid = account.getUuid();
+        boolean freshUser = databaseCreate(account);
 
-      try {
-        if (dynamoWriteEnabled()) {
+        // databaseCreate() sometimes updates the UUID, if there was a number conflict.
+        // for metrics, we want dynamo to run with the same original UUID
+        final UUID actualUuid = account.getUuid();
 
-          account.setUuid(originalUuid);
+        try {
+          if (dynamoWriteEnabled()) {
 
-          runSafelyAndRecordMetrics(() -> dynamoCreate(account), Optional.of(account.getUuid()), freshUser,
-              (databaseResult, dynamoResult) -> {
+            account.setUuid(originalUuid);
 
-                if (!account.getUuid().equals(actualUuid)) {
-                  logger.warn("dynamoCreate() did not return correct UUID");
-                }
+            runSafelyAndRecordMetrics(() -> dynamoCreate(account), Optional.of(account.getUuid()), freshUser,
+                (databaseResult, dynamoResult) -> {
 
-                if (databaseResult.equals(dynamoResult)) {
-                  return Optional.empty();
-                }
+                  if (!account.getUuid().equals(actualUuid)) {
+                    logger.warn("dynamoCreate() did not return correct UUID");
+                  }
 
-                if (dynamoResult) {
-                  return Optional.of("dynamoFreshUser");
-                }
+                  if (databaseResult.equals(dynamoResult)) {
+                    return Optional.empty();
+                  }
 
-                return Optional.of("dbFreshUser");
-              },
-              "create");
+                  if (dynamoResult) {
+                    return Optional.of("dynamoFreshUser");
+                  }
+
+                  return Optional.of("dbFreshUser");
+                },
+                "create");
+          }
+        } finally {
+          account.setUuid(actualUuid);
         }
-      } finally {
-        account.setUuid(actualUuid);
-      }
 
-      redisSet(account);
+        redisSet(account);
 
-      final Tags tags;
+        pendingAccounts.remove(number);
 
-      if (freshUser) {
-        tags = Tags.of("type", "new");
-        newUserMeter.mark();
-      } else {
-        tags = Tags.of("type", "reregister");
-      }
+        // In terms of previously-existing accounts, there are three possible cases:
+        //
+        // 1. This is a completely new account; there was no pre-existing account and no recently-deleted account
+        // 2. This is a re-registration of an existing account. The storage layer will update the existing account in
+        //    place to match the account record created above, and will update the UUID of the newly-created account
+        //    instance to match the stored account record (i.e. originalUuid != actualUuid).
+        // 3. This is a re-registration of a recently-deleted account, in which case maybeRecentlyDeletedUuid is
+        //    present.
+        //
+        // All cases are mutually-exclusive. In the first case, we don't need to do anything. In the third, we can be
+        // confident that everything has already been deleted. In the second case, though, we're taking over an existing
+        // account and need to clear out messages and keys that may have been stored for the old account.
+        if (!originalUuid.equals(actualUuid)) {
+          messagesManager.clear(actualUuid);
+          keysDynamoDb.delete(actualUuid);
+        }
 
-      Metrics.counter(CREATE_COUNTER_NAME, tags).increment();
+        final Tags tags;
 
-      if (!account.isDiscoverableByPhoneNumber()) {
-        // The newly-created account has explicitly opted out of discoverability
-        directoryQueue.deleteAccount(account);
-      }
+        if (freshUser) {
+          tags = Tags.of("type", "new");
+          newUserMeter.mark();
+        } else if (!originalUuid.equals(actualUuid)) {
+          tags = Tags.of("type", "re-registration");
+        } else {
+          tags = Tags.of("type", "recently-deleted");
+        }
 
-      maybeExistingAccount.ifPresent(definitelyExistingAccount -> {
-        messagesManager.clear(definitelyExistingAccount.getUuid());
-        keysDynamoDb.delete(definitelyExistingAccount.getUuid());
+        Metrics.counter(CREATE_COUNTER_NAME, tags).increment();
+
+        if (!account.isDiscoverableByPhoneNumber()) {
+          // The newly-created account has explicitly opted out of discoverability
+          directoryQueue.deleteAccount(account);
+        }
       });
-
-      pendingAccounts.remove(number);
 
       return account;
     }

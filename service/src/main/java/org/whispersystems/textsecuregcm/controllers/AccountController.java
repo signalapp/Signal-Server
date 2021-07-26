@@ -331,8 +331,7 @@ public class AccountController {
                                              @HeaderParam("User-Agent")      String userAgent,
                                              @QueryParam("transfer")         Optional<Boolean> availableForTransfer,
                                              @Valid                          AccountAttributes accountAttributes)
-      throws RateLimitExceededException
-  {
+      throws RateLimitExceededException, InterruptedException {
     try {
       AuthorizationHeader header = AuthorizationHeader.fromFullHeader(authorizationHeader);
       String number              = header.getIdentifier().getNumber();

@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doAnswer;
@@ -68,9 +69,12 @@ class AccountsManagerTest {
 
   private Accounts accounts;
   private AccountsDynamoDb accountsDynamoDb;
+  private DeletedAccountsManager deletedAccountsManager;
   private DirectoryQueue directoryQueue;
   private DynamicConfigurationManager dynamicConfigurationManager;
   private ExperimentEnrollmentManager experimentEnrollmentManager;
+  private KeysDynamoDb keys;
+  private MessagesManager messagesManager;
 
   private RedisAdvancedClusterCommands<String, String> commands;
   private AccountsManager accountsManager;
@@ -84,12 +88,15 @@ class AccountsManagerTest {
   };
 
   @BeforeEach
-  void setup() {
+  void setup() throws InterruptedException {
     accounts = mock(Accounts.class);
     accountsDynamoDb = mock(AccountsDynamoDb.class);
+    deletedAccountsManager = mock(DeletedAccountsManager.class);
     directoryQueue = mock(DirectoryQueue.class);
     dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
     experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
+    keys = mock(KeysDynamoDb.class);
+    messagesManager = mock(MessagesManager.class);
 
     //noinspection unchecked
     commands = mock(RedisAdvancedClusterCommands.class);
@@ -97,14 +104,20 @@ class AccountsManagerTest {
     final DynamicConfiguration dynamicConfiguration = new DynamicConfiguration();
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
+    doAnswer(invocation -> {
+      //noinspection unchecked
+      invocation.getArgument(1, Consumer.class).accept(Optional.empty());
+      return null;
+    }).when(deletedAccountsManager).lockAndTake(anyString(), any());
+
     accountsManager = new AccountsManager(
         accounts,
         accountsDynamoDb,
         RedisClusterHelper.buildMockRedisCluster(commands),
-        mock(DeletedAccountsManager.class),
+        deletedAccountsManager,
         directoryQueue,
-        mock(KeysDynamoDb.class),
-        mock(MessagesManager.class),
+        keys,
+        messagesManager,
         mock(UsernamesManager.class),
         mock(ProfilesManager.class),
         mock(StoredVerificationCodeManager.class),
@@ -521,9 +534,61 @@ class AccountsManagerTest {
     assertEquals(Optional.of("profileName"), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
   }
 
+  @Test
+  void testCreateFreshAccount() throws InterruptedException {
+    when(accounts.create(any())).thenReturn(true);
+
+    final String e164 = "+18005550123";
+    final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, null, true, null);
+    accountsManager.create(e164, "password", null, attributes);
+
+    verify(accounts).create(argThat(account -> e164.equals(account.getNumber())));
+    verifyNoInteractions(keys);
+    verifyNoInteractions(messagesManager);
+  }
+
+  @Test
+  void testReregisterAccount() throws InterruptedException {
+    final UUID existingUuid = UUID.randomUUID();
+
+    when(accounts.create(any())).thenAnswer(invocation -> {
+      invocation.getArgument(0, Account.class).setUuid(existingUuid);
+      return false;
+    });
+
+    final String e164 = "+18005550123";
+    final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, null, true, null);
+    accountsManager.create(e164, "password", null, attributes);
+
+    verify(accounts).create(argThat(account -> e164.equals(account.getNumber()) && existingUuid.equals(account.getUuid())));
+    verify(keys).delete(existingUuid);
+    verify(messagesManager).clear(existingUuid);
+  }
+
+  @Test
+  void testCreateAccountRecentlyDeleted() throws InterruptedException {
+    final UUID recentlyDeletedUuid = UUID.randomUUID();
+
+    doAnswer(invocation -> {
+      //noinspection unchecked
+      invocation.getArgument(1, Consumer.class).accept(Optional.of(recentlyDeletedUuid));
+      return null;
+    }).when(deletedAccountsManager).lockAndTake(anyString(), any());
+
+    when(accounts.create(any())).thenReturn(true);
+
+    final String e164 = "+18005550123";
+    final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, null, true, null);
+    accountsManager.create(e164, "password", null, attributes);
+
+    verify(accounts).create(argThat(account -> e164.equals(account.getNumber()) && recentlyDeletedUuid.equals(account.getUuid())));
+    verifyNoInteractions(keys);
+    verifyNoInteractions(messagesManager);
+  }
+
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
-  void testCreateWithDiscoverability(final boolean discoverable) {
+  void testCreateWithDiscoverability(final boolean discoverable) throws InterruptedException {
     final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, null, discoverable, null);
     final Account account = accountsManager.create("+18005550123", "password", null, attributes);
 
@@ -536,7 +601,7 @@ class AccountsManagerTest {
 
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
-  void testCreateWithStorageCapability(final boolean hasStorage) {
+  void testCreateWithStorageCapability(final boolean hasStorage) throws InterruptedException {
     final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, null, true,
         new DeviceCapabilities(false, false, false, hasStorage, false, false, false, false));
 
