@@ -79,7 +79,7 @@ class DeletedAccountsManagerTest {
     final UUID uuid = UUID.randomUUID();
     final String e164 = "+18005551234";
 
-    deletedAccountsManager.addRecentlyDeletedAccount(uuid, e164);
+    deletedAccounts.put(uuid, e164, true);
     deletedAccountsManager.lockAndTake(e164, maybeUuid -> assertEquals(Optional.of(uuid), maybeUuid));
     assertEquals(Optional.empty(), deletedAccounts.findUuid(e164));
   }
@@ -89,7 +89,7 @@ class DeletedAccountsManagerTest {
     final UUID uuid = UUID.randomUUID();
     final String e164 = "+18005551234";
 
-    deletedAccountsManager.addRecentlyDeletedAccount(uuid, e164);
+    deletedAccounts.put(uuid, e164, true);
 
     deletedAccountsManager.lockAndTake(e164, maybeUuid -> {
       assertEquals(Optional.of(uuid), maybeUuid);
@@ -100,7 +100,7 @@ class DeletedAccountsManagerTest {
   }
 
   @Test
-  void testReconciliationLockContention() throws ChunkProcessingFailedException, InterruptedException {
+  void testReconciliationLockContention() throws ChunkProcessingFailedException {
 
     final UUID[] uuids = new UUID[3];
     final String[] e164s = new String[uuids.length];
@@ -113,7 +113,7 @@ class DeletedAccountsManagerTest {
     final Map<String, UUID> expectedReconciledAccounts = new HashMap<>();
 
     for (int i = 0; i < uuids.length; i++) {
-      deletedAccountsManager.addRecentlyDeletedAccount(uuids[i], e164s[i]);
+      deletedAccounts.put(uuids[i], e164s[i], true);
       expectedReconciledAccounts.put(e164s[i], uuids[i]);
     }
 
@@ -122,7 +122,7 @@ class DeletedAccountsManagerTest {
 
     final Thread putThread = new Thread(() -> {
       try {
-        deletedAccountsManager.addRecentlyDeletedAccount(replacedUUID, e164s[0]);
+        deletedAccountsManager.lockAndPut(e164s[0], () -> replacedUUID);
       } catch (InterruptedException e) {
         throw new RuntimeException(e);
       }
