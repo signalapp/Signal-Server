@@ -102,7 +102,7 @@ public class DeviceController {
 
     messages.clear(account.getUuid(), deviceId);
     account = accounts.update(account, a -> a.removeDevice(deviceId));
-    keys.delete(account, deviceId);
+    keys.delete(account.getUuid(), deviceId);
     // ensure any messages that came in after the first clear() are also removed
     messages.clear(account.getUuid(), deviceId);
   }

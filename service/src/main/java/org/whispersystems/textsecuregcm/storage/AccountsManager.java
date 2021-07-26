@@ -223,7 +223,7 @@ public class AccountsManager {
 
       maybeExistingAccount.ifPresent(definitelyExistingAccount -> {
         messagesManager.clear(definitelyExistingAccount.getUuid());
-        keysDynamoDb.delete(definitelyExistingAccount);
+        keysDynamoDb.delete(definitelyExistingAccount.getUuid());
       });
 
       pendingAccounts.remove(number);
@@ -393,7 +393,7 @@ public class AccountsManager {
       usernamesManager.delete(account.getUuid());
       directoryQueue.deleteAccount(account);
       profilesManager.deleteAll(account.getUuid());
-      keysDynamoDb.delete(account);
+      keysDynamoDb.delete(account.getUuid());
       messagesManager.clear(account.getUuid());
 
       deleteStorageServiceDataFuture.join();

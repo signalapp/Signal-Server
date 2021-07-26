@@ -116,7 +116,7 @@ public class KeysDynamoDbTest {
         assertEquals(2, keysDynamoDb.getCount(account, DEVICE_ID));
         assertEquals(1, keysDynamoDb.getCount(account, DEVICE_ID + 1));
 
-        keysDynamoDb.delete(account);
+        keysDynamoDb.delete(account.getUuid());
 
         assertEquals(0, keysDynamoDb.getCount(account, DEVICE_ID));
         assertEquals(0, keysDynamoDb.getCount(account, DEVICE_ID + 1));
@@ -130,7 +130,7 @@ public class KeysDynamoDbTest {
         assertEquals(2, keysDynamoDb.getCount(account, DEVICE_ID));
         assertEquals(1, keysDynamoDb.getCount(account, DEVICE_ID + 1));
 
-        keysDynamoDb.delete(account, DEVICE_ID);
+        keysDynamoDb.delete(account.getUuid(), DEVICE_ID);
 
         assertEquals(0, keysDynamoDb.getCount(account, DEVICE_ID));
         assertEquals(1, keysDynamoDb.getCount(account, DEVICE_ID + 1));

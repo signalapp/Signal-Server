@@ -56,7 +56,7 @@ public class KeysDynamoDb extends AbstractDynamoDbStore {
 
   public void store(final Account account, final long deviceId, final List<PreKey> keys) {
     STORE_KEYS_TIMER.record(() -> {
-      delete(account, deviceId);
+      delete(account.getUuid(), deviceId);
 
       writeInBatches(keys, batch -> {
         List<WriteRequest> items = new ArrayList<>();
@@ -152,41 +152,41 @@ public class KeysDynamoDb extends AbstractDynamoDbStore {
     });
   }
 
-  public void delete(final Account account) {
+  public void delete(final UUID accountUuid) {
     DELETE_KEYS_FOR_ACCOUNT_TIMER.record(() -> {
       final QueryRequest queryRequest = QueryRequest.builder()
           .tableName(tableName)
           .keyConditionExpression("#uuid = :uuid")
           .expressionAttributeNames(Map.of("#uuid", KEY_ACCOUNT_UUID))
           .expressionAttributeValues(Map.of(
-              ":uuid", getPartitionKey(account.getUuid())))
+              ":uuid", getPartitionKey(accountUuid)))
           .projectionExpression(KEY_DEVICE_ID_KEY_ID)
           .consistentRead(true)
           .build();
 
-      deleteItemsForAccountMatchingQuery(account, queryRequest);
+      deleteItemsForAccountMatchingQuery(accountUuid, queryRequest);
     });
   }
 
-  public void delete(final Account account, final long deviceId) {
+  public void delete(final UUID accountUuid, final long deviceId) {
     DELETE_KEYS_FOR_DEVICE_TIMER.record(() -> {
       final QueryRequest queryRequest = QueryRequest.builder()
           .tableName(tableName)
           .keyConditionExpression("#uuid = :uuid AND begins_with (#sort, :sortprefix)")
           .expressionAttributeNames(Map.of("#uuid", KEY_ACCOUNT_UUID, "#sort", KEY_DEVICE_ID_KEY_ID))
           .expressionAttributeValues(Map.of(
-              ":uuid", getPartitionKey(account.getUuid()),
+              ":uuid", getPartitionKey(accountUuid),
               ":sortprefix", getSortKeyPrefix(deviceId)))
           .projectionExpression(KEY_DEVICE_ID_KEY_ID)
           .consistentRead(true)
           .build();
 
-      deleteItemsForAccountMatchingQuery(account, queryRequest);
+      deleteItemsForAccountMatchingQuery(accountUuid, queryRequest);
     });
   }
 
-  private void deleteItemsForAccountMatchingQuery(final Account account, final QueryRequest querySpec) {
-    final AttributeValue partitionKey = getPartitionKey(account.getUuid());
+  private void deleteItemsForAccountMatchingQuery(final UUID accountUuid, final QueryRequest querySpec) {
+    final AttributeValue partitionKey = getPartitionKey(accountUuid);
 
     writeInBatches(db().query(querySpec).items(), batch -> {
       List<WriteRequest> deletes = new ArrayList<>();

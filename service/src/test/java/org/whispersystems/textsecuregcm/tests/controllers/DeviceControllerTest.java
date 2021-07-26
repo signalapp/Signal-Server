@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
@@ -382,9 +381,7 @@ class DeviceControllerTest {
     verify(messagesManager, times(2)).clear(AuthHelper.VALID_UUID, deviceId);
     verify(accountsManager, times(1)).update(eq(AuthHelper.VALID_ACCOUNT), any());
     verify(AuthHelper.VALID_ACCOUNT).removeDevice(deviceId);
-    
-    // The account instance may have changed as part of a call to `AccountManager#update`
-    verify(keys).delete(argThat(account -> account.getUuid().equals(AuthHelper.VALID_UUID)), eq(deviceId));
+    verify(keys).delete(AuthHelper.VALID_UUID, deviceId);
   }
 
 }
