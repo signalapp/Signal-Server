@@ -68,7 +68,6 @@ public class AccountsManager {
 
   private static final String CREATE_COUNTER_NAME       = name(AccountsManager.class, "createCounter");
   private static final String DELETE_COUNTER_NAME       = name(AccountsManager.class, "deleteCounter");
-  private static final String DELETE_ERROR_COUNTER_NAME = name(AccountsManager.class, "deleteError");
   private static final String COUNTRY_CODE_TAG_NAME     = "country";
   private static final String DELETION_REASON_TAG_NAME  = "reason";
 
@@ -432,11 +431,6 @@ public class AccountsManager {
 
     } catch (final RuntimeException | InterruptedException e) {
       logger.warn("Failed to delete account", e);
-
-      Metrics.counter(DELETE_ERROR_COUNTER_NAME,
-          COUNTRY_CODE_TAG_NAME, Util.getCountryCode(account.getNumber()),
-          DELETION_REASON_TAG_NAME, deletionReason.tagValue).increment();
-
       throw e;
     }
 
