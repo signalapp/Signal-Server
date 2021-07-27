@@ -37,6 +37,11 @@ public class DynamicAccountsDynamoDbMigrationConfiguration {
     return backgroundMigrationExecutorThreads;
   }
 
+  @VisibleForTesting
+  public void setBackgroundMigrationEnabled(boolean backgroundMigrationEnabled) {
+    this.backgroundMigrationEnabled = backgroundMigrationEnabled;
+  }
+
   public void setDeleteEnabled(boolean deleteEnabled) {
     this.deleteEnabled = deleteEnabled;
   }
@@ -72,5 +77,15 @@ public class DynamicAccountsDynamoDbMigrationConfiguration {
 
   public int getDynamoCrawlerScanPageSize() {
     return dynamoCrawlerScanPageSize;
+  }
+
+  @VisibleForTesting
+  public void setLogMismatches(boolean logMismatches) {
+    this.logMismatches = logMismatches;
+  }
+
+  @VisibleForTesting
+  public void setBackgroundMigrationExecutorThreads(int threads) {
+    this.backgroundMigrationExecutorThreads = threads;
   }
 }
