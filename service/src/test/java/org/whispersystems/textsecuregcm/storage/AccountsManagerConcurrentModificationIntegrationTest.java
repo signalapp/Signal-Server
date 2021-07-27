@@ -44,6 +44,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicAccountsDynamoDbMigrationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
@@ -154,6 +155,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(MessagesManager.class),
           mock(UsernamesManager.class),
           mock(ProfilesManager.class),
+          mock(StoredVerificationCodeManager.class),
           mock(SecureStorageClient.class),
           mock(SecureBackupClient.class),
           experimentEnrollmentManager,
@@ -164,9 +166,30 @@ class AccountsManagerConcurrentModificationIntegrationTest {
   @Test
   void testConcurrentUpdate() throws IOException {
 
-    final UUID uuid = UUID.randomUUID();
+    final UUID uuid;
+    {
+      final Account account = accountsManager.update(
+          accountsManager.create("+14155551212", "password", null, new AccountAttributes()),
+          a -> {
+            a.setUnidentifiedAccessKey(new byte[16]);
 
-    accountsManager.create(generateAccount("+14155551212", uuid));
+            final Random random = new Random();
+            final SignedPreKey signedPreKey = new SignedPreKey(random.nextInt(), "testPublicKey-" + random.nextInt(),
+                "testSignature-" + random.nextInt());
+
+            a.removeDevice(1);
+            a.addDevice(new Device(1, "testName-" + random.nextInt(), "testAuthToken-" + random.nextInt(),
+                "testSalt-" + random.nextInt(),
+                "testGcmId-" + random.nextInt(), "testApnId-" + random.nextInt(), "testVoipApnId-" + random.nextInt(),
+                random.nextBoolean(), random.nextInt(), signedPreKey, random.nextInt(), random.nextInt(),
+                "testUserAgent-" + random.nextInt(), 0,
+                new Device.DeviceCapabilities(random.nextBoolean(), random.nextBoolean(), random.nextBoolean(),
+                    random.nextBoolean(), random.nextBoolean(), random.nextBoolean(),
+                    random.nextBoolean(), random.nextBoolean())));
+          });
+
+      uuid = account.getUuid();
+    }
 
     final String profileName = "name";
     final String avatar = "avatar";
@@ -249,26 +272,4 @@ class AccountsManagerConcurrentModificationIntegrationTest {
       accountsManager.updateDevice(account, deviceId, deviceMutation);
     }, mutationExecutor);
   }
-
-  private Account generateAccount(String number, UUID uuid) {
-    Device device = generateDevice(1);
-    return generateAccount(number, uuid, Collections.singleton(device));
-  }
-
-  private Account generateAccount(String number, UUID uuid, Set<Device> devices) {
-    byte[]       unidentifiedAccessKey = new byte[16];
-    Random random = new Random(System.currentTimeMillis());
-    Arrays.fill(unidentifiedAccessKey, (byte)random.nextInt(255));
-
-    return new Account(number, uuid, devices, unidentifiedAccessKey);
-  }
-
-  private Device generateDevice(long id) {
-    Random       random       = new Random(System.currentTimeMillis());
-    SignedPreKey signedPreKey = new SignedPreKey(random.nextInt(), "testPublicKey-" + random.nextInt(), "testSignature-" + random.nextInt());
-    return new Device(id, "testName-" + random.nextInt(), "testAuthToken-" + random.nextInt(), "testSalt-" + random.nextInt(),
-        "testGcmId-" + random.nextInt(), "testApnId-" + random.nextInt(), "testVoipApnId-" + random.nextInt(), random.nextBoolean(), random.nextInt(), signedPreKey, random.nextInt(), random.nextInt(), "testUserAgent-" + random.nextInt() , 0, new Device.DeviceCapabilities(random.nextBoolean(), random.nextBoolean(), random.nextBoolean(), random.nextBoolean(), random.nextBoolean(), random.nextBoolean(),
-        random.nextBoolean(), random.nextBoolean()));
-  }
-
 }

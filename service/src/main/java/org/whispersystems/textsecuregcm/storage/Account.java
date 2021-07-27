@@ -17,7 +17,10 @@ import javax.security.auth.Subject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
+import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
+import org.whispersystems.textsecuregcm.entities.AccountAttributes;
+import org.whispersystems.textsecuregcm.util.Util;
 
 public class Account implements Principal  {
 
@@ -310,6 +313,18 @@ public class Account implements Principal  {
     requireNotStale();
 
     this.pin = pin;
+  }
+
+  public void setRegistrationLockFromAttributes(final AccountAttributes attributes) {
+    if (!Util.isEmpty(attributes.getPin())) {
+      setPin(attributes.getPin());
+    } else if (!Util.isEmpty(attributes.getRegistrationLock())) {
+      AuthenticationCredentials credentials = new AuthenticationCredentials(attributes.getRegistrationLock());
+      setRegistrationLock(credentials.getHashedAuthenticationToken(), credentials.getSalt());
+    } else {
+      setPin(null);
+      setRegistrationLock(null, null);
+    }
   }
 
   public void setRegistrationLock(String registrationLock, String registrationLockSalt) {

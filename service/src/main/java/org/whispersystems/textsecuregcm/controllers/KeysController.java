@@ -55,7 +55,6 @@ public class KeysController {
   private final RateLimiters                rateLimiters;
   private final KeysDynamoDb                keysDynamoDb;
   private final AccountsManager             accounts;
-  private final DirectoryQueue              directoryQueue;
   private final PreKeyRateLimiter           preKeyRateLimiter;
 
   private final DynamicConfigurationManager dynamicConfigurationManager;
@@ -69,13 +68,12 @@ public class KeysController {
   private static final String PREKEY_TARGET_IDENTIFIER_TAG_NAME =  "identifierType";
 
   public KeysController(RateLimiters rateLimiters, KeysDynamoDb keysDynamoDb, AccountsManager accounts,
-      DirectoryQueue directoryQueue, PreKeyRateLimiter preKeyRateLimiter,
+      PreKeyRateLimiter preKeyRateLimiter,
       DynamicConfigurationManager dynamicConfigurationManager,
       RateLimitChallengeManager rateLimitChallengeManager) {
     this.rateLimiters                = rateLimiters;
     this.keysDynamoDb                = keysDynamoDb;
     this.accounts                    = accounts;
-    this.directoryQueue              = directoryQueue;
     this.preKeyRateLimiter           = preKeyRateLimiter;
 
     this.dynamicConfigurationManager = dynamicConfigurationManager;
@@ -100,7 +98,6 @@ public class KeysController {
   public void setKeys(@Auth DisabledPermittedAccount disabledPermittedAccount, @Valid PreKeyState preKeys)  {
     Account account           = disabledPermittedAccount.getAccount();
     Device  device            = account.getAuthenticatedDevice().get();
-    boolean wasAccountEnabled = account.isEnabled();
     boolean updateAccount     = false;
 
     if (!preKeys.getSignedPreKey().equals(device.getSignedPreKey())) {
@@ -116,10 +113,6 @@ public class KeysController {
         a.getDevice(device.getId()).ifPresent(d -> d.setSignedPreKey(preKeys.getSignedPreKey()));
         a.setIdentityKey(preKeys.getIdentityKey());
       });
-
-      if (!wasAccountEnabled && account.isEnabled()) {
-        directoryQueue.refreshRegisteredUser(account);
-      }
     }
 
     keysDynamoDb.store(account, device.getId(), preKeys.getPreKeys());
@@ -198,14 +191,9 @@ public class KeysController {
   @Path("/signed")
   @Consumes(MediaType.APPLICATION_JSON)
   public void setSignedKey(@Auth Account account, @Valid SignedPreKey signedPreKey) {
-    Device  device            = account.getAuthenticatedDevice().get();
-    boolean wasAccountEnabled = account.isEnabled();
+    Device device = account.getAuthenticatedDevice().get();
 
-    account = accounts.updateDevice(account, device.getId(), d -> d.setSignedPreKey(signedPreKey));
-
-    if (!wasAccountEnabled && account.isEnabled()) {
-      directoryQueue.refreshRegisteredUser(account);
-    }
+    accounts.updateDevice(account, device.getId(), d -> d.setSignedPreKey(signedPreKey));
   }
 
   @Timed

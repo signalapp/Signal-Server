@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
+import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
@@ -17,6 +18,7 @@ import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
@@ -34,6 +36,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
+import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
+import org.whispersystems.textsecuregcm.controllers.AccountController;
+import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
@@ -52,11 +57,16 @@ public class AccountsManager {
   private static final Timer          getByUuidTimer   = metricRegistry.timer(name(AccountsManager.class, "getByUuid"  ));
   private static final Timer          deleteTimer      = metricRegistry.timer(name(AccountsManager.class, "delete"));
 
+  // TODO Remove this meter when external dependencies have been resolved
+  // Note that this is deliberately namespaced to `AccountController` for metric continuity.
+  private static final Meter newUserMeter = metricRegistry.meter(name(AccountController.class, "brand_new_user"));
+
   private static final Timer redisSetTimer       = metricRegistry.timer(name(AccountsManager.class, "redisSet"      ));
   private static final Timer redisNumberGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisNumberGet"));
   private static final Timer redisUuidGetTimer   = metricRegistry.timer(name(AccountsManager.class, "redisUuidGet"  ));
   private static final Timer redisDeleteTimer    = metricRegistry.timer(name(AccountsManager.class, "redisDelete"   ));
 
+  private static final String CREATE_COUNTER_NAME       = name(AccountsManager.class, "createCounter");
   private static final String DELETE_COUNTER_NAME       = name(AccountsManager.class, "deleteCounter");
   private static final String DELETE_ERROR_COUNTER_NAME = name(AccountsManager.class, "deleteError");
   private static final String COUNTRY_CODE_TAG_NAME     = "country";
@@ -77,6 +87,7 @@ public class AccountsManager {
   private final MessagesManager           messagesManager;
   private final UsernamesManager          usernamesManager;
   private final ProfilesManager           profilesManager;
+  private final StoredVerificationCodeManager pendingAccounts;
   private final SecureStorageClient       secureStorageClient;
   private final SecureBackupClient        secureBackupClient;
   private final ObjectMapper              mapper;
@@ -102,7 +113,9 @@ public class AccountsManager {
       final DeletedAccountsManager deletedAccountsManager,
       final DirectoryQueue directoryQueue,
       final KeysDynamoDb keysDynamoDb, final MessagesManager messagesManager, final UsernamesManager usernamesManager,
-      final ProfilesManager profilesManager, final SecureStorageClient secureStorageClient,
+      final ProfilesManager profilesManager,
+      final StoredVerificationCodeManager pendingAccounts,
+      final SecureStorageClient secureStorageClient,
       final SecureBackupClient secureBackupClient,
       final ExperimentEnrollmentManager experimentEnrollmentManager,
       final DynamicConfigurationManager dynamicConfigurationManager) {
@@ -115,6 +128,7 @@ public class AccountsManager {
     this.messagesManager     = messagesManager;
     this.usernamesManager    = usernamesManager;
     this.profilesManager     = profilesManager;
+    this.pendingAccounts = pendingAccounts;
     this.secureStorageClient = secureStorageClient;
     this.secureBackupClient  = secureBackupClient;
     this.mapper              = SystemMapper.getMapper();
@@ -126,8 +140,34 @@ public class AccountsManager {
     this.experimentEnrollmentManager = experimentEnrollmentManager;
   }
 
-  public boolean create(Account account) {
+  public Account create(final String number,
+      final String password,
+      final String signalAgent,
+      final AccountAttributes accountAttributes) {
+
     try (Timer.Context ignored = createTimer.time()) {
+      Optional<Account> maybeExistingAccount = get(number);
+
+      Device device = new Device();
+      device.setId(Device.MASTER_ID);
+      device.setAuthenticationCredentials(new AuthenticationCredentials(password));
+      device.setFetchesMessages(accountAttributes.getFetchesMessages());
+      device.setRegistrationId(accountAttributes.getRegistrationId());
+      device.setName(accountAttributes.getName());
+      device.setCapabilities(accountAttributes.getCapabilities());
+      device.setCreated(System.currentTimeMillis());
+      device.setLastSeen(Util.todayInMillis());
+      device.setUserAgent(signalAgent);
+
+      Account account = new Account();
+      account.setNumber(number);
+      account.setUuid(UUID.randomUUID());
+      account.addDevice(device);
+      account.setRegistrationLockFromAttributes(accountAttributes);
+      account.setUnidentifiedAccessKey(accountAttributes.getUnidentifiedAccessKey());
+      account.setUnrestrictedUnidentifiedAccess(accountAttributes.isUnrestrictedUnidentifiedAccess());
+      account.setDiscoverableByPhoneNumber(accountAttributes.isDiscoverableByPhoneNumber());
+
       final UUID originalUuid = account.getUuid();
       boolean freshUser = databaseCreate(account);
 
@@ -165,11 +205,35 @@ public class AccountsManager {
 
       redisSet(account);
 
-      return freshUser;
+      final Tags tags;
+
+      if (freshUser) {
+        tags = Tags.of("type", "new");
+      } else {
+        tags = Tags.of("type", "reregister");
+      }
+
+      Metrics.counter(CREATE_COUNTER_NAME, tags).increment();
+
+      if (!account.isDiscoverableByPhoneNumber()) {
+        // The newly-created account has explicitly opted out of discoverability
+        directoryQueue.deleteAccount(account);
+      }
+
+      maybeExistingAccount.ifPresent(definitelyExistingAccount -> {
+        messagesManager.clear(definitelyExistingAccount.getUuid());
+        keysDynamoDb.delete(definitelyExistingAccount);
+      });
+
+      pendingAccounts.remove(number);
+
+      return account;
     }
   }
 
   public Account update(Account account, Consumer<Account> updater) {
+
+    final boolean wasDiscoverableBeforeUpdate = directoryQueue.isDiscoverable(account);
 
     final Account updatedAccount;
 
@@ -210,6 +274,12 @@ public class AccountsManager {
 
       // set the cache again, so that all updates are coalesced
       redisSet(updatedAccount);
+    }
+
+    final boolean isDiscoverableAfterUpdate = directoryQueue.isDiscoverable(updatedAccount);
+
+    if (wasDiscoverableBeforeUpdate != isDiscoverableAfterUpdate) {
+      directoryQueue.refreshAccount(updatedAccount);
     }
 
     return updatedAccount;

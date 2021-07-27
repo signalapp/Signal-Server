@@ -61,11 +61,15 @@ public class DirectoryQueue {
     this.sqs = sqs;
   }
 
-  public void refreshRegisteredUser(final Account account) {
-    refreshRegisteredUsers(List.of(account));
+  public boolean isDiscoverable(final Account account) {
+    return account.isEnabled() && account.isDiscoverableByPhoneNumber();
   }
 
-  public void refreshRegisteredUsers(final List<Account> accounts) {
+  public void refreshAccount(final Account account) {
+    refreshAccounts(List.of(account));
+  }
+
+  public void refreshAccounts(final List<Account> accounts) {
     final List<Pair<Account, String>> accountsAndActions = accounts.stream()
         .map(account -> new Pair<>(account, account.isEnabled() && account.isDiscoverableByPhoneNumber() ? "add" : "delete"))
         .collect(Collectors.toList());

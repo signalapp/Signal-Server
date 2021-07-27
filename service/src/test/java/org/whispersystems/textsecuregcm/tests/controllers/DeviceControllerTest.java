@@ -45,7 +45,6 @@ import org.whispersystems.textsecuregcm.entities.DeviceResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
-import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -65,11 +64,10 @@ class DeviceControllerTest {
                                             AccountsManager accounts,
                                             MessagesManager messages,
                                             KeysDynamoDb keys,
-                                            DirectoryQueue cdsSender,
                                             RateLimiters rateLimiters,
                                             Map<String, Integer> deviceConfiguration)
     {
-      super(pendingDevices, accounts, messages, keys, cdsSender, rateLimiters, deviceConfiguration);
+      super(pendingDevices, accounts, messages, keys, rateLimiters, deviceConfiguration);
     }
 
     @Override
@@ -82,7 +80,6 @@ class DeviceControllerTest {
   private static AccountsManager       accountsManager       = mock(AccountsManager.class       );
   private static MessagesManager       messagesManager       = mock(MessagesManager.class);
   private static KeysDynamoDb          keys                  = mock(KeysDynamoDb.class);
-  private static DirectoryQueue        directoryQueue        = mock(DirectoryQueue.class);
   private static RateLimiters          rateLimiters          = mock(RateLimiters.class          );
   private static RateLimiter           rateLimiter           = mock(RateLimiter.class           );
   private static Account               account               = mock(Account.class               );
@@ -100,7 +97,6 @@ class DeviceControllerTest {
                                                                                                                   accountsManager,
                                                                                                                   messagesManager,
                                                                                                                   keys,
-                                                                                                                  directoryQueue,
                                                                                                                   rateLimiters,
                                                                                                                   deviceConfiguration))
                                                                 .build();
@@ -142,7 +138,6 @@ class DeviceControllerTest {
         accountsManager,
         messagesManager,
         keys,
-        directoryQueue,
         rateLimiters,
         rateLimiter,
         account,

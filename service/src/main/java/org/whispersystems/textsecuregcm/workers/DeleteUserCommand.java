@@ -56,8 +56,10 @@ import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.ReservedUsernames;
+import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.Usernames;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
+import org.whispersystems.textsecuregcm.storage.VerificationCodeStore;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -137,6 +139,8 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
           software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
       DynamoDbClient migrationRetryAccountsDynamoDb = DynamoDbFromConfig.client(configuration.getMigrationRetryAccountsDynamoDbConfiguration(),
           software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+      DynamoDbClient pendingAccountsDynamoDbClient = DynamoDbFromConfig.client(configuration.getPendingAccountsDynamoDbConfiguration(),
+          software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
       AmazonDynamoDB deletedAccountsLockDynamoDbClient = AmazonDynamoDBClientBuilder.standard()
           .withRegion(configuration.getDeletedAccountsLockDynamoDbConfiguration().getRegion())
@@ -148,6 +152,7 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
       DeletedAccounts deletedAccounts = new DeletedAccounts(deletedAccountsDynamoDbClient, configuration.getDeletedAccountsDynamoDbConfiguration().getTableName(), configuration.getDeletedAccountsDynamoDbConfiguration().getNeedsReconciliationIndexName());
       MigrationDeletedAccounts migrationDeletedAccounts = new MigrationDeletedAccounts(migrationDeletedAccountsDynamoDb, configuration.getMigrationDeletedAccountsDynamoDbConfiguration().getTableName());
       MigrationRetryAccounts migrationRetryAccounts = new MigrationRetryAccounts(migrationRetryAccountsDynamoDb, configuration.getMigrationRetryAccountsDynamoDbConfiguration().getTableName());
+      VerificationCodeStore pendingAccounts = new VerificationCodeStore(pendingAccountsDynamoDbClient, configuration.getPendingAccountsDynamoDbConfiguration().getTableName());
 
       Accounts                  accounts             = new Accounts(accountDatabase);
       AccountsDynamoDb          accountsDynamoDb     = new AccountsDynamoDb(accountsDynamoDbClient, accountsDynamoDbAsyncClient, accountsDynamoDbMigrationThreadPool, configuration.getAccountsDynamoDbConfiguration().getTableName(), configuration.getAccountsDynamoDbConfiguration().getPhoneNumberTableName(), migrationDeletedAccounts, migrationRetryAccounts);
@@ -170,7 +175,8 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
       ReportMessageManager      reportMessageManager = new ReportMessageManager(reportMessageDynamoDb, Metrics.globalRegistry);
       MessagesManager           messagesManager      = new MessagesManager(messagesDynamoDb, messagesCache, pushLatencyManager, reportMessageManager);
       DeletedAccountsManager    deletedAccountsManager = new DeletedAccountsManager(deletedAccounts, deletedAccountsLockDynamoDbClient, configuration.getDeletedAccountsLockDynamoDbConfiguration().getTableName());
-      AccountsManager           accountsManager      = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
+      StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
+      AccountsManager           accountsManager      = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, pendingAccountsManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
 
       for (String user: users) {
         Optional<Account> account = accountsManager.get(user);

@@ -57,7 +57,6 @@ import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.RateLimitChallengeExceptionMapper;
-import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -92,7 +91,6 @@ class KeysControllerTest {
 
   private final static KeysDynamoDb                keysDynamoDb                = mock(KeysDynamoDb.class               );
   private final static AccountsManager             accounts                    = mock(AccountsManager.class            );
-  private final static DirectoryQueue              directoryQueue              = mock(DirectoryQueue.class             );
   private final static PreKeyRateLimiter           preKeyRateLimiter           = mock(PreKeyRateLimiter.class          );
   private final static RateLimitChallengeManager   rateLimitChallengeManager   = mock(RateLimitChallengeManager.class  );
   private final static Account                     existsAccount               = mock(Account.class                    );
@@ -107,7 +105,7 @@ class KeysControllerTest {
                                                             .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
                                                             .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
                                                             .addResource(new RateLimitChallengeExceptionMapper(rateLimitChallengeManager))
-                                                            .addResource(new KeysController(rateLimiters, keysDynamoDb, accounts, directoryQueue, preKeyRateLimiter, dynamicConfigurationManager, rateLimitChallengeManager))
+                                                            .addResource(new KeysController(rateLimiters, keysDynamoDb, accounts, preKeyRateLimiter, dynamicConfigurationManager, rateLimitChallengeManager))
                                                             .build();
 
   @BeforeEach
@@ -184,7 +182,6 @@ class KeysControllerTest {
     reset(
         keysDynamoDb,
         accounts,
-        directoryQueue,
         preKeyRateLimiter,
         existsAccount,
         rateLimiters,

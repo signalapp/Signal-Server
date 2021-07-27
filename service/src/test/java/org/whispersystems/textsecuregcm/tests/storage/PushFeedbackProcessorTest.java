@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.tests.storage;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.eq;
@@ -13,7 +12,7 @@ import static org.mockito.Mockito.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.tests.util.AccountsHelper.eqUuid;
 
@@ -23,11 +22,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -39,7 +35,6 @@ import org.whispersystems.textsecuregcm.util.Util;
 class PushFeedbackProcessorTest {
 
   private AccountsManager accountsManager = mock(AccountsManager.class);
-  private DirectoryQueue  directoryQueue  = mock(DirectoryQueue.class);
 
   private Account uninstalledAccount    = mock(Account.class);
   private Account mixedAccount          = mock(Account.class);
@@ -105,16 +100,15 @@ class PushFeedbackProcessorTest {
 
   @Test
   void testEmpty() throws AccountDatabaseCrawlerRestartException {
-    PushFeedbackProcessor processor = new PushFeedbackProcessor(accountsManager, directoryQueue);
+    PushFeedbackProcessor processor = new PushFeedbackProcessor(accountsManager);
     processor.timeAndProcessCrawlChunk(Optional.of(UUID.randomUUID()), Collections.emptyList());
 
-    verifyZeroInteractions(accountsManager);
-    verifyZeroInteractions(directoryQueue);
+    verifyNoInteractions(accountsManager);
   }
 
   @Test
   void testUpdate() throws AccountDatabaseCrawlerRestartException {
-    PushFeedbackProcessor processor = new PushFeedbackProcessor(accountsManager, directoryQueue);
+    PushFeedbackProcessor processor = new PushFeedbackProcessor(accountsManager);
     processor.timeAndProcessCrawlChunk(Optional.of(UUID.randomUUID()), List.of(uninstalledAccount, mixedAccount, stillActiveAccount, freshAccount, cleanAccount, undiscoverableAccount));
 
     verify(uninstalledDevice).setApnId(isNull());
@@ -151,15 +145,6 @@ class PushFeedbackProcessorTest {
     verify(stillActiveDevice, never()).setFetchesMessages(anyBoolean());
 
     verify(accountsManager).update(eqUuid(stillActiveAccount), any());
-
-    final ArgumentCaptor<List<Account>> refreshedAccountArgumentCaptor = ArgumentCaptor.forClass(List.class);
-    verify(directoryQueue).refreshRegisteredUsers(refreshedAccountArgumentCaptor.capture());
-
-    final List<UUID> refreshedUuids = refreshedAccountArgumentCaptor.getValue().stream()
-        .map(Account::getUuid)
-        .collect(Collectors.toList());
-
-    assertTrue(refreshedUuids.containsAll(List.of(undiscoverableAccount.getUuid(), uninstalledAccount.getUuid())));
   }
 
 }

@@ -40,7 +40,7 @@ public class DirectoryQueueTest {
         when(account.isEnabled()).thenReturn(accountEnabled);
         when(account.isDiscoverableByPhoneNumber()).thenReturn(accountDiscoverableByPhoneNumber);
 
-        directoryQueue.refreshRegisteredUser(account);
+        directoryQueue.refreshAccount(account);
 
         final ArgumentCaptor<SendMessageBatchRequest> requestCaptor = ArgumentCaptor.forClass(SendMessageBatchRequest.class);
         verify(sqs).sendMessageBatch(requestCaptor.capture());
@@ -68,7 +68,7 @@ public class DirectoryQueueTest {
         when(undiscoverableAccount.isEnabled()).thenReturn(true);
         when(undiscoverableAccount.isDiscoverableByPhoneNumber()).thenReturn(false);
 
-        directoryQueue.refreshRegisteredUsers(List.of(discoverableAccount, undiscoverableAccount));
+        directoryQueue.refreshAccounts(List.of(discoverableAccount, undiscoverableAccount));
 
         final ArgumentCaptor<SendMessageBatchRequest> requestCaptor = ArgumentCaptor.forClass(SendMessageBatchRequest.class);
         verify(sqs).sendMessageBatch(requestCaptor.capture());
@@ -97,7 +97,7 @@ public class DirectoryQueueTest {
         when(account.isEnabled()).thenReturn(true);
         when(account.isDiscoverableByPhoneNumber()).thenReturn(true);
 
-        directoryQueue.refreshRegisteredUser(account);
+        directoryQueue.refreshAccount(account);
 
         final ArgumentCaptor<SendMessageBatchRequest> requestCaptor = ArgumentCaptor.forClass(SendMessageBatchRequest.class);
         verify(sqs, times(2)).sendMessageBatch(requestCaptor.capture());
