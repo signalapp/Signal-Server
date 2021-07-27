@@ -11,6 +11,8 @@ import io.dropwizard.logging.AbstractOutputStreamAppenderFactory;
 import org.glassfish.jersey.internal.MapPropertiesDelegate;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.ContainerResponse;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.whispersystems.websocket.WebSocketSecurityContext;
 import org.whispersystems.websocket.session.ContextPrincipal;
@@ -22,11 +24,24 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 public class WebSocketRequestLogTest {
+
+  private final static Locale ORIGINAL_DEFAULT_LOCALE = Locale.getDefault();
+
+  @Before
+  public void beforeEachTest() {
+    Locale.setDefault(Locale.ENGLISH);
+  }
+
+  @After
+  public void afterEachTest() {
+    Locale.setDefault(ORIGINAL_DEFAULT_LOCALE);
+  }
 
   @Test
   public void testLogLineWithoutHeaders() throws InterruptedException {
