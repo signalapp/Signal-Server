@@ -248,6 +248,19 @@ class MessageControllerTest {
   }
 
   @Test
+  void testNullMessageInList() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/messages/%s", SINGLE_DEVICE_RECIPIENT))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_null_message_in_list.json"), IncomingMessageList.class),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat("Bad request", response.getStatus(), is(equalTo(422)));
+  }
+
+  @Test
   void testInternationalUnsealedSenderFromRateLimitedHost() throws Exception {
     final String senderHost = "10.0.0.1";
 

@@ -4,21 +4,17 @@
  */
 package org.whispersystems.textsecuregcm.entities;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
+import java.util.List;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
-import java.util.List;
 
 public class IncomingMessageList {
 
   @JsonProperty
   @NotNull
   @Valid
-  @JsonInclude(Include.NON_NULL)
-  private List<IncomingMessage> messages;
+  private List<@NotNull IncomingMessage> messages;
 
   @JsonProperty
   private long timestamp;
