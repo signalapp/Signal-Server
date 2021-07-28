@@ -197,6 +197,9 @@ public class MessageController {
                               @PathParam("destination")                 AmbiguousIdentifier destinationName,
                               @Valid                                    IncomingMessageList messages)
       throws RateLimitExceededException, RateLimitChallengeException {
+
+    destinationName.incrementRequestCounter("sendMessage", userAgent);
+
     if (source.isEmpty() && accessKey.isEmpty()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }

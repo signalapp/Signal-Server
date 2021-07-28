@@ -128,6 +128,9 @@ public class KeysController {
                                 @PathParam("device_id")                   String deviceId,
                                 @HeaderParam("User-Agent")                String userAgent)
       throws RateLimitExceededException, RateLimitChallengeException {
+
+    targetName.incrementRequestCounter("getDeviceKeys", userAgent);
+
     if (!account.isPresent() && !accessKey.isPresent()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }

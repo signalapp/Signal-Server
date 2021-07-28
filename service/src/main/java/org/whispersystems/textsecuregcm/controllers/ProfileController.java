@@ -328,10 +328,14 @@ public class ProfileController {
   @Path("/{identifier}")
   public Profile getProfile(@Auth                                     Optional<Account>   requestAccount,
                             @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
+                            @HeaderParam("User-Agent")                String userAgent,
                             @PathParam("identifier")                  AmbiguousIdentifier identifier,
                             @QueryParam("ca")                         boolean useCaCertificate)
       throws RateLimitExceededException
   {
+
+    identifier.incrementRequestCounter("getProfile", userAgent);
+
     if (requestAccount.isEmpty() && accessKey.isEmpty()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
