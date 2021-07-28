@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -46,14 +46,13 @@ public class DirectoryQueueTest {
 
   @ParameterizedTest
   @MethodSource("argumentsForTestRefreshRegisteredUser")
-  void testRefreshRegisteredUser(final boolean accountEnabled, final boolean accountDiscoverableByPhoneNumber, final String expectedAction) {
+  void testRefreshRegisteredUser(final boolean shouldBeVisibleInDirectory, final String expectedAction) {
     final DirectoryQueue directoryQueue = new DirectoryQueue(List.of("sqs://test"), sqsAsyncClient);
 
     final Account account = mock(Account.class);
     when(account.getNumber()).thenReturn("+18005556543");
     when(account.getUuid()).thenReturn(UUID.randomUUID());
-    when(account.isEnabled()).thenReturn(accountEnabled);
-    when(account.isDiscoverableByPhoneNumber()).thenReturn(accountDiscoverableByPhoneNumber);
+    when(account.shouldBeVisibleInDirectory()).thenReturn(shouldBeVisibleInDirectory);
 
     directoryQueue.refreshAccount(account);
 
@@ -67,10 +66,8 @@ public class DirectoryQueueTest {
   @SuppressWarnings("unused")
   private static Stream<Arguments> argumentsForTestRefreshRegisteredUser() {
     return Stream.of(
-        Arguments.of(true, true, "add"),
-        Arguments.of(true, false, "delete"),
-        Arguments.of(false, true, "delete"),
-        Arguments.of(false, false, "delete"));
+        Arguments.of(true, "add"),
+        Arguments.of(false, "delete"));
   }
 
   @Test
@@ -80,8 +77,7 @@ public class DirectoryQueueTest {
     final Account account = mock(Account.class);
     when(account.getNumber()).thenReturn("+18005556543");
     when(account.getUuid()).thenReturn(UUID.randomUUID());
-    when(account.isEnabled()).thenReturn(true);
-    when(account.isDiscoverableByPhoneNumber()).thenReturn(true);
+    when(account.shouldBeVisibleInDirectory()).thenReturn(true);
 
     directoryQueue.refreshAccount(account);
 
@@ -104,8 +100,7 @@ public class DirectoryQueueTest {
     final Account account = mock(Account.class);
     when(account.getNumber()).thenReturn("+18005556543");
     when(account.getUuid()).thenReturn(UUID.randomUUID());
-    when(account.isEnabled()).thenReturn(true);
-    when(account.isDiscoverableByPhoneNumber()).thenReturn(true);
+    when(account.shouldBeVisibleInDirectory()).thenReturn(true);
 
     directoryQueue.refreshAccount(account);
 

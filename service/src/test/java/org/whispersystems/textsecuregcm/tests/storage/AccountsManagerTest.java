@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -617,14 +617,19 @@ class AccountsManagerTest {
 
   @ParameterizedTest
   @MethodSource
-  void testUpdateDirectoryQueue(final boolean discoverableBeforeUpdate, final boolean discoverableAfterUpdate, final boolean expectRefresh) {
+  void testUpdateDirectoryQueue(final boolean visibleBeforeUpdate, final boolean visibleAfterUpdate,
+      final boolean expectRefresh) {
     final Account account = new Account("+14152222222", UUID.randomUUID(), new HashSet<>(), new byte[16]);
 
-    when(directoryQueue.isDiscoverable(any()))
-        .thenReturn(discoverableBeforeUpdate)
-        .thenReturn(discoverableAfterUpdate);
+    // this sets up the appropriate result for Account#shouldBeVisibleInDirectory
+    final Device device = new Device(Device.MASTER_ID, "device", "token", "salt", null, null, null, true, 1,
+        new SignedPreKey(1, "key", "sig"), 0, 0,
+        "OWT", 0, new DeviceCapabilities());
+    account.addDevice(device);
+    account.setDiscoverableByPhoneNumber(visibleBeforeUpdate);
 
-    final Account updatedAccount = accountsManager.update(account, a -> a.setProfileName("Hello I am a unit test"));
+    final Account updatedAccount = accountsManager.update(account,
+        a -> a.setDiscoverableByPhoneNumber(visibleAfterUpdate));
 
     verify(directoryQueue, times(expectRefresh ? 1 : 0)).refreshAccount(updatedAccount);
   }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.sqs;
@@ -95,12 +95,8 @@ public class DirectoryQueue implements Managed {
     sqs.close();
   }
 
-  public boolean isDiscoverable(final Account account) {
-    return account.isEnabled() && account.isDiscoverableByPhoneNumber();
-  }
-
   public void refreshAccount(final Account account) {
-    sendUpdateMessage(account, isDiscoverable(account) ? UpdateAction.ADD : UpdateAction.DELETE);
+    sendUpdateMessage(account, account.shouldBeVisibleInDirectory() ? UpdateAction.ADD : UpdateAction.DELETE);
   }
 
   public void deleteAccount(final Account account) {
