@@ -7,9 +7,9 @@ package org.whispersystems.textsecuregcm.util.logging;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.jersey.errors.LoggingExceptionMapper;
-import javax.servlet.http.HttpServletRequest;
+import javax.inject.Provider;
 import javax.ws.rs.core.Context;
-import org.glassfish.jersey.server.ExtendedUriInfo;
+import org.glassfish.jersey.server.ContainerRequest;
 import org.slf4j.Logger;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgent;
@@ -18,10 +18,7 @@ import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 public class LoggingUnhandledExceptionMapper extends LoggingExceptionMapper<Throwable> {
 
   @Context
-  private HttpServletRequest request;
-
-  @Context
-  private ExtendedUriInfo uriInfo;
+  private Provider<ContainerRequest> request;
 
   public LoggingUnhandledExceptionMapper() {
     super();
@@ -38,10 +35,10 @@ public class LoggingUnhandledExceptionMapper extends LoggingExceptionMapper<Thro
     String userAgent = "missing";
     String requestPath = "/{unknown path}";
     try {
-      // request and uriInfo shouldn’t be `null`, but it is technically possible
-      requestMethod = request.getMethod();
-      requestPath = UriInfoUtil.getPathTemplate(uriInfo);
-      userAgent = request.getHeader("user-agent");
+      // request shouldn’t be `null`, but it is technically possible
+      requestMethod = request.get().getMethod();
+      requestPath = UriInfoUtil.getPathTemplate(request.get().getUriInfo());
+      userAgent = request.get().getHeaderString("user-agent");
 
       // streamline the user-agent if it is recognized
       final UserAgent ua = UserAgentUtil.parseUserAgentString(userAgent);
