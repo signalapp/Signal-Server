@@ -94,6 +94,9 @@ class DynamicConfigurationTest {
               "    enrolledE164s:\n" +
               "      - +120255551212\n" +
               "      - +3655323174\n" +
+              "    excludedE164s:\n" +
+              "      - +120255551213\n" +
+              "      - +3655323175\n" +
               "    enrollmentPercentage: 46\n" +
               "    excludedCountryCodes:\n" +
               "      - 47\n" +
@@ -118,6 +121,8 @@ class DynamicConfigurationTest {
             percentageOnly.get().getEnrollmentPercentage());
         assertEquals(Collections.emptySet(),
             percentageOnly.get().getEnrolledE164s());
+        assertEquals(Collections.emptySet(),
+            percentageOnly.get().getExcludedE164s());
       }
 
       {
@@ -129,6 +134,8 @@ class DynamicConfigurationTest {
             e164sCountryCodesAndPercentage.get().getEnrollmentPercentage());
         assertEquals(Set.of("+120255551212", "+3655323174"),
             e164sCountryCodesAndPercentage.get().getEnrolledE164s());
+        assertEquals(Set.of("+120255551213", "+3655323175"),
+            e164sCountryCodesAndPercentage.get().getExcludedE164s());
         assertEquals(Set.of("47"),
             e164sCountryCodesAndPercentage.get().getExcludedCountryCodes());
         assertEquals(Set.of("56"),
@@ -142,6 +149,7 @@ class DynamicConfigurationTest {
         assertEquals(0, e164sAndExcludedCodes.get().getEnrollmentPercentage());
         assertEquals(Set.of("+120255551212"),
             e164sAndExcludedCodes.get().getEnrolledE164s());
+        assertTrue(e164sAndExcludedCodes.get().getExcludedE164s().isEmpty());
         assertEquals(Set.of("47"),
             e164sAndExcludedCodes.get().getExcludedCountryCodes());
       }

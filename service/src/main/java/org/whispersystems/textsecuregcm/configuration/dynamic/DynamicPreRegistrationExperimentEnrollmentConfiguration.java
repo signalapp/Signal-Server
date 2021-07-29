@@ -20,11 +20,15 @@ public class DynamicPreRegistrationExperimentEnrollmentConfiguration {
 
   @JsonProperty
   @Valid
-  private Set<String> excludedCountryCodes = Collections.emptySet();
+  private Set<String> excludedE164s = Collections.emptySet();
 
   @JsonProperty
   @Valid
   private Set<String> includedCountryCodes = Collections.emptySet();
+
+  @JsonProperty
+  @Valid
+  private Set<String> excludedCountryCodes = Collections.emptySet();
 
   @JsonProperty
   @Valid
@@ -36,12 +40,16 @@ public class DynamicPreRegistrationExperimentEnrollmentConfiguration {
     return enrolledE164s;
   }
 
-  public Set<String> getExcludedCountryCodes() {
-    return excludedCountryCodes;
+  public Set<String> getExcludedE164s() {
+    return excludedE164s;
   }
 
   public Set<String> getIncludedCountryCodes() {
     return includedCountryCodes;
+  }
+
+  public Set<String> getExcludedCountryCodes() {
+    return excludedCountryCodes;
   }
 
   public int getEnrollmentPercentage() {

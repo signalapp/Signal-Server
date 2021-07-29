@@ -47,6 +47,10 @@ public class ExperimentEnrollmentManager {
         return true;
       }
 
+      if (config.getExcludedE164s().contains(e164)) {
+        return false;
+      }
+
       {
         final String countryCode = Util.getCountryCode(e164);
 
