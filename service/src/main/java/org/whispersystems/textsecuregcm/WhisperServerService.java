@@ -176,7 +176,6 @@ import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.storage.PushChallengeDynamoDb;
 import org.whispersystems.textsecuregcm.storage.PushFeedbackProcessor;
-import org.whispersystems.textsecuregcm.storage.RegistrationLockVersionCounter;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigs;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
@@ -487,7 +486,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       deletedAccountsDirectoryReconcilers.add(deletedAccountsDirectoryReconciler);
     }
     accountDatabaseCrawlerListeners.add(new AccountCleaner(accountsManager));
-    accountDatabaseCrawlerListeners.add(new RegistrationLockVersionCounter(metricsCluster, config.getMetricsFactory()));
     accountDatabaseCrawlerListeners.add(new AccountsDynamoDbMigrator(accountsDynamoDb, dynamicConfigurationManager));
 
     HttpClient                currencyClient  = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).connectTimeout(Duration.ofSeconds(10)).build();

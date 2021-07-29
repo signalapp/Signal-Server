@@ -22,9 +22,6 @@ public class AccountAttributes {
   private String name;
 
   @JsonProperty
-  private String pin;
-
-  @JsonProperty
   private String registrationLock;
 
   @JsonProperty
@@ -42,11 +39,11 @@ public class AccountAttributes {
   public AccountAttributes() {}
 
   @VisibleForTesting
-  public AccountAttributes(boolean fetchesMessages, int registrationId, String name, String pin, String registrationLock, boolean discoverableByPhoneNumber, final DeviceCapabilities capabilities) {
+  public AccountAttributes(boolean fetchesMessages, int registrationId, String name, String registrationLock,
+      boolean discoverableByPhoneNumber, final DeviceCapabilities capabilities) {
     this.fetchesMessages = fetchesMessages;
     this.registrationId = registrationId;
     this.name = name;
-    this.pin = pin;
     this.registrationLock = registrationLock;
     this.discoverableByPhoneNumber = discoverableByPhoneNumber;
     this.capabilities = capabilities;
@@ -62,10 +59,6 @@ public class AccountAttributes {
 
   public String getName() {
     return name;
-  }
-
-  public String getPin() {
-    return pin;
   }
 
   public String getRegistrationLock() {

@@ -70,7 +70,6 @@ import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
-import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessageRateConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRateLimitChallengeConfiguration;
@@ -498,7 +497,6 @@ class MessageControllerTest {
     OutgoingMessageEntityList messagesList = new OutgoingMessageEntityList(messages, false);
 
     when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq(1L), anyString(), anyBoolean())).thenReturn(messagesList);
-    when(AuthHelper.VALID_ACCOUNT.getRegistrationLock()).thenReturn(mock(StoredRegistrationLock.class));
 
     OutgoingMessageEntityList response =
         resources.getJerseyTest().target("/v1/messages/")

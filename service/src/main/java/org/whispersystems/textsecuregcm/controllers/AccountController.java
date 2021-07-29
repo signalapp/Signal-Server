@@ -53,7 +53,6 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicSignupCaptc
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.AccountCreationResult;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
-import org.whispersystems.textsecuregcm.entities.DeprecatedPin;
 import org.whispersystems.textsecuregcm.entities.DeviceName;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
@@ -360,11 +359,11 @@ public class AccountController {
       if (existingRegistrationLock.isPresent() && existingRegistrationLock.get().requiresClientRegistrationLock()) {
         rateLimiters.getVerifyLimiter().clear(number);
 
-        if (!Util.isEmpty(accountAttributes.getRegistrationLock()) || !Util.isEmpty(accountAttributes.getPin())) {
+        if (!Util.isEmpty(accountAttributes.getRegistrationLock())) {
           rateLimiters.getPinLimiter().validate(number);
         }
 
-        if (!existingRegistrationLock.get().verify(accountAttributes.getRegistrationLock(), accountAttributes.getPin())) {
+        if (!existingRegistrationLock.get().verify(accountAttributes.getRegistrationLock())) {
           throw new WebApplicationException(Response.status(423)
                                                     .entity(new RegistrationLockFailure(existingRegistrationLock.get().getTimeRemaining(),
                                                                                         existingRegistrationLock.get().needsFailureCredentials() ? existingBackupCredentials.orElseThrow() : null))
@@ -489,7 +488,6 @@ public class AccountController {
 
     accounts.update(account, a -> {
       a.setRegistrationLock(credentials.getHashedAuthenticationToken(), credentials.getSalt());
-      a.setPin(null);
     });
   }
 
@@ -498,31 +496,6 @@ public class AccountController {
   @Path("/registration_lock")
   public void removeRegistrationLock(@Auth Account account) {
     accounts.update(account, a -> a.setRegistrationLock(null, null));
-  }
-
-  @Timed
-  @PUT
-  @Produces(MediaType.APPLICATION_JSON)
-  @Path("/pin/")
-  public void setPin(@Auth Account account, @Valid DeprecatedPin accountLock, @HeaderParam("User-Agent") String userAgent) {
-    // TODO Remove once PIN-based reglocks have been deprecated
-    logger.info("PIN set by User-Agent: {}", userAgent);
-
-    accounts.update(account, a -> {
-      a.setPin(accountLock.getPin());
-      a.setRegistrationLock(null, null);
-    });
-  }
-
-  @Timed
-  @DELETE
-  @Path("/pin/")
-
-  public void removePin(@Auth Account account, @HeaderParam("User-Agent") String userAgent) {
-    // TODO Remove once PIN-based reglocks have been deprecated
-    logger.info("PIN removed by User-Agent: {}", userAgent);
-
-    accounts.update(account, a -> a.setPin(null));
   }
 
   @Timed

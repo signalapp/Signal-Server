@@ -49,9 +49,6 @@ public class Account implements Principal  {
   private String avatar;
 
   @JsonProperty
-  private String pin;
-
-  @JsonProperty
   private String registrationLock;
 
   @JsonProperty
@@ -309,20 +306,11 @@ public class Account implements Principal  {
     this.avatar = avatar;
   }
 
-  public void setPin(String pin) {
-    requireNotStale();
-
-    this.pin = pin;
-  }
-
   public void setRegistrationLockFromAttributes(final AccountAttributes attributes) {
-    if (!Util.isEmpty(attributes.getPin())) {
-      setPin(attributes.getPin());
-    } else if (!Util.isEmpty(attributes.getRegistrationLock())) {
+    if (!Util.isEmpty(attributes.getRegistrationLock())) {
       AuthenticationCredentials credentials = new AuthenticationCredentials(attributes.getRegistrationLock());
       setRegistrationLock(credentials.getHashedAuthenticationToken(), credentials.getSalt());
     } else {
-      setPin(null);
       setRegistrationLock(null, null);
     }
   }
@@ -337,7 +325,7 @@ public class Account implements Principal  {
   public StoredRegistrationLock getRegistrationLock() {
     requireNotStale();
 
-    return new StoredRegistrationLock(Optional.ofNullable(registrationLock), Optional.ofNullable(registrationLockSalt), Optional.ofNullable(pin), getLastSeen());
+    return new StoredRegistrationLock(Optional.ofNullable(registrationLock), Optional.ofNullable(registrationLockSalt), getLastSeen());
   }
   
   public Optional<byte[]> getUnidentifiedAccessKey() {
