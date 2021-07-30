@@ -31,22 +31,23 @@ import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguratio
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageDynamoDbConfiguration;
-import org.whispersystems.textsecuregcm.configuration.WavefrontConfiguration;
+import org.whispersystems.textsecuregcm.configuration.MonitoredS3ObjectConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PaymentsServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PushConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RecaptchaConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RecaptchaV2Configuration;
 import org.whispersystems.textsecuregcm.configuration.RedisClusterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RemoteConfigConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SecureBackupServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SecureStorageServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TestDeviceConfiguration;
-import org.whispersystems.textsecuregcm.configuration.MonitoredS3ObjectConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TurnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
 import org.whispersystems.textsecuregcm.configuration.UnidentifiedDeliveryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.VoiceVerificationConfiguration;
+import org.whispersystems.textsecuregcm.configuration.WavefrontConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ZkConfig;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 
@@ -256,6 +257,11 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
+  private RecaptchaV2Configuration recaptchaV2;
+
+  @Valid
+  @NotNull
+  @JsonProperty
   private SecureStorageServiceConfiguration storageService;
 
   @Valid
@@ -302,6 +308,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public RecaptchaConfiguration getRecaptchaConfiguration() {
     return recaptcha;
+  }
+
+  public RecaptchaV2Configuration getRecaptchaV2Configuration() {
+    return recaptchaV2;
   }
 
   public VoiceVerificationConfiguration getVoiceVerificationConfiguration() {
