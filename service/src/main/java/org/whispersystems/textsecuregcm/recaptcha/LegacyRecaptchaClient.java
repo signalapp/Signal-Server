@@ -18,7 +18,7 @@ import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.MultivaluedMap;
 
-public class LegacyRecaptchaClient {
+public class LegacyRecaptchaClient implements RecaptchaClient {
 
   private final Logger logger = LoggerFactory.getLogger(LegacyRecaptchaClient.class);
 
