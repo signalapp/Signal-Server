@@ -22,7 +22,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRateLimitChallengeConfiguration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.recaptcha.LegacyRecaptchaClient;
+import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
@@ -30,7 +30,7 @@ import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 class RateLimitChallengeManagerTest {
 
   private PushChallengeManager pushChallengeManager;
-  private LegacyRecaptchaClient legacyRecaptchaClient;
+  private RecaptchaClient recaptchaClient;
   private PreKeyRateLimiter preKeyRateLimiter;
   private UnsealedSenderRateLimiter unsealedSenderRateLimiter;
   private DynamicRateLimitChallengeConfiguration rateLimitChallengeConfiguration;
@@ -41,7 +41,7 @@ class RateLimitChallengeManagerTest {
   @BeforeEach
   void setUp() {
     pushChallengeManager = mock(PushChallengeManager.class);
-    legacyRecaptchaClient = mock(LegacyRecaptchaClient.class);
+    recaptchaClient = mock(RecaptchaClient.class);
     preKeyRateLimiter = mock(PreKeyRateLimiter.class);
     unsealedSenderRateLimiter = mock(UnsealedSenderRateLimiter.class);
     rateLimiters = mock(RateLimiters.class);
@@ -55,7 +55,7 @@ class RateLimitChallengeManagerTest {
 
     rateLimitChallengeManager = new RateLimitChallengeManager(
         pushChallengeManager,
-        legacyRecaptchaClient,
+        recaptchaClient,
         preKeyRateLimiter,
         unsealedSenderRateLimiter,
         rateLimiters,
@@ -89,7 +89,7 @@ class RateLimitChallengeManagerTest {
     final Account account = mock(Account.class);
     when(account.getNumber()).thenReturn("+18005551234");
 
-    when(legacyRecaptchaClient.verify(any(), any())).thenReturn(successfulChallenge);
+    when(recaptchaClient.verify(any(), any())).thenReturn(successfulChallenge);
 
     when(rateLimiters.getRecaptchaChallengeAttemptLimiter()).thenReturn(mock(RateLimiter.class));
     when(rateLimiters.getRecaptchaChallengeSuccessLimiter()).thenReturn(mock(RateLimiter.class));

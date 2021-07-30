@@ -1,13 +1,15 @@
 package org.whispersystems.textsecuregcm.limits;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.vdurmont.semver4j.Semver;
+import io.micrometer.core.instrument.Metrics;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import io.micrometer.core.instrument.Metrics;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
-import org.whispersystems.textsecuregcm.recaptcha.LegacyRecaptchaClient;
+import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -15,12 +17,10 @@ import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgent;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 
-import static com.codahale.metrics.MetricRegistry.name;
-
 public class RateLimitChallengeManager {
 
   private final PushChallengeManager pushChallengeManager;
-  private final LegacyRecaptchaClient legacyRecaptchaClient;
+  private final RecaptchaClient recaptchaClient;
 
   private final PreKeyRateLimiter preKeyRateLimiter;
   private final UnsealedSenderRateLimiter unsealedSenderRateLimiter;
@@ -39,14 +39,14 @@ public class RateLimitChallengeManager {
 
   public RateLimitChallengeManager(
       final PushChallengeManager pushChallengeManager,
-      final LegacyRecaptchaClient legacyRecaptchaClient,
+      final RecaptchaClient recaptchaClient,
       final PreKeyRateLimiter preKeyRateLimiter,
       final UnsealedSenderRateLimiter unsealedSenderRateLimiter,
       final RateLimiters rateLimiters,
       final DynamicConfigurationManager dynamicConfigurationManager) {
 
     this.pushChallengeManager = pushChallengeManager;
-    this.legacyRecaptchaClient = legacyRecaptchaClient;
+    this.recaptchaClient = recaptchaClient;
     this.preKeyRateLimiter = preKeyRateLimiter;
     this.unsealedSenderRateLimiter = unsealedSenderRateLimiter;
     this.rateLimiters = rateLimiters;
@@ -69,7 +69,7 @@ public class RateLimitChallengeManager {
 
     rateLimiters.getRecaptchaChallengeAttemptLimiter().validate(account.getNumber());
 
-    final boolean challengeSuccess = legacyRecaptchaClient.verify(captcha, mostRecentProxyIp);
+    final boolean challengeSuccess = recaptchaClient.verify(captcha, mostRecentProxyIp);
 
     Metrics.counter(RECAPTCHA_ATTEMPT_COUNTER_NAME,
         SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account.getNumber()),
