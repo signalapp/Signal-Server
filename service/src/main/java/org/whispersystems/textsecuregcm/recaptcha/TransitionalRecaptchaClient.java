@@ -10,7 +10,7 @@ import javax.annotation.Nonnull;
 
 public class TransitionalRecaptchaClient implements RecaptchaClient {
 
-  private static final String PREFIX = "signal-v2:";
+  private static final String PREFIX = "signal-recaptcha-v2:";
 
   private final LegacyRecaptchaClient legacyRecaptchaClient;
   private final EnterpriseRecaptchaClient enterpriseRecaptchaClient;
