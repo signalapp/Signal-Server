@@ -18,14 +18,14 @@ import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.MultivaluedMap;
 
-public class RecaptchaClient {
+public class LegacyRecaptchaClient {
 
-  private final Logger logger = LoggerFactory.getLogger(RecaptchaClient.class);
+  private final Logger logger = LoggerFactory.getLogger(LegacyRecaptchaClient.class);
 
   private final Client client;
   private final String recaptchaSecret;
 
-  public RecaptchaClient(String recaptchaSecret) {
+  public LegacyRecaptchaClient(String recaptchaSecret) {
     this.client          = ClientBuilder.newClient(new ClientConfig(new JacksonJaxbJsonProvider().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)));
     this.recaptchaSecret = recaptchaSecret;
   }
