@@ -29,6 +29,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import net.logstash.logback.argument.StructuredArguments;
@@ -250,12 +251,51 @@ public class AccountsManager {
 
   public Account update(Account account, Consumer<Account> updater) {
 
+    return update(account, a -> {
+      updater.accept(a);
+      // assume that all updaters passed to the public method actually modify the account
+      return true;
+    });
+  }
+
+  /**
+   * Specialized version of {@link #updateDevice(Account, long, Consumer)} that minimizes potentially contentious and
+   * redundant updates of {@code device.lastSeen}
+   */
+  public Account updateDeviceLastSeen(Account account, Device device, final long lastSeen) {
+
+    return update(account, a -> {
+
+      final Optional<Device> maybeDevice = a.getDevice(device.getId());
+
+      return maybeDevice.map(d -> {
+        if (d.getLastSeen() >= lastSeen) {
+          return false;
+        }
+
+        d.setLastSeen(lastSeen);
+
+        return true;
+
+      }).orElse(false);
+    });
+  }
+
+  /**
+   * @param account account to update
+   * @param updater must return {@code true} if the account was actually updated
+   */
+  private Account update(Account account, Function<Account, Boolean> updater) {
+
     final boolean wasVisibleBeforeUpdate = account.shouldBeVisibleInDirectory();
 
     final Account updatedAccount;
 
     try (Timer.Context ignored = updateTimer.time()) {
-      updater.accept(account);
+
+      if (!updater.apply(account)) {
+        return account;
+      }
 
       {
         // optimistically increment version
@@ -274,7 +314,11 @@ public class AccountsManager {
 
               final Optional<Account> dynamoAccount = dynamoGet(uuid);
               if (dynamoAccount.isPresent()) {
-                updater.accept(dynamoAccount.get());
+
+                if (!updater.apply(dynamoAccount.get())) {
+                  return dynamoAccount;
+                }
+
                 Account dynamoUpdatedAccount = updateWithRetries(dynamoAccount.get(),
                     updater,
                     this::dynamoUpdate,
@@ -302,7 +346,8 @@ public class AccountsManager {
     return updatedAccount;
   }
 
-  private Account updateWithRetries(Account account, Consumer<Account> updater, Consumer<Account> persister, Supplier<Account> retriever) {
+  private Account updateWithRetries(Account account, Function<Account, Boolean> updater, Consumer<Account> persister,
+      Supplier<Account> retriever) {
 
     final int maxTries = 10;
     int tries = 0;
@@ -327,7 +372,10 @@ public class AccountsManager {
       } catch (final ContestedOptimisticLockException e) {
         tries++;
         account = retriever.get();
-        updater.accept(account);
+
+        if (!updater.apply(account)) {
+          return account;
+        }
       }
     }
 
@@ -335,7 +383,11 @@ public class AccountsManager {
   }
 
   public Account updateDevice(Account account, long deviceId, Consumer<Device> deviceUpdater) {
-    return update(account, a -> a.getDevice(deviceId).ifPresent(deviceUpdater));
+    return update(account, a -> {
+      a.getDevice(deviceId).ifPresent(deviceUpdater);
+      // assume that all updaters passed to the public method actually modify the device
+      return true;
+    });
   }
 
   public Optional<Account> get(AmbiguousIdentifier identifier) {

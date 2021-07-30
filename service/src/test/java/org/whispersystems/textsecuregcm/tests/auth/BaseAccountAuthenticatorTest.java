@@ -44,13 +44,13 @@ class BaseAccountAuthenticatorTest {
 
   @BeforeEach
   void setup() {
-    accountsManager            = mock(AccountsManager.class);
-    clock                      = mock(Clock.class);
-    baseAccountAuthenticator   = new BaseAccountAuthenticator(accountsManager, clock);
+    accountsManager = mock(AccountsManager.class);
+    clock = mock(Clock.class);
+    baseAccountAuthenticator = new BaseAccountAuthenticator(accountsManager, clock);
 
-    acct1      = new Account("+14088675309", AuthHelper.getRandomUUID(random), Set.of(new Device(1, null, null, null,
+    acct1 = new Account("+14088675309", AuthHelper.getRandomUUID(random), Set.of(new Device(1, null, null, null,
         null, null, null, false, 0, null, yesterday, 0, null, 0, null)), null);
-    acct2      = new Account("+14098675309", AuthHelper.getRandomUUID(random), Set.of(new Device(1, null, null, null,
+    acct2 = new Account("+14098675309", AuthHelper.getRandomUUID(random), Set.of(new Device(1, null, null, null,
         null, null, null, false, 0, null, yesterday, 0, null, 0, null)), null);
     oldAccount = new Account("+14108675309", AuthHelper.getRandomUUID(random), Set.of(new Device(1, null, null, null,
         null, null, null, false, 0, null, oldTime, 0, null, 0, null)), null);
@@ -68,8 +68,8 @@ class BaseAccountAuthenticatorTest {
     final Account updatedAcct1 = baseAccountAuthenticator.updateLastSeen(acct1, device1);
     final Account updatedAcct2 = baseAccountAuthenticator.updateLastSeen(acct2, device2);
 
-    verify(accountsManager, never()).updateDevice(eq(acct1), anyLong(), any());
-    verify(accountsManager).updateDevice(eq(acct2), anyLong(), any());
+    verify(accountsManager, never()).updateDeviceLastSeen(eq(acct1), any(), anyLong());
+    verify(accountsManager).updateDeviceLastSeen(eq(acct2), eq(device2), anyLong());
 
     assertThat(device1.getLastSeen()).isEqualTo(yesterday);
     assertThat(device2.getLastSeen()).isEqualTo(today);
@@ -88,8 +88,8 @@ class BaseAccountAuthenticatorTest {
     final Account updatedAcct1 = baseAccountAuthenticator.updateLastSeen(acct1, device1);
     final Account updatedAcct2 = baseAccountAuthenticator.updateLastSeen(acct2, device2);
 
-    verify(accountsManager, never()).updateDevice(eq(acct1), anyLong(), any());
-    verify(accountsManager, never()).updateDevice(eq(acct2), anyLong(), any());
+    verify(accountsManager, never()).updateDeviceLastSeen(eq(acct1), any(), anyLong());
+    verify(accountsManager, never()).updateDeviceLastSeen(eq(acct2), any(), anyLong());
 
     assertThat(device1.getLastSeen()).isEqualTo(yesterday);
     assertThat(device2.getLastSeen()).isEqualTo(yesterday);
@@ -108,8 +108,8 @@ class BaseAccountAuthenticatorTest {
     final Account updatedAcct1 = baseAccountAuthenticator.updateLastSeen(acct1, device1);
     final Account updatedAcct2 = baseAccountAuthenticator.updateLastSeen(acct2, device2);
 
-    verify(accountsManager).updateDevice(eq(acct1), anyLong(), any());
-    verify(accountsManager).updateDevice(eq(acct2), anyLong(), any());
+    verify(accountsManager).updateDeviceLastSeen(eq(acct1), eq(device1), anyLong());
+    verify(accountsManager).updateDeviceLastSeen(eq(acct2), eq(device2), anyLong());
 
     assertThat(device1.getLastSeen()).isEqualTo(today);
     assertThat(device2.getLastSeen()).isEqualTo(today);
@@ -126,7 +126,7 @@ class BaseAccountAuthenticatorTest {
 
     baseAccountAuthenticator.updateLastSeen(oldAccount, device);
 
-    verify(accountsManager).updateDevice(eq(oldAccount), anyLong(), any());
+    verify(accountsManager).updateDeviceLastSeen(eq(oldAccount), eq(device), anyLong());
 
     assertThat(device.getLastSeen()).isEqualTo(today);
   }

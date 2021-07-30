@@ -641,4 +641,28 @@ class AccountsManagerTest {
         Arguments.of(false, true, true),
         Arguments.of(true, false, true));
   }
+
+  @ParameterizedTest
+  @MethodSource
+  void testUpdateDeviceLastSeen(final boolean expectUpdate, final long initialLastSeen, final long updatedLastSeen) {
+    final Account account = new Account("+14152222222", UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    final Device device = new Device(Device.MASTER_ID, "device", "token", "salt", null, null, null, true, 1,
+        new SignedPreKey(1, "key", "sig"), initialLastSeen, 0,
+        "OWT", 0, new DeviceCapabilities());
+    account.addDevice(device);
+
+    accountsManager.updateDeviceLastSeen(account, device, updatedLastSeen);
+
+    assertEquals(expectUpdate ? updatedLastSeen : initialLastSeen, device.getLastSeen());
+    verify(accounts, expectUpdate ? times(1) : never()).update(account);
+  }
+
+  @SuppressWarnings("unused")
+  private static Stream<Arguments> testUpdateDeviceLastSeen() {
+    return Stream.of(
+        Arguments.of(true, 1, 2),
+        Arguments.of(false, 1, 1),
+        Arguments.of(false, 2, 1)
+    );
+  }
 }

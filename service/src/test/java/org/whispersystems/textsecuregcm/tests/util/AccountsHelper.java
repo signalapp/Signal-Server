@@ -21,6 +21,7 @@ import org.mockito.MockingDetails;
 import org.mockito.stubbing.Stubbing;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 public class AccountsHelper {
@@ -50,6 +51,13 @@ public class AccountsHelper {
       account.getDevice(deviceId).ifPresent(answer.getArgument(2, Consumer.class));
 
       return markStale ? copyAndMarkStale(account) : account;
+    });
+
+    when(mockAccountsManager.updateDeviceLastSeen(any(), any(), anyLong())).thenAnswer(answer -> {
+
+      answer.getArgument(1, Device.class).setLastSeen(answer.getArgument(2, Long.class));
+      return mockAccountsManager.update(answer.getArgument(0, Account.class), account -> {
+      });
     });
   }
 
