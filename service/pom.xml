@@ -436,6 +436,11 @@
     </dependency>
 
     <dependency>
+      <groupId>com.google.cloud</groupId>
+      <artifactId>google-cloud-recaptchaenterprise</artifactId>
+    </dependency>
+
+    <dependency>
       <groupId>pl.pragmatists</groupId>
       <artifactId>JUnitParams</artifactId>
       <version>1.1.1</version>
