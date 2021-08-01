@@ -111,7 +111,7 @@ class PaymentsControllerTest {
                  .get(CurrencyConversionEntityList.class);
 
 
-    assertThat(conversions.getCurrencies().size()).isEqualTo(3);
+    assertThat(conversions.getCurrencies().size()).isEqualTo(2);
     assertThat(conversions.getCurrencies().get(0).getBase()).isEqualTo("FOO");
     assertThat(conversions.getCurrencies().get(0).getConversions().get("USD")).isEqualTo(new BigDecimal("2.35"));
   }
