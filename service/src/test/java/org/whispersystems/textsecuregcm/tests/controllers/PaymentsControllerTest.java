@@ -116,4 +116,16 @@ class PaymentsControllerTest {
     assertThat(conversions.getCurrencies().get(0).getConversions().get("USD")).isEqualTo(new BigDecimal("2.35"));
   }
 
+  @Test
+  void testGetCurrencyConversions_Json() {
+    String json =
+        resources.getJerseyTest()
+            .target("/v1/payments/conversions")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+            .get(String.class);
+
+    assertThat(json.contains("{\"USD\":2.35,\"EUR\":1.89}"));
+  }
+
 }
