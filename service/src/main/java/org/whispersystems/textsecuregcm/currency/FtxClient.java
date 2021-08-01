@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -18,7 +19,7 @@ public class FtxClient {
     this.client = client;
   }
 
-  public double getSpotPrice(String currency, String base) throws FtxException{
+  public BigDecimal getSpotPrice(String currency, String base) throws FtxException{
     try {
       URI uri = URI.create("https://ftx.com/api/markets/" + currency + "/" + base);
 
@@ -51,7 +52,7 @@ public class FtxClient {
   private static class FtxResult {
 
     @JsonProperty
-    private double price;
+    private BigDecimal price;
 
   }
 

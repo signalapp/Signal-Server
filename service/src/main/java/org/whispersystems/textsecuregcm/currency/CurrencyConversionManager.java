@@ -8,6 +8,7 @@ import org.whispersystems.textsecuregcm.entities.CurrencyConversionEntityList;
 import org.whispersystems.textsecuregcm.util.Util;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -34,8 +35,8 @@ public class CurrencyConversionManager implements Managed {
   private long fixerUpdatedTimestamp;
   private long ftxUpdatedTimestamp;
 
-  private Map<String, Double> cachedFixerValues;
-  private Map<String, Double> cachedFtxValues;
+  private Map<String, BigDecimal> cachedFixerValues;
+  private Map<String, BigDecimal> cachedFtxValues;
 
   public CurrencyConversionManager(FixerClient fixerClient, FtxClient ftxClient, List<String> currencies) {
     this.fixerClient = fixerClient;
@@ -75,7 +76,7 @@ public class CurrencyConversionManager implements Managed {
     }
 
     if (System.currentTimeMillis() - ftxUpdatedTimestamp > FTX_INTERVAL || cachedFtxValues == null) {
-      Map<String, Double> cachedFtxValues = new HashMap<>();
+      Map<String, BigDecimal> cachedFtxValues = new HashMap<>();
 
       for (String currency : currencies) {
         cachedFtxValues.put(currency, ftxClient.getSpotPrice(currency, "USD"));
@@ -87,14 +88,14 @@ public class CurrencyConversionManager implements Managed {
 
     List<CurrencyConversionEntity> entities = new LinkedList<>();
 
-    for (Map.Entry<String, Double> currency : cachedFtxValues.entrySet()) {
-      double usdValue = currency.getValue();
+    for (Map.Entry<String, BigDecimal> currency : cachedFtxValues.entrySet()) {
+      BigDecimal usdValue = stripTrailingZerosAfterDecimal(currency.getValue());
 
-      Map<String, Double> values = new HashMap<>();
+      Map<String, BigDecimal> values = new HashMap<>();
       values.put("USD", usdValue);
 
-      for (Map.Entry<String, Double> conversion : cachedFixerValues.entrySet()) {
-        values.put(conversion.getKey(), conversion.getValue() * usdValue);
+      for (Map.Entry<String, BigDecimal> conversion : cachedFixerValues.entrySet()) {
+        values.put(conversion.getKey(), stripTrailingZerosAfterDecimal(conversion.getValue().multiply(usdValue)));
       }
 
       entities.add(new CurrencyConversionEntity(currency.getKey(), values));
@@ -102,6 +103,15 @@ public class CurrencyConversionManager implements Managed {
 
 
     this.cached.set(new CurrencyConversionEntityList(entities,  ftxUpdatedTimestamp));
+  }
+
+  private BigDecimal stripTrailingZerosAfterDecimal(BigDecimal bigDecimal) {
+    BigDecimal n = bigDecimal.stripTrailingZeros();
+    if (n.scale() < 0) {
+      return n.setScale(0);
+    } else {
+      return n;
+    }
   }
 
   @VisibleForTesting
