@@ -10,7 +10,7 @@ import javax.annotation.Nonnull;
 
 public class TransitionalRecaptchaClient implements RecaptchaClient {
 
-  private static final String PREFIX = "signal-recaptcha-v2:";
+  private static final String V2_PREFIX = "signal-recaptcha-v2:";
 
   private final LegacyRecaptchaClient legacyRecaptchaClient;
   private final EnterpriseRecaptchaClient enterpriseRecaptchaClient;
@@ -24,8 +24,8 @@ public class TransitionalRecaptchaClient implements RecaptchaClient {
 
   @Override
   public boolean verify(@Nonnull final String token, @Nonnull final String ip) {
-    if (token.startsWith(PREFIX)) {
-      return enterpriseRecaptchaClient.verify(token.substring(PREFIX.length()), ip);
+    if (token.startsWith(V2_PREFIX)) {
+      return enterpriseRecaptchaClient.verify(token.substring(V2_PREFIX.length()), ip);
     } else {
       return legacyRecaptchaClient.verify(token, ip);
     }
