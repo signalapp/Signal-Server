@@ -15,7 +15,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.anyString;
@@ -47,8 +46,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import javax.ws.rs.client.Entity;
@@ -122,19 +119,18 @@ class MessageControllerTest {
   @SuppressWarnings("unchecked")
   private static final RedisAdvancedClusterCommands<String, String> redisCommands  = mock(RedisAdvancedClusterCommands.class);
 
-  private static final MessageSender messageSender = mock(MessageSender.class);
-  private static final ReceiptSender receiptSender = mock(ReceiptSender.class);
-  private static final AccountsManager accountsManager = mock(AccountsManager.class);
-  private static final MessagesManager messagesManager = mock(MessagesManager.class);
-  private static final RateLimiters rateLimiters = mock(RateLimiters.class);
-  private static final RateLimiter rateLimiter = mock(RateLimiter.class);
-  private static final UnsealedSenderRateLimiter unsealedSenderRateLimiter = mock(UnsealedSenderRateLimiter.class);
-  private static final ApnFallbackManager apnFallbackManager = mock(ApnFallbackManager.class);
+  private static final MessageSender               messageSender               = mock(MessageSender.class);
+  private static final ReceiptSender               receiptSender               = mock(ReceiptSender.class);
+  private static final AccountsManager             accountsManager             = mock(AccountsManager.class);
+  private static final MessagesManager             messagesManager             = mock(MessagesManager.class);
+  private static final RateLimiters                rateLimiters                = mock(RateLimiters.class);
+  private static final RateLimiter                 rateLimiter                 = mock(RateLimiter.class);
+  private static final UnsealedSenderRateLimiter   unsealedSenderRateLimiter   = mock(UnsealedSenderRateLimiter.class);
+  private static final ApnFallbackManager          apnFallbackManager          = mock(ApnFallbackManager.class);
   private static final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
   private static final RateLimitChallengeManager rateLimitChallengeManager = mock(RateLimitChallengeManager.class);
   private static final ReportMessageManager reportMessageManager = mock(ReportMessageManager.class);
   private static final FaultTolerantRedisCluster metricsCluster = RedisClusterHelper.buildMockRedisCluster(redisCommands);
-  private static final ScheduledExecutorService receiptExecutor = mock(ScheduledExecutorService.class);
   private static final ExecutorService multiRecipientMessageExecutor = mock(ExecutorService.class);
 
   private final ObjectMapper mapper = new ObjectMapper();
@@ -148,8 +144,7 @@ class MessageControllerTest {
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new MessageController(rateLimiters, messageSender, receiptSender, accountsManager,
           messagesManager, unsealedSenderRateLimiter, apnFallbackManager, dynamicConfigurationManager,
-          rateLimitChallengeManager, reportMessageManager, metricsCluster, receiptExecutor,
-          multiRecipientMessageExecutor))
+          rateLimitChallengeManager, reportMessageManager, metricsCluster, multiRecipientMessageExecutor))
       .build();
 
   @BeforeEach
@@ -187,12 +182,6 @@ class MessageControllerTest {
     when(rateLimiters.getMessagesLimiter()).thenReturn(rateLimiter);
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
-
-    when(receiptExecutor.schedule(any(Runnable.class), anyLong(), any())).thenAnswer(
-        (Answer<ScheduledFuture<?>>) invocation -> {
-          invocation.getArgument(0, Runnable.class).run();
-          return mock(ScheduledFuture.class);
-        });
   }
 
   @AfterEach
@@ -210,8 +199,7 @@ class MessageControllerTest {
         dynamicConfigurationManager,
         rateLimitChallengeManager,
         reportMessageManager,
-        metricsCluster,
-        receiptExecutor
+        metricsCluster
     );
   }
 
@@ -271,11 +259,6 @@ class MessageControllerTest {
     when(dynamicConfiguration.getMessageRateConfiguration()).thenReturn(messageRateConfiguration);
     when(messageRateConfiguration.getRateLimitedCountryCodes()).thenReturn(Set.of("1"));
     when(messageRateConfiguration.getRateLimitedHosts()).thenReturn(Set.of(senderHost));
-    when(messageRateConfiguration.getResponseDelay()).thenReturn(Duration.ofMillis(1));
-    when(messageRateConfiguration.getResponseDelayJitter()).thenReturn(Duration.ofMillis(1));
-    when(messageRateConfiguration.getReceiptDelay()).thenReturn(Duration.ofMillis(1));
-    when(messageRateConfiguration.getReceiptDelayJitter()).thenReturn(Duration.ofMillis(1));
-    when(messageRateConfiguration.getReceiptProbability()).thenReturn(1.0);
 
     when(redisCommands.evalsha(any(), any(), any(), any())).thenReturn(List.of(1L, 1L));
 
@@ -288,10 +271,9 @@ class MessageControllerTest {
             .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
 
-    assertThat("Good Response", response.getStatus(), is(equalTo(200)));
+    assertThat(response.getStatus(), is(equalTo(413)));
 
     verify(messageSender, never()).sendMessage(any(), any(), any(), anyBoolean());
-    verify(receiptSender).sendReceipt(any(), eq(AuthHelper.VALID_UUID), anyLong());
   }
 
   @ParameterizedTest
@@ -304,11 +286,6 @@ class MessageControllerTest {
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
     when(dynamicConfiguration.getMessageRateConfiguration()).thenReturn(messageRateConfiguration);
     when(messageRateConfiguration.isEnforceUnsealedSenderRateLimit()).thenReturn(true);
-    when(messageRateConfiguration.getResponseDelay()).thenReturn(Duration.ofMillis(1));
-    when(messageRateConfiguration.getResponseDelayJitter()).thenReturn(Duration.ofMillis(1));
-    when(messageRateConfiguration.getReceiptDelay()).thenReturn(Duration.ofMillis(1));
-    when(messageRateConfiguration.getReceiptDelayJitter()).thenReturn(Duration.ofMillis(1));
-    when(messageRateConfiguration.getReceiptProbability()).thenReturn(1.0);
 
     DynamicRateLimitChallengeConfiguration dynamicRateLimitChallengeConfiguration = mock(
         DynamicRateLimitChallengeConfiguration.class);

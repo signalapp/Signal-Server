@@ -10,7 +10,6 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledExecutorService;
 import org.junit.Before;
 import org.junit.Test;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
@@ -45,7 +44,6 @@ public class MessageControllerMetricsTest extends AbstractRedisClusterTest {
         mock(RateLimitChallengeManager.class),
         mock(ReportMessageManager.class),
         getRedisCluster(),
-        mock(ScheduledExecutorService.class),
         mock(ExecutorService.class));
   }
 

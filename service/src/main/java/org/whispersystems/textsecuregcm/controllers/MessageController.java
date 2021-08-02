@@ -35,13 +35,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -69,7 +66,6 @@ import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CombinedUnidentifiedSenderAccessKeys;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessageRateConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountMismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.AccountStaleDevices;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
@@ -134,10 +130,7 @@ public class MessageController {
   private final DynamicConfigurationManager dynamicConfigurationManager;
   private final RateLimitChallengeManager   rateLimitChallengeManager;
   private final ReportMessageManager        reportMessageManager;
-  private final ScheduledExecutorService    receiptExecutorService;
   private final ExecutorService             multiRecipientMessageExecutor;
-
-  private final Random random = new Random();
 
   private final ClusterLuaScript recordInternationalUnsealedSenderMetricsScript;
 
@@ -146,7 +139,6 @@ public class MessageController {
   private static final String REJECT_UNSEALED_SENDER_COUNTER_NAME                = name(MessageController.class, "rejectUnsealedSenderLimit");
   private static final String INTERNATIONAL_UNSEALED_SENDER_COUNTER_NAME         = name(MessageController.class, "internationalUnsealedSender");
   private static final String UNSEALED_SENDER_WITHOUT_PUSH_TOKEN_COUNTER_NAME    = name(MessageController.class, "unsealedSenderWithoutPushToken");
-  private static final String DECLINED_DELIVERY_COUNTER                          = name(MessageController.class, "declinedDelivery");
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME                     = name(MessageController.class, "messageContentSize");
   private static final String OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME = name(MessageController.class, "outgoingMessageListSizeBytes");
 
@@ -168,7 +160,6 @@ public class MessageController {
       RateLimitChallengeManager rateLimitChallengeManager,
       ReportMessageManager reportMessageManager,
       FaultTolerantRedisCluster metricsCluster,
-      ScheduledExecutorService receiptExecutorService,
       @Nonnull ExecutorService multiRecipientMessageExecutor) {
     this.rateLimiters = rateLimiters;
     this.messageSender = messageSender;
@@ -180,7 +171,6 @@ public class MessageController {
     this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.rateLimitChallengeManager = rateLimitChallengeManager;
     this.reportMessageManager = reportMessageManager;
-    this.receiptExecutorService = receiptExecutorService;
     this.multiRecipientMessageExecutor = Objects.requireNonNull(multiRecipientMessageExecutor);
 
     try {
@@ -303,7 +293,7 @@ public class MessageController {
                   .orElse(false);
 
               if (isRateLimitedHost) {
-                return declineDelivery(messages, source.get().getAccount(), destination.get());
+                throw new RateLimitExceededException(Duration.ofDays(1));
               }
             }
           }
@@ -479,47 +469,6 @@ public class MessageController {
         || !MessageDigest.isEqual(combinedUnknownAccessKeys, accessKeys.getAccessKeys())) {
       throw new WebApplicationException(Status.UNAUTHORIZED);
     }
-  }
-
-  private Response declineDelivery(final IncomingMessageList messages, final Account source, final Account destination) {
-    Metrics.counter(DECLINED_DELIVERY_COUNTER, SENDER_COUNTRY_TAG_NAME, Util.getCountryCode(source.getNumber())).increment();
-
-    final DynamicMessageRateConfiguration messageRateConfiguration = dynamicConfigurationManager.getConfiguration().getMessageRateConfiguration();
-
-    {
-      final long timestamp = System.currentTimeMillis();
-
-      for (final IncomingMessage message : messages.getMessages()) {
-        final long jitterNanos = random.nextInt((int) messageRateConfiguration.getReceiptDelayJitter().toNanos());
-        final Duration receiptDelay = messageRateConfiguration.getReceiptDelay().plusNanos(jitterNanos);
-
-        if (random.nextDouble() <= messageRateConfiguration.getReceiptProbability()) {
-          receiptExecutorService.schedule(() -> {
-            try {
-              receiptSender.sendReceipt(
-                  new AuthenticatedAccount(() -> new Pair<>(destination, destination.getMasterDevice().get())),
-                  source.getUuid(), timestamp);
-            } catch (final NoSuchUserException ignored) {
-            }
-          }, receiptDelay.toMillis(), TimeUnit.MILLISECONDS);
-        }
-      }
-    }
-
-    {
-      Duration responseDelay = Duration.ZERO;
-
-      for (int i = 0; i < messages.getMessages().size(); i++) {
-        final long jitterNanos = random.nextInt((int) messageRateConfiguration.getResponseDelayJitter().toNanos());
-
-        responseDelay = responseDelay.plus(
-            messageRateConfiguration.getResponseDelay()).plusNanos(jitterNanos);
-      }
-
-      Util.sleep(responseDelay.toMillis());
-    }
-
-    return Response.ok(new SendMessageResponse(source.getEnabledDeviceCount() > 1)).build();
   }
 
   @Timed
