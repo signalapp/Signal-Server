@@ -96,14 +96,20 @@ public class DirectoryQueue implements Managed {
   }
 
   public void refreshAccount(final Account account) {
-    sendUpdateMessage(account, account.shouldBeVisibleInDirectory() ? UpdateAction.ADD : UpdateAction.DELETE);
+    sendUpdateMessage(account.getUuid(), account.getNumber(),
+            account.shouldBeVisibleInDirectory() ? UpdateAction.ADD : UpdateAction.DELETE);
   }
 
   public void deleteAccount(final Account account) {
-    sendUpdateMessage(account, UpdateAction.DELETE);
+    sendUpdateMessage(account.getUuid(), account.getNumber(), UpdateAction.DELETE);
   }
 
-  private void sendUpdateMessage(final Account account, final UpdateAction action) {
+  public void changePhoneNumber(final Account account, final String originalNumber, final String newNumber) {
+    sendUpdateMessage(account.getUuid(), originalNumber, UpdateAction.DELETE);
+    sendUpdateMessage(account.getUuid(), newNumber, account.shouldBeVisibleInDirectory() ? UpdateAction.ADD : UpdateAction.DELETE);
+  }
+
+  private void sendUpdateMessage(final UUID uuid, final String number, final UpdateAction action) {
     for (final String queueUrl : queueUrls) {
       final Timer.Context timerContext = sendMessageBatchTimer.time();
 
@@ -111,10 +117,10 @@ public class DirectoryQueue implements Managed {
           .queueUrl(queueUrl)
           .messageBody("-")
           .messageDeduplicationId(UUID.randomUUID().toString())
-          .messageGroupId(account.getNumber())
+          .messageGroupId(number)
           .messageAttributes(Map.of(
-              "id", MessageAttributeValue.builder().dataType("String").stringValue(account.getNumber()).build(),
-              "uuid", MessageAttributeValue.builder().dataType("String").stringValue(account.getUuid().toString()).build(),
+              "id", MessageAttributeValue.builder().dataType("String").stringValue(number).build(),
+              "uuid", MessageAttributeValue.builder().dataType("String").stringValue(uuid.toString()).build(),
               "action", action.toMessageAttributeValue()
           ))
           .build();

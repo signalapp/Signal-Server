@@ -54,6 +54,7 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicSignupCaptc
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.AccountCreationResult;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
+import org.whispersystems.textsecuregcm.entities.ChangePhoneNumberRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceName;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
@@ -347,31 +348,17 @@ public class AccountController {
     storedVerificationCode.flatMap(StoredVerificationCode::getTwilioVerificationSid)
         .ifPresent(smsSender::reportVerificationSucceeded);
 
-    Optional<Account>                    existingAccount           = accounts.get(number);
-    Optional<StoredRegistrationLock>     existingRegistrationLock  = existingAccount.map(Account::getRegistrationLock);
-    Optional<ExternalServiceCredentials> existingBackupCredentials = existingAccount.map(Account::getUuid)
-                                                                                    .map(uuid -> backupServiceCredentialGenerator.generateFor(uuid.toString()));
+      Optional<Account> existingAccount = accounts.get(number);
 
-    if (existingRegistrationLock.isPresent() && existingRegistrationLock.get().requiresClientRegistrationLock()) {
-      rateLimiters.getVerifyLimiter().clear(number);
-
-      if (!Util.isEmpty(accountAttributes.getRegistrationLock())) {
-        rateLimiters.getPinLimiter().validate(number);
+      if (existingAccount.isPresent()) {
+        verifyRegistrationLock(existingAccount.get(), accountAttributes.getRegistrationLock());
       }
-
-      if (!existingRegistrationLock.get().verify(accountAttributes.getRegistrationLock())) {
-        throw new WebApplicationException(Response.status(423)
-                                                  .entity(new RegistrationLockFailure(existingRegistrationLock.get().getTimeRemaining(),
-                                                                                      existingRegistrationLock.get().needsFailureCredentials() ? existingBackupCredentials.orElseThrow() : null))
-                                                  .build());
-      }
-
-      rateLimiters.getPinLimiter().clear(number);
-    }
 
     if (availableForTransfer.orElse(false) && existingAccount.map(Account::isTransferSupported).orElse(false)) {
       throw new WebApplicationException(Response.status(409).build());
     }
+
+    rateLimiters.getVerifyLimiter().clear(number);
 
     Account account = accounts.create(number, password, signalAgent, accountAttributes);
 
@@ -390,6 +377,42 @@ public class AccountController {
     }
 
     return new AccountCreationResult(account.getUuid(), account.getNumber(), existingAccount.map(Account::isStorageSupported).orElse(false));
+  }
+
+  @Timed
+  @PUT
+  @Path("/number")
+  @Produces(MediaType.APPLICATION_JSON)
+  public void changeNumber(@Auth final AuthenticatedAccount authenticatedAccount, @Valid final ChangePhoneNumberRequest request)
+      throws RateLimitExceededException, InterruptedException {
+
+    if (request.getNumber().equals(authenticatedAccount.getAccount().getNumber())) {
+      // This may be a request that got repeated due to poor network conditions or other client error; take no action,
+      // but report success since the account is in the desired state
+      return;
+    }
+
+    rateLimiters.getVerifyLimiter().validate(request.getNumber());
+
+    final Optional<StoredVerificationCode> storedVerificationCode =
+        pendingAccounts.getCodeForNumber(request.getNumber());
+
+    if (storedVerificationCode.isEmpty() || !storedVerificationCode.get().isValid(request.getCode())) {
+      throw new WebApplicationException(Response.status(403).build());
+    }
+
+    storedVerificationCode.flatMap(StoredVerificationCode::getTwilioVerificationSid)
+        .ifPresent(smsSender::reportVerificationSucceeded);
+
+    final Optional<Account> existingAccount = accounts.get(request.getNumber());
+
+    if (existingAccount.isPresent()) {
+      verifyRegistrationLock(existingAccount.get(), request.getRegistrationLock());
+    }
+
+    rateLimiters.getVerifyLimiter().clear(request.getNumber());
+
+    accounts.changeNumber(authenticatedAccount.getAccount(), request.getNumber());
   }
 
   @Timed
@@ -588,6 +611,29 @@ public class AccountController {
     }
 
     return Response.ok().build();
+  }
+
+  private void verifyRegistrationLock(final Account existingAccount, @Nullable final String clientRegistrationLock)
+      throws RateLimitExceededException, WebApplicationException {
+
+    final StoredRegistrationLock existingRegistrationLock = existingAccount.getRegistrationLock();
+    final ExternalServiceCredentials existingBackupCredentials =
+        backupServiceCredentialGenerator.generateFor(existingAccount.getUuid().toString());
+
+    if (existingRegistrationLock.requiresClientRegistrationLock()) {
+      if (!Util.isEmpty(clientRegistrationLock)) {
+        rateLimiters.getPinLimiter().validate(existingAccount.getNumber());
+      }
+
+      if (!existingRegistrationLock.verify(clientRegistrationLock)) {
+        throw new WebApplicationException(Response.status(423)
+            .entity(new RegistrationLockFailure(existingRegistrationLock.getTimeRemaining(),
+                existingRegistrationLock.needsFailureCredentials() ? existingBackupCredentials : null))
+            .build());
+      }
+
+      rateLimiters.getPinLimiter().clear(existingAccount.getNumber());
+    }
   }
 
   private CaptchaRequirement requiresCaptcha(String number, String transport, String forwardedFor,

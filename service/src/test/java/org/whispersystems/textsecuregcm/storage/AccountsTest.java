@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -24,6 +25,11 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import org.assertj.core.api.AssertionsForClassTypes;
 import org.jdbi.v3.core.transaction.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -42,6 +48,7 @@ import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
 import software.amazon.awssdk.services.dynamodb.model.KeyType;
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
+import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException;
 import software.amazon.awssdk.services.dynamodb.model.TransactionConflictException;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
@@ -410,6 +417,52 @@ class AccountsTest {
     account.setDiscoverableByPhoneNumber(false);
     accounts.update(account);
     verifyStoredState("+14151112222", account.getUuid(), account, false);
+  }
+
+  @Test
+  public void testChangeNumber() {
+    final String originalNumber = "+14151112222";
+    final String targetNumber = "+14151113333";
+
+    final Device device = generateDevice(1);
+    final Account account = generateAccount(originalNumber, UUID.randomUUID(), Collections.singleton(device));
+
+    accounts.create(account);
+
+    {
+      final Optional<Account> retrieved = accounts.get(originalNumber);
+      assertThat(retrieved).isPresent();
+
+      verifyStoredState(originalNumber, account.getUuid(), retrieved.get(), account);
+    }
+
+    accounts.changeNumber(account, targetNumber);
+
+    assertThat(accounts.get(originalNumber)).isEmpty();
+
+    {
+      final Optional<Account> retrieved = accounts.get(targetNumber);
+      assertThat(retrieved).isPresent();
+
+      verifyStoredState(targetNumber, account.getUuid(), retrieved.get(), account);
+    }
+  }
+
+  @Test
+  public void testChangeNumberConflict() {
+    final String originalNumber = "+14151112222";
+    final String targetNumber = "+14151113333";
+
+    final Device existingDevice = generateDevice(1);
+    final Account existingAccount = generateAccount(targetNumber, UUID.randomUUID(), Collections.singleton(existingDevice));
+
+    final Device device = generateDevice(1);
+    final Account account = generateAccount(originalNumber, UUID.randomUUID(), Collections.singleton(device));
+
+    accounts.create(account);
+    accounts.create(existingAccount);
+
+    assertThrows(TransactionCanceledException.class, () -> accounts.changeNumber(account, targetNumber));
   }
 
   private Device generateDevice(long id) {

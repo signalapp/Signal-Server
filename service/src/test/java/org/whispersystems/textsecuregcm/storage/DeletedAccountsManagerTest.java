@@ -26,6 +26,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class DeletedAccountsManagerTest {
 
@@ -85,16 +86,16 @@ class DeletedAccountsManagerTest {
   }
 
   @Test
-  void testLockAndTakeWithException() throws InterruptedException {
+  void testLockAndTakeWithException() {
     final UUID uuid = UUID.randomUUID();
     final String e164 = "+18005551234";
 
     deletedAccounts.put(uuid, e164, true);
 
-    deletedAccountsManager.lockAndTake(e164, maybeUuid -> {
+    assertThrows(RuntimeException.class, () -> deletedAccountsManager.lockAndTake(e164, maybeUuid -> {
       assertEquals(Optional.of(uuid), maybeUuid);
       throw new RuntimeException("OH NO");
-    });
+    }));
 
     assertEquals(Optional.of(uuid), deletedAccounts.findUuid(e164));
   }

@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.tests.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -27,7 +28,9 @@ import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,7 +39,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.stubbing.Answer;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
@@ -50,7 +52,6 @@ import org.whispersystems.textsecuregcm.storage.ContestedOptimisticLockException
 import org.whispersystems.textsecuregcm.storage.DeletedAccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
@@ -63,7 +64,6 @@ class AccountsManagerTest {
   private Accounts accounts;
   private DeletedAccountsManager deletedAccountsManager;
   private DirectoryQueue directoryQueue;
-  private DynamicConfigurationManager dynamicConfigurationManager;
   private KeysDynamoDb keys;
   private MessagesManager messagesManager;
   private ProfilesManager profilesManager;
@@ -84,7 +84,6 @@ class AccountsManagerTest {
     accounts = mock(Accounts.class);
     deletedAccountsManager = mock(DeletedAccountsManager.class);
     directoryQueue = mock(DirectoryQueue.class);
-    dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
     keys = mock(KeysDynamoDb.class);
     messagesManager = mock(MessagesManager.class);
     profilesManager = mock(ProfilesManager.class);
@@ -92,14 +91,26 @@ class AccountsManagerTest {
     //noinspection unchecked
     commands = mock(RedisAdvancedClusterCommands.class);
 
-    final DynamicConfiguration dynamicConfiguration = new DynamicConfiguration();
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+    doAnswer((Answer<Void>) invocation -> {
+      final Account account = invocation.getArgument(0, Account.class);
+      final String number = invocation.getArgument(1, String.class);
+
+      account.setNumber(number);
+
+      return null;
+    }).when(accounts).changeNumber(any(), anyString());
 
     doAnswer(invocation -> {
       //noinspection unchecked
       invocation.getArgument(1, Consumer.class).accept(Optional.empty());
       return null;
     }).when(deletedAccountsManager).lockAndTake(anyString(), any());
+
+    final SecureStorageClient storageClient = mock(SecureStorageClient.class);
+    when(storageClient.deleteStoredData(any())).thenReturn(CompletableFuture.completedFuture(null));
+
+    final SecureBackupClient backupClient = mock(SecureBackupClient.class);
+    when(backupClient.deleteBackups(any())).thenReturn(CompletableFuture.completedFuture(null));
 
     accountsManager = new AccountsManager(
         accounts,
@@ -111,10 +122,9 @@ class AccountsManagerTest {
         mock(UsernamesManager.class),
         profilesManager,
         mock(StoredVerificationCodeManager.class),
-        mock(SecureStorageClient.class),
-        mock(SecureBackupClient.class),
-        mock(ClientPresenceManager.class)
-    );
+        storageClient,
+        backupClient,
+        mock(ClientPresenceManager.class));
   }
 
   @Test
@@ -159,7 +169,6 @@ class AccountsManagerTest {
 
   @Test
   void testGetAccountByNumberNotInCache() {
-    final boolean dynamoEnabled = true;
     UUID uuid = UUID.randomUUID();
     Account account = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
 
@@ -182,7 +191,6 @@ class AccountsManagerTest {
 
   @Test
   void testGetAccountByUuidNotInCache() {
-    final boolean dynamoEnabled = true;
     UUID uuid = UUID.randomUUID();
     Account account = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
 
@@ -457,5 +465,67 @@ class AccountsManagerTest {
         Arguments.of(false, 1, 1),
         Arguments.of(false, 2, 1)
     );
+  }
+
+  @Test
+  void testChangePhoneNumber() throws InterruptedException {
+    doAnswer(invocation -> invocation.getArgument(2, Supplier.class).get())
+        .when(deletedAccountsManager).lockAndPut(anyString(), anyString(), any());
+
+    final String originalNumber = "+14152222222";
+    final String targetNumber = "+14153333333";
+    final UUID uuid = UUID.randomUUID();
+
+    Account account = new Account(originalNumber, uuid, new HashSet<>(), new byte[16]);
+    account = accountsManager.changeNumber(account, targetNumber);
+
+    assertEquals(targetNumber, account.getNumber());
+
+    verify(directoryQueue).changePhoneNumber(argThat(a -> a.getUuid().equals(uuid)), eq(originalNumber), eq(targetNumber));
+  }
+
+  @Test
+  void testChangePhoneNumberSameNumber() throws InterruptedException {
+    final String number = "+14152222222";
+
+    Account account = new Account(number, UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    account = accountsManager.changeNumber(account, number);
+
+    assertEquals(number, account.getNumber());
+    verify(deletedAccountsManager, never()).lockAndPut(anyString(), anyString(), any());
+    verify(directoryQueue, never()).changePhoneNumber(any(), any(), any());
+  }
+
+  @Test
+  void testChangePhoneNumberExistingAccount() throws InterruptedException {
+    doAnswer(invocation -> invocation.getArgument(2, Supplier.class).get())
+        .when(deletedAccountsManager).lockAndPut(anyString(), anyString(), any());
+
+    final String originalNumber = "+14152222222";
+    final String targetNumber = "+14153333333";
+    final UUID existingAccountUuid = UUID.randomUUID();
+    final UUID uuid = UUID.randomUUID();
+
+    final Account existingAccount = new Account(targetNumber, existingAccountUuid, new HashSet<>(), new byte[16]);
+    when(accounts.get(targetNumber)).thenReturn(Optional.of(existingAccount));
+
+    Account account = new Account(originalNumber, uuid, new HashSet<>(), new byte[16]);
+    account = accountsManager.changeNumber(account, targetNumber);
+
+    assertEquals(targetNumber, account.getNumber());
+
+    verify(directoryQueue).changePhoneNumber(argThat(a -> a.getUuid().equals(uuid)), eq(originalNumber), eq(targetNumber));
+    verify(directoryQueue, never()).deleteAccount(any());
+  }
+
+  @Test
+  void testChangePhoneNumberViaUpdate() {
+    final String originalNumber = "+14152222222";
+    final String targetNumber = "+14153333333";
+    final UUID uuid = UUID.randomUUID();
+
+    final Account account = new Account(originalNumber, uuid, new HashSet<>(), new byte[16]);
+
+    assertThrows(AssertionError.class, () -> accountsManager.update(account, a -> a.setNumber(targetNumber)));
   }
 }

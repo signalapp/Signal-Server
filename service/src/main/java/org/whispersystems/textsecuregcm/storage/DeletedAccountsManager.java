@@ -61,38 +61,92 @@ public class DeletedAccountsManager {
             .build());
   }
 
+  /**
+   * Acquires a pessimistic lock for the given phone number and performs the given action, passing the UUID of the
+   * recently-deleted account (if any) that previously held the given number.
+   *
+   * @param e164 the phone number to lock and with which to perform an action
+   * @param consumer the action to take; accepts the UUID of the account that previously held the given e164, if any,
+   * as an argument
+   *
+   * @throws InterruptedException if interrupted while waiting to acquire a lock on the given phone number
+   */
   public void lockAndTake(final String e164, final Consumer<Optional<UUID>> consumer) throws InterruptedException {
-    withLock(e164, () -> {
+    withLock(List.of(e164), () -> {
       try {
         consumer.accept(deletedAccounts.findUuid(e164));
         deletedAccounts.remove(e164);
       } catch (final Exception e) {
         log.warn("Consumer threw an exception while holding lock on a deleted account record", e);
+        throw new RuntimeException(e);
       }
     });
   }
 
+  /**
+   * Acquires a pessimistic lock for the given phone number and performs an action that deletes an account, returning
+   * the UUID of the deleted account. The UUID of the deleted account will be stored in the list of recently-deleted
+   * e164-to-UUID mappings.
+   *
+   * @param e164 the phone number to lock and with which to perform an action
+   * @param supplier the deletion action to take on the account associated with the given number; must return the UUID
+   * of the deleted account
+   *
+   * @throws InterruptedException if interrupted while waiting to acquire a lock on the given phone number
+   */
   public void lockAndPut(final String e164, final Supplier<UUID> supplier) throws InterruptedException {
-    withLock(e164, () -> {
+    withLock(List.of(e164), () -> {
       try {
         deletedAccounts.put(supplier.get(), e164, true);
       } catch (final Exception e) {
         log.warn("Supplier threw an exception while holding lock on a deleted account record", e);
+        throw new RuntimeException(e);
       }
     });
   }
 
-  private void withLock(final String e164, final Runnable task) throws InterruptedException {
-    final LockItem lockItem = lockClient.acquireLock(AcquireLockOptions.builder(e164)
-        .withAcquireReleasedLocksConsistently(true)
-        .build());
+  /**
+   * Acquires a pessimistic lock for the given phone numbers and performs an action that may or may not delete an
+   * account associated with the target number. The UUID of the deleted account (if any) will be stored in the list of
+   * recently-deleted e164-to-UUID mappings.
+   *
+   * @param original the phone number of an existing account to lock and with which to perform an action
+   * @param target the phone number of an account that may or may not exist with which to perform an action
+   * @param supplier the action to take on the given phone numbers; the action may delete the account identified by the
+   * target number, in which case it must return the UUID of that account
+   *
+   * @throws InterruptedException if interrupted while waiting to acquire a lock on the given phone numbers
+   */
+  public void lockAndPut(final String original, final String target, final Supplier<Optional<UUID>> supplier)
+      throws InterruptedException {
+
+    withLock(List.of(original, target), () -> {
+      try {
+        supplier.get().ifPresent(uuid -> deletedAccounts.put(uuid, original, true));
+      } catch (final Exception e) {
+        log.warn("Supplier threw an exception while holding lock on a deleted account record", e);
+        throw new RuntimeException(e);
+      }
+    });
+  }
+
+  private void withLock(final List<String> e164s, final Runnable task) throws InterruptedException {
+    final List<LockItem> lockItems = new ArrayList<>(e164s.size());
 
     try {
+      for (final String e164 : e164s) {
+        lockItems.add(lockClient.acquireLock(AcquireLockOptions.builder(e164)
+            .withAcquireReleasedLocksConsistently(true)
+            .build()));
+      }
+
       task.run();
     } finally {
-      lockClient.releaseLock(ReleaseLockOptions.builder(lockItem)
-          .withBestEffort(true)
-          .build());
+      for (final LockItem lockItem : lockItems) {
+        lockClient.releaseLock(ReleaseLockOptions.builder(lockItem)
+            .withBestEffort(true)
+            .build());
+      }
     }
   }
 

@@ -66,6 +66,7 @@ import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.AccountCreationResult;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
+import org.whispersystems.textsecuregcm.entities.ChangePhoneNumberRequest;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
@@ -105,6 +106,7 @@ class AccountControllerTest {
   private static final String SENDER_TRANSFER    = "+14151111112";
 
   private static final UUID   SENDER_REG_LOCK_UUID = UUID.randomUUID();
+  private static final UUID   SENDER_TRANSFER_UUID = UUID.randomUUID();
 
   private static final String ABUSIVE_HOST             = "192.168.1.1";
   private static final String RESTRICTED_HOST          = "192.168.1.2";
@@ -200,6 +202,11 @@ class AccountControllerTest {
     when(senderRegLockAccount.getRegistrationLock()).thenReturn(new StoredRegistrationLock(Optional.of(registrationLockCredentials.getHashedAuthenticationToken()), Optional.of(registrationLockCredentials.getSalt()), System.currentTimeMillis()));
     when(senderRegLockAccount.getLastSeen()).thenReturn(System.currentTimeMillis());
     when(senderRegLockAccount.getUuid()).thenReturn(SENDER_REG_LOCK_UUID);
+    when(senderRegLockAccount.getNumber()).thenReturn(SENDER_REG_LOCK);
+
+    when(senderTransfer.getRegistrationLock()).thenReturn(new StoredRegistrationLock(Optional.empty(), Optional.empty(), System.currentTimeMillis()));
+    when(senderTransfer.getUuid()).thenReturn(SENDER_TRANSFER_UUID);
+    when(senderTransfer.getNumber()).thenReturn(SENDER_TRANSFER);
 
     when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), "1234-push", null)));
     when(pendingAccountsManager.getCodeForNumber(SENDER_OLD)).thenReturn(Optional.empty());
@@ -1122,6 +1129,203 @@ class AccountControllerTest {
                 MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(200);
+  }
+
+  @Test
+  void testChangePhoneNumber() throws InterruptedException {
+    final String number = "+18005559876";
+    final String code = "987654";
+
+    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
+        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null)));
+
+    final Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/number")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(204);
+    verify(accountsManager).changeNumber(AuthHelper.VALID_ACCOUNT, number);
+  }
+
+  @Test
+  void testChangePhoneNumberSameNumber() throws InterruptedException {
+    final Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/number")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(new ChangePhoneNumberRequest(AuthHelper.VALID_NUMBER, "567890", null),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(204);
+    verify(accountsManager, never()).changeNumber(eq(AuthHelper.VALID_ACCOUNT), any());
+  }
+
+  @Test
+  void testChangePhoneNumberNoPendingCode() throws InterruptedException {
+    final String number = "+18005559876";
+    final String code = "987654";
+
+    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.empty());
+
+    final Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/number")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(403);
+    verify(accountsManager, never()).changeNumber(eq(AuthHelper.VALID_ACCOUNT), any());
+  }
+
+  @Test
+  void testChangePhoneNumberIncorrectCode() throws InterruptedException {
+    final String number = "+18005559876";
+    final String code = "987654";
+
+    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
+        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null)));
+
+    final Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/number")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(new ChangePhoneNumberRequest(number, code + "-incorrect", null),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(403);
+    verify(accountsManager, never()).changeNumber(eq(AuthHelper.VALID_ACCOUNT), any());
+  }
+
+  @Test
+  void testChangePhoneNumberExistingAccountReglockNotRequired() throws InterruptedException {
+    final String number = "+18005559876";
+    final String code = "987654";
+
+    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
+        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null)));
+
+    final StoredRegistrationLock existingRegistrationLock = mock(StoredRegistrationLock.class);
+    when(existingRegistrationLock.requiresClientRegistrationLock()).thenReturn(false);
+
+    final Account existingAccount = mock(Account.class);
+    when(existingAccount.getNumber()).thenReturn(number);
+    when(existingAccount.getUuid()).thenReturn(UUID.randomUUID());
+    when(existingAccount.getRegistrationLock()).thenReturn(existingRegistrationLock);
+
+    when(accountsManager.get(number)).thenReturn(Optional.of(existingAccount));
+
+    final Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/number")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(204);
+    verify(accountsManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), any());
+  }
+
+  @Test
+  void testChangePhoneNumberExistingAccountReglockRequiredNotProvided() throws InterruptedException {
+    final String number = "+18005559876";
+    final String code = "987654";
+
+    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
+        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null)));
+
+    final StoredRegistrationLock existingRegistrationLock = mock(StoredRegistrationLock.class);
+    when(existingRegistrationLock.requiresClientRegistrationLock()).thenReturn(true);
+
+    final Account existingAccount = mock(Account.class);
+    when(existingAccount.getNumber()).thenReturn(number);
+    when(existingAccount.getUuid()).thenReturn(UUID.randomUUID());
+    when(existingAccount.getRegistrationLock()).thenReturn(existingRegistrationLock);
+
+    when(accountsManager.get(number)).thenReturn(Optional.of(existingAccount));
+
+    final Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/number")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(423);
+    verify(accountsManager, never()).changeNumber(eq(AuthHelper.VALID_ACCOUNT), any());
+  }
+
+  @Test
+  void testChangePhoneNumberExistingAccountReglockRequiredIncorrect() throws InterruptedException {
+    final String number = "+18005559876";
+    final String code = "987654";
+    final String reglock = "setec-astronomy";
+
+    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
+        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null)));
+
+    final StoredRegistrationLock existingRegistrationLock = mock(StoredRegistrationLock.class);
+    when(existingRegistrationLock.requiresClientRegistrationLock()).thenReturn(true);
+    when(existingRegistrationLock.verify(anyString())).thenReturn(false);
+
+    final Account existingAccount = mock(Account.class);
+    when(existingAccount.getNumber()).thenReturn(number);
+    when(existingAccount.getUuid()).thenReturn(UUID.randomUUID());
+    when(existingAccount.getRegistrationLock()).thenReturn(existingRegistrationLock);
+
+    when(accountsManager.get(number)).thenReturn(Optional.of(existingAccount));
+
+    final Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/number")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, reglock),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(423);
+    verify(accountsManager, never()).changeNumber(eq(AuthHelper.VALID_ACCOUNT), any());
+  }
+
+  @Test
+  void testChangePhoneNumberExistingAccountReglockRequiredCorrect() throws InterruptedException {
+    final String number = "+18005559876";
+    final String code = "987654";
+    final String reglock = "setec-astronomy";
+
+    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
+        new StoredVerificationCode(code, System.currentTimeMillis(), "push", null)));
+
+    final StoredRegistrationLock existingRegistrationLock = mock(StoredRegistrationLock.class);
+    when(existingRegistrationLock.requiresClientRegistrationLock()).thenReturn(true);
+    when(existingRegistrationLock.verify(reglock)).thenReturn(true);
+
+    final Account existingAccount = mock(Account.class);
+    when(existingAccount.getNumber()).thenReturn(number);
+    when(existingAccount.getUuid()).thenReturn(UUID.randomUUID());
+    when(existingAccount.getRegistrationLock()).thenReturn(existingRegistrationLock);
+
+    when(accountsManager.get(number)).thenReturn(Optional.of(existingAccount));
+
+    final Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/number")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, reglock),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(204);
+    verify(accountsManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), any());
   }
 
   @Test

@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -196,6 +197,45 @@ public class AccountsManager {
     }
   }
 
+  public Account changeNumber(final Account account, final String number) throws InterruptedException {
+    final String originalNumber = account.getNumber();
+
+    if (originalNumber.equals(number)) {
+      return account;
+    }
+
+    final AtomicReference<Account> updatedAccount = new AtomicReference<>();
+
+    deletedAccountsManager.lockAndPut(account.getNumber(), number, () -> {
+      redisDelete(account);
+
+      final Optional<Account> maybeExistingAccount = get(number);
+      final Optional<UUID> displacedUuid;
+
+      if (maybeExistingAccount.isPresent()) {
+        delete(maybeExistingAccount.get());
+        displacedUuid = maybeExistingAccount.map(Account::getUuid);
+      } else {
+        displacedUuid = Optional.empty();
+      }
+
+      final UUID uuid = account.getUuid();
+
+      final Account numberChangedAccount = updateWithRetries(
+          account,
+          a -> true,
+          a -> dynamoChangeNumber(a, number),
+          () -> dynamoGet(uuid).orElseThrow());
+
+      updatedAccount.set(numberChangedAccount);
+      directoryQueue.changePhoneNumber(numberChangedAccount, originalNumber, number);
+
+      return displacedUuid;
+    });
+
+    return updatedAccount.get();
+  }
+
   public Account update(Account account, Consumer<Account> updater) {
 
     return update(account, a -> {
@@ -243,8 +283,16 @@ public class AccountsManager {
       redisDelete(account);
 
       final UUID uuid = account.getUuid();
+      final String originalNumber = account.getNumber();
 
       updatedAccount = updateWithRetries(account, updater, this::dynamoUpdate, () -> dynamoGet(uuid).get());
+
+      assert updatedAccount.getNumber().equals(originalNumber);
+
+      if (!updatedAccount.getNumber().equals(originalNumber)) {
+        logger.error("Account number changed via \"normal\" update; numbers must be changed via changeNumber method",
+            new RuntimeException());
+      }
 
       redisSet(updatedAccount);
     }
@@ -343,24 +391,8 @@ public class AccountsManager {
   public void delete(final Account account, final DeletionReason deletionReason) throws InterruptedException {
     try (final Timer.Context ignored = deleteTimer.time()) {
       deletedAccountsManager.lockAndPut(account.getNumber(), () -> {
-        final CompletableFuture<Void> deleteStorageServiceDataFuture = secureStorageClient.deleteStoredData(account.getUuid());
-        final CompletableFuture<Void> deleteBackupServiceDataFuture = secureBackupClient.deleteBackups(account.getUuid());
-
-        usernamesManager.delete(account.getUuid());
+        delete(account);
         directoryQueue.deleteAccount(account);
-        profilesManager.deleteAll(account.getUuid());
-        keysDynamoDb.delete(account.getUuid());
-        messagesManager.clear(account.getUuid());
-
-        deleteStorageServiceDataFuture.join();
-        deleteBackupServiceDataFuture.join();
-
-        redisDelete(account);
-        dynamoDelete(account);
-
-        RedisOperation.unchecked(() ->
-            account.getDevices().forEach(device ->
-                clientPresenceManager.displacePresence(account.getUuid(), device.getId())));
 
         return account.getUuid();
       });
@@ -373,6 +405,26 @@ public class AccountsManager {
         COUNTRY_CODE_TAG_NAME, Util.getCountryCode(account.getNumber()),
         DELETION_REASON_TAG_NAME, deletionReason.tagValue)
         .increment();
+  }
+
+  private void delete(final Account account) {
+    final CompletableFuture<Void> deleteStorageServiceDataFuture = secureStorageClient.deleteStoredData(account.getUuid());
+    final CompletableFuture<Void> deleteBackupServiceDataFuture = secureBackupClient.deleteBackups(account.getUuid());
+
+    usernamesManager.delete(account.getUuid());
+    profilesManager.deleteAll(account.getUuid());
+    keysDynamoDb.delete(account.getUuid());
+    messagesManager.clear(account.getUuid());
+
+    deleteStorageServiceDataFuture.join();
+    deleteBackupServiceDataFuture.join();
+
+    redisDelete(account);
+    dynamoDelete(account);
+
+    RedisOperation.unchecked(() ->
+        account.getDevices().forEach(device ->
+            clientPresenceManager.displacePresence(account.getUuid(), device.getId())));
   }
 
   private String getAccountMapKey(String number) {
@@ -461,4 +513,7 @@ public class AccountsManager {
     accounts.delete(account.getUuid());
   }
 
+  private void dynamoChangeNumber(final Account account, final String number) {
+    accounts.changeNumber(account, number);
+  }
 }

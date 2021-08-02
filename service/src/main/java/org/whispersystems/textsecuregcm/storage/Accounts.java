@@ -12,6 +12,7 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -35,6 +36,7 @@ import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
 import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException;
 import software.amazon.awssdk.services.dynamodb.model.TransactionConflictException;
+import software.amazon.awssdk.services.dynamodb.model.Update;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 
@@ -59,6 +61,7 @@ public class Accounts extends AbstractDynamoDbStore {
   private final int scanPageSize;
 
   private static final Timer CREATE_TIMER = Metrics.timer(name(Accounts.class, "create"));
+  private static final Timer CHANGE_NUMBER_TIMER = Metrics.timer(name(Accounts.class, "changeNumber"));
   private static final Timer UPDATE_TIMER = Metrics.timer(name(Accounts.class, "update"));
   private static final Timer GET_BY_NUMBER_TIMER = Metrics.timer(name(Accounts.class, "getByNumber"));
   private static final Timer GET_BY_UUID_TIMER = Metrics.timer(name(Accounts.class, "getByUuid"));
@@ -165,6 +168,85 @@ public class Accounts extends AbstractDynamoDbStore {
                 .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
                 .build())
         .build();
+  }
+
+  /**
+   * Changes the phone number for the given account. The given account's number should be its current, pre-change
+   * number. If this method succeeds, the account's number will be changed to the new number. If the update fails for
+   * any reason, the account's number will be unchanged.
+   * <p/>
+   * This method expects that any accounts with conflicting numbers will have been removed by the time this method is
+   * called. This method may fail with an unspecified {@link RuntimeException} if another account with the same number
+   * exists in the data store.
+   *
+   * @param account the account for which to change the phone number
+   * @param number the new phone number
+   */
+  public void changeNumber(final Account account, final String number) {
+    CHANGE_NUMBER_TIMER.record(() -> {
+      final String originalNumber = account.getNumber();
+      boolean succeeded = false;
+
+      account.setNumber(number);
+
+      try {
+        final List<TransactWriteItem> writeItems = new ArrayList<>();
+
+        writeItems.add(TransactWriteItem.builder()
+            .delete(Delete.builder()
+                .tableName(phoneNumbersTableName)
+                .key(Map.of(ATTR_ACCOUNT_E164, AttributeValues.fromString(originalNumber)))
+                .build())
+            .build());
+
+        writeItems.add(TransactWriteItem.builder()
+            .put(Put.builder()
+                .tableName(phoneNumbersTableName)
+                .item(Map.of(
+                    KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid()),
+                    ATTR_ACCOUNT_E164, AttributeValues.fromString(number)))
+                .conditionExpression("attribute_not_exists(#number)")
+                .expressionAttributeNames(Map.of("#number", ATTR_ACCOUNT_E164))
+                .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
+                .build())
+            .build());
+
+        writeItems.add(
+            TransactWriteItem.builder()
+                .update(Update.builder()
+                    .tableName(accountsTableName)
+                    .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
+                    .updateExpression("SET #data = :data, #number = :number, #cds = :cds ADD #version :version_increment")
+                    .conditionExpression("attribute_exists(#number) AND #version = :version")
+                    .expressionAttributeNames(Map.of("#number", ATTR_ACCOUNT_E164,
+                        "#data", ATTR_ACCOUNT_DATA,
+                        "#cds", ATTR_CANONICALLY_DISCOVERABLE,
+                        "#version", ATTR_VERSION))
+                    .expressionAttributeValues(Map.of(
+                        ":data", AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
+                        ":number", AttributeValues.fromString(number),
+                        ":cds", AttributeValues.fromBool(account.shouldBeVisibleInDirectory()),
+                        ":version", AttributeValues.fromInt(account.getVersion()),
+                        ":version_increment", AttributeValues.fromInt(1)))
+                    .build())
+                .build());
+
+        final TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
+            .transactItems(writeItems)
+            .build();
+
+        client.transactWriteItems(request);
+
+        account.setVersion(account.getVersion() + 1);
+        succeeded = true;
+      } catch (final JsonProcessingException e) {
+        throw new IllegalArgumentException(e);
+      } finally {
+        if (!succeeded) {
+          account.setNumber(originalNumber);
+        }
+      }
+    });
   }
 
   public void update(Account account) throws ContestedOptimisticLockException {
