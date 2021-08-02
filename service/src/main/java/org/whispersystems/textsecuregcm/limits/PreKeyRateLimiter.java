@@ -50,6 +50,9 @@ public class PreKeyRateLimiter {
 
     try {
       rateLimiters.getDailyPreKeysLimiter().validate(account.getUuid());
+
+      // TODO Remove after migration period
+      rateLimiters.getDailyPreKeysLimiter().validate(account.getNumber());
     } catch (final RateLimitExceededException e) {
 
       final boolean enforceLimit = dynamicConfigurationManager.getConfiguration()
