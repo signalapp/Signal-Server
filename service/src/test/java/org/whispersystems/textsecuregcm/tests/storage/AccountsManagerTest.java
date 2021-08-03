@@ -338,16 +338,14 @@ class AccountsManagerTest {
 
     ArgumentCaptor<String> redisSetArgumentCapture = ArgumentCaptor.forClass(String.class);
 
-    verify(commands, times(4)).set(anyString(), redisSetArgumentCapture.capture());
+    verify(commands, times(2)).set(anyString(), redisSetArgumentCapture.capture());
 
-    Account firstAccountCached = JsonHelpers.fromJson(redisSetArgumentCapture.getAllValues().get(1), Account.class);
-    Account secondAccountCached = JsonHelpers.fromJson(redisSetArgumentCapture.getAllValues().get(3), Account.class);
+    Account accountCached = JsonHelpers.fromJson(redisSetArgumentCapture.getAllValues().get(1), Account.class);
 
     // uuid is @JsonIgnore, so we need to set it for compareAccounts to work
-    firstAccountCached.setUuid(uuid);
-    secondAccountCached.setUuid(uuid);
+    accountCached.setUuid(uuid);
 
-    assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.of(firstAccountCached), Optional.of(secondAccountCached)));
+    assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.of(updatedAccount), Optional.of(accountCached)));
   }
 
   @Test

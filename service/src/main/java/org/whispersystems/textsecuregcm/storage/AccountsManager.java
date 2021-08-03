@@ -293,47 +293,21 @@ public class AccountsManager {
 
     try (Timer.Context ignored = updateTimer.time()) {
 
-      if (!updater.apply(account)) {
-        return account;
-      }
-
-      {
-        // optimistically increment version
-        final int originalVersion = account.getVersion();
-        account.setVersion(originalVersion + 1);
-        redisSet(account);
-        account.setVersion(originalVersion);
-      }
+      redisDelete(account);
 
       final UUID uuid = account.getUuid();
 
       updatedAccount = updateWithRetries(account, updater, this::databaseUpdate, () -> databaseGet(uuid).get());
 
       if (dynamoWriteEnabled()) {
-        runSafelyAndRecordMetrics(() -> {
-
-              final Optional<Account> dynamoAccount = dynamoGet(uuid);
-              if (dynamoAccount.isPresent()) {
-
-                if (!updater.apply(dynamoAccount.get())) {
-                  return dynamoAccount;
-                }
-
-                Account dynamoUpdatedAccount = updateWithRetries(dynamoAccount.get(),
-                    updater,
-                    this::dynamoUpdate,
-                    () -> dynamoGet(uuid).get());
-
-                return Optional.of(dynamoUpdatedAccount);
-              }
-
-              return Optional.empty();
-            }, Optional.of(uuid), Optional.of(updatedAccount),
+        runSafelyAndRecordMetrics(() -> dynamoGet(uuid).map(dynamoAccount ->
+                updateWithRetries(dynamoAccount, updater, this::dynamoUpdate, () -> dynamoGet(uuid).get())),
+            Optional.of(uuid),
+            Optional.of(updatedAccount),
             this::compareAccounts,
             "update");
       }
 
-      // set the cache again, so that all updates are coalesced
       redisSet(updatedAccount);
     }
 
@@ -348,6 +322,10 @@ public class AccountsManager {
 
   private Account updateWithRetries(Account account, Function<Account, Boolean> updater, Consumer<Account> persister,
       Supplier<Account> retriever) {
+
+    if (!updater.apply(account)) {
+      return account;
+    }
 
     final int maxTries = 10;
     int tries = 0;
