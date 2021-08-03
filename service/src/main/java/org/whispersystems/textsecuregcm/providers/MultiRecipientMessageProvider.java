@@ -78,13 +78,13 @@ public class MultiRecipientMessageProvider implements MessageBodyReader<MultiRec
   private UUID readUuid(InputStream stream) throws IOException {
     byte[] buffer = new byte[8];
 
-    int read = stream.read(buffer);
+    int read = stream.readNBytes(buffer, 0, 8);
     if (read != 8) {
       throw new IOException("Insufficient bytes for UUID");
     }
     long msb = convertNetworkByteOrderToLong(buffer);
 
-    read = stream.read(buffer);
+    read = stream.readNBytes(buffer, 0, 8);
     if (read != 8) {
       throw new IOException("Insufficient bytes for UUID");
     }
