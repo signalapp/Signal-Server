@@ -10,13 +10,11 @@ import static com.codahale.metrics.MetricRegistry.name;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -47,11 +45,14 @@ public class PushFeedbackProcessor extends AccountDatabaseCrawlerListener {
       for (Device device : devices) {
         if (deviceNeedsUpdate(device)) {
           if (deviceExpired(device)) {
-            expired.mark();
+            if (device.isEnabled()) {
+              expired.mark();
+              update = true;
+            }
           } else {
             recovered.mark();
+            update = true;
           }
-          update = true;
         }
       }
 

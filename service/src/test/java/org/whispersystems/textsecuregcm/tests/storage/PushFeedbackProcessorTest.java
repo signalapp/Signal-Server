@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.tests.storage;
 
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyBoolean;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.isNull;
 import static org.mockito.Mockito.mock;
@@ -41,7 +42,6 @@ class PushFeedbackProcessorTest {
   private Account freshAccount          = mock(Account.class);
   private Account cleanAccount          = mock(Account.class);
   private Account stillActiveAccount    = mock(Account.class);
-  private Account undiscoverableAccount = mock(Account.class);
 
   private Device uninstalledDevice       = mock(Device.class);
   private Device uninstalledDeviceTwo    = mock(Device.class);
@@ -49,35 +49,40 @@ class PushFeedbackProcessorTest {
   private Device installedDeviceTwo      = mock(Device.class);
   private Device recentUninstalledDevice = mock(Device.class);
   private Device stillActiveDevice       = mock(Device.class);
-  private Device undiscoverableDevice    = mock(Device.class);
 
   @BeforeEach
   void setup() {
     AccountsHelper.setupMockUpdate(accountsManager);
 
-    when(uninstalledDevice.getUninstalledFeedbackTimestamp()).thenReturn(Util.todayInMillis() - TimeUnit.DAYS.toMillis(2));
+    when(uninstalledDevice.getUninstalledFeedbackTimestamp()).thenReturn(
+        Util.todayInMillis() - TimeUnit.DAYS.toMillis(2));
     when(uninstalledDevice.getLastSeen()).thenReturn(Util.todayInMillis() - TimeUnit.DAYS.toMillis(2));
-    when(uninstalledDeviceTwo.getUninstalledFeedbackTimestamp()).thenReturn(Util.todayInMillis() - TimeUnit.DAYS.toMillis(3));
+    when(uninstalledDevice.isEnabled()).thenReturn(true);
+    when(uninstalledDeviceTwo.getUninstalledFeedbackTimestamp()).thenReturn(
+        Util.todayInMillis() - TimeUnit.DAYS.toMillis(3));
     when(uninstalledDeviceTwo.getLastSeen()).thenReturn(Util.todayInMillis() - TimeUnit.DAYS.toMillis(3));
+    when(uninstalledDeviceTwo.isEnabled()).thenReturn(true);
 
     when(installedDevice.getUninstalledFeedbackTimestamp()).thenReturn(0L);
+    when(installedDevice.isEnabled()).thenReturn(true);
     when(installedDeviceTwo.getUninstalledFeedbackTimestamp()).thenReturn(0L);
+    when(installedDeviceTwo.isEnabled()).thenReturn(true);
 
-    when(recentUninstalledDevice.getUninstalledFeedbackTimestamp()).thenReturn(Util.todayInMillis() - TimeUnit.DAYS.toMillis(1));
+    when(recentUninstalledDevice.getUninstalledFeedbackTimestamp()).thenReturn(
+        Util.todayInMillis() - TimeUnit.DAYS.toMillis(1));
     when(recentUninstalledDevice.getLastSeen()).thenReturn(Util.todayInMillis());
+    when(recentUninstalledDevice.isEnabled()).thenReturn(true);
 
-    when(stillActiveDevice.getUninstalledFeedbackTimestamp()).thenReturn(Util.todayInMillis() - TimeUnit.DAYS.toMillis(2));
+    when(stillActiveDevice.getUninstalledFeedbackTimestamp()).thenReturn(
+        Util.todayInMillis() - TimeUnit.DAYS.toMillis(2));
     when(stillActiveDevice.getLastSeen()).thenReturn(Util.todayInMillis());
-
-    when(undiscoverableDevice.getUninstalledFeedbackTimestamp()).thenReturn(Util.todayInMillis() - TimeUnit.DAYS.toMillis(2));
-    when(undiscoverableDevice.getLastSeen()).thenReturn(Util.todayInMillis() - TimeUnit.DAYS.toMillis(2));
+    when(stillActiveDevice.isEnabled()).thenReturn(true);
 
     when(uninstalledAccount.getDevices()).thenReturn(Set.of(uninstalledDevice));
     when(mixedAccount.getDevices()).thenReturn(Set.of(installedDevice, uninstalledDeviceTwo));
     when(freshAccount.getDevices()).thenReturn(Set.of(recentUninstalledDevice));
     when(cleanAccount.getDevices()).thenReturn(Set.of(installedDeviceTwo));
     when(stillActiveAccount.getDevices()).thenReturn(Set.of(stillActiveDevice));
-    when(undiscoverableAccount.getDevices()).thenReturn(Set.of(undiscoverableDevice));
 
     when(mixedAccount.getUuid()).thenReturn(UUID.randomUUID());
     when(freshAccount.getUuid()).thenReturn(UUID.randomUUID());
@@ -89,12 +94,8 @@ class PushFeedbackProcessorTest {
     when(uninstalledAccount.getUuid()).thenReturn(UUID.randomUUID());
     when(uninstalledAccount.getNumber()).thenReturn("+18005551234");
 
-    when(undiscoverableAccount.isEnabled()).thenReturn(true);
-    when(undiscoverableAccount.isDiscoverableByPhoneNumber()).thenReturn(false);
-    when(undiscoverableAccount.getUuid()).thenReturn(UUID.randomUUID());
-    when(undiscoverableAccount.getNumber()).thenReturn("+18005559876");
-
-    AccountsHelper.setupMockGet(accountsManager, Set.of(uninstalledAccount, mixedAccount, freshAccount, cleanAccount, stillActiveAccount, undiscoverableAccount));
+    AccountsHelper.setupMockGet(accountsManager,
+        Set.of(uninstalledAccount, mixedAccount, freshAccount, cleanAccount, stillActiveAccount));
   }
 
 
@@ -109,17 +110,20 @@ class PushFeedbackProcessorTest {
   @Test
   void testUpdate() throws AccountDatabaseCrawlerRestartException {
     PushFeedbackProcessor processor = new PushFeedbackProcessor(accountsManager);
-    processor.timeAndProcessCrawlChunk(Optional.of(UUID.randomUUID()), List.of(uninstalledAccount, mixedAccount, stillActiveAccount, freshAccount, cleanAccount, undiscoverableAccount));
+    processor.timeAndProcessCrawlChunk(Optional.of(UUID.randomUUID()),
+        List.of(uninstalledAccount, mixedAccount, stillActiveAccount, freshAccount, cleanAccount));
 
     verify(uninstalledDevice).setApnId(isNull());
     verify(uninstalledDevice).setGcmId(isNull());
     verify(uninstalledDevice).setFetchesMessages(eq(false));
+    when(uninstalledDevice.isEnabled()).thenReturn(false);
 
     verify(accountsManager).update(eqUuid(uninstalledAccount), any());
 
     verify(uninstalledDeviceTwo).setApnId(isNull());
     verify(uninstalledDeviceTwo).setGcmId(isNull());
     verify(uninstalledDeviceTwo).setFetchesMessages(eq(false));
+    when(uninstalledDeviceTwo.isEnabled()).thenReturn(false);
 
     verify(installedDevice, never()).setApnId(any());
     verify(installedDevice, never()).setGcmId(any());
@@ -143,8 +147,18 @@ class PushFeedbackProcessorTest {
     verify(stillActiveDevice, never()).setApnId(any());
     verify(stillActiveDevice, never()).setGcmId(any());
     verify(stillActiveDevice, never()).setFetchesMessages(anyBoolean());
+    when(stillActiveDevice.getUninstalledFeedbackTimestamp()).thenReturn(0L);
 
     verify(accountsManager).update(eqUuid(stillActiveAccount), any());
+
+    // there are un-verified calls to updateDevice
+    clearInvocations(accountsManager);
+
+    // a second crawl should not make any further updates
+    processor.timeAndProcessCrawlChunk(Optional.of(UUID.randomUUID()),
+        List.of(uninstalledAccount, mixedAccount, stillActiveAccount, freshAccount, cleanAccount));
+
+    verify(accountsManager, never()).update(any(Account.class), any());
   }
 
 }
