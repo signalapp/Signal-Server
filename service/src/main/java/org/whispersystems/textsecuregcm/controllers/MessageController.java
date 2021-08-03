@@ -431,8 +431,15 @@ public class MessageController {
   private void checkAccessKeys(CombinedUnidentifiedSenderAccessKeys accessKeys, Map<UUID, Account> uuidToAccountMap) {
     AtomicBoolean throwUnauthorized = new AtomicBoolean(false);
     byte[] empty = new byte[16];
+    final Optional<byte[]> UNRESTRICTED_UNIDENTIFIED_ACCESS_KEY = Optional.of(new byte[16]);
     byte[] combinedUnknownAccessKeys = uuidToAccountMap.values().stream()
-        .map(Account::getUnidentifiedAccessKey)
+        .map(account -> {
+          if (account.isUnrestrictedUnidentifiedAccess()) {
+            return UNRESTRICTED_UNIDENTIFIED_ACCESS_KEY;
+          } else {
+            return account.getUnidentifiedAccessKey();
+          }
+        })
         .map(accessKey -> {
           if (accessKey.isEmpty()) {
             throwUnauthorized.set(true);
