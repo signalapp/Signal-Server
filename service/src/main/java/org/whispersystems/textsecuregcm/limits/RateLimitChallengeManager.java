@@ -56,17 +56,10 @@ public class RateLimitChallengeManager {
   public void answerPushChallenge(final Account account, final String challenge) throws RateLimitExceededException {
     rateLimiters.getPushChallengeAttemptLimiter().validate(account.getUuid());
 
-    // TODO Remove after migration period
-    rateLimiters.getPushChallengeAttemptLimiter().validate(account.getNumber());
-
     final boolean challengeSuccess = pushChallengeManager.answerChallenge(account, challenge);
 
     if (challengeSuccess) {
       rateLimiters.getPushChallengeSuccessLimiter().validate(account.getUuid());
-
-      // TODO Remove after migration period
-      rateLimiters.getPushChallengeSuccessLimiter().validate(account.getNumber());
-
       resetRateLimits(account);
     }
   }
@@ -76,9 +69,6 @@ public class RateLimitChallengeManager {
 
     rateLimiters.getRecaptchaChallengeAttemptLimiter().validate(account.getUuid());
 
-    // TODO Remove after migration period
-    rateLimiters.getRecaptchaChallengeAttemptLimiter().validate(account.getNumber());
-
     final boolean challengeSuccess = recaptchaClient.verify(captcha, mostRecentProxyIp);
 
     Metrics.counter(RECAPTCHA_ATTEMPT_COUNTER_NAME,
@@ -87,10 +77,6 @@ public class RateLimitChallengeManager {
 
     if (challengeSuccess) {
       rateLimiters.getRecaptchaChallengeSuccessLimiter().validate(account.getUuid());
-
-      // TODO Remove after migration period
-      rateLimiters.getRecaptchaChallengeSuccessLimiter().validate(account.getNumber());
-
       resetRateLimits(account);
     }
   }
@@ -98,9 +84,6 @@ public class RateLimitChallengeManager {
   private void resetRateLimits(final Account account) throws RateLimitExceededException {
     try {
       rateLimiters.getRateLimitResetLimiter().validate(account.getUuid());
-
-      // TODO Remove after migration period
-      rateLimiters.getRateLimitResetLimiter().validate(account.getNumber());
     } catch (final RateLimitExceededException e) {
       Metrics.counter(RESET_RATE_LIMIT_EXCEEDED_COUNTER_NAME,
           SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account.getNumber())).increment();
