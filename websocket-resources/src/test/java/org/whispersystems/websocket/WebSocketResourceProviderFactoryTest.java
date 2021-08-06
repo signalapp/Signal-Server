@@ -20,6 +20,7 @@ import java.util.Optional;
 import javax.security.auth.Subject;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
+import org.eclipse.jetty.websocket.api.WebSocketPolicy;
 import org.eclipse.jetty.websocket.servlet.ServletUpgradeRequest;
 import org.eclipse.jetty.websocket.servlet.ServletUpgradeResponse;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
@@ -105,6 +106,7 @@ public class WebSocketResourceProviderFactoryTest {
     WebSocketEnvironment             environment       = mock(WebSocketEnvironment.class    );
     WebSocketServletFactory          servletFactory    = mock(WebSocketServletFactory.class );
     when(environment.jersey()).thenReturn(jerseyEnvironment);
+    when(servletFactory.getPolicy()).thenReturn(mock(WebSocketPolicy.class));
 
     WebSocketResourceProviderFactory factory = new WebSocketResourceProviderFactory(environment, Account.class);
     factory.configure(servletFactory);

@@ -4,7 +4,13 @@
  */
 package org.whispersystems.websocket;
 
+import static java.util.Optional.ofNullable;
+
 import io.dropwizard.jersey.jackson.JacksonMessageBodyProvider;
+import java.io.IOException;
+import java.security.Principal;
+import java.util.Arrays;
+import java.util.Optional;
 import org.eclipse.jetty.websocket.servlet.ServletUpgradeRequest;
 import org.eclipse.jetty.websocket.servlet.ServletUpgradeResponse;
 import org.eclipse.jetty.websocket.servlet.WebSocketCreator;
@@ -19,13 +25,6 @@ import org.whispersystems.websocket.auth.WebSocketAuthenticator.AuthenticationRe
 import org.whispersystems.websocket.auth.WebsocketAuthValueFactoryProvider;
 import org.whispersystems.websocket.session.WebSocketSessionContextValueFactoryProvider;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
-
-import java.io.IOException;
-import java.security.Principal;
-import java.util.Arrays;
-import java.util.Optional;
-
-import static java.util.Optional.ofNullable;
 
 public class WebSocketResourceProviderFactory<T extends Principal> extends WebSocketServlet implements WebSocketCreator {
 
@@ -80,6 +79,9 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends WebSo
   @Override
   public void configure(WebSocketServletFactory factory) {
     factory.setCreator(this);
+    // TODO extract to configuration
+    factory.getPolicy().setMaxBinaryMessageSize(512 * 1024);
+    factory.getPolicy().setMaxTextMessageSize(512 * 1024);
   }
 
   private String getRemoteAddress(ServletUpgradeRequest request) {
