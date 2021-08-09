@@ -54,7 +54,6 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     private final ExecutorService notificationExecutorService;
 
     private final ClusterLuaScript insertScript;
-    private final ClusterLuaScript removeByIdScript;
     private final ClusterLuaScript removeBySenderScript;
     private final ClusterLuaScript removeByGuidScript;
     private final ClusterLuaScript getItemsScript;
@@ -101,7 +100,6 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         this.notificationExecutorService = notificationExecutorService;
 
         this.insertScript             = ClusterLuaScript.fromResource(insertCluster, "lua/insert_item.lua",           ScriptOutputType.INTEGER);
-        this.removeByIdScript         = ClusterLuaScript.fromResource(readDeleteCluster, "lua/remove_item_by_id.lua",     ScriptOutputType.VALUE);
         this.removeBySenderScript     = ClusterLuaScript.fromResource(readDeleteCluster, "lua/remove_item_by_sender.lua", ScriptOutputType.VALUE);
         this.removeByGuidScript       = ClusterLuaScript.fromResource(readDeleteCluster, "lua/remove_item_by_guid.lua",   ScriptOutputType.MULTI);
         this.getItemsScript           = ClusterLuaScript.fromResource(readDeleteCluster, "lua/get_items.lua",             ScriptOutputType.MULTI);
