@@ -86,7 +86,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     private static final String REMOVE_TIMER_NAME = name(MessagesCache.class, "remove");
 
     private static final String REMOVE_METHOD_TAG    = "method";
-  private static final String REMOVE_METHOD_SENDER = "sender";
+    private static final String REMOVE_METHOD_SENDER = "sender";
     private static final String REMOVE_METHOD_UUID   = "uuid";
 
     private static final Logger logger = LoggerFactory.getLogger(MessagesCache.class);
