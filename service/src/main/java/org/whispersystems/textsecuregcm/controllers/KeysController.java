@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.controllers;
@@ -116,12 +116,12 @@ public class KeysController {
   @GET
   @Path("/{identifier}/{device_id}")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response getDeviceKeys(@Auth                                     Optional<Account> account,
-                                @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
-                                @PathParam("identifier")                  AmbiguousIdentifier targetName,
-                                @PathParam("device_id")                   String deviceId,
-                                @HeaderParam("User-Agent")                String userAgent)
-      throws RateLimitExceededException, RateLimitChallengeException {
+  public Response getDeviceKeys(@Auth Optional<Account> account,
+      @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
+      @PathParam("identifier") AmbiguousIdentifier targetName,
+      @PathParam("device_id") String deviceId,
+      @HeaderParam("User-Agent") String userAgent)
+      throws RateLimitExceededException, RateLimitChallengeException, ServerRejectedException {
 
     targetName.incrementRequestCounter("getDeviceKeys", userAgent);
 
@@ -152,16 +152,17 @@ public class KeysController {
         preKeyRateLimiter.validate(account.get());
       } catch (RateLimitExceededException e) {
 
-        final boolean enforceLimit = rateLimitChallengeManager.shouldIssueRateLimitChallenge(userAgent);
+        final boolean legacyClient = rateLimitChallengeManager.isClientBelowMinimumVersion(userAgent);
 
         Metrics.counter(RATE_LIMITED_GET_PREKEYS_COUNTER_NAME,
-            SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account.get().getNumber()),
-            "enforced", String.valueOf(enforceLimit))
+                SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account.get().getNumber()),
+                "legacyClient", String.valueOf(legacyClient))
             .increment();
 
-        if (enforceLimit) {
-          throw new RateLimitChallengeException(account.get(), e.getRetryDuration());
+        if (legacyClient) {
+          throw new ServerRejectedException();
         }
+        throw new RateLimitChallengeException(account.get(), e.getRetryDuration());
       }
     }
 

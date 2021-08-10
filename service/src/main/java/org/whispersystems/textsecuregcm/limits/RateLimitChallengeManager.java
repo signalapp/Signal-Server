@@ -95,15 +95,15 @@ public class RateLimitChallengeManager {
     unsealedSenderRateLimiter.handleRateLimitReset(account);
   }
 
-  public boolean shouldIssueRateLimitChallenge(final String userAgent) {
+  public boolean isClientBelowMinimumVersion(final String userAgent) {
     try {
       final UserAgent client = UserAgentUtil.parseUserAgentString(userAgent);
       final Optional<Semver> minimumClientVersion = dynamicConfigurationManager.getConfiguration()
           .getRateLimitChallengeConfiguration()
           .getMinimumSupportedVersion(client.getPlatform());
 
-      return minimumClientVersion.map(version -> version.isLowerThanOrEqualTo(client.getVersion()))
-          .orElse(false);
+      return minimumClientVersion.map(version -> version.isGreaterThan(client.getVersion()))
+          .orElse(true);
     } catch (final UnrecognizedUserAgentException ignored) {
       return false;
     }

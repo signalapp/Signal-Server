@@ -112,25 +112,25 @@ class RateLimitChallengeManagerTest {
 
   @ParameterizedTest
   @MethodSource
-  void shouldIssueRateLimitChallenge(final String userAgent, final boolean expectIssueChallenge) {
+  void isClientBelowMinimumVersion(final String userAgent, final boolean expectBelowMinimumVersion) {
     when(rateLimitChallengeConfiguration.getMinimumSupportedVersion(any())).thenReturn(Optional.empty());
     when(rateLimitChallengeConfiguration.getMinimumSupportedVersion(ClientPlatform.ANDROID))
         .thenReturn(Optional.of(new Semver("5.6.0")));
     when(rateLimitChallengeConfiguration.getMinimumSupportedVersion(ClientPlatform.DESKTOP))
         .thenReturn(Optional.of(new Semver("5.0.0-beta.2")));
 
-    assertEquals(expectIssueChallenge, rateLimitChallengeManager.shouldIssueRateLimitChallenge(userAgent));
+    assertEquals(expectBelowMinimumVersion, rateLimitChallengeManager.isClientBelowMinimumVersion(userAgent));
   }
 
-  private static Stream<Arguments> shouldIssueRateLimitChallenge() {
+  private static Stream<Arguments> isClientBelowMinimumVersion() {
     return Stream.of(
-        Arguments.of("Signal-Android/5.1.2 Android/30", false),
-        Arguments.of("Signal-Android/5.6.0 Android/30", true),
-        Arguments.of("Signal-Android/5.11.1 Android/30", true),
-        Arguments.of("Signal-Desktop/5.0.0-beta.3 macOS/11", true),
-        Arguments.of("Signal-Desktop/5.0.0-beta.1 Windows/3.1", false),
-        Arguments.of("Signal-Desktop/5.2.0 Debian/11", true),
-        Arguments.of("Signal-iOS/5.1.2 iOS/12.2", false),
+        Arguments.of("Signal-Android/5.1.2 Android/30", true),
+        Arguments.of("Signal-Android/5.6.0 Android/30", false),
+        Arguments.of("Signal-Android/5.11.1 Android/30", false),
+        Arguments.of("Signal-Desktop/5.0.0-beta.3 macOS/11", false),
+        Arguments.of("Signal-Desktop/5.0.0-beta.1 Windows/3.1", true),
+        Arguments.of("Signal-Desktop/5.2.0 Debian/11", false),
+        Arguments.of("Signal-iOS/5.1.2 iOS/12.2", true),
         Arguments.of("anything-else", false)
     );
   }

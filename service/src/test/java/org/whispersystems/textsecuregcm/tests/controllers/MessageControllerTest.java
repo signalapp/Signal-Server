@@ -294,8 +294,9 @@ class MessageControllerTest {
   }
 
   @ParameterizedTest
-  @CsvSource({"true, 5.1.0, 413", "true, 5.6.4, 428", "false, 5.6.4, 200"})
-  void testUnsealedSenderCardinalityRateLimited(final boolean rateLimited, final String clientVersion, final int expectedStatusCode) throws Exception {
+  @CsvSource({"true, true, 413", "true, false, 428", "false, false, 200"})
+  void testUnsealedSenderCardinalityRateLimited(final boolean rateLimited, final boolean legacyClient,
+      final int expectedStatusCode) throws Exception {
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
     final DynamicMessageRateConfiguration messageRateConfiguration = mock(DynamicMessageRateConfiguration.class);
 
@@ -323,8 +324,8 @@ class MessageControllerTest {
       doThrow(new RateLimitExceededException(Duration.ofHours(1)))
           .when(unsealedSenderRateLimiter).validate(eq(AuthHelper.VALID_ACCOUNT), eq(internationalAccount));
 
-      when(rateLimitChallengeManager.shouldIssueRateLimitChallenge(String.format("Signal-Android/%s Android/30", clientVersion)))
-          .thenReturn(true);
+      when(rateLimitChallengeManager.isClientBelowMinimumVersion(anyString()))
+          .thenReturn(legacyClient);
     }
 
     Response response =
@@ -352,9 +353,10 @@ class MessageControllerTest {
     doThrow(new RateLimitExceededException(retryAfter))
         .when(unsealedSenderRateLimiter).validate(any(), any());
 
-    when(rateLimitChallengeManager.shouldIssueRateLimitChallenge("Signal-Android/5.1.2 Android/30")).thenReturn(true);
+    when(rateLimitChallengeManager.isClientBelowMinimumVersion("Signal-Android/5.1.2 Android/30")).thenReturn(false);
     when(rateLimitChallengeManager.getChallengeOptions(AuthHelper.VALID_ACCOUNT))
-        .thenReturn(List.of(RateLimitChallengeManager.OPTION_PUSH_CHALLENGE, RateLimitChallengeManager.OPTION_RECAPTCHA));
+        .thenReturn(
+            List.of(RateLimitChallengeManager.OPTION_PUSH_CHALLENGE, RateLimitChallengeManager.OPTION_RECAPTCHA));
 
     Response response =
         resources.getJerseyTest()

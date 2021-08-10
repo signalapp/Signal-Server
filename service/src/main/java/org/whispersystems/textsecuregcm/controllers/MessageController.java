@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.controllers;
@@ -19,6 +19,7 @@ import io.dropwizard.util.DataSize;
 import io.lettuce.core.ScriptOutputType;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.time.Duration;
@@ -56,7 +57,6 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
-import io.micrometer.core.instrument.Tags;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -265,20 +265,18 @@ public class MessageController {
           unsealedSenderRateLimiter.validate(source.get(), destination.get());
         } catch (final RateLimitExceededException e) {
 
-          final boolean enforceLimit = rateLimitChallengeManager.shouldIssueRateLimitChallenge(userAgent);
+          final boolean legacyClient = rateLimitChallengeManager.isClientBelowMinimumVersion(userAgent);
 
           Metrics.counter(REJECT_UNSEALED_SENDER_COUNTER_NAME,
-              SENDER_COUNTRY_TAG_NAME, senderCountryCode,
-              "enforced", String.valueOf(enforceLimit))
+                  SENDER_COUNTRY_TAG_NAME, senderCountryCode,
+                  "legacyClient", String.valueOf(legacyClient))
               .increment();
 
-          if (enforceLimit) {
-            logger.debug("Rejected unsealed sender limit from: {}", source.get().getNumber());
-
-            throw new RateLimitChallengeException(source.get(), e.getRetryDuration());
-          } else {
+          if (legacyClient) {
             throw e;
           }
+
+          throw new RateLimitChallengeException(source.get(), e.getRetryDuration());
         }
 
         final String destinationCountryCode = Util.getCountryCode(destination.get().getNumber());

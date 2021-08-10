@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm;
@@ -110,6 +110,7 @@ import org.whispersystems.textsecuregcm.mappers.InvalidWebsocketAddressException
 import org.whispersystems.textsecuregcm.mappers.RateLimitChallengeExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RetryLaterExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.ServerRejectedExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.BufferPoolGauges;
 import org.whispersystems.textsecuregcm.metrics.CpuUsageGauge;
 import org.whispersystems.textsecuregcm.metrics.FileDescriptorGauge;
@@ -662,6 +663,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(new InvalidWebsocketAddressExceptionMapper());
     environment.jersey().register(new DeviceLimitExceededExceptionMapper());
     environment.jersey().register(new RetryLaterExceptionMapper());
+    environment.jersey().register(new ServerRejectedExceptionMapper());
 
     webSocketEnvironment.jersey().register(new LoggingUnhandledExceptionMapper());
     webSocketEnvironment.jersey().register(new IOExceptionMapper());
@@ -669,6 +671,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.jersey().register(new InvalidWebsocketAddressExceptionMapper());
     webSocketEnvironment.jersey().register(new DeviceLimitExceededExceptionMapper());
     webSocketEnvironment.jersey().register(new RetryLaterExceptionMapper());
+    webSocketEnvironment.jersey().register(new ServerRejectedExceptionMapper());
 
     provisioningEnvironment.jersey().register(new LoggingUnhandledExceptionMapper());
     provisioningEnvironment.jersey().register(new IOExceptionMapper());
@@ -676,6 +679,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     provisioningEnvironment.jersey().register(new InvalidWebsocketAddressExceptionMapper());
     provisioningEnvironment.jersey().register(new DeviceLimitExceededExceptionMapper());
     provisioningEnvironment.jersey().register(new RetryLaterExceptionMapper());
+    provisioningEnvironment.jersey().register(new ServerRejectedExceptionMapper());
   }
 
   private void registerCorsFilter(Environment environment) {

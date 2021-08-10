@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -39,6 +39,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
@@ -57,6 +59,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.RateLimitChallengeExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.ServerRejectedExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -98,12 +101,15 @@ class KeysControllerTest {
   private static final RateLimiter           rateLimiter   = mock(RateLimiter.class );
 
   private static final ResourceExtension resources = ResourceExtension.builder()
-                                                            .addProvider(AuthHelper.getAuthFilter())
-                                                            .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
-                                                            .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-                                                            .addResource(new RateLimitChallengeExceptionMapper(rateLimitChallengeManager))
-                                                            .addResource(new KeysController(rateLimiters, keysDynamoDb, accounts, preKeyRateLimiter, rateLimitChallengeManager))
-                                                            .build();
+      .addProvider(AuthHelper.getAuthFilter())
+      .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
+          ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
+      .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
+      .addResource(new RateLimitChallengeExceptionMapper(rateLimitChallengeManager))
+      .addResource(new ServerRejectedExceptionMapper())
+      .addResource(
+          new KeysController(rateLimiters, keysDynamoDb, accounts, preKeyRateLimiter, rateLimitChallengeManager))
+      .build();
 
   @BeforeEach
   void setup() {
@@ -622,16 +628,20 @@ class KeysControllerTest {
     verify(accounts).update(eq(AuthHelper.DISABLED_ACCOUNT), any());
   }
 
-  @Test
-  void testRateLimitChallenge() throws RateLimitExceededException {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testRateLimitChallenge(boolean clientBelowMinimumVersion) throws RateLimitExceededException {
 
     Duration retryAfter = Duration.ofMinutes(1);
     doThrow(new RateLimitExceededException(retryAfter))
         .when(preKeyRateLimiter).validate(any());
 
-    when(rateLimitChallengeManager.shouldIssueRateLimitChallenge("Signal-Android/5.1.2 Android/30")).thenReturn(true);
+    when(
+        rateLimitChallengeManager.isClientBelowMinimumVersion("Signal-Android/5.1.2 Android/30")).thenReturn(
+        clientBelowMinimumVersion);
     when(rateLimitChallengeManager.getChallengeOptions(AuthHelper.VALID_ACCOUNT))
-        .thenReturn(List.of(RateLimitChallengeManager.OPTION_PUSH_CHALLENGE, RateLimitChallengeManager.OPTION_RECAPTCHA));
+        .thenReturn(
+            List.of(RateLimitChallengeManager.OPTION_PUSH_CHALLENGE, RateLimitChallengeManager.OPTION_RECAPTCHA));
 
     Response result = resources.getJerseyTest()
         .target(String.format("/v2/keys/%s/*", EXISTS_UUID.toString()))
@@ -650,14 +660,18 @@ class KeysControllerTest {
         .header("User-Agent", "Signal-Android/5.1.2 Android/30")
         .get();
 
-    assertThat(result.getStatus()).isEqualTo(428);
+    if (clientBelowMinimumVersion) {
+      assertThat(result.getStatus()).isEqualTo(508);
+    } else {
+      assertThat(result.getStatus()).isEqualTo(428);
 
-    RateLimitChallenge rateLimitChallenge = result.readEntity(RateLimitChallenge.class);
+      RateLimitChallenge rateLimitChallenge = result.readEntity(RateLimitChallenge.class);
 
-    assertThat(rateLimitChallenge.getToken()).isNotBlank();
-    assertThat(rateLimitChallenge.getOptions()).isNotEmpty();
-    assertThat(rateLimitChallenge.getOptions()).contains("recaptcha");
-    assertThat(rateLimitChallenge.getOptions()).contains("pushChallenge");
-    assertThat(Long.parseLong(result.getHeaderString("Retry-After"))).isEqualTo(retryAfter.toSeconds());
+      assertThat(rateLimitChallenge.getToken()).isNotBlank();
+      assertThat(rateLimitChallenge.getOptions()).isNotEmpty();
+      assertThat(rateLimitChallenge.getOptions()).contains("recaptcha");
+      assertThat(rateLimitChallenge.getOptions()).contains("pushChallenge");
+      assertThat(Long.parseLong(result.getHeaderString("Retry-After"))).isEqualTo(retryAfter.toSeconds());
+    }
   }
 }
