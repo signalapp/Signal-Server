@@ -66,8 +66,8 @@ import org.whispersystems.dispatch.DispatchManager;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccountAuthenticator;
+import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.configuration.DirectoryServerConfiguration;
@@ -194,6 +194,7 @@ import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
 import org.whispersystems.textsecuregcm.util.HostnameUtil;
 import org.whispersystems.textsecuregcm.util.TorExitNodeManager;
 import org.whispersystems.textsecuregcm.util.logging.LoggingUnhandledExceptionMapper;
+import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
 import org.whispersystems.textsecuregcm.websocket.DeadLetterHandler;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningConnectListener;
@@ -252,6 +253,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
   @Override
   public void run(WhisperServerConfiguration config, Environment environment)
       throws Exception {
+
+    UncaughtExceptionHandler.register();
 
     SharedMetricRegistries.add(Constants.METRICS_NAME, environment.metrics());
 
