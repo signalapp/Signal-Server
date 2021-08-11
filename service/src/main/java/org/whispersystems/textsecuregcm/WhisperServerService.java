@@ -483,19 +483,30 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     MessagePersister messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager, dynamicConfigurationManager, Duration.ofMinutes(config.getMessageCacheConfiguration().getPersistDelayMinutes()));
 
-    final List<DeletedAccountsDirectoryReconciler> deletedAccountsDirectoryReconcilers = new ArrayList<>();
+    // TODO listeners must be ordered so that ones that directly update accounts come last, so that read-only ones are not working with stale data
     final List<AccountDatabaseCrawlerListener> accountDatabaseCrawlerListeners = new ArrayList<>();
-    accountDatabaseCrawlerListeners.add(new PushFeedbackProcessor(accountsManager));
-    for (DirectoryServerConfiguration directoryServerConfiguration : config.getDirectoryConfiguration().getDirectoryServerConfiguration()) {
-      final DirectoryReconciliationClient directoryReconciliationClient = new DirectoryReconciliationClient(directoryServerConfiguration);
-      final DirectoryReconciler directoryReconciler = new DirectoryReconciler(directoryServerConfiguration.getReplicationName(), directoryReconciliationClient);
+
+    // the migrator is read-only
+    accountDatabaseCrawlerListeners.add(new AccountsDynamoDbMigrator(accountsDynamoDb, dynamicConfigurationManager));
+
+    final List<DeletedAccountsDirectoryReconciler> deletedAccountsDirectoryReconcilers = new ArrayList<>();
+    for (DirectoryServerConfiguration directoryServerConfiguration : config.getDirectoryConfiguration()
+        .getDirectoryServerConfiguration()) {
+      final DirectoryReconciliationClient directoryReconciliationClient = new DirectoryReconciliationClient(
+          directoryServerConfiguration);
+      final DirectoryReconciler directoryReconciler = new DirectoryReconciler(
+          directoryServerConfiguration.getReplicationName(), directoryReconciliationClient);
+      // reconcilers are read-only
       accountDatabaseCrawlerListeners.add(directoryReconciler);
 
-      final DeletedAccountsDirectoryReconciler deletedAccountsDirectoryReconciler = new DeletedAccountsDirectoryReconciler(directoryServerConfiguration.getReplicationName(), directoryReconciliationClient);
+      final DeletedAccountsDirectoryReconciler deletedAccountsDirectoryReconciler = new DeletedAccountsDirectoryReconciler(
+          directoryServerConfiguration.getReplicationName(), directoryReconciliationClient);
       deletedAccountsDirectoryReconcilers.add(deletedAccountsDirectoryReconciler);
     }
+    // PushFeedbackProcessor may update device properties
+    accountDatabaseCrawlerListeners.add(new PushFeedbackProcessor(accountsManager));
+    // delete accounts last
     accountDatabaseCrawlerListeners.add(new AccountCleaner(accountsManager));
-    accountDatabaseCrawlerListeners.add(new AccountsDynamoDbMigrator(accountsDynamoDb, dynamicConfigurationManager));
 
     HttpClient                currencyClient  = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).connectTimeout(Duration.ofSeconds(10)).build();
     FixerClient               fixerClient     = new FixerClient(currencyClient, config.getPaymentsServiceConfiguration().getFixerApiKey());
