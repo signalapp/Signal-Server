@@ -26,8 +26,6 @@ public class MessagesManager {
   private static final int RESULT_SET_CHUNK_SIZE = 100;
 
   private static final MetricRegistry metricRegistry       = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private static final Meter          cacheHitByNameMeter  = metricRegistry.meter(name(MessagesManager.class, "cacheHitByName" ));
-  private static final Meter          cacheMissByNameMeter = metricRegistry.meter(name(MessagesManager.class, "cacheMissByName"));
   private static final Meter          cacheHitByGuidMeter  = metricRegistry.meter(name(MessagesManager.class, "cacheHitByGuid" ));
   private static final Meter          cacheMissByGuidMeter = metricRegistry.meter(name(MessagesManager.class, "cacheMissByGuid"));
 
@@ -93,20 +91,6 @@ public class MessagesManager {
   public void clear(UUID destinationUuid, long deviceId) {
     messagesCache.clear(destinationUuid, deviceId);
     messagesDynamoDb.deleteAllMessagesForDevice(destinationUuid, deviceId);
-  }
-
-  public Optional<OutgoingMessageEntity> delete(
-      UUID destinationUuid, long destinationDeviceId, String source, long timestamp) {
-    Optional<OutgoingMessageEntity> removed = messagesCache.remove(destinationUuid, destinationDeviceId, source, timestamp);
-
-    if (removed.isEmpty()) {
-      removed = messagesDynamoDb.deleteMessageByDestinationAndSourceAndTimestamp(destinationUuid, destinationDeviceId, source, timestamp);
-      cacheMissByNameMeter.mark();
-    } else {
-      cacheHitByNameMeter.mark();
-    }
-
-    return removed;
   }
 
   public Optional<OutgoingMessageEntity> delete(UUID destinationUuid, long destinationDeviceId, UUID guid) {

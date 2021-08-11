@@ -555,24 +555,22 @@ class MessageControllerTest {
 
     UUID sourceUuid = UUID.randomUUID();
 
-    when(messagesManager.delete(AuthHelper.VALID_UUID, 1, "+14152222222", 31337))
-        .thenReturn(Optional.of(new OutgoingMessageEntity(31337L, true, null,
-                                                          Envelope.Type.CIPHERTEXT_VALUE,
-                                                          null, timestamp,
-                                                          "+14152222222", sourceUuid, 1, "hi".getBytes(), null, 0)));
+    UUID uuid1 = UUID.randomUUID();
+    when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid1)).thenReturn(Optional.of(new OutgoingMessageEntity(
+        31337L, true, uuid1, Envelope.Type.CIPHERTEXT_VALUE,
+        null, timestamp, "+14152222222", sourceUuid, 1, "hi".getBytes(), null, 0)));
 
-    when(messagesManager.delete(AuthHelper.VALID_UUID, 1, "+14152222222", 31338))
-        .thenReturn(Optional.of(new OutgoingMessageEntity(31337L, true, null,
-                                                          Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE,
-                                                          null, System.currentTimeMillis(),
-                                                          "+14152222222", sourceUuid, 1, null, null, 0)));
+    UUID uuid2 = UUID.randomUUID();
+    when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid2)).thenReturn(Optional.of(new OutgoingMessageEntity(
+        31337L, true, uuid2, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE,
+        null, System.currentTimeMillis(), "+14152222222", sourceUuid, 1, null, null, 0)));
 
 
-    when(messagesManager.delete(AuthHelper.VALID_UUID, 1, "+14152222222", 31339))
-        .thenReturn(Optional.empty());
+    UUID uuid3 = UUID.randomUUID();
+    when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid3)).thenReturn(Optional.empty());
 
     Response response = resources.getJerseyTest()
-                                 .target(String.format("/v1/messages/%s/%d", "+14152222222", 31337))
+                                 .target(String.format("/v1/messages/uuid/%s", uuid1))
                                  .request()
                                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                                  .delete();
@@ -581,7 +579,7 @@ class MessageControllerTest {
     verify(receiptSender).sendReceipt(any(AuthenticatedAccount.class), eq("+14152222222"), eq(timestamp));
 
     response = resources.getJerseyTest()
-                        .target(String.format("/v1/messages/%s/%d", "+14152222222", 31338))
+                        .target(String.format("/v1/messages/uuid/%s", uuid2))
                         .request()
                         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID.toString(), AuthHelper.VALID_PASSWORD))
                         .delete();
@@ -590,7 +588,7 @@ class MessageControllerTest {
     verifyNoMoreInteractions(receiptSender);
 
     response = resources.getJerseyTest()
-                        .target(String.format("/v1/messages/%s/%d", "+14152222222", 31339))
+                        .target(String.format("/v1/messages/uuid/%s", uuid3))
                         .request()
                         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
                         .delete();

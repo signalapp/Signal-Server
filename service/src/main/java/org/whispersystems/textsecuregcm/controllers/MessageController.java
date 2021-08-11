@@ -560,29 +560,6 @@ public class MessageController {
 
   @Timed
   @DELETE
-  @Path("/{source}/{timestamp}")
-  public void removePendingMessage(@Auth AuthenticatedAccount auth,
-      @PathParam("source") String source,
-      @PathParam("timestamp") long timestamp) {
-    try {
-      WebSocketConnection.recordMessageDeliveryDuration(timestamp, auth.getAuthenticatedDevice());
-      Optional<OutgoingMessageEntity> message = messagesManager.delete(
-          auth.getAccount().getUuid(),
-          auth.getAuthenticatedDevice().getId(),
-          source, timestamp);
-
-      if (message.isPresent() && message.get().getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE) {
-        receiptSender.sendReceipt(auth,
-            message.get().getSource(),
-            message.get().getTimestamp());
-      }
-    } catch (NoSuchUserException e) {
-      logger.warn("Sending delivery receipt", e);
-    }
-  }
-
-  @Timed
-  @DELETE
   @Path("/uuid/{uuid}")
   public void removePendingMessage(@Auth AuthenticatedAccount auth, @PathParam("uuid") UUID uuid) {
     try {
