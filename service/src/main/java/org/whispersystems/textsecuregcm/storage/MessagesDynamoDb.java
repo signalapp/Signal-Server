@@ -19,7 +19,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
@@ -53,7 +52,6 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
 
   private final Timer storeTimer = timer(name(getClass(), "store"));
   private final Timer loadTimer = timer(name(getClass(), "load"));
-  private final Timer deleteBySourceAndTimestamp = timer(name(getClass(), "delete", "sourceAndTimestamp"));
   private final Timer deleteByGuid = timer(name(getClass(), "delete", "guid"));
   private final Timer deleteByAccount = timer(name(getClass(), "delete", "account"));
   private final Timer deleteByDevice = timer(name(getClass(), "delete", "device"));
@@ -135,35 +133,6 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
         messageEntities.add(convertItemToOutgoingMessageEntity(message));
       }
       return messageEntities;
-    });
-  }
-
-  public Optional<OutgoingMessageEntity> deleteMessageByDestinationAndSourceAndTimestamp(final UUID destinationAccountUuid, final long destinationDeviceId, final String source, final long timestamp) {
-    return deleteBySourceAndTimestamp.record(() -> {
-      if (StringUtils.isEmpty(source)) {
-        throw new IllegalArgumentException("must specify a source");
-      }
-
-      final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid);
-      final QueryRequest queryRequest = QueryRequest.builder()
-          .tableName(tableName)
-          .projectionExpression(KEY_SORT)
-          .consistentRead(true)
-          .keyConditionExpression("#part = :part AND begins_with ( #sort , :sortprefix )")
-          .filterExpression("#source = :source AND #timestamp = :timestamp")
-          .expressionAttributeNames(Map.of(
-              "#part", KEY_PARTITION,
-              "#sort", KEY_SORT,
-              "#source", KEY_SOURCE,
-              "#timestamp", KEY_TIMESTAMP))
-          .expressionAttributeValues(Map.of(
-              ":part", partitionKey,
-              ":sortprefix", convertDestinationDeviceIdToSortKeyPrefix(destinationDeviceId),
-              ":source", AttributeValues.fromString(source),
-              ":timestamp", AttributeValues.fromLong(timestamp)))
-          .build();
-
-      return deleteItemsMatchingQueryAndReturnFirstOneActuallyDeleted(partitionKey, queryRequest);
     });
   }
 

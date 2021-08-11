@@ -5,7 +5,14 @@
 
 package org.whispersystems.textsecuregcm.tests.storage;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.google.protobuf.ByteString;
+import java.time.Duration;
+import java.util.List;
+import java.util.Random;
+import java.util.UUID;
+import java.util.function.Consumer;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -13,14 +20,6 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.tests.util.MessagesDynamoDbRule;
-
-import java.time.Duration;
-import java.util.List;
-import java.util.Random;
-import java.util.UUID;
-import java.util.function.Consumer;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 public class MessagesDynamoDbTest {
   private static final Random random = new Random();
@@ -125,25 +124,6 @@ public class MessagesDynamoDbTest {
     assertThat(messagesDynamoDb.load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE1));
     assertThat(messagesDynamoDb.load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().isEmpty();
     assertThat(messagesDynamoDb.load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE2));
-  }
-
-  @Test
-  public void testDeleteMessageByDestinationAndSourceAndTimestamp() {
-    final UUID destinationUuid = UUID.randomUUID();
-    final UUID secondDestinationUuid = UUID.randomUUID();
-    messagesDynamoDb.store(List.of(MESSAGE1), destinationUuid, 1);
-    messagesDynamoDb.store(List.of(MESSAGE2), secondDestinationUuid, 1);
-    messagesDynamoDb.store(List.of(MESSAGE3), destinationUuid, 2);
-
-    assertThat(messagesDynamoDb.load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE1));
-    assertThat(messagesDynamoDb.load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE3));
-    assertThat(messagesDynamoDb.load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE2));
-
-    messagesDynamoDb.deleteMessageByDestinationAndSourceAndTimestamp(secondDestinationUuid, 1, MESSAGE2.getSource(), MESSAGE2.getTimestamp());
-
-    assertThat(messagesDynamoDb.load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE1));
-    assertThat(messagesDynamoDb.load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE3));
-    assertThat(messagesDynamoDb.load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().isEmpty();
   }
 
   @Test

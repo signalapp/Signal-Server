@@ -86,7 +86,6 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     private static final String REMOVE_TIMER_NAME = name(MessagesCache.class, "remove");
 
     private static final String REMOVE_METHOD_TAG    = "method";
-    private static final String REMOVE_METHOD_SENDER = "sender";
     private static final String REMOVE_METHOD_UUID   = "uuid";
 
     private static final Logger logger = LoggerFactory.getLogger(MessagesCache.class);
@@ -159,24 +158,6 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
                     connection.sync().expire(ephemeralQueueKey, MAX_EPHEMERAL_MESSAGE_DELAY.toSeconds());
                 });
         });
-    }
-
-  public Optional<OutgoingMessageEntity> remove(final UUID destinationUuid, final long destinationDevice, final String sender, final long timestamp) {
-        try {
-            final byte[] serialized = (byte[])Metrics.timer(REMOVE_TIMER_NAME, REMOVE_METHOD_TAG, REMOVE_METHOD_SENDER).record(() ->
-                    removeBySenderScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
-                                                               getMessageQueueMetadataKey(destinationUuid, destinationDevice),
-                                                               getQueueIndexKey(destinationUuid, destinationDevice)),
-                                                       List.of((sender + "::" + timestamp).getBytes(StandardCharsets.UTF_8))));
-
-            if (serialized != null) {
-                return Optional.of(constructEntityFromEnvelope(0, MessageProtos.Envelope.parseFrom(serialized)));
-            }
-        } catch (final InvalidProtocolBufferException e) {
-            logger.warn("Failed to parse envelope", e);
-        }
-
-        return Optional.empty();
     }
 
     public Optional<OutgoingMessageEntity> remove(final UUID destinationUuid, final long destinationDevice, final UUID messageGuid) {

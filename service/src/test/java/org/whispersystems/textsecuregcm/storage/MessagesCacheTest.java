@@ -88,19 +88,6 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
     }
 
     @Test
-    public void testRemoveBySender() {
-        final UUID                   messageGuid = UUID.randomUUID();
-        final MessageProtos.Envelope message     = generateRandomMessage(messageGuid, false);
-
-        messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
-        final Optional<OutgoingMessageEntity> maybeRemovedMessage = messagesCache.remove(DESTINATION_UUID, DESTINATION_DEVICE_ID, message.getSource(), message.getTimestamp());
-
-        assertTrue(maybeRemovedMessage.isPresent());
-        assertEquals(MessagesCache.constructEntityFromEnvelope(0, message), maybeRemovedMessage.get());
-        assertEquals(Optional.empty(), messagesCache.remove(DESTINATION_UUID, DESTINATION_DEVICE_ID, message.getSource(), message.getTimestamp()));
-    }
-
-    @Test
     @Parameters({"true", "false"})
     public void testRemoveByUUID(final boolean sealedSender) {
         final UUID messageGuid = UUID.randomUUID();
