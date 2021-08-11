@@ -135,15 +135,12 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
     public long insert(final UUID guid, final UUID destinationUuid, final long destinationDevice, final MessageProtos.Envelope message) {
         final MessageProtos.Envelope messageWithGuid = message.toBuilder().setServerGuid(guid.toString()).build();
-        final String                 sender          = message.hasSource() ? (message.getSource() + "::" + message.getTimestamp()) : "nil";
-
         return (long)insertTimer.record(() ->
                 insertScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
                                                    getMessageQueueMetadataKey(destinationUuid, destinationDevice),
                                                    getQueueIndexKey(destinationUuid, destinationDevice)),
                                            List.of(messageWithGuid.toByteArray(),
                                                    String.valueOf(message.getTimestamp()).getBytes(StandardCharsets.UTF_8),
-                                                   sender.getBytes(StandardCharsets.UTF_8),
                                                    guid.toString().getBytes(StandardCharsets.UTF_8))));
     }
 
