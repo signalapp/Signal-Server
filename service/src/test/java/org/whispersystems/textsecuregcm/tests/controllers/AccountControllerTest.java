@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -52,8 +52,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
+import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
@@ -145,27 +146,29 @@ class AccountControllerTest {
   private static ExternalServiceCredentialGenerator storageCredentialGenerator = new ExternalServiceCredentialGenerator(new byte[32], new byte[32], false);
 
   private static final ResourceExtension resources = ResourceExtension.builder()
-                                                            .addProvider(AuthHelper.getAuthFilter())
-                                                            .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
-                                                                ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
-                                                            .addProvider(new RateLimitExceededExceptionMapper())
-                                                            .setMapper(SystemMapper.getMapper())
-                                                            .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-                                                            .addResource(new AccountController(pendingAccountsManager,
-                                                                                               accountsManager,
-                                                                                               usernamesManager,
-                                                                                               abusiveHostRules,
-                                                                                               rateLimiters,
-                                                                                               smsSender,
-                                                                                               dynamicConfigurationManager,
-                                                                                               turnTokenGenerator,
-                                                                                               new HashMap<>(),
-                                                                                               recaptchaClient,
-                                                                                               gcmSender,
-                                                                                               apnSender,
-                                                                                               storageCredentialGenerator,
-                                                                                               verifyExperimentEnrollmentManager))
-                                                            .build();
+      .addProvider(AuthHelper.getAuthFilter())
+      .addProvider(
+          new PolymorphicAuthValueFactoryProvider.Binder<>(
+              ImmutableSet.of(AuthenticatedAccount.class,
+                  DisabledPermittedAuthenticatedAccount.class)))
+      .addProvider(new RateLimitExceededExceptionMapper())
+      .setMapper(SystemMapper.getMapper())
+      .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
+      .addResource(new AccountController(pendingAccountsManager,
+          accountsManager,
+          usernamesManager,
+          abusiveHostRules,
+          rateLimiters,
+          smsSender,
+          dynamicConfigurationManager,
+          turnTokenGenerator,
+          new HashMap<>(),
+          recaptchaClient,
+          gcmSender,
+          apnSender,
+          storageCredentialGenerator,
+          verifyExperimentEnrollmentManager))
+      .build();
 
 
   @BeforeEach

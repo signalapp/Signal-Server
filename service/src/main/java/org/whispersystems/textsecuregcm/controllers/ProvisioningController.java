@@ -17,10 +17,10 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.ProvisioningManager;
-import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningAddress;
 
 @Path("/v1/provisioning")
@@ -39,16 +39,15 @@ public class ProvisioningController {
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public void sendProvisioningMessage(@Auth                     Account source,
-                                      @PathParam("destination") String destinationName,
-                                      @Valid                    ProvisioningMessage message)
+  public void sendProvisioningMessage(@Auth AuthenticatedAccount auth,
+      @PathParam("destination") String destinationName,
+      @Valid ProvisioningMessage message)
       throws RateLimitExceededException {
 
-    rateLimiters.getMessagesLimiter().validate(source.getUuid());
+    rateLimiters.getMessagesLimiter().validate(auth.getAccount().getUuid());
 
     if (!provisioningManager.sendProvisioningMessage(new ProvisioningAddress(destinationName, 0),
-                                                     Base64.getDecoder().decode(message.getBody())))
-    {
+        Base64.getDecoder().decode(message.getBody()))) {
       throw new WebApplicationException(Response.Status.NOT_FOUND);
     }
   }

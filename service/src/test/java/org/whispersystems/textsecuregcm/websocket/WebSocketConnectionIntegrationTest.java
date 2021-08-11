@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -40,6 +40,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
@@ -52,6 +53,7 @@ import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.tests.util.MessagesDynamoDbRule;
+import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 
@@ -90,13 +92,13 @@ public class WebSocketConnectionIntegrationTest extends AbstractRedisClusterTest
         when(account.getUuid()).thenReturn(UUID.randomUUID());
         when(device.getId()).thenReturn(1L);
 
-        webSocketConnection = new WebSocketConnection(
-                mock(ReceiptSender.class),
-                new MessagesManager(messagesDynamoDb, messagesCache, mock(PushLatencyManager.class), reportMessageManager),
-                account,
-                device,
-                webSocketClient,
-                retrySchedulingExecutor);
+      webSocketConnection = new WebSocketConnection(
+          mock(ReceiptSender.class),
+          new MessagesManager(messagesDynamoDb, messagesCache, mock(PushLatencyManager.class), reportMessageManager),
+          new AuthenticatedAccount(() -> new Pair<>(account, device)),
+          device,
+          webSocketClient,
+          retrySchedulingExecutor);
     }
 
     @After

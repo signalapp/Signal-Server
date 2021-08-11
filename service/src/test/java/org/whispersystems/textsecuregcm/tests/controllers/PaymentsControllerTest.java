@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -22,14 +22,14 @@ import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.controllers.PaymentsController;
 import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.entities.CurrencyConversionEntity;
 import org.whispersystems.textsecuregcm.entities.CurrencyConversionEntityList;
-import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
@@ -41,11 +41,12 @@ class PaymentsControllerTest {
   private final ExternalServiceCredentials validCredentials = new ExternalServiceCredentials("username", "password");
 
   private static final ResourceExtension resources = ResourceExtension.builder()
-                                                                      .addProvider(AuthHelper.getAuthFilter())
-                                                                      .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
-                                                                      .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-                                                                      .addResource(new PaymentsController(currencyManager, paymentsCredentialGenerator))
-                                                                      .build();
+      .addProvider(AuthHelper.getAuthFilter())
+      .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
+          ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
+      .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
+      .addResource(new PaymentsController(currencyManager, paymentsCredentialGenerator))
+      .build();
 
 
   @BeforeEach

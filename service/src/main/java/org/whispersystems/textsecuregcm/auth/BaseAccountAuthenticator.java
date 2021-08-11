@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -19,6 +19,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.RefreshingAccountAndDeviceSupplier;
 import org.whispersystems.textsecuregcm.util.Util;
 
 public class BaseAccountAuthenticator {
@@ -45,14 +46,15 @@ public class BaseAccountAuthenticator {
     this.clock           = clock;
   }
 
-  public Optional<Account> authenticate(BasicCredentials basicCredentials, boolean enabledRequired) {
+  public Optional<AuthenticatedAccount> authenticate(BasicCredentials basicCredentials, boolean enabledRequired) {
     boolean succeeded = false;
     String failureReason = null;
     String credentialType = null;
 
     try {
-      AuthorizationHeader authorizationHeader = AuthorizationHeader.fromUserAndPassword(basicCredentials.getUsername(), basicCredentials.getPassword());
-      Optional<Account>   account             = accountsManager.get(authorizationHeader.getIdentifier());
+      AuthorizationHeader authorizationHeader = AuthorizationHeader.fromUserAndPassword(basicCredentials.getUsername(),
+          basicCredentials.getPassword());
+      Optional<Account> account = accountsManager.get(authorizationHeader.getIdentifier());
 
       credentialType = authorizationHeader.getIdentifier().hasNumber() ? "e164" : "uuid";
 
@@ -83,9 +85,8 @@ public class BaseAccountAuthenticator {
       if (device.get().getAuthenticationCredentials().verify(basicCredentials.getPassword())) {
         succeeded = true;
         final Account authenticatedAccount = updateLastSeen(account.get(), device.get());
-        // the device in scope might be stale after the update, so get the latest from the authenticated account
-        authenticatedAccount.setAuthenticatedDevice(authenticatedAccount.getDevice(device.get().getId()).orElseThrow());
-        return Optional.of(authenticatedAccount);
+        return Optional.of(new AuthenticatedAccount(
+            new RefreshingAccountAndDeviceSupplier(authenticatedAccount, device.get().getId(), accountsManager)));
       }
 
       return Optional.empty();

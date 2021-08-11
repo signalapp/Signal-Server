@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -68,7 +68,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessageRateConfiguration;
@@ -142,15 +143,16 @@ class MessageControllerTest {
   private final ObjectMapper mapper = new ObjectMapper();
 
   private static final ResourceExtension resources = ResourceExtension.builder()
-                                                            .addProvider(AuthHelper.getAuthFilter())
-                                                            .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
-                                                            .addProvider(RateLimitExceededExceptionMapper.class)
-                                                            .addProvider(new RateLimitChallengeExceptionMapper(rateLimitChallengeManager))
-                                                            .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-                                                            .addResource(new MessageController(rateLimiters, messageSender, receiptSender, accountsManager,
-                                                                                               messagesManager, unsealedSenderRateLimiter, apnFallbackManager, dynamicConfigurationManager,
-                                                                                               rateLimitChallengeManager, reportMessageManager, metricsCluster, receiptExecutor))
-                                                            .build();
+      .addProvider(AuthHelper.getAuthFilter())
+      .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
+          ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
+      .addProvider(RateLimitExceededExceptionMapper.class)
+      .addProvider(new RateLimitChallengeExceptionMapper(rateLimitChallengeManager))
+      .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
+      .addResource(new MessageController(rateLimiters, messageSender, receiptSender, accountsManager,
+          messagesManager, unsealedSenderRateLimiter, apnFallbackManager, dynamicConfigurationManager,
+          rateLimitChallengeManager, reportMessageManager, metricsCluster, receiptExecutor))
+      .build();
 
   @BeforeEach
   void setup() throws Exception {
@@ -576,7 +578,7 @@ class MessageControllerTest {
                                  .delete();
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
-    verify(receiptSender).sendReceipt(any(Account.class), eq("+14152222222"), eq(timestamp));
+    verify(receiptSender).sendReceipt(any(AuthenticatedAccount.class), eq("+14152222222"), eq(timestamp));
 
     response = resources.getJerseyTest()
                         .target(String.format("/v1/messages/%s/%d", "+14152222222", 31338))
@@ -731,22 +733,54 @@ class MessageControllerTest {
             mockAccountWithDeviceAndEnabled(1L, true, 2L, false, 3L, true),
             Set.of(1L, 3L),
             null,
+            null,
+            false,
             null),
         arguments(
             mockAccountWithDeviceAndEnabled(1L, true, 2L, false, 3L, true),
             Set.of(1L, 2L, 3L),
             null,
-            Set.of(2L)),
+            Set.of(2L),
+            false,
+            null),
         arguments(
             mockAccountWithDeviceAndEnabled(1L, true, 2L, false, 3L, true),
             Set.of(1L),
             Set.of(3L),
+            null,
+            false,
             null),
         arguments(
             mockAccountWithDeviceAndEnabled(1L, true, 2L, false, 3L, true),
             Set.of(1L, 2L),
             Set.of(3L),
-            Set.of(2L))
+            Set.of(2L),
+            false,
+            null),
+        arguments(
+            mockAccountWithDeviceAndEnabled(1L, true, 2L, false, 3L, true),
+            Set.of(1L),
+            Set.of(3L),
+            Set.of(1L),
+            true,
+            1L
+        ),
+        arguments(
+            mockAccountWithDeviceAndEnabled(1L, true, 2L, false, 3L, true),
+            Set.of(2L),
+            Set.of(3L),
+            Set.of(2L),
+            true,
+            1L
+        ),
+        arguments(
+            mockAccountWithDeviceAndEnabled(1L, true, 2L, false, 3L, true),
+            Set.of(3L),
+            null,
+            null,
+            true,
+            1L
+        )
     );
   }
 
@@ -756,10 +790,13 @@ class MessageControllerTest {
       Account account,
       Set<Long> deviceIds,
       Collection<Long> expectedMissingDeviceIds,
-      Collection<Long> expectedExtraDeviceIds) throws Exception {
+      Collection<Long> expectedExtraDeviceIds,
+      boolean isSyncMessage,
+      Long authenticatedDeviceId) throws Exception {
     if (expectedMissingDeviceIds != null || expectedExtraDeviceIds != null) {
       final MismatchedDevicesException mismatchedDevicesException = assertThrows(MismatchedDevicesException.class,
-          () -> MessageController.validateCompleteDeviceList(account, deviceIds, false));
+          () -> MessageController.validateCompleteDeviceList(account, deviceIds, isSyncMessage,
+              Optional.ofNullable(authenticatedDeviceId)));
       if (expectedMissingDeviceIds != null) {
         Assertions.assertThat(mismatchedDevicesException.getMissingDevices())
             .hasSameElementsAs(expectedMissingDeviceIds);
@@ -768,7 +805,8 @@ class MessageControllerTest {
         Assertions.assertThat(mismatchedDevicesException.getExtraDevices()).hasSameElementsAs(expectedExtraDeviceIds);
       }
     } else {
-      MessageController.validateCompleteDeviceList(account, deviceIds, false);
+      MessageController.validateCompleteDeviceList(account, deviceIds, isSyncMessage,
+          Optional.ofNullable(authenticatedDeviceId));
     }
   }
 }

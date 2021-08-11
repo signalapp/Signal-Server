@@ -26,6 +26,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.AuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.InvalidAuthorizationHeaderException;
@@ -79,12 +80,12 @@ public class DeviceController {
   @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  public DeviceInfoList getDevices(@Auth Account account) {
+  public DeviceInfoList getDevices(@Auth AuthenticatedAccount auth) {
     List<DeviceInfo> devices = new LinkedList<>();
 
-    for (Device device : account.getDevices()) {
+    for (Device device : auth.getAccount().getDevices()) {
       devices.add(new DeviceInfo(device.getId(), device.getName(),
-                                 device.getLastSeen(), device.getCreated()));
+          device.getLastSeen(), device.getCreated()));
     }
 
     return new DeviceInfoList(devices);
@@ -93,8 +94,9 @@ public class DeviceController {
   @Timed
   @DELETE
   @Path("/{device_id}")
-  public void removeDevice(@Auth Account account, @PathParam("device_id") long deviceId) {
-    if (account.getAuthenticatedDevice().get().getId() != Device.MASTER_ID) {
+  public void removeDevice(@Auth AuthenticatedAccount auth, @PathParam("device_id") long deviceId) {
+    Account account = auth.getAccount();
+    if (auth.getAuthenticatedDevice().getId() != Device.MASTER_ID) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
@@ -109,9 +111,11 @@ public class DeviceController {
   @GET
   @Path("/provisioning/code")
   @Produces(MediaType.APPLICATION_JSON)
-  public VerificationCode createDeviceToken(@Auth Account account)
-      throws RateLimitExceededException, DeviceLimitExceededException
-  {
+  public VerificationCode createDeviceToken(@Auth AuthenticatedAccount auth)
+      throws RateLimitExceededException, DeviceLimitExceededException {
+
+    final Account account = auth.getAccount();
+
     rateLimiters.getAllocateDeviceLimiter().validate(account.getUuid());
 
     int maxDeviceLimit = MAX_DEVICES;
@@ -124,7 +128,7 @@ public class DeviceController {
       throw new DeviceLimitExceededException(account.getDevices().size(), MAX_DEVICES);
     }
 
-    if (account.getAuthenticatedDevice().get().getId() != Device.MASTER_ID) {
+    if (auth.getAuthenticatedDevice().getId() != Device.MASTER_ID) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
@@ -213,18 +217,18 @@ public class DeviceController {
   @Timed
   @PUT
   @Path("/unauthenticated_delivery")
-  public void setUnauthenticatedDelivery(@Auth Account account) {
-    assert(account.getAuthenticatedDevice().isPresent());
+  public void setUnauthenticatedDelivery(@Auth AuthenticatedAccount auth) {
+    assert (auth.getAuthenticatedDevice() != null);
     // Deprecated
   }
 
   @Timed
   @PUT
   @Path("/capabilities")
-  public void setCapabiltities(@Auth Account account, @Valid DeviceCapabilities capabilities) {
-    assert(account.getAuthenticatedDevice().isPresent());
-    final long deviceId = account.getAuthenticatedDevice().get().getId();
-    accounts.updateDevice(account, deviceId, d -> d.setCapabilities(capabilities));
+  public void setCapabiltities(@Auth AuthenticatedAccount auth, @Valid DeviceCapabilities capabilities) {
+    assert (auth.getAuthenticatedDevice() != null);
+    final long deviceId = auth.getAuthenticatedDevice().getId();
+    accounts.updateDevice(auth.getAccount(), deviceId, d -> d.setCapabilities(capabilities));
   }
 
   @VisibleForTesting protected VerificationCode generateVerificationCode() {

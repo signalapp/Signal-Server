@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -21,13 +21,13 @@ import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.controllers.StickerController;
 import org.whispersystems.textsecuregcm.entities.StickerPackFormUploadAttributes;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
@@ -38,12 +38,13 @@ class StickerControllerTest {
   private static final RateLimiters rateLimiters = mock(RateLimiters.class);
 
   private static final ResourceExtension resources = ResourceExtension.builder()
-                                                                      .addProvider(AuthHelper.getAuthFilter())
-                                                                      .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
-                                                                      .setMapper(SystemMapper.getMapper())
-                                                                      .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-                                                                      .addResource(new StickerController(rateLimiters, "foo", "bar", "us-east-1", "mybucket"))
-                                                                      .build();
+      .addProvider(AuthHelper.getAuthFilter())
+      .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
+          ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
+      .setMapper(SystemMapper.getMapper())
+      .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
+      .addResource(new StickerController(rateLimiters, "foo", "bar", "us-east-1", "mybucket"))
+      .build();
 
   @BeforeEach
   void setup() {

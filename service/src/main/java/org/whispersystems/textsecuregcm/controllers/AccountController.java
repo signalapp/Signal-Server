@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.controllers;
@@ -39,9 +39,10 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.AuthorizationHeader;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
+import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.InvalidAuthorizationHeaderException;
@@ -404,8 +405,8 @@ public class AccountController {
   @GET
   @Path("/turn/")
   @Produces(MediaType.APPLICATION_JSON)
-  public TurnToken getTurnToken(@Auth Account account) throws RateLimitExceededException {
-    rateLimiters.getTurnLimiter().validate(account.getUuid());
+  public TurnToken getTurnToken(@Auth AuthenticatedAccount auth) throws RateLimitExceededException {
+    rateLimiters.getTurnLimiter().validate(auth.getAccount().getUuid());
     return turnTokenGenerator.generate();
   }
 
@@ -413,13 +414,13 @@ public class AccountController {
   @PUT
   @Path("/gcm/")
   @Consumes(MediaType.APPLICATION_JSON)
-  public void setGcmRegistrationId(@Auth DisabledPermittedAccount disabledPermittedAccount, @Valid GcmRegistrationId registrationId) {
-    Account account           = disabledPermittedAccount.getAccount();
-    Device  device            = account.getAuthenticatedDevice().get();
+  public void setGcmRegistrationId(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
+      @Valid GcmRegistrationId registrationId) {
+    Account account = disabledPermittedAuth.getAccount();
+    Device device = disabledPermittedAuth.getAuthenticatedDevice();
 
     if (device.getGcmId() != null &&
-        device.getGcmId().equals(registrationId.getGcmRegistrationId()))
-    {
+        device.getGcmId().equals(registrationId.getGcmRegistrationId())) {
       return;
     }
 
@@ -434,9 +435,9 @@ public class AccountController {
   @Timed
   @DELETE
   @Path("/gcm/")
-  public void deleteGcmRegistrationId(@Auth DisabledPermittedAccount disabledPermittedAccount) {
-    Account account = disabledPermittedAccount.getAccount();
-    Device  device  = account.getAuthenticatedDevice().get();
+  public void deleteGcmRegistrationId(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth) {
+    Account account = disabledPermittedAuth.getAccount();
+    Device device = disabledPermittedAuth.getAuthenticatedDevice();
 
     accounts.updateDevice(account, device.getId(), d -> {
       d.setGcmId(null);
@@ -449,9 +450,10 @@ public class AccountController {
   @PUT
   @Path("/apn/")
   @Consumes(MediaType.APPLICATION_JSON)
-  public void setApnRegistrationId(@Auth DisabledPermittedAccount disabledPermittedAccount, @Valid ApnRegistrationId registrationId) {
-    Account account           = disabledPermittedAccount.getAccount();
-    Device  device            = account.getAuthenticatedDevice().get();
+  public void setApnRegistrationId(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
+      @Valid ApnRegistrationId registrationId) {
+    Account account = disabledPermittedAuth.getAccount();
+    Device device = disabledPermittedAuth.getAuthenticatedDevice();
 
     accounts.updateDevice(account, device.getId(), d -> {
       d.setApnId(registrationId.getApnRegistrationId());
@@ -464,9 +466,9 @@ public class AccountController {
   @Timed
   @DELETE
   @Path("/apn/")
-  public void deleteApnRegistrationId(@Auth DisabledPermittedAccount disabledPermittedAccount) {
-    Account account = disabledPermittedAccount.getAccount();
-    Device  device  = account.getAuthenticatedDevice().get();
+  public void deleteApnRegistrationId(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth) {
+    Account account = disabledPermittedAuth.getAccount();
+    Device device = disabledPermittedAuth.getAuthenticatedDevice();
 
     accounts.updateDevice(account, device.getId(), d -> {
       d.setApnId(null);
@@ -483,57 +485,54 @@ public class AccountController {
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/registration_lock")
-  public void setRegistrationLock(@Auth Account account, @Valid RegistrationLock accountLock) {
+  public void setRegistrationLock(@Auth AuthenticatedAccount auth, @Valid RegistrationLock accountLock) {
     AuthenticationCredentials credentials = new AuthenticationCredentials(accountLock.getRegistrationLock());
 
-    accounts.update(account, a -> {
-      a.setRegistrationLock(credentials.getHashedAuthenticationToken(), credentials.getSalt());
-    });
+    accounts.update(auth.getAccount(),
+        a -> a.setRegistrationLock(credentials.getHashedAuthenticationToken(), credentials.getSalt()));
   }
 
   @Timed
   @DELETE
   @Path("/registration_lock")
-  public void removeRegistrationLock(@Auth Account account) {
-    accounts.update(account, a -> a.setRegistrationLock(null, null));
+  public void removeRegistrationLock(@Auth AuthenticatedAccount auth) {
+    accounts.update(auth.getAccount(), a -> a.setRegistrationLock(null, null));
   }
 
   @Timed
   @PUT
   @Path("/name/")
-  public void setName(@Auth DisabledPermittedAccount disabledPermittedAccount, @Valid DeviceName deviceName) {
-    Account account = disabledPermittedAccount.getAccount();
-    Device device = account.getAuthenticatedDevice().get();
+  public void setName(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth, @Valid DeviceName deviceName) {
+    Account account = disabledPermittedAuth.getAccount();
+    Device device = disabledPermittedAuth.getAuthenticatedDevice();
     accounts.updateDevice(account, device.getId(), d -> d.setName(deviceName.getDeviceName()));
   }
 
   @Timed
   @DELETE
   @Path("/signaling_key")
-  public void removeSignalingKey(@Auth DisabledPermittedAccount disabledPermittedAccount) {
+  public void removeSignalingKey(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth) {
   }
 
   @Timed
   @PUT
   @Path("/attributes/")
   @Consumes(MediaType.APPLICATION_JSON)
-  public void setAccountAttributes(@Auth DisabledPermittedAccount disabledPermittedAccount,
-                                   @HeaderParam("X-Signal-Agent") String userAgent,
-                                   @Valid AccountAttributes attributes)
-  {
-    Account account = disabledPermittedAccount.getAccount();
-    long deviceId = account.getAuthenticatedDevice().get().getId();
+  public void setAccountAttributes(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
+      @HeaderParam("X-Signal-Agent") String userAgent,
+      @Valid AccountAttributes attributes) {
+    Account account = disabledPermittedAuth.getAccount();
+    long deviceId = disabledPermittedAuth.getAuthenticatedDevice().getId();
 
-    accounts.update(account, a-> {
-
+    accounts.update(account, a -> {
       a.getDevice(deviceId).ifPresent(d -> {
-            d.setFetchesMessages(attributes.getFetchesMessages());
-            d.setName(attributes.getName());
-            d.setLastSeen(Util.todayInMillis());
-            d.setCapabilities(attributes.getCapabilities());
-            d.setRegistrationId(attributes.getRegistrationId());
-            d.setUserAgent(userAgent);
-          });
+        d.setFetchesMessages(attributes.getFetchesMessages());
+        d.setName(attributes.getName());
+        d.setLastSeen(Util.todayInMillis());
+        d.setCapabilities(attributes.getCapabilities());
+        d.setRegistrationId(attributes.getRegistrationId());
+        d.setUserAgent(userAgent);
+      });
 
       a.setRegistrationLockFromAttributes(attributes);
 
@@ -546,29 +545,30 @@ public class AccountController {
   @GET
   @Path("/me")
   @Produces(MediaType.APPLICATION_JSON)
-  public AccountCreationResult getMe(@Auth Account account) {
-    return whoAmI(account);
+  public AccountCreationResult getMe(@Auth AuthenticatedAccount auth) {
+    return whoAmI(auth);
   }
 
   @GET
   @Path("/whoami")
   @Produces(MediaType.APPLICATION_JSON)
-  public AccountCreationResult whoAmI(@Auth Account account) {
-    return new AccountCreationResult(account.getUuid(), account.isStorageSupported());
+  public AccountCreationResult whoAmI(@Auth AuthenticatedAccount auth) {
+    return new AccountCreationResult(auth.getAccount().getUuid(), auth.getAccount().isStorageSupported());
   }
 
   @DELETE
   @Path("/username")
   @Produces(MediaType.APPLICATION_JSON)
-  public void deleteUsername(@Auth Account account) {
-    usernames.delete(account.getUuid());
+  public void deleteUsername(@Auth AuthenticatedAccount auth) {
+    usernames.delete(auth.getAccount().getUuid());
   }
 
   @PUT
   @Path("/username/{username}")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response setUsername(@Auth Account account, @PathParam("username") String username) throws RateLimitExceededException {
-    rateLimiters.getUsernameSetLimiter().validate(account.getUuid());
+  public Response setUsername(@Auth AuthenticatedAccount auth, @PathParam("username") String username)
+      throws RateLimitExceededException {
+    rateLimiters.getUsernameSetLimiter().validate(auth.getAccount().getUuid());
 
     if (username == null || username.isEmpty()) {
       return Response.status(Response.Status.BAD_REQUEST).build();
@@ -580,7 +580,7 @@ public class AccountController {
       return Response.status(Response.Status.BAD_REQUEST).build();
     }
 
-    if (!usernames.put(account.getUuid(), username)) {
+    if (!usernames.put(auth.getAccount().getUuid(), username)) {
       return Response.status(Response.Status.CONFLICT).build();
     }
 
@@ -678,8 +678,8 @@ public class AccountController {
   @Timed
   @DELETE
   @Path("/me")
-  public void deleteAccount(@Auth Account account) throws InterruptedException {
-    accounts.delete(account, AccountsManager.DeletionReason.USER_REQUEST);
+  public void deleteAccount(@Auth AuthenticatedAccount auth) throws InterruptedException {
+    accounts.delete(auth.getAccount(), AccountsManager.DeletionReason.USER_REQUEST);
   }
 
   private boolean shouldAutoBlock(String sourceHost) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -41,7 +41,8 @@ import org.signal.zkgroup.profiles.ProfileKey;
 import org.signal.zkgroup.profiles.ProfileKeyCommitment;
 import org.signal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicPaymentsConfiguration;
 import org.whispersystems.textsecuregcm.controllers.ProfileController;
@@ -87,22 +88,23 @@ class ProfileControllerTest {
   private Account profileAccount;
 
   private static final ResourceExtension resources = ResourceExtension.builder()
-                                                                      .addProvider(AuthHelper.getAuthFilter())
-                                                                      .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
-                                                                      .setMapper(SystemMapper.getMapper())
-                                                                      .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-                                                                      .addResource(new ProfileController(rateLimiters,
-                                                                                                         accountsManager,
-                                                                                                         profilesManager,
-                                                                                                         usernamesManager,
-                                                                                                         dynamicConfigurationManager,
-                                                                                                         s3client,
-                                                                                                         postPolicyGenerator,
-                                                                                                         policySigner,
-                                                                                                         "profilesBucket",
-                                                                                                         zkProfileOperations,
-                                                                                                         true))
-                                                                      .build();
+      .addProvider(AuthHelper.getAuthFilter())
+      .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
+          ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
+      .setMapper(SystemMapper.getMapper())
+      .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
+      .addResource(new ProfileController(rateLimiters,
+          accountsManager,
+          profilesManager,
+          usernamesManager,
+          dynamicConfigurationManager,
+          s3client,
+          postPolicyGenerator,
+          policySigner,
+          "profilesBucket",
+          zkProfileOperations,
+          true))
+      .build();
 
   @BeforeEach
   void setup() throws Exception {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -8,13 +8,16 @@ package org.whispersystems.textsecuregcm.controllers;
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.auth.Auth;
-import org.whispersystems.textsecuregcm.entities.UserRemoteConfig;
-import org.whispersystems.textsecuregcm.entities.UserRemoteConfigList;
-import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.RemoteConfig;
-import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
-import org.whispersystems.textsecuregcm.util.Conversions;
-
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.validation.Valid;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -27,16 +30,12 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.entities.UserRemoteConfig;
+import org.whispersystems.textsecuregcm.entities.UserRemoteConfigList;
+import org.whispersystems.textsecuregcm.storage.RemoteConfig;
+import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
+import org.whispersystems.textsecuregcm.util.Conversions;
 
 @Path("/v1/config")
 public class RemoteConfigController {
@@ -57,15 +56,19 @@ public class RemoteConfigController {
   @GET
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public UserRemoteConfigList getAll(@Auth Account account) {
+  public UserRemoteConfigList getAll(@Auth AuthenticatedAccount auth) {
     try {
       MessageDigest digest = MessageDigest.getInstance("SHA1");
 
-      final Stream<UserRemoteConfig> globalConfigStream = globalConfig.entrySet().stream().map(entry -> new UserRemoteConfig(GLOBAL_CONFIG_PREFIX + entry.getKey(), true, entry.getValue()));
+      final Stream<UserRemoteConfig> globalConfigStream = globalConfig.entrySet().stream()
+          .map(entry -> new UserRemoteConfig(GLOBAL_CONFIG_PREFIX + entry.getKey(), true, entry.getValue()));
       return new UserRemoteConfigList(Stream.concat(remoteConfigsManager.getAll().stream().map(config -> {
-        final byte[] hashKey = config.getHashKey() != null ? config.getHashKey().getBytes(StandardCharsets.UTF_8) : config.getName().getBytes(StandardCharsets.UTF_8);
-        boolean inBucket = isInBucket(digest, account.getUuid(), hashKey, config.getPercentage(), config.getUuids());
-        return new UserRemoteConfig(config.getName(), inBucket, inBucket ? config.getValue() : config.getDefaultValue());
+        final byte[] hashKey = config.getHashKey() != null ? config.getHashKey().getBytes(StandardCharsets.UTF_8)
+            : config.getName().getBytes(StandardCharsets.UTF_8);
+        boolean inBucket = isInBucket(digest, auth.getAccount().getUuid(), hashKey, config.getPercentage(),
+            config.getUuids());
+        return new UserRemoteConfig(config.getName(), inBucket,
+            inBucket ? config.getValue() : config.getDefaultValue());
       }), globalConfigStream).collect(Collectors.toList()));
     } catch (NoSuchAlgorithmException e) {
       throw new AssertionError(e);

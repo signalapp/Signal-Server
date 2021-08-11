@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -24,8 +24,9 @@ import java.util.UUID;
 import org.mockito.ArgumentMatcher;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
+import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccountAuthenticator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -121,11 +122,6 @@ public class AuthHelper {
     when(UNDISCOVERABLE_ACCOUNT.getNumber()).thenReturn(UNDISCOVERABLE_NUMBER);
     when(UNDISCOVERABLE_ACCOUNT.getUuid()).thenReturn(UNDISCOVERABLE_UUID);
 
-    when(VALID_ACCOUNT.getAuthenticatedDevice()).thenReturn(Optional.of(VALID_DEVICE));
-    when(VALID_ACCOUNT_TWO.getAuthenticatedDevice()).thenReturn(Optional.of(VALID_DEVICE_TWO));
-    when(DISABLED_ACCOUNT.getAuthenticatedDevice()).thenReturn(Optional.of(DISABLED_DEVICE));
-    when(UNDISCOVERABLE_ACCOUNT.getAuthenticatedDevice()).thenReturn(Optional.of(UNDISCOVERABLE_DEVICE));
-
     when(VALID_ACCOUNT.getRelay()).thenReturn(Optional.empty());
     when(VALID_ACCOUNT_TWO.getRelay()).thenReturn(Optional.empty());
     when(UNDISCOVERABLE_ACCOUNT.getRelay()).thenReturn(Optional.empty());
@@ -151,18 +147,30 @@ public class AuthHelper {
 
     when(ACCOUNTS_MANAGER.get(VALID_NUMBER_TWO)).thenReturn(Optional.of(VALID_ACCOUNT_TWO));
     when(ACCOUNTS_MANAGER.get(VALID_UUID_TWO)).thenReturn(Optional.of(VALID_ACCOUNT_TWO));
-    when(ACCOUNTS_MANAGER.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(VALID_NUMBER_TWO)))).thenReturn(Optional.of(VALID_ACCOUNT_TWO));
-    when(ACCOUNTS_MANAGER.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasUuid() && identifier.getUuid().equals(VALID_UUID_TWO)))).thenReturn(Optional.of(VALID_ACCOUNT_TWO));
+    when(ACCOUNTS_MANAGER.get(argThat(
+        (ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber()
+            && identifier.getNumber().equals(VALID_NUMBER_TWO)))).thenReturn(Optional.of(VALID_ACCOUNT_TWO));
+    when(ACCOUNTS_MANAGER.get(argThat(
+        (ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasUuid()
+            && identifier.getUuid().equals(VALID_UUID_TWO)))).thenReturn(Optional.of(VALID_ACCOUNT_TWO));
 
     when(ACCOUNTS_MANAGER.get(DISABLED_NUMBER)).thenReturn(Optional.of(DISABLED_ACCOUNT));
     when(ACCOUNTS_MANAGER.get(DISABLED_UUID)).thenReturn(Optional.of(DISABLED_ACCOUNT));
-    when(ACCOUNTS_MANAGER.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(DISABLED_NUMBER)))).thenReturn(Optional.of(DISABLED_ACCOUNT));
-    when(ACCOUNTS_MANAGER.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasUuid() && identifier.getUuid().equals(DISABLED_UUID)))).thenReturn(Optional.of(DISABLED_ACCOUNT));
+    when(ACCOUNTS_MANAGER.get(argThat(
+        (ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber()
+            && identifier.getNumber().equals(DISABLED_NUMBER)))).thenReturn(Optional.of(DISABLED_ACCOUNT));
+    when(ACCOUNTS_MANAGER.get(argThat(
+        (ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasUuid()
+            && identifier.getUuid().equals(DISABLED_UUID)))).thenReturn(Optional.of(DISABLED_ACCOUNT));
 
     when(ACCOUNTS_MANAGER.get(UNDISCOVERABLE_NUMBER)).thenReturn(Optional.of(UNDISCOVERABLE_ACCOUNT));
     when(ACCOUNTS_MANAGER.get(UNDISCOVERABLE_UUID)).thenReturn(Optional.of(UNDISCOVERABLE_ACCOUNT));
-    when(ACCOUNTS_MANAGER.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(UNDISCOVERABLE_NUMBER)))).thenReturn(Optional.of(UNDISCOVERABLE_ACCOUNT));
-    when(ACCOUNTS_MANAGER.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasUuid() && identifier.getUuid().equals(UNDISCOVERABLE_UUID)))).thenReturn(Optional.of(UNDISCOVERABLE_ACCOUNT));
+    when(ACCOUNTS_MANAGER.get(argThat(
+        (ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber()
+            && identifier.getNumber().equals(UNDISCOVERABLE_NUMBER)))).thenReturn(Optional.of(UNDISCOVERABLE_ACCOUNT));
+    when(ACCOUNTS_MANAGER.get(argThat(
+        (ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasUuid()
+            && identifier.getUuid().equals(UNDISCOVERABLE_UUID)))).thenReturn(Optional.of(UNDISCOVERABLE_ACCOUNT));
 
     AccountsHelper.setupMockUpdateForAuthHelper(ACCOUNTS_MANAGER);
 
@@ -170,11 +178,13 @@ public class AuthHelper {
       testAccount.setup(ACCOUNTS_MANAGER);
     }
 
-    AuthFilter<BasicCredentials, Account>                  accountAuthFilter                  = new BasicCredentialAuthFilter.Builder<Account>().setAuthenticator(new AccountAuthenticator(ACCOUNTS_MANAGER)).buildAuthFilter                                  ();
-    AuthFilter<BasicCredentials, DisabledPermittedAccount> disabledPermittedAccountAuthFilter = new BasicCredentialAuthFilter.Builder<DisabledPermittedAccount>().setAuthenticator(new DisabledPermittedAccountAuthenticator(ACCOUNTS_MANAGER)).buildAuthFilter();
+    AuthFilter<BasicCredentials, AuthenticatedAccount> accountAuthFilter = new BasicCredentialAuthFilter.Builder<AuthenticatedAccount>().setAuthenticator(
+        new AccountAuthenticator(ACCOUNTS_MANAGER)).buildAuthFilter();
+    AuthFilter<BasicCredentials, DisabledPermittedAuthenticatedAccount> disabledPermittedAccountAuthFilter = new BasicCredentialAuthFilter.Builder<DisabledPermittedAuthenticatedAccount>().setAuthenticator(
+        new DisabledPermittedAccountAuthenticator(ACCOUNTS_MANAGER)).buildAuthFilter();
 
-    return new PolymorphicAuthDynamicFeature<>(ImmutableMap.of(Account.class, accountAuthFilter,
-                                                               DisabledPermittedAccount.class, disabledPermittedAccountAuthFilter));
+    return new PolymorphicAuthDynamicFeature<>(ImmutableMap.of(AuthenticatedAccount.class, accountAuthFilter,
+        DisabledPermittedAuthenticatedAccount.class, disabledPermittedAccountAuthFilter));
   }
 
   public static String getAuthHeader(String number, String password) {
@@ -223,13 +233,16 @@ public class AuthHelper {
       when(account.getMasterDevice()).thenReturn(Optional.of(device));
       when(account.getNumber()).thenReturn(number);
       when(account.getUuid()).thenReturn(uuid);
-      when(account.getAuthenticatedDevice()).thenReturn(Optional.of(device));
       when(account.getRelay()).thenReturn(Optional.empty());
       when(account.isEnabled()).thenReturn(true);
       when(accountsManager.get(number)).thenReturn(Optional.of(account));
       when(accountsManager.get(uuid)).thenReturn(Optional.of(account));
-      when(accountsManager.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(number)))).thenReturn(Optional.of(account));
-      when(accountsManager.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasUuid() && identifier.getUuid().equals(uuid)))).thenReturn(Optional.of(account));
+      when(accountsManager.get(argThat(
+          (ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber()
+              && identifier.getNumber().equals(number)))).thenReturn(Optional.of(account));
+      when(accountsManager.get(argThat(
+          (ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasUuid()
+              && identifier.getUuid().equals(uuid)))).thenReturn(Optional.of(account));
     }
   }
 

@@ -1,27 +1,25 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
+import io.dropwizard.auth.Auth;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.core.MediaType;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV2;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
-import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.Pair;
-
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-
-import io.dropwizard.auth.Auth;
 
 @Path("/v2/attachments")
 public class AttachmentControllerV2 extends AttachmentControllerBase {
@@ -40,19 +38,20 @@ public class AttachmentControllerV2 extends AttachmentControllerBase {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/form/upload")
-  public AttachmentDescriptorV2 getAttachmentUploadForm(@Auth Account account) throws RateLimitExceededException {
-    rateLimiter.validate(account.getUuid());
+  public AttachmentDescriptorV2 getAttachmentUploadForm(@Auth AuthenticatedAccount auth)
+      throws RateLimitExceededException {
+    rateLimiter.validate(auth.getAccount().getUuid());
 
-    ZonedDateTime        now          = ZonedDateTime.now(ZoneOffset.UTC);
-    long                 attachmentId = generateAttachmentId();
-    String               objectName   = String.valueOf(attachmentId);
-    Pair<String, String> policy       = policyGenerator.createFor(now, String.valueOf(objectName), 100 * 1024 * 1024);
-    String               signature    = policySigner.getSignature(now, policy.second());
+    ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+    long attachmentId = generateAttachmentId();
+    String objectName = String.valueOf(attachmentId);
+    Pair<String, String> policy = policyGenerator.createFor(now, String.valueOf(objectName), 100 * 1024 * 1024);
+    String signature = policySigner.getSignature(now, policy.second());
 
     return new AttachmentDescriptorV2(attachmentId, objectName, policy.first(),
-                                      "private", "AWS4-HMAC-SHA256",
-                                      now.format(PostPolicyGenerator.AWS_DATE_TIME),
-                                      policy.second(), signature);
+        "private", "AWS4-HMAC-SHA256",
+        now.format(PostPolicyGenerator.AWS_DATE_TIME),
+        policy.second(), signature);
   }
 
 

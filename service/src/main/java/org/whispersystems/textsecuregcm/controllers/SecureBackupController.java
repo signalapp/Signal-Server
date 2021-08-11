@@ -1,21 +1,19 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
-import org.whispersystems.textsecuregcm.storage.Account;
-
+import io.dropwizard.auth.Auth;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
-
-import io.dropwizard.auth.Auth;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 
 @Path("/v1/backup")
 public class SecureBackupController {
@@ -30,7 +28,7 @@ public class SecureBackupController {
   @GET
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)
-  public ExternalServiceCredentials getAuth(@Auth Account account) {
-    return backupServiceCredentialGenerator.generateFor(account.getUuid().toString());
+  public ExternalServiceCredentials getAuth(@Auth AuthenticatedAccount auth) {
+    return backupServiceCredentialGenerator.generateFor(auth.getAccount().getUuid().toString());
   }
 }

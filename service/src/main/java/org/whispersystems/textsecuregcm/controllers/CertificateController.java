@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -10,7 +10,6 @@ import static com.codahale.metrics.MetricRegistry.name;
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
-import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.util.LinkedList;
 import java.util.List;
@@ -24,10 +23,10 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.signal.zkgroup.auth.ServerZkAuthOperations;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
 import org.whispersystems.textsecuregcm.entities.DeliveryCertificate;
 import org.whispersystems.textsecuregcm.entities.GroupCredentials;
-import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.Util;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -51,43 +50,49 @@ public class CertificateController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/delivery")
-  public DeliveryCertificate getDeliveryCertificate(@Auth Account account,
-                                                    @QueryParam("includeE164") Optional<Boolean> maybeIncludeE164)
-      throws InvalidKeyException
-  {
-    if (account.getAuthenticatedDevice().isEmpty()) {
-      throw new AssertionError();
-    }
-    if (Util.isEmpty(account.getIdentityKey())) {
+  public DeliveryCertificate getDeliveryCertificate(@Auth AuthenticatedAccount auth,
+      @QueryParam("includeE164") Optional<Boolean> maybeIncludeE164)
+      throws InvalidKeyException {
+    if (Util.isEmpty(auth.getAccount().getIdentityKey())) {
       throw new WebApplicationException(Response.Status.BAD_REQUEST);
     }
 
     final boolean includeE164 = maybeIncludeE164.orElse(true);
 
-    Metrics.counter(GENERATE_DELIVERY_CERTIFICATE_COUNTER_NAME, INCLUDE_E164_TAG_NAME, String.valueOf(includeE164)).increment();
+    Metrics.counter(GENERATE_DELIVERY_CERTIFICATE_COUNTER_NAME, INCLUDE_E164_TAG_NAME, String.valueOf(includeE164))
+        .increment();
 
-    return new DeliveryCertificate(certificateGenerator.createFor(account, account.getAuthenticatedDevice().get(), includeE164));
+    return new DeliveryCertificate(
+        certificateGenerator.createFor(auth.getAccount(), auth.getAuthenticatedDevice(), includeE164));
   }
 
   @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/group/{startRedemptionTime}/{endRedemptionTime}")
-  public GroupCredentials getAuthenticationCredentials(@Auth Account account,
-                                                       @PathParam("startRedemptionTime") int startRedemptionTime,
-                                                       @PathParam("endRedemptionTime") int endRedemptionTime)
-  {
-    if (!isZkEnabled)                                         throw new WebApplicationException(Response.Status.NOT_FOUND);
-    if (startRedemptionTime > endRedemptionTime)              throw new WebApplicationException(Response.Status.BAD_REQUEST);
-    if (endRedemptionTime > Util.currentDaysSinceEpoch() + 7) throw new WebApplicationException(Response.Status.BAD_REQUEST);
-    if (startRedemptionTime < Util.currentDaysSinceEpoch())   throw new WebApplicationException(Response.Status.BAD_REQUEST);
+  public GroupCredentials getAuthenticationCredentials(@Auth AuthenticatedAccount auth,
+      @PathParam("startRedemptionTime") int startRedemptionTime,
+      @PathParam("endRedemptionTime") int endRedemptionTime) {
+    if (!isZkEnabled) {
+      throw new WebApplicationException(Response.Status.NOT_FOUND);
+    }
+    if (startRedemptionTime > endRedemptionTime) {
+      throw new WebApplicationException(Response.Status.BAD_REQUEST);
+    }
+    if (endRedemptionTime > Util.currentDaysSinceEpoch() + 7) {
+      throw new WebApplicationException(Response.Status.BAD_REQUEST);
+    }
+    if (startRedemptionTime < Util.currentDaysSinceEpoch()) {
+      throw new WebApplicationException(Response.Status.BAD_REQUEST);
+    }
 
     List<GroupCredentials.GroupCredential> credentials = new LinkedList<>();
 
-    for (int i=startRedemptionTime;i<=endRedemptionTime;i++) {
-      credentials.add(new GroupCredentials.GroupCredential(serverZkAuthOperations.issueAuthCredential(account.getUuid(), i)
-                                                                                 .serialize(),
-                                                           i));
+    for (int i = startRedemptionTime; i <= endRedemptionTime; i++) {
+      credentials.add(new GroupCredentials.GroupCredential(
+          serverZkAuthOperations.issueAuthCredential(auth.getAccount().getUuid(), i)
+              .serialize(),
+          i));
     }
 
     return new GroupCredentials(credentials);

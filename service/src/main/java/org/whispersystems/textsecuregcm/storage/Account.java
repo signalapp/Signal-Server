@@ -8,12 +8,10 @@ package org.whispersystems.textsecuregcm.storage;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
-import java.security.Principal;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import javax.security.auth.Subject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
@@ -22,7 +20,7 @@ import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.util.Util;
 
-public class Account implements Principal  {
+public class Account {
 
   @JsonIgnore
   private static final Logger logger = LoggerFactory.getLogger(Account.class);
@@ -63,9 +61,6 @@ public class Account implements Principal  {
   @JsonProperty("inCds")
   private boolean discoverableByPhoneNumber = true;
 
-  @JsonIgnore
-  private Device authenticatedDevice;
-
   @JsonProperty
   private int version;
 
@@ -80,18 +75,6 @@ public class Account implements Principal  {
     this.uuid                  = uuid;
     this.devices               = devices;
     this.unidentifiedAccessKey = unidentifiedAccessKey;
-  }
-
-  public Optional<Device> getAuthenticatedDevice() {
-    requireNotStale();
-
-    return Optional.ofNullable(authenticatedDevice);
-  }
-
-  public void setAuthenticatedDevice(Device device) {
-    requireNotStale();
-
-    this.authenticatedDevice = device;
   }
 
   public UUID getUuid() {
@@ -390,6 +373,10 @@ public class Account implements Principal  {
     this.version = version;
   }
 
+  boolean isStale() {
+    return stale;
+  }
+
   public void markStale() {
     stale = true;
   }
@@ -403,17 +390,4 @@ public class Account implements Principal  {
     }
   }
 
-  // Principal implementation
-
-  @Override
-  @JsonIgnore
-  public String getName() {
-    return null;
-  }
-
-  @Override
-  @JsonIgnore
-  public boolean implies(Subject subject) {
-    return false;
-  }
 }

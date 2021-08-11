@@ -1,31 +1,30 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 package org.whispersystems.textsecuregcm.websocket;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
+import java.util.concurrent.ScheduledExecutorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
-import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 import org.whispersystems.websocket.setup.WebSocketConnectListener;
-
-import java.util.concurrent.ScheduledExecutorService;
-
-import static com.codahale.metrics.MetricRegistry.name;
 
 public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
@@ -60,16 +59,16 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   @Override
   public void onWebSocketConnect(WebSocketSessionContext context) {
     if (context.getAuthenticated() != null) {
-      final Account                 account        = context.getAuthenticated(Account.class);
-      final Device                  device         = account.getAuthenticatedDevice().get();
-      final Timer.Context           timer          = durationTimer.time();
-      final WebSocketConnection     connection     = new WebSocketConnection(receiptSender,
-                                                                             messagesManager, account, device,
-                                                                             context.getClient(),
-                                                                             retrySchedulingExecutor);
+      final AuthenticatedAccount auth = context.getAuthenticated(AuthenticatedAccount.class);
+      final Device device = auth.getAuthenticatedDevice();
+      final Timer.Context timer = durationTimer.time();
+      final WebSocketConnection connection = new WebSocketConnection(receiptSender,
+          messagesManager, auth, device,
+          context.getClient(),
+          retrySchedulingExecutor);
 
       openWebsocketCounter.inc();
-      RedisOperation.unchecked(() -> apnFallbackManager.cancel(account, device));
+      RedisOperation.unchecked(() -> apnFallbackManager.cancel(auth.getAccount(), device));
 
       context.addListener(new WebSocketSessionContext.WebSocketEventListener() {
         @Override
@@ -79,20 +78,21 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
           connection.stop();
 
-          RedisOperation.unchecked(() -> clientPresenceManager.clearPresence(account.getUuid(), device.getId()));
+          RedisOperation.unchecked(
+              () -> clientPresenceManager.clearPresence(auth.getAccount().getUuid(), device.getId()));
           RedisOperation.unchecked(() -> {
             messagesManager.removeMessageAvailabilityListener(connection);
 
-            if (messagesManager.hasCachedMessages(account.getUuid(), device.getId())) {
-              messageSender.sendNewMessageNotification(account, device);
+            if (messagesManager.hasCachedMessages(auth.getAccount().getUuid(), device.getId())) {
+              messageSender.sendNewMessageNotification(auth.getAccount(), device);
             }
           });
         }
       });
 
       try {
-        clientPresenceManager.setPresent(account.getUuid(), device.getId(), connection);
-        messagesManager.addMessageAvailabilityListener(account.getUuid(), device.getId(), connection);
+        clientPresenceManager.setPresent(auth.getAccount().getUuid(), device.getId(), connection);
+        messagesManager.addMessageAvailabilityListener(auth.getAccount().getUuid(), device.getId(), connection);
         connection.start();
       } catch (final Exception e) {
         log.warn("Failed to initialize websocket", e);

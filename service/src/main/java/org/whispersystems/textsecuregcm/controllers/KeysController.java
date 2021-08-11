@@ -28,7 +28,8 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.entities.PreKeyCount;
@@ -76,8 +77,8 @@ public class KeysController {
 
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  public PreKeyCount getStatus(@Auth Account account) {
-    int count = keysDynamoDb.getCount(account, account.getAuthenticatedDevice().get().getId());
+  public PreKeyCount getStatus(@Auth AuthenticatedAccount auth) {
+    int count = keysDynamoDb.getCount(auth.getAccount(), auth.getAuthenticatedDevice().getId());
 
     if (count > 0) {
       count = count - 1;
@@ -89,10 +90,10 @@ public class KeysController {
   @Timed
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
-  public void setKeys(@Auth DisabledPermittedAccount disabledPermittedAccount, @Valid PreKeyState preKeys)  {
-    Account account           = disabledPermittedAccount.getAccount();
-    Device  device            = account.getAuthenticatedDevice().get();
-    boolean updateAccount     = false;
+  public void setKeys(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth, @Valid PreKeyState preKeys) {
+    Account account = disabledPermittedAuth.getAccount();
+    Device device = disabledPermittedAuth.getAuthenticatedDevice();
+    boolean updateAccount = false;
 
     if (!preKeys.getSignedPreKey().equals(device.getSignedPreKey())) {
       updateAccount = true;
@@ -116,7 +117,7 @@ public class KeysController {
   @GET
   @Path("/{identifier}/{device_id}")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response getDeviceKeys(@Auth Optional<Account> account,
+  public Response getDeviceKeys(@Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
       @PathParam("identifier") AmbiguousIdentifier targetName,
       @PathParam("device_id") String deviceId,
@@ -125,14 +126,16 @@ public class KeysController {
 
     targetName.incrementRequestCounter("getDeviceKeys", userAgent);
 
-    if (!account.isPresent() && !accessKey.isPresent()) {
+    if (auth.isEmpty() && accessKey.isEmpty()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
+
+    final Optional<Account> account = auth.map(AuthenticatedAccount::getAccount);
 
     Optional<Account> target = accounts.get(targetName);
     OptionalAccess.verify(account, accessKey, target, deviceId);
 
-    assert(target.isPresent());
+    assert (target.isPresent());
 
     {
       final String sourceCountryCode = account.map(a -> Util.getCountryCode(a.getNumber())).orElse("0");
@@ -146,7 +149,9 @@ public class KeysController {
     }
 
     if (account.isPresent()) {
-      rateLimiters.getPreKeysLimiter().validate(account.get().getUuid() + "." + account.get().getAuthenticatedDevice().get().getId() +  "__" + target.get().getUuid() + "." + deviceId);
+      rateLimiters.getPreKeysLimiter().validate(
+          account.get().getUuid() + "." + auth.get().getAuthenticatedDevice().getId() + "__" + target.get().getUuid()
+              + "." + deviceId);
 
       try {
         preKeyRateLimiter.validate(account.get());
@@ -188,22 +193,25 @@ public class KeysController {
   @PUT
   @Path("/signed")
   @Consumes(MediaType.APPLICATION_JSON)
-  public void setSignedKey(@Auth Account account, @Valid SignedPreKey signedPreKey) {
-    Device device = account.getAuthenticatedDevice().get();
+  public void setSignedKey(@Auth AuthenticatedAccount auth, @Valid SignedPreKey signedPreKey) {
+    Device device = auth.getAuthenticatedDevice();
 
-    accounts.updateDevice(account, device.getId(), d -> d.setSignedPreKey(signedPreKey));
+    accounts.updateDevice(auth.getAccount(), device.getId(), d -> d.setSignedPreKey(signedPreKey));
   }
 
   @Timed
   @GET
   @Path("/signed")
   @Produces(MediaType.APPLICATION_JSON)
-  public Optional<SignedPreKey> getSignedKey(@Auth Account account) {
-    Device       device       = account.getAuthenticatedDevice().get();
+  public Optional<SignedPreKey> getSignedKey(@Auth AuthenticatedAccount auth) {
+    Device device = auth.getAuthenticatedDevice();
     SignedPreKey signedPreKey = device.getSignedPreKey();
 
-    if (signedPreKey != null) return Optional.of(signedPreKey);
-    else                      return Optional.empty();
+    if (signedPreKey != null) {
+      return Optional.of(signedPreKey);
+    } else {
+      return Optional.empty();
+    }
   }
 
   private Map<Long, PreKey> getLocalKeys(Account destination, String deviceIdSelector) {

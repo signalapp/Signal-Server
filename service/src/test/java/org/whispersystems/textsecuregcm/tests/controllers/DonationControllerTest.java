@@ -26,14 +26,14 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.controllers.DonationController;
 import org.whispersystems.textsecuregcm.entities.ApplePayAuthorizationRequest;
 import org.whispersystems.textsecuregcm.entities.ApplePayAuthorizationResponse;
-import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
@@ -57,7 +57,8 @@ public class DonationControllerTest {
     configuration.setSupportedCurrencies(Set.of("usd", "gbp"));
     resources = ResourceExtension.builder()
         .addProvider(AuthHelper.getAuthFilter())
-        .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
+        .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
+            ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
         .setMapper(SystemMapper.getMapper())
         .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
         .addResource(new DonationController(executor, configuration))

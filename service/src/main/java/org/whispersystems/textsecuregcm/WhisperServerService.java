@@ -64,8 +64,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.dispatch.DispatchManager;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
+import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
@@ -149,7 +150,6 @@ import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
 import org.whispersystems.textsecuregcm.sms.TwilioVerifyExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
-import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountCleaner;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawler;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerCache;
@@ -544,31 +544,40 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .credentialsProvider(cdnCredentialsProvider)
         .region(Region.of(config.getCdnConfiguration().getRegion()))
         .build();
-    PostPolicyGenerator    profileCdnPolicyGenerator = new PostPolicyGenerator(config.getCdnConfiguration().getRegion(), config.getCdnConfiguration().getBucket(), config.getCdnConfiguration().getAccessKey());
-    PolicySigner           profileCdnPolicySigner    = new PolicySigner(config.getCdnConfiguration().getAccessSecret(), config.getCdnConfiguration().getRegion());
+    PostPolicyGenerator profileCdnPolicyGenerator = new PostPolicyGenerator(config.getCdnConfiguration().getRegion(),
+        config.getCdnConfiguration().getBucket(), config.getCdnConfiguration().getAccessKey());
+    PolicySigner profileCdnPolicySigner = new PolicySigner(config.getCdnConfiguration().getAccessSecret(),
+        config.getCdnConfiguration().getRegion());
 
-    ServerSecretParams        zkSecretParams         = new ServerSecretParams(config.getZkConfig().getServerSecret());
-    ServerZkProfileOperations zkProfileOperations    = new ServerZkProfileOperations(zkSecretParams);
-    ServerZkAuthOperations    zkAuthOperations       = new ServerZkAuthOperations(zkSecretParams);
-    boolean                   isZkEnabled            = config.getZkConfig().isEnabled();
+    ServerSecretParams zkSecretParams = new ServerSecretParams(config.getZkConfig().getServerSecret());
+    ServerZkProfileOperations zkProfileOperations = new ServerZkProfileOperations(zkSecretParams);
+    ServerZkAuthOperations zkAuthOperations = new ServerZkAuthOperations(zkSecretParams);
+    boolean isZkEnabled = config.getZkConfig().isEnabled();
 
-    AuthFilter<BasicCredentials, Account>                  accountAuthFilter                  = new BasicCredentialAuthFilter.Builder<Account>().setAuthenticator(accountAuthenticator).buildAuthFilter                                  ();
-    AuthFilter<BasicCredentials, DisabledPermittedAccount> disabledPermittedAccountAuthFilter = new BasicCredentialAuthFilter.Builder<DisabledPermittedAccount>().setAuthenticator(disabledPermittedAccountAuthenticator).buildAuthFilter();
+    AuthFilter<BasicCredentials, AuthenticatedAccount> accountAuthFilter = new BasicCredentialAuthFilter.Builder<AuthenticatedAccount>().setAuthenticator(
+        accountAuthenticator).buildAuthFilter();
+    AuthFilter<BasicCredentials, DisabledPermittedAuthenticatedAccount> disabledPermittedAccountAuthFilter = new BasicCredentialAuthFilter.Builder<DisabledPermittedAuthenticatedAccount>().setAuthenticator(
+        disabledPermittedAccountAuthenticator).buildAuthFilter();
 
-    environment.servlets().addFilter("RemoteDeprecationFilter", new RemoteDeprecationFilter(dynamicConfigurationManager))
+    environment.servlets()
+        .addFilter("RemoteDeprecationFilter", new RemoteDeprecationFilter(dynamicConfigurationManager))
         .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
 
     environment.jersey().register(new ContentLengthFilter(TrafficSource.HTTP));
     environment.jersey().register(MultiRecipientMessageProvider.class);
     environment.jersey().register(new MetricsApplicationEventListener(TrafficSource.HTTP));
-    environment.jersey().register(new PolymorphicAuthDynamicFeature<>(ImmutableMap.of(Account.class, accountAuthFilter,
-                                                                                      DisabledPermittedAccount.class, disabledPermittedAccountAuthFilter)));
-    environment.jersey().register(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)));
+    environment.jersey()
+        .register(new PolymorphicAuthDynamicFeature<>(ImmutableMap.of(AuthenticatedAccount.class, accountAuthFilter,
+            DisabledPermittedAuthenticatedAccount.class, disabledPermittedAccountAuthFilter)));
+    environment.jersey().register(new PolymorphicAuthValueFactoryProvider.Binder<>(
+        ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)));
     environment.jersey().register(new TimestampResponseFilter());
-    environment.jersey().register(new VoiceVerificationController(config.getVoiceVerificationConfiguration().getUrl(), config.getVoiceVerificationConfiguration().getLocales()));
+    environment.jersey().register(new VoiceVerificationController(config.getVoiceVerificationConfiguration().getUrl(),
+        config.getVoiceVerificationConfiguration().getLocales()));
 
     ///
-    WebSocketEnvironment<Account> webSocketEnvironment = new WebSocketEnvironment<>(environment, config.getWebSocketConfiguration(), 90000);
+    WebSocketEnvironment<AuthenticatedAccount> webSocketEnvironment = new WebSocketEnvironment<>(environment,
+        config.getWebSocketConfiguration(), 90000);
     webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(accountAuthenticator));
     webSocketEnvironment.setConnectListener(
         new AuthenticatedConnectListener(receiptSender, messagesManager, messageSender, apnFallbackManager,
@@ -602,15 +611,18 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new RemoteConfigController(remoteConfigsManager, config.getRemoteConfigConfiguration().getAuthorizedTokens(), config.getRemoteConfigConfiguration().getGlobalConfig()),
         new SecureBackupController(backupCredentialsGenerator),
         new SecureStorageController(storageCredentialsGenerator),
-        new StickerController(rateLimiters, config.getCdnConfiguration().getAccessKey(), config.getCdnConfiguration().getAccessSecret(), config.getCdnConfiguration().getRegion(), config.getCdnConfiguration().getBucket())
+        new StickerController(rateLimiters, config.getCdnConfiguration().getAccessKey(),
+            config.getCdnConfiguration().getAccessSecret(), config.getCdnConfiguration().getRegion(),
+            config.getCdnConfiguration().getBucket())
     );
 
     for (Object controller : commonControllers) {
-        environment.jersey().register(controller);
-        webSocketEnvironment.jersey().register(controller);
+      environment.jersey().register(controller);
+      webSocketEnvironment.jersey().register(controller);
     }
 
-    WebSocketEnvironment<Account> provisioningEnvironment = new WebSocketEnvironment<>(environment, webSocketEnvironment.getRequestLog(), 60000);
+    WebSocketEnvironment<AuthenticatedAccount> provisioningEnvironment = new WebSocketEnvironment<>(environment,
+        webSocketEnvironment.getRequestLog(), 60000);
     provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(pubSubManager));
     provisioningEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET));
     provisioningEnvironment.jersey().register(new KeepAliveController(clientPresenceManager));
@@ -618,16 +630,19 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     registerCorsFilter(environment);
     registerExceptionMappers(environment, webSocketEnvironment, provisioningEnvironment);
 
-    RateLimitChallengeExceptionMapper rateLimitChallengeExceptionMapper = new RateLimitChallengeExceptionMapper(rateLimitChallengeManager);
+    RateLimitChallengeExceptionMapper rateLimitChallengeExceptionMapper = new RateLimitChallengeExceptionMapper(
+        rateLimitChallengeManager);
 
     environment.jersey().register(rateLimitChallengeExceptionMapper);
     webSocketEnvironment.jersey().register(rateLimitChallengeExceptionMapper);
     provisioningEnvironment.jersey().register(rateLimitChallengeExceptionMapper);
 
-    WebSocketResourceProviderFactory<Account> webSocketServlet    = new WebSocketResourceProviderFactory<>(webSocketEnvironment, Account.class);
-    WebSocketResourceProviderFactory<Account> provisioningServlet = new WebSocketResourceProviderFactory<>(provisioningEnvironment, Account.class);
+    WebSocketResourceProviderFactory<AuthenticatedAccount> webSocketServlet = new WebSocketResourceProviderFactory<>(
+        webSocketEnvironment, AuthenticatedAccount.class);
+    WebSocketResourceProviderFactory<AuthenticatedAccount> provisioningServlet = new WebSocketResourceProviderFactory<>(
+        provisioningEnvironment, AuthenticatedAccount.class);
 
-    ServletRegistration.Dynamic websocket    = environment.servlets().addServlet("WebSocket", webSocketServlet      );
+    ServletRegistration.Dynamic websocket = environment.servlets().addServlet("WebSocket", webSocketServlet);
     ServletRegistration.Dynamic provisioning = environment.servlets().addServlet("Provisioning", provisioningServlet);
 
     websocket.addMapping("/v1/websocket/");
@@ -649,14 +664,18 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.metrics().register(name(NetworkReceivedGauge.class, "bytes_received"), new NetworkReceivedGauge());
     environment.metrics().register(name(FileDescriptorGauge.class, "fd_count"), new FileDescriptorGauge());
     environment.metrics().register(name(MaxFileDescriptorGauge.class, "max_fd_count"), new MaxFileDescriptorGauge());
-    environment.metrics().register(name(OperatingSystemMemoryGauge.class, "buffers"), new OperatingSystemMemoryGauge("Buffers"));
-    environment.metrics().register(name(OperatingSystemMemoryGauge.class, "cached"), new OperatingSystemMemoryGauge("Cached"));
+    environment.metrics()
+        .register(name(OperatingSystemMemoryGauge.class, "buffers"), new OperatingSystemMemoryGauge("Buffers"));
+    environment.metrics()
+        .register(name(OperatingSystemMemoryGauge.class, "cached"), new OperatingSystemMemoryGauge("Cached"));
 
     BufferPoolGauges.registerMetrics();
     GarbageCollectionGauges.registerMetrics();
   }
 
-  private void registerExceptionMappers(Environment environment, WebSocketEnvironment<Account> webSocketEnvironment, WebSocketEnvironment<Account> provisioningEnvironment) {
+  private void registerExceptionMappers(Environment environment,
+      WebSocketEnvironment<AuthenticatedAccount> webSocketEnvironment,
+      WebSocketEnvironment<AuthenticatedAccount> provisioningEnvironment) {
     environment.jersey().register(new LoggingUnhandledExceptionMapper());
     environment.jersey().register(new IOExceptionMapper());
     environment.jersey().register(new RateLimitExceededExceptionMapper());

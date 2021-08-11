@@ -34,12 +34,12 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.configuration.DonationConfiguration;
 import org.whispersystems.textsecuregcm.entities.ApplePayAuthorizationRequest;
 import org.whispersystems.textsecuregcm.entities.ApplePayAuthorizationResponse;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.http.FormDataBodyPublisher;
-import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 @Path("/v1/donation")
@@ -75,7 +75,7 @@ public class DonationController {
   @Path("/authorize-apple-pay")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> getApplePayAuthorization(@Auth Account account, @Valid ApplePayAuthorizationRequest request) {
+  public CompletableFuture<Response> getApplePayAuthorization(@Auth AuthenticatedAccount auth, @Valid ApplePayAuthorizationRequest request) {
     if (!supportedCurrencies.contains(request.getCurrency())) {
       return CompletableFuture.completedFuture(Response.status(422).build());
     }

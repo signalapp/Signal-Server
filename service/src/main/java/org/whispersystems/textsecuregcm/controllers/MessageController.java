@@ -62,6 +62,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CombinedUnidentifiedSenderAccessKeys;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessageRateConfiguration;
@@ -189,12 +190,12 @@ public class MessageController {
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response sendMessage(@Auth                                     Optional<Account>   source,
-                              @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
-                              @HeaderParam("User-Agent")                String userAgent,
-                              @HeaderParam("X-Forwarded-For")           String forwardedFor,
-                              @PathParam("destination")                 AmbiguousIdentifier destinationName,
-                              @Valid                                    IncomingMessageList messages)
+  public Response sendMessage(@Auth Optional<AuthenticatedAccount> source,
+      @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
+      @HeaderParam("User-Agent") String userAgent,
+      @HeaderParam("X-Forwarded-For") String forwardedFor,
+      @PathParam("destination") AmbiguousIdentifier destinationName,
+      @Valid IncomingMessageList messages)
       throws RateLimitExceededException, RateLimitChallengeException {
 
     destinationName.incrementRequestCounter("sendMessage", userAgent);
@@ -203,20 +204,22 @@ public class MessageController {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
-    if (source.isPresent() && !source.get().isFor(destinationName)) {
-      assert source.get().getMasterDevice().isPresent();
+    if (source.isPresent() && !source.get().getAccount().isFor(destinationName)) {
+      assert source.get().getAccount().getMasterDevice().isPresent();
 
-      final Device masterDevice = source.get().getMasterDevice().get();
-      final String senderCountryCode = Util.getCountryCode(source.get().getNumber());
+      final Device masterDevice = source.get().getAccount().getMasterDevice().get();
+      final String senderCountryCode = Util.getCountryCode(source.get().getAccount().getNumber());
 
-      if (StringUtils.isAllBlank(masterDevice.getApnId(), masterDevice.getVoipApnId(), masterDevice.getGcmId()) || masterDevice.getUninstalledFeedbackTimestamp() > 0) {
-        Metrics.counter(UNSEALED_SENDER_WITHOUT_PUSH_TOKEN_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, senderCountryCode).increment();
+      if (StringUtils.isAllBlank(masterDevice.getApnId(), masterDevice.getVoipApnId(), masterDevice.getGcmId())
+          || masterDevice.getUninstalledFeedbackTimestamp() > 0) {
+        Metrics.counter(UNSEALED_SENDER_WITHOUT_PUSH_TOKEN_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, senderCountryCode)
+            .increment();
       }
     }
 
     final String senderType;
 
-    if (source.isPresent() && !source.get().isFor(destinationName)) {
+    if (source.isPresent() && !source.get().getAccount().isFor(destinationName)) {
       identifiedMeter.mark();
       senderType = "identified";
     } else if (source.isEmpty()) {
@@ -246,23 +249,26 @@ public class MessageController {
     }
 
     try {
-      boolean isSyncMessage = source.isPresent() && source.get().isFor(destinationName);
+      boolean isSyncMessage = source.isPresent() && source.get().getAccount().isFor(destinationName);
 
       Optional<Account> destination;
 
-      if (!isSyncMessage) destination = accountsManager.get(destinationName);
-      else                destination = source;
+      if (!isSyncMessage) {
+        destination = accountsManager.get(destinationName);
+      } else {
+        destination = source.map(AuthenticatedAccount::getAccount);
+      }
 
-      OptionalAccess.verify(source, accessKey, destination);
-      assert(destination.isPresent());
+      OptionalAccess.verify(source.map(AuthenticatedAccount::getAccount), accessKey, destination);
+      assert (destination.isPresent());
 
-      if (source.isPresent() && !source.get().isFor(destinationName)) {
-        rateLimiters.getMessagesLimiter().validate(source.get().getUuid(), destination.get().getUuid());
+      if (source.isPresent() && !source.get().getAccount().isFor(destinationName)) {
+        rateLimiters.getMessagesLimiter().validate(source.get().getAccount().getUuid(), destination.get().getUuid());
 
-        final String senderCountryCode = Util.getCountryCode(source.get().getNumber());
+        final String senderCountryCode = Util.getCountryCode(source.get().getAccount().getNumber());
 
         try {
-          unsealedSenderRateLimiter.validate(source.get(), destination.get());
+          unsealedSenderRateLimiter.validate(source.get().getAccount(), destination.get());
         } catch (final RateLimitExceededException e) {
 
           final boolean legacyClient = rateLimitChallengeManager.isClientBelowMinimumVersion(userAgent);
@@ -276,11 +282,11 @@ public class MessageController {
             throw e;
           }
 
-          throw new RateLimitChallengeException(source.get(), e.getRetryDuration());
+          throw new RateLimitChallengeException(source.get().getAccount(), e.getRetryDuration());
         }
 
         final String destinationCountryCode = Util.getCountryCode(destination.get().getNumber());
-        final Device masterDevice = source.get().getMasterDevice().get();
+        final Device masterDevice = source.get().getAccount().getMasterDevice().get();
 
         if (!senderCountryCode.equals(destinationCountryCode)) {
           recordInternationalUnsealedSenderMetrics(forwardedFor, senderCountryCode, destination.get().getNumber());
@@ -293,31 +299,34 @@ public class MessageController {
                   .orElse(false);
 
               if (isRateLimitedHost) {
-                return declineDelivery(messages, source.get(), destination.get());
+                return declineDelivery(messages, source.get().getAccount(), destination.get());
               }
             }
           }
         }
       }
 
-      validateCompleteDeviceList(destination.get(), messages.getMessages(), isSyncMessage);
+      validateCompleteDeviceList(destination.get(), messages.getMessages(), isSyncMessage,
+          source.map(AuthenticatedAccount::getAuthenticatedDevice).map(Device::getId));
       validateRegistrationIds(destination.get(), messages.getMessages());
 
       final List<Tag> tags = List.of(UserAgentTagUtil.getPlatformTag(userAgent),
-                                     Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(messages.isOnline())),
-                                     Tag.of(SENDER_TYPE_TAG_NAME, senderType),
-                                     Tag.of(DESTINATION_TYPE_TAG_NAME, destinationName.hasNumber() ? "e164" : "uuid"));
+          Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(messages.isOnline())),
+          Tag.of(SENDER_TYPE_TAG_NAME, senderType),
+          Tag.of(DESTINATION_TYPE_TAG_NAME, destinationName.hasNumber() ? "e164" : "uuid"));
 
       for (IncomingMessage incomingMessage : messages.getMessages()) {
         Optional<Device> destinationDevice = destination.get().getDevice(incomingMessage.getDestinationDeviceId());
 
         if (destinationDevice.isPresent()) {
           Metrics.counter(SENT_MESSAGE_COUNTER_NAME, tags).increment();
-          sendMessage(source, destination.get(), destinationDevice.get(), messages.getTimestamp(), messages.isOnline(), incomingMessage);
+          sendMessage(source, destination.get(), destinationDevice.get(), messages.getTimestamp(), messages.isOnline(),
+              incomingMessage);
         }
       }
 
-      return Response.ok(new SendMessageResponse(!isSyncMessage && source.isPresent() && source.get().getEnabledDeviceCount() > 1)).build();
+      return Response.ok(new SendMessageResponse(
+          !isSyncMessage && source.isPresent() && source.get().getAccount().getEnabledDeviceCount() > 1)).build();
     } catch (NoSuchUserException e) {
       throw new WebApplicationException(Response.status(404).build());
     } catch (MismatchedDevicesException e) {
@@ -380,7 +389,7 @@ public class MessageController {
       final Set<Pair<Long, Integer>> deviceIdAndRegistrationIdSet = accountToDeviceIdAndRegistrationIdMap.get(account);
       final Set<Long> deviceIds = deviceIdAndRegistrationIdSet.stream().map(Pair::first).collect(Collectors.toSet());
       try {
-        validateCompleteDeviceList(account, deviceIds, false);
+        validateCompleteDeviceList(account, deviceIds, false, Optional.empty());
         validateRegistrationIds(account, deviceIdAndRegistrationIdSet.stream());
       } catch (MismatchedDevicesException e) {
         accountMismatchedDevices.add(new AccountMismatchedDevices(account.getUuid(),
@@ -476,7 +485,9 @@ public class MessageController {
         if (random.nextDouble() <= messageRateConfiguration.getReceiptProbability()) {
           receiptExecutorService.schedule(() -> {
             try {
-              receiptSender.sendReceipt(destination, source.getNumber(), timestamp);
+              receiptSender.sendReceipt(
+                  new AuthenticatedAccount(() -> new Pair<>(destination, destination.getMasterDevice().get())),
+                  source.getNumber(), timestamp);
             } catch (final NoSuchUserException ignored) {
             }
           }, receiptDelay.toMillis(), TimeUnit.MILLISECONDS);
@@ -503,16 +514,17 @@ public class MessageController {
   @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  public OutgoingMessageEntityList getPendingMessages(@Auth Account account, @HeaderParam("User-Agent") String userAgent) {
-    assert account.getAuthenticatedDevice().isPresent();
+  public OutgoingMessageEntityList getPendingMessages(@Auth AuthenticatedAccount auth,
+      @HeaderParam("User-Agent") String userAgent) {
+    assert auth.getAuthenticatedDevice() != null;
 
-    if (!Util.isEmpty(account.getAuthenticatedDevice().get().getApnId())) {
-      RedisOperation.unchecked(() -> apnFallbackManager.cancel(account, account.getAuthenticatedDevice().get()));
+    if (!Util.isEmpty(auth.getAuthenticatedDevice().getApnId())) {
+      RedisOperation.unchecked(() -> apnFallbackManager.cancel(auth.getAccount(), auth.getAuthenticatedDevice()));
     }
 
     final OutgoingMessageEntityList outgoingMessages = messagesManager.getMessagesForDevice(
-        account.getUuid(),
-        account.getAuthenticatedDevice().get().getId(),
+        auth.getAccount().getUuid(),
+        auth.getAuthenticatedDevice().getId(),
         userAgent,
         false);
 
@@ -549,21 +561,20 @@ public class MessageController {
   @Timed
   @DELETE
   @Path("/{source}/{timestamp}")
-  public void removePendingMessage(@Auth Account account,
-                                   @PathParam("source") String source,
-                                   @PathParam("timestamp") long timestamp)
-  {
+  public void removePendingMessage(@Auth AuthenticatedAccount auth,
+      @PathParam("source") String source,
+      @PathParam("timestamp") long timestamp) {
     try {
-      WebSocketConnection.recordMessageDeliveryDuration(timestamp, account.getAuthenticatedDevice().get());
+      WebSocketConnection.recordMessageDeliveryDuration(timestamp, auth.getAuthenticatedDevice());
       Optional<OutgoingMessageEntity> message = messagesManager.delete(
-          account.getUuid(),
-                                                                       account.getAuthenticatedDevice().get().getId(),
-                                                                       source, timestamp);
+          auth.getAccount().getUuid(),
+          auth.getAuthenticatedDevice().getId(),
+          source, timestamp);
 
       if (message.isPresent() && message.get().getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE) {
-        receiptSender.sendReceipt(account,
-                                  message.get().getSource(),
-                                  message.get().getTimestamp());
+        receiptSender.sendReceipt(auth,
+            message.get().getSource(),
+            message.get().getTimestamp());
       }
     } catch (NoSuchUserException e) {
       logger.warn("Sending delivery receipt", e);
@@ -573,17 +584,18 @@ public class MessageController {
   @Timed
   @DELETE
   @Path("/uuid/{uuid}")
-  public void removePendingMessage(@Auth Account account, @PathParam("uuid") UUID uuid) {
+  public void removePendingMessage(@Auth AuthenticatedAccount auth, @PathParam("uuid") UUID uuid) {
     try {
       Optional<OutgoingMessageEntity> message = messagesManager.delete(
-          account.getUuid(),
-                                                                       account.getAuthenticatedDevice().get().getId(),
-                                                                       uuid);
+          auth.getAccount().getUuid(),
+          auth.getAuthenticatedDevice().getId(),
+          uuid);
 
       if (message.isPresent()) {
-        WebSocketConnection.recordMessageDeliveryDuration(message.get().getTimestamp(), account.getAuthenticatedDevice().get());
-        if (!Util.isEmpty(message.get().getSource()) && message.get().getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE) {
-          receiptSender.sendReceipt(account, message.get().getSource(), message.get().getTimestamp());
+        WebSocketConnection.recordMessageDeliveryDuration(message.get().getTimestamp(), auth.getAuthenticatedDevice());
+        if (!Util.isEmpty(message.get().getSource())
+            && message.get().getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE) {
+          receiptSender.sendReceipt(auth, message.get().getSource(), message.get().getTimestamp());
         }
       }
 
@@ -595,7 +607,8 @@ public class MessageController {
   @Timed
   @POST
   @Path("/report/{sourceNumber}/{messageGuid}")
-  public Response reportMessage(@Auth Account account, @PathParam("sourceNumber") String sourceNumber, @PathParam("messageGuid") UUID messageGuid) {
+  public Response reportMessage(@Auth AuthenticatedAccount auth, @PathParam("sourceNumber") String sourceNumber,
+      @PathParam("messageGuid") UUID messageGuid) {
 
     reportMessageManager.report(sourceNumber, messageGuid);
 
@@ -603,27 +616,26 @@ public class MessageController {
         .build();
   }
 
-  private void sendMessage(Optional<Account> source,
-                           Account destinationAccount,
-                           Device destinationDevice,
-                           long timestamp,
-                           boolean online,
-                           IncomingMessage incomingMessage)
-      throws NoSuchUserException
-  {
+  private void sendMessage(Optional<AuthenticatedAccount> source,
+      Account destinationAccount,
+      Device destinationDevice,
+      long timestamp,
+      boolean online,
+      IncomingMessage incomingMessage)
+      throws NoSuchUserException {
     try (final Timer.Context ignored = sendMessageInternalTimer.time()) {
-      Optional<byte[]> messageBody    = getMessageBody(incomingMessage);
+      Optional<byte[]> messageBody = getMessageBody(incomingMessage);
       Optional<byte[]> messageContent = getMessageContent(incomingMessage);
       Envelope.Builder messageBuilder = Envelope.newBuilder();
 
       messageBuilder.setType(Envelope.Type.forNumber(incomingMessage.getType()))
-                    .setTimestamp(timestamp == 0 ? System.currentTimeMillis() : timestamp)
-                    .setServerTimestamp(System.currentTimeMillis());
+          .setTimestamp(timestamp == 0 ? System.currentTimeMillis() : timestamp)
+          .setServerTimestamp(System.currentTimeMillis());
 
       if (source.isPresent()) {
-        messageBuilder.setSource(source.get().getNumber())
-                      .setSourceUuid(source.get().getUuid().toString())
-                      .setSourceDevice((int)source.get().getAuthenticatedDevice().get().getId());
+        messageBuilder.setSource(source.get().getAccount().getNumber())
+            .setSourceUuid(source.get().getAccount().getUuid().toString())
+            .setSourceDevice((int) source.get().getAuthenticatedDevice().getId());
       }
 
       if (messageBody.isPresent()) {
@@ -697,24 +709,26 @@ public class MessageController {
   }
 
   @VisibleForTesting
-  public static void validateCompleteDeviceList(Account account, List<IncomingMessage> messages, boolean isSyncMessage)
+  public static void validateCompleteDeviceList(Account account, List<IncomingMessage> messages, boolean isSyncMessage,
+      Optional<Long> authenticatedDeviceId)
       throws MismatchedDevicesException {
-    Set<Long> messageDeviceIds = messages.stream().map(IncomingMessage::getDestinationDeviceId).collect(Collectors.toSet());
-    validateCompleteDeviceList(account, messageDeviceIds, isSyncMessage);
+    Set<Long> messageDeviceIds = messages.stream().map(IncomingMessage::getDestinationDeviceId)
+        .collect(Collectors.toSet());
+    validateCompleteDeviceList(account, messageDeviceIds, isSyncMessage, authenticatedDeviceId);
   }
 
   @VisibleForTesting
-  public static void validateCompleteDeviceList(Account account, Set<Long> messageDeviceIds, boolean isSyncMessage)
+  public static void validateCompleteDeviceList(Account account, Set<Long> messageDeviceIds, boolean isSyncMessage,
+      Optional<Long> authenticatedDeviceId)
       throws MismatchedDevicesException {
     Set<Long> accountDeviceIds = new HashSet<>();
 
     List<Long> missingDeviceIds = new LinkedList<>();
-    List<Long> extraDeviceIds   = new LinkedList<>();
+    List<Long> extraDeviceIds = new LinkedList<>();
 
-   for (Device device : account.getDevices()) {
+    for (Device device : account.getDevices()) {
       if (device.isEnabled() &&
-          !(isSyncMessage && device.getId() == account.getAuthenticatedDevice().get().getId()))
-      {
+          !(isSyncMessage && device.getId() == authenticatedDeviceId.get())) {
         accountDeviceIds.add(device.getId());
 
         if (!messageDeviceIds.contains(device.getId())) {

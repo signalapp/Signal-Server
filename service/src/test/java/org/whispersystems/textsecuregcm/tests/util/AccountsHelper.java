@@ -113,10 +113,6 @@ public class AccountsHelper {
             when(updatedAccount.getMasterDevice()).thenAnswer(stubbing);
             break;
           }
-          case "getAuthenticatedDevice": {
-            when(updatedAccount.getAuthenticatedDevice()).thenAnswer(stubbing);
-            break;
-          }
           case "isEnabled": {
             when(updatedAccount.isEnabled()).thenAnswer(stubbing);
             break;

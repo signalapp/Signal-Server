@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.tests.controllers;
@@ -36,7 +36,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccount;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.controllers.DeviceController;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -88,17 +89,18 @@ class DeviceControllerTest {
   private static Map<String, Integer>  deviceConfiguration   = new HashMap<>();
 
   private static final ResourceExtension resources = ResourceExtension.builder()
-                                                                .addProvider(AuthHelper.getAuthFilter())
-                                                                .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(Account.class, DisabledPermittedAccount.class)))
-                                                                .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-                                                                .addProvider(new DeviceLimitExceededExceptionMapper())
-                                                                .addResource(new DumbVerificationDeviceController(pendingDevicesManager,
-                                                                                                                  accountsManager,
-                                                                                                                  messagesManager,
-                                                                                                                  keys,
-                                                                                                                  rateLimiters,
-                                                                                                                  deviceConfiguration))
-                                                                .build();
+      .addProvider(AuthHelper.getAuthFilter())
+      .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
+          ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
+      .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
+      .addProvider(new DeviceLimitExceededExceptionMapper())
+      .addResource(new DumbVerificationDeviceController(pendingDevicesManager,
+          accountsManager,
+          messagesManager,
+          keys,
+          rateLimiters,
+          deviceConfiguration))
+      .build();
 
 
   @BeforeEach
@@ -114,15 +116,14 @@ class DeviceControllerTest {
     when(account.getNextDeviceId()).thenReturn(42L);
     when(account.getNumber()).thenReturn(AuthHelper.VALID_NUMBER);
     when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
-//    when(maxedAccount.getActiveDeviceCount()).thenReturn(6);
-    when(account.getAuthenticatedDevice()).thenReturn(Optional.of(masterDevice));
     when(account.isEnabled()).thenReturn(false);
     when(account.isGroupsV2Supported()).thenReturn(true);
     when(account.isGv1MigrationSupported()).thenReturn(true);
     when(account.isSenderKeySupported()).thenReturn(true);
     when(account.isAnnouncementGroupSupported()).thenReturn(true);
 
-    when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(new StoredVerificationCode("5678901", System.currentTimeMillis(), null, null)));
+    when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(
+        Optional.of(new StoredVerificationCode("5678901", System.currentTimeMillis(), null, null)));
     when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.empty());
     when(accountsManager.get(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(account));
     when(accountsManager.get(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(maxedAccount));
