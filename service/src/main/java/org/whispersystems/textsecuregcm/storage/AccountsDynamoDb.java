@@ -260,9 +260,11 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
 
   @Override
   public void delete(UUID uuid) {
-    DELETE_TIMER.record(() -> {
-      delete(uuid, true);
-    });
+    DELETE_TIMER.record(() -> delete(uuid, true));
+  }
+
+  public void deleteInvalidMigration(UUID uuid) {
+    DELETE_TIMER.record(() -> delete(uuid, false));
   }
 
   public AccountCrawlChunk getAllFrom(final UUID from, final int maxCount, final int pageSize) {

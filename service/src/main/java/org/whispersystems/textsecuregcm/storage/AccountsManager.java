@@ -185,7 +185,12 @@ public class AccountsManager {
                 (databaseResult, dynamoResult) -> {
 
                   if (!account.getUuid().equals(actualUuid)) {
+                    // This is expected towards the beginning of the background migration, as Dynamo won’t
+                    // have many accounts available for re-registration
                     logger.warn("dynamoCreate() did not return correct UUID");
+                    accountsDynamoDb.deleteInvalidMigration(account.getUuid());
+                    return Optional.of("dynamoIncorrectUUID");
+
                   }
 
                   if (databaseResult.equals(dynamoResult)) {
