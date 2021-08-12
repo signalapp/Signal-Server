@@ -17,6 +17,7 @@ import com.google.protobuf.ByteString;
 import io.dropwizard.auth.Auth;
 import io.dropwizard.util.DataSize;
 import io.lettuce.core.ScriptOutputType;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
@@ -361,7 +362,7 @@ public class MessageController {
     Map<UUID, Account> uuidToAccountMap = Arrays.stream(multiRecipientMessage.getRecipients())
         .map(Recipient::getUuid)
         .distinct()
-        .collect(Collectors.toMap(Function.identity(), uuid -> {
+        .collect(Collectors.toUnmodifiableMap(Function.identity(), uuid -> {
           Optional<Account> account = accountsManager.get(uuid);
           if (account.isEmpty()) {
             throw new WebApplicationException(Status.NOT_FOUND);
@@ -417,21 +418,21 @@ public class MessageController {
         UserAgentTagUtil.getPlatformTag(userAgent),
         Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(online)),
         Tag.of(SENDER_TYPE_TAG_NAME, "unidentified"));
-    List<UUID> uuids404 = new ArrayList<>();
-    for (Recipient recipient : multiRecipientMessage.getRecipients()) {
-
+    List<UUID> uuids404 = Collections.synchronizedList(new ArrayList<>());
+    final Counter counter = Metrics.counter(SENT_MESSAGE_COUNTER_NAME, tags);
+    Arrays.stream(multiRecipientMessage.getRecipients()).parallel().forEach(recipient -> {
       Account destinationAccount = uuidToAccountMap.get(recipient.getUuid());
-      // we asserted this must be true in validateCompleteDeviceList
-      //noinspection OptionalGetWithoutIsPresent
-      Device destinationDevice = destinationAccount.getDevice(recipient.getDeviceId()).get();
-      Metrics.counter(SENT_MESSAGE_COUNTER_NAME, tags).increment();
+
+      // we asserted this must exist in validateCompleteDeviceList
+      Device destinationDevice = destinationAccount.getDevice(recipient.getDeviceId()).orElseThrow();
+      counter.increment();
       try {
         sendMessage(destinationAccount, destinationDevice, timestamp, online, recipient,
             multiRecipientMessage.getCommonPayload());
       } catch (NoSuchUserException e) {
         uuids404.add(destinationAccount.getUuid());
       }
-    }
+    });
     return Response.ok(new SendMultiRecipientMessageResponse(uuids404)).build();
   }
 
