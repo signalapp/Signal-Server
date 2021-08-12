@@ -5,6 +5,8 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
@@ -12,19 +14,16 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.lifecycle.Managed;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.Util;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-
-import static com.codahale.metrics.MetricRegistry.name;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.Util;
 
 public class MessagePersister implements Managed {
 
@@ -144,11 +143,7 @@ public class MessagePersister implements Managed {
     void persistQueue(final UUID accountUuid, final long deviceId) {
         final Optional<Account> maybeAccount = accountsManager.get(accountUuid);
 
-        final String accountNumber;
-
-        if (maybeAccount.isPresent()) {
-            accountNumber = maybeAccount.get().getNumber();
-        } else {
+        if (maybeAccount.isEmpty()) {
             logger.error("No account record found for account {}", accountUuid);
             return;
         }
