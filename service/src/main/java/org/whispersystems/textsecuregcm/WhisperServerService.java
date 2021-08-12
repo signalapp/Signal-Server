@@ -417,7 +417,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ExecutorService          backupServiceExecutor                = environment.lifecycle().executorService(name(getClass(), "backupService-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService          storageServiceExecutor               = environment.lifecycle().executorService(name(getClass(), "storageService-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService          donationExecutor                     = environment.lifecycle().executorService(name(getClass(), "donation-%d")).maxThreads(1).minThreads(1).build();
-    ExecutorService          multiRecipientMessageExecutor        = environment.lifecycle().executorService(name(getClass(), "multiRecipientMessage-%d")).maxThreads(64).build();
+    ExecutorService          multiRecipientMessageExecutor        = environment.lifecycle().executorService(name(getClass(), "multiRecipientMessage-%d")).minThreads(64).maxThreads(64).build();
 
     ExternalServiceCredentialGenerator directoryCredentialsGenerator = new ExternalServiceCredentialGenerator(config.getDirectoryConfiguration().getDirectoryClientConfiguration().getUserAuthenticationTokenSharedSecret(),
             config.getDirectoryConfiguration().getDirectoryClientConfiguration().getUserAuthenticationTokenUserIdSecret(),
