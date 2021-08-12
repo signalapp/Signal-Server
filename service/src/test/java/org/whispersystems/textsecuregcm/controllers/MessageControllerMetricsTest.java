@@ -9,6 +9,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import org.junit.Before;
 import org.junit.Test;
@@ -32,7 +33,8 @@ public class MessageControllerMetricsTest extends AbstractRedisClusterTest {
   public void setUp() throws Exception {
     super.setUp();
 
-    messageController = new MessageController(mock(RateLimiters.class),
+    messageController = new MessageController(
+        mock(RateLimiters.class),
         mock(MessageSender.class),
         mock(ReceiptSender.class),
         mock(AccountsManager.class),
@@ -43,7 +45,8 @@ public class MessageControllerMetricsTest extends AbstractRedisClusterTest {
         mock(RateLimitChallengeManager.class),
         mock(ReportMessageManager.class),
         getRedisCluster(),
-        mock(ScheduledExecutorService.class));
+        mock(ScheduledExecutorService.class),
+        mock(ExecutorService.class));
   }
 
   @Test

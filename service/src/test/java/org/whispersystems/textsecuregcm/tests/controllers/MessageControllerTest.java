@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -86,7 +87,6 @@ import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
 import org.whispersystems.textsecuregcm.entities.RateLimitChallenge;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
-import org.whispersystems.textsecuregcm.limits.CardinalityRateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -125,20 +125,20 @@ class MessageControllerTest {
   @SuppressWarnings("unchecked")
   private static final RedisAdvancedClusterCommands<String, String> redisCommands  = mock(RedisAdvancedClusterCommands.class);
 
-  private static final MessageSender               messageSender               = mock(MessageSender.class);
-  private static final ReceiptSender               receiptSender               = mock(ReceiptSender.class);
-  private static final AccountsManager             accountsManager             = mock(AccountsManager.class);
-  private static final MessagesManager             messagesManager             = mock(MessagesManager.class);
-  private static final RateLimiters                rateLimiters                = mock(RateLimiters.class);
-  private static final RateLimiter                 rateLimiter                 = mock(RateLimiter.class);
-  private static final CardinalityRateLimiter      unsealedSenderLimiter       = mock(CardinalityRateLimiter.class);
-  private static final UnsealedSenderRateLimiter   unsealedSenderRateLimiter   = mock(UnsealedSenderRateLimiter.class);
-  private static final ApnFallbackManager          apnFallbackManager          = mock(ApnFallbackManager.class);
+  private static final MessageSender messageSender = mock(MessageSender.class);
+  private static final ReceiptSender receiptSender = mock(ReceiptSender.class);
+  private static final AccountsManager accountsManager = mock(AccountsManager.class);
+  private static final MessagesManager messagesManager = mock(MessagesManager.class);
+  private static final RateLimiters rateLimiters = mock(RateLimiters.class);
+  private static final RateLimiter rateLimiter = mock(RateLimiter.class);
+  private static final UnsealedSenderRateLimiter unsealedSenderRateLimiter = mock(UnsealedSenderRateLimiter.class);
+  private static final ApnFallbackManager apnFallbackManager = mock(ApnFallbackManager.class);
   private static final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
-  private static final RateLimitChallengeManager   rateLimitChallengeManager   = mock(RateLimitChallengeManager.class);
-  private static final ReportMessageManager        reportMessageManager        = mock(ReportMessageManager.class);
-  private static final FaultTolerantRedisCluster   metricsCluster              = RedisClusterHelper.buildMockRedisCluster(redisCommands);
-  private static final ScheduledExecutorService    receiptExecutor             = mock(ScheduledExecutorService.class);
+  private static final RateLimitChallengeManager rateLimitChallengeManager = mock(RateLimitChallengeManager.class);
+  private static final ReportMessageManager reportMessageManager = mock(ReportMessageManager.class);
+  private static final FaultTolerantRedisCluster metricsCluster = RedisClusterHelper.buildMockRedisCluster(redisCommands);
+  private static final ScheduledExecutorService receiptExecutor = mock(ScheduledExecutorService.class);
+  private static final ExecutorService multiRecipientMessageExecutor = mock(ExecutorService.class);
 
   private final ObjectMapper mapper = new ObjectMapper();
 
@@ -151,7 +151,8 @@ class MessageControllerTest {
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new MessageController(rateLimiters, messageSender, receiptSender, accountsManager,
           messagesManager, unsealedSenderRateLimiter, apnFallbackManager, dynamicConfigurationManager,
-          rateLimitChallengeManager, reportMessageManager, metricsCluster, receiptExecutor))
+          rateLimitChallengeManager, reportMessageManager, metricsCluster, receiptExecutor,
+          multiRecipientMessageExecutor))
       .build();
 
   @BeforeEach

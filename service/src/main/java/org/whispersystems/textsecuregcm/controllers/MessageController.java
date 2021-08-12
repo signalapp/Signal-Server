@@ -33,16 +33,20 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
 import javax.validation.Valid;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -132,6 +136,7 @@ public class MessageController {
   private final RateLimitChallengeManager   rateLimitChallengeManager;
   private final ReportMessageManager        reportMessageManager;
   private final ScheduledExecutorService    receiptExecutorService;
+  private final ExecutorService             multiRecipientMessageExecutor;
 
   private final Random random = new Random();
 
@@ -153,7 +158,8 @@ public class MessageController {
 
   private static final long MAX_MESSAGE_SIZE = DataSize.kibibytes(256).toBytes();
 
-  public MessageController(RateLimiters rateLimiters,
+  public MessageController(
+      RateLimiters rateLimiters,
       MessageSender messageSender,
       ReceiptSender receiptSender,
       AccountsManager accountsManager,
@@ -164,19 +170,20 @@ public class MessageController {
       RateLimitChallengeManager rateLimitChallengeManager,
       ReportMessageManager reportMessageManager,
       FaultTolerantRedisCluster metricsCluster,
-      ScheduledExecutorService receiptExecutorService)
-  {
-    this.rateLimiters                = rateLimiters;
-    this.messageSender               = messageSender;
-    this.receiptSender               = receiptSender;
-    this.accountsManager             = accountsManager;
-    this.messagesManager             = messagesManager;
-    this.unsealedSenderRateLimiter   = unsealedSenderRateLimiter;
-    this.apnFallbackManager          = apnFallbackManager;
+      ScheduledExecutorService receiptExecutorService,
+      @Nonnull ExecutorService multiRecipientMessageExecutor) {
+    this.rateLimiters = rateLimiters;
+    this.messageSender = messageSender;
+    this.receiptSender = receiptSender;
+    this.accountsManager = accountsManager;
+    this.messagesManager = messagesManager;
+    this.unsealedSenderRateLimiter = unsealedSenderRateLimiter;
+    this.apnFallbackManager = apnFallbackManager;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
-    this.rateLimitChallengeManager   = rateLimitChallengeManager;
-    this.reportMessageManager        = reportMessageManager;
-    this.receiptExecutorService      = receiptExecutorService;
+    this.rateLimitChallengeManager = rateLimitChallengeManager;
+    this.reportMessageManager = reportMessageManager;
+    this.receiptExecutorService = receiptExecutorService;
+    this.multiRecipientMessageExecutor = Objects.requireNonNull(multiRecipientMessageExecutor);
 
     try {
       recordInternationalUnsealedSenderMetricsScript = ClusterLuaScript.fromResource(metricsCluster, "lua/record_international_unsealed_sender_metrics.lua", ScriptOutputType.MULTI);
@@ -420,19 +427,27 @@ public class MessageController {
         Tag.of(SENDER_TYPE_TAG_NAME, "unidentified"));
     List<UUID> uuids404 = Collections.synchronizedList(new ArrayList<>());
     final Counter counter = Metrics.counter(SENT_MESSAGE_COUNTER_NAME, tags);
-    Arrays.stream(multiRecipientMessage.getRecipients()).parallel().forEach(recipient -> {
-      Account destinationAccount = uuidToAccountMap.get(recipient.getUuid());
+    try {
+      multiRecipientMessageExecutor.invokeAll(Arrays.stream(multiRecipientMessage.getRecipients())
+          .map(recipient -> (Callable<Void>) () -> {
+            Account destinationAccount = uuidToAccountMap.get(recipient.getUuid());
 
-      // we asserted this must exist in validateCompleteDeviceList
-      Device destinationDevice = destinationAccount.getDevice(recipient.getDeviceId()).orElseThrow();
-      counter.increment();
-      try {
-        sendMessage(destinationAccount, destinationDevice, timestamp, online, recipient,
-            multiRecipientMessage.getCommonPayload());
-      } catch (NoSuchUserException e) {
-        uuids404.add(destinationAccount.getUuid());
-      }
-    });
+            // we asserted this must exist in validateCompleteDeviceList
+            Device destinationDevice = destinationAccount.getDevice(recipient.getDeviceId()).orElseThrow();
+            counter.increment();
+            try {
+              sendMessage(destinationAccount, destinationDevice, timestamp, online, recipient,
+                  multiRecipientMessage.getCommonPayload());
+            } catch (NoSuchUserException e) {
+              uuids404.add(destinationAccount.getUuid());
+            }
+            return null;
+          })
+          .collect(Collectors.toList()));
+    } catch (InterruptedException e) {
+      logger.error("interrupted while delivering multi-recipient messages", e);
+      return Response.serverError().entity("interrupted during delivery").build();
+    }
     return Response.ok(new SendMultiRecipientMessageResponse(uuids404)).build();
   }
 
