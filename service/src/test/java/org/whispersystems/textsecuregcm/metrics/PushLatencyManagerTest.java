@@ -5,33 +5,39 @@
 
 package org.whispersystems.textsecuregcm.metrics;
 
-import org.junit.Test;
-import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+class PushLatencyManagerTest {
 
-public class PushLatencyManagerTest extends AbstractRedisClusterTest {
+  @RegisterExtension
+  static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
-    @Test
-    public void testGetLatency() throws ExecutionException, InterruptedException {
-        final PushLatencyManager pushLatencyManager  = new PushLatencyManager(getRedisCluster());
-        final UUID               accountUuid         = UUID.randomUUID();
-        final long               deviceId            = 1;
-        final long               expectedLatency     = 1234;
-        final long               pushSentTimestamp   = System.currentTimeMillis();
-        final long               clearQueueTimestamp = pushSentTimestamp + expectedLatency;
+  @Test
+  void testGetLatency() throws ExecutionException, InterruptedException {
 
-        assertNull(pushLatencyManager.getLatencyAndClearTimestamp(accountUuid, deviceId, System.currentTimeMillis()).get());
+    final PushLatencyManager pushLatencyManager = new PushLatencyManager(REDIS_CLUSTER_EXTENSION.getRedisCluster());
+    final UUID accountUuid = UUID.randomUUID();
+    final long deviceId = 1;
+    final long expectedLatency = 1234;
+    final long pushSentTimestamp = System.currentTimeMillis();
+    final long clearQueueTimestamp = pushSentTimestamp + expectedLatency;
 
-        {
-            pushLatencyManager.recordPushSent(accountUuid, deviceId, pushSentTimestamp);
+    assertNull(pushLatencyManager.getLatencyAndClearTimestamp(accountUuid, deviceId, System.currentTimeMillis()).get());
 
-            assertEquals(expectedLatency, (long)pushLatencyManager.getLatencyAndClearTimestamp(accountUuid, deviceId, clearQueueTimestamp).get());
-            assertNull(pushLatencyManager.getLatencyAndClearTimestamp(accountUuid, deviceId, System.currentTimeMillis()).get());
-        }
+    {
+      pushLatencyManager.recordPushSent(accountUuid, deviceId, pushSentTimestamp);
+
+      assertEquals(expectedLatency,
+          (long) pushLatencyManager.getLatencyAndClearTimestamp(accountUuid, deviceId, clearQueueTimestamp).get());
+      assertNull(
+          pushLatencyManager.getLatencyAndClearTimestamp(accountUuid, deviceId, System.currentTimeMillis()).get());
     }
+  }
 }

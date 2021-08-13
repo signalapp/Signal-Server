@@ -5,33 +5,26 @@
 
 package org.whispersystems.textsecuregcm.limits;
 
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.time.Duration;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
+import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 
-public class CardinalityRateLimiterTest extends AbstractRedisClusterTest {
+class CardinalityRateLimiterTest {
 
-  @Before
-  public void setUp() throws Exception {
-    super.setUp();
-  }
-
-  @After
-  public void tearDown() throws Exception {
-    super.tearDown();
-  }
+  @RegisterExtension
+  static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
   @Test
-  public void testValidate() {
+  void testValidate() {
     final int maxCardinality = 10;
     final CardinalityRateLimiter rateLimiter =
-        new CardinalityRateLimiter(getRedisCluster(), "test", Duration.ofDays(1), maxCardinality);
+        new CardinalityRateLimiter(REDIS_CLUSTER_EXTENSION.getRedisCluster(), "test", Duration.ofDays(1),
+            maxCardinality);
 
     final String source = "+18005551234";
     int validatedAttempts = 0;

@@ -5,21 +5,25 @@
 
 package org.whispersystems.textsecuregcm.util;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ScheduledExecutorService;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.MonitoredS3ObjectConfiguration;
-import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
+import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 
-public class TorExitNodeManagerTest extends AbstractRedisClusterTest {
+class TorExitNodeManagerTest {
+
+  @RegisterExtension
+  static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
   @Test
-  public void testIsTorExitNode() {
+  void testIsTorExitNode() {
     final MonitoredS3ObjectConfiguration configuration = new MonitoredS3ObjectConfiguration();
     configuration.setS3Region("ap-northeast-3");
 

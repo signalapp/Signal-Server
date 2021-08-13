@@ -5,24 +5,27 @@
 
 package org.whispersystems.textsecuregcm.limits;
 
-import static org.junit.Assert.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.util.UUID;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessageRateConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRateLimitChallengeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
+import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
-public class UnsealedSenderRateLimiterTest extends AbstractRedisClusterTest {
+class UnsealedSenderRateLimiterTest {
+
+  @RegisterExtension
+  static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
   private Account sender;
   private Account firstDestination;
@@ -32,14 +35,12 @@ public class UnsealedSenderRateLimiterTest extends AbstractRedisClusterTest {
 
   private DynamicRateLimitChallengeConfiguration rateLimitChallengeConfiguration;
 
-  @Before
-  @Override
-  public void setUp() throws Exception {
-    super.setUp();
+  @BeforeEach
+  void setUp() throws Exception {
 
     final RateLimiters rateLimiters = mock(RateLimiters.class);
     final CardinalityRateLimiter cardinalityRateLimiter =
-        new CardinalityRateLimiter(getRedisCluster(), "test", Duration.ofDays(1), 1);
+        new CardinalityRateLimiter(REDIS_CLUSTER_EXTENSION.getRedisCluster(), "test", Duration.ofDays(1), 1);
 
     when(rateLimiters.getUnsealedSenderCardinalityLimiter()).thenReturn(cardinalityRateLimiter);
     when(rateLimiters.getRateLimitResetLimiter()).thenReturn(mock(RateLimiter.class));
@@ -56,7 +57,8 @@ public class UnsealedSenderRateLimiterTest extends AbstractRedisClusterTest {
     when(dynamicConfiguration.getRateLimitChallengeConfiguration()).thenReturn(rateLimitChallengeConfiguration);
     when(rateLimitChallengeConfiguration.isUnsealedSenderLimitEnforced()).thenReturn(true);
 
-    unsealedSenderRateLimiter = new UnsealedSenderRateLimiter(rateLimiters, getRedisCluster(), dynamicConfigurationManager,
+    unsealedSenderRateLimiter = new UnsealedSenderRateLimiter(rateLimiters, REDIS_CLUSTER_EXTENSION.getRedisCluster(),
+        dynamicConfigurationManager,
         mock(RateLimitResetMetricsManager.class));
 
     sender = mock(Account.class);
@@ -73,7 +75,7 @@ public class UnsealedSenderRateLimiterTest extends AbstractRedisClusterTest {
   }
 
   @Test
-  public void validate() throws RateLimitExceededException {
+  void validate() throws RateLimitExceededException {
     unsealedSenderRateLimiter.validate(sender, firstDestination);
 
     assertThrows(RateLimitExceededException.class, () -> unsealedSenderRateLimiter.validate(sender, secondDestination));
@@ -82,7 +84,7 @@ public class UnsealedSenderRateLimiterTest extends AbstractRedisClusterTest {
   }
 
   @Test
-  public void handleRateLimitReset() throws RateLimitExceededException {
+  void handleRateLimitReset() throws RateLimitExceededException {
     unsealedSenderRateLimiter.validate(sender, firstDestination);
 
     assertThrows(RateLimitExceededException.class, () -> unsealedSenderRateLimiter.validate(sender, secondDestination));
@@ -93,7 +95,7 @@ public class UnsealedSenderRateLimiterTest extends AbstractRedisClusterTest {
   }
 
   @Test
-  public void enforcementConfiguration() throws RateLimitExceededException {
+  void enforcementConfiguration() throws RateLimitExceededException {
 
     when(rateLimitChallengeConfiguration.isUnsealedSenderLimitEnforced()).thenReturn(false);
 
