@@ -665,11 +665,6 @@ public class AccountsManager {
           dynamoAccount.getMasterDevice().get().getSignedPreKey())) {
         return Optional.of("masterDeviceSignedPreKey");
       }
-
-      if (!Objects.equals(databaseAccount.getMasterDevice().get().getPushTimestamp(),
-          dynamoAccount.getMasterDevice().get().getPushTimestamp())) {
-        return Optional.of("masterDevicePushTimestamp");
-      }
     }
 
     try {
@@ -679,6 +674,15 @@ public class AccountsManager {
 
       if (databaseAccount.getVersion() != dynamoAccount.getVersion()) {
         return Optional.of("version");
+      }
+
+      if (databaseAccount.getMasterDevice().isPresent() && dynamoAccount.getMasterDevice().isPresent()) {
+        if (Math.abs(databaseAccount.getMasterDevice().get().getPushTimestamp() -
+            dynamoAccount.getMasterDevice().get().getPushTimestamp()) > 60 * 1_000L) {
+          // These are generally few milliseconds off, because the setter uses System.currentTimeMillis() internally,
+          // but we can be more relaxed
+          return Optional.of("masterDevicePushTimestamp");
+        }
       }
 
       if (!serializedEquals(databaseAccount, dynamoAccount)) {
@@ -755,6 +759,9 @@ public class AccountsManager {
 
     @JsonIgnore
     private long lastSeen;
+
+    @JsonIgnore
+    private long pushTimestamp;
 
   }
 

@@ -513,7 +513,7 @@ class AccountsManagerTest {
       Thread.sleep(5);
       device2.setApnId("123");
 
-      assertEquals(Optional.of("masterDevicePushTimestamp"), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
+      assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
 
       a1.removeDevice(1L);
       a2.removeDevice(1L);
