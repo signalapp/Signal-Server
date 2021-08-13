@@ -4,6 +4,16 @@
  */
 package org.whispersystems.websocket;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,27 +22,15 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.auth.Auth;
 import io.dropwizard.jersey.DropwizardResourceConfig;
 import io.dropwizard.jersey.jackson.JacksonMessageBodyProvider;
-import org.eclipse.jetty.websocket.api.CloseStatus;
-import org.eclipse.jetty.websocket.api.RemoteEndpoint;
-import org.eclipse.jetty.websocket.api.Session;
-import org.eclipse.jetty.websocket.api.UpgradeRequest;
-import org.eclipse.jetty.websocket.api.WriteCallback;
-import org.glassfish.jersey.server.ApplicationHandler;
-import org.glassfish.jersey.server.ContainerRequest;
-import org.glassfish.jersey.server.ContainerResponse;
-import org.glassfish.jersey.server.ResourceConfig;
-import org.junit.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.stubbing.Answer;
-import org.whispersystems.websocket.auth.WebsocketAuthValueFactoryProvider;
-import org.whispersystems.websocket.logging.WebsocketRequestLog;
-import org.whispersystems.websocket.messages.protobuf.ProtobufWebSocketMessageFactory;
-import org.whispersystems.websocket.messages.protobuf.SubProtocol;
-import org.whispersystems.websocket.session.WebSocketSession;
-import org.whispersystems.websocket.session.WebSocketSessionContext;
-import org.whispersystems.websocket.session.WebSocketSessionContextValueFactoryProvider;
-import org.whispersystems.websocket.setup.WebSocketConnectListener;
-
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.security.Principal;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import javax.validation.Valid;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotEmpty;
@@ -48,41 +46,42 @@ import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.ExceptionMapper;
 import javax.ws.rs.ext.Provider;
-import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.security.Principal;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
+import org.eclipse.jetty.websocket.api.CloseStatus;
+import org.eclipse.jetty.websocket.api.RemoteEndpoint;
+import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.UpgradeRequest;
+import org.eclipse.jetty.websocket.api.WriteCallback;
+import org.glassfish.jersey.server.ApplicationHandler;
+import org.glassfish.jersey.server.ContainerRequest;
+import org.glassfish.jersey.server.ContainerResponse;
+import org.glassfish.jersey.server.ResourceConfig;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.stubbing.Answer;
+import org.whispersystems.websocket.auth.WebsocketAuthValueFactoryProvider;
+import org.whispersystems.websocket.logging.WebsocketRequestLog;
+import org.whispersystems.websocket.messages.protobuf.ProtobufWebSocketMessageFactory;
+import org.whispersystems.websocket.messages.protobuf.SubProtocol;
+import org.whispersystems.websocket.session.WebSocketSession;
+import org.whispersystems.websocket.session.WebSocketSessionContext;
+import org.whispersystems.websocket.session.WebSocketSessionContextValueFactoryProvider;
+import org.whispersystems.websocket.setup.WebSocketConnectListener;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyInt;
-import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-public class WebSocketResourceProviderTest {
+class WebSocketResourceProviderTest {
 
   @Test
-  public void testOnConnect() {
-    ApplicationHandler                       applicationHandler = mock(ApplicationHandler.class      );
-    WebsocketRequestLog                      requestLog         = mock(WebsocketRequestLog.class     );
-    WebSocketConnectListener                 connectListener    = mock(WebSocketConnectListener.class);
-    WebSocketResourceProvider<TestPrincipal> provider           = new WebSocketResourceProvider<>("127.0.0.1",
-                                                                                                  applicationHandler, requestLog,
-                                                                                                  new TestPrincipal("fooz"),
-                                                                                                  new ProtobufWebSocketMessageFactory(),
-                                                                                                  Optional.of(connectListener),
-                                                                                                  30000                                 );
+  void testOnConnect() {
+    ApplicationHandler applicationHandler = mock(ApplicationHandler.class);
+    WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
+    WebSocketConnectListener connectListener = mock(WebSocketConnectListener.class);
+    WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
+        applicationHandler, requestLog,
+        new TestPrincipal("fooz"),
+        new ProtobufWebSocketMessageFactory(),
+        Optional.of(connectListener),
+        30000);
 
-    Session        session = mock(Session.class       );
+    Session session = mock(Session.class);
     UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
@@ -93,21 +92,23 @@ public class WebSocketResourceProviderTest {
     verify(session, never()).close();
     verify(session, never()).close(any(CloseStatus.class));
 
-    ArgumentCaptor<WebSocketSessionContext> contextArgumentCaptor = ArgumentCaptor.forClass(WebSocketSessionContext.class);
+    ArgumentCaptor<WebSocketSessionContext> contextArgumentCaptor = ArgumentCaptor.forClass(
+        WebSocketSessionContext.class);
     verify(connectListener).onWebSocketConnect(contextArgumentCaptor.capture());
 
     assertThat(contextArgumentCaptor.getValue().getAuthenticated(TestPrincipal.class).getName()).isEqualTo("fooz");
   }
 
   @Test
-  public void testMockedRouteMessageSuccess() throws Exception {
-    ApplicationHandler                       applicationHandler = mock(ApplicationHandler.class );
-    WebsocketRequestLog                      requestLog         = mock(WebsocketRequestLog.class);
-    WebSocketResourceProvider<TestPrincipal> provider           = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler, requestLog, new TestPrincipal("foo"), new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
+  void testMockedRouteMessageSuccess() throws Exception {
+    ApplicationHandler applicationHandler = mock(ApplicationHandler.class);
+    WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
+    WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler,
+        requestLog, new TestPrincipal("foo"), new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
 
-    Session        session        = mock(Session.class       );
+    Session session = mock(Session.class);
     RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
-    UpgradeRequest request        = mock(UpgradeRequest.class);
+    UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
     when(session.getRemote()).thenReturn(remoteEndpoint);
@@ -145,12 +146,13 @@ public class WebSocketResourceProviderTest {
     verify(session, never()).close();
     verify(session, never()).close(any(CloseStatus.class));
 
-    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/bar", new LinkedList<>(), Optional.of("hello world!".getBytes())).toByteArray();
+    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/bar",
+        new LinkedList<>(), Optional.of("hello world!".getBytes())).toByteArray();
 
     provider.onWebSocketBinary(message, 0, message.length);
 
-    ArgumentCaptor<ContainerRequest> requestCaptor  = ArgumentCaptor.forClass(ContainerRequest.class);
-    ArgumentCaptor<ByteBuffer>       responseCaptor = ArgumentCaptor.forClass(ByteBuffer.class      );
+    ArgumentCaptor<ContainerRequest> requestCaptor = ArgumentCaptor.forClass(ContainerRequest.class);
+    ArgumentCaptor<ByteBuffer> responseCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
 
     verify(applicationHandler).apply(requestCaptor.capture(), any(OutputStream.class));
 
@@ -163,27 +165,31 @@ public class WebSocketResourceProviderTest {
     verify(requestLog).log(eq("127.0.0.1"), eq(bundledRequest), eq(response));
     verify(remoteEndpoint).sendBytesByFuture(responseCaptor.capture());
 
-    SubProtocol.WebSocketMessage responseMessageContainer = SubProtocol.WebSocketMessage.parseFrom(responseCaptor.getValue().array());
+    SubProtocol.WebSocketMessage responseMessageContainer = SubProtocol.WebSocketMessage.parseFrom(
+        responseCaptor.getValue().array());
     assertThat(responseMessageContainer.getResponse().getId()).isEqualTo(111L);
     assertThat(responseMessageContainer.getResponse().getStatus()).isEqualTo(200);
     assertThat(responseMessageContainer.getResponse().getMessage()).isEqualTo("OK");
-    assertThat(responseMessageContainer.getResponse().getBody()).isEqualTo(ByteString.copyFrom("hello world!".getBytes()));
+    assertThat(responseMessageContainer.getResponse().getBody()).isEqualTo(
+        ByteString.copyFrom("hello world!".getBytes()));
   }
 
   @Test
-  public void testMockedRouteMessageFailure() throws Exception {
-    ApplicationHandler                       applicationHandler = mock(ApplicationHandler.class );
-    WebsocketRequestLog                      requestLog         = mock(WebsocketRequestLog.class);
-    WebSocketResourceProvider<TestPrincipal> provider           = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler, requestLog, new TestPrincipal("foo"), new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
+  void testMockedRouteMessageFailure() throws Exception {
+    ApplicationHandler applicationHandler = mock(ApplicationHandler.class);
+    WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
+    WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler,
+        requestLog, new TestPrincipal("foo"), new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
 
-    Session        session        = mock(Session.class       );
+    Session session = mock(Session.class);
     RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
-    UpgradeRequest request        = mock(UpgradeRequest.class);
+    UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
     when(session.getRemote()).thenReturn(remoteEndpoint);
 
-    when(applicationHandler.apply(any(ContainerRequest.class), any(OutputStream.class))).thenReturn(CompletableFuture.failedFuture(new IllegalStateException("foo")));
+    when(applicationHandler.apply(any(ContainerRequest.class), any(OutputStream.class))).thenReturn(
+        CompletableFuture.failedFuture(new IllegalStateException("foo")));
 
     provider.onWebSocketConnect(session);
 
@@ -191,7 +197,8 @@ public class WebSocketResourceProviderTest {
     verify(session, never()).close();
     verify(session, never()).close(any(CloseStatus.class));
 
-    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/bar", new LinkedList<>(), Optional.of("hello world!".getBytes())).toByteArray();
+    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/bar",
+        new LinkedList<>(), Optional.of("hello world!".getBytes())).toByteArray();
 
     provider.onWebSocketBinary(message, 0, message.length);
 
@@ -209,34 +216,37 @@ public class WebSocketResourceProviderTest {
 
     verify(remoteEndpoint).sendBytesByFuture(responseCaptor.capture());
 
-    SubProtocol.WebSocketMessage responseMessageContainer = SubProtocol.WebSocketMessage.parseFrom(responseCaptor.getValue().array());
+    SubProtocol.WebSocketMessage responseMessageContainer = SubProtocol.WebSocketMessage.parseFrom(
+        responseCaptor.getValue().array());
     assertThat(responseMessageContainer.getResponse().getStatus()).isEqualTo(500);
     assertThat(responseMessageContainer.getResponse().getMessage()).isEqualTo("Error response");
     assertThat(responseMessageContainer.getResponse().hasBody()).isFalse();
   }
 
   @Test
-  public void testActualRouteMessageSuccess() throws InvalidProtocolBufferException {
+  void testActualRouteMessageSuccess() throws InvalidProtocolBufferException {
     ResourceConfig resourceConfig = new DropwizardResourceConfig();
     resourceConfig.register(new TestResource());
     resourceConfig.register(new WebSocketSessionContextValueFactoryProvider.Binder());
     resourceConfig.register(new WebsocketAuthValueFactoryProvider.Binder<>(TestPrincipal.class));
     resourceConfig.register(new JacksonMessageBodyProvider(new ObjectMapper()));
 
-    ApplicationHandler                       applicationHandler = new ApplicationHandler(resourceConfig);
-    WebsocketRequestLog                      requestLog         = mock(WebsocketRequestLog.class);
-    WebSocketResourceProvider<TestPrincipal> provider           = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler, requestLog, new TestPrincipal("foo"), new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
+    ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
+    WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
+    WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler,
+        requestLog, new TestPrincipal("foo"), new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
 
-    Session        session        = mock(Session.class       );
+    Session session = mock(Session.class);
     RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
-    UpgradeRequest request        = mock(UpgradeRequest.class);
+    UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
     when(session.getRemote()).thenReturn(remoteEndpoint);
 
     provider.onWebSocketConnect(session);
 
-    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/v1/test/hello", new LinkedList<>(), Optional.empty()).toByteArray();
+    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/v1/test/hello",
+        new LinkedList<>(), Optional.empty()).toByteArray();
 
     provider.onWebSocketBinary(message, 0, message.length);
 
@@ -253,28 +263,29 @@ public class WebSocketResourceProviderTest {
   }
 
   @Test
-  public void testActualRouteMessageNotFound() throws InvalidProtocolBufferException {
+  void testActualRouteMessageNotFound() throws InvalidProtocolBufferException {
     ResourceConfig resourceConfig = new DropwizardResourceConfig();
     resourceConfig.register(new TestResource());
     resourceConfig.register(new WebSocketSessionContextValueFactoryProvider.Binder());
     resourceConfig.register(new WebsocketAuthValueFactoryProvider.Binder<>(TestPrincipal.class));
     resourceConfig.register(new JacksonMessageBodyProvider(new ObjectMapper()));
 
+    ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
+    WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
+    WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler,
+        requestLog, new TestPrincipal("foo"), new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
 
-    ApplicationHandler                       applicationHandler = new ApplicationHandler(resourceConfig);
-    WebsocketRequestLog                      requestLog         = mock(WebsocketRequestLog.class);
-    WebSocketResourceProvider<TestPrincipal> provider           = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler, requestLog, new TestPrincipal("foo"), new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
-
-    Session        session        = mock(Session.class       );
+    Session session = mock(Session.class);
     RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
-    UpgradeRequest request        = mock(UpgradeRequest.class);
+    UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
     when(session.getRemote()).thenReturn(remoteEndpoint);
 
     provider.onWebSocketConnect(session);
 
-    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/v1/test/doesntexist", new LinkedList<>(), Optional.empty()).toByteArray();
+    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET",
+        "/v1/test/doesntexist", new LinkedList<>(), Optional.empty()).toByteArray();
 
     provider.onWebSocketBinary(message, 0, message.length);
 
@@ -291,27 +302,30 @@ public class WebSocketResourceProviderTest {
   }
 
   @Test
-  public void testActualRouteMessageAuthorized() throws InvalidProtocolBufferException {
+  void testActualRouteMessageAuthorized() throws InvalidProtocolBufferException {
     ResourceConfig resourceConfig = new DropwizardResourceConfig();
     resourceConfig.register(new TestResource());
     resourceConfig.register(new WebSocketSessionContextValueFactoryProvider.Binder());
     resourceConfig.register(new WebsocketAuthValueFactoryProvider.Binder<>(TestPrincipal.class));
     resourceConfig.register(new JacksonMessageBodyProvider(new ObjectMapper()));
 
-    ApplicationHandler                       applicationHandler = new ApplicationHandler(resourceConfig);
-    WebsocketRequestLog                      requestLog         = mock(WebsocketRequestLog.class);
-    WebSocketResourceProvider<TestPrincipal> provider           = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler, requestLog, new TestPrincipal("authorizedUserName"), new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
+    ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
+    WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
+    WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler,
+        requestLog, new TestPrincipal("authorizedUserName"), new ProtobufWebSocketMessageFactory(), Optional.empty(),
+        30000);
 
-    Session        session        = mock(Session.class       );
+    Session session = mock(Session.class);
     RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
-    UpgradeRequest request        = mock(UpgradeRequest.class);
+    UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
     when(session.getRemote()).thenReturn(remoteEndpoint);
 
     provider.onWebSocketConnect(session);
 
-    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/v1/test/world", new LinkedList<>(), Optional.empty()).toByteArray();
+    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/v1/test/world",
+        new LinkedList<>(), Optional.empty()).toByteArray();
 
     provider.onWebSocketBinary(message, 0, message.length);
 
@@ -328,27 +342,29 @@ public class WebSocketResourceProviderTest {
   }
 
   @Test
-  public void testActualRouteMessageUnauthorized() throws InvalidProtocolBufferException {
+  void testActualRouteMessageUnauthorized() throws InvalidProtocolBufferException {
     ResourceConfig resourceConfig = new DropwizardResourceConfig();
     resourceConfig.register(new TestResource());
     resourceConfig.register(new WebSocketSessionContextValueFactoryProvider.Binder());
     resourceConfig.register(new WebsocketAuthValueFactoryProvider.Binder<>(TestPrincipal.class));
     resourceConfig.register(new JacksonMessageBodyProvider(new ObjectMapper()));
 
-    ApplicationHandler                       applicationHandler = new ApplicationHandler(resourceConfig);
-    WebsocketRequestLog                      requestLog         = mock(WebsocketRequestLog.class);
-    WebSocketResourceProvider<TestPrincipal> provider           = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler, requestLog, null, new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
+    ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
+    WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
+    WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler,
+        requestLog, null, new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
 
-    Session        session        = mock(Session.class       );
+    Session session = mock(Session.class);
     RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
-    UpgradeRequest request        = mock(UpgradeRequest.class);
+    UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
     when(session.getRemote()).thenReturn(remoteEndpoint);
 
     provider.onWebSocketConnect(session);
 
-    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/v1/test/world", new LinkedList<>(), Optional.empty()).toByteArray();
+    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/v1/test/world",
+        new LinkedList<>(), Optional.empty()).toByteArray();
 
     provider.onWebSocketBinary(message, 0, message.length);
 
@@ -364,27 +380,29 @@ public class WebSocketResourceProviderTest {
   }
 
   @Test
-  public void testActualRouteMessageOptionalAuthorizedPresent() throws InvalidProtocolBufferException {
+  void testActualRouteMessageOptionalAuthorizedPresent() throws InvalidProtocolBufferException {
     ResourceConfig resourceConfig = new DropwizardResourceConfig();
     resourceConfig.register(new TestResource());
     resourceConfig.register(new WebSocketSessionContextValueFactoryProvider.Binder());
     resourceConfig.register(new WebsocketAuthValueFactoryProvider.Binder<>(TestPrincipal.class));
     resourceConfig.register(new JacksonMessageBodyProvider(new ObjectMapper()));
 
-    ApplicationHandler                       applicationHandler = new ApplicationHandler(resourceConfig);
-    WebsocketRequestLog                      requestLog         = mock(WebsocketRequestLog.class);
-    WebSocketResourceProvider<TestPrincipal> provider           = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler, requestLog, new TestPrincipal("something"), new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
+    ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
+    WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
+    WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler,
+        requestLog, new TestPrincipal("something"), new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
 
-    Session        session        = mock(Session.class       );
+    Session session = mock(Session.class);
     RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
-    UpgradeRequest request        = mock(UpgradeRequest.class);
+    UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
     when(session.getRemote()).thenReturn(remoteEndpoint);
 
     provider.onWebSocketConnect(session);
 
-    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/v1/test/optional", new LinkedList<>(), Optional.empty()).toByteArray();
+    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/v1/test/optional",
+        new LinkedList<>(), Optional.empty()).toByteArray();
 
     provider.onWebSocketBinary(message, 0, message.length);
 
@@ -401,27 +419,29 @@ public class WebSocketResourceProviderTest {
   }
 
   @Test
-  public void testActualRouteMessageOptionalAuthorizedEmpty() throws InvalidProtocolBufferException {
+  void testActualRouteMessageOptionalAuthorizedEmpty() throws InvalidProtocolBufferException {
     ResourceConfig resourceConfig = new DropwizardResourceConfig();
     resourceConfig.register(new TestResource());
     resourceConfig.register(new WebSocketSessionContextValueFactoryProvider.Binder());
     resourceConfig.register(new WebsocketAuthValueFactoryProvider.Binder<>(TestPrincipal.class));
     resourceConfig.register(new JacksonMessageBodyProvider(new ObjectMapper()));
 
-    ApplicationHandler                       applicationHandler = new ApplicationHandler(resourceConfig);
-    WebsocketRequestLog                      requestLog         = mock(WebsocketRequestLog.class);
-    WebSocketResourceProvider<TestPrincipal> provider           = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler, requestLog, null, new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
+    ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
+    WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
+    WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler,
+        requestLog, null, new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
 
-    Session        session        = mock(Session.class       );
+    Session session = mock(Session.class);
     RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
-    UpgradeRequest request        = mock(UpgradeRequest.class);
+    UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
     when(session.getRemote()).thenReturn(remoteEndpoint);
 
     provider.onWebSocketConnect(session);
 
-    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/v1/test/optional", new LinkedList<>(), Optional.empty()).toByteArray();
+    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/v1/test/optional",
+        new LinkedList<>(), Optional.empty()).toByteArray();
 
     provider.onWebSocketBinary(message, 0, message.length);
 
@@ -438,27 +458,30 @@ public class WebSocketResourceProviderTest {
   }
 
   @Test
-  public void testActualRouteMessagePutAuthenticatedEntity() throws InvalidProtocolBufferException, JsonProcessingException {
+  void testActualRouteMessagePutAuthenticatedEntity() throws InvalidProtocolBufferException, JsonProcessingException {
     ResourceConfig resourceConfig = new DropwizardResourceConfig();
     resourceConfig.register(new TestResource());
     resourceConfig.register(new WebSocketSessionContextValueFactoryProvider.Binder());
     resourceConfig.register(new WebsocketAuthValueFactoryProvider.Binder<>(TestPrincipal.class));
     resourceConfig.register(new JacksonMessageBodyProvider(new ObjectMapper()));
 
-    ApplicationHandler                       applicationHandler = new ApplicationHandler(resourceConfig);
-    WebsocketRequestLog                      requestLog         = mock(WebsocketRequestLog.class);
-    WebSocketResourceProvider<TestPrincipal> provider           = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler, requestLog, new TestPrincipal("gooduser"), new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
+    ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
+    WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
+    WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler,
+        requestLog, new TestPrincipal("gooduser"), new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
 
-    Session        session        = mock(Session.class       );
+    Session session = mock(Session.class);
     RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
-    UpgradeRequest request        = mock(UpgradeRequest.class);
+    UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
     when(session.getRemote()).thenReturn(remoteEndpoint);
 
     provider.onWebSocketConnect(session);
 
-    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "PUT", "/v1/test/some/testparam", List.of("Content-Type: application/json"), Optional.of(new ObjectMapper().writeValueAsBytes(new TestResource.TestEntity("mykey", 1001)))).toByteArray();
+    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "PUT",
+        "/v1/test/some/testparam", List.of("Content-Type: application/json"),
+        Optional.of(new ObjectMapper().writeValueAsBytes(new TestResource.TestEntity("mykey", 1001)))).toByteArray();
 
     provider.onWebSocketBinary(message, 0, message.length);
 
@@ -475,27 +498,31 @@ public class WebSocketResourceProviderTest {
   }
 
   @Test
-  public void testActualRouteMessagePutAuthenticatedBadEntity() throws InvalidProtocolBufferException, JsonProcessingException {
+  void testActualRouteMessagePutAuthenticatedBadEntity()
+      throws InvalidProtocolBufferException, JsonProcessingException {
     ResourceConfig resourceConfig = new DropwizardResourceConfig();
     resourceConfig.register(new TestResource());
     resourceConfig.register(new WebSocketSessionContextValueFactoryProvider.Binder());
     resourceConfig.register(new WebsocketAuthValueFactoryProvider.Binder<>(TestPrincipal.class));
     resourceConfig.register(new JacksonMessageBodyProvider(new ObjectMapper()));
 
-    ApplicationHandler                       applicationHandler = new ApplicationHandler(resourceConfig);
-    WebsocketRequestLog                      requestLog         = mock(WebsocketRequestLog.class);
-    WebSocketResourceProvider<TestPrincipal> provider           = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler, requestLog, new TestPrincipal("gooduser"), new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
+    ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
+    WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
+    WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler,
+        requestLog, new TestPrincipal("gooduser"), new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
 
-    Session        session        = mock(Session.class       );
+    Session session = mock(Session.class);
     RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
-    UpgradeRequest request        = mock(UpgradeRequest.class);
+    UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
     when(session.getRemote()).thenReturn(remoteEndpoint);
 
     provider.onWebSocketConnect(session);
 
-    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "PUT", "/v1/test/some/testparam", List.of("Content-Type: application/json"), Optional.of(new ObjectMapper().writeValueAsBytes(new TestResource.TestEntity("mykey", 5)))).toByteArray();
+    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "PUT",
+        "/v1/test/some/testparam", List.of("Content-Type: application/json"),
+        Optional.of(new ObjectMapper().writeValueAsBytes(new TestResource.TestEntity("mykey", 5)))).toByteArray();
 
     provider.onWebSocketBinary(message, 0, message.length);
 
@@ -512,7 +539,7 @@ public class WebSocketResourceProviderTest {
   }
 
   @Test
-  public void testActualRouteMessageExceptionMapping() throws InvalidProtocolBufferException {
+  void testActualRouteMessageExceptionMapping() throws InvalidProtocolBufferException {
     ResourceConfig resourceConfig = new DropwizardResourceConfig();
     resourceConfig.register(new TestResource());
     resourceConfig.register(new TestExceptionMapper());
@@ -520,20 +547,22 @@ public class WebSocketResourceProviderTest {
     resourceConfig.register(new WebsocketAuthValueFactoryProvider.Binder<>(TestPrincipal.class));
     resourceConfig.register(new JacksonMessageBodyProvider(new ObjectMapper()));
 
-    ApplicationHandler                       applicationHandler = new ApplicationHandler(resourceConfig);
-    WebsocketRequestLog                      requestLog         = mock(WebsocketRequestLog.class);
-    WebSocketResourceProvider<TestPrincipal> provider           = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler, requestLog, new TestPrincipal("gooduser"), new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
+    ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
+    WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
+    WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler,
+        requestLog, new TestPrincipal("gooduser"), new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
 
-    Session        session        = mock(Session.class       );
+    Session session = mock(Session.class);
     RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
-    UpgradeRequest request        = mock(UpgradeRequest.class);
+    UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
     when(session.getRemote()).thenReturn(remoteEndpoint);
 
     provider.onWebSocketConnect(session);
 
-    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/v1/test/exception/map", List.of("Content-Type: application/json"), Optional.empty()).toByteArray();
+    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET",
+        "/v1/test/exception/map", List.of("Content-Type: application/json"), Optional.empty()).toByteArray();
 
     provider.onWebSocketBinary(message, 0, message.length);
 
@@ -549,7 +578,7 @@ public class WebSocketResourceProviderTest {
   }
 
   @Test
-  public void testActualRouteSessionContextInjection() throws InvalidProtocolBufferException {
+  void testActualRouteSessionContextInjection() throws InvalidProtocolBufferException {
     ResourceConfig resourceConfig = new DropwizardResourceConfig();
     resourceConfig.register(new TestResource());
     resourceConfig.register(new TestExceptionMapper());
@@ -557,20 +586,22 @@ public class WebSocketResourceProviderTest {
     resourceConfig.register(new WebsocketAuthValueFactoryProvider.Binder<>(TestPrincipal.class));
     resourceConfig.register(new JacksonMessageBodyProvider(new ObjectMapper()));
 
-    ApplicationHandler                       applicationHandler = new ApplicationHandler(resourceConfig);
-    WebsocketRequestLog                      requestLog         = mock(WebsocketRequestLog.class);
-    WebSocketResourceProvider<TestPrincipal> provider           = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler, requestLog, new TestPrincipal("gooduser"), new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
+    ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
+    WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
+    WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1", applicationHandler,
+        requestLog, new TestPrincipal("gooduser"), new ProtobufWebSocketMessageFactory(), Optional.empty(), 30000);
 
-    Session        session        = mock(Session.class       );
+    Session session = mock(Session.class);
     RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
-    UpgradeRequest request        = mock(UpgradeRequest.class);
+    UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
     when(session.getRemote()).thenReturn(remoteEndpoint);
 
     provider.onWebSocketConnect(session);
 
-    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/v1/test/keepalive", new LinkedList<>(), Optional.empty()).toByteArray();
+    byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/v1/test/keepalive",
+        new LinkedList<>(), Optional.empty()).toByteArray();
 
     provider.onWebSocketBinary(message, 0, message.length);
 
@@ -583,7 +614,8 @@ public class WebSocketResourceProviderTest {
     assertThat(requestMessage.getPath()).isEqualTo("/v1/miccheck");
     assertThat(requestMessage.getBody().toStringUtf8()).isEqualTo("smert ze smert");
 
-    byte[] clientResponse  = new ProtobufWebSocketMessageFactory().createResponse(requestMessage.getId(), 200, "OK", new LinkedList<>(), Optional.of("my response".getBytes())).toByteArray();
+    byte[] clientResponse = new ProtobufWebSocketMessageFactory().createResponse(requestMessage.getId(), 200, "OK",
+        new LinkedList<>(), Optional.of("my response".getBytes())).toByteArray();
 
     provider.onWebSocketBinary(clientResponse, 0, clientResponse.length);
 
@@ -600,7 +632,7 @@ public class WebSocketResourceProviderTest {
   }
 
   @Test
-  public void testGetHeaderList() {
+  void testGetHeaderList() {
     assertThat(WebSocketResourceProvider.getHeaderList(new MultivaluedHashMap<>())).isEmpty();
 
     {
@@ -615,7 +647,7 @@ public class WebSocketResourceProviderTest {
   }
 
   @Test
-  public void testShouldIncludeUpgradeRequestHeader() {
+  void testShouldIncludeUpgradeRequestHeader() {
     assertThat(WebSocketResourceProvider.shouldIncludeUpgradeRequestHeader("Upgrade")).isFalse();
     assertThat(WebSocketResourceProvider.shouldIncludeUpgradeRequestHeader("Connection")).isFalse();
     assertThat(WebSocketResourceProvider.shouldIncludeUpgradeRequestHeader("Sec-WebSocket-Key")).isFalse();
@@ -624,13 +656,13 @@ public class WebSocketResourceProviderTest {
   }
 
   @Test
-  public void testShouldIncludeRequestMessageHeader() {
+  void testShouldIncludeRequestMessageHeader() {
     assertThat(WebSocketResourceProvider.shouldIncludeRequestMessageHeader("X-Forwarded-For")).isFalse();
     assertThat(WebSocketResourceProvider.shouldIncludeRequestMessageHeader("User-Agent")).isTrue();
   }
 
   @Test
-  public void testGetCombinedHeaders() {
+  void testGetCombinedHeaders() {
     final Map<String, List<String>> upgradeRequestHeaders = Map.of(
         "Host", List.of("server.example.com"),
         "Upgrade", List.of("websocket"),
@@ -650,14 +682,17 @@ public class WebSocketResourceProviderTest {
         "X-Forwarded-For", List.of("127.0.0.1"),
         "User-Agent", List.of("Request message user agent"));
 
-    assertThat(WebSocketResourceProvider.getCombinedHeaders(upgradeRequestHeaders, requestMessageHeaders)).isEqualTo(expectedHeaders);
+    assertThat(WebSocketResourceProvider.getCombinedHeaders(upgradeRequestHeaders, requestMessageHeaders)).isEqualTo(
+        expectedHeaders);
   }
 
-  private SubProtocol.WebSocketResponseMessage getResponse(ArgumentCaptor<ByteBuffer> responseCaptor) throws InvalidProtocolBufferException {
+  private SubProtocol.WebSocketResponseMessage getResponse(ArgumentCaptor<ByteBuffer> responseCaptor)
+      throws InvalidProtocolBufferException {
     return SubProtocol.WebSocketMessage.parseFrom(responseCaptor.getValue().array()).getResponse();
   }
 
-  private SubProtocol.WebSocketRequestMessage getRequest(ArgumentCaptor<ByteBuffer> requestCaptor) throws InvalidProtocolBufferException {
+  private SubProtocol.WebSocketRequestMessage getRequest(ArgumentCaptor<ByteBuffer> requestCaptor)
+      throws InvalidProtocolBufferException {
     return SubProtocol.WebSocketMessage.parseFrom(requestCaptor.getValue().array()).getRequest();
   }
 
@@ -677,6 +712,7 @@ public class WebSocketResourceProviderTest {
   }
 
   public static class TestException extends Exception {
+
     public TestException(String message) {
       super(message);
     }
@@ -703,7 +739,9 @@ public class WebSocketResourceProviderTest {
     @GET
     @Path("/world")
     public String testAuthorizedHello(@Auth TestPrincipal user) {
-      if (user == null) throw new AssertionError();
+      if (user == null) {
+        throw new AssertionError();
+      }
 
       return "World: " + user.getName();
     }
@@ -711,15 +749,18 @@ public class WebSocketResourceProviderTest {
     @GET
     @Path("/optional")
     public String testAuthorizedHello(@Auth Optional<TestPrincipal> user) {
-      if (user.isPresent()) return "World: " + user.get().getName();
-      else                  return "Empty world";
+      if (user.isPresent()) {
+        return "World: " + user.get().getName();
+      } else {
+        return "Empty world";
+      }
     }
 
     @PUT
     @Path("/some/{param}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response testSet(@Auth TestPrincipal user, @PathParam ("param") String param, @Valid TestEntity entity) {
+    public Response testSet(@Auth TestPrincipal user, @PathParam("param") String param, @Valid TestEntity entity) {
       return Response.ok(user.name + ":" + param + ":" + entity.key + ":" + entity.value).build();
     }
 
@@ -737,14 +778,14 @@ public class WebSocketResourceProviderTest {
       }
 
       return context.getClient()
-                    .sendRequest("GET", "/v1/miccheck", new LinkedList<>(), Optional.of("smert ze smert".getBytes()))
-                    .thenApply(response -> Response.ok().entity(new String(response.getBody().get())).build());
+          .sendRequest("GET", "/v1/miccheck", new LinkedList<>(), Optional.of("smert ze smert".getBytes()))
+          .thenApply(response -> Response.ok().entity(new String(response.getBody().get())).build());
     }
 
     public static class TestEntity {
 
       public TestEntity(String key, long value) {
-        this.key   = key;
+        this.key = key;
         this.value = value;
       }
 
