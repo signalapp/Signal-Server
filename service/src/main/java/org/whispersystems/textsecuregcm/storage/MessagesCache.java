@@ -353,14 +353,32 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         pubSubMessageCounter.increment();
 
         if (channel.startsWith(QUEUE_KEYSPACE_PREFIX) && "zadd".equals(message)) {
-            newMessageNotificationCounter.increment();
-            notificationExecutorService.execute(() -> findListener(channel).ifPresent(MessageAvailabilityListener::handleNewMessagesAvailable));
+          newMessageNotificationCounter.increment();
+          notificationExecutorService.execute(() -> {
+            try {
+              findListener(channel).ifPresent(MessageAvailabilityListener::handleNewMessagesAvailable);
+            } catch (final Exception e) {
+              logger.warn("Unexpected error handling new message", e);
+            }
+          });
         } else if (channel.startsWith(EPHEMERAL_QUEUE_KEYSPACE_PREFIX) && "rpush".equals(message)) {
-            ephemeralMessageNotificationCounter.increment();
-            notificationExecutorService.execute(() -> findListener(channel).ifPresent(MessageAvailabilityListener::handleNewEphemeralMessageAvailable));
+          ephemeralMessageNotificationCounter.increment();
+          notificationExecutorService.execute(() -> {
+            try {
+              findListener(channel).ifPresent(MessageAvailabilityListener::handleNewEphemeralMessageAvailable);
+            } catch (final Exception e) {
+              logger.warn("Unexpected error handling new ephemeral message", e);
+            }
+          });
         } else if (channel.startsWith(PERSISTING_KEYSPACE_PREFIX) && "del".equals(message)) {
-            queuePersistedNotificationCounter.increment();
-            notificationExecutorService.execute(() -> findListener(channel).ifPresent(MessageAvailabilityListener::handleMessagesPersisted));
+          queuePersistedNotificationCounter.increment();
+          notificationExecutorService.execute(() -> {
+            try {
+              findListener(channel).ifPresent(MessageAvailabilityListener::handleMessagesPersisted);
+            } catch (final Exception e) {
+              logger.warn("Unexpected error handling messages persisted", e);
+            }
+          });
         }
     }
 

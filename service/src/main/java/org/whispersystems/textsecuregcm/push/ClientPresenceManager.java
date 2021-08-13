@@ -256,8 +256,12 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
             // At this point, we're on a Lettuce IO thread and need to dispatch to a separate thread before making
             // synchronous Lettuce calls to avoid deadlocking.
             keyspaceNotificationExecutorService.execute(() -> {
+              try {
                 displacePresence(channel.substring("__keyspace@0__:".length()));
                 remoteDisplacementMeter.mark();
+              } catch (final Exception e) {
+                log.warn("Error displacing presence", e);
+              }
             });
         }
     }
