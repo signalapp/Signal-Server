@@ -642,9 +642,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     provisioningEnvironment.jersey().register(rateLimitChallengeExceptionMapper);
 
     WebSocketResourceProviderFactory<AuthenticatedAccount> webSocketServlet = new WebSocketResourceProviderFactory<>(
-        webSocketEnvironment, AuthenticatedAccount.class);
+        webSocketEnvironment, AuthenticatedAccount.class, config.getWebSocketConfiguration());
     WebSocketResourceProviderFactory<AuthenticatedAccount> provisioningServlet = new WebSocketResourceProviderFactory<>(
-        provisioningEnvironment, AuthenticatedAccount.class);
+        provisioningEnvironment, AuthenticatedAccount.class, config.getWebSocketConfiguration());
 
     ServletRegistration.Dynamic websocket = environment.servlets().addServlet("WebSocket", webSocketServlet);
     ServletRegistration.Dynamic provisioning = environment.servlets().addServlet("Provisioning", provisioningServlet);

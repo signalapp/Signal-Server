@@ -23,6 +23,7 @@ import org.whispersystems.websocket.auth.AuthenticationException;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator.AuthenticationResult;
 import org.whispersystems.websocket.auth.WebsocketAuthValueFactoryProvider;
+import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 import org.whispersystems.websocket.session.WebSocketSessionContextValueFactoryProvider;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
 
@@ -31,9 +32,11 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends WebSo
   private static final Logger logger = LoggerFactory.getLogger(WebSocketResourceProviderFactory.class);
 
   private final WebSocketEnvironment<T> environment;
-  private final ApplicationHandler      jerseyApplicationHandler;
+  private final ApplicationHandler jerseyApplicationHandler;
+  private final WebSocketConfiguration configuration;
 
-  public WebSocketResourceProviderFactory(WebSocketEnvironment<T> environment, Class<T> principalClass) {
+  public WebSocketResourceProviderFactory(WebSocketEnvironment<T> environment, Class<T> principalClass,
+      WebSocketConfiguration configuration) {
     this.environment = environment;
 
     environment.jersey().register(new WebSocketSessionContextValueFactoryProvider.Binder());
@@ -41,6 +44,8 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends WebSo
     environment.jersey().register(new JacksonMessageBodyProvider(environment.getObjectMapper()));
 
     this.jerseyApplicationHandler = new ApplicationHandler(environment.jersey());
+
+    this.configuration = configuration;
   }
 
   @Override
@@ -79,9 +84,8 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends WebSo
   @Override
   public void configure(WebSocketServletFactory factory) {
     factory.setCreator(this);
-    // TODO extract to configuration
-    factory.getPolicy().setMaxBinaryMessageSize(512 * 1024);
-    factory.getPolicy().setMaxTextMessageSize(512 * 1024);
+    factory.getPolicy().setMaxBinaryMessageSize(configuration.getMaxBinaryMessageSize());
+    factory.getPolicy().setMaxTextMessageSize(configuration.getMaxTextMessageSize());
   }
 
   private String getRemoteAddress(ServletUpgradeRequest request) {
