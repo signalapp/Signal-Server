@@ -32,25 +32,18 @@ public class DirectoryReconciliationClient {
       throws CertificateException
   {
     this.replicationUrl = directoryServerConfiguration.getReplicationUrl();
-    this.client         = initializeClient(directoryServerConfiguration);
+    this.client = initializeClient(directoryServerConfiguration);
 
     SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME)
                           .register(name(getClass(), directoryServerConfiguration.getReplicationName(), "days_until_certificate_expiration"),
                                     new CertificateExpirationGauge(CertificateUtil.getCertificate(directoryServerConfiguration.getReplicationCaCertificate())));
   }
 
-  public DirectoryReconciliationResponse sendChunk(DirectoryReconciliationRequest request) {
+  public DirectoryReconciliationResponse add(DirectoryReconciliationRequest request) {
     return client.target(replicationUrl)
-                 .path("/v2/directory/reconcile")
-                 .request(MediaType.APPLICATION_JSON_TYPE)
-                 .put(Entity.json(request), DirectoryReconciliationResponse.class);
-  }
-
-  public DirectoryReconciliationResponse sendChunkV3(DirectoryReconciliationRequest request) {
-    return client.target(replicationUrl)
-                 .path("/v3/directory/exists")
-                 .request(MediaType.APPLICATION_JSON_TYPE)
-                 .put(Entity.json(request), DirectoryReconciliationResponse.class);
+        .path("/v3/directory/exists")
+        .request(MediaType.APPLICATION_JSON_TYPE)
+        .put(Entity.json(request), DirectoryReconciliationResponse.class);
   }
 
   public DirectoryReconciliationResponse delete(DirectoryReconciliationRequest request) {
@@ -68,16 +61,18 @@ public class DirectoryReconciliationClient {
   }
 
   private static Client initializeClient(DirectoryServerConfiguration directoryServerConfiguration)
-      throws CertificateException
-  {
-    KeyStore   trustStore = CertificateUtil.buildKeyStoreForPem(directoryServerConfiguration.getReplicationCaCertificate());
+      throws CertificateException {
+    KeyStore trustStore = CertificateUtil.buildKeyStoreForPem(
+        directoryServerConfiguration.getReplicationCaCertificate());
     SSLContext sslContext = SslConfigurator.newInstance()
-                                           .securityProtocol("TLSv1.2")
-                                           .trustStore(trustStore)
-                                           .createSSLContext();
+        .securityProtocol("TLSv1.2")
+        .trustStore(trustStore)
+        .createSSLContext();
+
     return ClientBuilder.newBuilder()
-                        .register(HttpAuthenticationFeature.basic("signal", directoryServerConfiguration.getReplicationPassword().getBytes()))
-                        .sslContext(sslContext)
-                        .build();
+        .register(
+            HttpAuthenticationFeature.basic("signal", directoryServerConfiguration.getReplicationPassword().getBytes()))
+        .sslContext(sslContext)
+        .build();
   }
 }

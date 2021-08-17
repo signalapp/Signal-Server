@@ -37,7 +37,6 @@ public class DeletedAccountsDirectoryReconciler {
     errorCounter = Counter.builder(name(DeletedAccountsDirectoryReconciler.class, "error"))
         .tag("replicationName", replicationName)
         .register(Metrics.globalRegistry);
-
   }
 
   public void onCrawlChunk(final List<User> deletedUsers) throws ChunkProcessingFailedException {
@@ -45,17 +44,15 @@ public class DeletedAccountsDirectoryReconciler {
     try {
       deleteTimer.recordCallable(() -> {
         try {
-          final DirectoryReconciliationResponse response = directoryReconciliationClient.delete(new DirectoryReconciliationRequest(null, null, deletedUsers));
+          final DirectoryReconciliationResponse response = directoryReconciliationClient.delete(
+              new DirectoryReconciliationRequest(deletedUsers));
 
           if (response.getStatus() != DirectoryReconciliationResponse.Status.OK) {
             errorCounter.increment();
-
             throw new ChunkProcessingFailedException("Response status: " + response.getStatus());
           }
         } catch (final Exception e) {
-
           errorCounter.increment();
-
           throw new ChunkProcessingFailedException(e);
         }
 

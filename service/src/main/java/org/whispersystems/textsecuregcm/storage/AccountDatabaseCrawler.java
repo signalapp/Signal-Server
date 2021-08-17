@@ -119,9 +119,6 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
         .getAccountsDynamoDbMigrationConfiguration()
         .isDynamoCrawlerEnabled();
 
-    listeners.stream().filter(listener -> listener instanceof DirectoryReconciler)
-        .forEach(reconciler -> ((DirectoryReconciler) reconciler).setUseV3Endpoints(useDynamo));
-
     final Optional<UUID> fromUuid = getLastUuid(useDynamo);
 
     if (fromUuid.isEmpty()) {

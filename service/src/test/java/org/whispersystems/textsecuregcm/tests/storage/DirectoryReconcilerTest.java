@@ -18,8 +18,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationRequest;
 import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationRequest.User;
@@ -53,13 +52,10 @@ class DirectoryReconcilerTest {
     when(undiscoverableAccount.shouldBeVisibleInDirectory()).thenReturn(false);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  public void testCrawlChunkValid(final boolean useV3Endpoints) throws AccountDatabaseCrawlerRestartException {
-    directoryReconciler.setUseV3Endpoints(useV3Endpoints);
+  @Test
+  void testCrawlChunkValid() throws AccountDatabaseCrawlerRestartException {
 
-    when(reconciliationClient.sendChunk(any())).thenReturn(successResponse);
-    when(reconciliationClient.sendChunkV3(any())).thenReturn(successResponse);
+    when(reconciliationClient.add(any())).thenReturn(successResponse);
     when(reconciliationClient.delete(any())).thenReturn(successResponse);
 
     directoryReconciler.timeAndProcessCrawlChunk(Optional.of(VALID_UUID),
@@ -67,24 +63,16 @@ class DirectoryReconcilerTest {
 
     ArgumentCaptor<DirectoryReconciliationRequest> chunkRequest = ArgumentCaptor.forClass(
         DirectoryReconciliationRequest.class);
-    if (useV3Endpoints) {
-      verify(reconciliationClient, times(1)).sendChunkV3(chunkRequest.capture());
-    } else {
-      verify(reconciliationClient, times(1)).sendChunk(chunkRequest.capture());
-    }
+    verify(reconciliationClient, times(1)).add(chunkRequest.capture());
 
-    assertThat(chunkRequest.getValue().getFromUuid()).isEqualTo(VALID_UUID);
-    assertThat(chunkRequest.getValue().getToUuid()).isEqualTo(UNDISCOVERABLE_UUID);
     assertThat(chunkRequest.getValue().getUsers()).isEqualTo(List.of(new User(VALID_UUID, VALID_NUMBER)));
 
-    if (useV3Endpoints) {
+    ArgumentCaptor<DirectoryReconciliationRequest> deletesRequest = ArgumentCaptor.forClass(
+        DirectoryReconciliationRequest.class);
+    verify(reconciliationClient, times(1)).delete(deletesRequest.capture());
 
-      ArgumentCaptor<DirectoryReconciliationRequest> deletesRequest = ArgumentCaptor.forClass(DirectoryReconciliationRequest.class);
-      verify(reconciliationClient, times(1)).delete(deletesRequest.capture());
-
-      assertThat(deletesRequest.getValue().getUsers()).isEqualTo(
-          List.of(new User(UNDISCOVERABLE_UUID, UNDISCOVERABLE_NUMBER)));
-    }
+    assertThat(deletesRequest.getValue().getUsers()).isEqualTo(
+        List.of(new User(UNDISCOVERABLE_UUID, UNDISCOVERABLE_NUMBER)));
 
     verifyNoMoreInteractions(reconciliationClient);
   }

@@ -5,18 +5,10 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-
-import javax.validation.constraints.NotNull;
 import java.util.List;
 import java.util.UUID;
 
 public class DirectoryReconciliationRequest {
-
-  @JsonProperty
-  private UUID fromUuid;
-
-  @JsonProperty
-  private UUID toUuid;
 
   @JsonProperty
   private List<User> users;
@@ -24,18 +16,8 @@ public class DirectoryReconciliationRequest {
   public DirectoryReconciliationRequest() {
   }
 
-  public DirectoryReconciliationRequest(UUID fromUuid, UUID toUuid, List<User> users) {
-    this.fromUuid = fromUuid;
-    this.toUuid   = toUuid;
-    this.users    = users;
-  }
-
-  public UUID getFromUuid() {
-    return fromUuid;
-  }
-
-  public UUID getToUuid() {
-    return toUuid;
+  public DirectoryReconciliationRequest(List<User> users) {
+    this.users = users;
   }
 
   public List<User> getUsers() {
@@ -54,7 +36,7 @@ public class DirectoryReconciliationRequest {
     }
 
     public User(UUID uuid, String number) {
-      this.uuid   = uuid;
+      this.uuid = uuid;
       this.number = number;
     }
 

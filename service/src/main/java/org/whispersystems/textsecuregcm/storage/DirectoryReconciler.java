@@ -8,7 +8,6 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 import io.micrometer.core.instrument.Metrics;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,8 +27,6 @@ public class DirectoryReconciler extends AccountDatabaseCrawlerListener {
   private final String replicationName;
   private final DirectoryReconciliationClient reconciliationClient;
 
-  private boolean useV3Endpoints;
-
   public DirectoryReconciler(String replicationName, DirectoryReconciliationClient reconciliationClient) {
     this.reconciliationClient = reconciliationClient;
     this.replicationName = replicationName;
@@ -41,14 +38,7 @@ public class DirectoryReconciler extends AccountDatabaseCrawlerListener {
 
   @Override
   public void onCrawlEnd(Optional<UUID> fromUuid) {
-
-    if (useV3Endpoints) {
-      reconciliationClient.complete();
-    } else {
-      final DirectoryReconciliationRequest request = new DirectoryReconciliationRequest(fromUuid.orElse(null), null,
-          Collections.emptyList());
-      sendAdditions(request);
-    }
+    reconciliationClient.complete();
   }
 
   @Override
@@ -69,15 +59,8 @@ public class DirectoryReconciler extends AccountDatabaseCrawlerListener {
         }
       });
 
-      final Optional<UUID> toUuid;
-      if (!accounts.isEmpty()) {
-        toUuid = Optional.of(accounts.get(accounts.size() - 1).getUuid());
-      } else {
-        toUuid = Optional.empty();
-      }
-
-      addUsersRequest = new DirectoryReconciliationRequest(fromUuid.orElse(null), toUuid.orElse(null), addedUsers);
-      deleteUsersRequest = new DirectoryReconciliationRequest(null, null, deletedUsers);
+      addUsersRequest = new DirectoryReconciliationRequest(addedUsers);
+      deleteUsersRequest = new DirectoryReconciliationRequest(deletedUsers);
     }
 
     final DirectoryReconciliationResponse addUsersResponse = sendAdditions(addUsersRequest);
@@ -91,20 +74,12 @@ public class DirectoryReconciler extends AccountDatabaseCrawlerListener {
   }
 
   private DirectoryReconciliationResponse sendDeletes(final DirectoryReconciliationRequest request) {
-    if (useV3Endpoints) {
-      return sendRequest(request, reconciliationClient::delete, "delete");
-    }
+    return sendRequest(request, reconciliationClient::delete, "delete");
 
-    return new DirectoryReconciliationResponse(DirectoryReconciliationResponse.Status.OK);
   }
 
   private DirectoryReconciliationResponse sendAdditions(final DirectoryReconciliationRequest request) {
-
-    if (useV3Endpoints) {
-      return sendRequest(request, reconciliationClient::sendChunkV3, "add");
-    }
-
-    return sendRequest(request, reconciliationClient::sendChunk, "add_v2");
+    return sendRequest(request, reconciliationClient::add, "add");
   }
 
   private DirectoryReconciliationResponse sendRequest(final DirectoryReconciliationRequest request,
@@ -117,7 +92,7 @@ public class DirectoryReconciler extends AccountDatabaseCrawlerListener {
             final DirectoryReconciliationResponse response = requestHandler.apply(request);
 
             if (response.getStatus() != DirectoryReconciliationResponse.Status.OK) {
-              logger.warn("reconciliation error: " + response.getStatus());
+              logger.warn("reconciliation error: {} ({})", response.getStatus(), context);
             }
             return response;
           } catch (ProcessingException ex) {
@@ -125,10 +100,6 @@ public class DirectoryReconciler extends AccountDatabaseCrawlerListener {
             throw new ProcessingException(ex);
           }
         });
-  }
-
-  public void setUseV3Endpoints(final boolean useV3Endpoints) {
-    this.useV3Endpoints = useV3Endpoints;
   }
 
 }
