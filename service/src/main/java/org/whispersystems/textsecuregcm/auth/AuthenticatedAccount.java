@@ -12,7 +12,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Pair;
 
-public class AuthenticatedAccount implements Principal {
+public class AuthenticatedAccount implements Principal, AccountAndAuthenticatedDeviceHolder {
 
   private final Supplier<Pair<Account, Device>> accountAndDevice;
 
@@ -20,10 +20,12 @@ public class AuthenticatedAccount implements Principal {
     this.accountAndDevice = accountAndDevice;
   }
 
+  @Override
   public Account getAccount() {
     return accountAndDevice.get().first();
   }
 
+  @Override
   public Device getAuthenticatedDevice() {
     return accountAndDevice.get().second();
   }

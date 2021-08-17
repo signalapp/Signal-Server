@@ -10,7 +10,7 @@ import javax.security.auth.Subject;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 
-public class DisabledPermittedAuthenticatedAccount implements Principal {
+public class DisabledPermittedAuthenticatedAccount implements Principal, AccountAndAuthenticatedDeviceHolder {
 
   private final AuthenticatedAccount authenticatedAccount;
 
@@ -18,10 +18,12 @@ public class DisabledPermittedAuthenticatedAccount implements Principal {
     this.authenticatedAccount = authenticatedAccount;
   }
 
+  @Override
   public Account getAccount() {
     return authenticatedAccount.getAccount();
   }
 
+  @Override
   public Device getAuthenticatedDevice() {
     return authenticatedAccount.getAuthenticatedDevice();
   }

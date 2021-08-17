@@ -171,6 +171,10 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
     }
   }
 
+  public void displacePresence(final UUID accountUuid, final long deviceId) {
+    displacePresence(getPresenceKey(accountUuid, deviceId));
+  }
+
   private void displacePresence(final String presenceKey) {
     final DisplacedPresenceListener displacementListener = displacementListenersByPresenceKey.get(presenceKey);
 
