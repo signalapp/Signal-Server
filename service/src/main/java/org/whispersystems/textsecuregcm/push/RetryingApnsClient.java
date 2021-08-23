@@ -88,12 +88,15 @@ public class RetryingApnsClient {
       if (response != null) {
         if (response.isAccepted()) {
           future.set(new ApnResult(ApnResult.Status.SUCCESS, null));
-        } else if ("Unregistered".equals(response.getRejectionReason()) ||
-                "BadDeviceToken".equals(response.getRejectionReason())) {
-          future.set(new ApnResult(ApnResult.Status.NO_SUCH_USER, response.getRejectionReason()));
         } else {
-          logger.warn("Got APN failure: " + response.getRejectionReason());
-          future.set(new ApnResult(ApnResult.Status.GENERIC_FAILURE, response.getRejectionReason()));
+          final String rejectionReason = response.getRejectionReason().orElse(null);
+
+          if ("Unregistered".equals(rejectionReason) || "BadDeviceToken".equals(rejectionReason)) {
+            future.set(new ApnResult(ApnResult.Status.NO_SUCH_USER, rejectionReason));
+          } else {
+            logger.warn("Got APN failure: {}", rejectionReason);
+            future.set(new ApnResult(ApnResult.Status.GENERIC_FAILURE, rejectionReason));
+          }
         }
       } else {
         logger.warn("Execution exception", cause);

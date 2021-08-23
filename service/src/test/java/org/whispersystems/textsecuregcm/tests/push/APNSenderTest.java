@@ -128,7 +128,7 @@ public class APNSenderTest {
 
     PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
     when(response.isAccepted()).thenReturn(false);
-    when(response.getRejectionReason()).thenReturn("Unregistered");
+    when(response.getRejectionReason()).thenReturn(Optional.of("Unregistered"));
 
     when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
         .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
@@ -232,7 +232,7 @@ public class APNSenderTest {
 
     PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
     when(response.isAccepted()).thenReturn(false);
-    when(response.getRejectionReason()).thenReturn("Unregistered");
+    when(response.getRejectionReason()).thenReturn(Optional.of("Unregistered"));
 
     when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
         .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
@@ -327,7 +327,7 @@ public class APNSenderTest {
 
     PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
     when(response.isAccepted()).thenReturn(false);
-    when(response.getRejectionReason()).thenReturn("BadTopic");
+    when(response.getRejectionReason()).thenReturn(Optional.of("BadTopic"));
 
     when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
         .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
