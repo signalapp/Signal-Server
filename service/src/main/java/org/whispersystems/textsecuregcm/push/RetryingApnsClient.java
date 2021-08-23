@@ -19,6 +19,7 @@ import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -37,6 +38,10 @@ public class RetryingApnsClient {
 
   private static final String APNS_CA_FILENAME = "apns-certificates.pem";
   private static final Logger logger = LoggerFactory.getLogger(RetryingApnsClient.class);
+
+  private static final String RESPONSE_COUNTER_NAME = name(RetryingApnsClient.class, "response");
+  private static final String ACCEPTED_TAG_NAME = "accepted";
+  private static final String REJECTION_REASON_TAG_NAME = "rejectionReason";
 
   private final ApnsClient apnsClient;
 
@@ -88,8 +93,14 @@ public class RetryingApnsClient {
       if (response != null) {
         if (response.isAccepted()) {
           future.set(new ApnResult(ApnResult.Status.SUCCESS, null));
+
+          Metrics.counter(RESPONSE_COUNTER_NAME, ACCEPTED_TAG_NAME, "true").increment();
         } else {
           final String rejectionReason = response.getRejectionReason().orElse(null);
+
+          Metrics.counter(RESPONSE_COUNTER_NAME,
+              ACCEPTED_TAG_NAME, "false",
+              REJECTION_REASON_TAG_NAME, rejectionReason).increment();
 
           if ("Unregistered".equals(rejectionReason) || "BadDeviceToken".equals(rejectionReason)) {
             future.set(new ApnResult(ApnResult.Status.NO_SUCH_USER, rejectionReason));
