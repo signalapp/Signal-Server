@@ -63,7 +63,6 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     private final Map<MessageAvailabilityListener, String> queueNamesByMessageListener = new IdentityHashMap<>();
 
     private final Timer   insertTimer                         = Metrics.timer(name(MessagesCache.class, "insert"), "ephemeral", "false");
-    private final Timer   insertEphemeralTimer                = Metrics.timer(name(MessagesCache.class, "insert"), "ephemeral", "true");
     private final Timer   getMessagesTimer                    = Metrics.timer(name(MessagesCache.class, "get"));
     private final Timer   getQueuesToPersistTimer             = Metrics.timer(name(MessagesCache.class, "getQueuesToPersist"));
     private final Timer   clearQueueTimer                     = Metrics.timer(name(MessagesCache.class, "clear"));
@@ -143,27 +142,6 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
                   String.valueOf(message.getTimestamp()).getBytes(StandardCharsets.UTF_8),
                   guid.toString().getBytes(StandardCharsets.UTF_8))));
     }
-
-  public void insertEphemeral(final UUID destinationUuid, final long destinationDevice,
-      final MessageProtos.Envelope message) {
-
-    final MessageProtos.Envelope messageWithGuid;
-
-    if (!message.hasServerGuid()) {
-      messageWithGuid = message.toBuilder().setServerGuid(UUID.randomUUID().toString()).build();
-    } else {
-      messageWithGuid = message;
-    }
-
-    insertEphemeralTimer.record(() -> {
-      final byte[] ephemeralQueueKey = getEphemeralMessageQueueKey(destinationUuid, destinationDevice);
-
-      insertCluster.useBinaryCluster(connection -> {
-        connection.sync().rpush(ephemeralQueueKey, messageWithGuid.toByteArray());
-        connection.sync().expire(ephemeralQueueKey, MAX_EPHEMERAL_MESSAGE_DELAY.toSeconds());
-      });
-    });
-  }
 
   public Optional<OutgoingMessageEntity> remove(final UUID destinationUuid, final long destinationDevice,
       final UUID messageGuid) {
@@ -247,6 +225,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         });
     }
 
+  @Deprecated
   public Optional<MessageProtos.Envelope> takeEphemeralMessage(final UUID destinationUuid,
       final long destinationDevice) {
     return takeEphemeralMessage(destinationUuid, destinationDevice, System.currentTimeMillis());

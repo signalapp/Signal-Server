@@ -59,10 +59,7 @@ public class MessagesManager {
     }
   }
 
-  public void insertEphemeral(final UUID destinationUuid, final long destinationDevice, final Envelope message) {
-    messagesCache.insertEphemeral(destinationUuid, destinationDevice, message);
-  }
-
+  @Deprecated
   public Optional<Envelope> takeEphemeralMessage(final UUID destinationUuid, final long destinationDevice) {
     return messagesCache.takeEphemeralMessage(destinationUuid, destinationDevice);
   }

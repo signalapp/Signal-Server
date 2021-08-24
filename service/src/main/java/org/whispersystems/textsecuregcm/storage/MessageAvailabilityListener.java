@@ -12,9 +12,10 @@ package org.whispersystems.textsecuregcm.storage;
  */
 public interface MessageAvailabilityListener {
 
-    void handleNewMessagesAvailable();
+  void handleNewMessagesAvailable();
 
-    void handleNewEphemeralMessageAvailable();
+  @Deprecated
+  void handleNewEphemeralMessageAvailable();
 
-    void handleMessagesPersisted();
+  void handleMessagesPersisted();
 }
