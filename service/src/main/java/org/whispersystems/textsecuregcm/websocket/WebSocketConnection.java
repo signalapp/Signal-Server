@@ -157,7 +157,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   }
 
   private CompletableFuture<WebSocketResponseMessage> sendMessage(final Envelope message, final Optional<StoredMessageInfo> storedMessageInfo) {
-    final Optional<byte[]> body = Optional.ofNullable(message.toByteArray());
+    // clear ephemeral field from the envelope
+    final Optional<byte[]> body = Optional.ofNullable(message.toBuilder().clearEphemeral().build().toByteArray());
 
     sendMessageMeter.mark();
     sentMessageCounter.increment();
@@ -165,19 +166,20 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
     // X-Signal-Key: false must be sent until Android stops assuming it missing means true
     return client.sendRequest("PUT", "/api/v1/message", List.of("X-Signal-Key: false", TimestampHeaderUtil.getTimestampHeader()), body).whenComplete((response, throwable) -> {
-      if (throwable == null) {
-        if (isSuccessResponse(response)) {
-          if (storedMessageInfo.isPresent()) {
-            messagesManager.delete(auth.getAccount().getUuid(), device.getId(), storedMessageInfo.get().getGuid());
-          }
+          if (throwable == null) {
+            if (isSuccessResponse(response)) {
+              if (storedMessageInfo.isPresent()) {
+                messagesManager.delete(auth.getAccount().getUuid(), device.getId(), storedMessageInfo.get().getGuid());
+              }
 
-          if (message.getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT) {
-            recordMessageDeliveryDuration(message.getTimestamp(), device);
-            sendDeliveryReceiptFor(message);
-          }
-        } else {
-          final List<Tag> tags = new ArrayList<>(List.of(Tag.of(STATUS_CODE_TAG, String.valueOf(response.getStatus())),
-                                                         UserAgentTagUtil.getPlatformTag(client.getUserAgent())));
+              if (message.getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT) {
+                recordMessageDeliveryDuration(message.getTimestamp(), device);
+                sendDeliveryReceiptFor(message);
+              }
+            } else {
+              final List<Tag> tags = new ArrayList<>(
+                  List.of(Tag.of(STATUS_CODE_TAG, String.valueOf(response.getStatus())),
+                      UserAgentTagUtil.getPlatformTag(client.getUserAgent())));
 
           // TODO Remove this once we've identified the cause of message rejections from desktop clients
           if (StringUtils.isNotBlank(response.getMessage())) {

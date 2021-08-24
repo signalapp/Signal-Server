@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -134,51 +134,65 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     }
 
     public long insert(final UUID guid, final UUID destinationUuid, final long destinationDevice, final MessageProtos.Envelope message) {
-        final MessageProtos.Envelope messageWithGuid = message.toBuilder().setServerGuid(guid.toString()).build();
-        return (long)insertTimer.record(() ->
-                insertScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
-                                                   getMessageQueueMetadataKey(destinationUuid, destinationDevice),
-                                                   getQueueIndexKey(destinationUuid, destinationDevice)),
-                                           List.of(messageWithGuid.toByteArray(),
-                                                   String.valueOf(message.getTimestamp()).getBytes(StandardCharsets.UTF_8),
-                                                   guid.toString().getBytes(StandardCharsets.UTF_8))));
+      final MessageProtos.Envelope messageWithGuid = message.toBuilder().setServerGuid(guid.toString()).build();
+      return (long) insertTimer.record(() ->
+          insertScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
+                  getMessageQueueMetadataKey(destinationUuid, destinationDevice),
+                  getQueueIndexKey(destinationUuid, destinationDevice)),
+              List.of(messageWithGuid.toByteArray(),
+                  String.valueOf(message.getTimestamp()).getBytes(StandardCharsets.UTF_8),
+                  guid.toString().getBytes(StandardCharsets.UTF_8))));
     }
 
-    public void insertEphemeral(final UUID destinationUuid, final long destinationDevice, final MessageProtos.Envelope message) {
-        insertEphemeralTimer.record(() -> {
-                final byte[] ephemeralQueueKey = getEphemeralMessageQueueKey(destinationUuid, destinationDevice);
+  public void insertEphemeral(final UUID destinationUuid, final long destinationDevice,
+      final MessageProtos.Envelope message) {
 
-                insertCluster.useBinaryCluster(connection -> {
-                    connection.sync().rpush(ephemeralQueueKey, message.toByteArray());
-                    connection.sync().expire(ephemeralQueueKey, MAX_EPHEMERAL_MESSAGE_DELAY.toSeconds());
-                });
-        });
+    final MessageProtos.Envelope messageWithGuid;
+
+    if (!message.hasServerGuid()) {
+      messageWithGuid = message.toBuilder().setServerGuid(UUID.randomUUID().toString()).build();
+    } else {
+      messageWithGuid = message;
     }
 
-    public Optional<OutgoingMessageEntity> remove(final UUID destinationUuid, final long destinationDevice, final UUID messageGuid) {
-        return remove(destinationUuid, destinationDevice, List.of(messageGuid)).stream().findFirst();
+    insertEphemeralTimer.record(() -> {
+      final byte[] ephemeralQueueKey = getEphemeralMessageQueueKey(destinationUuid, destinationDevice);
+
+      insertCluster.useBinaryCluster(connection -> {
+        connection.sync().rpush(ephemeralQueueKey, messageWithGuid.toByteArray());
+        connection.sync().expire(ephemeralQueueKey, MAX_EPHEMERAL_MESSAGE_DELAY.toSeconds());
+      });
+    });
+  }
+
+  public Optional<OutgoingMessageEntity> remove(final UUID destinationUuid, final long destinationDevice,
+      final UUID messageGuid) {
+    return remove(destinationUuid, destinationDevice, List.of(messageGuid)).stream().findFirst();
+  }
+
+  @SuppressWarnings("unchecked")
+  public List<OutgoingMessageEntity> remove(final UUID destinationUuid, final long destinationDevice,
+      final List<UUID> messageGuids) {
+    final List<byte[]> serialized = (List<byte[]>) Metrics.timer(REMOVE_TIMER_NAME, REMOVE_METHOD_TAG,
+        REMOVE_METHOD_UUID).record(() ->
+        removeByGuidScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
+                getMessageQueueMetadataKey(destinationUuid, destinationDevice),
+                getQueueIndexKey(destinationUuid, destinationDevice)),
+            messageGuids.stream().map(guid -> guid.toString().getBytes(StandardCharsets.UTF_8))
+                .collect(Collectors.toList())));
+
+    final List<OutgoingMessageEntity> removedMessages = new ArrayList<>(serialized.size());
+
+    for (final byte[] bytes : serialized) {
+      try {
+        removedMessages.add(constructEntityFromEnvelope(0, MessageProtos.Envelope.parseFrom(bytes)));
+      } catch (final InvalidProtocolBufferException e) {
+        logger.warn("Failed to parse envelope", e);
+      }
     }
 
-    @SuppressWarnings("unchecked")
-    public List<OutgoingMessageEntity> remove(final UUID destinationUuid, final long destinationDevice, final List<UUID> messageGuids) {
-        final List<byte[]> serialized = (List<byte[]>)Metrics.timer(REMOVE_TIMER_NAME, REMOVE_METHOD_TAG, REMOVE_METHOD_UUID).record(() ->
-                removeByGuidScript.executeBinary(List.of(getMessageQueueKey(destinationUuid, destinationDevice),
-                                                         getMessageQueueMetadataKey(destinationUuid, destinationDevice),
-                                                         getQueueIndexKey(destinationUuid, destinationDevice)),
-                                                 messageGuids.stream().map(guid -> guid.toString().getBytes(StandardCharsets.UTF_8)).collect(Collectors.toList())));
-
-        final List<OutgoingMessageEntity> removedMessages = new ArrayList<>(serialized.size());
-
-        for (final byte[] bytes : serialized) {
-            try {
-                removedMessages.add(constructEntityFromEnvelope(0, MessageProtos.Envelope.parseFrom(bytes)));
-            } catch (final InvalidProtocolBufferException e) {
-                logger.warn("Failed to parse envelope", e);
-            }
-        }
-
-        return removedMessages;
-    }
+    return removedMessages;
+  }
 
     public boolean hasMessages(final UUID destinationUuid, final long destinationDevice) {
         return readDeleteCluster.withBinaryCluster(connection -> connection.sync().zcard(getMessageQueueKey(destinationUuid, destinationDevice)) > 0);
@@ -223,40 +237,43 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
             for (final ScoredValue<byte[]> scoredMessage : scoredMessages) {
                 try {
-                    envelopes.add(MessageProtos.Envelope.parseFrom(scoredMessage.getValue()));
+                  envelopes.add(MessageProtos.Envelope.parseFrom(scoredMessage.getValue()));
                 } catch (InvalidProtocolBufferException e) {
-                    logger.warn("Failed to parse envelope", e);
+                  logger.warn("Failed to parse envelope", e);
                 }
             }
 
-            return envelopes;
+          return envelopes;
         });
     }
 
-    public Optional<MessageProtos.Envelope> takeEphemeralMessage(final UUID destinationUuid, final long destinationDevice) {
-        return takeEphemeralMessage(destinationUuid, destinationDevice, System.currentTimeMillis());
-    }
+  public Optional<MessageProtos.Envelope> takeEphemeralMessage(final UUID destinationUuid,
+      final long destinationDevice) {
+    return takeEphemeralMessage(destinationUuid, destinationDevice, System.currentTimeMillis());
+  }
 
-    @VisibleForTesting
-    Optional<MessageProtos.Envelope> takeEphemeralMessage(final UUID destinationUuid, final long destinationDevice, final long currentTimeMillis) {
-        final long earliestAllowableTimestamp = currentTimeMillis - MAX_EPHEMERAL_MESSAGE_DELAY.toMillis();
+  @VisibleForTesting
+  Optional<MessageProtos.Envelope> takeEphemeralMessage(final UUID destinationUuid, final long destinationDevice,
+      final long currentTimeMillis) {
+    final long earliestAllowableTimestamp = currentTimeMillis - MAX_EPHEMERAL_MESSAGE_DELAY.toMillis();
 
-        return takeEphemeralMessageTimer.record(() -> readDeleteCluster.withBinaryCluster(connection -> {
-            byte[] messageBytes;
+    return takeEphemeralMessageTimer.record(() -> readDeleteCluster.withBinaryCluster(connection -> {
+      byte[] messageBytes;
 
-            while ((messageBytes = connection.sync().lpop(getEphemeralMessageQueueKey(destinationUuid, destinationDevice))) != null) {
-                try {
-                    final MessageProtos.Envelope message = MessageProtos.Envelope.parseFrom(messageBytes);
+      while ((messageBytes = connection.sync().lpop(getEphemeralMessageQueueKey(destinationUuid, destinationDevice)))
+          != null) {
+        try {
+          final MessageProtos.Envelope message = MessageProtos.Envelope.parseFrom(messageBytes);
 
-                    if (message.getTimestamp() >= earliestAllowableTimestamp) {
-                        return Optional.of(message);
-                    }
-                } catch (final InvalidProtocolBufferException e) {
-                    logger.warn("Failed to parse envelope", e);
-                }
-            }
+          if (message.getTimestamp() >= earliestAllowableTimestamp) {
+            return Optional.of(message);
+          }
+        } catch (final InvalidProtocolBufferException e) {
+          logger.warn("Failed to parse envelope", e);
+        }
+      }
 
-            return Optional.empty();
+      return Optional.empty();
         }));
     }
 

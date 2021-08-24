@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.storage;
@@ -25,9 +25,13 @@ public class MessagesManager {
 
   private static final int RESULT_SET_CHUNK_SIZE = 100;
 
-  private static final MetricRegistry metricRegistry       = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private static final Meter          cacheHitByGuidMeter  = metricRegistry.meter(name(MessagesManager.class, "cacheHitByGuid" ));
-  private static final Meter          cacheMissByGuidMeter = metricRegistry.meter(name(MessagesManager.class, "cacheMissByGuid"));
+  private static final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  private static final Meter cacheHitByGuidMeter = metricRegistry.meter(name(MessagesManager.class, "cacheHitByGuid"));
+  private static final Meter cacheMissByGuidMeter = metricRegistry.meter(
+      name(MessagesManager.class, "cacheMissByGuid"));
+
+  // migrated from MessagePersister, name is not a typo
+  private final Meter persistMessageMeter = metricRegistry.meter(name(MessagePersister.class, "persistMessage"));
 
   private final MessagesDynamoDb messagesDynamoDb;
   private final MessagesCache messagesCache;
@@ -110,8 +114,16 @@ public class MessagesManager {
       final UUID destinationUuid,
       final long destinationDeviceId,
       final List<Envelope> messages) {
-    messagesDynamoDb.store(messages, destinationUuid, destinationDeviceId);
-    messagesCache.remove(destinationUuid, destinationDeviceId, messages.stream().map(message -> UUID.fromString(message.getServerGuid())).collect(Collectors.toList()));
+
+    final List<Envelope> nonEphemeralMessages = messages.stream()
+        .filter(envelope -> !envelope.getEphemeral())
+        .collect(Collectors.toList());
+
+    messagesDynamoDb.store(nonEphemeralMessages, destinationUuid, destinationDeviceId);
+    messagesCache.remove(destinationUuid, destinationDeviceId,
+        messages.stream().map(message -> UUID.fromString(message.getServerGuid())).collect(Collectors.toList()));
+
+    persistMessageMeter.mark(nonEphemeralMessages.size());
   }
 
   public void addMessageAvailabilityListener(
