@@ -62,14 +62,13 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     private final Map<String, MessageAvailabilityListener> messageListenersByQueueName = new HashMap<>();
     private final Map<MessageAvailabilityListener, String> queueNamesByMessageListener = new IdentityHashMap<>();
 
-    private final Timer   insertTimer                         = Metrics.timer(name(MessagesCache.class, "insert"), "ephemeral", "false");
+    private final Timer   insertTimer                         = Metrics.timer(name(MessagesCache.class, "insert"));
     private final Timer   getMessagesTimer                    = Metrics.timer(name(MessagesCache.class, "get"));
     private final Timer   getQueuesToPersistTimer             = Metrics.timer(name(MessagesCache.class, "getQueuesToPersist"));
     private final Timer   clearQueueTimer                     = Metrics.timer(name(MessagesCache.class, "clear"));
     private final Timer   takeEphemeralMessageTimer           = Metrics.timer(name(MessagesCache.class, "takeEphemeral"));
     private final Counter pubSubMessageCounter                = Metrics.counter(name(MessagesCache.class, "pubSubMessage"));
-    private final Counter newMessageNotificationCounter       = Metrics.counter(name(MessagesCache.class, "newMessageNotification"), "ephemeral", "false");
-    private final Counter ephemeralMessageNotificationCounter = Metrics.counter(name(MessagesCache.class, "newMessageNotification"), "ephemeral", "true");
+    private final Counter newMessageNotificationCounter       = Metrics.counter(name(MessagesCache.class, "newMessageNotification"));
     private final Counter queuePersistedNotificationCounter   = Metrics.counter(name(MessagesCache.class, "queuePersisted"));
 
     static final         String NEXT_SLOT_TO_PERSIST_KEY  = "user_queue_persist_slot";
@@ -355,7 +354,6 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
             }
           });
         } else if (channel.startsWith(EPHEMERAL_QUEUE_KEYSPACE_PREFIX) && "rpush".equals(message)) {
-          ephemeralMessageNotificationCounter.increment();
           notificationExecutorService.execute(() -> {
             try {
               findListener(channel).ifPresent(MessageAvailabilityListener::handleNewEphemeralMessageAvailable);
