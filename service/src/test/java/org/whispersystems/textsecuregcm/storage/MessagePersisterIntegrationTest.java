@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -122,10 +122,6 @@ class MessagePersisterIntegrationTest {
       messagesManager.addMessageAvailabilityListener(account.getUuid(), 1, new MessageAvailabilityListener() {
         @Override
         public void handleNewMessagesAvailable() {
-        }
-
-        @Override
-        public void handleNewEphemeralMessageAvailable() {
         }
 
         @Override

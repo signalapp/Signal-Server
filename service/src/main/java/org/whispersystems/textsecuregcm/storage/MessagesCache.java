@@ -47,7 +47,6 @@ import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 
 public class MessagesCache extends RedisClusterPubSubAdapter<String, String> implements Managed {
 
-    private final FaultTolerantRedisCluster insertCluster;
     private final FaultTolerantRedisCluster readDeleteCluster;
     private final FaultTolerantPubSubConnection<String, String> pubSubConnection;
 
@@ -66,7 +65,6 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     private final Timer   getMessagesTimer                    = Metrics.timer(name(MessagesCache.class, "get"));
     private final Timer   getQueuesToPersistTimer             = Metrics.timer(name(MessagesCache.class, "getQueuesToPersist"));
     private final Timer   clearQueueTimer                     = Metrics.timer(name(MessagesCache.class, "clear"));
-    private final Timer   takeEphemeralMessageTimer           = Metrics.timer(name(MessagesCache.class, "takeEphemeral"));
     private final Counter pubSubMessageCounter                = Metrics.counter(name(MessagesCache.class, "pubSubMessage"));
     private final Counter newMessageNotificationCounter       = Metrics.counter(name(MessagesCache.class, "newMessageNotification"));
     private final Counter queuePersistedNotificationCounter   = Metrics.counter(name(MessagesCache.class, "queuePersisted"));
@@ -75,7 +73,6 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     private static final byte[] LOCK_VALUE                = "1".getBytes(StandardCharsets.UTF_8);
 
     private static final String QUEUE_KEYSPACE_PREFIX           = "__keyspace@0__:user_queue::";
-    private static final String EPHEMERAL_QUEUE_KEYSPACE_PREFIX = "__keyspace@0__:user_queue_ephemeral::";
     private static final String PERSISTING_KEYSPACE_PREFIX      = "__keyspace@0__:user_queue_persisting::";
 
     private static final Duration MAX_EPHEMERAL_MESSAGE_DELAY = Duration.ofSeconds(10);
@@ -89,7 +86,6 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
     public MessagesCache(final FaultTolerantRedisCluster insertCluster, final FaultTolerantRedisCluster readDeleteCluster, final ExecutorService notificationExecutorService) throws IOException {
 
-        this.insertCluster = insertCluster;
         this.readDeleteCluster = readDeleteCluster;
         this.pubSubConnection = readDeleteCluster.createPubSubConnection();
 
@@ -224,37 +220,6 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         });
     }
 
-  @Deprecated
-  public Optional<MessageProtos.Envelope> takeEphemeralMessage(final UUID destinationUuid,
-      final long destinationDevice) {
-    return takeEphemeralMessage(destinationUuid, destinationDevice, System.currentTimeMillis());
-  }
-
-  @VisibleForTesting
-  Optional<MessageProtos.Envelope> takeEphemeralMessage(final UUID destinationUuid, final long destinationDevice,
-      final long currentTimeMillis) {
-    final long earliestAllowableTimestamp = currentTimeMillis - MAX_EPHEMERAL_MESSAGE_DELAY.toMillis();
-
-    return takeEphemeralMessageTimer.record(() -> readDeleteCluster.withBinaryCluster(connection -> {
-      byte[] messageBytes;
-
-      while ((messageBytes = connection.sync().lpop(getEphemeralMessageQueueKey(destinationUuid, destinationDevice)))
-          != null) {
-        try {
-          final MessageProtos.Envelope message = MessageProtos.Envelope.parseFrom(messageBytes);
-
-          if (message.getTimestamp() >= earliestAllowableTimestamp) {
-            return Optional.of(message);
-          }
-        } catch (final InvalidProtocolBufferException e) {
-          logger.warn("Failed to parse envelope", e);
-        }
-      }
-
-      return Optional.empty();
-        }));
-    }
-
     public void clear(final UUID destinationUuid) {
         // TODO Remove null check in a fully UUID-based world
         if (destinationUuid != null) {
@@ -335,7 +300,6 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     private static String[] getKeyspaceChannels(final String queueName) {
         return new String[] {
                 QUEUE_KEYSPACE_PREFIX + "{" + queueName + "}",
-                EPHEMERAL_QUEUE_KEYSPACE_PREFIX + "{" + queueName + "}",
                 PERSISTING_KEYSPACE_PREFIX + "{" + queueName + "}"
         };
     }
@@ -351,14 +315,6 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
               findListener(channel).ifPresent(MessageAvailabilityListener::handleNewMessagesAvailable);
             } catch (final Exception e) {
               logger.warn("Unexpected error handling new message", e);
-            }
-          });
-        } else if (channel.startsWith(EPHEMERAL_QUEUE_KEYSPACE_PREFIX) && "rpush".equals(message)) {
-          notificationExecutorService.execute(() -> {
-            try {
-              findListener(channel).ifPresent(MessageAvailabilityListener::handleNewEphemeralMessageAvailable);
-            } catch (final Exception e) {
-              logger.warn("Unexpected error handling new ephemeral message", e);
             }
           });
         } else if (channel.startsWith(PERSISTING_KEYSPACE_PREFIX) && "del".equals(message)) {
@@ -412,10 +368,6 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     @VisibleForTesting
     static byte[] getMessageQueueKey(final UUID accountUuid, final long deviceId) {
         return ("user_queue::{" + accountUuid.toString() + "::" + deviceId + "}").getBytes(StandardCharsets.UTF_8);
-    }
-
-    static byte[] getEphemeralMessageQueueKey(final UUID accountUuid, final long deviceId) {
-        return ("user_queue_ephemeral::{" + accountUuid.toString() + "::" + deviceId + "}").getBytes(StandardCharsets.UTF_8);
     }
 
     private static byte[] getMessageQueueMetadataKey(final UUID accountUuid, final long deviceId) {

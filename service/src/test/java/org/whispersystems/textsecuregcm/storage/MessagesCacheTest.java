@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -281,10 +281,6 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
             }
 
             @Override
-            public void handleNewEphemeralMessageAvailable() {
-            }
-
-            @Override
             public void handleMessagesPersisted() {
             }
         };
@@ -308,10 +304,6 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
         final MessageAvailabilityListener listener = new MessageAvailabilityListener() {
             @Override
             public void handleNewMessagesAvailable() {
-            }
-
-            @Override
-            public void handleNewEphemeralMessageAvailable() {
             }
 
             @Override

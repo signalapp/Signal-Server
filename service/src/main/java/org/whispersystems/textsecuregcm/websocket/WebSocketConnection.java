@@ -64,7 +64,6 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private static final Histogram      primaryDeviceMessageTime       = metricRegistry.histogram(name(MessageController.class, "primary_device_message_delivery_duration"));
   private static final Meter          sendMessageMeter               = metricRegistry.meter(name(WebSocketConnection.class, "send_message"));
   private static final Meter          messageAvailableMeter          = metricRegistry.meter(name(WebSocketConnection.class, "messagesAvailable"));
-  private static final Meter          ephemeralMessageAvailableMeter = metricRegistry.meter(name(WebSocketConnection.class, "ephemeralMessagesAvailable"));
   private static final Meter          messagesPersistedMeter         = metricRegistry.meter(name(WebSocketConnection.class, "messagesPersisted"));
   private static final Meter          bytesSentMeter                 = metricRegistry.meter(name(WebSocketConnection.class, "bytes_sent"));
   private static final Meter          sendFailuresMeter              = metricRegistry.meter(name(WebSocketConnection.class, "send_failures"));
@@ -350,14 +349,6 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
     storedMessageState.compareAndSet(StoredMessageState.EMPTY, StoredMessageState.CACHED_NEW_MESSAGES_AVAILABLE);
     processStoredMessages();
-  }
-
-  @Override
-  public void handleNewEphemeralMessageAvailable() {
-    ephemeralMessageAvailableMeter.mark();
-
-    messagesManager.takeEphemeralMessage(auth.getAccount().getUuid(), device.getId())
-                   .ifPresent(message -> sendMessage(message, Optional.empty()));
   }
 
   @Override
