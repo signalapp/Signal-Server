@@ -47,7 +47,6 @@ import org.whispersystems.textsecuregcm.configuration.TurnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
 import org.whispersystems.textsecuregcm.configuration.UnidentifiedDeliveryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.VoiceVerificationConfiguration;
-import org.whispersystems.textsecuregcm.configuration.WavefrontConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ZkConfig;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 
@@ -78,11 +77,6 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private CdnConfiguration cdn;
-
-  @NotNull
-  @Valid
-  @JsonProperty
-  private WavefrontConfiguration wavefront;
 
   @NotNull
   @Valid
@@ -436,10 +430,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public CdnConfiguration getCdnConfiguration() {
     return cdn;
-  }
-
-  public WavefrontConfiguration getWavefrontConfiguration() {
-    return wavefront;
   }
 
   public DatadogConfiguration getDatadogConfiguration() {

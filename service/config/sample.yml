@@ -156,10 +156,6 @@ cdn:
   bucket: # S3 Bucket name
   region: # AWS region
 
-wavefront: # Wavefront micrometer metrics config
-  uri: # Wavefront proxy endpoint
-  batchSize: # Number of measurements to send per request
-
 datadog:
   apiKey:
   environment:

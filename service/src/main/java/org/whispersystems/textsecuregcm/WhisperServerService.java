@@ -36,8 +36,6 @@ import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import io.micrometer.datadog.DatadogMeterRegistry;
-import io.micrometer.wavefront.WavefrontConfig;
-import io.micrometer.wavefront.WavefrontMeterRegistry;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -261,30 +259,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final DistributionStatisticConfig defaultDistributionStatisticConfig = DistributionStatisticConfig.builder()
         .percentiles(.75, .95, .99, .999)
         .build();
-
-    final WavefrontConfig wavefrontConfig = new WavefrontConfig() {
-      @Override
-      public String get(final String key) {
-        return null;
-      }
-
-      @Override
-      public String uri() {
-        return config.getWavefrontConfiguration().getUri();
-      }
-
-      @Override
-      public int batchSize() {
-        return config.getWavefrontConfiguration().getBatchSize();
-      }
-    };
-
-    Metrics.addRegistry(new WavefrontMeterRegistry(wavefrontConfig, Clock.SYSTEM) {
-      @Override
-      protected DistributionStatisticConfig defaultHistogramConfig() {
-        return defaultDistributionStatisticConfig.merge(super.defaultHistogramConfig());
-      }
-    });
 
     {
       final DatadogMeterRegistry datadogMeterRegistry = new DatadogMeterRegistry(config.getDatadogConfiguration(), Clock.SYSTEM);
