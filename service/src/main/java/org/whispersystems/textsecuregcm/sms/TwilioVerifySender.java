@@ -15,6 +15,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import javax.validation.constraints.NotEmpty;
+import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
@@ -137,10 +138,16 @@ class TwilioVerifySender {
   private Optional<String> extractVerifySid(TwilioVerifyResponse twilioVerifyResponse, Throwable throwable) {
 
     if (throwable != null) {
+      logger.warn("Failed to send Twilio request", throwable);
       return Optional.empty();
     }
 
     if (twilioVerifyResponse.isFailure()) {
+      Metrics.counter(TwilioSmsSender.FAILED_REQUEST_COUNTER_NAME,
+          TwilioSmsSender.SERVICE_NAME_TAG, "verify",
+          TwilioSmsSender.STATUS_CODE_TAG_NAME, String.valueOf(twilioVerifyResponse.failureResponse.status),
+          TwilioSmsSender.ERROR_CODE_TAG_NAME, String.valueOf(twilioVerifyResponse.failureResponse.code)).increment();
+
       return Optional.empty();
     }
 

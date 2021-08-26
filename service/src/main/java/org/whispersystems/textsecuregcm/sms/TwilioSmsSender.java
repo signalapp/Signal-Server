@@ -55,9 +55,10 @@ public class TwilioSmsSender {
   private final Meter          voxMeter        = metricRegistry.meter(name(getClass(), "vox", "delivered"));
   private final Meter          priceMeter      = metricRegistry.meter(name(getClass(), "price"));
 
-  private static final String FAILED_REQUEST_COUNTER_NAME = name(TwilioSmsSender.class, "failedRequest");
-  private static final String STATUS_CODE_TAG_NAME = "statusCode";
-  private static final String ERROR_CODE_TAG_NAME = "errorCode";
+  static final String FAILED_REQUEST_COUNTER_NAME = name(TwilioSmsSender.class, "failedRequest");
+  static final String SERVICE_NAME_TAG = "service";
+  static final String STATUS_CODE_TAG_NAME = "statusCode";
+  static final String ERROR_CODE_TAG_NAME = "errorCode";
 
   private final String            accountId;
   private final String            accountToken;
@@ -206,7 +207,12 @@ public class TwilioSmsSender {
       return true;
     } else if (response != null && response.isFailure()) {
       logger.debug("Twilio request failed: " + response.failureResponse.status + "(code " + response.failureResponse.code + "), " + response.failureResponse.message);
-      Metrics.counter(FAILED_REQUEST_COUNTER_NAME, STATUS_CODE_TAG_NAME, String.valueOf(response.failureResponse.status), ERROR_CODE_TAG_NAME, String.valueOf(response.failureResponse.code)).increment();
+
+      Metrics.counter(FAILED_REQUEST_COUNTER_NAME,
+          SERVICE_NAME_TAG, "classic",
+          STATUS_CODE_TAG_NAME, String.valueOf(response.failureResponse.status),
+          ERROR_CODE_TAG_NAME, String.valueOf(response.failureResponse.code)).increment();
+
       return false;
     } else if (throwable != null) {
       logger.info("Twilio request failed", throwable);
