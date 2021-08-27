@@ -91,9 +91,9 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       });
 
       try {
+        connection.start();
         clientPresenceManager.setPresent(auth.getAccount().getUuid(), device.getId(), connection);
         messagesManager.addMessageAvailabilityListener(auth.getAccount().getUuid(), device.getId(), connection);
-        connection.start();
       } catch (final Exception e) {
         log.warn("Failed to initialize websocket", e);
         context.getClient().close(1011, "Unexpected error initializing connection");
