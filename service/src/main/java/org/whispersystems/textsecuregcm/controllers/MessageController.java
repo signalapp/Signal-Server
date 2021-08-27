@@ -65,7 +65,6 @@ import javax.ws.rs.core.Response.Status;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CombinedUnidentifiedSenderAccessKeys;
@@ -154,7 +153,6 @@ public class MessageController {
   private static final String EPHEMERAL_TAG_NAME      = "ephemeral";
   private static final String SENDER_TYPE_TAG_NAME    = "senderType";
   private static final String SENDER_COUNTRY_TAG_NAME = "senderCountry";
-  private static final String DESTINATION_TYPE_TAG_NAME = "destinationType";
 
   private static final long MAX_MESSAGE_SIZE = DataSize.kibibytes(256).toBytes();
 
@@ -202,17 +200,15 @@ public class MessageController {
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
       @HeaderParam("User-Agent") String userAgent,
       @HeaderParam("X-Forwarded-For") String forwardedFor,
-      @PathParam("destination") AmbiguousIdentifier destinationName,
+      @PathParam("destination") UUID destinationUuid,
       @Valid IncomingMessageList messages)
       throws RateLimitExceededException, RateLimitChallengeException {
-
-    destinationName.incrementRequestCounter("sendMessage", userAgent);
 
     if (source.isEmpty() && accessKey.isEmpty()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
-    if (source.isPresent() && !source.get().getAccount().isFor(destinationName)) {
+    if (source.isPresent() && !source.get().getAccount().getUuid().equals(destinationUuid)) {
       assert source.get().getAccount().getMasterDevice().isPresent();
 
       final Device masterDevice = source.get().getAccount().getMasterDevice().get();
@@ -227,7 +223,7 @@ public class MessageController {
 
     final String senderType;
 
-    if (source.isPresent() && !source.get().getAccount().isFor(destinationName)) {
+    if (source.isPresent() && !source.get().getAccount().getUuid().equals(destinationUuid)) {
       identifiedMeter.mark();
       senderType = "identified";
     } else if (source.isEmpty()) {
@@ -257,12 +253,12 @@ public class MessageController {
     }
 
     try {
-      boolean isSyncMessage = source.isPresent() && source.get().getAccount().isFor(destinationName);
+      boolean isSyncMessage = source.isPresent() && source.get().getAccount().getUuid().equals(destinationUuid);
 
       Optional<Account> destination;
 
       if (!isSyncMessage) {
-        destination = accountsManager.get(destinationName);
+        destination = accountsManager.get(destinationUuid);
       } else {
         destination = source.map(AuthenticatedAccount::getAccount);
       }
@@ -270,7 +266,7 @@ public class MessageController {
       OptionalAccess.verify(source.map(AuthenticatedAccount::getAccount), accessKey, destination);
       assert (destination.isPresent());
 
-      if (source.isPresent() && !source.get().getAccount().isFor(destinationName)) {
+      if (source.isPresent() && !source.get().getAccount().getUuid().equals(destinationUuid)) {
         rateLimiters.getMessagesLimiter().validate(source.get().getAccount().getUuid(), destination.get().getUuid());
 
         final String senderCountryCode = Util.getCountryCode(source.get().getAccount().getNumber());
@@ -320,8 +316,7 @@ public class MessageController {
 
       final List<Tag> tags = List.of(UserAgentTagUtil.getPlatformTag(userAgent),
           Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(messages.isOnline())),
-          Tag.of(SENDER_TYPE_TAG_NAME, senderType),
-          Tag.of(DESTINATION_TYPE_TAG_NAME, destinationName.hasNumber() ? "e164" : "uuid"));
+          Tag.of(SENDER_TYPE_TAG_NAME, senderType));
 
       for (IncomingMessage incomingMessage : messages.getMessages()) {
         Optional<Device> destinationDevice = destination.get().getDevice(incomingMessage.getDestinationDeviceId());

@@ -41,11 +41,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
-import org.whispersystems.textsecuregcm.auth.AuthorizationHeader;
+import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
-import org.whispersystems.textsecuregcm.auth.InvalidAuthorizationHeaderException;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
@@ -326,79 +325,70 @@ public class AccountController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/code/{verification_code}")
   public AccountCreationResult verifyAccount(@PathParam("verification_code") String verificationCode,
-                                             @HeaderParam("Authorization")   String authorizationHeader,
-                                             @HeaderParam("X-Signal-Agent")  String signalAgent,
-                                             @HeaderParam("User-Agent")      String userAgent,
-                                             @QueryParam("transfer")         Optional<Boolean> availableForTransfer,
-                                             @Valid                          AccountAttributes accountAttributes)
+                                             @HeaderParam("Authorization") BasicAuthorizationHeader authorizationHeader,
+                                             @HeaderParam("X-Signal-Agent") String signalAgent,
+                                             @HeaderParam("User-Agent") String userAgent,
+                                             @QueryParam("transfer") Optional<Boolean> availableForTransfer,
+                                             @Valid AccountAttributes accountAttributes)
       throws RateLimitExceededException, InterruptedException {
-    try {
-      AuthorizationHeader header = AuthorizationHeader.fromFullHeader(authorizationHeader);
-      String number              = header.getIdentifier().getNumber();
-      String password            = header.getPassword();
 
-      if (number == null) {
-        throw new WebApplicationException(400);
-      }
+    String number = authorizationHeader.getUsername();
+    String password = authorizationHeader.getPassword();
 
-      rateLimiters.getVerifyLimiter().validate(number);
+    rateLimiters.getVerifyLimiter().validate(number);
 
-      Optional<StoredVerificationCode> storedVerificationCode = pendingAccounts.getCodeForNumber(number);
+    Optional<StoredVerificationCode> storedVerificationCode = pendingAccounts.getCodeForNumber(number);
 
-      if (storedVerificationCode.isEmpty() || !storedVerificationCode.get().isValid(verificationCode)) {
-        throw new WebApplicationException(Response.status(403).build());
-      }
-
-      storedVerificationCode.flatMap(StoredVerificationCode::getTwilioVerificationSid)
-          .ifPresent(smsSender::reportVerificationSucceeded);
-
-      Optional<Account>                    existingAccount           = accounts.get(number);
-      Optional<StoredRegistrationLock>     existingRegistrationLock  = existingAccount.map(Account::getRegistrationLock);
-      Optional<ExternalServiceCredentials> existingBackupCredentials = existingAccount.map(Account::getUuid)
-                                                                                      .map(uuid -> backupServiceCredentialGenerator.generateFor(uuid.toString()));
-
-      if (existingRegistrationLock.isPresent() && existingRegistrationLock.get().requiresClientRegistrationLock()) {
-        rateLimiters.getVerifyLimiter().clear(number);
-
-        if (!Util.isEmpty(accountAttributes.getRegistrationLock())) {
-          rateLimiters.getPinLimiter().validate(number);
-        }
-
-        if (!existingRegistrationLock.get().verify(accountAttributes.getRegistrationLock())) {
-          throw new WebApplicationException(Response.status(423)
-                                                    .entity(new RegistrationLockFailure(existingRegistrationLock.get().getTimeRemaining(),
-                                                                                        existingRegistrationLock.get().needsFailureCredentials() ? existingBackupCredentials.orElseThrow() : null))
-                                                    .build());
-        }
-
-        rateLimiters.getPinLimiter().clear(number);
-      }
-
-      if (availableForTransfer.orElse(false) && existingAccount.map(Account::isTransferSupported).orElse(false)) {
-        throw new WebApplicationException(Response.status(409).build());
-      }
-
-      Account account = accounts.create(number, password, signalAgent, accountAttributes);
-
-      {
-        metricRegistry.meter(name(AccountController.class, "verify", Util.getCountryCode(number))).mark();
-
-        final List<Tag> tags = new ArrayList<>();
-        tags.add(Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)));
-        tags.add(UserAgentTagUtil.getPlatformTag(userAgent));
-        tags.add(Tag.of(VERIFY_EXPERIMENT_TAG_NAME, String.valueOf(storedVerificationCode.get().getTwilioVerificationSid().isPresent())));
-
-        Metrics.counter(ACCOUNT_VERIFY_COUNTER_NAME, tags).increment();
-
-        Metrics.timer(name(AccountController.class, "verifyDuration"), tags)
-            .record(Instant.now().toEpochMilli() - storedVerificationCode.get().getTimestamp(), TimeUnit.MILLISECONDS);
-      }
-
-      return new AccountCreationResult(account.getUuid(), existingAccount.map(Account::isStorageSupported).orElse(false));
-    } catch (InvalidAuthorizationHeaderException e) {
-      logger.info("Bad Authorization Header", e);
-      throw new WebApplicationException(Response.status(401).build());
+    if (storedVerificationCode.isEmpty() || !storedVerificationCode.get().isValid(verificationCode)) {
+      throw new WebApplicationException(Response.status(403).build());
     }
+
+    storedVerificationCode.flatMap(StoredVerificationCode::getTwilioVerificationSid)
+        .ifPresent(smsSender::reportVerificationSucceeded);
+
+    Optional<Account>                    existingAccount           = accounts.get(number);
+    Optional<StoredRegistrationLock>     existingRegistrationLock  = existingAccount.map(Account::getRegistrationLock);
+    Optional<ExternalServiceCredentials> existingBackupCredentials = existingAccount.map(Account::getUuid)
+                                                                                    .map(uuid -> backupServiceCredentialGenerator.generateFor(uuid.toString()));
+
+    if (existingRegistrationLock.isPresent() && existingRegistrationLock.get().requiresClientRegistrationLock()) {
+      rateLimiters.getVerifyLimiter().clear(number);
+
+      if (!Util.isEmpty(accountAttributes.getRegistrationLock())) {
+        rateLimiters.getPinLimiter().validate(number);
+      }
+
+      if (!existingRegistrationLock.get().verify(accountAttributes.getRegistrationLock())) {
+        throw new WebApplicationException(Response.status(423)
+                                                  .entity(new RegistrationLockFailure(existingRegistrationLock.get().getTimeRemaining(),
+                                                                                      existingRegistrationLock.get().needsFailureCredentials() ? existingBackupCredentials.orElseThrow() : null))
+                                                  .build());
+      }
+
+      rateLimiters.getPinLimiter().clear(number);
+    }
+
+    if (availableForTransfer.orElse(false) && existingAccount.map(Account::isTransferSupported).orElse(false)) {
+      throw new WebApplicationException(Response.status(409).build());
+    }
+
+    Account account = accounts.create(number, password, signalAgent, accountAttributes);
+
+    {
+      metricRegistry.meter(name(AccountController.class, "verify", Util.getCountryCode(number))).mark();
+
+      final List<Tag> tags = new ArrayList<>();
+      tags.add(Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)));
+      tags.add(UserAgentTagUtil.getPlatformTag(userAgent));
+      tags.add(Tag.of(VERIFY_EXPERIMENT_TAG_NAME, String.valueOf(storedVerificationCode.get().getTwilioVerificationSid().isPresent())));
+
+      Metrics.counter(ACCOUNT_VERIFY_COUNTER_NAME, tags).increment();
+
+      Metrics.timer(name(AccountController.class, "verifyDuration"), tags)
+          .record(Instant.now().toEpochMilli() - storedVerificationCode.get().getTimestamp(), TimeUnit.MILLISECONDS);
+    }
+
+    return new AccountCreationResult(account.getUuid(), existingAccount.map(Account::isStorageSupported).orElse(false));
   }
 
   @Timed

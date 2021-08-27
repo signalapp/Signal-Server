@@ -43,7 +43,7 @@ class SecureStorageControllerTest {
     ExternalServiceCredentials credentials = resources.getJerseyTest()
                                                       .target("/v1/storage/auth")
                                                       .request()
-                                                      .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                                      .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                                       .get(ExternalServiceCredentials.class);
 
     assertThat(credentials.getPassword()).isNotEmpty();
@@ -55,7 +55,7 @@ class SecureStorageControllerTest {
     Response response = resources.getJerseyTest()
                                  .target("/v1/storage/auth")
                                  .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.INVVALID_NUMBER, AuthHelper.INVALID_PASSWORD))
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.INVALID_UUID, AuthHelper.INVALID_PASSWORD))
                                  .get();
 
     assertThat(response.getStatus()).isEqualTo(401);

@@ -61,7 +61,7 @@ class PaymentsControllerTest {
         resources.getJerseyTest()
             .target("/v1/payments/auth")
             .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .get(ExternalServiceCredentials.class);
 
     assertThat(token.getUsername()).isEqualTo(validCredentials.getUsername());
@@ -74,7 +74,7 @@ class PaymentsControllerTest {
         resources.getJerseyTest()
             .target("/v1/payments/auth")
             .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.INVVALID_NUMBER, AuthHelper.INVALID_PASSWORD))
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.INVALID_UUID, AuthHelper.INVALID_PASSWORD))
             .get();
 
     assertThat(response.getStatus()).isEqualTo(401);
@@ -86,7 +86,7 @@ class PaymentsControllerTest {
         resources.getJerseyTest()
             .target("/v1/payments/auth")
             .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_NUMBER, AuthHelper.DISABLED_PASSWORD))
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
             .get();
     assertThat(response.getStatus()).isEqualTo(401);
   }
@@ -97,7 +97,7 @@ class PaymentsControllerTest {
         resources.getJerseyTest()
                  .target("/v1/payments/conversions")
                  .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                  .get(CurrencyConversionEntityList.class);
 
 

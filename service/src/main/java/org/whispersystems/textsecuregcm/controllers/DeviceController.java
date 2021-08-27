@@ -24,12 +24,9 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
-import org.whispersystems.textsecuregcm.auth.AuthorizationHeader;
-import org.whispersystems.textsecuregcm.auth.InvalidAuthorizationHeaderException;
+import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
@@ -50,8 +47,6 @@ import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 
 @Path("/v1/devices")
 public class DeviceController {
-
-  private final Logger logger = LoggerFactory.getLogger(DeviceController.class);
 
   private static final int MAX_DEVICES = 6;
 
@@ -149,55 +144,52 @@ public class DeviceController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Path("/{verification_code}")
   public DeviceResponse verifyDeviceToken(@PathParam("verification_code") String verificationCode,
-                                          @HeaderParam("Authorization")   String authorizationHeader,
-                                          @HeaderParam("User-Agent")      String userAgent,
-                                          @Valid                          AccountAttributes accountAttributes)
+                                          @HeaderParam("Authorization") BasicAuthorizationHeader authorizationHeader,
+                                          @HeaderParam("User-Agent") String userAgent,
+                                          @Valid AccountAttributes accountAttributes)
       throws RateLimitExceededException, DeviceLimitExceededException
   {
-    try {
-      AuthorizationHeader header = AuthorizationHeader.fromFullHeader(authorizationHeader);
-      String number              = header.getIdentifier().getNumber();
-      String password            = header.getPassword();
 
-      if (number == null) throw new WebApplicationException(400);
+    String number = authorizationHeader.getUsername();
+    String password = authorizationHeader.getPassword();
 
-      rateLimiters.getVerifyDeviceLimiter().validate(number);
+    rateLimiters.getVerifyDeviceLimiter().validate(number);
 
-      Optional<StoredVerificationCode> storedVerificationCode = pendingDevices.getCodeForNumber(number);
+    Optional<StoredVerificationCode> storedVerificationCode = pendingDevices.getCodeForNumber(number);
 
-      if (!storedVerificationCode.isPresent() || !storedVerificationCode.get().isValid(verificationCode)) {
-        throw new WebApplicationException(Response.status(403).build());
-      }
+    if (!storedVerificationCode.isPresent() || !storedVerificationCode.get().isValid(verificationCode)) {
+      throw new WebApplicationException(Response.status(403).build());
+    }
 
-      Optional<Account> account = accounts.get(number);
+    Optional<Account> account = accounts.get(number);
 
-      if (!account.isPresent()) {
-        throw new WebApplicationException(Response.status(403).build());
-      }
+    if (!account.isPresent()) {
+      throw new WebApplicationException(Response.status(403).build());
+    }
 
-      int maxDeviceLimit = MAX_DEVICES;
+    int maxDeviceLimit = MAX_DEVICES;
 
-      if (maxDeviceConfiguration.containsKey(account.get().getNumber())) {
-        maxDeviceLimit = maxDeviceConfiguration.get(account.get().getNumber());
-      }
+    if (maxDeviceConfiguration.containsKey(account.get().getNumber())) {
+      maxDeviceLimit = maxDeviceConfiguration.get(account.get().getNumber());
+    }
 
-      if (account.get().getEnabledDeviceCount() >= maxDeviceLimit) {
-        throw new DeviceLimitExceededException(account.get().getDevices().size(), MAX_DEVICES);
-      }
+    if (account.get().getEnabledDeviceCount() >= maxDeviceLimit) {
+      throw new DeviceLimitExceededException(account.get().getDevices().size(), MAX_DEVICES);
+    }
 
-      final DeviceCapabilities capabilities = accountAttributes.getCapabilities();
-      if (capabilities != null && isCapabilityDowngrade(account.get(), capabilities, userAgent)) {
-        throw new WebApplicationException(Response.status(409).build());
-      }
+    final DeviceCapabilities capabilities = accountAttributes.getCapabilities();
+    if (capabilities != null && isCapabilityDowngrade(account.get(), capabilities, userAgent)) {
+      throw new WebApplicationException(Response.status(409).build());
+    }
 
-      Device device = new Device();
-      device.setName(accountAttributes.getName());
-      device.setAuthenticationCredentials(new AuthenticationCredentials(password));
-      device.setFetchesMessages(accountAttributes.getFetchesMessages());
-      device.setRegistrationId(accountAttributes.getRegistrationId());
-      device.setLastSeen(Util.todayInMillis());
-      device.setCreated(System.currentTimeMillis());
-      device.setCapabilities(accountAttributes.getCapabilities());
+    Device device = new Device();
+    device.setName(accountAttributes.getName());
+    device.setAuthenticationCredentials(new AuthenticationCredentials(password));
+    device.setFetchesMessages(accountAttributes.getFetchesMessages());
+    device.setRegistrationId(accountAttributes.getRegistrationId());
+    device.setLastSeen(Util.todayInMillis());
+    device.setCreated(System.currentTimeMillis());
+    device.setCapabilities(accountAttributes.getCapabilities());
 
       accounts.update(account.get(), a -> {
         device.setId(a.getNextDeviceId());
@@ -205,13 +197,9 @@ public class DeviceController {
         a.addDevice(device);
       });
 
-      pendingDevices.remove(number);
+    pendingDevices.remove(number);
 
-      return new DeviceResponse(device.getId());
-    } catch (InvalidAuthorizationHeaderException e) {
-      logger.info("Bad Authorization Header", e);
-      throw new WebApplicationException(Response.status(401).build());
-    }
+    return new DeviceResponse(device.getId());
   }
 
   @Timed

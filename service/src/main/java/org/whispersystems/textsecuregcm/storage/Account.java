@@ -14,7 +14,6 @@ import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -333,14 +332,6 @@ public class Account {
     requireNotStale();
 
     this.unrestrictedUnidentifiedAccess = unrestrictedUnidentifiedAccess;
-  }
-
-  public boolean isFor(AmbiguousIdentifier identifier) {
-    requireNotStale();
-
-    if      (identifier.hasUuid())   return identifier.getUuid().equals(uuid);
-    else if (identifier.hasNumber()) return identifier.getNumber().equals(number);
-    else                             throw new AssertionError();
   }
 
   public boolean isDiscoverableByPhoneNumber() {

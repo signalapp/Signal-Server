@@ -79,7 +79,7 @@ class CertificateControllerTest {
     DeliveryCertificate certificateObject = resources.getJerseyTest()
                                                      .target("/v1/certificate/delivery")
                                                      .request()
-                                                     .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                                     .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                                      .get(DeliveryCertificate.class);
 
 
@@ -105,7 +105,7 @@ class CertificateControllerTest {
                                                      .target("/v1/certificate/delivery")
                                                      .queryParam("includeUuid", "true")
                                                      .request()
-                                                     .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                                     .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                                      .get(DeliveryCertificate.class);
 
 
@@ -131,7 +131,7 @@ class CertificateControllerTest {
             .queryParam("includeUuid", "true")
             .queryParam("includeE164", "false")
             .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .get(DeliveryCertificate.class);
 
 
@@ -155,7 +155,7 @@ class CertificateControllerTest {
     Response response = resources.getJerseyTest()
                                  .target("/v1/certificate/delivery")
                                  .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.INVALID_PASSWORD))
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.INVALID_PASSWORD))
                                  .get();
 
     assertEquals(response.getStatus(), 401);
@@ -189,7 +189,7 @@ class CertificateControllerTest {
     Response response = resources.getJerseyTest()
                                  .target("/v1/certificate/delivery")
                                  .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_NUMBER, AuthHelper.DISABLED_PASSWORD))
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
                                  .get();
 
     assertEquals(response.getStatus(), 401);
@@ -200,7 +200,7 @@ class CertificateControllerTest {
     GroupCredentials credentials = resources.getJerseyTest()
                                             .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + Util.currentDaysSinceEpoch())
                                             .request()
-                                            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                             .get(GroupCredentials.class);
 
     assertThat(credentials.getCredentials().size()).isEqualTo(1);
@@ -215,7 +215,7 @@ class CertificateControllerTest {
     GroupCredentials credentials = resources.getJerseyTest()
                                             .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + (Util.currentDaysSinceEpoch() + 7))
                                             .request()
-                                            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                             .get(GroupCredentials.class);
 
     assertThat(credentials.getCredentials().size()).isEqualTo(8);
@@ -233,7 +233,7 @@ class CertificateControllerTest {
     Response response = resources.getJerseyTest()
                                             .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + (Util.currentDaysSinceEpoch() + 8))
                                             .request()
-                                            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                             .get();
 
     assertThat(response.getStatus()).isEqualTo(400);
@@ -244,7 +244,7 @@ class CertificateControllerTest {
     Response response = resources.getJerseyTest()
                                  .target("/v1/certificate/group/" + (Util.currentDaysSinceEpoch() - 1) + "/" + (Util.currentDaysSinceEpoch() + 7))
                                  .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                  .get();
 
     assertThat(response.getStatus()).isEqualTo(400);
@@ -255,7 +255,7 @@ class CertificateControllerTest {
     Response response = resources.getJerseyTest()
                                  .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + (Util.currentDaysSinceEpoch() + 7))
                                  .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.INVALID_PASSWORD))
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.INVALID_PASSWORD))
                                  .get();
 
     assertThat(response.getStatus()).isEqualTo(401);

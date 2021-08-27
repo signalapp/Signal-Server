@@ -15,6 +15,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import javax.validation.Valid;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
@@ -26,7 +27,6 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
@@ -63,7 +63,6 @@ public class KeysController {
 
   private static final String SOURCE_COUNTRY_TAG_NAME = "sourceCountry";
   private static final String INTERNATIONAL_TAG_NAME = "international";
-  private static final String PREKEY_TARGET_IDENTIFIER_TAG_NAME =  "identifierType";
 
   public KeysController(RateLimiters rateLimiters, KeysDynamoDb keysDynamoDb, AccountsManager accounts,
       PreKeyRateLimiter preKeyRateLimiter,
@@ -119,20 +118,18 @@ public class KeysController {
   @Produces(MediaType.APPLICATION_JSON)
   public Response getDeviceKeys(@Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
-      @PathParam("identifier") AmbiguousIdentifier targetName,
+      @PathParam("identifier") UUID targetUuid,
       @PathParam("device_id") String deviceId,
       @HeaderParam("User-Agent") String userAgent)
       throws RateLimitExceededException, RateLimitChallengeException, ServerRejectedException {
 
-    targetName.incrementRequestCounter("getDeviceKeys", userAgent);
-
-    if (auth.isEmpty() && accessKey.isEmpty()) {
+    if (!auth.isPresent() && !accessKey.isPresent()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
     final Optional<Account> account = auth.map(AuthenticatedAccount::getAccount);
 
-    Optional<Account> target = accounts.get(targetName);
+    Optional<Account> target = accounts.get(targetUuid);
     OptionalAccess.verify(account, accessKey, target, deviceId);
 
     assert (target.isPresent());
@@ -143,8 +140,7 @@ public class KeysController {
 
       Metrics.counter(PREKEY_REQUEST_COUNTER_NAME, Tags.of(
           SOURCE_COUNTRY_TAG_NAME, sourceCountryCode,
-          INTERNATIONAL_TAG_NAME, String.valueOf(!sourceCountryCode.equals(targetCountryCode)),
-          PREKEY_TARGET_IDENTIFIER_TAG_NAME, targetName.hasNumber() ? "number" : "uuid"
+          INTERNATIONAL_TAG_NAME, String.valueOf(!sourceCountryCode.equals(targetCountryCode))
       )).increment();
     }
 

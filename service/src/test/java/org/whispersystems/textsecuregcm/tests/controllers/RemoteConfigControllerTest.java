@@ -87,7 +87,7 @@ class RemoteConfigControllerTest {
     UserRemoteConfigList configuration = resources.getJerseyTest()
                                                   .target("/v1/config/")
                                                   .request()
-                                                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                                   .get(UserRemoteConfigList.class);
 
     verify(remoteConfigsManager, times(1)).getAll();
@@ -121,7 +121,7 @@ class RemoteConfigControllerTest {
     UserRemoteConfigList configuration = resources.getJerseyTest()
                                                   .target("/v1/config/")
                                                   .request()
-                                                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER_TWO, AuthHelper.VALID_PASSWORD_TWO))
+                                                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
                                                   .get(UserRemoteConfigList.class);
 
     verify(remoteConfigsManager, times(1)).getAll();
@@ -178,7 +178,7 @@ class RemoteConfigControllerTest {
     Response response = resources.getJerseyTest()
                                  .target("/v1/config/")
                                  .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.INVALID_PASSWORD))
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.INVALID_PASSWORD))
                                  .get();
 
     assertThat(response.getStatus()).isEqualTo(401);

@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
@@ -42,8 +41,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
-import org.mockito.ArgumentMatcher;
-import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
@@ -74,12 +71,12 @@ class KeysControllerTest {
   private static final String EXISTS_NUMBER = "+14152222222";
   private static final UUID   EXISTS_UUID   = UUID.randomUUID();
 
-  private static String NOT_EXISTS_NUMBER = "+14152222220";
-  private static UUID   NOT_EXISTS_UUID   = UUID.randomUUID();
+  private static final String NOT_EXISTS_NUMBER = "+14152222220";
+  private static final UUID   NOT_EXISTS_UUID   = UUID.randomUUID();
 
-  private static int SAMPLE_REGISTRATION_ID  =  999;
-  private static int SAMPLE_REGISTRATION_ID2 = 1002;
-  private static int SAMPLE_REGISTRATION_ID4 = 1555;
+  private static final int SAMPLE_REGISTRATION_ID  =  999;
+  private static final int SAMPLE_REGISTRATION_ID2 = 1002;
+  private static final int SAMPLE_REGISTRATION_ID4 = 1555;
 
   private final PreKey SAMPLE_KEY    = new PreKey(1234, "test1");
   private final PreKey SAMPLE_KEY2   = new PreKey(5667, "test3");
@@ -158,13 +155,9 @@ class KeysControllerTest {
 
     when(accounts.get(EXISTS_NUMBER)).thenReturn(Optional.of(existsAccount));
     when(accounts.get(EXISTS_UUID)).thenReturn(Optional.of(existsAccount));
-    when(accounts.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(EXISTS_NUMBER)))).thenReturn(Optional.of(existsAccount));
-    when(accounts.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasUuid() && identifier.getUuid().equals(EXISTS_UUID)))).thenReturn(Optional.of(existsAccount));
 
-    when(accounts.get(NOT_EXISTS_NUMBER)).thenReturn(Optional.<Account>empty());
+    when(accounts.get(NOT_EXISTS_NUMBER)).thenReturn(Optional.empty());
     when(accounts.get(NOT_EXISTS_UUID)).thenReturn(Optional.empty());
-    when(accounts.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(NOT_EXISTS_NUMBER)))).thenReturn(Optional.empty());
-    when(accounts.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasUuid() && identifier.getUuid().equals(NOT_EXISTS_UUID)))).thenReturn(Optional.empty());
 
     when(rateLimiters.getPreKeysLimiter()).thenReturn(rateLimiter);
 
@@ -195,26 +188,12 @@ class KeysControllerTest {
   }
 
   @Test
-  void validKeyStatusTestByNumberV2() throws Exception {
+  void validKeyStatusTest() {
     PreKeyCount result = resources.getJerseyTest()
                                   .target("/v2/keys")
                                   .request()
                                   .header("Authorization",
-                                          AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-                                  .get(PreKeyCount.class);
-
-    assertThat(result.getCount()).isEqualTo(4);
-
-    verify(keysDynamoDb).getCount(eq(AuthHelper.VALID_ACCOUNT), eq(1L));
-  }
-
-  @Test
-  void validKeyStatusTestByUuidV2() throws Exception {
-    PreKeyCount result = resources.getJerseyTest()
-                                  .target("/v2/keys")
-                                  .request()
-                                  .header("Authorization",
-                                          AuthHelper.getAuthHeader(AuthHelper.VALID_UUID.toString(), AuthHelper.VALID_PASSWORD))
+                                          AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                   .get(PreKeyCount.class);
 
     assertThat(result.getCount()).isEqualTo(4);
@@ -224,11 +203,11 @@ class KeysControllerTest {
 
 
   @Test
-  void getSignedPreKeyV2ByNumber() throws Exception {
+  void getSignedPreKeyV2() {
     SignedPreKey result = resources.getJerseyTest()
                                    .target("/v2/keys/signed")
                                    .request()
-                                   .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                   .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                    .get(SignedPreKey.class);
 
     assertThat(result.getSignature()).isEqualTo(VALID_DEVICE_SIGNED_KEY.getSignature());
@@ -237,40 +216,12 @@ class KeysControllerTest {
   }
 
   @Test
-  void getSignedPreKeyV2ByUuid() throws Exception {
-    SignedPreKey result = resources.getJerseyTest()
-                                   .target("/v2/keys/signed")
-                                   .request()
-                                   .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID.toString(), AuthHelper.VALID_PASSWORD))
-                                   .get(SignedPreKey.class);
-
-    assertThat(result.getSignature()).isEqualTo(VALID_DEVICE_SIGNED_KEY.getSignature());
-    assertThat(result.getKeyId()).isEqualTo(VALID_DEVICE_SIGNED_KEY.getKeyId());
-    assertThat(result.getPublicKey()).isEqualTo(VALID_DEVICE_SIGNED_KEY.getPublicKey());
-  }
-
-  @Test
-  void putSignedPreKeyV2ByNumber() throws Exception {
-    SignedPreKey   test     = new SignedPreKey(9999, "fooozzz", "baaarzzz");
-    Response response = resources.getJerseyTest()
-                                       .target("/v2/keys/signed")
-                                       .request()
-                                       .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-                                       .put(Entity.entity(test, MediaType.APPLICATION_JSON_TYPE));
-
-    assertThat(response.getStatus()).isEqualTo(204);
-
-    verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(test));
-    verify(accounts).updateDevice(eq(AuthHelper.VALID_ACCOUNT), anyLong(), any());
-  }
-
-  @Test
-  void putSignedPreKeyV2ByUuid() throws Exception {
+  void putSignedPreKeyV2() {
     SignedPreKey   test     = new SignedPreKey(9998, "fooozzz", "baaarzzz");
     Response response = resources.getJerseyTest()
                                  .target("/v2/keys/signed")
                                  .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID.toString(), AuthHelper.VALID_PASSWORD))
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                  .put(Entity.entity(test, MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(204);
@@ -281,73 +232,23 @@ class KeysControllerTest {
 
 
   @Test
-  void disabledPutSignedPreKeyV2ByNumber() throws Exception {
+  void disabledPutSignedPreKeyV2() {
     SignedPreKey   test     = new SignedPreKey(9999, "fooozzz", "baaarzzz");
     Response response = resources.getJerseyTest()
                                  .target("/v2/keys/signed")
                                  .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_NUMBER, AuthHelper.DISABLED_PASSWORD))
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
                                  .put(Entity.entity(test, MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(401);
   }
 
   @Test
-  void disabledPutSignedPreKeyV2ByUuid() throws Exception {
-    SignedPreKey   test     = new SignedPreKey(9999, "fooozzz", "baaarzzz");
-    Response response = resources.getJerseyTest()
-                                 .target("/v2/keys/signed")
-                                 .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID.toString(), AuthHelper.DISABLED_PASSWORD))
-                                 .put(Entity.entity(test, MediaType.APPLICATION_JSON_TYPE));
-
-    assertThat(response.getStatus()).isEqualTo(401);
-  }
-
-
-  @Test
-  void validSingleRequestTestV2ByNumber() throws Exception {
-    PreKeyResponse result = resources.getJerseyTest()
-                                     .target(String.format("/v2/keys/%s/1", EXISTS_NUMBER))
-                                     .request()
-                                     .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-                                     .get(PreKeyResponse.class);
-
-    assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey());
-    assertThat(result.getDevicesCount()).isEqualTo(1);
-    assertThat(result.getDevice(1).getPreKey().getKeyId()).isEqualTo(SAMPLE_KEY.getKeyId());
-    assertThat(result.getDevice(1).getPreKey().getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
-    assertThat(result.getDevice(1).getSignedPreKey()).isEqualTo(existsAccount.getDevice(1).get().getSignedPreKey());
-
-    verify(keysDynamoDb).take(eq(existsAccount), eq(1L));
-    verifyNoMoreInteractions(keysDynamoDb);
-  }
-
-  @Test
-  void validSingleRequestTestV2ByUuid() throws Exception {
+  void validSingleRequestTestV2() {
     PreKeyResponse result = resources.getJerseyTest()
                                      .target(String.format("/v2/keys/%s/1", EXISTS_UUID))
                                      .request()
-                                     .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID.toString(), AuthHelper.VALID_PASSWORD))
-                                     .get(PreKeyResponse.class);
-
-    assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey());
-    assertThat(result.getDevicesCount()).isEqualTo(1);
-    assertThat(result.getDevice(1).getPreKey().getKeyId()).isEqualTo(SAMPLE_KEY.getKeyId());
-    assertThat(result.getDevice(1).getPreKey().getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
-    assertThat(result.getDevice(1).getSignedPreKey()).isEqualTo(existsAccount.getDevice(1).get().getSignedPreKey());
-
-    verify(keysDynamoDb).take(eq(existsAccount), eq(1L));
-    verifyNoMoreInteractions(keysDynamoDb);
-  }
-
-
-  @Test
-  void testUnidentifiedRequestByNumber() throws Exception {
-    PreKeyResponse result = resources.getJerseyTest()
-                                     .target(String.format("/v2/keys/%s/1", EXISTS_NUMBER))
-                                     .request()
-                                     .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("1337".getBytes()))
+                                     .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                      .get(PreKeyResponse.class);
 
     assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey());
@@ -361,9 +262,9 @@ class KeysControllerTest {
   }
 
   @Test
-  void testUnidentifiedRequestByUuid() throws Exception {
+  void testUnidentifiedRequest() {
     PreKeyResponse result = resources.getJerseyTest()
-                                     .target(String.format("/v2/keys/%s/1", EXISTS_UUID.toString()))
+                                     .target(String.format("/v2/keys/%s/1", EXISTS_UUID))
                                      .request()
                                      .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("1337".getBytes()))
                                      .get(PreKeyResponse.class);
@@ -384,7 +285,7 @@ class KeysControllerTest {
     when(existsAccount.getDevices()).thenReturn(Collections.emptySet());
 
     Response result = resources.getJerseyTest()
-        .target(String.format("/v2/keys/%s/*", EXISTS_UUID.toString()))
+        .target(String.format("/v2/keys/%s/*", EXISTS_UUID))
         .request()
         .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("1337".getBytes()))
         .get();
@@ -394,9 +295,9 @@ class KeysControllerTest {
   }
 
   @Test
-  void testUnauthorizedUnidentifiedRequest() throws Exception {
+  void testUnauthorizedUnidentifiedRequest() {
     Response response = resources.getJerseyTest()
-                                     .target(String.format("/v2/keys/%s/1", EXISTS_NUMBER))
+                                     .target(String.format("/v2/keys/%s/1", EXISTS_UUID))
                                      .request()
                                      .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("9999".getBytes()))
                                      .get();
@@ -406,9 +307,9 @@ class KeysControllerTest {
   }
 
   @Test
-  void testMalformedUnidentifiedRequest() throws Exception {
+  void testMalformedUnidentifiedRequest() {
     Response response = resources.getJerseyTest()
-                                 .target(String.format("/v2/keys/%s/1", EXISTS_NUMBER))
+                                 .target(String.format("/v2/keys/%s/1", EXISTS_UUID))
                                  .request()
                                  .header(OptionalAccess.UNIDENTIFIED, "$$$$$$$$$")
                                  .get();
@@ -419,61 +320,11 @@ class KeysControllerTest {
 
 
   @Test
-  void validMultiRequestTestV2ByNumber() throws Exception {
-    PreKeyResponse results = resources.getJerseyTest()
-                                      .target(String.format("/v2/keys/%s/*", EXISTS_NUMBER))
-                                      .request()
-                                      .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
-                                      .get(PreKeyResponse.class);
-
-    assertThat(results.getDevicesCount()).isEqualTo(3);
-    assertThat(results.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey());
-
-    PreKey signedPreKey   = results.getDevice(1).getSignedPreKey();
-    PreKey preKey         = results.getDevice(1).getPreKey();
-    long     registrationId = results.getDevice(1).getRegistrationId();
-    long     deviceId       = results.getDevice(1).getDeviceId();
-
-    assertThat(preKey.getKeyId()).isEqualTo(SAMPLE_KEY.getKeyId());
-    assertThat(preKey.getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
-    assertThat(registrationId).isEqualTo(SAMPLE_REGISTRATION_ID);
-    assertThat(signedPreKey.getKeyId()).isEqualTo(SAMPLE_SIGNED_KEY.getKeyId());
-    assertThat(signedPreKey.getPublicKey()).isEqualTo(SAMPLE_SIGNED_KEY.getPublicKey());
-    assertThat(deviceId).isEqualTo(1);
-
-    signedPreKey   = results.getDevice(2).getSignedPreKey();
-    preKey         = results.getDevice(2).getPreKey();
-    registrationId = results.getDevice(2).getRegistrationId();
-    deviceId       = results.getDevice(2).getDeviceId();
-
-    assertThat(preKey.getKeyId()).isEqualTo(SAMPLE_KEY2.getKeyId());
-    assertThat(preKey.getPublicKey()).isEqualTo(SAMPLE_KEY2.getPublicKey());
-    assertThat(registrationId).isEqualTo(SAMPLE_REGISTRATION_ID2);
-    assertThat(signedPreKey.getKeyId()).isEqualTo(SAMPLE_SIGNED_KEY2.getKeyId());
-    assertThat(signedPreKey.getPublicKey()).isEqualTo(SAMPLE_SIGNED_KEY2.getPublicKey());
-    assertThat(deviceId).isEqualTo(2);
-
-    signedPreKey   = results.getDevice(4).getSignedPreKey();
-    preKey         = results.getDevice(4).getPreKey();
-    registrationId = results.getDevice(4).getRegistrationId();
-    deviceId       = results.getDevice(4).getDeviceId();
-
-    assertThat(preKey.getKeyId()).isEqualTo(SAMPLE_KEY4.getKeyId());
-    assertThat(preKey.getPublicKey()).isEqualTo(SAMPLE_KEY4.getPublicKey());
-    assertThat(registrationId).isEqualTo(SAMPLE_REGISTRATION_ID4);
-    assertThat(signedPreKey).isNull();
-    assertThat(deviceId).isEqualTo(4);
-
-    verify(keysDynamoDb).take(eq(existsAccount));
-    verifyNoMoreInteractions(keysDynamoDb);
-  }
-
-  @Test
-  void validMultiRequestTestV2ByUuid() throws Exception {
+  void validMultiRequestTestV2() {
     PreKeyResponse results = resources.getJerseyTest()
                                       .target(String.format("/v2/keys/%s/*", EXISTS_UUID.toString()))
                                       .request()
-                                      .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID.toString(), AuthHelper.VALID_PASSWORD))
+                                      .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                       .get(PreKeyResponse.class);
 
     assertThat(results.getDevicesCount()).isEqualTo(3);
@@ -520,41 +371,41 @@ class KeysControllerTest {
 
 
   @Test
-  void invalidRequestTestV2() throws Exception {
+  void invalidRequestTestV2() {
     Response response = resources.getJerseyTest()
-                                 .target(String.format("/v2/keys/%s", NOT_EXISTS_NUMBER))
+                                 .target(String.format("/v2/keys/%s", NOT_EXISTS_UUID))
                                  .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                  .get();
 
     assertThat(response.getStatusInfo().getStatusCode()).isEqualTo(404);
   }
 
   @Test
-  void anotherInvalidRequestTestV2() throws Exception {
+  void anotherInvalidRequestTestV2() {
     Response response = resources.getJerseyTest()
-                                 .target(String.format("/v2/keys/%s/22", EXISTS_NUMBER))
+                                 .target(String.format("/v2/keys/%s/22", EXISTS_UUID))
                                  .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                  .get();
 
     assertThat(response.getStatusInfo().getStatusCode()).isEqualTo(404);
   }
 
   @Test
-  void unauthorizedRequestTestV2() throws Exception {
+  void unauthorizedRequestTestV2() {
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v2/keys/%s/1", EXISTS_NUMBER))
+                 .target(String.format("/v2/keys/%s/1", EXISTS_UUID))
                  .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.INVALID_PASSWORD))
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.INVALID_PASSWORD))
                  .get();
 
     assertThat(response.getStatusInfo().getStatusCode()).isEqualTo(401);
 
     response =
         resources.getJerseyTest()
-                 .target(String.format("/v2/keys/%s/1", EXISTS_NUMBER))
+                 .target(String.format("/v2/keys/%s/1", EXISTS_UUID))
                  .request()
                  .get();
 
@@ -562,7 +413,7 @@ class KeysControllerTest {
   }
 
   @Test
-  void putKeysTestV2() throws Exception {
+  void putKeysTestV2() {
     final PreKey       preKey       = new PreKey(31337, "foobar");
     final SignedPreKey signedPreKey = new SignedPreKey(31338, "foobaz", "myvalidsig");
     final String       identityKey  = "barbar";
@@ -577,7 +428,7 @@ class KeysControllerTest {
         resources.getJerseyTest()
                  .target("/v2/keys")
                  .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                  .put(Entity.entity(preKeyState, MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(204);
@@ -596,7 +447,7 @@ class KeysControllerTest {
   }
 
   @Test
-  void disabledPutKeysTestV2() throws Exception {
+  void disabledPutKeysTestV2() {
     final PreKey       preKey       = new PreKey(31337, "foobar");
     final SignedPreKey signedPreKey = new SignedPreKey(31338, "foobaz", "myvalidsig");
     final String       identityKey  = "barbar";
@@ -611,7 +462,7 @@ class KeysControllerTest {
         resources.getJerseyTest()
                  .target("/v2/keys")
                  .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_NUMBER, AuthHelper.DISABLED_PASSWORD))
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
                  .put(Entity.entity(preKeyState, MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(204);
@@ -657,7 +508,7 @@ class KeysControllerTest {
     result = resources.getJerseyTest()
         .target(String.format("/v2/keys/%s/*", EXISTS_UUID.toString()))
         .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .header("User-Agent", "Signal-Android/5.1.2 Android/30")
         .get();
 

@@ -36,7 +36,6 @@ import net.logstash.logback.argument.StructuredArguments;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -371,12 +370,6 @@ public class AccountsManager {
       // assume that all updaters passed to the public method actually modify the device
       return true;
     });
-  }
-
-  public Optional<Account> get(AmbiguousIdentifier identifier) {
-    if      (identifier.hasNumber()) return get(identifier.getNumber());
-    else if (identifier.hasUuid())   return get(identifier.getUuid());
-    else                             throw new AssertionError();
   }
 
   public Optional<Account> get(String number) {

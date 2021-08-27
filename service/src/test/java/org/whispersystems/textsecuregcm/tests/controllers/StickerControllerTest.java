@@ -56,7 +56,7 @@ class StickerControllerTest {
     StickerPackFormUploadAttributes attributes  = resources.getJerseyTest()
                                                            .target("/v1/sticker/pack/form/10")
                                                            .request()
-                                                           .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                                           .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                                            .get(StickerPackFormUploadAttributes.class);
 
     assertThat(attributes.getPackId()).isNotNull();
@@ -94,7 +94,7 @@ class StickerControllerTest {
     Response response = resources.getJerseyTest()
                         .target("/v1/sticker/pack/form/202")
                         .request()
-                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                         .get();
 
     assertThat(response.getStatus()).isEqualTo(400);

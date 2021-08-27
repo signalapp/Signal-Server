@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.tests.util;
 
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
@@ -21,9 +20,7 @@ import java.util.Base64;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
-import org.mockito.ArgumentMatcher;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
-import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
@@ -46,7 +43,7 @@ public class AuthHelper {
   public static final UUID   VALID_UUID_TWO    = UUID.randomUUID();
   public static final String VALID_PASSWORD_TWO = "baz";
 
-  public static final String INVVALID_NUMBER  = "+14151111111";
+  public static final String INVALID_NUMBER  = "+14151111111";
   public static final UUID   INVALID_UUID     = UUID.randomUUID();
   public static final String INVALID_PASSWORD = "bar";
 
@@ -142,35 +139,15 @@ public class AuthHelper {
 
     when(ACCOUNTS_MANAGER.get(VALID_NUMBER)).thenReturn(Optional.of(VALID_ACCOUNT));
     when(ACCOUNTS_MANAGER.get(VALID_UUID)).thenReturn(Optional.of(VALID_ACCOUNT));
-    when(ACCOUNTS_MANAGER.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(VALID_NUMBER)))).thenReturn(Optional.of(VALID_ACCOUNT));
-    when(ACCOUNTS_MANAGER.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasUuid() && identifier.getUuid().equals(VALID_UUID)))).thenReturn(Optional.of(VALID_ACCOUNT));
 
     when(ACCOUNTS_MANAGER.get(VALID_NUMBER_TWO)).thenReturn(Optional.of(VALID_ACCOUNT_TWO));
     when(ACCOUNTS_MANAGER.get(VALID_UUID_TWO)).thenReturn(Optional.of(VALID_ACCOUNT_TWO));
-    when(ACCOUNTS_MANAGER.get(argThat(
-        (ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber()
-            && identifier.getNumber().equals(VALID_NUMBER_TWO)))).thenReturn(Optional.of(VALID_ACCOUNT_TWO));
-    when(ACCOUNTS_MANAGER.get(argThat(
-        (ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasUuid()
-            && identifier.getUuid().equals(VALID_UUID_TWO)))).thenReturn(Optional.of(VALID_ACCOUNT_TWO));
 
     when(ACCOUNTS_MANAGER.get(DISABLED_NUMBER)).thenReturn(Optional.of(DISABLED_ACCOUNT));
     when(ACCOUNTS_MANAGER.get(DISABLED_UUID)).thenReturn(Optional.of(DISABLED_ACCOUNT));
-    when(ACCOUNTS_MANAGER.get(argThat(
-        (ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber()
-            && identifier.getNumber().equals(DISABLED_NUMBER)))).thenReturn(Optional.of(DISABLED_ACCOUNT));
-    when(ACCOUNTS_MANAGER.get(argThat(
-        (ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasUuid()
-            && identifier.getUuid().equals(DISABLED_UUID)))).thenReturn(Optional.of(DISABLED_ACCOUNT));
 
     when(ACCOUNTS_MANAGER.get(UNDISCOVERABLE_NUMBER)).thenReturn(Optional.of(UNDISCOVERABLE_ACCOUNT));
     when(ACCOUNTS_MANAGER.get(UNDISCOVERABLE_UUID)).thenReturn(Optional.of(UNDISCOVERABLE_ACCOUNT));
-    when(ACCOUNTS_MANAGER.get(argThat(
-        (ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber()
-            && identifier.getNumber().equals(UNDISCOVERABLE_NUMBER)))).thenReturn(Optional.of(UNDISCOVERABLE_ACCOUNT));
-    when(ACCOUNTS_MANAGER.get(argThat(
-        (ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasUuid()
-            && identifier.getUuid().equals(UNDISCOVERABLE_UUID)))).thenReturn(Optional.of(UNDISCOVERABLE_ACCOUNT));
 
     AccountsHelper.setupMockUpdateForAuthHelper(ACCOUNTS_MANAGER);
 
@@ -187,8 +164,16 @@ public class AuthHelper {
         DisabledPermittedAuthenticatedAccount.class, disabledPermittedAccountAuthFilter));
   }
 
-  public static String getAuthHeader(String number, String password) {
-    return "Basic " + Base64.getEncoder().encodeToString((number + ":" + password).getBytes());
+  public static String getAuthHeader(UUID uuid, String password) {
+    return getAuthHeader(uuid.toString(), password);
+  }
+
+  public static String getProvisioningAuthHeader(String number, String password) {
+    return getAuthHeader(number, password);
+  }
+
+  private static String getAuthHeader(String identifier, String password) {
+    return "Basic " + Base64.getEncoder().encodeToString((identifier + ":" + password).getBytes());
   }
 
   public static String getUnidentifiedAccessHeader(byte[] key) {
@@ -220,7 +205,7 @@ public class AuthHelper {
     }
 
     public String getAuthHeader() {
-      return AuthHelper.getAuthHeader(number, password);
+      return AuthHelper.getAuthHeader(uuid, password);
     }
 
     private void setup(final AccountsManager accountsManager) {
@@ -237,12 +222,6 @@ public class AuthHelper {
       when(account.isEnabled()).thenReturn(true);
       when(accountsManager.get(number)).thenReturn(Optional.of(account));
       when(accountsManager.get(uuid)).thenReturn(Optional.of(account));
-      when(accountsManager.get(argThat(
-          (ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber()
-              && identifier.getNumber().equals(number)))).thenReturn(Optional.of(account));
-      when(accountsManager.get(argThat(
-          (ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasUuid()
-              && identifier.getUuid().equals(uuid)))).thenReturn(Optional.of(account));
     }
   }
 

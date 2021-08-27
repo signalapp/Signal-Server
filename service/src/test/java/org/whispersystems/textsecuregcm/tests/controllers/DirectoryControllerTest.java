@@ -55,7 +55,7 @@ class DirectoryControllerTest {
         resources.getJerseyTest()
                  .target("/v1/directory/feedback-v3/ok")
                  .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                  .put(Entity.json("{\"reason\": \"test reason\"}"));
     assertThat(response.getStatusInfo().getFamily()).isEqualTo(Family.SUCCESSFUL);
   }
@@ -66,7 +66,7 @@ class DirectoryControllerTest {
             resources.getJerseyTest()
                      .target("/v1/directory/auth")
                      .request()
-                     .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                     .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                      .get(ExternalServiceCredentials.class);
     assertThat(token.getUsername()).isEqualTo(validCredentials.getUsername());
     assertThat(token.getPassword()).isEqualTo(validCredentials.getPassword());
@@ -78,7 +78,7 @@ class DirectoryControllerTest {
         resources.getJerseyTest()
                  .target("/v1/directory/auth")
                  .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_NUMBER, AuthHelper.DISABLED_PASSWORD))
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
                  .get();
     assertThat(response.getStatus()).isEqualTo(401);
   }
@@ -91,7 +91,7 @@ class DirectoryControllerTest {
                  .target("/v1/directory/tokens/")
                  .request()
                  .header("Authorization",
-                         AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER,
+                         AuthHelper.getAuthHeader(AuthHelper.VALID_UUID,
                                                   AuthHelper.VALID_PASSWORD))
                  .header("X-Forwarded-For", "192.168.1.1, 1.1.1.1")
                  .put(Entity.entity(Collections.emptyMap(), MediaType.APPLICATION_JSON_TYPE));

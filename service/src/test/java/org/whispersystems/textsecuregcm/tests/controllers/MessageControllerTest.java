@@ -19,7 +19,6 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -66,9 +65,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
-import org.mockito.ArgumentMatcher;
 import org.mockito.stubbing.Answer;
-import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
@@ -156,22 +153,26 @@ class MessageControllerTest {
       .build();
 
   @BeforeEach
-  void setup() throws Exception {
-    Set<Device> singleDeviceList = new HashSet<Device>() {{
+  void setup() {
+    Set<Device> singleDeviceList = new HashSet<>() {{
       add(new Device(1, null, "foo", "bar",
-          "isgcm", null, null, false, 111, new SignedPreKey(333, "baz", "boop"), System.currentTimeMillis(), System.currentTimeMillis(), "Test", 0, new Device.DeviceCapabilities(true, false, false, true, true, false,
+          "isgcm", null, null, false, 111, new SignedPreKey(333, "baz", "boop"), System.currentTimeMillis(),
+          System.currentTimeMillis(), "Test", 0, new Device.DeviceCapabilities(true, false, false, true, true, false,
           false, false)));
     }};
 
-    Set<Device> multiDeviceList = new HashSet<Device>() {{
+    Set<Device> multiDeviceList = new HashSet<>() {{
       add(new Device(1, null, "foo", "bar",
-          "isgcm", null, null, false, 222, new SignedPreKey(111, "foo", "bar"), System.currentTimeMillis(), System.currentTimeMillis(), "Test", 0, new Device.DeviceCapabilities(true, false, false, true, false, false,
+          "isgcm", null, null, false, 222, new SignedPreKey(111, "foo", "bar"), System.currentTimeMillis(),
+          System.currentTimeMillis(), "Test", 0, new Device.DeviceCapabilities(true, false, false, true, false, false,
           false, false)));
       add(new Device(2, null, "foo", "bar",
-          "isgcm", null, null, false, 333, new SignedPreKey(222, "oof", "rab"), System.currentTimeMillis(), System.currentTimeMillis(), "Test", 0, new Device.DeviceCapabilities(true, false, false, true, false, false,
+          "isgcm", null, null, false, 333, new SignedPreKey(222, "oof", "rab"), System.currentTimeMillis(),
+          System.currentTimeMillis(), "Test", 0, new Device.DeviceCapabilities(true, false, false, true, false, false,
           false, false)));
       add(new Device(3, null, "foo", "bar",
-          "isgcm", null, null, false, 444, null, System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31), System.currentTimeMillis(), "Test", 0, new Device.DeviceCapabilities(false, false, false, false, false, false,
+          "isgcm", null, null, false, 444, null, System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31),
+          System.currentTimeMillis(), "Test", 0, new Device.DeviceCapabilities(false, false, false, false, false, false,
           false, false)));
     }};
 
@@ -179,12 +180,9 @@ class MessageControllerTest {
     Account multiDeviceAccount   = new Account(MULTI_DEVICE_RECIPIENT, MULTI_DEVICE_UUID, multiDeviceList, "1234".getBytes());
     internationalAccount = new Account(INTERNATIONAL_RECIPIENT, INTERNATIONAL_UUID, singleDeviceList, "1234".getBytes());
 
-    when(accountsManager.get(eq(SINGLE_DEVICE_RECIPIENT))).thenReturn(Optional.of(singleDeviceAccount));
-    when(accountsManager.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(SINGLE_DEVICE_RECIPIENT)))).thenReturn(Optional.of(singleDeviceAccount));
-    when(accountsManager.get(eq(MULTI_DEVICE_RECIPIENT))).thenReturn(Optional.of(multiDeviceAccount));
-    when(accountsManager.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(MULTI_DEVICE_RECIPIENT)))).thenReturn(Optional.of(multiDeviceAccount));
-    when(accountsManager.get(INTERNATIONAL_RECIPIENT)).thenReturn(Optional.of(internationalAccount));
-    when(accountsManager.get(argThat((ArgumentMatcher<AmbiguousIdentifier>) identifier -> identifier != null && identifier.hasNumber() && identifier.getNumber().equals(INTERNATIONAL_RECIPIENT)))).thenReturn(Optional.of(internationalAccount));
+    when(accountsManager.get(eq(SINGLE_DEVICE_UUID))).thenReturn(Optional.of(singleDeviceAccount));
+    when(accountsManager.get(eq(MULTI_DEVICE_UUID))).thenReturn(Optional.of(multiDeviceAccount));
+    when(accountsManager.get(INTERNATIONAL_UUID)).thenReturn(Optional.of(internationalAccount));
 
     when(rateLimiters.getMessagesLimiter()).thenReturn(rateLimiter);
 
@@ -221,9 +219,9 @@ class MessageControllerTest {
   void testSendFromDisabledAccount() throws Exception {
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/messages/%s", SINGLE_DEVICE_RECIPIENT))
+                 .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
                  .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_NUMBER, AuthHelper.DISABLED_PASSWORD))
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
                  .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
                                     MediaType.APPLICATION_JSON_TYPE));
 
@@ -234,9 +232,9 @@ class MessageControllerTest {
   void testSingleDeviceCurrent() throws Exception {
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/messages/%s", SINGLE_DEVICE_RECIPIENT))
+                 .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
                  .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                  .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
                                     MediaType.APPLICATION_JSON_TYPE));
 
@@ -253,9 +251,9 @@ class MessageControllerTest {
   void testNullMessageInList() throws Exception {
     Response response =
         resources.getJerseyTest()
-            .target(String.format("/v1/messages/%s", SINGLE_DEVICE_RECIPIENT))
+            .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
             .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_null_message_in_list.json"), IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
 
@@ -283,9 +281,9 @@ class MessageControllerTest {
 
     Response response =
         resources.getJerseyTest()
-            .target(String.format("/v1/messages/%s", INTERNATIONAL_RECIPIENT))
+            .target(String.format("/v1/messages/%s", INTERNATIONAL_UUID))
             .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .header("X-Forwarded-For", senderHost)
             .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
@@ -333,9 +331,9 @@ class MessageControllerTest {
 
     Response response =
         resources.getJerseyTest()
-            .target(String.format("/v1/messages/%s", INTERNATIONAL_RECIPIENT))
+            .target(String.format("/v1/messages/%s", INTERNATIONAL_UUID))
             .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .header("User-Agent", "Signal-Android/5.6.4 Android/30")
             .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
@@ -363,9 +361,9 @@ class MessageControllerTest {
 
     Response response =
         resources.getJerseyTest()
-            .target(String.format("/v1/messages/%s", INTERNATIONAL_RECIPIENT))
+            .target(String.format("/v1/messages/%s", INTERNATIONAL_UUID))
             .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .header("User-Agent", "Signal-Android/5.1.2 Android/30")
             .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
@@ -385,7 +383,7 @@ class MessageControllerTest {
   void testSingleDeviceCurrentUnidentified() throws Exception {
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/messages/%s", SINGLE_DEVICE_RECIPIENT))
+                 .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
                  .request()
                  .header(OptionalAccess.UNIDENTIFIED, Base64.getEncoder().encodeToString("1234".getBytes()))
                  .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
@@ -405,7 +403,7 @@ class MessageControllerTest {
   void testSendBadAuth() throws Exception {
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/messages/%s", SINGLE_DEVICE_RECIPIENT))
+                 .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
                  .request()
                  .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
                                     MediaType.APPLICATION_JSON_TYPE));
@@ -417,9 +415,9 @@ class MessageControllerTest {
   void testMultiDeviceMissing() throws Exception {
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
+                 .target(String.format("/v1/messages/%s", MULTI_DEVICE_UUID))
                  .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                  .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
                                     MediaType.APPLICATION_JSON_TYPE));
 
@@ -436,9 +434,9 @@ class MessageControllerTest {
   void testMultiDeviceExtra() throws Exception {
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
+                 .target(String.format("/v1/messages/%s", MULTI_DEVICE_UUID))
                  .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                  .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_extra_device.json"), IncomingMessageList.class),
                                     MediaType.APPLICATION_JSON_TYPE));
 
@@ -455,9 +453,9 @@ class MessageControllerTest {
   void testMultiDevice() throws Exception {
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
+                 .target(String.format("/v1/messages/%s", MULTI_DEVICE_UUID))
                  .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                  .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_multi_device.json"), IncomingMessageList.class),
                                     MediaType.APPLICATION_JSON_TYPE));
 
@@ -469,9 +467,9 @@ class MessageControllerTest {
   @Test
   void testRegistrationIdMismatch() throws Exception {
     Response response =
-        resources.getJerseyTest().target(String.format("/v1/messages/%s", MULTI_DEVICE_RECIPIENT))
+        resources.getJerseyTest().target(String.format("/v1/messages/%s", MULTI_DEVICE_UUID))
                  .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                  .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_registration_id.json"), IncomingMessageList.class),
                                     MediaType.APPLICATION_JSON_TYPE));
 
@@ -506,7 +504,7 @@ class MessageControllerTest {
     OutgoingMessageEntityList response =
         resources.getJerseyTest().target("/v1/messages/")
                  .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID.toString(), AuthHelper.VALID_PASSWORD))
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                  .accept(MediaType.APPLICATION_JSON_TYPE)
                  .get(OutgoingMessageEntityList.class);
 
@@ -543,7 +541,7 @@ class MessageControllerTest {
     Response response =
         resources.getJerseyTest().target("/v1/messages/")
                  .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID.toString(), AuthHelper.INVALID_PASSWORD))
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.INVALID_PASSWORD))
                  .accept(MediaType.APPLICATION_JSON_TYPE)
                  .get();
 
@@ -573,7 +571,7 @@ class MessageControllerTest {
     Response response = resources.getJerseyTest()
                                  .target(String.format("/v1/messages/uuid/%s", uuid1))
                                  .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                  .delete();
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
@@ -582,7 +580,7 @@ class MessageControllerTest {
     response = resources.getJerseyTest()
                         .target(String.format("/v1/messages/uuid/%s", uuid2))
                         .request()
-                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID.toString(), AuthHelper.VALID_PASSWORD))
+                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                         .delete();
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
@@ -591,7 +589,7 @@ class MessageControllerTest {
     response = resources.getJerseyTest()
                         .target(String.format("/v1/messages/uuid/%s", uuid3))
                         .request()
-                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                         .delete();
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
@@ -609,7 +607,7 @@ class MessageControllerTest {
         resources.getJerseyTest()
             .target(String.format("/v1/messages/report/%s/%s", senderNumber, messageGuid))
             .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .post(null);
 
     assertThat(response.getStatus(), is(equalTo(202)));

@@ -104,7 +104,7 @@ class DeviceControllerTest {
 
 
   @BeforeEach
-  void setup() throws Exception {
+  void setup() {
     when(rateLimiters.getSmsDestinationLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getVoiceDestinationLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getVerifyLimiter()).thenReturn(rateLimiter);
@@ -147,11 +147,11 @@ class DeviceControllerTest {
   }
 
   @Test
-  void validDeviceRegisterTest() throws Exception {
+  void validDeviceRegisterTest() {
     VerificationCode deviceCode = resources.getJerseyTest()
                                            .target("/v1/devices/provisioning/code")
                                            .request()
-                                           .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                           .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                            .get(VerificationCode.class);
 
     assertThat(deviceCode).isEqualTo(new VerificationCode(5678901));
@@ -159,7 +159,7 @@ class DeviceControllerTest {
     DeviceResponse response = resources.getJerseyTest()
                                        .target("/v1/devices/5678901")
                                        .request()
-                                       .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+                                       .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
                                        .put(Entity.entity(new AccountAttributes(false, 1234, null,
                                                        null, true, null),
                                                           MediaType.APPLICATION_JSON_TYPE),
@@ -172,22 +172,35 @@ class DeviceControllerTest {
   }
 
   @Test
-  void disabledDeviceRegisterTest() throws Exception {
+  void verifyDeviceTokenBadCredentials() {
+    final Response response = resources.getJerseyTest()
+        .target("/v1/devices/5678901")
+        .request()
+        .header("Authorization", "This is not a valid authorization header")
+        .put(Entity.entity(new AccountAttributes(false, 1234, null,
+                null, true, null),
+            MediaType.APPLICATION_JSON_TYPE));
+
+    assertEquals(401, response.getStatus());
+  }
+
+  @Test
+  void disabledDeviceRegisterTest() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/devices/provisioning/code")
                                  .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_NUMBER, AuthHelper.DISABLED_PASSWORD))
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
                                  .get();
 
       assertThat(response.getStatus()).isEqualTo(401);
   }
 
   @Test
-  void invalidDeviceRegisterTest() throws Exception {
+  void invalidDeviceRegisterTest() {
     VerificationCode deviceCode = resources.getJerseyTest()
                                            .target("/v1/devices/provisioning/code")
                                            .request()
-                                           .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+                                           .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                            .get(VerificationCode.class);
 
     assertThat(deviceCode).isEqualTo(new VerificationCode(5678901));
@@ -195,7 +208,7 @@ class DeviceControllerTest {
     Response response = resources.getJerseyTest()
                                  .target("/v1/devices/5678902")
                                  .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+                                 .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
                                  .put(Entity.entity(new AccountAttributes(false, 1234, null, null, true, null),
                                                     MediaType.APPLICATION_JSON_TYPE));
 
@@ -205,11 +218,11 @@ class DeviceControllerTest {
   }
 
   @Test
-  void oldDeviceRegisterTest() throws Exception {
+  void oldDeviceRegisterTest() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/devices/1112223")
                                  .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER_TWO, AuthHelper.VALID_PASSWORD_TWO))
+                                 .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER_TWO, AuthHelper.VALID_PASSWORD_TWO))
                                  .put(Entity.entity(new AccountAttributes(false, 1234, null, null, true, null),
                                                     MediaType.APPLICATION_JSON_TYPE));
 
@@ -219,11 +232,11 @@ class DeviceControllerTest {
   }
 
   @Test
-  void maxDevicesTest() throws Exception {
+  void maxDevicesTest() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/devices/provisioning/code")
                                  .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER_TWO, AuthHelper.VALID_PASSWORD_TWO))
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
                                  .get();
 
     assertEquals(411, response.getStatus());
@@ -231,11 +244,11 @@ class DeviceControllerTest {
   }
 
   @Test
-  void longNameTest() throws Exception {
+  void longNameTest() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/devices/5678901")
                                  .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+                                 .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
                                  .put(Entity.entity(new AccountAttributes(false, 1234, "this is a really long name that is longer than 80 characters it's so long that it's even longer than 204 characters. that's a lot of characters. we're talking lots and lots and lots of characters. 12345678", null, true, null),
                                                     MediaType.APPLICATION_JSON_TYPE));
 
@@ -245,13 +258,13 @@ class DeviceControllerTest {
 
   @ParameterizedTest
   @MethodSource
-  void deviceDowngradeCapabilitiesTest(final String userAgent, final boolean gv2, final boolean gv2_2, final boolean gv2_3, final int expectedStatus) throws Exception {
+  void deviceDowngradeCapabilitiesTest(final String userAgent, final boolean gv2, final boolean gv2_2, final boolean gv2_3, final int expectedStatus) {
     DeviceCapabilities deviceCapabilities = new DeviceCapabilities(gv2, gv2_2, gv2_3, true, false, true, true, true);
     AccountAttributes accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     Response response = resources.getJerseyTest()
             .target("/v1/devices/5678901")
             .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+            .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
             .header("User-Agent", userAgent)
             .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
 
@@ -291,7 +304,7 @@ class DeviceControllerTest {
     Response response = resources.getJerseyTest()
                                  .target("/v1/devices/5678901")
                                  .request()
-                                 .header("authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+                                 .header("authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
                                  .header("user-agent", "Signal-Android/4.68.3 Android/25")
                                  .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
 
@@ -302,7 +315,7 @@ class DeviceControllerTest {
     response = resources.getJerseyTest()
                         .target("/v1/devices/5678901")
                         .request()
-                        .header("authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+                        .header("authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
                         .header("user-agent", "Signal-Android/4.68.3 Android/25")
                         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
 
@@ -318,7 +331,7 @@ class DeviceControllerTest {
         .getJerseyTest()
         .target("/v1/devices/5678901")
         .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(409);
@@ -329,7 +342,7 @@ class DeviceControllerTest {
         .getJerseyTest()
         .target("/v1/devices/5678901")
         .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(200);
@@ -344,7 +357,7 @@ class DeviceControllerTest {
         .getJerseyTest()
         .target("/v1/devices/5678901")
         .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(409);
@@ -355,7 +368,7 @@ class DeviceControllerTest {
         .getJerseyTest()
         .target("/v1/devices/5678901")
         .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(200);
@@ -373,7 +386,7 @@ class DeviceControllerTest {
         .getJerseyTest()
         .target("/v1/devices/" + deviceId)
         .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
         .delete();
 

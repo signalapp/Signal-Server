@@ -39,7 +39,6 @@ import org.signal.zkgroup.profiles.ProfileKeyCredentialResponse;
 import org.signal.zkgroup.profiles.ServerZkProfileOperations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.AmbiguousIdentifier;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
@@ -339,11 +338,9 @@ public class ProfileController {
   public Profile getProfile(@Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
       @HeaderParam("User-Agent") String userAgent,
-      @PathParam("identifier") AmbiguousIdentifier identifier,
+      @PathParam("identifier") UUID identifier,
       @QueryParam("ca") boolean useCaCertificate)
       throws RateLimitExceededException {
-
-    identifier.incrementRequestCounter("getProfile", userAgent);
 
     if (auth.isEmpty() && accessKey.isEmpty()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
@@ -356,12 +353,7 @@ public class ProfileController {
     Optional<Account> accountProfile = accountsManager.get(identifier);
     OptionalAccess.verify(auth.map(AuthenticatedAccount::getAccount), accessKey, accountProfile);
 
-    Optional<String> username = Optional.empty();
-
-    if (!identifier.hasNumber()) {
-      //noinspection OptionalGetWithoutIsPresent
-      username = usernamesManager.get(accountProfile.get().getUuid());
-    }
+    Optional<String> username = usernamesManager.get(accountProfile.get().getUuid());
 
     return new Profile(accountProfile.get().getProfileName(),
                        null,

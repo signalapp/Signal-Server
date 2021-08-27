@@ -15,11 +15,13 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
+import java.util.UUID;
 import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.RefreshingAccountAndDeviceSupplier;
+import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 
 public class BaseAccountAuthenticator {
@@ -28,7 +30,6 @@ public class BaseAccountAuthenticator {
   private static final String AUTHENTICATION_SUCCEEDED_TAG_NAME = "succeeded";
   private static final String AUTHENTICATION_FAILURE_REASON_TAG_NAME = "reason";
   private static final String AUTHENTICATION_ENABLED_REQUIRED_TAG_NAME = "enabledRequired";
-  private static final String AUTHENTICATION_CREDENTIAL_TYPE_TAG_NAME = "credentialType";
 
   private static final String DAYS_SINCE_LAST_SEEN_DISTRIBUTION_NAME = name(BaseAccountAuthenticator.class, "daysSinceLastSeen");
   private static final String IS_PRIMARY_DEVICE_TAG = "isPrimary";
@@ -46,24 +47,45 @@ public class BaseAccountAuthenticator {
     this.clock           = clock;
   }
 
+  static Pair<String, Long> getIdentifierAndDeviceId(final String basicUsername) {
+    final String identifier;
+    final long deviceId;
+
+    final int deviceIdSeparatorIndex = basicUsername.indexOf('.');
+
+    if (deviceIdSeparatorIndex == -1) {
+      identifier = basicUsername;
+      deviceId = Device.MASTER_ID;
+    } else {
+      identifier = basicUsername.substring(0, deviceIdSeparatorIndex);
+      deviceId = Long.parseLong(basicUsername.substring(deviceIdSeparatorIndex + 1));
+    }
+
+    return new Pair<>(identifier, deviceId);
+  }
+
   public Optional<AuthenticatedAccount> authenticate(BasicCredentials basicCredentials, boolean enabledRequired) {
     boolean succeeded = false;
     String failureReason = null;
-    String credentialType = null;
 
     try {
-      AuthorizationHeader authorizationHeader = AuthorizationHeader.fromUserAndPassword(basicCredentials.getUsername(),
-          basicCredentials.getPassword());
-      Optional<Account> account = accountsManager.get(authorizationHeader.getIdentifier());
+      final UUID accountUuid;
+      final long deviceId;
+      {
+        final Pair<String, Long> identifierAndDeviceId = getIdentifierAndDeviceId(basicCredentials.getUsername());
 
-      credentialType = authorizationHeader.getIdentifier().hasNumber() ? "e164" : "uuid";
+        accountUuid = UUID.fromString(identifierAndDeviceId.first());
+        deviceId = identifierAndDeviceId.second();
+      }
+
+      Optional<Account> account = accountsManager.get(accountUuid);
 
       if (account.isEmpty()) {
         failureReason = "noSuchAccount";
         return Optional.empty();
       }
 
-      Optional<Device> device = account.get().getDevice(authorizationHeader.getDeviceId());
+      Optional<Device> device = account.get().getDevice(deviceId);
 
       if (device.isEmpty()) {
         failureReason = "noSuchDevice";
@@ -100,10 +122,6 @@ public class BaseAccountAuthenticator {
 
       if (StringUtils.isNotBlank(failureReason)) {
         tags = tags.and(AUTHENTICATION_FAILURE_REASON_TAG_NAME, failureReason);
-      }
-
-      if (StringUtils.isNotBlank(credentialType)) {
-        tags = tags.and(AUTHENTICATION_CREDENTIAL_TYPE_TAG_NAME, credentialType);
       }
 
       Metrics.counter(AUTHENTICATION_COUNTER_NAME, tags).increment();
