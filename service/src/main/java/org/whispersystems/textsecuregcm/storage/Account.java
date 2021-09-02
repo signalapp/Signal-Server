@@ -180,6 +180,14 @@ public class Account {
         .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isAnnouncementGroup());
   }
 
+  public boolean isChangeNumberSupported() {
+    requireNotStale();
+
+    return devices.stream()
+        .filter(Device::isEnabled)
+        .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isChangeNumber());
+  }
+
   public boolean isEnabled() {
     requireNotStale();
 

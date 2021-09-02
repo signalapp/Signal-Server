@@ -228,6 +228,7 @@ public class DeviceController {
   private boolean isCapabilityDowngrade(Account account, DeviceCapabilities capabilities, String userAgent) {
     boolean isDowngrade = false;
 
+    isDowngrade |= account.isChangeNumberSupported() && !capabilities.isChangeNumber();
     isDowngrade |= account.isAnnouncementGroupSupported() && !capabilities.isAnnouncementGroup();
     isDowngrade |= account.isSenderKeySupported() && !capabilities.isSenderKey();
     isDowngrade |= account.isGv1MigrationSupported() && !capabilities.isGv1Migration();

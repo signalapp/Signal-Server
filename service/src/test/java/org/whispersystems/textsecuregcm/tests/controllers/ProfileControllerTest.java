@@ -130,6 +130,7 @@ class ProfileControllerTest {
     when(profileAccount.isGv1MigrationSupported()).thenReturn(false);
     when(profileAccount.isSenderKeySupported()).thenReturn(false);
     when(profileAccount.isAnnouncementGroupSupported()).thenReturn(false);
+    when(profileAccount.isChangeNumberSupported()).thenReturn(false);
     when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.empty());
 
     Account capabilitiesAccount = mock(Account.class);
@@ -142,6 +143,7 @@ class ProfileControllerTest {
     when(capabilitiesAccount.isGv1MigrationSupported()).thenReturn(true);
     when(capabilitiesAccount.isSenderKeySupported()).thenReturn(true);
     when(capabilitiesAccount.isAnnouncementGroupSupported()).thenReturn(true);
+    when(capabilitiesAccount.isChangeNumberSupported()).thenReturn(true);
 
     when(accountsManager.get(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(profileAccount));
     when(accountsManager.get(AuthHelper.VALID_UUID_TWO)).thenReturn(Optional.of(profileAccount));

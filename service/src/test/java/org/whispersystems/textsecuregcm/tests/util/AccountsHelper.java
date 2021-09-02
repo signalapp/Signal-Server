@@ -141,6 +141,10 @@ public class AccountsHelper {
             when(updatedAccount.isAnnouncementGroupSupported()).thenAnswer(stubbing);
             break;
           }
+          case "isChangeNumberSupported": {
+            when(updatedAccount.isChangeNumberSupported()).thenAnswer(stubbing);
+            break;
+          }
           case "getEnabledDeviceCount": {
             when(updatedAccount.getEnabledDeviceCount()).thenAnswer(stubbing);
             break;
