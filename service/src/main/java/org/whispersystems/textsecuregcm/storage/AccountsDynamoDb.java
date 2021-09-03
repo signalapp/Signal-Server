@@ -215,18 +215,25 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
       }
 
       try {
-        UpdateItemResponse response = client.updateItem(updateItemRequest);
+        try {
+          UpdateItemResponse response = client.updateItem(updateItemRequest);
 
-        account.setVersion(AttributeValues.getInt(response.attributes(), "V", account.getVersion() + 1));
-      } catch (final TransactionConflictException e) {
+          account.setVersion(AttributeValues.getInt(response.attributes(), "V", account.getVersion() + 1));
+        } catch (final TransactionConflictException e) {
 
-        throw new ContestedOptimisticLockException();
+          throw new ContestedOptimisticLockException();
 
-      } catch (final ConditionalCheckFailedException e) {
+        } catch (final ConditionalCheckFailedException e) {
 
-        // the exception doesn’t give details about which condition failed,
-        // but we can infer it was an optimistic locking failure if the UUID is known
-        throw get(account.getUuid()).isPresent() ? new ContestedOptimisticLockException() : e;
+          // the exception doesn’t give details about which condition failed,
+          // but we can infer it was an optimistic locking failure if the UUID is known
+          throw get(account.getUuid()).isPresent() ? new ContestedOptimisticLockException() : e;
+        }
+      } catch (final Exception e) {
+        // the Dynamo account now lags the Postgres account version. Put it in the migration retry table so that it will
+        // get updated faster—otherwise it will be stale until the accounts crawler runs again
+        migrationRetryAccounts.put(account.getUuid());
+        throw e;
       }
 
     });
