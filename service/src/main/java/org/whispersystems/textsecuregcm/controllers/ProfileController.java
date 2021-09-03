@@ -10,6 +10,7 @@ import io.dropwizard.auth.Auth;
 import java.security.SecureRandom;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -244,17 +245,18 @@ public class ProfileController {
       Optional<ProfileKeyCredentialResponse> credential = getProfileCredential(credentialRequest, profile, uuid);
 
       return Optional.of(new Profile(name,
-                                     about,
-                                     aboutEmoji,
-                                     avatar,
-                                     paymentAddress,
-                                     accountProfile.get().getIdentityKey(),
-                                     UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
-                                     accountProfile.get().isUnrestrictedUnidentifiedAccess(),
-                                     UserCapabilities.createForAccount(accountProfile.get()),
-                                     username.orElse(null),
-                                     null,
-                                     credential.orElse(null)));
+          about,
+          aboutEmoji,
+          avatar,
+          paymentAddress,
+          accountProfile.get().getIdentityKey(),
+          UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
+          accountProfile.get().isUnrestrictedUnidentifiedAccess(),
+          UserCapabilities.createForAccount(accountProfile.get()),
+          username.orElse(null),
+          null,
+          List.of(),
+          credential.orElse(null)));
     } catch (InvalidInputException e) {
       logger.info("Bad profile request", e);
       throw new WebApplicationException(Response.Status.BAD_REQUEST);
@@ -284,18 +286,20 @@ public class ProfileController {
       throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
     }
 
-    return new Profile(accountProfile.get().getProfileName(),
-                       null,
-                       null,
-                       accountProfile.get().getAvatar(),
-                       null,
-                       accountProfile.get().getIdentityKey(),
-                       UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
-                       accountProfile.get().isUnrestrictedUnidentifiedAccess(),
-                       UserCapabilities.createForAccount(accountProfile.get()),
-                       username,
-                       accountProfile.get().getUuid(),
-                       null);
+    return new Profile(
+        accountProfile.get().getProfileName(),
+        null,
+        null,
+        accountProfile.get().getAvatar(),
+        null,
+        accountProfile.get().getIdentityKey(),
+        UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
+        accountProfile.get().isUnrestrictedUnidentifiedAccess(),
+        UserCapabilities.createForAccount(accountProfile.get()),
+        username,
+        accountProfile.get().getUuid(),
+        List.of(),
+        null);
   }
 
   private Optional<ProfileKeyCredentialResponse> getProfileCredential(Optional<String>           encodedProfileCredentialRequest,
@@ -355,18 +359,20 @@ public class ProfileController {
 
     Optional<String> username = usernamesManager.get(accountProfile.get().getUuid());
 
-    return new Profile(accountProfile.get().getProfileName(),
-                       null,
-                       null,
-                       accountProfile.get().getAvatar(),
-                       null,
-                       accountProfile.get().getIdentityKey(),
-                       UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
-                       accountProfile.get().isUnrestrictedUnidentifiedAccess(),
-                       UserCapabilities.createForAccount(accountProfile.get()),
-                       username.orElse(null),
-                       null,
-                       null);
+    return new Profile(
+        accountProfile.get().getProfileName(),
+        null,
+        null,
+        accountProfile.get().getAvatar(),
+        null,
+        accountProfile.get().getIdentityKey(),
+        UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
+        accountProfile.get().isUnrestrictedUnidentifiedAccess(),
+        UserCapabilities.createForAccount(accountProfile.get()),
+        username.orElse(null),
+        null,
+        List.of(),
+        null);
   }
 
 
