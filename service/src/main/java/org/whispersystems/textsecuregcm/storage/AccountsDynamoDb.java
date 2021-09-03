@@ -74,6 +74,8 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
   private static final Timer GET_ALL_FROM_START_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "getAllFrom"));
   private static final Timer GET_ALL_FROM_OFFSET_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "getAllFromOffset"));
   private static final Timer DELETE_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "delete"));
+  private static final Timer DELETE_RECENTLY_DELETED_UUIDS_TIMER = Metrics.timer(
+      name(AccountsDynamoDb.class, "deleteRecentlyDeletedUuids"));
 
   private final Logger logger = LoggerFactory.getLogger(AccountsDynamoDb.class);
 
@@ -361,13 +363,16 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
 
   public void deleteRecentlyDeletedUuids() {
 
-    final List<UUID> recentlyDeletedUuids = migrationDeletedAccounts.getRecentlyDeletedUuids();
+    DELETE_RECENTLY_DELETED_UUIDS_TIMER.record(() -> {
 
-    for (UUID recentlyDeletedUuid : recentlyDeletedUuids) {
-      delete(recentlyDeletedUuid, false);
-    }
+      final List<UUID> recentlyDeletedUuids = migrationDeletedAccounts.getRecentlyDeletedUuids();
 
-    migrationDeletedAccounts.delete(recentlyDeletedUuids);
+      for (UUID recentlyDeletedUuid : recentlyDeletedUuids) {
+        delete(recentlyDeletedUuid, false);
+      }
+
+      migrationDeletedAccounts.delete(recentlyDeletedUuids);
+    });
   }
 
   public CompletableFuture<Boolean> migrate(Account account) {
