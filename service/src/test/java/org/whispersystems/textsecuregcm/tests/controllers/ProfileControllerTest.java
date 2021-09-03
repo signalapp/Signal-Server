@@ -90,11 +90,13 @@ class ProfileControllerTest {
           ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
       .setMapper(SystemMapper.getMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-      .addResource(new ProfileController(rateLimiters,
+      .addResource(new ProfileController(
+          rateLimiters,
           accountsManager,
           profilesManager,
           usernamesManager,
           dynamicConfigurationManager,
+          (request, accountBadges) -> Set.of(),  // TODO: Test with some badges.
           s3client,
           postPolicyGenerator,
           policySigner,

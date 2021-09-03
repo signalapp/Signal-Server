@@ -9,7 +9,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
-import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.signal.zkgroup.profiles.ProfileKeyCredentialResponse;
 
@@ -49,7 +49,7 @@ public class Profile {
   private UUID uuid;
 
   @JsonProperty
-  private List<Badge> badges;
+  private Set<Badge> badges;
 
   @JsonProperty
   @JsonSerialize(using = ProfileKeyCredentialResponseAdapter.Serializing.class)
@@ -61,7 +61,7 @@ public class Profile {
   public Profile(
       String name, String about, String aboutEmoji, String avatar, String paymentAddress, String identityKey,
       String unidentifiedAccess, boolean unrestrictedUnidentifiedAccess, UserCapabilities capabilities, String username,
-      UUID uuid, final List<Badge> badges, ProfileKeyCredentialResponse credential)
+      UUID uuid, Set<Badge> badges, ProfileKeyCredentialResponse credential)
   {
     this.name = name;
     this.about = about;
@@ -130,7 +130,7 @@ public class Profile {
     return uuid;
   }
 
-  public List<Badge> getBadges() {
+  public Set<Badge> getBadges() {
     return badges;
   }
 }

@@ -10,7 +10,6 @@ import io.dropwizard.auth.Auth;
 import java.security.SecureRandom;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -25,7 +24,9 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Request;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import org.apache.commons.codec.DecoderException;
@@ -44,6 +45,7 @@ import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
+import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.entities.CreateProfileRequest;
 import org.whispersystems.textsecuregcm.entities.Profile;
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
@@ -74,6 +76,7 @@ public class ProfileController {
   private final AccountsManager  accountsManager;
   private final UsernamesManager usernamesManager;
   private final DynamicConfigurationManager dynamicConfigurationManager;
+  private final ProfileBadgeConverter profileBadgeConverter;
 
   private final PolicySigner              policySigner;
   private final PostPolicyGenerator       policyGenerator;
@@ -83,23 +86,25 @@ public class ProfileController {
   private final S3Client            s3client;
   private final String              bucket;
 
-  public ProfileController(RateLimiters rateLimiters,
+  public ProfileController(
+      RateLimiters rateLimiters,
       AccountsManager accountsManager,
       ProfilesManager profilesManager,
       UsernamesManager usernamesManager,
       DynamicConfigurationManager dynamicConfigurationManager,
+      ProfileBadgeConverter profileBadgeConverter,
       S3Client s3client,
       PostPolicyGenerator policyGenerator,
       PolicySigner policySigner,
       String bucket,
       ServerZkProfileOperations zkProfileOperations,
-      boolean isZkEnabled)
-  {
+      boolean isZkEnabled) {
     this.rateLimiters        = rateLimiters;
     this.accountsManager     = accountsManager;
     this.profilesManager     = profilesManager;
     this.usernamesManager    = usernamesManager;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
+    this.profileBadgeConverter = profileBadgeConverter;
     this.zkProfileOperations = zkProfileOperations;
     this.bucket              = bucket;
     this.s3client            = s3client;
@@ -175,23 +180,27 @@ public class ProfileController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{uuid}/{version}")
-  public Optional<Profile> getProfile(@Auth Optional<AuthenticatedAccount> auth,
+  public Optional<Profile> getProfile(
+      @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
+      @Context Request request,
       @PathParam("uuid") UUID uuid,
       @PathParam("version") String version)
       throws RateLimitExceededException {
     if (!isZkEnabled) {
       throw new WebApplicationException(Response.Status.NOT_FOUND);
     }
-    return getVersionedProfile(auth.map(AuthenticatedAccount::getAccount), accessKey, uuid, version, Optional.empty());
+    return getVersionedProfile(auth.map(AuthenticatedAccount::getAccount), accessKey, request, uuid, version, Optional.empty());
   }
 
   @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{uuid}/{version}/{credentialRequest}")
-  public Optional<Profile> getProfile(@Auth Optional<AuthenticatedAccount> auth,
+  public Optional<Profile> getProfile(
+      @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
+      @Context Request request,
       @PathParam("uuid") UUID uuid,
       @PathParam("version") String version,
       @PathParam("credentialRequest") String credentialRequest)
@@ -199,17 +208,17 @@ public class ProfileController {
     if (!isZkEnabled) {
       throw new WebApplicationException(Response.Status.NOT_FOUND);
     }
-    return getVersionedProfile(auth.map(AuthenticatedAccount::getAccount), accessKey, uuid, version,
-        Optional.of(credentialRequest));
+    return getVersionedProfile(auth.map(AuthenticatedAccount::getAccount), accessKey, request, uuid, version, Optional.of(credentialRequest));
   }
 
-  private Optional<Profile> getVersionedProfile(Optional<Account> requestAccount,
-                                                Optional<Anonymous> accessKey,
-                                                UUID uuid,
-                                                String version,
-                                                Optional<String> credentialRequest)
-      throws RateLimitExceededException
-  {
+  private Optional<Profile> getVersionedProfile(
+      Optional<Account> requestAccount,
+      Optional<Anonymous> accessKey,
+      Request request,
+      UUID uuid,
+      String version,
+      Optional<String> credentialRequest)
+      throws RateLimitExceededException {
     if (!isZkEnabled) throw new WebApplicationException(Response.Status.NOT_FOUND);
 
     try {
@@ -244,7 +253,8 @@ public class ProfileController {
 
       Optional<ProfileKeyCredentialResponse> credential = getProfileCredential(credentialRequest, profile, uuid);
 
-      return Optional.of(new Profile(name,
+      return Optional.of(new Profile(
+          name,
           about,
           aboutEmoji,
           avatar,
@@ -255,7 +265,7 @@ public class ProfileController {
           UserCapabilities.createForAccount(accountProfile.get()),
           username.orElse(null),
           null,
-          List.of(),
+          profileBadgeConverter.convert(request, accountProfile.get().getBadges()),
           credential.orElse(null)));
     } catch (InvalidInputException e) {
       logger.info("Bad profile request", e);
@@ -298,7 +308,7 @@ public class ProfileController {
         UserCapabilities.createForAccount(accountProfile.get()),
         username,
         accountProfile.get().getUuid(),
-        List.of(),
+        Set.of(),
         null);
   }
 
@@ -371,7 +381,7 @@ public class ProfileController {
         UserCapabilities.createForAccount(accountProfile.get()),
         username.orElse(null),
         null,
-        List.of(),
+        Set.of(),
         null);
   }
 
