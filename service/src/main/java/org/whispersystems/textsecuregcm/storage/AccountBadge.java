@@ -14,13 +14,16 @@ public class AccountBadge {
 
   private final String name;
   private final Instant expiration;
+  private final boolean visible;
 
   @JsonCreator
   public AccountBadge(
       @JsonProperty("name") String name,
-      @JsonProperty("expiration") Instant expiration) {
+      @JsonProperty("expiration") Instant expiration,
+      @JsonProperty("visible") boolean visible) {
     this.name = name;
     this.expiration = expiration;
+    this.visible = visible;
   }
 
   public String getName() {
@@ -29,6 +32,10 @@ public class AccountBadge {
 
   public Instant getExpiration() {
     return expiration;
+  }
+
+  public boolean isVisible() {
+    return visible;
   }
 
   @Override
@@ -40,13 +47,13 @@ public class AccountBadge {
       return false;
     }
     AccountBadge that = (AccountBadge) o;
-    return Objects.equals(name, that.name)
+    return visible == that.visible && Objects.equals(name, that.name)
         && Objects.equals(expiration, that.expiration);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(name, expiration);
+    return Objects.hash(name, expiration, visible);
   }
 
   @Override
@@ -54,6 +61,7 @@ public class AccountBadge {
     return "AccountBadge{" +
         "name='" + name + '\'' +
         ", expiration=" + expiration +
+        ", visible=" + visible +
         '}';
   }
 }
