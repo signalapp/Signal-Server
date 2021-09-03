@@ -143,11 +143,11 @@ class AccountsDynamoDbTest {
     boolean freshUser = accountsDynamoDb.create(account);
 
     assertThat(freshUser).isTrue();
-    verifyStoredState("+14151112222", account.getUuid(), account);
+    verifyStoredState("+14151112222", account.getUuid(), account, true);
 
     freshUser = accountsDynamoDb.create(account);
     assertThat(freshUser).isTrue();
-    verifyStoredState("+14151112222", account.getUuid(), account);
+    verifyStoredState("+14151112222", account.getUuid(), account, true);
 
   }
 
@@ -161,7 +161,7 @@ class AccountsDynamoDbTest {
 
     accountsDynamoDb.create(account);
 
-    verifyStoredState("+14151112222", account.getUuid(), account);
+    verifyStoredState("+14151112222", account.getUuid(), account, true);
   }
 
   @Test
@@ -210,7 +210,7 @@ class AccountsDynamoDbTest {
 
     accountsDynamoDb.create(account);
 
-    verifyStoredState("+14151112222", account.getUuid(), account);
+    verifyStoredState("+14151112222", account.getUuid(), account, true);
 
     account.setProfileName("name");
 
@@ -223,7 +223,7 @@ class AccountsDynamoDbTest {
 
     final boolean freshUser = accountsDynamoDb.create(account);
     assertThat(freshUser).isFalse();
-    verifyStoredState("+14151112222", firstUuid, account);
+    verifyStoredState("+14151112222", firstUuid, account, true);
 
     device = generateDevice(1);
     Account invalidAccount = generateAccount("+14151113333", firstUuid, Collections.singleton(device));
@@ -250,7 +250,7 @@ class AccountsDynamoDbTest {
     retrieved = accountsDynamoDb.get(account.getUuid());
 
     assertThat(retrieved.isPresent()).isTrue();
-    verifyStoredState("+14151112222", account.getUuid(), account);
+    verifyStoredState("+14151112222", account.getUuid(), account, true);
 
     device = generateDevice(1);
     Account unknownAccount = generateAccount("+14151113333", UUID.randomUUID(), Collections.singleton(device));
@@ -263,7 +263,7 @@ class AccountsDynamoDbTest {
 
     assertThat(account.getVersion()).isEqualTo(2);
 
-    verifyStoredState("+14151112222", account.getUuid(), account);
+    verifyStoredState("+14151112222", account.getUuid(), account, true);
 
     account.setVersion(1);
 
@@ -274,7 +274,7 @@ class AccountsDynamoDbTest {
 
     accountsDynamoDb.update(account);
 
-    verifyStoredState("+14151112222", account.getUuid(), account);
+    verifyStoredState("+14151112222", account.getUuid(), account, true);
   }
 
   @Test
@@ -481,13 +481,13 @@ class AccountsDynamoDbTest {
 
     assertThat(migrated).isTrue();
 
-    verifyStoredState("+14151112222", account.getUuid(), account);
+    verifyStoredState("+14151112222", account.getUuid(), account, true);
 
     migrated = accountsDynamoDb.migrate(account).get();
 
     assertThat(migrated).isFalse();
 
-    verifyStoredState("+14151112222", account.getUuid(), account);
+    verifyStoredState("+14151112222", account.getUuid(), account, true);
 
     UUID secondUuid = UUID.randomUUID();
 
@@ -497,13 +497,46 @@ class AccountsDynamoDbTest {
     migrated = accountsDynamoDb.migrate(accountRemigrationWithDifferentUuid).get();
 
     assertThat(migrated).isFalse();
-    verifyStoredState("+14151112222", firstUuid, account);
+    verifyStoredState("+14151112222", firstUuid, account, true);
 
     account.setVersion(account.getVersion() + 1);
 
     migrated = accountsDynamoDb.migrate(account).get();
 
     assertThat(migrated).isTrue();
+  }
+
+  @Test
+  void testCanonicallyDiscoverableSet() {
+    Device device = generateDevice(1);
+    UUID uuid = UUID.randomUUID();
+    Account account = generateAccount("+14151112222", uuid, Collections.singleton(device));
+    account.setDiscoverableByPhoneNumber(false);
+    accountsDynamoDb.create(account);
+    verifyStoredState("+14151112222", account.getUuid(), account, false);
+    account.setDiscoverableByPhoneNumber(true);
+    accountsDynamoDb.update(account);
+    verifyStoredState("+14151112222", account.getUuid(), account, true);
+    account.setDiscoverableByPhoneNumber(false);
+    accountsDynamoDb.update(account);
+    verifyStoredState("+14151112222", account.getUuid(), account, false);
+  }
+
+  @Test
+  void testContactDiscoveryWriter() throws Exception {
+    Device device = generateDevice(1);
+    UUID uuid = UUID.randomUUID();
+    Account account = generateAccount("+14151112222", uuid, Collections.singleton(device));
+    accountsDynamoDb.create(account);
+    verifyStoredState("+14151112222", account.getUuid(), account, true);
+    ContactDiscoveryWriter writer = new ContactDiscoveryWriter(accountsDynamoDb);
+    account.setCanonicallyDiscoverable(false);
+    writer.onCrawlChunk(null, List.of(account));
+    verifyStoredState("+14151112222", account.getUuid(), account, true);
+    account.setCanonicallyDiscoverable(true);
+    account.setDiscoverableByPhoneNumber(false);
+    writer.onCrawlChunk(null, List.of(account));
+    verifyStoredState("+14151112222", account.getUuid(), account, false);
   }
 
   private Device generateDevice(long id) {
@@ -527,7 +560,7 @@ class AccountsDynamoDbTest {
     return new Account(number, uuid, devices, unidentifiedAccessKey);
   }
 
-  private void verifyStoredState(String number, UUID uuid, Account expecting) {
+  private void verifyStoredState(String number, UUID uuid, Account expecting, boolean canonicallyDiscoverable) {
     final DynamoDbClient db = dynamoDbExtension.getDynamoDbClient();
 
     final GetItemResponse get = db.getItem(GetItemRequest.builder()
@@ -542,6 +575,8 @@ class AccountsDynamoDbTest {
 
       assertThat(AttributeValues.getInt(get.item(), AccountsDynamoDb.ATTR_VERSION, -1))
           .isEqualTo(expecting.getVersion());
+
+      assertThat(AttributeValues.getBool(get.item(), AccountsDynamoDb.ATTR_CANONICALLY_DISCOVERABLE, !canonicallyDiscoverable)).isEqualTo(canonicallyDiscoverable);
 
       Account result = AccountsDynamoDb.fromItem(get.item());
       verifyStoredState(number, uuid, result, expecting);

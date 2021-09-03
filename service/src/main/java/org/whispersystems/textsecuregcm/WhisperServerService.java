@@ -156,6 +156,7 @@ import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsDynamoDb;
 import org.whispersystems.textsecuregcm.storage.AccountsDynamoDbMigrator;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.ContactDiscoveryWriter;
 import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
 import org.whispersystems.textsecuregcm.storage.DeletedAccountsDirectoryReconciler;
 import org.whispersystems.textsecuregcm.storage.DeletedAccountsManager;
@@ -482,6 +483,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
           directoryServerConfiguration.getReplicationName(), directoryReconciliationClient);
       deletedAccountsDirectoryReconcilers.add(deletedAccountsDirectoryReconciler);
     }
+    accountDatabaseCrawlerListeners.add(new ContactDiscoveryWriter(accounts));
     // PushFeedbackProcessor may update device properties
     accountDatabaseCrawlerListeners.add(new PushFeedbackProcessor(accountsManager));
     // delete accounts last

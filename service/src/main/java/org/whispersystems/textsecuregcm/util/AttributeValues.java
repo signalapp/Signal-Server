@@ -23,6 +23,8 @@ public class AttributeValues {
     return AttributeValue.builder().n(Long.toString(value)).build();
   }
 
+  public static AttributeValue fromBool(boolean value) { return AttributeValue.builder().bool(value).build(); }
+
   public static AttributeValue fromInt(int value) {
     return AttributeValue.builder().n(Integer.toString(value)).build();
   }
@@ -41,6 +43,10 @@ public class AttributeValues {
 
   public static AttributeValue fromSdkBytes(SdkBytes value) {
     return AttributeValue.builder().b(value).build();
+  }
+
+  private static boolean toBool(AttributeValue av) {
+    return av.bool();
   }
 
   private static int toInt(AttributeValue av) {
@@ -65,6 +71,10 @@ public class AttributeValues {
 
   public static Optional<AttributeValue> get(Map<String, AttributeValue> item, String key) {
     return Optional.ofNullable(item.get(key));
+  }
+
+  public static boolean getBool(Map<String, AttributeValue> item, String key, boolean defaultValue) {
+    return AttributeValues.get(item, key).map(AttributeValues::toBool).orElse(defaultValue);
   }
 
   public static int getInt(Map<String, AttributeValue> item, String key, int defaultValue) {

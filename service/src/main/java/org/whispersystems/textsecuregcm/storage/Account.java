@@ -66,6 +66,9 @@ public class Account {
   @JsonIgnore
   private boolean stale;
 
+  @JsonIgnore
+  private boolean canonicallyDiscoverable;
+
   public Account() {}
 
   @VisibleForTesting
@@ -91,6 +94,12 @@ public class Account {
     requireNotStale();
 
     this.number = number;
+  }
+
+  public void setCanonicallyDiscoverable(boolean canonicallyDiscoverable) {
+    requireNotStale();
+
+    this.canonicallyDiscoverable = canonicallyDiscoverable;
   }
 
   public String getNumber() {
@@ -226,6 +235,12 @@ public class Account {
     requireNotStale();
 
     return true;
+  }
+
+  public boolean isCanonicallyDiscoverable() {
+    requireNotStale();
+
+    return canonicallyDiscoverable;
   }
 
   public Optional<String> getRelay() {

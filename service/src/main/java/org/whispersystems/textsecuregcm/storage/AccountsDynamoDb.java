@@ -55,6 +55,8 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
   static final String ATTR_ACCOUNT_DATA = "D";
   // internal version for optimistic locking
   static final String ATTR_VERSION = "V";
+  // canonically discoverable
+  static final String ATTR_CANONICALLY_DISCOVERABLE = "C";
 
   private final DynamoDbClient client;
   private final DynamoDbAsyncClient asyncClient;
@@ -160,7 +162,8 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
                 KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid),
                 ATTR_ACCOUNT_E164, AttributeValues.fromString(account.getNumber()),
                 ATTR_ACCOUNT_DATA, AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
-                ATTR_VERSION, AttributeValues.fromInt(account.getVersion())))
+                ATTR_VERSION, AttributeValues.fromInt(account.getVersion()),
+                ATTR_CANONICALLY_DISCOVERABLE, AttributeValues.fromBool(account.shouldBeVisibleInDirectory())))
             .build())
         .build();
   }
@@ -193,13 +196,15 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
         updateItemRequest = UpdateItemRequest.builder()
             .tableName(accountsTableName)
             .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
-            .updateExpression("SET #data = :data ADD #version :version_increment")
+            .updateExpression("SET #data = :data, #cds = :cds ADD #version :version_increment")
             .conditionExpression("attribute_exists(#number) AND #version = :version")
             .expressionAttributeNames(Map.of("#number", ATTR_ACCOUNT_E164,
                 "#data", ATTR_ACCOUNT_DATA,
+                "#cds", ATTR_CANONICALLY_DISCOVERABLE,
                 "#version", ATTR_VERSION))
             .expressionAttributeValues(Map.of(
                 ":data", AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
+                ":cds", AttributeValues.fromBool(account.shouldBeVisibleInDirectory()),
                 ":version", AttributeValues.fromInt(account.getVersion()),
                 ":version_increment", AttributeValues.fromInt(1)))
             .returnValues(ReturnValue.UPDATED_NEW)
@@ -428,6 +433,7 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
   static Account fromItem(Map<String, AttributeValue> item) {
     if (!item.containsKey(ATTR_ACCOUNT_DATA) ||
         !item.containsKey(ATTR_ACCOUNT_E164) ||
+        // TODO: eventually require ATTR_CANONICALLY_DISCOVERABLE
         !item.containsKey(KEY_ACCOUNT_UUID)) {
       throw new RuntimeException("item missing values");
     }
@@ -436,6 +442,7 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
       account.setNumber(item.get(ATTR_ACCOUNT_E164).s());
       account.setUuid(UUIDUtil.fromByteBuffer(item.get(KEY_ACCOUNT_UUID).b().asByteBuffer()));
       account.setVersion(Integer.parseInt(item.get(ATTR_VERSION).n()));
+      account.setCanonicallyDiscoverable(Optional.ofNullable(item.get(ATTR_CANONICALLY_DISCOVERABLE)).map(av -> av.bool()).orElse(false));
 
       return account;
 
