@@ -340,18 +340,23 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
 
     final List<CompletableFuture<?>> futures = accounts.stream()
         .map(this::migrate)
-        .map(f -> f.whenComplete((migrated, e) -> {
+        .map(f -> f.whenCompleteAsync((migrated, e) -> {
           if (e == null) {
             MIGRATED_COUNTER.increment(migrated ? 1 : 0);
           } else {
             ERROR_COUNTER.increment();
           }
-        }))
+        }, migrationThreadPool))
         .collect(Collectors.toList());
 
     CompletableFuture<Void> migrationBatch = CompletableFuture.allOf(futures.toArray(new CompletableFuture[]{}));
 
-    return migrationBatch.whenComplete((result, exception) -> deleteRecentlyDeletedUuids());
+    return migrationBatch.whenCompleteAsync((result, exception) -> {
+      if (exception != null) {
+        logger.warn("Exception migrating batch", exception);
+      }
+      deleteRecentlyDeletedUuids();
+    }, migrationThreadPool);
   }
 
   public void deleteRecentlyDeletedUuids() {
@@ -401,7 +406,7 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
           logger.error("Could not store account {}", account.getUuid());
         }
         resultFuture.completeExceptionally(exception);
-      });
+      }, migrationThreadPool);
       return resultFuture;
     } catch (Exception e) {
       return CompletableFuture.failedFuture(e);
