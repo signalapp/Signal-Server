@@ -5,7 +5,7 @@
 
 package org.whispersystems.textsecuregcm.push;
 
-import java.util.Optional;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
@@ -22,21 +22,21 @@ public class ReceiptSender {
 
   private static final Logger logger = LoggerFactory.getLogger(ReceiptSender.class);
 
-  public ReceiptSender(AccountsManager accountManager,
-      MessageSender messageSender) {
+  public ReceiptSender(final AccountsManager accountManager, final MessageSender messageSender) {
     this.accountManager = accountManager;
     this.messageSender = messageSender;
   }
 
-  public void sendReceipt(AuthenticatedAccount source, String destination, long messageId)
-      throws NoSuchUserException {
+  public void sendReceipt(AuthenticatedAccount source, UUID destinationUuid, long messageId) throws NoSuchUserException {
     final Account sourceAccount = source.getAccount();
-    if (sourceAccount.getNumber().equals(destination)) {
+    if (sourceAccount.getUuid().equals(destinationUuid)) {
       return;
     }
 
-    Account destinationAccount = getDestinationAccount(destination);
-    Envelope.Builder message = Envelope.newBuilder()
+    final Account destinationAccount = accountManager.get(destinationUuid)
+        .orElseThrow(() -> new NoSuchUserException(destinationUuid));
+
+    final Envelope.Builder message = Envelope.newBuilder()
         .setServerTimestamp(System.currentTimeMillis())
         .setSource(sourceAccount.getNumber())
         .setSourceUuid(sourceAccount.getUuid().toString())
@@ -51,22 +51,9 @@ public class ReceiptSender {
     for (final Device destinationDevice : destinationAccount.getDevices()) {
       try {
         messageSender.sendMessage(destinationAccount, destinationDevice, message.build(), false);
-      } catch (NotPushRegisteredException e) {
+      } catch (final NotPushRegisteredException e) {
         logger.info("User no longer push registered for delivery receipt: " + e.getMessage());
       }
     }
   }
-
-  private Account getDestinationAccount(String destination)
-      throws NoSuchUserException
-  {
-    Optional<Account> account = accountManager.get(destination);
-
-    if (account.isEmpty()) {
-      throw new NoSuchUserException(destination);
-    }
-
-    return account.get();
-  }
-
 }

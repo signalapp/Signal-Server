@@ -207,11 +207,13 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     if (!message.hasSource()) return;
 
     try {
-      receiptSender.sendReceipt(auth, message.getSource(), message.getTimestamp());
+      receiptSender.sendReceipt(auth, UUID.fromString(message.getSourceUuid()), message.getTimestamp());
     } catch (NoSuchUserException e) {
-      logger.info("No longer registered " + e.getMessage());
+      logger.info("No longer registered: {}", e.getMessage());
     } catch (WebApplicationException e) {
-      logger.warn("Bad federated response for receipt: " + e.getResponse().getStatus());
+      logger.warn("Bad federated response for receipt: {}", e.getResponse().getStatus());
+    } catch (IllegalArgumentException e) {
+      logger.error("Could not parse UUID: {}", message.getSourceUuid());
     }
   }
 

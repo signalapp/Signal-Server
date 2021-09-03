@@ -210,7 +210,7 @@ public class WebSocketConnectionTest {
     futures.get(2).completeExceptionally(new IOException());
 
     verify(storedMessages, times(1)).delete(eq(accountUuid), eq(2L), eq(outgoingMessages.get(1).getGuid()));
-    verify(receiptSender, times(1)).sendReceipt(eq(auth), eq("sender1"), eq(2222L));
+    verify(receiptSender, times(1)).sendReceipt(eq(auth), eq(senderOneUuid), eq(2222L));
 
     connection.stop();
     verify(client).close(anyInt(), anyString());
@@ -279,6 +279,8 @@ public class WebSocketConnectionTest {
   public void testPendingSend() throws Exception {
     MessagesManager storedMessages  = mock(MessagesManager.class);
 
+    final UUID senderTwoUuid = UUID.randomUUID();
+
     final Envelope firstMessage = Envelope.newBuilder()
                                     .setLegacyMessage(ByteString.copyFrom("first".getBytes()))
                                     .setSource("sender1")
@@ -291,7 +293,7 @@ public class WebSocketConnectionTest {
     final Envelope secondMessage = Envelope.newBuilder()
                                      .setLegacyMessage(ByteString.copyFrom("second".getBytes()))
                                      .setSource("sender2")
-                                     .setSourceUuid(UUID.randomUUID().toString())
+                                     .setSourceUuid(senderTwoUuid.toString())
                                      .setTimestamp(System.currentTimeMillis())
                                      .setSourceDevice(2)
                                      .setType(Envelope.Type.CIPHERTEXT)
@@ -361,7 +363,7 @@ public class WebSocketConnectionTest {
     futures.get(1).complete(response);
     futures.get(0).completeExceptionally(new IOException());
 
-    verify(receiptSender, times(1)).sendReceipt(eq(auth), eq("sender2"), eq(secondMessage.getTimestamp()));
+    verify(receiptSender, times(1)).sendReceipt(eq(auth), eq(senderTwoUuid), eq(secondMessage.getTimestamp()));
 
     connection.stop();
     verify(client).close(anyInt(), anyString());

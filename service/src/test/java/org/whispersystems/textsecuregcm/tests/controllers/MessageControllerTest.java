@@ -291,7 +291,7 @@ class MessageControllerTest {
     assertThat("Good Response", response.getStatus(), is(equalTo(200)));
 
     verify(messageSender, never()).sendMessage(any(), any(), any(), anyBoolean());
-    verify(receiptSender).sendReceipt(any(), eq(AuthHelper.VALID_NUMBER), anyLong());
+    verify(receiptSender).sendReceipt(any(), eq(AuthHelper.VALID_UUID), anyLong());
   }
 
   @ParameterizedTest
@@ -575,7 +575,7 @@ class MessageControllerTest {
                                  .delete();
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
-    verify(receiptSender).sendReceipt(any(AuthenticatedAccount.class), eq("+14152222222"), eq(timestamp));
+    verify(receiptSender).sendReceipt(any(AuthenticatedAccount.class), eq(sourceUuid), eq(timestamp));
 
     response = resources.getJerseyTest()
                         .target(String.format("/v1/messages/uuid/%s", uuid2))

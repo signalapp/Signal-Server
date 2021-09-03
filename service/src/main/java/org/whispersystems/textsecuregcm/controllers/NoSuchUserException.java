@@ -4,28 +4,15 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
-import java.util.LinkedList;
-import java.util.List;
+import java.util.UUID;
 
 public class NoSuchUserException extends Exception {
 
-  private List<String> missing;
-
-  public NoSuchUserException(String user) {
-    super(user);
-    missing = new LinkedList<>();
-    missing.add(user);
-  }
-
-  public NoSuchUserException(List<String> missing) {
-    this.missing = missing;
+  public NoSuchUserException(final UUID uuid) {
+    super(uuid.toString());
   }
 
   public NoSuchUserException(Exception e) {
     super(e);
-  }
-
-  public List<String> getMissing() {
-    return missing;
   }
 }

@@ -498,7 +498,7 @@ public class MessageController {
             try {
               receiptSender.sendReceipt(
                   new AuthenticatedAccount(() -> new Pair<>(destination, destination.getMasterDevice().get())),
-                  source.getNumber(), timestamp);
+                  source.getUuid(), timestamp);
             } catch (final NoSuchUserException ignored) {
             }
           }, receiptDelay.toMillis(), TimeUnit.MILLISECONDS);
@@ -583,7 +583,7 @@ public class MessageController {
         WebSocketConnection.recordMessageDeliveryDuration(message.get().getTimestamp(), auth.getAuthenticatedDevice());
         if (!Util.isEmpty(message.get().getSource())
             && message.get().getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE) {
-          receiptSender.sendReceipt(auth, message.get().getSource(), message.get().getTimestamp());
+          receiptSender.sendReceipt(auth, message.get().getSourceUuid(), message.get().getTimestamp());
         }
       }
 
