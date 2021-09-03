@@ -8,7 +8,10 @@ package org.whispersystems.textsecuregcm.storage;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -44,6 +47,9 @@ public class Account {
 
   @JsonProperty
   private String avatar;
+
+  @JsonProperty
+  private Set<AccountBadge> badges = new HashSet<>();
 
   @JsonProperty
   private String registrationLock;
@@ -309,6 +315,32 @@ public class Account {
     requireNotStale();
 
     this.avatar = avatar;
+  }
+
+  public Set<AccountBadge> getBadges() {
+    requireNotStale();
+
+    return badges;
+  }
+
+  public void addBadge(AccountBadge badge) {
+    requireNotStale();
+
+    badges.add(badge);
+    purgeStaleBadges();
+  }
+
+  public void removeBadge(String name) {
+    requireNotStale();
+
+    badges.removeIf(accountBadge -> Objects.equals(accountBadge.getName(), name));
+    purgeStaleBadges();
+  }
+
+  private void purgeStaleBadges() {
+    final Instant now = Clock.systemUTC().instant();
+
+    badges.removeIf(accountBadge -> now.isAfter(accountBadge.getExpiration()));
   }
 
   public void setRegistrationLockFromAttributes(final AccountAttributes attributes) {
