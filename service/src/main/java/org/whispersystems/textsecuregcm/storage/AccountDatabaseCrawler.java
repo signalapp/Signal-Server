@@ -106,7 +106,10 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
         }
         final long endTimeMs = System.currentTimeMillis();
         final long sleepIntervalMs = chunkIntervalMs - (endTimeMs - startTimeMs);
-        if (sleepIntervalMs > 0) sleepWhileRunning(sleepIntervalMs);
+        if (sleepIntervalMs > 0) {
+          logger.info("Sleeping {}ms", sleepIntervalMs);
+          sleepWhileRunning(sleepIntervalMs);
+        }
       } finally {
         cache.releaseActiveWork(workerId);
       }
@@ -122,6 +125,7 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
     final Optional<UUID> fromUuid = getLastUuid(useDynamo);
 
     if (fromUuid.isEmpty()) {
+      logger.info("Started crawl");
       listeners.forEach(AccountDatabaseCrawlerListener::onCrawlStart);
     }
 
@@ -133,6 +137,7 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
       cacheLastUuid(Optional.empty(), useDynamo);
       cache.setAccelerated(false);
     } else {
+      logger.info("Processing chunk");
       try {
         for (AccountDatabaseCrawlerListener listener : listeners) {
           listener.timeAndProcessCrawlChunk(fromUuid, chunkAccounts.getAccounts());
