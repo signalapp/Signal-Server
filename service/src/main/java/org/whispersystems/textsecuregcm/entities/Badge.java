@@ -10,9 +10,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.net.URL;
 
 public class Badge {
-  private URL imageUrl;
-  private String name;
-  private String description;
+  private final URL imageUrl;
+  private final String name;
+  private final String description;
 
   @JsonCreator
   public Badge(
