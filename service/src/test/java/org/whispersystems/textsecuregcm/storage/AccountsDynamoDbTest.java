@@ -36,6 +36,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
@@ -46,6 +47,7 @@ import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
 import software.amazon.awssdk.services.dynamodb.model.KeyType;
+import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
@@ -532,11 +534,26 @@ class AccountsDynamoDbTest {
     ContactDiscoveryWriter writer = new ContactDiscoveryWriter(accountsDynamoDb);
     account.setCanonicallyDiscoverable(false);
     writer.onCrawlChunk(null, List.of(account));
+    account.setVersion(1);
     verifyStoredState("+14151112222", account.getUuid(), account, true);
-    account.setCanonicallyDiscoverable(true);
-    account.setDiscoverableByPhoneNumber(false);
-    writer.onCrawlChunk(null, List.of(account));
+
+    // Make the stored "C" column not match reality.
+    final UpdateItemRequest updateItemRequest = UpdateItemRequest.builder()
+        .tableName(ACCOUNTS_TABLE_NAME)
+        .key(Map.of(AccountsDynamoDb.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
+        .updateExpression("SET #cds = :cds")
+        .expressionAttributeNames(Map.of("#cds", AccountsDynamoDb.ATTR_CANONICALLY_DISCOVERABLE))
+        .expressionAttributeValues(Map.of(
+            ":cds", AttributeValues.fromBool(false)))
+        .build();
+    dynamoDbExtension.getDynamoDbClient().updateItem(updateItemRequest);
     verifyStoredState("+14151112222", account.getUuid(), account, false);
+
+    // Crawl again and make sure update happened
+    account.setCanonicallyDiscoverable(false);
+    writer.onCrawlChunk(null, List.of(account));
+    account.setVersion(2);
+    verifyStoredState("+14151112222", account.getUuid(), account, true);
   }
 
   private Device generateDevice(long id) {

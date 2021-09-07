@@ -27,6 +27,9 @@ public class ContactDiscoveryWriter extends AccountDatabaseCrawlerListener {
       throws AccountDatabaseCrawlerRestartException {
     for (Account account : chunkAccounts) {
       if (account.isCanonicallyDiscoverable() != account.shouldBeVisibleInDirectory()) {
+        // It’s less than ideal, but crawler listeners currently must not call update()
+        // with the accounts from the chunk, because updates cause the account instance to become stale. Instead, they
+        // must get a new copy, which they are free to update.
         accounts.get(account.getUuid()).ifPresent(accounts::update);
       }
     }
