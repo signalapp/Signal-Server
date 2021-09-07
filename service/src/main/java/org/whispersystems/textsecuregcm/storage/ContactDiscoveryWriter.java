@@ -27,7 +27,7 @@ public class ContactDiscoveryWriter extends AccountDatabaseCrawlerListener {
       throws AccountDatabaseCrawlerRestartException {
     for (Account account : chunkAccounts) {
       if (account.isCanonicallyDiscoverable() != account.shouldBeVisibleInDirectory()) {
-        accounts.update(account);
+        accounts.get(account.getUuid()).ifPresent(accounts::update);
       }
     }
   }
