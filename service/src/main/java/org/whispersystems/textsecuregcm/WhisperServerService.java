@@ -474,9 +474,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     // TODO listeners must be ordered so that ones that directly update accounts come last, so that read-only ones are not working with stale data
     final List<AccountDatabaseCrawlerListener> accountDatabaseCrawlerListeners = new ArrayList<>();
 
-    // the migrator is read-only
-    accountDatabaseCrawlerListeners.add(new AccountsDynamoDbMigrator(accountsDynamoDb, dynamicConfigurationManager));
-
     final List<DeletedAccountsDirectoryReconciler> deletedAccountsDirectoryReconcilers = new ArrayList<>();
     for (DirectoryServerConfiguration directoryServerConfiguration : config.getDirectoryConfiguration()
         .getDirectoryServerConfiguration()) {
@@ -503,7 +500,20 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     CurrencyConversionManager currencyManager = new CurrencyConversionManager(fixerClient, ftxClient, config.getPaymentsServiceConfiguration().getPaymentCurrencies());
 
     AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(cacheCluster);
-    AccountDatabaseCrawler      accountDatabaseCrawler      = new AccountDatabaseCrawler(accountsManager, accountDatabaseCrawlerCache, accountDatabaseCrawlerListeners, config.getAccountDatabaseCrawlerConfiguration().getChunkSize(), config.getAccountDatabaseCrawlerConfiguration().getChunkIntervalMs(), dynamicConfigurationManager);
+    AccountDatabaseCrawler accountDatabaseCrawler = new AccountDatabaseCrawler(accountsManager,
+        accountDatabaseCrawlerCache, accountDatabaseCrawlerListeners,
+        config.getAccountDatabaseCrawlerConfiguration().getChunkSize(),
+        config.getAccountDatabaseCrawlerConfiguration().getChunkIntervalMs(),
+        dynamicConfigurationManager);
+
+    AccountDatabaseCrawlerCache dynamoDbMigrationCrawlerCache = new AccountDatabaseCrawlerCache(cacheCluster);
+    dynamoDbMigrationCrawlerCache.setPrefix("DynamoMigration");
+    AccountDatabaseCrawler accountDynamoDbMigrationCrawler = new AccountDatabaseCrawler(accountsManager,
+        dynamoDbMigrationCrawlerCache,
+        List.of(new AccountsDynamoDbMigrator(accountsDynamoDb, dynamicConfigurationManager)),
+        config.getDynamoDbMigrationCrawlerConfiguration().getChunkSize(),
+        config.getDynamoDbMigrationCrawlerConfiguration().getChunkIntervalMs(),
+        dynamicConfigurationManager);
 
     DeletedAccountsTableCrawler deletedAccountsTableCrawler = new DeletedAccountsTableCrawler(deletedAccountsManager, deletedAccountsDirectoryReconcilers, cacheCluster, recurringJobExecutor);
     MigrationRetryAccountsTableCrawler migrationRetryAccountsTableCrawler = new MigrationRetryAccountsTableCrawler(migrationRetryAccounts, accountsManager, accountsDynamoDb, cacheCluster, recurringJobExecutor);
@@ -514,6 +524,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(pubSubManager);
     environment.lifecycle().manage(messageSender);
     environment.lifecycle().manage(accountDatabaseCrawler);
+    environment.lifecycle().manage(accountDynamoDbMigrationCrawler);
     environment.lifecycle().manage(deletedAccountsTableCrawler);
     environment.lifecycle().manage(migrationRetryAccountsTableCrawler);
     environment.lifecycle().manage(remoteConfigsManager);

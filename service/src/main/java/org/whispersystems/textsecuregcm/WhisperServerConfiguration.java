@@ -112,6 +112,11 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
+  private AccountDatabaseCrawlerConfiguration dynamoDbMigrationCrawler;
+
+  @NotNull
+  @Valid
+  @JsonProperty
   private RedisClusterConfiguration pushSchedulerCluster;
 
   @NotNull
@@ -364,6 +369,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public AccountDatabaseCrawlerConfiguration getAccountDatabaseCrawlerConfiguration() {
     return accountDatabaseCrawler;
+  }
+
+  public AccountDatabaseCrawlerConfiguration getDynamoDbMigrationCrawlerConfiguration() {
+    return dynamoDbMigrationCrawler;
   }
 
   public MessageCacheConfiguration getMessageCacheConfiguration() {

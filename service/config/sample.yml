@@ -139,6 +139,10 @@ accountDatabaseCrawler:
   chunkSize: # accounts per run
   chunkIntervalMs: # time per run
 
+dynamoDbMigrationCrawler:
+  chunkSize: # accounts per run
+  chunkIntervalMs: # time per run
+
 apn: # Apple Push Notifications configuration
   sandbox: true
   bundleId:
