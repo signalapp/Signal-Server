@@ -19,6 +19,7 @@ import com.opentable.db.postgres.junit5.PreparedDbExtension;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -37,6 +38,7 @@ import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
+import org.whispersystems.textsecuregcm.tests.util.SynchronousExecutorService;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
 import software.amazon.awssdk.services.dynamodb.model.GlobalSecondaryIndex;
@@ -217,8 +219,12 @@ class AccountsDynamoDbMigrationCrawlerIntegrationTest {
     final AccountDatabaseCrawlerCache crawlerCache = new AccountDatabaseCrawlerCache(
         REDIS_CLUSTER_EXTENSION.getRedisCluster());
 
-    accountDatabaseCrawler = new AccountDatabaseCrawler(accountsManager, crawlerCache, List.of(dynamoDbMigrator, pushFeedbackProcessor), CHUNK_SIZE,
-        CHUNK_INTERVAL_MS, dynamicConfigurationManager);
+    // Using a synchronous service doesn’t meaningfully impact the test
+    final ExecutorService chunkPreReadExecutorService = new SynchronousExecutorService();
+
+    accountDatabaseCrawler = new AccountDatabaseCrawler(accountsManager, crawlerCache,
+        List.of(dynamoDbMigrator, pushFeedbackProcessor), CHUNK_SIZE,
+        CHUNK_INTERVAL_MS, chunkPreReadExecutorService, dynamicConfigurationManager);
   }
 
   void createAdditionalDynamoDbTables() {

@@ -5,55 +5,43 @@
 
 package org.whispersystems.textsecuregcm.tests.storage;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.verifyZeroInteractions;
-import static org.mockito.Mockito.when;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Optional;
-import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicAccountsDynamoDbMigrationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.AccountCrawlChunk;
-import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawler;
-import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerCache;
-import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerListener;
-import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
-import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.storage.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 class AccountDatabaseCrawlerTest {
 
   private static final UUID ACCOUNT1 = UUID.randomUUID();
   private static final UUID ACCOUNT2 = UUID.randomUUID();
 
-  private static final int  CHUNK_SIZE        = 1000;
+  private static final int CHUNK_SIZE = 1000;
   private static final long CHUNK_INTERVAL_MS = 30_000L;
 
   private final Account account1 = mock(Account.class);
   private final Account account2 = mock(Account.class);
 
-  private final AccountsManager                accounts = mock(AccountsManager.class);
+  private final AccountsManager accounts = mock(AccountsManager.class);
   private final AccountDatabaseCrawlerListener listener = mock(AccountDatabaseCrawlerListener.class);
-  private final AccountDatabaseCrawlerCache    cache    = mock(AccountDatabaseCrawlerCache.class);
+  private final AccountDatabaseCrawlerCache cache = mock(AccountDatabaseCrawlerCache.class);
+
+  private final ExecutorService chunkPreReadExecutorService = mock(ExecutorService.class);
 
   private final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
 
-  private final AccountDatabaseCrawler        crawler   = new AccountDatabaseCrawler(accounts, cache, Arrays.asList(listener), CHUNK_SIZE, CHUNK_INTERVAL_MS, dynamicConfigurationManager);
+  private final AccountDatabaseCrawler crawler = new AccountDatabaseCrawler(accounts, cache, Arrays.asList(listener),
+      CHUNK_SIZE, CHUNK_INTERVAL_MS, chunkPreReadExecutorService, dynamicConfigurationManager);
   private DynamicAccountsDynamoDbMigrationConfiguration dynamicAccountsDynamoDbMigrationConfiguration;
 
   @BeforeEach
@@ -62,12 +50,16 @@ class AccountDatabaseCrawlerTest {
     when(account2.getUuid()).thenReturn(ACCOUNT2);
 
     when(accounts.getAllFrom(anyInt())).thenReturn(new AccountCrawlChunk(Arrays.asList(account1, account2), ACCOUNT2));
-    when(accounts.getAllFrom(eq(ACCOUNT1), anyInt())).thenReturn(new AccountCrawlChunk(Arrays.asList(account2), ACCOUNT2));
+    when(accounts.getAllFrom(eq(ACCOUNT1), anyInt())).thenReturn(
+        new AccountCrawlChunk(Arrays.asList(account2), ACCOUNT2));
     when(accounts.getAllFrom(eq(ACCOUNT2), anyInt())).thenReturn(new AccountCrawlChunk(Collections.emptyList(), null));
 
-    when(accounts.getAllFromDynamo(anyInt())).thenReturn(new AccountCrawlChunk(Arrays.asList(account1, account2), ACCOUNT2));
-    when(accounts.getAllFromDynamo(eq(ACCOUNT1), anyInt())).thenReturn(new AccountCrawlChunk(Arrays.asList(account2), ACCOUNT2));
-    when(accounts.getAllFromDynamo(eq(ACCOUNT2), anyInt())).thenReturn(new AccountCrawlChunk(Collections.emptyList(), null));
+    when(accounts.getAllFromDynamo(anyInt())).thenReturn(
+        new AccountCrawlChunk(Arrays.asList(account1, account2), ACCOUNT2));
+    when(accounts.getAllFromDynamo(eq(ACCOUNT1), anyInt())).thenReturn(
+        new AccountCrawlChunk(Arrays.asList(account2), ACCOUNT2));
+    when(accounts.getAllFromDynamo(eq(ACCOUNT2), anyInt())).thenReturn(
+        new AccountCrawlChunk(Collections.emptyList(), null));
 
     when(cache.claimActiveWork(any(), anyLong())).thenReturn(true);
     when(cache.isAccelerated()).thenReturn(false);
@@ -75,7 +67,8 @@ class AccountDatabaseCrawlerTest {
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
     dynamicAccountsDynamoDbMigrationConfiguration = mock(DynamicAccountsDynamoDbMigrationConfiguration.class);
-    when(dynamicConfiguration.getAccountsDynamoDbMigrationConfiguration()).thenReturn(dynamicAccountsDynamoDbMigrationConfiguration);
+    when(dynamicConfiguration.getAccountsDynamoDbMigrationConfiguration()).thenReturn(
+        dynamicAccountsDynamoDbMigrationConfiguration);
   }
 
   @ParameterizedTest

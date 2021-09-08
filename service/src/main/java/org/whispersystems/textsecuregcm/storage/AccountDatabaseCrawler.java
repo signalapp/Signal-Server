@@ -14,6 +14,7 @@ import io.dropwizard.lifecycle.Managed;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +27,8 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
   private static final Logger logger = LoggerFactory.getLogger(AccountDatabaseCrawler.class);
   private static final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private static final Timer readChunkTimer = metricRegistry.timer(name(AccountDatabaseCrawler.class, "readChunk"));
+  private static final Timer preReadChunkTimer = metricRegistry.timer(
+      name(AccountDatabaseCrawler.class, "preReadChunk"));
   private static final Timer processChunkTimer = metricRegistry.timer(
       name(AccountDatabaseCrawler.class, "processChunk"));
 
@@ -38,6 +41,7 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
   private final String workerId;
   private final AccountDatabaseCrawlerCache cache;
   private final List<AccountDatabaseCrawlerListener> listeners;
+  private final ExecutorService chunkPreReadExecutorService;
 
   private final DynamicConfigurationManager dynamicConfigurationManager;
 
@@ -45,18 +49,19 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
   private boolean finished;
 
   public AccountDatabaseCrawler(AccountsManager accounts,
-                                AccountDatabaseCrawlerCache cache,
-                                List<AccountDatabaseCrawlerListener> listeners,
-                                int chunkSize,
-                                long chunkIntervalMs,
-                                DynamicConfigurationManager dynamicConfigurationManager)
-  {
-    this.accounts             = accounts;
-    this.chunkSize            = chunkSize;
-    this.chunkIntervalMs      = chunkIntervalMs;
-    this.workerId             = UUID.randomUUID().toString();
-    this.cache                = cache;
-    this.listeners            = listeners;
+      AccountDatabaseCrawlerCache cache,
+      List<AccountDatabaseCrawlerListener> listeners,
+      int chunkSize,
+      long chunkIntervalMs,
+      ExecutorService chunkPreReadExecutorService,
+      DynamicConfigurationManager dynamicConfigurationManager) {
+    this.accounts = accounts;
+    this.chunkSize = chunkSize;
+    this.chunkIntervalMs = chunkIntervalMs;
+    this.workerId = UUID.randomUUID().toString();
+    this.cache = cache;
+    this.listeners = listeners;
+    this.chunkPreReadExecutorService = chunkPreReadExecutorService;
 
     this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
@@ -136,6 +141,8 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
 
       final AccountCrawlChunk chunkAccounts = readChunk(fromUuid, chunkSize, useDynamo);
 
+      primeDatabaseForNextChunkAsync(chunkAccounts.getLastUuid(), chunkSize, useDynamo);
+
       if (chunkAccounts.getAccounts().isEmpty()) {
         logger.info("Finished crawl");
         listeners.forEach(listener -> listener.onCrawlEnd(fromUuid));
@@ -156,8 +163,26 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
     }
   }
 
+  /**
+   * This is an optimization based on the observation that cold reads of chunks are slow, but subsequent reads of the
+   * same chunk (within a few minutes) are fast. We can’t easily store the actual result data, since the next chunk
+   * might be processed elsewhere, but the time savings are still substantial.
+   */
+  private void primeDatabaseForNextChunkAsync(Optional<UUID> fromUuid, int chunkSize, boolean useDynamo) {
+    if (dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration()
+        .isCrawlerPreReadNextChunkEnabled()) {
+      if (!useDynamo && fromUuid.isPresent()) {
+        chunkPreReadExecutorService.submit(() -> readChunk(fromUuid, chunkSize, false, preReadChunkTimer));
+      }
+    }
+  }
+
   private AccountCrawlChunk readChunk(Optional<UUID> fromUuid, int chunkSize, boolean useDynamo) {
-    try (Timer.Context timer = readChunkTimer.time()) {
+    return readChunk(fromUuid, chunkSize, useDynamo, readChunkTimer);
+  }
+
+  private AccountCrawlChunk readChunk(Optional<UUID> fromUuid, int chunkSize, boolean useDynamo, Timer readTimer) {
+    try (Timer.Context timer = readTimer.time()) {
 
       if (fromUuid.isPresent()) {
         return useDynamo

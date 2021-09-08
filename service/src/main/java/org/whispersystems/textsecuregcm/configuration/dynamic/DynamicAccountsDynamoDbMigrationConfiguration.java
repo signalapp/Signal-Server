@@ -24,6 +24,9 @@ public class DynamicAccountsDynamoDbMigrationConfiguration {
   boolean logMismatches;
 
   @JsonProperty
+  boolean crawlerPreReadNextChunkEnabled;
+
+  @JsonProperty
   boolean dynamoCrawlerEnabled;
 
   @JsonProperty
@@ -69,6 +72,10 @@ public class DynamicAccountsDynamoDbMigrationConfiguration {
 
   public boolean isLogMismatches() {
     return logMismatches;
+  }
+
+  public boolean isCrawlerPreReadNextChunkEnabled() {
+    return crawlerPreReadNextChunkEnabled;
   }
 
   public boolean isDynamoCrawlerEnabled() {
