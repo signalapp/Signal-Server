@@ -294,7 +294,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.getObjectMapper().setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);
     environment.getObjectMapper().setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
 
-    ProfileBadgeConverter profileBadgeConverter = (request, accountBadges) -> Set.of();  // TODO: Provide an actual implementation.
+    ProfileBadgeConverter profileBadgeConverter = (acceptableLanguages, accountBadges) -> Set.of();  // TODO: Provide an actual implementation.
 
     JdbiFactory jdbiFactory = new JdbiFactory(DefaultNameStrategy.CHECK_EMPTY);
     Jdbi        accountJdbi = jdbiFactory.build(environment, config.getAccountsDatabaseConfiguration(), "accountdb");

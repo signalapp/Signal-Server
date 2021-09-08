@@ -96,7 +96,7 @@ class ProfileControllerTest {
           profilesManager,
           usernamesManager,
           dynamicConfigurationManager,
-          (request, accountBadges) -> Set.of(),  // TODO: Test with some badges.
+          (acceptableLanguages, accountBadges) -> Set.of(),  // TODO: Test with some badges.
           s3client,
           postPolicyGenerator,
           policySigner,

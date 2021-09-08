@@ -10,6 +10,8 @@ import io.dropwizard.auth.Auth;
 import java.security.SecureRandom;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -24,15 +26,17 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Request;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.StringUtils;
+import org.glassfish.jersey.message.internal.AcceptableLanguageTag;
+import org.glassfish.jersey.message.internal.InboundMessageContext;
 import org.signal.zkgroup.InvalidInputException;
 import org.signal.zkgroup.VerificationFailedException;
 import org.signal.zkgroup.profiles.ProfileKeyCommitment;
@@ -183,14 +187,14 @@ public class ProfileController {
   public Optional<Profile> getProfile(
       @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
-      @Context Request request,
+      @Context ContainerRequestContext containerRequestContext,
       @PathParam("uuid") UUID uuid,
       @PathParam("version") String version)
       throws RateLimitExceededException {
     if (!isZkEnabled) {
       throw new WebApplicationException(Response.Status.NOT_FOUND);
     }
-    return getVersionedProfile(auth.map(AuthenticatedAccount::getAccount), accessKey, request, uuid, version, Optional.empty());
+    return getVersionedProfile(auth.map(AuthenticatedAccount::getAccount), accessKey, containerRequestContext.getAcceptableLanguages(), uuid, version, Optional.empty());
   }
 
   @Timed
@@ -200,7 +204,7 @@ public class ProfileController {
   public Optional<Profile> getProfile(
       @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
-      @Context Request request,
+      @Context ContainerRequestContext containerRequestContext,
       @PathParam("uuid") UUID uuid,
       @PathParam("version") String version,
       @PathParam("credentialRequest") String credentialRequest)
@@ -208,13 +212,13 @@ public class ProfileController {
     if (!isZkEnabled) {
       throw new WebApplicationException(Response.Status.NOT_FOUND);
     }
-    return getVersionedProfile(auth.map(AuthenticatedAccount::getAccount), accessKey, request, uuid, version, Optional.of(credentialRequest));
+    return getVersionedProfile(auth.map(AuthenticatedAccount::getAccount), accessKey, containerRequestContext.getAcceptableLanguages(), uuid, version, Optional.of(credentialRequest));
   }
 
   private Optional<Profile> getVersionedProfile(
       Optional<Account> requestAccount,
       Optional<Anonymous> accessKey,
-      Request request,
+      List<Locale> acceptableLanguages,
       UUID uuid,
       String version,
       Optional<String> credentialRequest)
@@ -265,7 +269,7 @@ public class ProfileController {
           UserCapabilities.createForAccount(accountProfile.get()),
           username.orElse(null),
           null,
-          profileBadgeConverter.convert(request, accountProfile.get().getBadges()),
+          profileBadgeConverter.convert(acceptableLanguages, accountProfile.get().getBadges()),
           credential.orElse(null)));
     } catch (InvalidInputException e) {
       logger.info("Bad profile request", e);
