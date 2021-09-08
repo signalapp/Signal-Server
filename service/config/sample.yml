@@ -233,3 +233,8 @@ donation:
   retry:
     maxAttempts: # value
     waitDuration: # value
+
+badges:
+  badges:
+    - name: TEST
+      imageUrl: https://example.com/test-badge

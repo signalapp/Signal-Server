@@ -19,6 +19,7 @@ import org.whispersystems.textsecuregcm.configuration.AccountsDynamoDbConfigurat
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AppConfigConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AwsAttachmentsConfiguration;
+import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DatabaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DatadogConfiguration;
@@ -298,6 +299,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private DonationConfiguration donation;
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private BadgesConfiguration badges;
+
   private Map<String, String> transparentDataIndex = new HashMap<>();
 
   public RecaptchaConfiguration getRecaptchaConfiguration() {
@@ -512,5 +518,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public DonationConfiguration getDonationConfiguration() {
     return donation;
+  }
+
+  public BadgesConfiguration getBadges() {
+    return badges;
   }
 }
