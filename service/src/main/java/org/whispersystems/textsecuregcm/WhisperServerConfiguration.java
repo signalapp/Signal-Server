@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm;
@@ -153,6 +153,11 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private DynamoDbConfiguration migrationDeletedAccountsDynamoDb;
+
+  @Valid
+  @NotNull
+  @JsonProperty
+  private DynamoDbConfiguration migrationMismatchedAccountsDynamoDb;
 
   @Valid
   @NotNull
@@ -405,6 +410,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public DynamoDbConfiguration getMigrationDeletedAccountsDynamoDbConfiguration() {
     return migrationDeletedAccountsDynamoDb;
+  }
+
+  public DynamoDbConfiguration getMigrationMismatchedAccountsDynamoDbConfiguration() {
+    return migrationMismatchedAccountsDynamoDb;
   }
 
   public DynamoDbConfiguration getMigrationRetryAccountsDynamoDbConfiguration() {

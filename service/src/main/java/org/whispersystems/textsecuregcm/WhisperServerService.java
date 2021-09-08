@@ -175,6 +175,8 @@ import org.whispersystems.textsecuregcm.storage.MessagesCache;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.MigrationDeletedAccounts;
+import org.whispersystems.textsecuregcm.storage.MigrationMismatchedAccounts;
+import org.whispersystems.textsecuregcm.storage.MigrationMismatchedAccountsTableCrawler;
 import org.whispersystems.textsecuregcm.storage.MigrationRetryAccounts;
 import org.whispersystems.textsecuregcm.storage.MigrationRetryAccountsTableCrawler;
 import org.whispersystems.textsecuregcm.storage.Profiles;
@@ -326,41 +328,64 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     DynamoDbClient recentlyDeletedAccountsDynamoDb = DynamoDbFromConfig.client(config.getMigrationDeletedAccountsDynamoDbConfiguration(),
         software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
-    DynamoDbClient pushChallengeDynamoDbClient = DynamoDbFromConfig.client(config.getPushChallengeDynamoDbConfiguration(),
+    DynamoDbClient pushChallengeDynamoDbClient = DynamoDbFromConfig.client(
+        config.getPushChallengeDynamoDbConfiguration(),
         software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
-    DynamoDbClient reportMessageDynamoDbClient = DynamoDbFromConfig.client(config.getReportMessageDynamoDbConfiguration(),
+    DynamoDbClient reportMessageDynamoDbClient = DynamoDbFromConfig.client(
+        config.getReportMessageDynamoDbConfiguration(),
         software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
-    DynamoDbClient migrationRetryAccountsDynamoDb = DynamoDbFromConfig.client(config.getMigrationRetryAccountsDynamoDbConfiguration(),
+    DynamoDbClient migrationRetryAccountsDynamoDb = DynamoDbFromConfig.client(
+        config.getMigrationRetryAccountsDynamoDbConfiguration(),
         software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
-    DynamoDbClient pendingAccountsDynamoDbClient = DynamoDbFromConfig.client(config.getPendingAccountsDynamoDbConfiguration(),
+    DynamoDbClient migrationMismatchedAccountsDynamoDb = DynamoDbFromConfig.client(
+        config.getMigrationMismatchedAccountsDynamoDbConfiguration(),
         software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
-    DynamoDbClient pendingDevicesDynamoDbClient = DynamoDbFromConfig.client(config.getPendingDevicesDynamoDbConfiguration(),
+    DynamoDbClient pendingAccountsDynamoDbClient = DynamoDbFromConfig.client(
+        config.getPendingAccountsDynamoDbConfiguration(),
+        software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+
+    DynamoDbClient pendingDevicesDynamoDbClient = DynamoDbFromConfig.client(
+        config.getPendingDevicesDynamoDbConfiguration(),
         software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
     AmazonDynamoDB deletedAccountsLockDynamoDbClient = AmazonDynamoDBClientBuilder.standard()
         .withRegion(config.getDeletedAccountsLockDynamoDbConfiguration().getRegion())
-        .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(((int) config.getDeletedAccountsLockDynamoDbConfiguration().getClientExecutionTimeout().toMillis()))
-            .withRequestTimeout((int) config.getDeletedAccountsLockDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
+        .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(
+                ((int) config.getDeletedAccountsLockDynamoDbConfiguration().getClientExecutionTimeout().toMillis()))
+            .withRequestTimeout(
+                (int) config.getDeletedAccountsLockDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
         .withCredentials(InstanceProfileCredentialsProvider.getInstance())
         .build();
 
-    DeletedAccounts deletedAccounts = new DeletedAccounts(deletedAccountsDynamoDbClient, config.getDeletedAccountsDynamoDbConfiguration().getTableName(), config.getDeletedAccountsDynamoDbConfiguration().getNeedsReconciliationIndexName());
-    MigrationDeletedAccounts migrationDeletedAccounts = new MigrationDeletedAccounts(recentlyDeletedAccountsDynamoDb, config.getMigrationDeletedAccountsDynamoDbConfiguration().getTableName());
-    MigrationRetryAccounts migrationRetryAccounts = new MigrationRetryAccounts(migrationRetryAccountsDynamoDb, config.getMigrationRetryAccountsDynamoDbConfiguration().getTableName());
+    DeletedAccounts deletedAccounts = new DeletedAccounts(deletedAccountsDynamoDbClient,
+        config.getDeletedAccountsDynamoDbConfiguration().getTableName(),
+        config.getDeletedAccountsDynamoDbConfiguration().getNeedsReconciliationIndexName());
+    MigrationDeletedAccounts migrationDeletedAccounts = new MigrationDeletedAccounts(recentlyDeletedAccountsDynamoDb,
+        config.getMigrationDeletedAccountsDynamoDbConfiguration().getTableName());
+    MigrationRetryAccounts migrationRetryAccounts = new MigrationRetryAccounts(migrationRetryAccountsDynamoDb,
+        config.getMigrationRetryAccountsDynamoDbConfiguration().getTableName());
+    MigrationMismatchedAccounts mismatchedAccounts = new MigrationMismatchedAccounts(
+        migrationMismatchedAccountsDynamoDb,
+        config.getMigrationMismatchedAccountsDynamoDbConfiguration().getTableName());
 
-    Accounts          accounts          = new Accounts(accountDatabase);
-    AccountsDynamoDb  accountsDynamoDb  = new AccountsDynamoDb(accountsDynamoDbClient, accountsDynamoDbAsyncClient, accountsDynamoDbMigrationThreadPool, config.getAccountsDynamoDbConfiguration().getTableName(), config.getAccountsDynamoDbConfiguration().getPhoneNumberTableName(), migrationDeletedAccounts, migrationRetryAccounts);
-    Usernames         usernames         = new Usernames(accountDatabase);
+    Accounts accounts = new Accounts(accountDatabase);
+    AccountsDynamoDb accountsDynamoDb = new AccountsDynamoDb(accountsDynamoDbClient, accountsDynamoDbAsyncClient,
+        accountsDynamoDbMigrationThreadPool, config.getAccountsDynamoDbConfiguration().getTableName(),
+        config.getAccountsDynamoDbConfiguration().getPhoneNumberTableName(), migrationDeletedAccounts,
+        migrationRetryAccounts);
+    Usernames usernames = new Usernames(accountDatabase);
     ReservedUsernames reservedUsernames = new ReservedUsernames(accountDatabase);
-    Profiles          profiles          = new Profiles(accountDatabase);
-    KeysDynamoDb      keysDynamoDb      = new KeysDynamoDb(preKeyDynamoDb, config.getKeysDynamoDbConfiguration().getTableName());
-    MessagesDynamoDb  messagesDynamoDb  = new MessagesDynamoDb(messageDynamoDb, config.getMessageDynamoDbConfiguration().getTableName(), config.getMessageDynamoDbConfiguration().getTimeToLive());
-    AbusiveHostRules  abusiveHostRules  = new AbusiveHostRules(abuseDatabase);
-    RemoteConfigs     remoteConfigs     = new RemoteConfigs(accountDatabase);
+    Profiles profiles = new Profiles(accountDatabase);
+    KeysDynamoDb keysDynamoDb = new KeysDynamoDb(preKeyDynamoDb, config.getKeysDynamoDbConfiguration().getTableName());
+    MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(messageDynamoDb,
+        config.getMessageDynamoDbConfiguration().getTableName(),
+        config.getMessageDynamoDbConfiguration().getTimeToLive());
+    AbusiveHostRules abusiveHostRules = new AbusiveHostRules(abuseDatabase);
+    RemoteConfigs remoteConfigs = new RemoteConfigs(accountDatabase);
     PushChallengeDynamoDb pushChallengeDynamoDb = new PushChallengeDynamoDb(pushChallengeDynamoDbClient, config.getPushChallengeDynamoDbConfiguration().getTableName());
     ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(reportMessageDynamoDbClient, config.getReportMessageDynamoDbConfiguration().getTableName());
     VerificationCodeStore pendingAccounts = new VerificationCodeStore(pendingAccountsDynamoDbClient, config.getPendingAccountsDynamoDbConfiguration().getTableName());
@@ -391,8 +416,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     BlockingQueue<Runnable> keyspaceNotificationDispatchQueue = new ArrayBlockingQueue<>(10_000);
     Metrics.gaugeCollectionSize(name(getClass(), "keyspaceNotificationDispatchQueueSize"), Collections.emptyList(), keyspaceNotificationDispatchQueue);
 
-    ScheduledExecutorService recurringJobExecutor                 = environment.lifecycle().scheduledExecutorService(name(getClass(), "recurringJob-%d")).threads(3).build();
-    ScheduledExecutorService declinedMessageReceiptExecutor       = environment.lifecycle().scheduledExecutorService(name(getClass(), "declined-receipt-%d")).threads(2).build();
+    ScheduledExecutorService recurringJobExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "recurringJob-%d")).threads(6).build();
+    ScheduledExecutorService declinedMessageReceiptExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "declined-receipt-%d")).threads(2).build();
     ScheduledExecutorService retrySchedulingExecutor              = environment.lifecycle().scheduledExecutorService(name(getClass(), "retry-%d")).threads(2).build();
     ExecutorService          keyspaceNotificationDispatchExecutor = environment.lifecycle().executorService(name(getClass(), "keyspaceNotification-%d")).maxThreads(16).workQueue(keyspaceNotificationDispatchQueue).build();
     ExecutorService          apnSenderExecutor                    = environment.lifecycle().executorService(name(getClass(), "apnSender-%d")).maxThreads(1).minThreads(1).build();
@@ -521,7 +548,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         dynamicConfigurationManager);
 
     DeletedAccountsTableCrawler deletedAccountsTableCrawler = new DeletedAccountsTableCrawler(deletedAccountsManager, deletedAccountsDirectoryReconcilers, cacheCluster, recurringJobExecutor);
-    MigrationRetryAccountsTableCrawler migrationRetryAccountsTableCrawler = new MigrationRetryAccountsTableCrawler(migrationRetryAccounts, accountsManager, accountsDynamoDb, cacheCluster, recurringJobExecutor);
+    MigrationRetryAccountsTableCrawler migrationRetryAccountsTableCrawler = new MigrationRetryAccountsTableCrawler(
+        migrationRetryAccounts, accountsManager, accountsDynamoDb, cacheCluster, recurringJobExecutor);
+    MigrationMismatchedAccountsTableCrawler migrationMismatchedAccountsTableCrawler = new MigrationMismatchedAccountsTableCrawler(
+        mismatchedAccounts, accountsManager, accounts, accountsDynamoDb, dynamicConfigurationManager, cacheCluster,
+        recurringJobExecutor);
 
     apnSender.setApnFallbackManager(apnFallbackManager);
     environment.lifecycle().manage(new ApplicationShutdownMonitor());
@@ -532,6 +563,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(accountDynamoDbMigrationCrawler);
     environment.lifecycle().manage(deletedAccountsTableCrawler);
     environment.lifecycle().manage(migrationRetryAccountsTableCrawler);
+    environment.lifecycle().manage(migrationMismatchedAccountsTableCrawler);
     environment.lifecycle().manage(remoteConfigsManager);
     environment.lifecycle().manage(messagesCache);
     environment.lifecycle().manage(messagePersister);
