@@ -7,16 +7,19 @@ package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import java.net.URL;
 import javax.validation.constraints.NotEmpty;
 
 public class BadgeConfiguration {
   private final String name;
-  private final String imageUrl;
+  private final URL imageUrl;
 
   @JsonCreator
   public BadgeConfiguration(
       @JsonProperty("name") final String name,
-      @JsonProperty("imageUrl") final String imageUrl) {
+      @JsonProperty("imageUrl") @JsonDeserialize(converter = URLDeserializationConverter.class) final URL imageUrl) {
     this.name = name;
     this.imageUrl = imageUrl;
   }
@@ -27,7 +30,9 @@ public class BadgeConfiguration {
   }
 
   @NotEmpty
-  public String getImageUrl() {
+  @JsonSerialize(converter = URLSerializationConverter.class)
+  public URL getImageUrl() {
     return imageUrl;
   }
+
 }
