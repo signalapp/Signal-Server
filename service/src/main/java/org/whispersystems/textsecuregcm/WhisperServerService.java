@@ -113,6 +113,7 @@ import org.whispersystems.textsecuregcm.mappers.RateLimitChallengeExceptionMappe
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RetryLaterExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ServerRejectedExceptionMapper;
+import org.whispersystems.textsecuregcm.metrics.ApplicationShutdownMonitor;
 import org.whispersystems.textsecuregcm.metrics.BufferPoolGauges;
 import org.whispersystems.textsecuregcm.metrics.CpuUsageGauge;
 import org.whispersystems.textsecuregcm.metrics.FileDescriptorGauge;
@@ -506,6 +507,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     MigrationRetryAccountsTableCrawler migrationRetryAccountsTableCrawler = new MigrationRetryAccountsTableCrawler(migrationRetryAccounts, accountsManager, accountsDynamoDb, cacheCluster, recurringJobExecutor);
 
     apnSender.setApnFallbackManager(apnFallbackManager);
+    environment.lifecycle().manage(new ApplicationShutdownMonitor());
     environment.lifecycle().manage(apnFallbackManager);
     environment.lifecycle().manage(pubSubManager);
     environment.lifecycle().manage(messageSender);
