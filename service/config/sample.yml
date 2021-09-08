@@ -94,11 +94,23 @@ deletedAccountsDynamoDb: # DynamoDb table configuration
   tableName:
   needsReconciliationIndexName:
 
+deletedAccountsLockDynamoDb: # DynamoDb table configuration
+  region:
+  tableName:
+
 migrationDeletedAccountsDynamoDb: # DynamoDB table configuration
   region:
   tableName:
 
 migrationRetryAccountsDynamoDb: # DynamoDB table configuration
+  region:
+  tableName:
+
+pendingAccountsDynamoDb: # DynamoDB table configuration
+  region:
+  tableName:
+
+pendingDevicesDynamoDb: # DynamoDB table configuration
   region:
   tableName:
 
@@ -173,6 +185,12 @@ voiceVerification:
 recaptcha:
   secret:
 
+recaptchaV2:
+  siteKey:
+  scoreFloor:
+  projectPath:
+  credentialConfigurationJson:
+
 storageService:
   uri:
   userAuthenticationTokenSharedSecret:
@@ -204,6 +222,9 @@ remoteConfig:
 
 paymentsService:
   userAuthenticationTokenSharedSecret: # hex-encoded 32-byte secret shared with MobileCoin services used to generate auth tokens for Signal users
+  fixerApiKey:
+  paymentCurrencies:
+    -
 
 torExitNodeList:
   s3Region:
