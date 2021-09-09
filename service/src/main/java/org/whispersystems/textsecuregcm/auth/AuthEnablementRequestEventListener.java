@@ -5,7 +5,11 @@
 
 package org.whispersystems.textsecuregcm.auth;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import com.google.common.annotations.VisibleForTesting;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -44,6 +48,11 @@ public class AuthEnablementRequestEventListener implements RequestEventListener 
 
   private static final String ACCOUNT_ENABLED = AuthEnablementRequestEventListener.class.getName() + ".accountEnabled";
   private static final String DEVICES_ENABLED = AuthEnablementRequestEventListener.class.getName() + ".devicesEnabled";
+
+  private static final Counter DISPLACED_ACCOUNTS = Metrics.counter(
+      name(AuthEnablementRequestEventListener.class, "displacedAccounts"));
+  private static final Counter DISPLACED_DEVICES = Metrics.counter(
+      name(AuthEnablementRequestEventListener.class, "displacedDevices"));
 
   private final ClientPresenceManager clientPresenceManager;
 
@@ -86,6 +95,8 @@ public class AuthEnablementRequestEventListener implements RequestEventListener 
 
                 deviceIdsToDisplace.addAll(initialDevicesEnabled.keySet());
 
+                DISPLACED_ACCOUNTS.increment();
+
               } else if (!initialDevicesEnabled.isEmpty()) {
 
                 deviceIdsToDisplace = new HashSet<>();
@@ -98,6 +109,8 @@ public class AuthEnablementRequestEventListener implements RequestEventListener 
 
                   if (!enabledMatches) {
                     deviceIdsToDisplace.add(deviceId);
+
+                    DISPLACED_DEVICES.increment();
                   }
                 });
               } else {
