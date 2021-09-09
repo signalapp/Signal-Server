@@ -208,6 +208,7 @@ import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
 import org.whispersystems.textsecuregcm.workers.ServerVersionCommand;
 import org.whispersystems.textsecuregcm.workers.SetCrawlerAccelerationTask;
 import org.whispersystems.textsecuregcm.workers.SetRequestLoggingEnabledTask;
+import org.whispersystems.textsecuregcm.workers.SetUserDiscoverabilityCommand;
 import org.whispersystems.textsecuregcm.workers.VacuumCommand;
 import org.whispersystems.textsecuregcm.workers.ZkParamsCommand;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
@@ -231,6 +232,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new ZkParamsCommand());
     bootstrap.addCommand(new ServerVersionCommand());
     bootstrap.addCommand(new CheckDynamicConfigurationCommand());
+    bootstrap.addCommand(new SetUserDiscoverabilityCommand());
 
     bootstrap.addBundle(new NameableMigrationsBundle<WhisperServerConfiguration>("accountdb", "accountsdb.xml") {
       @Override
