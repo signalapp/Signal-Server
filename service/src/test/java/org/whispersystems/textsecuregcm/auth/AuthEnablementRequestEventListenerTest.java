@@ -42,7 +42,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -74,11 +73,10 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
-import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.util.Util;
+import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.websocket.WebSocketResourceProvider;
 import org.whispersystems.websocket.auth.WebsocketAuthValueFactoryProvider;
 import org.whispersystems.websocket.logging.WebsocketRequestLog;
@@ -89,12 +87,10 @@ import org.whispersystems.websocket.session.WebSocketSessionContextValueFactoryP
 @ExtendWith(DropwizardExtensionsSupport.class)
 class AuthEnablementRequestEventListenerTest {
 
-  private static final Random RANDOM = new Random();
-
   private final ApplicationEventListener applicationEventListener = mock(ApplicationEventListener.class);
 
   private Account account = new Account();
-  private Device authenticatedDevice = createDevice(1L);
+  private Device authenticatedDevice = DevicesHelper.createDevice(1L);
 
   private Supplier<Optional<TestPrincipal>> principalSupplier = () -> Optional.of(
       new TestPrincipal("test", account, authenticatedDevice));
@@ -125,7 +121,7 @@ class AuthEnablementRequestEventListenerTest {
     account.setUuid(uuid);
     account.addDevice(authenticatedDevice);
     LongStream.range(2, 4).forEach(deviceId -> {
-      account.addDevice(createDevice(deviceId));
+      account.addDevice(DevicesHelper.createDevice(deviceId));
     });
 
     account.getDevices()
@@ -169,7 +165,7 @@ class AuthEnablementRequestEventListenerTest {
   void testAccountEnabledChanged(final long authenticatedDeviceId, final boolean initialEnabled,
       final boolean finalEnabled) {
 
-    setDeviceEnabled(account.getMasterDevice().orElseThrow(), initialEnabled);
+    DevicesHelper.setEnabled(account.getMasterDevice().orElseThrow(), initialEnabled);
 
     authenticatedDevice = account.getDevice(authenticatedDeviceId).orElseThrow();
 
@@ -211,7 +207,7 @@ class AuthEnablementRequestEventListenerTest {
     assert account.getMasterDevice().orElseThrow().isEnabled();
 
     initialEnabled.forEach((deviceId, enabled) ->
-        setDeviceEnabled(account.getDevice(deviceId).orElseThrow(), enabled));
+        DevicesHelper.setEnabled(account.getDevice(deviceId).orElseThrow(), enabled));
 
     final Response response = resources.getJerseyTest()
         .target("/v1/test/account/devices/enabled")
@@ -380,7 +376,7 @@ class AuthEnablementRequestEventListenerTest {
     void testAccountEnabledChangedWebSocket(final long authenticatedDeviceId, final boolean initialEnabled,
         final boolean finalEnabled) throws Exception {
 
-      setDeviceEnabled(account.getMasterDevice().orElseThrow(), initialEnabled);
+      DevicesHelper.setEnabled(account.getMasterDevice().orElseThrow(), initialEnabled);
 
       authenticatedDevice = account.getDevice(authenticatedDeviceId).orElseThrow();
 
@@ -421,28 +417,6 @@ class AuthEnablementRequestEventListenerTest {
 
       return SubProtocol.WebSocketMessage.parseFrom(responseBytesCaptor.getValue().array()).getResponse();
     }
-  }
-
-  private static Device createDevice(final long deviceId) {
-    final Device device = new Device(deviceId, null, null, null, null, null, null, false, 0, null, 0, 0, "OWT", 0,
-        null);
-
-    setDeviceEnabled(device, true);
-
-    return device;
-  }
-
-  private static void setDeviceEnabled(Device device, boolean enabled) {
-    if (enabled) {
-      device.setSignedPreKey(new SignedPreKey(RANDOM.nextLong(), "testPublicKey-" + RANDOM.nextLong(),
-          "testSignature-" + RANDOM.nextLong()));
-      device.setGcmId("testGcmId" + RANDOM.nextLong());
-      device.setLastSeen(Util.todayInMillis());
-    } else {
-      device.setSignedPreKey(null);
-    }
-
-    assert enabled == device.isEnabled();
   }
 
   public static class TestPrincipal implements Principal, AccountAndAuthenticatedDeviceHolder {
@@ -494,7 +468,7 @@ class AuthEnablementRequestEventListenerTest {
 
       final Device device = principal.getAccount().getMasterDevice().orElseThrow();
 
-      AuthEnablementRequestEventListenerTest.setDeviceEnabled(device, enabled);
+      DevicesHelper.setEnabled(device, enabled);
 
       assert device.isEnabled() == enabled;
 
@@ -503,13 +477,13 @@ class AuthEnablementRequestEventListenerTest {
 
     @POST
     @Path("/account/devices/enabled")
-    public String setDeviceEnabled(@Auth TestPrincipal principal, Map<Long, Boolean> deviceIdsEnabled) {
+    public String setEnabled(@Auth TestPrincipal principal, Map<Long, Boolean> deviceIdsEnabled) {
 
       final StringBuilder response = new StringBuilder();
 
       for (Entry<Long, Boolean> deviceIdEnabled : deviceIdsEnabled.entrySet()) {
         final Device device = principal.getAccount().getDevice(deviceIdEnabled.getKey()).orElseThrow();
-        AuthEnablementRequestEventListenerTest.setDeviceEnabled(device, deviceIdEnabled.getValue());
+        DevicesHelper.setEnabled(device, deviceIdEnabled.getValue());
 
         response.append(String.format("Set device enabled %s", deviceIdEnabled));
       }
@@ -522,7 +496,7 @@ class AuthEnablementRequestEventListenerTest {
     public String addDevices(@Auth TestPrincipal auth, List<String> deviceNames) {
 
       deviceNames.forEach(name -> {
-        final Device device = createDevice(auth.getAccount().getNextDeviceId());
+        final Device device = DevicesHelper.createDevice(auth.getAccount().getNextDeviceId());
         auth.getAccount().addDevice(device);
 
         device.setName(name);
@@ -546,7 +520,7 @@ class AuthEnablementRequestEventListenerTest {
     @Path("/account/disableMasterDeviceAndDeleteDevice/{deviceId}")
     public String disableMasterDeviceAndRemoveDevice(@Auth TestPrincipal auth, @PathParam("deviceId") long deviceId) {
 
-      AuthEnablementRequestEventListenerTest.setDeviceEnabled(auth.getAccount().getMasterDevice().orElseThrow(), false);
+      DevicesHelper.setEnabled(auth.getAccount().getMasterDevice().orElseThrow(), false);
 
       auth.getAccount().removeDevice(deviceId);
 
