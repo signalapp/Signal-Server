@@ -212,17 +212,13 @@ public class Account {
   public long getNextDeviceId() {
     requireNotStale();
 
-    long highestDevice = Device.MASTER_ID;
+    long candidateId = Device.MASTER_ID + 1;
 
-    for (Device device : devices) {
-      if (!device.isEnabled()) {
-        return device.getId();
-      } else if (device.getId() > highestDevice) {
-        highestDevice = device.getId();
-      }
+    while (getDevice(candidateId).isPresent()) {
+      candidateId++;
     }
 
-    return highestDevice + 1;
+    return candidateId;
   }
 
   public int getEnabledDeviceCount() {

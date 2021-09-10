@@ -12,6 +12,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.whispersystems.textsecuregcm.tests.util.DevicesHelper.createDevice;
+import static org.whispersystems.textsecuregcm.tests.util.DevicesHelper.setEnabled;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
@@ -314,5 +316,30 @@ class AccountTest {
 
     assertThrows(AssertionError.class, account::getNumber);
     assertDoesNotThrow(account::getUuid);
+  }
+
+  @Test
+  void getNextDeviceId() {
+
+    final Set<Device> devices = new HashSet<>();
+    devices.add(createDevice(Device.MASTER_ID));
+
+    final Account account = new Account("+14151234567", UUID.randomUUID(), devices, new byte[0]);
+
+    assertThat(account.getNextDeviceId()).isEqualTo(2L);
+
+    account.addDevice(createDevice(2L));
+
+    assertThat(account.getNextDeviceId()).isEqualTo(3L);
+
+    account.addDevice(createDevice(3L));
+
+    setEnabled(account.getDevice(2L).orElseThrow(), false);
+
+    assertThat(account.getNextDeviceId()).isEqualTo(4L);
+
+    account.removeDevice(2L);
+
+    assertThat(account.getNextDeviceId()).isEqualTo(2L);
   }
 }
