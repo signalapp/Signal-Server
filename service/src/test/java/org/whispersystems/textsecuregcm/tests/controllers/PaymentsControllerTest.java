@@ -14,6 +14,7 @@ import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -52,7 +53,17 @@ class PaymentsControllerTest {
   @BeforeEach
   void setup() {
     when(paymentsCredentialGenerator.generateFor(eq(AuthHelper.VALID_UUID.toString()))).thenReturn(validCredentials);
-    when(currencyManager.getCurrencyConversions()).thenReturn(Optional.of(new CurrencyConversionEntityList(List.of(new CurrencyConversionEntity("FOO", Map.of("USD", 2.35, "EUR", 1.89)), new CurrencyConversionEntity("BAR", Map.of("USD", 1.50, "EUR", 0.98))), System.currentTimeMillis())));
+    when(currencyManager.getCurrencyConversions()).thenReturn(Optional.of(
+        new CurrencyConversionEntityList(List.of(
+            new CurrencyConversionEntity("FOO", Map.of(
+                "USD", new BigDecimal("2.35"),
+                "EUR", new BigDecimal("1.89")
+            )),
+            new CurrencyConversionEntity("BAR", Map.of(
+                "USD", new BigDecimal("1.50"),
+                "EUR", new BigDecimal("0.98")
+            ))
+        ), System.currentTimeMillis())));
   }
 
   @Test
@@ -103,7 +114,19 @@ class PaymentsControllerTest {
 
     assertThat(conversions.getCurrencies().size()).isEqualTo(2);
     assertThat(conversions.getCurrencies().get(0).getBase()).isEqualTo("FOO");
-    assertThat(conversions.getCurrencies().get(0).getConversions().get("USD")).isEqualTo(2.35);
+    assertThat(conversions.getCurrencies().get(0).getConversions().get("USD")).isEqualTo(new BigDecimal("2.35"));
+  }
+
+  @Test
+  void testGetCurrencyConversions_Json() {
+    String json =
+        resources.getJerseyTest()
+            .target("/v1/payments/conversions")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+            .get(String.class);
+
+    assertThat(json.contains("{\"USD\":2.35,\"EUR\":1.89}"));
   }
 
 }
