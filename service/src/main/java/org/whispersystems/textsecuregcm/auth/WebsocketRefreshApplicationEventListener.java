@@ -20,7 +20,8 @@ public class WebsocketRefreshApplicationEventListener implements ApplicationEven
 
   public WebsocketRefreshApplicationEventListener(final ClientPresenceManager clientPresenceManager) {
     this.websocketRefreshRequestEventListener = new WebsocketRefreshRequestEventListener(clientPresenceManager,
-        new AuthEnablementRefreshRequirementProvider());
+        new AuthEnablementRefreshRequirementProvider(),
+        new PhoneNumberChangeRefreshRequirementProvider());
   }
 
   @Override

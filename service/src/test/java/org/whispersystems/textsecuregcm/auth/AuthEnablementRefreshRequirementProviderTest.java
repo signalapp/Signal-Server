@@ -89,10 +89,10 @@ class AuthEnablementRefreshRequirementProviderTest {
 
   private final ApplicationEventListener applicationEventListener = mock(ApplicationEventListener.class);
 
-  private Account account = new Account();
+  private final Account account = new Account();
   private Device authenticatedDevice = DevicesHelper.createDevice(1L);
 
-  private Supplier<Optional<TestPrincipal>> principalSupplier = () -> Optional.of(
+  private final Supplier<Optional<TestPrincipal>> principalSupplier = () -> Optional.of(
       new TestPrincipal("test", account, authenticatedDevice));
 
   private final ResourceExtension resources = ResourceExtension.builder()
@@ -109,14 +109,15 @@ class AuthEnablementRefreshRequirementProviderTest {
 
   private ClientPresenceManager clientPresenceManager;
 
-  private WebsocketRefreshRequestEventListener listener;
   private AuthEnablementRefreshRequirementProvider provider;
 
   @BeforeEach
   void setup() {
     clientPresenceManager = mock(ClientPresenceManager.class);
     provider = new AuthEnablementRefreshRequirementProvider();
-    listener = new WebsocketRefreshRequestEventListener(clientPresenceManager, provider);
+    final WebsocketRefreshRequestEventListener listener =
+        new WebsocketRefreshRequestEventListener(clientPresenceManager, provider);
+
     when(applicationEventListener.onRequest(any())).thenReturn(listener);
 
     final UUID uuid = UUID.randomUUID();

@@ -43,7 +43,7 @@ public class WebsocketRefreshRequestEventListener implements RequestEventListene
   public void onEvent(final RequestEvent event) {
     if (event.getType() == Type.REQUEST_FILTERED) {
       for (final WebsocketRefreshRequirementProvider provider : providers) {
-        provider.handleRequestStart(event.getContainerRequest());
+        provider.handleRequestFiltered(event.getContainerRequest());
       }
     } else if (event.getType() == Type.FINISHED) {
       final AtomicInteger displacedDevices = new AtomicInteger(0);

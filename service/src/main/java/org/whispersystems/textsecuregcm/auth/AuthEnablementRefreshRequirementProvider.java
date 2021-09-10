@@ -12,11 +12,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import javax.ws.rs.core.SecurityContext;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,17 +42,6 @@ public class AuthEnablementRefreshRequirementProvider implements WebsocketRefres
   private static final String ACCOUNT_ENABLED = AuthEnablementRefreshRequirementProvider.class.getName() + ".accountEnabled";
   private static final String DEVICES_ENABLED = AuthEnablementRefreshRequirementProvider.class.getName() + ".devicesEnabled";
 
-  private Optional<Account> findAccount(final ContainerRequest containerRequest) {
-    return Optional.ofNullable(containerRequest.getSecurityContext())
-        .map(SecurityContext::getUserPrincipal)
-        .map(principal -> {
-          if (principal instanceof AccountAndAuthenticatedDeviceHolder) {
-            return ((AccountAndAuthenticatedDeviceHolder) principal).getAccount();
-          }
-          return null;
-        });
-  }
-
   @VisibleForTesting
   Map<Long, Boolean> buildDevicesEnabledMap(final Account account) {
     return account.getDevices().stream()
@@ -63,11 +50,11 @@ public class AuthEnablementRefreshRequirementProvider implements WebsocketRefres
   }
 
   @Override
-  public void handleRequestStart(final ContainerRequest request) {
+  public void handleRequestFiltered(final ContainerRequest request) {
     // The authenticated principal, if any, will be available after filters have run.
     // Now that the account is known, capture a snapshot of `isEnabled` for the account and its devices,
     // before carrying out the request’s business logic.
-    findAccount(request)
+    ContainerRequestUtil.getAuthenticatedAccount(request)
         .ifPresent(
             account -> {
               request.setProperty(ACCOUNT_ENABLED, account.isEnabled());
@@ -87,7 +74,7 @@ public class AuthEnablementRefreshRequirementProvider implements WebsocketRefres
       @SuppressWarnings("unchecked") final Map<Long, Boolean> initialDevicesEnabled =
           (Map<Long, Boolean>) request.getProperty(DEVICES_ENABLED);
 
-      return findAccount(request).map(account -> {
+      return ContainerRequestUtil.getAuthenticatedAccount(request).map(account -> {
         final Set<Long> deviceIdsToDisplace;
 
         if (account.isEnabled() != accountInitiallyEnabled) {

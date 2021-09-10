@@ -21,7 +21,7 @@ public interface WebsocketRefreshRequirementProvider {
    *
    * @param request the request to observe
    */
-  void handleRequestStart(ContainerRequest request);
+  void handleRequestFiltered(ContainerRequest request);
 
   /**
    * Processes a request after all normal request handling has been completed.
