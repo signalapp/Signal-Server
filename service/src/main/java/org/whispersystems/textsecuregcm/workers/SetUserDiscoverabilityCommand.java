@@ -48,6 +48,7 @@ import org.whispersystems.textsecuregcm.storage.MessagesCache;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.MigrationDeletedAccounts;
+import org.whispersystems.textsecuregcm.storage.MigrationMismatchedAccounts;
 import org.whispersystems.textsecuregcm.storage.MigrationRetryAccounts;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
@@ -153,6 +154,9 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
       DynamoDbClient migrationDeletedAccountsDynamoDb = DynamoDbFromConfig
           .client(configuration.getMigrationDeletedAccountsDynamoDbConfiguration(),
               software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+      DynamoDbClient migrationMismatchedAccountsDynamoDb = DynamoDbFromConfig
+          .client(configuration.getMigrationMismatchedAccountsDynamoDbConfiguration(),
+              software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
       DynamoDbClient migrationRetryAccountsDynamoDb = DynamoDbFromConfig
           .client(configuration.getMigrationRetryAccountsDynamoDbConfiguration(),
               software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
@@ -217,12 +221,16 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
           Metrics.globalRegistry);
       MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, pushLatencyManager,
           reportMessageManager);
+      MigrationMismatchedAccounts mismatchedAccounts = new MigrationMismatchedAccounts(
+          migrationMismatchedAccountsDynamoDb,
+          configuration.getMigrationMismatchedAccountsDynamoDbConfiguration().getTableName());
       DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
           deletedAccountsLockDynamoDbClient,
           configuration.getDeletedAccountsLockDynamoDbConfiguration().getTableName());
       StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
       AccountsManager accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster,
-          deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager,
+          deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, mismatchedAccounts, usernamesManager,
+          profilesManager,
           pendingAccountsManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager,
           dynamicConfigurationManager);
 

@@ -83,8 +83,9 @@ public class AccountsManager {
   private final DeletedAccountsManager deletedAccountsManager;
   private final DirectoryQueue            directoryQueue;
   private final KeysDynamoDb              keysDynamoDb;
-  private final MessagesManager           messagesManager;
-  private final UsernamesManager          usernamesManager;
+  private final MessagesManager messagesManager;
+  private final MigrationMismatchedAccounts mismatchedAccounts;
+  private final UsernamesManager usernamesManager;
   private final ProfilesManager           profilesManager;
   private final StoredVerificationCodeManager pendingAccounts;
   private final SecureStorageClient       secureStorageClient;
@@ -111,7 +112,8 @@ public class AccountsManager {
   public AccountsManager(Accounts accounts, AccountsDynamoDb accountsDynamoDb, FaultTolerantRedisCluster cacheCluster,
       final DeletedAccountsManager deletedAccountsManager,
       final DirectoryQueue directoryQueue,
-      final KeysDynamoDb keysDynamoDb, final MessagesManager messagesManager, final UsernamesManager usernamesManager,
+      final KeysDynamoDb keysDynamoDb, final MessagesManager messagesManager,
+      final MigrationMismatchedAccounts mismatchedAccounts, final UsernamesManager usernamesManager,
       final ProfilesManager profilesManager,
       final StoredVerificationCodeManager pendingAccounts,
       final SecureStorageClient secureStorageClient,
@@ -124,8 +126,9 @@ public class AccountsManager {
     this.deletedAccountsManager = deletedAccountsManager;
     this.directoryQueue      = directoryQueue;
     this.keysDynamoDb        = keysDynamoDb;
-    this.messagesManager     = messagesManager;
-    this.usernamesManager    = usernamesManager;
+    this.messagesManager = messagesManager;
+    this.mismatchedAccounts = mismatchedAccounts;
+    this.usernamesManager = usernamesManager;
     this.profilesManager     = profilesManager;
     this.pendingAccounts = pendingAccounts;
     this.secureStorageClient = secureStorageClient;
@@ -726,17 +729,21 @@ public class AccountsManager {
               "mismatchType", mismatchDescription)
               .increment();
 
-          if (maybeUUid.isPresent()
-              && dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration().isLogMismatches()) {
+          maybeUUid.ifPresent(uuid -> {
 
-            final String abbreviatedCallChain = getAbbreviatedCallChain(new RuntimeException().getStackTrace());
+            mismatchedAccounts.put(uuid);
 
-            logger.info("Mismatched account data: {}", StructuredArguments.entries(Map.of(
-                "type", mismatchDescription,
-                "uuid", maybeUUid.get(),
-                "callChain", abbreviatedCallChain
-            )));
-          }
+            if (dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration()
+                .isLogMismatches()) {
+              final String abbreviatedCallChain = getAbbreviatedCallChain(new RuntimeException().getStackTrace());
+
+              logger.info("Mismatched account data: {}", StructuredArguments.entries(Map.of(
+                  "type", mismatchDescription,
+                  "uuid", uuid,
+                  "callChain", abbreviatedCallChain
+              )));
+            }
+          });
         });
   }
 

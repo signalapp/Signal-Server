@@ -460,9 +460,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     PushLatencyManager         pushLatencyManager         = new PushLatencyManager(metricsCluster);
     ReportMessageManager       reportMessageManager       = new ReportMessageManager(reportMessageDynamoDb, Metrics.globalRegistry);
     MessagesManager            messagesManager            = new MessagesManager(messagesDynamoDb, messagesCache, pushLatencyManager, reportMessageManager);
-    DeletedAccountsManager     deletedAccountsManager     = new DeletedAccountsManager(deletedAccounts, deletedAccountsLockDynamoDbClient, config.getDeletedAccountsLockDynamoDbConfiguration().getTableName());
-    AccountsManager            accountsManager            = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, pendingAccountsManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
-    RemoteConfigsManager       remoteConfigsManager       = new RemoteConfigsManager(remoteConfigs);
+    DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
+        deletedAccountsLockDynamoDbClient, config.getDeletedAccountsLockDynamoDbConfiguration().getTableName());
+    AccountsManager accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster,
+        deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, mismatchedAccounts, usernamesManager,
+        profilesManager, pendingAccountsManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager,
+        dynamicConfigurationManager);
+    RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
     DeadLetterHandler          deadLetterHandler          = new DeadLetterHandler(accountsManager, messagesManager);
     DispatchManager            dispatchManager            = new DispatchManager(pubSubClientFactory, Optional.of(deadLetterHandler));
     PubSubManager              pubSubManager              = new PubSubManager(pubsubClient, dispatchManager);

@@ -204,6 +204,7 @@ class AccountsDynamoDbMigrationCrawlerIntegrationTest {
         directoryQueue,
         keysDynamoDb,
         mock(MessagesManager.class),
+        mock(MigrationMismatchedAccounts.class),
         mock(UsernamesManager.class),
         mock(ProfilesManager.class),
         mock(StoredVerificationCodeManager.class),

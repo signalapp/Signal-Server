@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -50,6 +50,7 @@ import org.whispersystems.textsecuregcm.storage.MessagesCache;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.MigrationDeletedAccounts;
+import org.whispersystems.textsecuregcm.storage.MigrationMismatchedAccounts;
 import org.whispersystems.textsecuregcm.storage.MigrationRetryAccounts;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
@@ -107,37 +108,57 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
       ThreadPoolExecutor accountsDynamoDbMigrationThreadPool = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
           new LinkedBlockingDeque<>());
 
-      DynamoDbClient reportMessagesDynamoDb = DynamoDbFromConfig.client(configuration.getReportMessageDynamoDbConfiguration(),
+      DynamoDbClient reportMessagesDynamoDb = DynamoDbFromConfig.client(
+          configuration.getReportMessageDynamoDbConfiguration(),
           software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
       DynamoDbClient messageDynamoDb = DynamoDbFromConfig.client(configuration.getMessageDynamoDbConfiguration(),
           software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
       DynamoDbClient preKeysDynamoDb = DynamoDbFromConfig.client(configuration.getKeysDynamoDbConfiguration(),
           software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
-      DynamoDbClient accountsDynamoDbClient = DynamoDbFromConfig.client(configuration.getAccountsDynamoDbConfiguration(),
+      DynamoDbClient accountsDynamoDbClient = DynamoDbFromConfig.client(
+          configuration.getAccountsDynamoDbConfiguration(),
           software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
-      DynamoDbAsyncClient accountsDynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(configuration.getAccountsDynamoDbConfiguration(),
+      DynamoDbAsyncClient accountsDynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(
+          configuration.getAccountsDynamoDbConfiguration(),
           software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create(),
           accountsDynamoDbMigrationThreadPool);
-      DynamoDbClient deletedAccountsDynamoDbClient = DynamoDbFromConfig.client(configuration.getDeletedAccountsDynamoDbConfiguration(),
+      DynamoDbClient deletedAccountsDynamoDbClient = DynamoDbFromConfig.client(
+          configuration.getDeletedAccountsDynamoDbConfiguration(),
+          software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+      DynamoDbClient migrationMismatchedAccountsDynamoDb = DynamoDbFromConfig.client(
+          configuration.getMigrationMismatchedAccountsDynamoDbConfiguration(),
           software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
-      FaultTolerantRedisCluster cacheCluster = new FaultTolerantRedisCluster("main_cache_cluster", configuration.getCacheClusterConfiguration(), redisClusterClientResources);
+      FaultTolerantRedisCluster cacheCluster = new FaultTolerantRedisCluster("main_cache_cluster",
+          configuration.getCacheClusterConfiguration(), redisClusterClientResources);
 
-      ExecutorService keyspaceNotificationDispatchExecutor = environment.lifecycle().executorService(name(getClass(), "keyspaceNotification-%d")).maxThreads(4).build();
-      ExecutorService backupServiceExecutor = environment.lifecycle().executorService(name(getClass(), "backupService-%d")).maxThreads(8).minThreads(1).build();
-      ExecutorService storageServiceExecutor = environment.lifecycle().executorService(name(getClass(), "storageService-%d")).maxThreads(8).minThreads(1).build();
+      ExecutorService keyspaceNotificationDispatchExecutor = environment.lifecycle()
+          .executorService(name(getClass(), "keyspaceNotification-%d")).maxThreads(4).build();
+      ExecutorService backupServiceExecutor = environment.lifecycle()
+          .executorService(name(getClass(), "backupService-%d")).maxThreads(8).minThreads(1).build();
+      ExecutorService storageServiceExecutor = environment.lifecycle()
+          .executorService(name(getClass(), "storageService-%d")).maxThreads(8).minThreads(1).build();
 
-      ExternalServiceCredentialGenerator backupCredentialsGenerator = new ExternalServiceCredentialGenerator(configuration.getSecureBackupServiceConfiguration().getUserAuthenticationTokenSharedSecret(), new byte[0], false);
-      ExternalServiceCredentialGenerator storageCredentialsGenerator = new ExternalServiceCredentialGenerator(configuration.getSecureStorageServiceConfiguration().getUserAuthenticationTokenSharedSecret(), new byte[0], false);
+      ExternalServiceCredentialGenerator backupCredentialsGenerator = new ExternalServiceCredentialGenerator(
+          configuration.getSecureBackupServiceConfiguration().getUserAuthenticationTokenSharedSecret(), new byte[0],
+          false);
+      ExternalServiceCredentialGenerator storageCredentialsGenerator = new ExternalServiceCredentialGenerator(
+          configuration.getSecureStorageServiceConfiguration().getUserAuthenticationTokenSharedSecret(), new byte[0],
+          false);
 
-      DynamicConfigurationManager dynamicConfigurationManager = new DynamicConfigurationManager(configuration.getAppConfig().getApplication(), configuration.getAppConfig().getEnvironment(), configuration.getAppConfig().getConfigurationName());
+      DynamicConfigurationManager dynamicConfigurationManager = new DynamicConfigurationManager(
+          configuration.getAppConfig().getApplication(), configuration.getAppConfig().getEnvironment(),
+          configuration.getAppConfig().getConfigurationName());
       dynamicConfigurationManager.start();
 
-      ExperimentEnrollmentManager experimentEnrollmentManager = new ExperimentEnrollmentManager(dynamicConfigurationManager);
+      ExperimentEnrollmentManager experimentEnrollmentManager = new ExperimentEnrollmentManager(
+          dynamicConfigurationManager);
 
-      DynamoDbClient migrationDeletedAccountsDynamoDb = DynamoDbFromConfig.client(configuration.getMigrationDeletedAccountsDynamoDbConfiguration(),
+      DynamoDbClient migrationDeletedAccountsDynamoDb = DynamoDbFromConfig.client(
+          configuration.getMigrationDeletedAccountsDynamoDbConfiguration(),
           software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
-      DynamoDbClient migrationRetryAccountsDynamoDb = DynamoDbFromConfig.client(configuration.getMigrationRetryAccountsDynamoDbConfiguration(),
+      DynamoDbClient migrationRetryAccountsDynamoDb = DynamoDbFromConfig.client(
+          configuration.getMigrationRetryAccountsDynamoDbConfiguration(),
           software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
       DynamoDbClient pendingAccountsDynamoDbClient = DynamoDbFromConfig.client(configuration.getPendingAccountsDynamoDbConfiguration(),
           software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
@@ -163,22 +184,38 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
       MessagesDynamoDb          messagesDynamoDb     = new MessagesDynamoDb(messageDynamoDb, configuration.getMessageDynamoDbConfiguration().getTableName(), configuration.getMessageDynamoDbConfiguration().getTimeToLive());
       FaultTolerantRedisCluster messageInsertCacheCluster = new FaultTolerantRedisCluster("message_insert_cluster", configuration.getMessageCacheConfiguration().getRedisClusterConfiguration(), redisClusterClientResources);
       FaultTolerantRedisCluster messageReadDeleteCluster = new FaultTolerantRedisCluster("message_read_delete_cluster", configuration.getMessageCacheConfiguration().getRedisClusterConfiguration(), redisClusterClientResources);
-      FaultTolerantRedisCluster metricsCluster       = new FaultTolerantRedisCluster("metrics_cluster", configuration.getMetricsClusterConfiguration(), redisClusterClientResources);
-      SecureBackupClient        secureBackupClient   = new SecureBackupClient(backupCredentialsGenerator, backupServiceExecutor, configuration.getSecureBackupServiceConfiguration());
-      SecureStorageClient       secureStorageClient  = new SecureStorageClient(storageCredentialsGenerator, storageServiceExecutor, configuration.getSecureStorageServiceConfiguration());
-      MessagesCache             messagesCache        = new MessagesCache(messageInsertCacheCluster, messageReadDeleteCluster, keyspaceNotificationDispatchExecutor);
-      PushLatencyManager        pushLatencyManager   = new PushLatencyManager(metricsCluster);
-      DirectoryQueue            directoryQueue       = new DirectoryQueue  (configuration.getDirectoryConfiguration().getSqsConfiguration());
-      UsernamesManager          usernamesManager     = new UsernamesManager(usernames, reservedUsernames, cacheCluster);
-      ProfilesManager           profilesManager      = new ProfilesManager(profiles, cacheCluster);
-      ReportMessageDynamoDb     reportMessageDynamoDb = new ReportMessageDynamoDb(reportMessagesDynamoDb, configuration.getReportMessageDynamoDbConfiguration().getTableName());
-      ReportMessageManager      reportMessageManager = new ReportMessageManager(reportMessageDynamoDb, Metrics.globalRegistry);
-      MessagesManager           messagesManager      = new MessagesManager(messagesDynamoDb, messagesCache, pushLatencyManager, reportMessageManager);
-      DeletedAccountsManager    deletedAccountsManager = new DeletedAccountsManager(deletedAccounts, deletedAccountsLockDynamoDbClient, configuration.getDeletedAccountsLockDynamoDbConfiguration().getTableName());
+      FaultTolerantRedisCluster metricsCluster = new FaultTolerantRedisCluster("metrics_cluster",
+          configuration.getMetricsClusterConfiguration(), redisClusterClientResources);
+      SecureBackupClient secureBackupClient = new SecureBackupClient(backupCredentialsGenerator, backupServiceExecutor,
+          configuration.getSecureBackupServiceConfiguration());
+      SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
+          storageServiceExecutor, configuration.getSecureStorageServiceConfiguration());
+      MessagesCache messagesCache = new MessagesCache(messageInsertCacheCluster, messageReadDeleteCluster,
+          keyspaceNotificationDispatchExecutor);
+      PushLatencyManager pushLatencyManager = new PushLatencyManager(metricsCluster);
+      DirectoryQueue directoryQueue = new DirectoryQueue(
+          configuration.getDirectoryConfiguration().getSqsConfiguration());
+      UsernamesManager usernamesManager = new UsernamesManager(usernames, reservedUsernames, cacheCluster);
+      ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
+      ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(reportMessagesDynamoDb,
+          configuration.getReportMessageDynamoDbConfiguration().getTableName());
+      ReportMessageManager reportMessageManager = new ReportMessageManager(reportMessageDynamoDb,
+          Metrics.globalRegistry);
+      MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, pushLatencyManager,
+          reportMessageManager);
+      MigrationMismatchedAccounts mismatchedAccounts = new MigrationMismatchedAccounts(
+          migrationMismatchedAccountsDynamoDb,
+          configuration.getMigrationMismatchedAccountsDynamoDbConfiguration().getTableName());
+      DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
+          deletedAccountsLockDynamoDbClient,
+          configuration.getDeletedAccountsLockDynamoDbConfiguration().getTableName());
       StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
-      AccountsManager           accountsManager      = new AccountsManager(accounts, accountsDynamoDb, cacheCluster, deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, pendingAccountsManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager, dynamicConfigurationManager);
+      AccountsManager accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster,
+          deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, mismatchedAccounts, usernamesManager,
+          profilesManager, pendingAccountsManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager,
+          dynamicConfigurationManager);
 
-      for (String user: users) {
+      for (String user : users) {
         Optional<Account> account = accountsManager.get(user);
 
         if (account.isPresent()) {

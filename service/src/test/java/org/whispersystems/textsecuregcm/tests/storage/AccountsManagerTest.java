@@ -59,6 +59,7 @@ import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import org.whispersystems.textsecuregcm.storage.MigrationMismatchedAccounts;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
@@ -120,6 +121,7 @@ class AccountsManagerTest {
         directoryQueue,
         keys,
         messagesManager,
+        mock(MigrationMismatchedAccounts.class),
         mock(UsernamesManager.class),
         profilesManager,
         mock(StoredVerificationCodeManager.class),

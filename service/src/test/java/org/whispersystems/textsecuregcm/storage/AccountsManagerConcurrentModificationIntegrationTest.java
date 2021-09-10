@@ -160,6 +160,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(DirectoryQueue.class),
           mock(KeysDynamoDb.class),
           mock(MessagesManager.class),
+          mock(MigrationMismatchedAccounts.class),
           mock(UsernamesManager.class),
           mock(ProfilesManager.class),
           mock(StoredVerificationCodeManager.class),
