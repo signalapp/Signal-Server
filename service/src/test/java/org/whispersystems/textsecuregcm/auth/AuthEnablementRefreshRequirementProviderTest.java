@@ -85,7 +85,7 @@ import org.whispersystems.websocket.messages.protobuf.SubProtocol;
 import org.whispersystems.websocket.session.WebSocketSessionContextValueFactoryProvider;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
-class AuthEnablementRequestEventListenerTest {
+class AuthEnablementRefreshRequirementProviderTest {
 
   private final ApplicationEventListener applicationEventListener = mock(ApplicationEventListener.class);
 
@@ -109,12 +109,14 @@ class AuthEnablementRequestEventListenerTest {
 
   private ClientPresenceManager clientPresenceManager;
 
-  private AuthEnablementRequestEventListener listener;
+  private WebsocketRefreshRequestEventListener listener;
+  private AuthEnablementRefreshRequirementProvider provider;
 
   @BeforeEach
   void setup() {
     clientPresenceManager = mock(ClientPresenceManager.class);
-    listener = new AuthEnablementRequestEventListener(clientPresenceManager);
+    provider = new AuthEnablementRefreshRequirementProvider();
+    listener = new WebsocketRefreshRequestEventListener(clientPresenceManager, provider);
     when(applicationEventListener.onRequest(any())).thenReturn(listener);
 
     final UUID uuid = UUID.randomUUID();
@@ -146,7 +148,7 @@ class AuthEnablementRequestEventListenerTest {
           devices.add(device);
         });
 
-    final Map<Long, Boolean> devicesEnabled = listener.buildDevicesEnabledMap(account);
+    final Map<Long, Boolean> devicesEnabled = provider.buildDevicesEnabledMap(account);
 
     assertEquals(4, devicesEnabled.size());
 
@@ -372,7 +374,7 @@ class AuthEnablementRequestEventListenerTest {
     }
 
     @ParameterizedTest
-    @MethodSource("org.whispersystems.textsecuregcm.auth.AuthEnablementRequestEventListenerTest#testAccountEnabledChanged")
+    @MethodSource("org.whispersystems.textsecuregcm.auth.AuthEnablementRefreshRequirementProviderTest#testAccountEnabledChanged")
     void testAccountEnabledChangedWebSocket(final long authenticatedDeviceId, final boolean initialEnabled,
         final boolean finalEnabled) throws Exception {
 

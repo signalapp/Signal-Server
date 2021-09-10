@@ -62,7 +62,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.dispatch.DispatchManager;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
-import org.whispersystems.textsecuregcm.auth.AuthEnablementApplicationEventListener;
+import org.whispersystems.textsecuregcm.auth.WebsocketRefreshApplicationEventListener;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccountAuthenticator;
@@ -614,7 +614,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             DisabledPermittedAuthenticatedAccount.class, disabledPermittedAccountAuthFilter)));
     environment.jersey().register(new PolymorphicAuthValueFactoryProvider.Binder<>(
         ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)));
-    environment.jersey().register(new AuthEnablementApplicationEventListener(clientPresenceManager));
+    environment.jersey().register(new WebsocketRefreshApplicationEventListener(clientPresenceManager));
     environment.jersey().register(new TimestampResponseFilter());
     environment.jersey().register(new VoiceVerificationController(config.getVoiceVerificationConfiguration().getUrl(),
         config.getVoiceVerificationConfiguration().getLocales()));
@@ -626,7 +626,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.setConnectListener(
         new AuthenticatedConnectListener(receiptSender, messagesManager, messageSender, apnFallbackManager,
             clientPresenceManager, retrySchedulingExecutor));
-    webSocketEnvironment.jersey().register(new AuthEnablementApplicationEventListener(clientPresenceManager));
+    webSocketEnvironment.jersey().register(new WebsocketRefreshApplicationEventListener(clientPresenceManager));
     webSocketEnvironment.jersey().register(new ContentLengthFilter(TrafficSource.WEBSOCKET));
     webSocketEnvironment.jersey().register(MultiRecipientMessageProvider.class);
     webSocketEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET));
@@ -668,7 +668,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     WebSocketEnvironment<AuthenticatedAccount> provisioningEnvironment = new WebSocketEnvironment<>(environment,
         webSocketEnvironment.getRequestLog(), 60000);
-    provisioningEnvironment.jersey().register(new AuthEnablementApplicationEventListener(clientPresenceManager));
+    provisioningEnvironment.jersey().register(new WebsocketRefreshApplicationEventListener(clientPresenceManager));
     provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(pubSubManager));
     provisioningEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET));
     provisioningEnvironment.jersey().register(new KeepAliveController(clientPresenceManager));

@@ -12,14 +12,15 @@ import org.glassfish.jersey.server.monitoring.RequestEventListener;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 
 /**
- * Delegates request events to a listener that handles auth-enablement changes
+ * Delegates request events to a listener that watches for intra-request changes that require websocket refreshes
  */
-public class AuthEnablementApplicationEventListener implements ApplicationEventListener {
+public class WebsocketRefreshApplicationEventListener implements ApplicationEventListener {
 
-  private final AuthEnablementRequestEventListener authEnablementRequestEventListener;
+  private final WebsocketRefreshRequestEventListener websocketRefreshRequestEventListener;
 
-  public AuthEnablementApplicationEventListener(final ClientPresenceManager clientPresenceManager) {
-    this.authEnablementRequestEventListener = new AuthEnablementRequestEventListener(clientPresenceManager);
+  public WebsocketRefreshApplicationEventListener(final ClientPresenceManager clientPresenceManager) {
+    this.websocketRefreshRequestEventListener = new WebsocketRefreshRequestEventListener(clientPresenceManager,
+        new AuthEnablementRefreshRequirementProvider());
   }
 
   @Override
@@ -28,6 +29,6 @@ public class AuthEnablementApplicationEventListener implements ApplicationEventL
 
   @Override
   public RequestEventListener onRequest(final RequestEvent requestEvent) {
-    return authEnablementRequestEventListener;
+    return websocketRefreshRequestEventListener;
   }
 }
