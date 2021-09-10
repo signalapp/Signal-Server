@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import java.net.URL;
 import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
 
 public class BadgeConfiguration {
   private final String name;
@@ -29,10 +30,9 @@ public class BadgeConfiguration {
     return name;
   }
 
-  @NotEmpty
+  @NotNull
   @JsonSerialize(converter = URLSerializationConverter.class)
   public URL getImageUrl() {
     return imageUrl;
   }
-
 }
