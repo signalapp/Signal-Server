@@ -524,6 +524,7 @@ class AccountsDynamoDbTest {
     verifyStoredState("+14151112222", account.getUuid(), account, false);
   }
 
+  /*
   @Test
   void testContactDiscoveryWriter() throws Exception {
     Device device = generateDevice(1);
@@ -555,6 +556,7 @@ class AccountsDynamoDbTest {
     account.setVersion(2);
     verifyStoredState("+14151112222", account.getUuid(), account, true);
   }
+  */
 
   private Device generateDevice(long id) {
     Random       random       = new Random(System.currentTimeMillis());

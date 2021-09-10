@@ -6,9 +6,9 @@ import java.util.UUID;
 
 public class ContactDiscoveryWriter extends AccountDatabaseCrawlerListener {
 
-  private final AccountStore accounts;
+  private final AccountsManager accounts;
 
-  public ContactDiscoveryWriter(final AccountStore accounts) {
+  public ContactDiscoveryWriter(final AccountsManager accounts) {
     this.accounts = accounts;
   }
 
@@ -30,7 +30,7 @@ public class ContactDiscoveryWriter extends AccountDatabaseCrawlerListener {
         // It’s less than ideal, but crawler listeners currently must not call update()
         // with the accounts from the chunk, because updates cause the account instance to become stale. Instead, they
         // must get a new copy, which they are free to update.
-        accounts.get(account.getUuid()).ifPresent(accounts::update);
+        accounts.get(account.getUuid()).ifPresent(a -> accounts.update(a, updated -> {}));
       }
     }
   }

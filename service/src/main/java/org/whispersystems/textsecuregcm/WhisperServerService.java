@@ -491,7 +491,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
           directoryServerConfiguration.getReplicationName(), directoryReconciliationClient);
       deletedAccountsDirectoryReconcilers.add(deletedAccountsDirectoryReconciler);
     }
-    accountDatabaseCrawlerListeners.add(new ContactDiscoveryWriter(accounts));
+    accountDatabaseCrawlerListeners.add(new ContactDiscoveryWriter(accountsManager));
     // PushFeedbackProcessor may update device properties
     accountDatabaseCrawlerListeners.add(new PushFeedbackProcessor(accountsManager));
     // delete accounts last
