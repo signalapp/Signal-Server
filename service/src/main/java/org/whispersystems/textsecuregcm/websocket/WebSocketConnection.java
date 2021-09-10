@@ -363,7 +363,13 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   public void handleDisplacement() {
     Metrics.counter(DISPLACEMENT_COUNTER_NAME, List.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()))).increment();
 
-    client.hardDisconnectQuietly();
+    try {
+      client.close(1000, "OK");
+    } catch (final Exception e) {
+      logger.warn("Orderly close failed", e);
+
+      client.hardDisconnectQuietly();
+    }
   }
 
   private static class StoredMessageInfo {
