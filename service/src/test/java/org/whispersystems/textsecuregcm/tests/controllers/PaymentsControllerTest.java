@@ -126,7 +126,8 @@ class PaymentsControllerTest {
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .get(String.class);
 
-    assertThat(json.contains("{\"USD\":2.35,\"EUR\":1.89}"));
+    // the currency serialization might occur in either order
+    assertThat(json).containsPattern("\\{(\"EUR\":1.89,\"USD\":2.35|\"USD\":2.35,\"EUR\":1.89)}");
   }
 
 }
