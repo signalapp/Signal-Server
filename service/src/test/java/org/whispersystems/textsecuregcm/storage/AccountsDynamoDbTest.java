@@ -524,40 +524,6 @@ class AccountsDynamoDbTest {
     verifyStoredState("+14151112222", account.getUuid(), account, false);
   }
 
-  /*
-  @Test
-  void testContactDiscoveryWriter() throws Exception {
-    Device device = generateDevice(1);
-    UUID uuid = UUID.randomUUID();
-    Account account = generateAccount("+14151112222", uuid, Collections.singleton(device));
-    accountsDynamoDb.create(account);
-    verifyStoredState("+14151112222", account.getUuid(), account, true);
-    ContactDiscoveryWriter writer = new ContactDiscoveryWriter(accountsDynamoDb);
-    account.setCanonicallyDiscoverable(false);
-    writer.onCrawlChunk(null, List.of(account));
-    account.setVersion(1);
-    verifyStoredState("+14151112222", account.getUuid(), account, true);
-
-    // Make the stored "C" column not match reality.
-    final UpdateItemRequest updateItemRequest = UpdateItemRequest.builder()
-        .tableName(ACCOUNTS_TABLE_NAME)
-        .key(Map.of(AccountsDynamoDb.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
-        .updateExpression("SET #cds = :cds")
-        .expressionAttributeNames(Map.of("#cds", AccountsDynamoDb.ATTR_CANONICALLY_DISCOVERABLE))
-        .expressionAttributeValues(Map.of(
-            ":cds", AttributeValues.fromBool(false)))
-        .build();
-    dynamoDbExtension.getDynamoDbClient().updateItem(updateItemRequest);
-    verifyStoredState("+14151112222", account.getUuid(), account, false);
-
-    // Crawl again and make sure update happened
-    account.setCanonicallyDiscoverable(false);
-    writer.onCrawlChunk(null, List.of(account));
-    account.setVersion(2);
-    verifyStoredState("+14151112222", account.getUuid(), account, true);
-  }
-  */
-
   private Device generateDevice(long id) {
     Random       random       = new Random(System.currentTimeMillis());
     SignedPreKey signedPreKey = new SignedPreKey(random.nextInt(), "testPublicKey-" + random.nextInt(), "testSignature-" + random.nextInt());

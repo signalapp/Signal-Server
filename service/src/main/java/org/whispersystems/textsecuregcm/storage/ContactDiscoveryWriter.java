@@ -1,8 +1,15 @@
+/*
+ * Copyright 2013-2021 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.storage;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 public class ContactDiscoveryWriter extends AccountDatabaseCrawlerListener {
 
@@ -22,6 +29,12 @@ public class ContactDiscoveryWriter extends AccountDatabaseCrawlerListener {
     // nothing
   }
 
+  // We "update" by doing nothing, since everything about the account is already accurate except for a temporal
+  // change in the 'shouldBeVisible' trait.  This update forces a new write of the underlying DB to reflect
+  // that temporal change persistently.
+  @VisibleForTesting
+  static final Consumer<Account> NOOP_UPDATER = a -> {};
+
   @Override
   protected void onCrawlChunk(final Optional<UUID> fromUuid, final List<Account> chunkAccounts)
       throws AccountDatabaseCrawlerRestartException {
@@ -30,7 +43,7 @@ public class ContactDiscoveryWriter extends AccountDatabaseCrawlerListener {
         // It’s less than ideal, but crawler listeners currently must not call update()
         // with the accounts from the chunk, because updates cause the account instance to become stale. Instead, they
         // must get a new copy, which they are free to update.
-        accounts.get(account.getUuid()).ifPresent(a -> accounts.update(a, updated -> {}));
+        accounts.get(account.getUuid()).ifPresent(a -> accounts.update(a, NOOP_UPDATER));
       }
     }
   }
