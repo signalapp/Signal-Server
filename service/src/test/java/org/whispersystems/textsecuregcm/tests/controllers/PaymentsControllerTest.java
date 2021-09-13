@@ -123,7 +123,7 @@ class PaymentsControllerTest {
         resources.getJerseyTest()
             .target("/v1/payments/conversions")
             .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .get(String.class);
 
     assertThat(json.contains("{\"USD\":2.35,\"EUR\":1.89}"));
