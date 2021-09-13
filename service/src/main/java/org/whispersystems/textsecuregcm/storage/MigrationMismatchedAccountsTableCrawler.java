@@ -64,6 +64,11 @@ public class MigrationMismatchedAccountsTableCrawler extends ManagedPeriodicWork
   @Override
   public void doPeriodicWork() {
 
+    if (!dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration()
+        .isPostCheckMismatches()) {
+      return;
+    }
+
     final List<UUID> uuids = this.mismatchedAccounts.getUuids(MAX_BATCH_SIZE);
 
     final List<UUID> processedUuids = new ArrayList<>(uuids.size());

@@ -21,6 +21,9 @@ public class DynamicAccountsDynamoDbMigrationConfiguration {
   boolean readEnabled;
 
   @JsonProperty
+  boolean postCheckMismatches;
+
+  @JsonProperty
   boolean logMismatches;
 
   @JsonProperty
@@ -68,6 +71,10 @@ public class DynamicAccountsDynamoDbMigrationConfiguration {
 
   public boolean isReadEnabled() {
     return readEnabled;
+  }
+
+  public boolean isPostCheckMismatches() {
+    return postCheckMismatches;
   }
 
   public boolean isLogMismatches() {

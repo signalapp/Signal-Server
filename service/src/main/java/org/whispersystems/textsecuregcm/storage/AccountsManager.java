@@ -731,7 +731,10 @@ public class AccountsManager {
 
           maybeUUid.ifPresent(uuid -> {
 
-            mismatchedAccounts.put(uuid);
+            if (dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration()
+                .isPostCheckMismatches()) {
+              mismatchedAccounts.put(uuid);
+            }
 
             if (dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration()
                 .isLogMismatches()) {
