@@ -230,9 +230,11 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
           throw get(account.getUuid()).isPresent() ? new ContestedOptimisticLockException() : e;
         }
       } catch (final Exception e) {
-        // the Dynamo account now lags the Postgres account version. Put it in the migration retry table so that it will
-        // get updated faster—otherwise it will be stale until the accounts crawler runs again
-        migrationRetryAccounts.put(account.getUuid());
+        if (!(e instanceof ContestedOptimisticLockException)) {
+          // the Dynamo account now lags the Postgres account version. Put it in the migration retry table so that it will
+          // get updated faster—otherwise it will be stale until the accounts crawler runs again
+          migrationRetryAccounts.put(account.getUuid());
+        }
         throw e;
       }
 
@@ -427,6 +429,14 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
       return resultFuture;
     } catch (Exception e) {
       return CompletableFuture.failedFuture(e);
+    }
+  }
+
+  void putUuidForMigrationRetry(final UUID uuid) {
+    try {
+      migrationRetryAccounts.put(uuid);
+    } catch (final Exception e) {
+      logger.error("Failed to store for retry: {}", uuid, e);
     }
   }
 

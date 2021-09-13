@@ -307,8 +307,15 @@ public class AccountsManager {
       updatedAccount = updateWithRetries(account, updater, this::databaseUpdate, () -> databaseGet(uuid).get());
 
       if (dynamoWriteEnabled()) {
-        runSafelyAndRecordMetrics(() -> dynamoGet(uuid).map(dynamoAccount ->
-                updateWithRetries(dynamoAccount, updater, this::dynamoUpdate, () -> dynamoGet(uuid).get())),
+        runSafelyAndRecordMetrics(() -> dynamoGet(uuid).map(dynamoAccount -> {
+              try {
+                return updateWithRetries(dynamoAccount, updater, this::dynamoUpdate, () -> dynamoGet(uuid).get());
+              } catch (final OptimisticLockRetryLimitExceededException e) {
+                accountsDynamoDb.putUuidForMigrationRetry(uuid);
+
+                throw e;
+              }
+            }),
             Optional.of(uuid),
             Optional.of(updatedAccount),
             this::compareAccounts,
