@@ -73,6 +73,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private static final String INITIAL_QUEUE_LENGTH_DISTRIBUTION_NAME = name(WebSocketConnection.class, "initialQueueLength");
   private static final String INITIAL_QUEUE_DRAIN_TIMER_NAME         = name(WebSocketConnection.class, "drainInitialQueue");
   private static final String SLOW_QUEUE_DRAIN_COUNTER_NAME          = name(WebSocketConnection.class, "slowQueueDrain");
+  private static final String QUEUE_DRAIN_RETRY_COUNTER_NAME         = name(WebSocketConnection.class, "queueDrainRetry");
   private static final String DISPLACEMENT_COUNTER_NAME              = name(WebSocketConnection.class, "displacement");
   private static final String NON_SUCCESS_RESPONSE_COUNTER_NAME      = name(WebSocketConnection.class, "clientNonSuccessResponse");
   private static final String STATUS_CODE_TAG                        = "status";
@@ -258,6 +259,10 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
           if (consecutiveRetries.incrementAndGet() > MAX_CONSECUTIVE_RETRIES) {
             client.close(1011, "Failed to retrieve messages");
           } else {
+            final List<Tag> tags = List.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()));
+
+            Metrics.counter(QUEUE_DRAIN_RETRY_COUNTER_NAME, tags).increment();
+
             final long delay = RETRY_DELAY_MILLIS + random.nextInt(RETRY_DELAY_JITTER_MILLIS);
             retryFuture.set(retrySchedulingExecutor.schedule(this::processStoredMessages, delay, TimeUnit.MILLISECONDS));
           }
