@@ -129,8 +129,13 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
           .limit(numberOfMessagesToFetch)
           .build();
       List<OutgoingMessageEntity> messageEntities = new ArrayList<>(numberOfMessagesToFetch);
-      for (Map<String, AttributeValue> message : db().query(queryRequest).items()) {
+      for (Map<String, AttributeValue> message : db().queryPaginator(queryRequest).items()) {
         messageEntities.add(convertItemToOutgoingMessageEntity(message));
+        if (messageEntities.size() == numberOfMessagesToFetch) {
+          // queryPaginator() uses limit() as the page size, not as an absolute limit
+          // …but a page might be smaller than limit, because a page is capped at 1 MB
+          break;
+        }
       }
       return messageEntities;
     });
