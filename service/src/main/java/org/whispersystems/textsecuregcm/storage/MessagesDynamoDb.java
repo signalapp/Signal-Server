@@ -160,7 +160,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   @Nonnull
   private Optional<OutgoingMessageEntity> deleteItemsMatchingQueryAndReturnFirstOneActuallyDeleted(AttributeValue partitionKey, QueryRequest queryRequest) {
     Optional<OutgoingMessageEntity> result = Optional.empty();
-    for (Map<String, AttributeValue> item : db().query(queryRequest).items()) {
+    for (Map<String, AttributeValue> item : db().queryPaginator(queryRequest).items()) {
       final byte[] rangeKeyValue = item.get(KEY_SORT).b().asByteArray();
       DeleteItemRequest.Builder deleteItemRequest = DeleteItemRequest.builder()
           .tableName(tableName)
@@ -225,7 +225,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   }
 
   private void deleteRowsMatchingQuery(AttributeValue partitionKey, QueryRequest querySpec) {
-    writeInBatches(db().query(querySpec).items(), (itemBatch) -> deleteItems(partitionKey, itemBatch));
+    writeInBatches(db().queryPaginator(querySpec).items(), itemBatch -> deleteItems(partitionKey, itemBatch));
   }
 
   private void deleteItems(AttributeValue partitionKey, List<Map<String, AttributeValue>> items) {
