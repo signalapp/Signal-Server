@@ -10,6 +10,7 @@ import io.dropwizard.auth.Auth;
 import java.security.SecureRandom;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -23,6 +24,7 @@ import javax.ws.rs.HeaderParam;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
+import javax.ws.rs.ProcessingException;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
@@ -35,8 +37,6 @@ import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.StringUtils;
-import org.glassfish.jersey.message.internal.AcceptableLanguageTag;
-import org.glassfish.jersey.message.internal.InboundMessageContext;
 import org.signal.zkgroup.InvalidInputException;
 import org.signal.zkgroup.VerificationFailedException;
 import org.signal.zkgroup.profiles.ProfileKeyCommitment;
@@ -194,7 +194,14 @@ public class ProfileController {
     if (!isZkEnabled) {
       throw new WebApplicationException(Response.Status.NOT_FOUND);
     }
-    return getVersionedProfile(auth.map(AuthenticatedAccount::getAccount), accessKey, containerRequestContext.getAcceptableLanguages(), uuid, version, Optional.empty());
+    final List<Locale> acceptableLanguages = new ArrayList<>();
+    try {
+      containerRequestContext.getAcceptableLanguages();
+    } catch (final ProcessingException e) {
+      logger.warn("Could not get acceptable languages", e);
+    }
+    return getVersionedProfile(auth.map(AuthenticatedAccount::getAccount), accessKey, acceptableLanguages, uuid,
+        version, Optional.empty());
   }
 
   @Timed
@@ -212,7 +219,14 @@ public class ProfileController {
     if (!isZkEnabled) {
       throw new WebApplicationException(Response.Status.NOT_FOUND);
     }
-    return getVersionedProfile(auth.map(AuthenticatedAccount::getAccount), accessKey, containerRequestContext.getAcceptableLanguages(), uuid, version, Optional.of(credentialRequest));
+    final List<Locale> acceptableLanguages = new ArrayList<>();
+    try {
+      acceptableLanguages.addAll(containerRequestContext.getAcceptableLanguages());
+    } catch (final ProcessingException e) {
+      logger.warn("Could not get acceptable languages", e);
+    }
+    return getVersionedProfile(auth.map(AuthenticatedAccount::getAccount), accessKey, acceptableLanguages, uuid,
+        version, Optional.of(credentialRequest));
   }
 
   private Optional<Profile> getVersionedProfile(
