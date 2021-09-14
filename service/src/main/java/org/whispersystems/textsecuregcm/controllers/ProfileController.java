@@ -196,7 +196,7 @@ public class ProfileController {
     }
     final List<Locale> acceptableLanguages = new ArrayList<>();
     try {
-      containerRequestContext.getAcceptableLanguages();
+      acceptableLanguages.addAll(containerRequestContext.getAcceptableLanguages());
     } catch (final ProcessingException e) {
       logger.warn("Could not get acceptable languages", e);
     }
