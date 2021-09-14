@@ -13,15 +13,18 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.function.Consumer;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
-import org.whispersystems.textsecuregcm.tests.util.MessagesDynamoDbRule;
+import org.whispersystems.textsecuregcm.tests.util.MessagesDynamoDbExtension;
 
-public class MessagesDynamoDbTest {
+class MessagesDynamoDbTest {
+
+
   private static final Random random = new Random();
   private static final MessageProtos.Envelope MESSAGE1;
   private static final MessageProtos.Envelope MESSAGE2;
@@ -61,27 +64,31 @@ public class MessagesDynamoDbTest {
 
   private MessagesDynamoDb messagesDynamoDb;
 
-  @ClassRule
-  public static MessagesDynamoDbRule dynamoDbRule = new MessagesDynamoDbRule();
 
-  @Before
-  public void setup() {
-    messagesDynamoDb = new MessagesDynamoDb(dynamoDbRule.getDynamoDbClient(), MessagesDynamoDbRule.TABLE_NAME, Duration.ofDays(7));
+  @RegisterExtension
+  static DynamoDbExtension dynamoDbExtension = MessagesDynamoDbExtension.build();
+
+  @BeforeEach
+  void setup() {
+    messagesDynamoDb = new MessagesDynamoDb(dynamoDbExtension.getDynamoDbClient(), MessagesDynamoDbExtension.TABLE_NAME,
+        Duration.ofDays(14));
   }
 
   @Test
-  public void testServerStart() {
+  void testServerStart() {
   }
 
   @Test
-  public void testSimpleFetchAfterInsert() {
+  void testSimpleFetchAfterInsert() {
     final UUID destinationUuid = UUID.randomUUID();
     final int destinationDeviceId = random.nextInt(255) + 1;
     messagesDynamoDb.store(List.of(MESSAGE1, MESSAGE2, MESSAGE3), destinationUuid, destinationDeviceId);
 
-    final List<OutgoingMessageEntity> messagesStored = messagesDynamoDb.load(destinationUuid, destinationDeviceId, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE);
+    final List<OutgoingMessageEntity> messagesStored = messagesDynamoDb.load(destinationUuid, destinationDeviceId,
+        MessagesDynamoDb.RESULT_SET_CHUNK_SIZE);
     assertThat(messagesStored).isNotNull().hasSize(3);
-    final MessageProtos.Envelope firstMessage = MESSAGE1.getServerGuid().compareTo(MESSAGE3.getServerGuid()) < 0 ? MESSAGE1 : MESSAGE3;
+    final MessageProtos.Envelope firstMessage =
+        MESSAGE1.getServerGuid().compareTo(MESSAGE3.getServerGuid()) < 0 ? MESSAGE1 : MESSAGE3;
     final MessageProtos.Envelope secondMessage = firstMessage == MESSAGE1 ? MESSAGE3 : MESSAGE1;
     assertThat(messagesStored).element(0).satisfies(verify(firstMessage));
     assertThat(messagesStored).element(1).satisfies(verify(secondMessage));
@@ -89,61 +96,76 @@ public class MessagesDynamoDbTest {
   }
 
   @Test
-  public void testDeleteForDestination() {
+  void testDeleteForDestination() {
     final UUID destinationUuid = UUID.randomUUID();
     final UUID secondDestinationUuid = UUID.randomUUID();
     messagesDynamoDb.store(List.of(MESSAGE1), destinationUuid, 1);
     messagesDynamoDb.store(List.of(MESSAGE2), secondDestinationUuid, 1);
     messagesDynamoDb.store(List.of(MESSAGE3), destinationUuid, 2);
 
-    assertThat(messagesDynamoDb.load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE1));
-    assertThat(messagesDynamoDb.load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE3));
-    assertThat(messagesDynamoDb.load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE2));
+    assertThat(messagesDynamoDb.load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+        .element(0).satisfies(verify(MESSAGE1));
+    assertThat(messagesDynamoDb.load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+        .element(0).satisfies(verify(MESSAGE3));
+    assertThat(messagesDynamoDb.load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+        .hasSize(1).element(0).satisfies(verify(MESSAGE2));
 
     messagesDynamoDb.deleteAllMessagesForAccount(destinationUuid);
 
     assertThat(messagesDynamoDb.load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().isEmpty();
     assertThat(messagesDynamoDb.load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().isEmpty();
-    assertThat(messagesDynamoDb.load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE2));
+    assertThat(messagesDynamoDb.load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+        .hasSize(1).element(0).satisfies(verify(MESSAGE2));
   }
 
   @Test
-  public void testDeleteForDestinationDevice() {
+  void testDeleteForDestinationDevice() {
     final UUID destinationUuid = UUID.randomUUID();
     final UUID secondDestinationUuid = UUID.randomUUID();
     messagesDynamoDb.store(List.of(MESSAGE1), destinationUuid, 1);
     messagesDynamoDb.store(List.of(MESSAGE2), secondDestinationUuid, 1);
     messagesDynamoDb.store(List.of(MESSAGE3), destinationUuid, 2);
 
-    assertThat(messagesDynamoDb.load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE1));
-    assertThat(messagesDynamoDb.load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE3));
-    assertThat(messagesDynamoDb.load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE2));
+    assertThat(messagesDynamoDb.load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+        .element(0).satisfies(verify(MESSAGE1));
+    assertThat(messagesDynamoDb.load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+        .element(0).satisfies(verify(MESSAGE3));
+    assertThat(messagesDynamoDb.load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+        .hasSize(1).element(0).satisfies(verify(MESSAGE2));
 
     messagesDynamoDb.deleteAllMessagesForDevice(destinationUuid, 2);
 
-    assertThat(messagesDynamoDb.load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE1));
+    assertThat(messagesDynamoDb.load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+        .element(0).satisfies(verify(MESSAGE1));
     assertThat(messagesDynamoDb.load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().isEmpty();
-    assertThat(messagesDynamoDb.load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE2));
+    assertThat(messagesDynamoDb.load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+        .hasSize(1).element(0).satisfies(verify(MESSAGE2));
   }
 
   @Test
-  public void testDeleteMessageByDestinationAndGuid() {
+  void testDeleteMessageByDestinationAndGuid() {
     final UUID destinationUuid = UUID.randomUUID();
     final UUID secondDestinationUuid = UUID.randomUUID();
     messagesDynamoDb.store(List.of(MESSAGE1), destinationUuid, 1);
     messagesDynamoDb.store(List.of(MESSAGE2), secondDestinationUuid, 1);
     messagesDynamoDb.store(List.of(MESSAGE3), destinationUuid, 2);
 
-    assertThat(messagesDynamoDb.load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE1));
-    assertThat(messagesDynamoDb.load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE3));
-    assertThat(messagesDynamoDb.load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE2));
+    assertThat(messagesDynamoDb.load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+        .element(0).satisfies(verify(MESSAGE1));
+    assertThat(messagesDynamoDb.load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+        .element(0).satisfies(verify(MESSAGE3));
+    assertThat(messagesDynamoDb.load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+        .hasSize(1).element(0).satisfies(verify(MESSAGE2));
 
     messagesDynamoDb.deleteMessageByDestinationAndGuid(secondDestinationUuid,
         UUID.fromString(MESSAGE2.getServerGuid()));
 
-    assertThat(messagesDynamoDb.load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE1));
-    assertThat(messagesDynamoDb.load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE3));
-    assertThat(messagesDynamoDb.load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().isEmpty();
+    assertThat(messagesDynamoDb.load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+        .element(0).satisfies(verify(MESSAGE1));
+    assertThat(messagesDynamoDb.load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+        .element(0).satisfies(verify(MESSAGE3));
+    assertThat(messagesDynamoDb.load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+        .isEmpty();
   }
 
   private static void verify(OutgoingMessageEntity retrieved, MessageProtos.Envelope inserted) {
@@ -164,6 +186,7 @@ public class MessagesDynamoDbTest {
   }
 
   private static final class VerifyMessage implements Consumer<OutgoingMessageEntity> {
+
     private final MessageProtos.Envelope expected;
 
     public VerifyMessage(MessageProtos.Envelope expected) {

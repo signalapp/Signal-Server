@@ -65,18 +65,19 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends WebSo
         }
       }
 
-      return new WebSocketResourceProvider<T>(getRemoteAddress(request),
-                                              this.jerseyApplicationHandler,
-                                              this.environment.getRequestLog(),
-                                              authenticated,
-                                              this.environment.getMessageFactory(),
-                                              ofNullable(this.environment.getConnectListener()),
-                                              this.environment.getIdleTimeoutMillis());
+      return new WebSocketResourceProvider<>(getRemoteAddress(request),
+          this.jerseyApplicationHandler,
+          this.environment.getRequestLog(),
+          authenticated,
+          this.environment.getMessageFactory(),
+          ofNullable(this.environment.getConnectListener()),
+          this.environment.getIdleTimeoutMillis());
     } catch (AuthenticationException | IOException e) {
       logger.warn("Authentication failure", e);
       try {
         response.sendError(500, "Failure");
-      } catch (IOException ex) {}
+      } catch (IOException ignored) {
+      }
       return null;
     }
   }
