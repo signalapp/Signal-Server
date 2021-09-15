@@ -12,6 +12,7 @@ import java.util.Objects;
 
 public class Badge {
   private final String id;
+  private final String category;
   private final URL imageUrl;
   private final String name;
   private final String description;
@@ -19,10 +20,12 @@ public class Badge {
   @JsonCreator
   public Badge(
       @JsonProperty("id") final String id,
+      @JsonProperty("category") final String category,
       @JsonProperty("imageUrl") final URL imageUrl,
       @JsonProperty("name") final String name,
       @JsonProperty("description") final String description) {
     this.id = id;
+    this.category = category;
     this.imageUrl = imageUrl;
     this.name = name;
     this.description = description;
@@ -30,6 +33,10 @@ public class Badge {
 
   public String getId() {
     return id;
+  }
+
+  public String getCategory() {
+    return category;
   }
 
   public URL getImageUrl() {
@@ -53,13 +60,14 @@ public class Badge {
       return false;
     }
     Badge badge = (Badge) o;
-    return Objects.equals(id, badge.id) && Objects.equals(imageUrl,
-        badge.imageUrl) && Objects.equals(name, badge.name) && Objects.equals(
-        description, badge.description);
+    return Objects.equals(id, badge.id) && Objects.equals(category,
+        badge.category) && Objects.equals(imageUrl, badge.imageUrl)
+        && Objects.equals(name, badge.name) && Objects.equals(description,
+        badge.description);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(id, imageUrl, name, description);
+    return Objects.hash(id, category, imageUrl, name, description);
   }
 }

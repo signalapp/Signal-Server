@@ -16,13 +16,16 @@ import javax.validation.constraints.NotNull;
 public class BadgeConfiguration {
   private final String id;
   private final URL imageUrl;
+  private final String category;
 
   @JsonCreator
   public BadgeConfiguration(
       @JsonProperty("id") final String id,
-      @JsonProperty("imageUrl") @JsonDeserialize(converter = URLDeserializationConverter.class) final URL imageUrl) {
+      @JsonProperty("imageUrl") @JsonDeserialize(converter = URLDeserializationConverter.class) final URL imageUrl,
+      @JsonProperty("category") final String category) {
     this.id = id;
     this.imageUrl = imageUrl;
+    this.category = category;
   }
 
   @NotEmpty
@@ -34,5 +37,10 @@ public class BadgeConfiguration {
   @JsonSerialize(converter = URLSerializationConverter.class)
   public URL getImageUrl() {
     return imageUrl;
+  }
+
+  @NotEmpty
+  public String getCategory() {
+    return category;
   }
 }

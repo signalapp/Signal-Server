@@ -263,3 +263,4 @@ badges:
   badges:
     - id: TEST
       imageUrl: https://example.com/test-badge
+      category: other

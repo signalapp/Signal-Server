@@ -90,11 +90,15 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter {
         .filter(accountBadge -> accountBadge.isVisible()
             && now.isBefore(accountBadge.getExpiration())
             && knownBadges.containsKey(accountBadge.getId()))
-        .map(accountBadge -> new Badge(
-            accountBadge.getId(),
-            knownBadges.get(accountBadge.getId()).getImageUrl(),
-            resourceBundle.getString(accountBadge.getId() + "_name"),
-            resourceBundle.getString(accountBadge.getId() + "_description")))
+        .map(accountBadge -> {
+          BadgeConfiguration configuration = knownBadges.get(accountBadge.getId());
+          return new Badge(
+              accountBadge.getId(),
+              configuration.getCategory(),
+              configuration.getImageUrl(),
+              resourceBundle.getString(accountBadge.getId() + "_name"),
+              resourceBundle.getString(accountBadge.getId() + "_description"));
+        })
         .collect(Collectors.toList());
   }
 }

@@ -72,7 +72,7 @@ public class ConfiguredProfileBadgeConverterTest {
   }
 
   private static BadgeConfiguration newBadge(int i) {
-    return new BadgeConfiguration(idFor(i), imageUrlFor(i));
+    return new BadgeConfiguration(idFor(i), imageUrlFor(i), "other");
   }
 
   private BadgesConfiguration createBadges(int count) {
@@ -140,7 +140,7 @@ public class ConfiguredProfileBadgeConverterTest {
         arguments(idFor(0), expired, false, null),
         arguments(idFor(0), notExpired, false, null),
         arguments(idFor(0), expired, true, null),
-        arguments(idFor(0), notExpired, true, new Badge(idFor(0), imageUrlFor(0), nameFor(0), desriptionFor(0))),
+        arguments(idFor(0), notExpired, true, new Badge(idFor(0), "other", imageUrlFor(0), nameFor(0), desriptionFor(0))),
         arguments(idFor(1), expired, false, null),
         arguments(idFor(1), notExpired, false, null),
         arguments(idFor(1), expired, true, null),
