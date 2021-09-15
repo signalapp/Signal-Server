@@ -331,7 +331,7 @@ public class Account {
   public void removeBadge(String name) {
     requireNotStale();
 
-    badges.removeIf(accountBadge -> Objects.equals(accountBadge.getName(), name));
+    badges.removeIf(accountBadge -> Objects.equals(accountBadge.getId(), name));
     purgeStaleBadges();
   }
 
