@@ -324,7 +324,24 @@ public class Account {
   public void addBadge(AccountBadge badge) {
     requireNotStale();
 
-    badges.add(badge);
+    boolean added = false;
+    for (int i = 0; i < badges.size(); i++) {
+      AccountBadge badgeInList = badges.get(i);
+      if (Objects.equals(badgeInList.getId(), badge.getId())) {
+        if (added) {
+          badges.remove(i);
+          i--;
+        } else {
+          badges.set(i, badgeInList.mergeWith(badge));
+          added = true;
+        }
+      }
+    }
+
+    if (!added) {
+      badges.add(badge);
+    }
+
     purgeStaleBadges();
   }
 
