@@ -14,20 +14,20 @@ import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 
 public class BadgeConfiguration {
-  private final String name;
+  private final String id;
   private final URL imageUrl;
 
   @JsonCreator
   public BadgeConfiguration(
-      @JsonProperty("name") final String name,
+      @JsonProperty("id") final String id,
       @JsonProperty("imageUrl") @JsonDeserialize(converter = URLDeserializationConverter.class) final URL imageUrl) {
-    this.name = name;
+    this.id = id;
     this.imageUrl = imageUrl;
   }
 
   @NotEmpty
-  public String getName() {
-    return name;
+  public String getId() {
+    return id;
   }
 
   @NotNull

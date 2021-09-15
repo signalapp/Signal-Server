@@ -261,5 +261,5 @@ donation:
 
 badges:
   badges:
-    - name: TEST
+    - id: TEST
       imageUrl: https://example.com/test-badge

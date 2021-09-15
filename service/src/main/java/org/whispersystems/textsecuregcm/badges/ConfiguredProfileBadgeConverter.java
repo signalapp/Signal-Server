@@ -44,7 +44,7 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter {
       final ResourceBundleFactory resourceBundleFactory) {
     this.clock = clock;
     this.knownBadges = badgesConfiguration.getBadges().stream()
-        .collect(Collectors.toMap(BadgeConfiguration::getName, Function.identity()));
+        .collect(Collectors.toMap(BadgeConfiguration::getId, Function.identity()));
     this.resourceBundleFactory = resourceBundleFactory;
   }
 

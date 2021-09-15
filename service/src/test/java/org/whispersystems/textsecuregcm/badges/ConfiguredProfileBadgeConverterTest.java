@@ -94,7 +94,7 @@ public class ConfiguredProfileBadgeConverterTest {
 
   private BadgeConfiguration getBadge(BadgesConfiguration badgesConfiguration, int i) {
     return badgesConfiguration.getBadges().stream()
-        .filter(badgeConfiguration -> idFor(i).equals(badgeConfiguration.getName()))
+        .filter(badgeConfiguration -> idFor(i).equals(badgeConfiguration.getId()))
         .findFirst().orElse(null);
   }
 
