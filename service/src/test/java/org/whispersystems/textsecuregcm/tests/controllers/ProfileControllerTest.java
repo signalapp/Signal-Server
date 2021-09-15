@@ -22,6 +22,7 @@ import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import javax.ws.rs.client.Entity;
@@ -96,7 +97,7 @@ class ProfileControllerTest {
           profilesManager,
           usernamesManager,
           dynamicConfigurationManager,
-          (acceptableLanguages, accountBadges) -> Set.of(),  // TODO: Test with some badges.
+          (acceptableLanguages, accountBadges) -> List.of(),  // TODO: Test with some badges.
           s3client,
           postPolicyGenerator,
           policySigner,

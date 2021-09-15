@@ -326,7 +326,7 @@ public class ProfileController {
         UserCapabilities.createForAccount(accountProfile.get()),
         username,
         accountProfile.get().getUuid(),
-        Set.of(),
+        List.of(),
         null);
   }
 
@@ -399,7 +399,7 @@ public class ProfileController {
         UserCapabilities.createForAccount(accountProfile.get()),
         username.orElse(null),
         null,
-        Set.of(),
+        List.of(),
         null);
   }
 

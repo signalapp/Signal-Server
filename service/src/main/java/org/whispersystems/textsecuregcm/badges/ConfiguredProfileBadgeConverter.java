@@ -14,7 +14,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.ResourceBundle;
 import java.util.ResourceBundle.Control;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
@@ -50,11 +49,11 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter {
   }
 
   @Override
-  public Set<Badge> convert(
+  public List<Badge> convert(
       final List<Locale> acceptableLanguages,
-      final Set<AccountBadge> accountBadges) {
+      final List<AccountBadge> accountBadges) {
     if (accountBadges.isEmpty()) {
-      return Set.of();
+      return List.of();
     }
 
     final Instant now = clock.instant();
@@ -94,6 +93,6 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter {
         .map(accountBadge -> new Badge(knownBadges.get(accountBadge.getName()).getImageUrl(),
             resourceBundle.getString(accountBadge.getName() + "_name"),
             resourceBundle.getString(accountBadge.getName() + "_description")))
-        .collect(Collectors.toSet());
+        .collect(Collectors.toList());
   }
 }

@@ -23,7 +23,6 @@ import java.util.ListResourceBundle;
 import java.util.Locale;
 import java.util.ResourceBundle;
 import java.util.ResourceBundle.Control;
-import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -112,7 +111,7 @@ public class ConfiguredProfileBadgeConverterTest {
     BadgesConfiguration badgesConfiguration = createBadges(1);
     ConfiguredProfileBadgeConverter badgeConverter = new ConfiguredProfileBadgeConverter(clock, badgesConfiguration,
         resourceBundleFactory);
-    assertThat(badgeConverter.convert(List.of(Locale.getDefault()), Set.of())).isNotNull().isEmpty();
+    assertThat(badgeConverter.convert(List.of(Locale.getDefault()), List.of())).isNotNull().isEmpty();
   }
 
   @ParameterizedTest
@@ -124,11 +123,11 @@ public class ConfiguredProfileBadgeConverterTest {
     setupResourceBundle(Locale.getDefault());
 
     if (expectedBadge != null) {
-      assertThat(badgeConverter.convert(List.of(), Set.of(new AccountBadge(name, expiration, visible)))).isNotNull()
+      assertThat(badgeConverter.convert(List.of(), List.of(new AccountBadge(name, expiration, visible)))).isNotNull()
           .hasSize(1)
           .containsOnly(expectedBadge);
     } else {
-      assertThat(badgeConverter.convert(List.of(), Set.of(new AccountBadge(name, expiration, visible)))).isNotNull()
+      assertThat(badgeConverter.convert(List.of(), List.of(new AccountBadge(name, expiration, visible)))).isNotNull()
           .isEmpty();
     }
   }
@@ -162,7 +161,7 @@ public class ConfiguredProfileBadgeConverterTest {
 
     ArgumentCaptor<Control> controlArgumentCaptor = setupResourceBundle(enGb);
     badgeConverter.convert(List.of(enGb, en, esUs),
-        Set.of(new AccountBadge(nameFor(0), Instant.ofEpochSecond(43), true)));
+        List.of(new AccountBadge(nameFor(0), Instant.ofEpochSecond(43), true)));
     Control control = controlArgumentCaptor.getValue();
 
     assertThatNullPointerException().isThrownBy(() -> control.getFormats(null));
@@ -187,7 +186,7 @@ public class ConfiguredProfileBadgeConverterTest {
       // this should always terminate at the system default locale since the development defined bundle should get
       // returned at that point anyhow
       badgeConverter.convert(List.of(enGb, Locale.getDefault(), en, esUs),
-          Set.of(new AccountBadge(nameFor(0), Instant.ofEpochSecond(43), true)));
+          List.of(new AccountBadge(nameFor(0), Instant.ofEpochSecond(43), true)));
       Control control2 = controlArgumentCaptor.getValue();
 
       assertThat(control2.getFallbackLocale(ConfiguredProfileBadgeConverter.BASE_NAME, enGb)).isEqualTo(

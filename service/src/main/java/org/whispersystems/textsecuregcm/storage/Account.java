@@ -10,7 +10,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -49,7 +51,7 @@ public class Account {
   private String avatar;
 
   @JsonProperty
-  private Set<AccountBadge> badges = new HashSet<>();
+  private List<AccountBadge> badges = new ArrayList<>();
 
   @JsonProperty
   private String registrationLock;
@@ -313,7 +315,7 @@ public class Account {
     this.avatar = avatar;
   }
 
-  public Set<AccountBadge> getBadges() {
+  public List<AccountBadge> getBadges() {
     requireNotStale();
 
     return badges;
