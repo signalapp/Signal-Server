@@ -16,16 +16,25 @@ import javax.validation.constraints.NotNull;
 
 public class BadgesConfiguration {
   private final List<BadgeConfiguration> badges;
+  private final List<String> badgeIdsEnabledForAll;
 
   @JsonCreator
   public BadgesConfiguration(
-      @JsonProperty("badges") @JsonSetter(nulls = Nulls.AS_EMPTY) final List<BadgeConfiguration> badges) {
+      @JsonProperty("badges") @JsonSetter(nulls = Nulls.AS_EMPTY) final List<BadgeConfiguration> badges,
+      @JsonProperty("badgeIdsEnabledForAll") @JsonSetter(nulls = Nulls.AS_EMPTY) final List<String> badgeIdsEnabledForAll) {
     this.badges = Objects.requireNonNull(badges);
+    this.badgeIdsEnabledForAll = Objects.requireNonNull(badgeIdsEnabledForAll);
   }
 
   @Valid
   @NotNull
   public List<BadgeConfiguration> getBadges() {
     return badges;
+  }
+
+  @Valid
+  @NotNull
+  public List<String> getBadgeIdsEnabledForAll() {
+    return badgeIdsEnabledForAll;
   }
 }

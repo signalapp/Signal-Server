@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.badges;
 import com.google.common.annotations.VisibleForTesting;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -29,6 +30,7 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter {
 
   private final Clock clock;
   private final Map<String, BadgeConfiguration> knownBadges;
+  private final List<String> forcedOnBadges;
   private final ResourceBundleFactory resourceBundleFactory;
 
   public ConfiguredProfileBadgeConverter(
@@ -45,6 +47,7 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter {
     this.clock = clock;
     this.knownBadges = badgesConfiguration.getBadges().stream()
         .collect(Collectors.toMap(BadgeConfiguration::getId, Function.identity()));
+    this.forcedOnBadges = badgesConfiguration.getBadgeIdsEnabledForAll();
     this.resourceBundleFactory = resourceBundleFactory;
   }
 
@@ -52,7 +55,7 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter {
   public List<Badge> convert(
       final List<Locale> acceptableLanguages,
       final List<AccountBadge> accountBadges) {
-    if (accountBadges.isEmpty()) {
+    if (accountBadges.isEmpty() && forcedOnBadges.isEmpty()) {
       return List.of();
     }
 
@@ -86,7 +89,7 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter {
     };
 
     final ResourceBundle resourceBundle = resourceBundleFactory.createBundle(BASE_NAME, desiredLocale, control);
-    return accountBadges.stream()
+    List<Badge> badges = accountBadges.stream()
         .filter(accountBadge -> accountBadge.isVisible()
             && now.isBefore(accountBadge.getExpiration())
             && knownBadges.containsKey(accountBadge.getId()))
@@ -99,6 +102,16 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter {
               resourceBundle.getString(accountBadge.getId() + "_name"),
               resourceBundle.getString(accountBadge.getId() + "_description"));
         })
-        .collect(Collectors.toList());
+        .collect(Collectors.toCollection(ArrayList::new));
+    badges.addAll(forcedOnBadges.stream().filter(knownBadges::containsKey).map(id -> {
+      BadgeConfiguration configuration = knownBadges.get(id);
+      return new Badge(
+          id,
+          configuration.getCategory(),
+          configuration.getImageUrl(),
+          resourceBundle.getString(id + "_name"),
+          resourceBundle.getString(id + "_description"));
+    }).collect(Collectors.toList()));
+    return badges;
   }
 }

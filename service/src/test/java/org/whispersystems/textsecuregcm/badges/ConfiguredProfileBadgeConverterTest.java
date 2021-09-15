@@ -89,7 +89,7 @@ public class ConfiguredProfileBadgeConverterTest {
         return objects;
       }
     };
-    return new BadgesConfiguration(badges);
+    return new BadgesConfiguration(badges, List.of());
   }
 
   private BadgeConfiguration getBadge(BadgesConfiguration badgesConfiguration, int i) {
