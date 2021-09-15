@@ -328,10 +328,10 @@ public class Account {
     purgeStaleBadges();
   }
 
-  public void removeBadge(String name) {
+  public void removeBadge(String id) {
     requireNotStale();
 
-    badges.removeIf(accountBadge -> Objects.equals(accountBadge.getId(), name));
+    badges.removeIf(accountBadge -> Objects.equals(accountBadge.getId(), id));
     purgeStaleBadges();
   }
 
