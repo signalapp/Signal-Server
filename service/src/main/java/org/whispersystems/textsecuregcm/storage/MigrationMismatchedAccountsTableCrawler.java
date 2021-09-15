@@ -13,9 +13,11 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
+import net.logstash.logback.argument.StructuredArguments;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
@@ -89,7 +91,9 @@ public class MigrationMismatchedAccountsTableCrawler extends ManagedPeriodicWork
 
             if (dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration()
                 .isLogMismatches()) {
-              logger.info("Mismatch: {} - {}", uuid, mismatchType);
+              logger.info("Mismatch: {}", StructuredArguments.entries(Map.of(
+                  "type", mismatchType,
+                  "uuid", uuid)));
             }
           });
 

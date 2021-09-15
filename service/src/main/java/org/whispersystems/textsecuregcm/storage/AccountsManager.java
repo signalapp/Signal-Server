@@ -21,7 +21,6 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -32,7 +31,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import net.logstash.logback.argument.StructuredArguments;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -741,17 +739,6 @@ public class AccountsManager {
             if (dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration()
                 .isPostCheckMismatches()) {
               mismatchedAccounts.put(uuid);
-            }
-
-            if (dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration()
-                .isLogMismatches()) {
-              final String abbreviatedCallChain = getAbbreviatedCallChain(new RuntimeException().getStackTrace());
-
-              logger.info("Mismatched account data: {}", StructuredArguments.entries(Map.of(
-                  "type", mismatchDescription,
-                  "uuid", uuid,
-                  "callChain", abbreviatedCallChain
-              )));
             }
           });
         });
