@@ -51,7 +51,7 @@ public class ConfiguredProfileBadgeConverterTest {
     when(clock.instant()).thenReturn(Instant.ofEpochSecond(42));
   }
 
-  private static String nameFor(int i) {
+  private static String idFor(int i) {
     return "Badge-" + i;
   }
 
@@ -63,16 +63,16 @@ public class ConfiguredProfileBadgeConverterTest {
     }
   }
 
-  private static String rbNameFor(int i) {
+  private static String nameFor(int i) {
     return "TRANSLATED NAME " + i;
   }
 
-  private static String rbDesriptionFor(int i) {
+  private static String desriptionFor(int i) {
     return "TRANSLATED DESCRIPTION " + i;
   }
 
   private static BadgeConfiguration newBadge(int i) {
-    return new BadgeConfiguration(nameFor(i), imageUrlFor(i));
+    return new BadgeConfiguration(idFor(i), imageUrlFor(i));
   }
 
   private BadgesConfiguration createBadges(int count) {
@@ -80,8 +80,8 @@ public class ConfiguredProfileBadgeConverterTest {
     Object[][] objects = new Object[count * 2][2];
     for (int i = 0; i < count; i++) {
       badges.add(newBadge(i));
-      objects[(i * 2)] = new Object[]{nameFor(i) + "_name", rbNameFor(i)};
-      objects[(i * 2) + 1] = new Object[]{nameFor(i) + "_description", rbDesriptionFor(i)};
+      objects[(i * 2)] = new Object[]{idFor(i) + "_name", nameFor(i)};
+      objects[(i * 2) + 1] = new Object[]{idFor(i) + "_description", desriptionFor(i)};
     }
     resourceBundle = new ListResourceBundle() {
       @Override
@@ -94,7 +94,7 @@ public class ConfiguredProfileBadgeConverterTest {
 
   private BadgeConfiguration getBadge(BadgesConfiguration badgesConfiguration, int i) {
     return badgesConfiguration.getBadges().stream()
-        .filter(badgeConfiguration -> nameFor(i).equals(badgeConfiguration.getName()))
+        .filter(badgeConfiguration -> idFor(i).equals(badgeConfiguration.getName()))
         .findFirst().orElse(null);
   }
 
@@ -137,14 +137,14 @@ public class ConfiguredProfileBadgeConverterTest {
     Instant expired = Instant.ofEpochSecond(41);
     Instant notExpired = Instant.ofEpochSecond(43);
     return Stream.of(
-        arguments(nameFor(0), expired, false, null),
-        arguments(nameFor(0), notExpired, false, null),
-        arguments(nameFor(0), expired, true, null),
-        arguments(nameFor(0), notExpired, true, new Badge(imageUrlFor(0), rbNameFor(0), rbDesriptionFor(0))),
-        arguments(nameFor(1), expired, false, null),
-        arguments(nameFor(1), notExpired, false, null),
-        arguments(nameFor(1), expired, true, null),
-        arguments(nameFor(1), notExpired, true, null)
+        arguments(idFor(0), expired, false, null),
+        arguments(idFor(0), notExpired, false, null),
+        arguments(idFor(0), expired, true, null),
+        arguments(idFor(0), notExpired, true, new Badge(idFor(0), imageUrlFor(0), nameFor(0), desriptionFor(0))),
+        arguments(idFor(1), expired, false, null),
+        arguments(idFor(1), notExpired, false, null),
+        arguments(idFor(1), expired, true, null),
+        arguments(idFor(1), notExpired, true, null)
     );
   }
 
@@ -161,7 +161,7 @@ public class ConfiguredProfileBadgeConverterTest {
 
     ArgumentCaptor<Control> controlArgumentCaptor = setupResourceBundle(enGb);
     badgeConverter.convert(List.of(enGb, en, esUs),
-        List.of(new AccountBadge(nameFor(0), Instant.ofEpochSecond(43), true)));
+        List.of(new AccountBadge(idFor(0), Instant.ofEpochSecond(43), true)));
     Control control = controlArgumentCaptor.getValue();
 
     assertThatNullPointerException().isThrownBy(() -> control.getFormats(null));
@@ -186,7 +186,7 @@ public class ConfiguredProfileBadgeConverterTest {
       // this should always terminate at the system default locale since the development defined bundle should get
       // returned at that point anyhow
       badgeConverter.convert(List.of(enGb, Locale.getDefault(), en, esUs),
-          List.of(new AccountBadge(nameFor(0), Instant.ofEpochSecond(43), true)));
+          List.of(new AccountBadge(idFor(0), Instant.ofEpochSecond(43), true)));
       Control control2 = controlArgumentCaptor.getValue();
 
       assertThat(control2.getFallbackLocale(ConfiguredProfileBadgeConverter.BASE_NAME, enGb)).isEqualTo(

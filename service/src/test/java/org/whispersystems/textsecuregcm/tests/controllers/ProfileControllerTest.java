@@ -104,7 +104,7 @@ class ProfileControllerTest {
           (acceptableLanguages, accountBadges) -> {
             try {
               return List.of(
-                  new Badge(new URL("https://example.com/badge/1"), "Test Badge", "This badge is in unit tests.")
+                  new Badge("TEST1", new URL("https://example.com/badge/1"), "Test Badge", "This badge is in unit tests.")
               );
             } catch (MalformedURLException e) {
               throw new AssertionError(e);
