@@ -16,6 +16,8 @@ import static org.whispersystems.textsecuregcm.tests.util.DevicesHelper.createDe
 import static org.whispersystems.textsecuregcm.tests.util.DevicesHelper.setEnabled;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -24,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 
@@ -341,5 +344,38 @@ class AccountTest {
     account.removeDevice(2L);
 
     assertThat(account.getNextDeviceId()).isEqualTo(2L);
+  }
+
+  @Test
+  void addAndRemoveBadges() {
+    final Account account = new Account("+14151234567", UUID.randomUUID(), Set.of(createDevice(Device.MASTER_ID)), new byte[0]);
+    final Clock clock = mock(Clock.class);
+    when(clock.instant()).thenReturn(Instant.ofEpochSecond(40));
+
+    account.addBadge(clock, new AccountBadge("foo", Instant.ofEpochSecond(42), false));
+    account.addBadge(clock, new AccountBadge("bar", Instant.ofEpochSecond(44), true));
+    account.addBadge(clock, new AccountBadge("baz", Instant.ofEpochSecond(46), true));
+
+    assertThat(account.getBadges()).hasSize(3);
+
+    account.removeBadge(clock, "baz");
+
+    assertThat(account.getBadges()).hasSize(2);
+
+    account.addBadge(clock, new AccountBadge("foo", Instant.ofEpochSecond(50), false));
+
+    assertThat(account.getBadges()).hasSize(2).element(0).satisfies(badge -> {
+      assertThat(badge.getId()).isEqualTo("foo");
+      assertThat(badge.getExpiration().getEpochSecond()).isEqualTo(50);
+      assertThat(badge.isVisible()).isFalse();
+    });
+
+    account.addBadge(clock, new AccountBadge("foo", Instant.ofEpochSecond(51), true));
+
+    assertThat(account.getBadges()).hasSize(2).element(0).satisfies(badge -> {
+      assertThat(badge.getId()).isEqualTo("foo");
+      assertThat(badge.getExpiration().getEpochSecond()).isEqualTo(51);
+      assertThat(badge.isVisible()).isTrue();
+    });
   }
 }

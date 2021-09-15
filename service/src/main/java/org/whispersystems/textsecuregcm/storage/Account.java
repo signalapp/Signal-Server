@@ -321,7 +321,7 @@ public class Account {
     return badges;
   }
 
-  public void addBadge(AccountBadge badge) {
+  public void addBadge(Clock clock, AccountBadge badge) {
     requireNotStale();
 
     boolean added = false;
@@ -342,19 +342,18 @@ public class Account {
       badges.add(badge);
     }
 
-    purgeStaleBadges();
+    purgeStaleBadges(clock);
   }
 
-  public void removeBadge(String id) {
+  public void removeBadge(Clock clock, String id) {
     requireNotStale();
 
     badges.removeIf(accountBadge -> Objects.equals(accountBadge.getId(), id));
-    purgeStaleBadges();
+    purgeStaleBadges(clock);
   }
 
-  private void purgeStaleBadges() {
-    final Instant now = Clock.systemUTC().instant();
-
+  private void purgeStaleBadges(Clock clock) {
+    final Instant now = clock.instant();
     badges.removeIf(accountBadge -> now.isAfter(accountBadge.getExpiration()));
   }
 
