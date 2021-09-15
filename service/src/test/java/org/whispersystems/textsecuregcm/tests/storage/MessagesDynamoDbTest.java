@@ -138,7 +138,8 @@ public class MessagesDynamoDbTest {
     assertThat(messagesDynamoDb.load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE3));
     assertThat(messagesDynamoDb.load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE2));
 
-    messagesDynamoDb.deleteMessageByDestinationAndGuid(secondDestinationUuid, 1, UUID.fromString(MESSAGE2.getServerGuid()));
+    messagesDynamoDb.deleteMessageByDestinationAndGuid(secondDestinationUuid,
+        UUID.fromString(MESSAGE2.getServerGuid()));
 
     assertThat(messagesDynamoDb.load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE1));
     assertThat(messagesDynamoDb.load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1).element(0).satisfies(verify(MESSAGE3));

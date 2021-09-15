@@ -98,7 +98,7 @@ public class MessagesManager {
     Optional<OutgoingMessageEntity> removed = messagesCache.remove(destinationUuid, destinationDeviceId, guid);
 
     if (removed.isEmpty()) {
-      removed = messagesDynamoDb.deleteMessageByDestinationAndGuid(destinationUuid, destinationDeviceId, guid);
+      removed = messagesDynamoDb.deleteMessageByDestinationAndGuid(destinationUuid, guid);
       cacheMissByGuidMeter.mark();
     } else {
       cacheHitByGuidMeter.mark();

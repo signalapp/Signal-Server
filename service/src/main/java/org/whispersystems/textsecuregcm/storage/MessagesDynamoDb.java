@@ -136,7 +136,8 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     });
   }
 
-  public Optional<OutgoingMessageEntity> deleteMessageByDestinationAndGuid(final UUID destinationAccountUuid, final long destinationDeviceId, final UUID messageUuid) {
+  public Optional<OutgoingMessageEntity> deleteMessageByDestinationAndGuid(final UUID destinationAccountUuid,
+      final UUID messageUuid) {
     return deleteByGuid.record(() -> {
       final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid);
       final QueryRequest queryRequest = QueryRequest.builder()
