@@ -296,8 +296,11 @@ public class ProfileController {
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Path("/username/{username}")
-    public Profile getProfileByUsername(@Auth AuthenticatedAccount auth, @PathParam("username") String username)
-            throws RateLimitExceededException {
+    public Profile getProfileByUsername(
+        @Auth AuthenticatedAccount auth,
+        @Context ContainerRequestContext containerRequestContext,
+        @PathParam("username") String username)
+        throws RateLimitExceededException {
         rateLimiters.getUsernameLookupLimiter().validate(auth.getAccount().getUuid());
 
         username = username.toLowerCase();
@@ -326,7 +329,7 @@ public class ProfileController {
         UserCapabilities.createForAccount(accountProfile.get()),
         username,
         accountProfile.get().getUuid(),
-        List.of(),
+        profileBadgeConverter.convert(containerRequestContext.getAcceptableLanguages(), accountProfile.get().getBadges()),
         null);
   }
 
@@ -367,8 +370,10 @@ public class ProfileController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{identifier}")
-  public Profile getProfile(@Auth Optional<AuthenticatedAccount> auth,
+  public Profile getProfile(
+      @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
+      @Context ContainerRequestContext containerRequestContext,
       @HeaderParam("User-Agent") String userAgent,
       @PathParam("identifier") UUID identifier,
       @QueryParam("ca") boolean useCaCertificate)
@@ -399,7 +404,7 @@ public class ProfileController {
         UserCapabilities.createForAccount(accountProfile.get()),
         username.orElse(null),
         null,
-        List.of(),
+        profileBadgeConverter.convert(containerRequestContext.getAcceptableLanguages(), accountProfile.get().getBadges()),
         null);
   }
 

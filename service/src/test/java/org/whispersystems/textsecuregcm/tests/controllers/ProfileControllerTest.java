@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -29,6 +31,7 @@ import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.assertj.core.api.Condition;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,6 +48,7 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicPaymentsConfiguration;
 import org.whispersystems.textsecuregcm.controllers.ProfileController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.CreateProfileRequest;
 import org.whispersystems.textsecuregcm.entities.Profile;
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
@@ -97,7 +101,15 @@ class ProfileControllerTest {
           profilesManager,
           usernamesManager,
           dynamicConfigurationManager,
-          (acceptableLanguages, accountBadges) -> List.of(),  // TODO: Test with some badges.
+          (acceptableLanguages, accountBadges) -> {
+            try {
+              return List.of(
+                  new Badge(new URL("https://example.com/badge/1"), "Test Badge", "This badge is in unit tests.")
+              );
+            } catch (MalformedURLException e) {
+              throw new AssertionError(e);
+            }
+          },
           s3client,
           postPolicyGenerator,
           policySigner,
@@ -184,6 +196,8 @@ class ProfileControllerTest {
     assertThat(profile.getName()).isEqualTo("baz");
     assertThat(profile.getAvatar()).isEqualTo("profiles/bang");
     assertThat(profile.getUsername()).isEqualTo("n00bkiller");
+    assertThat(profile.getBadges()).hasSize(1).element(0).has(new Condition<>(
+        badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
 
     verify(accountsManager).get(AuthHelper.VALID_UUID_TWO);
     verify(usernamesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO));
@@ -203,6 +217,8 @@ class ProfileControllerTest {
     assertThat(profile.getAvatar()).isEqualTo("profiles/bang");
     assertThat(profile.getUsername()).isEqualTo("n00bkiller");
     assertThat(profile.getUuid()).isEqualTo(AuthHelper.VALID_UUID_TWO);
+    assertThat(profile.getBadges()).hasSize(1).element(0).has(new Condition<>(
+        badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
 
     verify(accountsManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO));
     verify(usernamesManager, times(1)).get(eq("n00bkiller"));
@@ -563,6 +579,8 @@ class ProfileControllerTest {
     assertThat(profile.getCapabilities().isGv1Migration()).isFalse();
     assertThat(profile.getUsername()).isEqualTo("n00bkiller");
     assertThat(profile.getUuid()).isNull();
+    assertThat(profile.getBadges()).hasSize(1).element(0).has(new Condition<>(
+        badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
 
     verify(accountsManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO));
     verify(usernamesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO));

@@ -29,7 +29,6 @@ import io.dropwizard.jdbi3.JdbiFactory;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import io.lettuce.core.resource.ClientResources;
-import io.micrometer.core.instrument.Clock;
 import io.micrometer.core.instrument.Meter.Id;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
@@ -37,6 +36,7 @@ import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import io.micrometer.datadog.DatadogMeterRegistry;
 import java.net.http.HttpClient;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -69,6 +69,7 @@ import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccountAuthenticat
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
+import org.whispersystems.textsecuregcm.badges.ConfiguredProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.configuration.DirectoryServerConfiguration;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
@@ -269,7 +270,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .build();
 
     {
-      final DatadogMeterRegistry datadogMeterRegistry = new DatadogMeterRegistry(config.getDatadogConfiguration(), Clock.SYSTEM);
+      final DatadogMeterRegistry datadogMeterRegistry = new DatadogMeterRegistry(
+          config.getDatadogConfiguration(), io.micrometer.core.instrument.Clock.SYSTEM);
 
       datadogMeterRegistry.config().commonTags(
           Tags.of(
@@ -295,7 +297,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.getObjectMapper().setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);
     environment.getObjectMapper().setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
 
-    ProfileBadgeConverter profileBadgeConverter = (acceptableLanguages, accountBadges) -> List.of();  // TODO: Provide an actual implementation.
+    ProfileBadgeConverter profileBadgeConverter = new ConfiguredProfileBadgeConverter(
+        Clock.systemUTC(), config.getBadges());
 
     JdbiFactory jdbiFactory = new JdbiFactory(DefaultNameStrategy.CHECK_EMPTY);
     Jdbi        accountJdbi = jdbiFactory.build(environment, config.getAccountsDatabaseConfiguration(), "accountdb");
