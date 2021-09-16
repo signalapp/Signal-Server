@@ -470,7 +470,7 @@ class AccountsManagerTest {
     final UUID uuidA = UUID.randomUUID();
     final Account a1 = new Account("+14152222222", uuidA, new HashSet<>(), new byte[16]);
 
-    assertEquals(Optional.of("dbMissing"), accountsManager.compareAccounts(Optional.empty(), Optional.of(a1)));
+    assertEquals(Optional.of("primaryMissing"), accountsManager.compareAccounts(Optional.empty(), Optional.of(a1)));
 
     final Account a2 = new Account("+14152222222", uuidA, new HashSet<>(), new byte[16]);
 

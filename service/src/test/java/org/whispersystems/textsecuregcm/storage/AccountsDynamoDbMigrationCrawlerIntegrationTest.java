@@ -5,9 +5,6 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -17,7 +14,6 @@ import com.opentable.db.postgres.embedded.LiquibasePreparer;
 import com.opentable.db.postgres.junit5.EmbeddedPostgresExtension;
 import com.opentable.db.postgres.junit5.PreparedDbExtension;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -25,12 +21,10 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicAccountsDynamoDbMigrationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -273,47 +267,5 @@ class AccountsDynamoDbMigrationCrawlerIntegrationTest {
         .build();
 
     ACCOUNTS_DYNAMODB_EXTENSION.getDynamoDbClient().createTable(createMigrationRetryAccountsTableRequest);
-  }
-
-  @Test
-  void testReregistration() throws Exception {
-
-    final String e164 = "+18001111234";
-
-    final UUID uuid = accountsManager.create(e164, "qefiv132oin4", "OWT", new AccountAttributes()).getUuid();
-
-    assertEquals(1, getAllPostgresAccounts().size());
-    assertTrue(getAllDynamoAccounts().isEmpty());
-
-    accountMigrationConfiguration.setReadEnabled(true);
-    accountMigrationConfiguration.setDeleteEnabled(true);
-    accountMigrationConfiguration.setWriteEnabled(true);
-
-    accountsManager.create(e164, "qefiv132oin4", "OWT", new AccountAttributes());
-
-    assertEquals(1, getAllPostgresAccounts().size());
-    assertTrue(getAllDynamoAccounts().isEmpty());
-    assertEquals(uuid, accountsManager.get(e164).orElseThrow().getUuid());
-
-    accountMigrationConfiguration.setBackgroundMigrationExecutorThreads(5);
-
-    accountDatabaseCrawler.doPeriodicWork();
-
-    assertEquals(1, getAllDynamoAccounts().size());
-
-    final Optional<Account> dbAccount = accounts.get(e164);
-    final Optional<Account> dynamoAccount = accountsDynamoDb.get(e164);
-
-    assertAll(() -> assertTrue(dbAccount.isPresent()),
-        () -> assertTrue(dynamoAccount.isPresent()),
-        () -> assertEquals(Optional.empty(), accountsManager.compareAccounts(dbAccount, dynamoAccount)));
-  }
-
-  private List<Account> getAllPostgresAccounts() {
-    return accounts.getAllFrom(100).getAccounts();
-  }
-
-  private List<Account> getAllDynamoAccounts() {
-    return accountsDynamoDb.getAllFromStart(100, 1000).getAccounts();
   }
 }

@@ -6,6 +6,9 @@ import com.google.common.annotations.VisibleForTesting;
 public class DynamicAccountsDynamoDbMigrationConfiguration {
 
   @JsonProperty
+  boolean dynamoPrimary;
+
+  @JsonProperty
   boolean backgroundMigrationEnabled;
 
   @JsonProperty
@@ -34,6 +37,10 @@ public class DynamicAccountsDynamoDbMigrationConfiguration {
 
   @JsonProperty
   int dynamoCrawlerScanPageSize = 10;
+
+  public boolean isDynamoPrimary() {
+    return dynamoPrimary;
+  }
 
   public boolean isBackgroundMigrationEnabled() {
     return backgroundMigrationEnabled;
