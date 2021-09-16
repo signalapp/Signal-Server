@@ -258,6 +258,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
             processStoredMessages();
           }
         } else {
+          logger.debug("Failed to clear queue", cause);
+
           if (consecutiveRetries.incrementAndGet() > MAX_CONSECUTIVE_RETRIES) {
             client.close(1011, "Failed to retrieve messages");
           } else {
