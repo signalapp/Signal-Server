@@ -30,7 +30,7 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter {
 
   private final Clock clock;
   private final Map<String, BadgeConfiguration> knownBadges;
-  private final List<String> forcedOnBadges;
+  private final List<String> badgeIdsEnabledForAll;
   private final ResourceBundleFactory resourceBundleFactory;
 
   public ConfiguredProfileBadgeConverter(
@@ -47,7 +47,7 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter {
     this.clock = clock;
     this.knownBadges = badgesConfiguration.getBadges().stream()
         .collect(Collectors.toMap(BadgeConfiguration::getId, Function.identity()));
-    this.forcedOnBadges = badgesConfiguration.getBadgeIdsEnabledForAll();
+    this.badgeIdsEnabledForAll = badgesConfiguration.getBadgeIdsEnabledForAll();
     this.resourceBundleFactory = resourceBundleFactory;
   }
 
@@ -55,7 +55,7 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter {
   public List<Badge> convert(
       final List<Locale> acceptableLanguages,
       final List<AccountBadge> accountBadges) {
-    if (accountBadges.isEmpty() && forcedOnBadges.isEmpty()) {
+    if (accountBadges.isEmpty() && badgeIdsEnabledForAll.isEmpty()) {
       return List.of();
     }
 
@@ -103,7 +103,7 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter {
               resourceBundle.getString(accountBadge.getId() + "_description"));
         })
         .collect(Collectors.toCollection(ArrayList::new));
-    badges.addAll(forcedOnBadges.stream().filter(knownBadges::containsKey).map(id -> {
+    badges.addAll(badgeIdsEnabledForAll.stream().filter(knownBadges::containsKey).map(id -> {
       BadgeConfiguration configuration = knownBadges.get(id);
       return new Badge(
           id,
