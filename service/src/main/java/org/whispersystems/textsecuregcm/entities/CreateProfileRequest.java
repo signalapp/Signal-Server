@@ -8,6 +8,8 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import java.util.ArrayList;
+import java.util.List;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import org.apache.commons.lang3.StringUtils;
@@ -41,15 +43,20 @@ public class CreateProfileRequest {
 
   @JsonProperty
   @NotNull
+  private List<String> badgeIds = new ArrayList<>();
+
+  @JsonProperty
+  @NotNull
   @JsonDeserialize(using = ProfileKeyCommitmentAdapter.Deserializing.class)
   @JsonSerialize(using = ProfileKeyCommitmentAdapter.Serializing.class)
   private ProfileKeyCommitment commitment;
 
-  public CreateProfileRequest() {}
+  public CreateProfileRequest() {
+  }
 
   public CreateProfileRequest(
       ProfileKeyCommitment commitment, String version, String name, String aboutEmoji, String about,
-      String paymentAddress, boolean wantsAvatar) {
+      String paymentAddress, boolean wantsAvatar, List<String> badgeIds) {
     this.commitment = commitment;
     this.version = version;
     this.name = name;
@@ -57,6 +64,7 @@ public class CreateProfileRequest {
     this.about = about;
     this.paymentAddress = paymentAddress;
     this.avatar = wantsAvatar;
+    this.badgeIds = badgeIds;
   }
 
   public ProfileKeyCommitment getCommitment() {
@@ -85,5 +93,9 @@ public class CreateProfileRequest {
 
   public String getPaymentAddress() {
     return StringUtils.stripToNull(paymentAddress);
+  }
+
+  public List<String> getBadges() {
+    return badgeIds;
   }
 }
