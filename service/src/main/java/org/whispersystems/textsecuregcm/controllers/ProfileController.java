@@ -10,7 +10,6 @@ import io.dropwizard.auth.Auth;
 import java.security.SecureRandom;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -194,13 +193,8 @@ public class ProfileController {
     if (!isZkEnabled) {
       throw new WebApplicationException(Response.Status.NOT_FOUND);
     }
-    final List<Locale> acceptableLanguages = new ArrayList<>();
-    try {
-      acceptableLanguages.addAll(containerRequestContext.getAcceptableLanguages());
-    } catch (final ProcessingException e) {
-      logger.warn("Could not get acceptable languages", e);
-    }
-    return getVersionedProfile(auth.map(AuthenticatedAccount::getAccount), accessKey, acceptableLanguages, uuid,
+    return getVersionedProfile(auth.map(AuthenticatedAccount::getAccount), accessKey,
+        getAcceptableLanguagesForRequest(containerRequestContext), uuid,
         version, Optional.empty());
   }
 
@@ -219,13 +213,8 @@ public class ProfileController {
     if (!isZkEnabled) {
       throw new WebApplicationException(Response.Status.NOT_FOUND);
     }
-    final List<Locale> acceptableLanguages = new ArrayList<>();
-    try {
-      acceptableLanguages.addAll(containerRequestContext.getAcceptableLanguages());
-    } catch (final ProcessingException e) {
-      logger.warn("Could not get acceptable languages", e);
-    }
-    return getVersionedProfile(auth.map(AuthenticatedAccount::getAccount), accessKey, acceptableLanguages, uuid,
+    return getVersionedProfile(auth.map(AuthenticatedAccount::getAccount), accessKey,
+        getAcceptableLanguagesForRequest(containerRequestContext), uuid,
         version, Optional.of(credentialRequest));
   }
 
@@ -329,7 +318,7 @@ public class ProfileController {
         UserCapabilities.createForAccount(accountProfile.get()),
         username,
         accountProfile.get().getUuid(),
-        profileBadgeConverter.convert(containerRequestContext.getAcceptableLanguages(), accountProfile.get().getBadges()),
+        profileBadgeConverter.convert(getAcceptableLanguagesForRequest(containerRequestContext), accountProfile.get().getBadges()),
         null);
   }
 
@@ -404,7 +393,7 @@ public class ProfileController {
         UserCapabilities.createForAccount(accountProfile.get()),
         username.orElse(null),
         null,
-        profileBadgeConverter.convert(containerRequestContext.getAcceptableLanguages(), accountProfile.get().getBadges()),
+        profileBadgeConverter.convert(getAcceptableLanguagesForRequest(containerRequestContext), accountProfile.get().getBadges()),
         null);
   }
 
@@ -448,5 +437,14 @@ public class ProfileController {
     new SecureRandom().nextBytes(object);
 
     return "profiles/" + Base64.encodeBase64URLSafeString(object);
+  }
+
+  private List<Locale> getAcceptableLanguagesForRequest(ContainerRequestContext containerRequestContext) {
+    try {
+      return containerRequestContext.getAcceptableLanguages();
+    } catch (final ProcessingException e) {
+      logger.warn("Could not get acceptable languages", e);
+      return List.of();
+    }
   }
 }
