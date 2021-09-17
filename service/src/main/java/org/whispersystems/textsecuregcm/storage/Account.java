@@ -321,6 +321,14 @@ public class Account {
     return badges;
   }
 
+  public void setBadges(Clock clock, List<AccountBadge> badges) {
+    requireNotStale();
+
+    this.badges = badges;
+
+    purgeStaleBadges(clock);
+  }
+
   public void addBadge(Clock clock, AccountBadge badge) {
     requireNotStale();
 
