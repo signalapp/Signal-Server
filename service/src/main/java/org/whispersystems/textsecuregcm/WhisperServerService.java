@@ -552,6 +552,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbMigrationCrawlerConfiguration().getChunkIntervalMs(),
         accountsCrawlerChunkPreReadExecutor,
         dynamicConfigurationManager);
+    accountDynamoDbMigrationCrawler.setDedicatedDynamoMigrationCrawler(true);
 
     DeletedAccountsTableCrawler deletedAccountsTableCrawler = new DeletedAccountsTableCrawler(deletedAccountsManager, deletedAccountsDirectoryReconcilers, cacheCluster, recurringJobExecutor);
     MigrationRetryAccountsTableCrawler migrationRetryAccountsTableCrawler = new MigrationRetryAccountsTableCrawler(

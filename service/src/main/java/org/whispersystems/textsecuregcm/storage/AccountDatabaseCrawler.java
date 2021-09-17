@@ -48,6 +48,9 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
   private AtomicBoolean running = new AtomicBoolean(false);
   private boolean finished;
 
+  // temporary to control behavior during the Postgres → Dynamo transition
+  private boolean dedicatedDynamoMigrationCrawler;
+
   public AccountDatabaseCrawler(AccountsManager accounts,
       AccountDatabaseCrawlerCache cache,
       List<AccountDatabaseCrawlerListener> listeners,
@@ -128,7 +131,7 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
 
     try (Timer.Context timer = processChunkTimer.time()) {
 
-      final boolean useDynamo = dynamicConfigurationManager.getConfiguration()
+      final boolean useDynamo = !dedicatedDynamoMigrationCrawler && dynamicConfigurationManager.getConfiguration()
           .getAccountsDynamoDbMigrationConfiguration()
           .isDynamoCrawlerEnabled();
 
@@ -210,6 +213,10 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
     } else {
       cache.setLastUuid(lastUuid);
     }
+  }
+
+  public void setDedicatedDynamoMigrationCrawler(final boolean dedicatedDynamoMigrationCrawler) {
+    this.dedicatedDynamoMigrationCrawler = dedicatedDynamoMigrationCrawler;
   }
 
   private synchronized void sleepWhileRunning(long delayMs) {
