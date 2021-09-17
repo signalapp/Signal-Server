@@ -94,7 +94,7 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter {
 
     final ResourceBundle resourceBundle = resourceBundleFactory.createBundle(BASE_NAME, desiredLocale, control);
     List<Badge> badges = accountBadges.stream()
-        .filter(accountBadge -> accountBadge.isVisible()
+        .filter(accountBadge -> (isSelf || accountBadge.isVisible())
             && now.isBefore(accountBadge.getExpiration())
             && knownBadges.containsKey(accountBadge.getId()))
         .map(accountBadge -> {

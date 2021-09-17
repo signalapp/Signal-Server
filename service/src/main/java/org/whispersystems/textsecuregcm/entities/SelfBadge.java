@@ -19,7 +19,6 @@ public class SelfBadge extends Badge {
   private final boolean visible;
 
   @JsonCreator
-
   public SelfBadge(
       @JsonProperty("id") final String id,
       @JsonProperty("category") final String category,
