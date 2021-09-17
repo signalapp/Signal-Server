@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.refEq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.eq;
@@ -24,6 +25,7 @@ import io.dropwizard.testing.junit5.ResourceExtension;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -60,6 +62,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
@@ -133,6 +136,8 @@ class ProfileControllerTest {
   @BeforeEach
   void setup() {
     reset(s3client);
+
+    when(clock.instant()).thenReturn(Instant.ofEpochSecond(42));
 
     AccountsHelper.setupMockUpdate(accountsManager);
 
@@ -651,5 +656,100 @@ class ProfileControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(Profile.class);
     assertThat(profile.getPaymentAddress()).isNull();
+  }
+
+  @Test
+  void testSetProfileBadges() throws InvalidInputException {
+    ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
+
+    clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
+
+    final String name = RandomStringUtils.randomAlphabetic(380);
+    final String emoji = RandomStringUtils.randomAlphanumeric(80);
+    final String text = RandomStringUtils.randomAlphanumeric(720);
+
+    Response response = resources.getJerseyTest()
+        .target("/v1/profile/")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
+        .put(Entity.entity(new CreateProfileRequest(commitment, "anotherversion", name, emoji, text, null, false, List.of("TEST2")), MediaType.APPLICATION_JSON_TYPE));
+    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.hasEntity()).isFalse();
+
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<List<AccountBadge>> badgeCaptor = ArgumentCaptor.forClass(List.class);
+    verify(AuthHelper.VALID_ACCOUNT_TWO).setBadges(refEq(clock), badgeCaptor.capture());
+
+    List<AccountBadge> badges = badgeCaptor.getValue();
+    assertThat(badges).isNotNull().hasSize(1).containsOnly(new AccountBadge("TEST2", Instant.ofEpochSecond(42 + 86400), true));
+
+    clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
+    when(AuthHelper.VALID_ACCOUNT_TWO.getBadges()).thenReturn(List.of(
+        new AccountBadge("TEST2", Instant.ofEpochSecond(42 + 86400), true)
+    ));
+
+    response = resources.getJerseyTest()
+        .target("/v1/profile/")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
+        .put(Entity.entity(new CreateProfileRequest(commitment, "anotherversion", name, emoji, text, null, false, List.of("TEST3", "TEST2")), MediaType.APPLICATION_JSON_TYPE));
+    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.hasEntity()).isFalse();
+
+    //noinspection unchecked
+    badgeCaptor = ArgumentCaptor.forClass(List.class);
+    verify(AuthHelper.VALID_ACCOUNT_TWO).setBadges(refEq(clock), badgeCaptor.capture());
+
+    badges = badgeCaptor.getValue();
+    assertThat(badges).isNotNull().hasSize(2).containsOnly(
+        new AccountBadge("TEST3", Instant.ofEpochSecond(42 + 86400), true),
+        new AccountBadge("TEST2", Instant.ofEpochSecond(42 + 86400), true));
+
+    clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
+    when(AuthHelper.VALID_ACCOUNT_TWO.getBadges()).thenReturn(List.of(
+        new AccountBadge("TEST3", Instant.ofEpochSecond(42 + 86400), true),
+        new AccountBadge("TEST2", Instant.ofEpochSecond(42 + 86400), true)
+    ));
+
+    response = resources.getJerseyTest()
+        .target("/v1/profile/")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
+        .put(Entity.entity(new CreateProfileRequest(commitment, "anotherversion", name, emoji, text, null, false, List.of("TEST2", "TEST3")), MediaType.APPLICATION_JSON_TYPE));
+    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.hasEntity()).isFalse();
+
+    //noinspection unchecked
+    badgeCaptor = ArgumentCaptor.forClass(List.class);
+    verify(AuthHelper.VALID_ACCOUNT_TWO).setBadges(refEq(clock), badgeCaptor.capture());
+
+    badges = badgeCaptor.getValue();
+    assertThat(badges).isNotNull().hasSize(2).containsOnly(
+        new AccountBadge("TEST2", Instant.ofEpochSecond(42 + 86400), true),
+        new AccountBadge("TEST3", Instant.ofEpochSecond(42 + 86400), true));
+
+    clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
+    when(AuthHelper.VALID_ACCOUNT_TWO.getBadges()).thenReturn(List.of(
+        new AccountBadge("TEST2", Instant.ofEpochSecond(42 + 86400), true),
+        new AccountBadge("TEST3", Instant.ofEpochSecond(42 + 86400), true)
+    ));
+
+    response = resources.getJerseyTest()
+        .target("/v1/profile/")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
+        .put(Entity.entity(new CreateProfileRequest(commitment, "anotherversion", name, emoji, text, null, false, List.of("TEST1")), MediaType.APPLICATION_JSON_TYPE));
+    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.hasEntity()).isFalse();
+
+    //noinspection unchecked
+    badgeCaptor = ArgumentCaptor.forClass(List.class);
+    verify(AuthHelper.VALID_ACCOUNT_TWO).setBadges(refEq(clock), badgeCaptor.capture());
+
+    badges = badgeCaptor.getValue();
+    assertThat(badges).isNotNull().hasSize(3).containsOnly(
+        new AccountBadge("TEST1", Instant.ofEpochSecond(42 + 86400), true),
+        new AccountBadge("TEST2", Instant.ofEpochSecond(42 + 86400), false),
+        new AccountBadge("TEST3", Instant.ofEpochSecond(42 + 86400), false));
   }
 }

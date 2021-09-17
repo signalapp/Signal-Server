@@ -162,6 +162,10 @@ public class AccountsHelper {
             when(updatedAccount.getIdentityKey()).thenAnswer(stubbing);
             break;
           }
+          case "getBadges": {
+            when(updatedAccount.getBadges()).thenAnswer(stubbing);
+            break;
+          }
           default: {
             throw new IllegalArgumentException(
                 "unsupported method: Account#" + stubbing.getInvocation().getMethod().getName());
