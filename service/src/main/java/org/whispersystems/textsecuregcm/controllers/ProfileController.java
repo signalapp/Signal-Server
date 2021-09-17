@@ -8,13 +8,21 @@ package org.whispersystems.textsecuregcm.controllers;
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
 import java.security.SecureRandom;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import javax.validation.Valid;
 import javax.validation.valueextraction.Unwrapping;
 import javax.ws.rs.Consumes;
@@ -49,6 +57,8 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
+import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
+import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.entities.CreateProfileRequest;
 import org.whispersystems.textsecuregcm.entities.Profile;
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
@@ -57,6 +67,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
@@ -74,12 +85,14 @@ public class ProfileController {
 
   private final Logger logger = LoggerFactory.getLogger(ProfileController.class);
 
+  private final Clock clock;
   private final RateLimiters     rateLimiters;
   private final ProfilesManager  profilesManager;
   private final AccountsManager  accountsManager;
   private final UsernamesManager usernamesManager;
   private final DynamicConfigurationManager dynamicConfigurationManager;
   private final ProfileBadgeConverter profileBadgeConverter;
+  private final Map<String, BadgeConfiguration> badgeConfigurationMap;
 
   private final PolicySigner              policySigner;
   private final PostPolicyGenerator       policyGenerator;
@@ -90,24 +103,29 @@ public class ProfileController {
   private final String              bucket;
 
   public ProfileController(
+      Clock clock,
       RateLimiters rateLimiters,
       AccountsManager accountsManager,
       ProfilesManager profilesManager,
       UsernamesManager usernamesManager,
       DynamicConfigurationManager dynamicConfigurationManager,
       ProfileBadgeConverter profileBadgeConverter,
+      BadgesConfiguration badgesConfiguration,
       S3Client s3client,
       PostPolicyGenerator policyGenerator,
       PolicySigner policySigner,
       String bucket,
       ServerZkProfileOperations zkProfileOperations,
       boolean isZkEnabled) {
+    this.clock = clock;
     this.rateLimiters        = rateLimiters;
     this.accountsManager     = accountsManager;
     this.profilesManager     = profilesManager;
     this.usernamesManager    = usernamesManager;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.profileBadgeConverter = profileBadgeConverter;
+    this.badgeConfigurationMap = badgesConfiguration.getBadges().stream().collect(Collectors.toMap(
+        BadgeConfiguration::getId, Function.identity()));
     this.zkProfileOperations = zkProfileOperations;
     this.bucket              = bucket;
     this.s3client            = s3client;
@@ -446,5 +464,53 @@ public class ProfileController {
       logger.warn("Could not get acceptable languages", e);
       return List.of();
     }
+  }
+
+  private List<AccountBadge> mergeBadgeIdsWithExistingAccountBadges(
+      final List<String> badgeIds,
+      final List<AccountBadge> accountBadges) {
+    LinkedHashMap<String, AccountBadge> existingBadges = new LinkedHashMap<>(accountBadges.size());
+    for (final AccountBadge accountBadge : accountBadges) {
+      existingBadges.putIfAbsent(accountBadge.getId(), accountBadge);
+    }
+
+    LinkedHashMap<String, AccountBadge> result = new LinkedHashMap<>(accountBadges.size());
+    for (final String badgeId : badgeIds) {
+
+      // duplicate in the list, ignore it
+      if (result.containsKey(badgeId)) {
+        continue;
+      }
+
+      // reordering or making visible existing badges
+      if (existingBadges.containsKey(badgeId)) {
+        AccountBadge accountBadge = existingBadges.get(badgeId);
+        if (!accountBadge.isVisible()) {
+          accountBadge = new AccountBadge(badgeId, accountBadge.getExpiration(), true);
+        }
+        result.put(badgeId, accountBadge);
+        continue;
+      }
+
+      // This is for testing badges and allows them to be added to an account at any time with an expiration of 1 day
+      // in the future.
+      BadgeConfiguration badgeConfiguration = badgeConfigurationMap.get(badgeId);
+      if (badgeConfiguration != null && "testing".equals(badgeConfiguration.getCategory())) {
+        result.put(badgeId, new AccountBadge(badgeId, clock.instant().plus(Duration.ofDays(1)), true));
+      }
+    }
+
+    // take any remaining account badges and make them invisible
+    for (final Entry<String, AccountBadge> entry : existingBadges.entrySet()) {
+      if (!result.containsKey(entry.getKey())) {
+        AccountBadge accountBadge = entry.getValue();
+        if (accountBadge.isVisible()) {
+          accountBadge = new AccountBadge(accountBadge.getId(), accountBadge.getExpiration(), false);
+        }
+        result.put(accountBadge.getId(), accountBadge);
+      }
+    }
+
+    return new ArrayList<>(result.values());
   }
 }
