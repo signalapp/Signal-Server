@@ -22,3 +22,4 @@ deployer-staging.properties
 deployer-production.properties
 deployer.log
 /service/src/main/resources/org/signal/badges/Badges_*.properties
+.tx/
