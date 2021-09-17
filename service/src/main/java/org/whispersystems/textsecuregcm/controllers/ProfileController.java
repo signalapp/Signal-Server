@@ -134,67 +134,70 @@ public class ProfileController {
     this.isZkEnabled         = isZkEnabled;
   }
 
-    @Timed
-    @PUT
-    @Produces(MediaType.APPLICATION_JSON)
-    @Consumes(MediaType.APPLICATION_JSON)
-    public Response setProfile(@Auth AuthenticatedAccount auth, @Valid CreateProfileRequest request) {
-        if (!isZkEnabled) {
-            throw new WebApplicationException(Response.Status.NOT_FOUND);
-        }
-
-        final Set<String> allowedPaymentsCountryCodes =
-                dynamicConfigurationManager.getConfiguration().getPaymentsConfiguration().getAllowedCountryCodes();
-
-        if (StringUtils.isNotBlank(request.getPaymentAddress()) &&
-                !allowedPaymentsCountryCodes.contains(Util.getCountryCode(auth.getAccount().getNumber()))) {
-
-            return Response.status(Status.FORBIDDEN).build();
-        }
-
-        Optional<VersionedProfile> currentProfile = profilesManager.get(auth.getAccount().getUuid(), request.getVersion());
-        String avatar = request.isAvatar() ? generateAvatarObjectName() : null;
-        Optional<ProfileAvatarUploadAttributes> response = Optional.empty();
-
-        profilesManager.set(auth.getAccount().getUuid(),
-                new VersionedProfile(
-                        request.getVersion(),
-                        request.getName(),
-                        avatar,
-                        request.getAboutEmoji(),
-                        request.getAbout(),
-                        request.getPaymentAddress(),
-                        request.getCommitment().serialize()));
-
-    if (request.isAvatar()) {
-        Optional<String> currentAvatar = Optional.empty();
-
-        if (currentProfile.isPresent() && currentProfile.get().getAvatar() != null && currentProfile.get().getAvatar()
-                .startsWith("profiles/")) {
-            currentAvatar = Optional.of(currentProfile.get().getAvatar());
-        }
-
-        if (currentAvatar.isEmpty() && auth.getAccount().getAvatar() != null && auth.getAccount().getAvatar()
-                .startsWith("profiles/")) {
-            currentAvatar = Optional.of(auth.getAccount().getAvatar());
-        }
-
-        currentAvatar.ifPresent(s -> s3client.deleteObject(DeleteObjectRequest.builder()
-                .bucket(bucket)
-                .key(s)
-                .build()));
-
-        response = Optional.of(generateAvatarUploadForm(avatar));
+  @Timed
+  @PUT
+  @Produces(MediaType.APPLICATION_JSON)
+  @Consumes(MediaType.APPLICATION_JSON)
+  public Response setProfile(@Auth AuthenticatedAccount auth, @Valid CreateProfileRequest request) {
+    if (!isZkEnabled) {
+      throw new WebApplicationException(Response.Status.NOT_FOUND);
     }
 
-        accountsManager.update(auth.getAccount(), a -> {
-            a.setProfileName(request.getName());
-            a.setAvatar(avatar);
-            a.setCurrentProfileVersion(request.getVersion());
-        });
+    final Set<String> allowedPaymentsCountryCodes =
+        dynamicConfigurationManager.getConfiguration().getPaymentsConfiguration().getAllowedCountryCodes();
 
-    if (response.isPresent()) return Response.ok(response).build();
-    else                      return Response.ok().build();
+    if (StringUtils.isNotBlank(request.getPaymentAddress()) &&
+        !allowedPaymentsCountryCodes.contains(Util.getCountryCode(auth.getAccount().getNumber()))) {
+
+      return Response.status(Status.FORBIDDEN).build();
+    }
+
+    Optional<VersionedProfile> currentProfile = profilesManager.get(auth.getAccount().getUuid(), request.getVersion());
+    String avatar = request.isAvatar() ? generateAvatarObjectName() : null;
+    Optional<ProfileAvatarUploadAttributes> response = Optional.empty();
+
+    profilesManager.set(auth.getAccount().getUuid(),
+        new VersionedProfile(
+            request.getVersion(),
+            request.getName(),
+            avatar,
+            request.getAboutEmoji(),
+            request.getAbout(),
+            request.getPaymentAddress(),
+            request.getCommitment().serialize()));
+
+    if (request.isAvatar()) {
+      Optional<String> currentAvatar = Optional.empty();
+
+      if (currentProfile.isPresent() && currentProfile.get().getAvatar() != null && currentProfile.get().getAvatar()
+          .startsWith("profiles/")) {
+        currentAvatar = Optional.of(currentProfile.get().getAvatar());
+      }
+
+      if (currentAvatar.isEmpty() && auth.getAccount().getAvatar() != null && auth.getAccount().getAvatar()
+          .startsWith("profiles/")) {
+        currentAvatar = Optional.of(auth.getAccount().getAvatar());
+      }
+
+      currentAvatar.ifPresent(s -> s3client.deleteObject(DeleteObjectRequest.builder()
+          .bucket(bucket)
+          .key(s)
+          .build()));
+
+      response = Optional.of(generateAvatarUploadForm(avatar));
+    }
+
+    accountsManager.update(auth.getAccount(), a -> {
+      a.setProfileName(request.getName());
+      a.setAvatar(avatar);
+      a.setCurrentProfileVersion(request.getVersion());
+    });
+
+    if (response.isPresent()) {
+      return Response.ok(response).build();
+    } else {
+      return Response.ok().build();
+    }
   }
 
   @Timed
