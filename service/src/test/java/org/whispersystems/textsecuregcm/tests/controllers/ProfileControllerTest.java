@@ -117,7 +117,7 @@ class ProfileControllerTest {
           profilesManager,
           usernamesManager,
           dynamicConfigurationManager,
-          (acceptableLanguages, accountBadges) -> List.of(
+          (acceptableLanguages, accountBadges, isSelf) -> List.of(
               new Badge("TEST", "other", makeURL("https://example.com/badge/test"), "Test Badge", "This badge is in unit tests.")
           ),
           new BadgesConfiguration(List.of(

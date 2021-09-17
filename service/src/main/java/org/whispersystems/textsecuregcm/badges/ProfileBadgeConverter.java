@@ -16,5 +16,5 @@ public interface ProfileBadgeConverter {
    * Converts the {@link AccountBadge}s for an account into the objects
    * that can be returned on a profile fetch.
    */
-  List<Badge> convert(List<Locale> acceptableLanguages, List<AccountBadge> accountBadges);
+  List<Badge> convert(List<Locale> acceptableLanguages, List<AccountBadge> accountBadges, boolean isSelf);
 }

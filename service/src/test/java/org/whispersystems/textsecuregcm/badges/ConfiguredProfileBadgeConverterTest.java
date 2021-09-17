@@ -111,7 +111,7 @@ public class ConfiguredProfileBadgeConverterTest {
     BadgesConfiguration badgesConfiguration = createBadges(1);
     ConfiguredProfileBadgeConverter badgeConverter = new ConfiguredProfileBadgeConverter(clock, badgesConfiguration,
         resourceBundleFactory);
-    assertThat(badgeConverter.convert(List.of(Locale.getDefault()), List.of())).isNotNull().isEmpty();
+    assertThat(badgeConverter.convert(List.of(Locale.getDefault()), List.of(), false)).isNotNull().isEmpty();
   }
 
   @ParameterizedTest
@@ -123,11 +123,13 @@ public class ConfiguredProfileBadgeConverterTest {
     setupResourceBundle(Locale.getDefault());
 
     if (expectedBadge != null) {
-      assertThat(badgeConverter.convert(List.of(), List.of(new AccountBadge(name, expiration, visible)))).isNotNull()
+      assertThat(badgeConverter.convert(List.of(), List.of(new AccountBadge(name, expiration, visible)),
+          false)).isNotNull()
           .hasSize(1)
           .containsOnly(expectedBadge);
     } else {
-      assertThat(badgeConverter.convert(List.of(), List.of(new AccountBadge(name, expiration, visible)))).isNotNull()
+      assertThat(badgeConverter.convert(List.of(), List.of(new AccountBadge(name, expiration, visible)),
+          false)).isNotNull()
           .isEmpty();
     }
   }
@@ -161,7 +163,7 @@ public class ConfiguredProfileBadgeConverterTest {
 
     ArgumentCaptor<Control> controlArgumentCaptor = setupResourceBundle(enGb);
     badgeConverter.convert(List.of(enGb, en, esUs),
-        List.of(new AccountBadge(idFor(0), Instant.ofEpochSecond(43), true)));
+        List.of(new AccountBadge(idFor(0), Instant.ofEpochSecond(43), true)), false);
     Control control = controlArgumentCaptor.getValue();
 
     assertThatNullPointerException().isThrownBy(() -> control.getFormats(null));
@@ -186,7 +188,7 @@ public class ConfiguredProfileBadgeConverterTest {
       // this should always terminate at the system default locale since the development defined bundle should get
       // returned at that point anyhow
       badgeConverter.convert(List.of(enGb, Locale.getDefault(), en, esUs),
-          List.of(new AccountBadge(idFor(0), Instant.ofEpochSecond(43), true)));
+          List.of(new AccountBadge(idFor(0), Instant.ofEpochSecond(43), true)), false);
       Control control2 = controlArgumentCaptor.getValue();
 
       assertThat(control2.getFallbackLocale(ConfiguredProfileBadgeConverter.BASE_NAME, enGb)).isEqualTo(

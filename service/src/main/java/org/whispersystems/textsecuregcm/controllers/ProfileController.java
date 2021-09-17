@@ -243,8 +243,11 @@ public class ProfileController {
         throw new WebApplicationException(Response.Status.UNAUTHORIZED);
       }
 
+      boolean isSelf = false;
       if (requestAccount.isPresent()) {
-        rateLimiters.getProfileLimiter().validate(requestAccount.get().getUuid());
+        UUID authedUuid = requestAccount.get().getUuid();
+        rateLimiters.getProfileLimiter().validate(authedUuid);
+        isSelf = uuid.equals(authedUuid);
       }
 
       Optional<Account> accountProfile = accountsManager.get(uuid);
@@ -282,7 +285,7 @@ public class ProfileController {
           UserCapabilities.createForAccount(accountProfile.get()),
           username.orElse(null),
           null,
-          profileBadgeConverter.convert(acceptableLanguages, accountProfile.get().getBadges()),
+          profileBadgeConverter.convert(acceptableLanguages, accountProfile.get().getBadges(), isSelf),
           credential.orElse(null)));
     } catch (InvalidInputException e) {
       logger.info("Bad profile request", e);
@@ -291,26 +294,28 @@ public class ProfileController {
   }
 
 
-    @Timed
-    @GET
-    @Produces(MediaType.APPLICATION_JSON)
-    @Path("/username/{username}")
-    public Profile getProfileByUsername(
-        @Auth AuthenticatedAccount auth,
-        @Context ContainerRequestContext containerRequestContext,
-        @PathParam("username") String username)
-        throws RateLimitExceededException {
-        rateLimiters.getUsernameLookupLimiter().validate(auth.getAccount().getUuid());
+  @Timed
+  @GET
+  @Produces(MediaType.APPLICATION_JSON)
+  @Path("/username/{username}")
+  public Profile getProfileByUsername(
+      @Auth AuthenticatedAccount auth,
+      @Context ContainerRequestContext containerRequestContext,
+      @PathParam("username") String username)
+      throws RateLimitExceededException {
+    rateLimiters.getUsernameLookupLimiter().validate(auth.getAccount().getUuid());
 
-        username = username.toLowerCase();
+    username = username.toLowerCase();
 
-        Optional<UUID> uuid = usernamesManager.get(username);
+    Optional<UUID> uuid = usernamesManager.get(username);
 
-        if (uuid.isEmpty()) {
-            throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
-        }
+    if (uuid.isEmpty()) {
+      throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
+    }
 
-        Optional<Account> accountProfile = accountsManager.get(uuid.get());
+    final boolean isSelf = auth.getAccount().getUuid().equals(uuid.get());
+
+    Optional<Account> accountProfile = accountsManager.get(uuid.get());
 
     if (accountProfile.isEmpty()) {
       throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
@@ -328,7 +333,10 @@ public class ProfileController {
         UserCapabilities.createForAccount(accountProfile.get()),
         username,
         accountProfile.get().getUuid(),
-        profileBadgeConverter.convert(getAcceptableLanguagesForRequest(containerRequestContext), accountProfile.get().getBadges()),
+        profileBadgeConverter.convert(
+            getAcceptableLanguagesForRequest(containerRequestContext),
+            accountProfile.get().getBadges(),
+            isSelf),
         null);
   }
 
@@ -382,8 +390,11 @@ public class ProfileController {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
+    boolean isSelf = false;
     if (auth.isPresent()) {
-      rateLimiters.getProfileLimiter().validate(auth.get().getAccount().getUuid());
+      UUID authedUuid = auth.get().getAccount().getUuid();
+      rateLimiters.getProfileLimiter().validate(authedUuid);
+      isSelf = authedUuid.equals(identifier);
     }
 
     Optional<Account> accountProfile = accountsManager.get(identifier);
@@ -403,10 +414,12 @@ public class ProfileController {
         UserCapabilities.createForAccount(accountProfile.get()),
         username.orElse(null),
         null,
-        profileBadgeConverter.convert(getAcceptableLanguagesForRequest(containerRequestContext), accountProfile.get().getBadges()),
+        profileBadgeConverter.convert(
+            getAcceptableLanguagesForRequest(containerRequestContext),
+            accountProfile.get().getBadges(),
+            isSelf),
         null);
   }
-
 
     @Deprecated
     @Timed
