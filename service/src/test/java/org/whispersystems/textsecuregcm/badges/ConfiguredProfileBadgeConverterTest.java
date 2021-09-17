@@ -33,6 +33,7 @@ import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.entities.Badge;
+import org.whispersystems.textsecuregcm.entities.SelfBadge;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
 
 public class ConfiguredProfileBadgeConverterTest {
@@ -116,20 +117,20 @@ public class ConfiguredProfileBadgeConverterTest {
 
   @ParameterizedTest
   @MethodSource
-  void testNoLocales(String name, Instant expiration, boolean visible, Badge expectedBadge) {
+  void testNoLocales(String name, Instant expiration, boolean visible, boolean isSelf, Badge expectedBadge) {
     BadgesConfiguration badgesConfiguration = createBadges(1);
     ConfiguredProfileBadgeConverter badgeConverter =
         new ConfiguredProfileBadgeConverter(clock, badgesConfiguration, resourceBundleFactory);
     setupResourceBundle(Locale.getDefault());
 
     if (expectedBadge != null) {
-      assertThat(badgeConverter.convert(List.of(), List.of(new AccountBadge(name, expiration, visible)),
-          false)).isNotNull()
+      assertThat(badgeConverter.convert(List.of(), List.of(new AccountBadge(name, expiration, visible)), isSelf))
+          .isNotNull()
           .hasSize(1)
           .containsOnly(expectedBadge);
     } else {
-      assertThat(badgeConverter.convert(List.of(), List.of(new AccountBadge(name, expiration, visible)),
-          false)).isNotNull()
+      assertThat(badgeConverter.convert(List.of(), List.of(new AccountBadge(name, expiration, visible)), isSelf))
+          .isNotNull()
           .isEmpty();
     }
   }
@@ -139,15 +140,22 @@ public class ConfiguredProfileBadgeConverterTest {
     Instant expired = Instant.ofEpochSecond(41);
     Instant notExpired = Instant.ofEpochSecond(43);
     return Stream.of(
-        arguments(idFor(0), expired, false, null),
-        arguments(idFor(0), notExpired, false, null),
-        arguments(idFor(0), expired, true, null),
-        arguments(idFor(0), notExpired, true, new Badge(idFor(0), "other", imageUrlFor(0), nameFor(0), desriptionFor(0))),
-        arguments(idFor(1), expired, false, null),
-        arguments(idFor(1), notExpired, false, null),
-        arguments(idFor(1), expired, true, null),
-        arguments(idFor(1), notExpired, true, null)
-    );
+        arguments(idFor(0), expired, false, false, null),
+        arguments(idFor(0), notExpired, false, false, null),
+        arguments(idFor(0), expired, true, false, null),
+        arguments(idFor(0), notExpired, true, false, new Badge(idFor(0), "other", imageUrlFor(0), nameFor(0), desriptionFor(0))),
+        arguments(idFor(1), expired, false, false, null),
+        arguments(idFor(1), notExpired, false, false, null),
+        arguments(idFor(1), expired, true, false, null),
+        arguments(idFor(1), notExpired, true, false, null),
+        arguments(idFor(0), expired, false, true, null),
+        arguments(idFor(0), notExpired, false, true, new SelfBadge(idFor(0), "other", imageUrlFor(0), nameFor(0), desriptionFor(0), notExpired, false)),
+        arguments(idFor(0), expired, true, true, null),
+        arguments(idFor(0), notExpired, true, true, new SelfBadge(idFor(0), "other", imageUrlFor(0), nameFor(0), desriptionFor(0), notExpired, true)),
+        arguments(idFor(1), expired, false, true, null),
+        arguments(idFor(1), notExpired, false, true, null),
+        arguments(idFor(1), expired, true, true, null),
+        arguments(idFor(1), notExpired, true, true, null));
   }
 
   @Test
