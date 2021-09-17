@@ -23,6 +23,7 @@ import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.time.Clock;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -44,6 +45,8 @@ import org.signal.zkgroup.profiles.ProfileKeyCommitment;
 import org.signal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
+import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
+import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicPaymentsConfiguration;
 import org.whispersystems.textsecuregcm.controllers.ProfileController;
@@ -72,6 +75,7 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 @ExtendWith(DropwizardExtensionsSupport.class)
 class ProfileControllerTest {
 
+  private static Clock clock = mock(Clock.class);
   private static AccountsManager  accountsManager     = mock(AccountsManager.class );
   private static ProfilesManager  profilesManager     = mock(ProfilesManager.class);
   private static UsernamesManager usernamesManager    = mock(UsernamesManager.class);
@@ -89,6 +93,14 @@ class ProfileControllerTest {
 
   private Account profileAccount;
 
+  private static URL makeURL(String url) {
+    try {
+      return new URL(url);
+    } catch (MalformedURLException e) {
+      throw new AssertionError(e);
+    }
+  }
+
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
@@ -96,26 +108,26 @@ class ProfileControllerTest {
       .setMapper(SystemMapper.getMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new ProfileController(
+          clock,
           rateLimiters,
           accountsManager,
           profilesManager,
           usernamesManager,
           dynamicConfigurationManager,
-          (acceptableLanguages, accountBadges) -> {
-            try {
-              return List.of(
-                  new Badge("TEST1", "other", new URL("https://example.com/badge/1"), "Test Badge", "This badge is in unit tests.")
-              );
-            } catch (MalformedURLException e) {
-              throw new AssertionError(e);
-            }
-          },
+          (acceptableLanguages, accountBadges) -> List.of(
+              new Badge("TEST", "other", makeURL("https://example.com/badge/test"), "Test Badge", "This badge is in unit tests.")
+          ),
+          new BadgesConfiguration(List.of(
+              new BadgeConfiguration("TEST", makeURL("https://example.com/badge/test"), "other"),
+              new BadgeConfiguration("TEST1", makeURL("https://example.com/badge/1"), "testing"),
+              new BadgeConfiguration("TEST2", makeURL("https://example.com/badge/2"), "testing"),
+              new BadgeConfiguration("TEST3", makeURL("https://example.com/badge/3"), "testing")
+          ), List.of("TEST1")),
           s3client,
           postPolicyGenerator,
           policySigner,
           "profilesBucket",
-          zkProfileOperations,
-          true))
+          zkProfileOperations))
       .build();
 
   @BeforeEach
