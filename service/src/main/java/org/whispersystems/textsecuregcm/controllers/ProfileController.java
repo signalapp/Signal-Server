@@ -489,6 +489,14 @@ public class ProfileController {
         continue;
       }
 
+      // This is for testing badges and allows them to be added to an account at any time with an expiration of 1 day
+      // in the future.
+      BadgeConfiguration badgeConfiguration = badgeConfigurationMap.get(badgeId);
+      if (badgeConfiguration != null && "testing".equals(badgeConfiguration.getCategory())) {
+        result.put(badgeId, new AccountBadge(badgeId, clock.instant().plus(Duration.ofDays(1)), true));
+        continue;
+      }
+
       // reordering or making visible existing badges
       if (existingBadges.containsKey(badgeId)) {
         AccountBadge accountBadge = existingBadges.get(badgeId);
@@ -496,14 +504,6 @@ public class ProfileController {
           accountBadge = new AccountBadge(badgeId, accountBadge.getExpiration(), true);
         }
         result.put(badgeId, accountBadge);
-        continue;
-      }
-
-      // This is for testing badges and allows them to be added to an account at any time with an expiration of 1 day
-      // in the future.
-      BadgeConfiguration badgeConfiguration = badgeConfigurationMap.get(badgeId);
-      if (badgeConfiguration != null && "testing".equals(badgeConfiguration.getCategory())) {
-        result.put(badgeId, new AccountBadge(badgeId, clock.instant().plus(Duration.ofDays(1)), true));
       }
     }
 
