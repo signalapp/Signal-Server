@@ -84,6 +84,10 @@ public class WebSocketClient {
     return this.created;
   }
 
+  public boolean isOpen() {
+    return session.isOpen();
+  }
+
   public void close(int code, String message) {
     session.close(code, message);
   }

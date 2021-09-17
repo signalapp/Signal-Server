@@ -16,6 +16,7 @@ import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -843,6 +844,7 @@ public class WebSocketConnectionTest {
         });
 
     final WebSocketClient client = mock(WebSocketClient.class);
+    when(client.isOpen()).thenReturn(true);
 
     WebSocketConnection connection = new WebSocketConnection(receiptSender, storedMessages, auth, device, client,
         retrySchedulingExecutor);
@@ -851,6 +853,33 @@ public class WebSocketConnectionTest {
     verify(retrySchedulingExecutor, times(WebSocketConnection.MAX_CONSECUTIVE_RETRIES)).schedule(any(Runnable.class),
         anyLong(), any());
     verify(client).close(eq(1011), anyString());
+  }
+
+  @Test
+  public void testRetrieveMessageExceptionClientDisconnected() {
+    MessagesManager storedMessages = mock(MessagesManager.class);
+
+    UUID accountUuid = UUID.randomUUID();
+
+    when(device.getId()).thenReturn(2L);
+
+    when(account.getNumber()).thenReturn("+14152222222");
+    when(account.getUuid()).thenReturn(accountUuid);
+
+    String userAgent = "Signal-Android/4.68.3";
+
+    when(storedMessages.getMessagesForDevice(account.getUuid(), device.getId(), userAgent, false))
+        .thenThrow(new RedisException("OH NO"));
+
+    final WebSocketClient client = mock(WebSocketClient.class);
+    when(client.isOpen()).thenReturn(false);
+
+    WebSocketConnection connection = new WebSocketConnection(receiptSender, storedMessages, auth, device, client,
+        retrySchedulingExecutor);
+    connection.start();
+
+    verify(retrySchedulingExecutor, never()).schedule(any(Runnable.class), anyLong(), any());
+    verify(client, never()).close(anyInt(), anyString());
   }
 
   private OutgoingMessageEntity createMessage(long id, boolean cached, String sender, UUID senderUuid, long timestamp, boolean receipt, String content) {

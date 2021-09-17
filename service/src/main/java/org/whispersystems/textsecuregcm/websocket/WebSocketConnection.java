@@ -258,17 +258,22 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
             processStoredMessages();
           }
         } else {
-          logger.debug("Failed to clear queue", cause);
+          if (client.isOpen()) {
+            logger.debug("Failed to clear queue", cause);
 
-          if (consecutiveRetries.incrementAndGet() > MAX_CONSECUTIVE_RETRIES) {
-            client.close(1011, "Failed to retrieve messages");
+            if (consecutiveRetries.incrementAndGet() > MAX_CONSECUTIVE_RETRIES) {
+              client.close(1011, "Failed to retrieve messages");
+            } else {
+              final List<Tag> tags = List.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()));
+
+              Metrics.counter(QUEUE_DRAIN_RETRY_COUNTER_NAME, tags).increment();
+
+              final long delay = RETRY_DELAY_MILLIS + random.nextInt(RETRY_DELAY_JITTER_MILLIS);
+              retryFuture
+                  .set(retrySchedulingExecutor.schedule(this::processStoredMessages, delay, TimeUnit.MILLISECONDS));
+            }
           } else {
-            final List<Tag> tags = List.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()));
-
-            Metrics.counter(QUEUE_DRAIN_RETRY_COUNTER_NAME, tags).increment();
-
-            final long delay = RETRY_DELAY_MILLIS + random.nextInt(RETRY_DELAY_JITTER_MILLIS);
-            retryFuture.set(retrySchedulingExecutor.schedule(this::processStoredMessages, delay, TimeUnit.MILLISECONDS));
+            logger.debug("Client disconnected before queue cleared");
           }
         }
       });
