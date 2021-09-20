@@ -30,6 +30,24 @@ class BasicAuthorizationHeaderTest {
     }
 
     {
+      final BasicAuthorizationHeader header =
+          BasicAuthorizationHeader.fromString(" Basic YWxhZGRpbjpvcGVuc2VzYW1l ");
+
+      assertEquals("aladdin", header.getUsername());
+      assertEquals("opensesame", header.getPassword());
+      assertEquals(Device.MASTER_ID, header.getDeviceId());
+    }
+
+    {
+      final BasicAuthorizationHeader header =
+          BasicAuthorizationHeader.fromString("  Basic  YWxhZGRpbjpvcGVuc2VzYW1l  ");
+
+      assertEquals("aladdin", header.getUsername());
+      assertEquals("opensesame", header.getPassword());
+      assertEquals(Device.MASTER_ID, header.getDeviceId());
+    }
+
+    {
       final BasicAuthorizationHeader header = BasicAuthorizationHeader.fromString("Basic " +
           Base64.getEncoder().encodeToString("username.7:password".getBytes(StandardCharsets.UTF_8)));
 

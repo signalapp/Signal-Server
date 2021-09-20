@@ -5,12 +5,14 @@
 package org.whispersystems.textsecuregcm.auth;
 
 import java.util.Base64;
-import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
-import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Pair;
 
 public class BasicAuthorizationHeader {
+
+  private final static Pattern AUTHORIZATION_HEADER_PATTERN = Pattern.compile("^ *([a-zA-Z]+) +([^ ]+) *$");
 
   private final String username;
   private final long deviceId;
@@ -28,25 +30,21 @@ public class BasicAuthorizationHeader {
         throw new InvalidAuthorizationHeaderException("Blank header");
       }
 
-      final int spaceIndex = header.indexOf(' ');
+      Matcher matcher = AUTHORIZATION_HEADER_PATTERN.matcher(header);
 
-      if (spaceIndex == -1) {
+      if (!matcher.find()) {
         throw new InvalidAuthorizationHeaderException("Invalid authorization header: " + header);
       }
 
-      final String authorizationType = header.substring(0, spaceIndex);
+      final String authorizationType = matcher.group(1);
 
       if (!"Basic".equals(authorizationType)) {
         throw new InvalidAuthorizationHeaderException("Unsupported authorization method: " + authorizationType);
       }
 
-      final String credentials;
+      final String base64EncodedCredentials = matcher.group(2);
 
-      try {
-        credentials = new String(Base64.getDecoder().decode(header.substring(spaceIndex + 1)));
-      } catch (final IndexOutOfBoundsException e) {
-        throw new InvalidAuthorizationHeaderException("Missing credentials");
-      }
+      final String credentials = new String(Base64.getDecoder().decode(base64EncodedCredentials));
 
       if (StringUtils.isEmpty(credentials)) {
         throw new InvalidAuthorizationHeaderException("Bad decoded value: " + credentials);
