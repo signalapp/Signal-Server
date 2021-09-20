@@ -18,11 +18,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
 import org.junit.Before;
 import org.junit.Test;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicAccountsDynamoDbMigrationConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
 
 public class AccountDatabaseCrawlerIntegrationTest extends AbstractRedisClusterTest {
@@ -58,18 +55,15 @@ public class AccountDatabaseCrawlerIntegrationTest extends AbstractRedisClusterT
     when(firstAccount.getUuid()).thenReturn(FIRST_UUID);
     when(secondAccount.getUuid()).thenReturn(SECOND_UUID);
 
-    when(accountsManager.getAllFrom(CHUNK_SIZE)).thenReturn(new AccountCrawlChunk(List.of(firstAccount), FIRST_UUID));
-    when(accountsManager.getAllFrom(any(UUID.class), eq(CHUNK_SIZE)))
+    when(accountsManager.getAllFromDynamo(CHUNK_SIZE)).thenReturn(
+        new AccountCrawlChunk(List.of(firstAccount), FIRST_UUID));
+    when(accountsManager.getAllFromDynamo(any(UUID.class), eq(CHUNK_SIZE)))
         .thenReturn(new AccountCrawlChunk(List.of(secondAccount), SECOND_UUID))
         .thenReturn(new AccountCrawlChunk(Collections.emptyList(), null));
 
-    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
-    when(dynamicConfiguration.getAccountsDynamoDbMigrationConfiguration()).thenReturn(mock(DynamicAccountsDynamoDbMigrationConfiguration.class));
-
     final AccountDatabaseCrawlerCache crawlerCache = new AccountDatabaseCrawlerCache(getRedisCluster());
     accountDatabaseCrawler = new AccountDatabaseCrawler(accountsManager, crawlerCache, List.of(listener), CHUNK_SIZE,
-        CHUNK_INTERVAL_MS, mock(ExecutorService.class), dynamicConfigurationManager);
+        CHUNK_INTERVAL_MS);
   }
 
   @Test
@@ -78,9 +72,9 @@ public class AccountDatabaseCrawlerIntegrationTest extends AbstractRedisClusterT
     assertFalse(accountDatabaseCrawler.doPeriodicWork());
     assertFalse(accountDatabaseCrawler.doPeriodicWork());
 
-    verify(accountsManager).getAllFrom(CHUNK_SIZE);
-    verify(accountsManager).getAllFrom(FIRST_UUID, CHUNK_SIZE);
-    verify(accountsManager).getAllFrom(SECOND_UUID, CHUNK_SIZE);
+    verify(accountsManager).getAllFromDynamo(CHUNK_SIZE);
+    verify(accountsManager).getAllFromDynamo(FIRST_UUID, CHUNK_SIZE);
+    verify(accountsManager).getAllFromDynamo(SECOND_UUID, CHUNK_SIZE);
 
     verify(listener).onCrawlStart();
     verify(listener).timeAndProcessCrawlChunk(Optional.empty(), List.of(firstAccount));
@@ -98,9 +92,9 @@ public class AccountDatabaseCrawlerIntegrationTest extends AbstractRedisClusterT
     assertFalse(accountDatabaseCrawler.doPeriodicWork());
     assertFalse(accountDatabaseCrawler.doPeriodicWork());
 
-    verify(accountsManager, times(2)).getAllFrom(CHUNK_SIZE);
-    verify(accountsManager).getAllFrom(FIRST_UUID, CHUNK_SIZE);
-    verify(accountsManager).getAllFrom(SECOND_UUID, CHUNK_SIZE);
+    verify(accountsManager, times(2)).getAllFromDynamo(CHUNK_SIZE);
+    verify(accountsManager).getAllFromDynamo(FIRST_UUID, CHUNK_SIZE);
+    verify(accountsManager).getAllFromDynamo(SECOND_UUID, CHUNK_SIZE);
 
     verify(listener, times(2)).onCrawlStart();
     verify(listener, times(2)).timeAndProcessCrawlChunk(Optional.empty(), List.of(firstAccount));

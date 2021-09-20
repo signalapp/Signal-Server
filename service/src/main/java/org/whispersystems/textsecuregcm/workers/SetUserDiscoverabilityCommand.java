@@ -21,22 +21,17 @@ import io.micrometer.core.instrument.Metrics;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.jdbi.v3.core.Jdbi;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsDynamoDb;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
@@ -47,9 +42,6 @@ import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
-import org.whispersystems.textsecuregcm.storage.MigrationDeletedAccounts;
-import org.whispersystems.textsecuregcm.storage.MigrationMismatchedAccounts;
-import org.whispersystems.textsecuregcm.storage.MigrationRetryAccounts;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
@@ -60,7 +52,6 @@ import org.whispersystems.textsecuregcm.storage.Usernames;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.storage.VerificationCodeStore;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
-import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
 public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperServerConfiguration> {
@@ -105,9 +96,6 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
           configuration.getAccountsDatabaseConfiguration().getCircuitBreakerConfiguration());
       ClientResources redisClusterClientResources = ClientResources.builder().build();
 
-      ThreadPoolExecutor accountsDynamoDbMigrationThreadPool = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
-          new LinkedBlockingDeque<>());
-
       DynamoDbClient reportMessagesDynamoDb = DynamoDbFromConfig
           .client(configuration.getReportMessageDynamoDbConfiguration(),
               software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
@@ -118,10 +106,6 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
       DynamoDbClient accountsDynamoDbClient = DynamoDbFromConfig
           .client(configuration.getAccountsDynamoDbConfiguration(),
               software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
-      DynamoDbAsyncClient accountsDynamoDbAsyncClient = DynamoDbFromConfig
-          .asyncClient(configuration.getAccountsDynamoDbConfiguration(),
-              software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create(),
-              accountsDynamoDbMigrationThreadPool);
       DynamoDbClient deletedAccountsDynamoDbClient = DynamoDbFromConfig
           .client(configuration.getDeletedAccountsDynamoDbConfiguration(),
               software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
@@ -148,18 +132,6 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
           configuration.getAppConfig().getConfigurationName());
       dynamicConfigurationManager.start();
 
-      ExperimentEnrollmentManager experimentEnrollmentManager = new ExperimentEnrollmentManager(
-          dynamicConfigurationManager);
-
-      DynamoDbClient migrationDeletedAccountsDynamoDb = DynamoDbFromConfig
-          .client(configuration.getMigrationDeletedAccountsDynamoDbConfiguration(),
-              software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
-      DynamoDbClient migrationMismatchedAccountsDynamoDb = DynamoDbFromConfig
-          .client(configuration.getMigrationMismatchedAccountsDynamoDbConfiguration(),
-              software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
-      DynamoDbClient migrationRetryAccountsDynamoDb = DynamoDbFromConfig
-          .client(configuration.getMigrationRetryAccountsDynamoDbConfiguration(),
-              software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
       DynamoDbClient pendingAccountsDynamoDbClient = DynamoDbFromConfig
           .client(configuration.getPendingAccountsDynamoDbConfiguration(),
               software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
@@ -178,18 +150,13 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
       DeletedAccounts deletedAccounts = new DeletedAccounts(deletedAccountsDynamoDbClient,
           configuration.getDeletedAccountsDynamoDbConfiguration().getTableName(),
           configuration.getDeletedAccountsDynamoDbConfiguration().getNeedsReconciliationIndexName());
-      MigrationDeletedAccounts migrationDeletedAccounts = new MigrationDeletedAccounts(migrationDeletedAccountsDynamoDb,
-          configuration.getMigrationDeletedAccountsDynamoDbConfiguration().getTableName());
-      MigrationRetryAccounts migrationRetryAccounts = new MigrationRetryAccounts(migrationRetryAccountsDynamoDb,
-          configuration.getMigrationRetryAccountsDynamoDbConfiguration().getTableName());
       VerificationCodeStore pendingAccounts = new VerificationCodeStore(pendingAccountsDynamoDbClient,
           configuration.getPendingAccountsDynamoDbConfiguration().getTableName());
 
-      Accounts accounts = new Accounts(accountDatabase);
-      AccountsDynamoDb accountsDynamoDb = new AccountsDynamoDb(accountsDynamoDbClient, accountsDynamoDbAsyncClient,
-          accountsDynamoDbMigrationThreadPool, configuration.getAccountsDynamoDbConfiguration().getTableName(),
-          configuration.getAccountsDynamoDbConfiguration().getPhoneNumberTableName(), migrationDeletedAccounts,
-          migrationRetryAccounts);
+      AccountsDynamoDb accountsDynamoDb = new AccountsDynamoDb(accountsDynamoDbClient,
+          configuration.getAccountsDynamoDbConfiguration().getTableName(),
+          configuration.getAccountsDynamoDbConfiguration().getPhoneNumberTableName()
+      );
       Usernames usernames = new Usernames(accountDatabase);
       Profiles profiles = new Profiles(accountDatabase);
       ReservedUsernames reservedUsernames = new ReservedUsernames(accountDatabase);
@@ -221,17 +188,14 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
           Metrics.globalRegistry);
       MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, pushLatencyManager,
           reportMessageManager);
-      MigrationMismatchedAccounts mismatchedAccounts = new MigrationMismatchedAccounts(
-          migrationMismatchedAccountsDynamoDb,
-          configuration.getMigrationMismatchedAccountsDynamoDbConfiguration().getTableName());
       DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
           deletedAccountsLockDynamoDbClient,
           configuration.getDeletedAccountsLockDynamoDbConfiguration().getTableName());
       StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
-      AccountsManager accountsManager = new AccountsManager(accounts, accountsDynamoDb, cacheCluster,
-          deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, mismatchedAccounts, usernamesManager,
+      AccountsManager accountsManager = new AccountsManager(accountsDynamoDb, cacheCluster,
+          deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, usernamesManager,
           profilesManager,
-          pendingAccountsManager, secureStorageClient, secureBackupClient, experimentEnrollmentManager,
+          pendingAccountsManager, secureStorageClient, secureBackupClient,
           dynamicConfigurationManager);
 
       Optional<Account> maybeAccount;

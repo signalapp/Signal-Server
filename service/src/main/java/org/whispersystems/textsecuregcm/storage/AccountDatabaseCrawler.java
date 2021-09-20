@@ -14,7 +14,6 @@ import io.dropwizard.lifecycle.Managed;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,32 +40,22 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
   private final String workerId;
   private final AccountDatabaseCrawlerCache cache;
   private final List<AccountDatabaseCrawlerListener> listeners;
-  private final ExecutorService chunkPreReadExecutorService;
-
-  private final DynamicConfigurationManager dynamicConfigurationManager;
 
   private AtomicBoolean running = new AtomicBoolean(false);
   private boolean finished;
-
-  // temporary to control behavior during the Postgres → Dynamo transition
-  private boolean dedicatedDynamoMigrationCrawler;
 
   public AccountDatabaseCrawler(AccountsManager accounts,
       AccountDatabaseCrawlerCache cache,
       List<AccountDatabaseCrawlerListener> listeners,
       int chunkSize,
-      long chunkIntervalMs,
-      ExecutorService chunkPreReadExecutorService,
-      DynamicConfigurationManager dynamicConfigurationManager) {
+      long chunkIntervalMs) {
     this.accounts = accounts;
     this.chunkSize = chunkSize;
     this.chunkIntervalMs = chunkIntervalMs;
     this.workerId = UUID.randomUUID().toString();
     this.cache = cache;
     this.listeners = listeners;
-    this.chunkPreReadExecutorService = chunkPreReadExecutorService;
 
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
   @Override
@@ -131,25 +120,19 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
 
     try (Timer.Context timer = processChunkTimer.time()) {
 
-      final boolean useDynamo = !dedicatedDynamoMigrationCrawler && dynamicConfigurationManager.getConfiguration()
-          .getAccountsDynamoDbMigrationConfiguration()
-          .isDynamoCrawlerEnabled();
-
-      final Optional<UUID> fromUuid = getLastUuid(useDynamo);
+      final Optional<UUID> fromUuid = getLastUuid();
 
       if (fromUuid.isEmpty()) {
         logger.info("Started crawl");
         listeners.forEach(AccountDatabaseCrawlerListener::onCrawlStart);
       }
 
-      final AccountCrawlChunk chunkAccounts = readChunk(fromUuid, chunkSize, useDynamo);
-
-      primeDatabaseForNextChunkAsync(chunkAccounts.getLastUuid(), chunkSize, useDynamo);
+      final AccountCrawlChunk chunkAccounts = readChunk(fromUuid, chunkSize);
 
       if (chunkAccounts.getAccounts().isEmpty()) {
         logger.info("Finished crawl");
         listeners.forEach(listener -> listener.onCrawlEnd(fromUuid));
-        cacheLastUuid(Optional.empty(), useDynamo);
+        cacheLastUuid(Optional.empty());
         cache.setAccelerated(false);
       } else {
         logger.info("Processing chunk");
@@ -157,70 +140,42 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
           for (AccountDatabaseCrawlerListener listener : listeners) {
             listener.timeAndProcessCrawlChunk(fromUuid, chunkAccounts.getAccounts());
           }
-          cacheLastUuid(chunkAccounts.getLastUuid(), useDynamo);
+          cacheLastUuid(chunkAccounts.getLastUuid());
         } catch (AccountDatabaseCrawlerRestartException e) {
-          cacheLastUuid(Optional.empty(), useDynamo);
+          cacheLastUuid(Optional.empty());
           cache.setAccelerated(false);
         }
       }
     }
   }
 
-  /**
-   * This is an optimization based on the observation that cold reads of chunks are slow, but subsequent reads of the
-   * same chunk (within a few minutes) are fast. We can’t easily store the actual result data, since the next chunk
-   * might be processed elsewhere, but the time savings are still substantial.
-   */
-  private void primeDatabaseForNextChunkAsync(Optional<UUID> fromUuid, int chunkSize, boolean useDynamo) {
-    if (dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration()
-        .isCrawlerPreReadNextChunkEnabled()) {
-      if (!useDynamo && fromUuid.isPresent()) {
-        chunkPreReadExecutorService.submit(() -> readChunk(fromUuid, chunkSize, false, preReadChunkTimer));
-      }
-    }
+  private AccountCrawlChunk readChunk(Optional<UUID> fromUuid, int chunkSize) {
+    return readChunk(fromUuid, chunkSize, readChunkTimer);
   }
 
-  private AccountCrawlChunk readChunk(Optional<UUID> fromUuid, int chunkSize, boolean useDynamo) {
-    return readChunk(fromUuid, chunkSize, useDynamo, readChunkTimer);
-  }
-
-  private AccountCrawlChunk readChunk(Optional<UUID> fromUuid, int chunkSize, boolean useDynamo, Timer readTimer) {
+  private AccountCrawlChunk readChunk(Optional<UUID> fromUuid, int chunkSize, Timer readTimer) {
     try (Timer.Context timer = readTimer.time()) {
 
       if (fromUuid.isPresent()) {
-        return useDynamo
-            ? accounts.getAllFromDynamo(fromUuid.get(), chunkSize)
-            : accounts.getAllFrom(fromUuid.get(), chunkSize);
+        return accounts.getAllFromDynamo(fromUuid.get(), chunkSize);
       }
 
-      return useDynamo
-          ? accounts.getAllFromDynamo(chunkSize)
-          : accounts.getAllFrom(chunkSize);
+      return accounts.getAllFromDynamo(chunkSize);
     }
   }
 
-  private Optional<UUID> getLastUuid(final boolean useDynamo) {
-    if (useDynamo) {
-      return cache.getLastUuidDynamo();
-    } else {
-      return cache.getLastUuid();
-    }
+  private Optional<UUID> getLastUuid() {
+    return cache.getLastUuidDynamo();
   }
 
-  private void cacheLastUuid(final Optional<UUID> lastUuid, final boolean useDynamo) {
-    if (useDynamo) {
-      cache.setLastUuidDynamo(lastUuid);
-    } else {
-      cache.setLastUuid(lastUuid);
-    }
-  }
-
-  public void setDedicatedDynamoMigrationCrawler(final boolean dedicatedDynamoMigrationCrawler) {
-    this.dedicatedDynamoMigrationCrawler = dedicatedDynamoMigrationCrawler;
+  private void cacheLastUuid(final Optional<UUID> lastUuid) {
+    cache.setLastUuidDynamo(lastUuid);
   }
 
   private synchronized void sleepWhileRunning(long delayMs) {
-    if (running.get()) Util.wait(this, delayMs);
+    if (running.get()) {
+      Util.wait(this, delayMs);
+    }
   }
 
 }

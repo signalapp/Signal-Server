@@ -27,8 +27,6 @@ public class AccountDatabaseCrawlerCache {
   private final FaultTolerantRedisCluster cacheCluster;
   private final ClusterLuaScript unlockClusterScript;
 
-  private String prefix = "";
-
   public AccountDatabaseCrawlerCache(FaultTolerantRedisCluster cacheCluster) throws IOException {
     this.cacheCluster = cacheCluster;
     this.unlockClusterScript = ClusterLuaScript.fromResource(cacheCluster, "lua/account_database_crawler/unlock.lua",
@@ -37,9 +35,9 @@ public class AccountDatabaseCrawlerCache {
 
   public void setAccelerated(final boolean accelerated) {
     if (accelerated) {
-      cacheCluster.useCluster(connection -> connection.sync().set(getPrefixedKey(ACCELERATE_KEY), "1"));
+      cacheCluster.useCluster(connection -> connection.sync().set(ACCELERATE_KEY, "1"));
     } else {
-      cacheCluster.useCluster(connection -> connection.sync().del(getPrefixedKey(ACCELERATE_KEY)));
+      cacheCluster.useCluster(connection -> connection.sync().del(ACCELERATE_KEY));
     }
   }
 
@@ -49,16 +47,16 @@ public class AccountDatabaseCrawlerCache {
 
   public boolean claimActiveWork(String workerId, long ttlMs) {
     return "OK".equals(cacheCluster.withCluster(connection -> connection.sync()
-        .set(getPrefixedKey(ACTIVE_WORKER_KEY), workerId, SetArgs.Builder.nx().px(ttlMs))));
+        .set(ACTIVE_WORKER_KEY, workerId, SetArgs.Builder.nx().px(ttlMs))));
   }
 
   public void releaseActiveWork(String workerId) {
-    unlockClusterScript.execute(List.of(getPrefixedKey(ACTIVE_WORKER_KEY)), List.of(workerId));
+    unlockClusterScript.execute(List.of(ACTIVE_WORKER_KEY), List.of(workerId));
   }
 
   public Optional<UUID> getLastUuid() {
     final String lastUuidString = cacheCluster.withCluster(
-        connection -> connection.sync().get(getPrefixedKey(LAST_UUID_KEY)));
+        connection -> connection.sync().get(LAST_UUID_KEY));
 
     if (lastUuidString == null) {
       return Optional.empty();
@@ -70,15 +68,15 @@ public class AccountDatabaseCrawlerCache {
   public void setLastUuid(Optional<UUID> lastUuid) {
     if (lastUuid.isPresent()) {
       cacheCluster.useCluster(connection -> connection.sync()
-          .psetex(getPrefixedKey(LAST_UUID_KEY), LAST_NUMBER_TTL_MS, lastUuid.get().toString()));
+          .psetex(LAST_UUID_KEY, LAST_NUMBER_TTL_MS, lastUuid.get().toString()));
     } else {
-      cacheCluster.useCluster(connection -> connection.sync().del(getPrefixedKey(LAST_UUID_KEY)));
+      cacheCluster.useCluster(connection -> connection.sync().del(LAST_UUID_KEY));
     }
   }
 
   public Optional<UUID> getLastUuidDynamo() {
     final String lastUuidString = cacheCluster.withCluster(
-        connection -> connection.sync().get(getPrefixedKey(LAST_UUID_DYNAMO_KEY)));
+        connection -> connection.sync().get(LAST_UUID_DYNAMO_KEY));
 
     if (lastUuidString == null) {
       return Optional.empty();
@@ -91,21 +89,9 @@ public class AccountDatabaseCrawlerCache {
     if (lastUuid.isPresent()) {
       cacheCluster.useCluster(
           connection -> connection.sync()
-              .psetex(getPrefixedKey(LAST_UUID_DYNAMO_KEY), LAST_NUMBER_TTL_MS, lastUuid.get().toString()));
+              .psetex(LAST_UUID_DYNAMO_KEY, LAST_NUMBER_TTL_MS, lastUuid.get().toString()));
     } else {
-      cacheCluster.useCluster(connection -> connection.sync().del(getPrefixedKey(LAST_UUID_DYNAMO_KEY)));
+      cacheCluster.useCluster(connection -> connection.sync().del(LAST_UUID_DYNAMO_KEY));
     }
   }
-
-  private String getPrefixedKey(final String key) {
-    return prefix + key;
-  }
-
-  /**
-   * Set a cache key prefix, allowing for uses beyond the canonical crawler
-   */
-  public void setPrefix(final String prefix) {
-    this.prefix = prefix + "::";
-  }
-
 }

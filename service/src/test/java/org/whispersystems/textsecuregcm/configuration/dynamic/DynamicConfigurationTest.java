@@ -320,30 +320,19 @@ class DynamicConfigurationTest {
       final DynamicConfiguration emptyConfig =
           DynamicConfigurationManager.parseConfiguration(emptyConfigYaml).orElseThrow();
 
-      assertFalse(emptyConfig.getAccountsDynamoDbMigrationConfiguration().isBackgroundMigrationEnabled());
-      assertFalse(emptyConfig.getAccountsDynamoDbMigrationConfiguration().isDeleteEnabled());
-      assertFalse(emptyConfig.getAccountsDynamoDbMigrationConfiguration().isWriteEnabled());
-      assertFalse(emptyConfig.getAccountsDynamoDbMigrationConfiguration().isReadEnabled());
+      assertEquals(10, emptyConfig.getAccountsDynamoDbMigrationConfiguration().getDynamoCrawlerScanPageSize());
     }
 
     {
       final String accountsDynamoDbMigrationConfig =
           "accountsDynamoDbMigration:\n"
-              + "  backgroundMigrationEnabled: true\n"
-              + "  backgroundMigrationExecutorThreads: 100\n"
-              + "  deleteEnabled: true\n"
-              + "  readEnabled: true\n"
-              + "  writeEnabled: true";
+              + "  dynamoCrawlerScanPageSize: 5000";
 
       final DynamicAccountsDynamoDbMigrationConfiguration config =
           DynamicConfigurationManager.parseConfiguration(accountsDynamoDbMigrationConfig).orElseThrow()
               .getAccountsDynamoDbMigrationConfiguration();
 
-      assertTrue(config.isBackgroundMigrationEnabled());
-      assertEquals(100, config.getBackgroundMigrationExecutorThreads());
-      assertTrue(config.isDeleteEnabled());
-      assertTrue(config.isWriteEnabled());
-      assertTrue(config.isReadEnabled());
+      assertEquals(5000, config.getDynamoCrawlerScanPageSize());
     }
   }
 

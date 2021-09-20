@@ -24,10 +24,6 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import org.jdbi.v3.core.transaction.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -36,21 +32,15 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
-import org.whispersystems.textsecuregcm.util.SystemMapper;
-import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
 import software.amazon.awssdk.services.dynamodb.model.KeyType;
-import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
-import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
-import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
 import software.amazon.awssdk.services.dynamodb.model.TransactionConflictException;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
@@ -59,8 +49,6 @@ class AccountsDynamoDbTest {
 
   private static final String ACCOUNTS_TABLE_NAME = "accounts_test";
   private static final String NUMBERS_TABLE_NAME = "numbers_test";
-  private static final String MIGRATION_DELETED_ACCOUNTS_TABLE_NAME = "migration_deleted_accounts_test";
-  private static final String MIGRATION_RETRY_ACCOUNTS_TABLE_NAME = "migration_retry_accounts_test";
 
   @RegisterExtension
   static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
@@ -91,50 +79,11 @@ class AccountsDynamoDbTest {
 
     dynamoDbExtension.getDynamoDbClient().createTable(createNumbersTableRequest);
 
-    final CreateTableRequest createMigrationDeletedAccountsTableRequest = CreateTableRequest.builder()
-        .tableName(MIGRATION_DELETED_ACCOUNTS_TABLE_NAME)
-        .keySchema(KeySchemaElement.builder()
-            .attributeName(MigrationDeletedAccounts.KEY_UUID)
-            .keyType(KeyType.HASH)
-            .build())
-        .attributeDefinitions(AttributeDefinition.builder()
-            .attributeName(MigrationDeletedAccounts.KEY_UUID)
-            .attributeType(ScalarAttributeType.B)
-            .build())
-        .provisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT)
-        .build();
-
-    dynamoDbExtension.getDynamoDbClient().createTable(createMigrationDeletedAccountsTableRequest);
-
-    MigrationDeletedAccounts migrationDeletedAccounts = new MigrationDeletedAccounts(
-        dynamoDbExtension.getDynamoDbClient(), MIGRATION_DELETED_ACCOUNTS_TABLE_NAME);
-
-    final CreateTableRequest createMigrationRetryAccountsTableRequest = CreateTableRequest.builder()
-        .tableName(MIGRATION_RETRY_ACCOUNTS_TABLE_NAME)
-        .keySchema(KeySchemaElement.builder()
-            .attributeName(MigrationRetryAccounts.KEY_UUID)
-            .keyType(KeyType.HASH)
-            .build())
-        .attributeDefinitions(AttributeDefinition.builder()
-            .attributeName(MigrationRetryAccounts.KEY_UUID)
-            .attributeType(ScalarAttributeType.B)
-            .build())
-        .provisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT)
-        .build();
-
-    dynamoDbExtension.getDynamoDbClient().createTable(createMigrationRetryAccountsTableRequest);
-
-    MigrationRetryAccounts migrationRetryAccounts = new MigrationRetryAccounts((dynamoDbExtension.getDynamoDbClient()),
-        MIGRATION_RETRY_ACCOUNTS_TABLE_NAME);
-
     this.accountsDynamoDb = new AccountsDynamoDb(
         dynamoDbExtension.getDynamoDbClient(),
-        dynamoDbExtension.getDynamoDbAsyncClient(),
-        new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, new LinkedBlockingDeque<>()),
         dynamoDbExtension.getTableName(),
-        NUMBERS_TABLE_NAME,
-        migrationDeletedAccounts,
-        migrationRetryAccounts);
+        NUMBERS_TABLE_NAME
+    );
   }
 
   @Test
@@ -283,15 +232,13 @@ class AccountsDynamoDbTest {
   void testUpdateWithMockTransactionConflictException() {
 
     final DynamoDbClient dynamoDbClient = mock(DynamoDbClient.class);
-    accountsDynamoDb = new AccountsDynamoDb(dynamoDbClient, mock(DynamoDbAsyncClient.class),
-        new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, new LinkedBlockingDeque<>()),
-        dynamoDbExtension.getTableName(), NUMBERS_TABLE_NAME, mock(MigrationDeletedAccounts.class),
-        mock(MigrationRetryAccounts.class));
+    accountsDynamoDb = new AccountsDynamoDb(dynamoDbClient,
+        dynamoDbExtension.getTableName(), NUMBERS_TABLE_NAME);
 
     when(dynamoDbClient.updateItem(any(UpdateItemRequest.class)))
         .thenThrow(TransactionConflictException.class);
 
-    Device  device  = generateDevice (1                                            );
+    Device device = generateDevice(1);
     Account account = generateAccount("+14151112222", UUID.randomUUID(), Collections.singleton(device));
 
     assertThatThrownBy(() -> accountsDynamoDb.update(account)).isInstanceOfAny(ContestedOptimisticLockException.class);
@@ -376,33 +323,6 @@ class AccountsDynamoDbTest {
       verifyStoredState(recreatedAccount.getNumber(), recreatedAccount.getUuid(),
           accountsDynamoDb.get(recreatedAccount.getUuid()).get(), recreatedAccount);
     }
-
-    verifyRecentlyDeletedAccountsTableItemCount(1);
-
-    Map<String, AttributeValue> primaryKey = MigrationDeletedAccounts.primaryKey(deletedAccount.getUuid());
-    assertThat(dynamoDbExtension.getDynamoDbClient().getItem(GetItemRequest.builder()
-        .tableName(MIGRATION_DELETED_ACCOUNTS_TABLE_NAME)
-        .key(Map.of(MigrationDeletedAccounts.KEY_UUID, primaryKey.get(MigrationDeletedAccounts.KEY_UUID)))
-        .build()))
-        .isNotNull();
-
-    accountsDynamoDb.deleteRecentlyDeletedUuids();
-
-    verifyRecentlyDeletedAccountsTableItemCount(0);
-  }
-
-  private void verifyRecentlyDeletedAccountsTableItemCount(int expectedItemCount) {
-    int totalItems = 0;
-
-    for (ScanResponse page : dynamoDbExtension.getDynamoDbClient().scanPaginator(ScanRequest.builder()
-        .tableName(MIGRATION_DELETED_ACCOUNTS_TABLE_NAME)
-        .build())) {
-      for (Map<String, AttributeValue> item : page.items()) {
-        totalItems++;
-      }
-    }
-
-    assertThat(totalItems).isEqualTo(expectedItemCount);
   }
 
   @Test
@@ -437,9 +357,8 @@ class AccountsDynamoDbTest {
     when(client.updateItem(any(UpdateItemRequest.class)))
         .thenThrow(RuntimeException.class);
 
-    AccountsDynamoDb accounts = new AccountsDynamoDb(client, mock(DynamoDbAsyncClient.class), mock(ThreadPoolExecutor.class), ACCOUNTS_TABLE_NAME, NUMBERS_TABLE_NAME, mock(
-        MigrationDeletedAccounts.class), mock(MigrationRetryAccounts.class));
-    Account  account  = generateAccount("+14151112222", UUID.randomUUID());
+    AccountsDynamoDb accounts = new AccountsDynamoDb(client, ACCOUNTS_TABLE_NAME, NUMBERS_TABLE_NAME);
+    Account account = generateAccount("+14151112222", UUID.randomUUID());
 
     try {
       accounts.update(account);
@@ -470,42 +389,6 @@ class AccountsDynamoDbTest {
     } catch (TransactionException e) {
       // good
     }
-  }
-
-  @Test
-  void testMigrate() throws ExecutionException, InterruptedException {
-
-    Device  device  = generateDevice (1                                            );
-    UUID    firstUuid = UUID.randomUUID();
-    Account account   = generateAccount("+14151112222", firstUuid, Collections.singleton(device));
-
-    boolean migrated = accountsDynamoDb.migrate(account).get();
-
-    assertThat(migrated).isTrue();
-
-    verifyStoredState("+14151112222", account.getUuid(), account, true);
-
-    migrated = accountsDynamoDb.migrate(account).get();
-
-    assertThat(migrated).isFalse();
-
-    verifyStoredState("+14151112222", account.getUuid(), account, true);
-
-    UUID secondUuid = UUID.randomUUID();
-
-    device = generateDevice(1);
-    Account accountRemigrationWithDifferentUuid = generateAccount("+14151112222", secondUuid, Collections.singleton(device));
-
-    migrated = accountsDynamoDb.migrate(accountRemigrationWithDifferentUuid).get();
-
-    assertThat(migrated).isFalse();
-    verifyStoredState("+14151112222", firstUuid, account, true);
-
-    account.setVersion(account.getVersion() + 1);
-
-    migrated = accountsDynamoDb.migrate(account).get();
-
-    assertThat(migrated).isTrue();
   }
 
   @Test

@@ -11,22 +11,17 @@ import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -37,7 +32,6 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -69,20 +63,14 @@ public class AccountsManager {
   private static final String COUNTRY_CODE_TAG_NAME     = "country";
   private static final String DELETION_REASON_TAG_NAME  = "reason";
 
-  private static final String DYNAMO_MIGRATION_ERROR_COUNTER_NAME = name(AccountsManager.class, "migration", "error");
-  private static final Counter DYNAMO_MIGRATION_COMPARISON_COUNTER = Metrics.counter(name(AccountsManager.class, "migration", "comparisons"));
-  private static final String DYNAMO_MIGRATION_MISMATCH_COUNTER_NAME = name(AccountsManager.class, "migration", "mismatches");
-
   private final Logger logger = LoggerFactory.getLogger(AccountsManager.class);
 
-  private final Accounts                  accounts;
   private final AccountsDynamoDb          accountsDynamoDb;
   private final FaultTolerantRedisCluster cacheCluster;
   private final DeletedAccountsManager deletedAccountsManager;
   private final DirectoryQueue            directoryQueue;
   private final KeysDynamoDb              keysDynamoDb;
   private final MessagesManager messagesManager;
-  private final MigrationMismatchedAccounts mismatchedAccounts;
   private final UsernamesManager usernamesManager;
   private final ProfilesManager           profilesManager;
   private final StoredVerificationCodeManager pendingAccounts;
@@ -90,10 +78,7 @@ public class AccountsManager {
   private final SecureBackupClient        secureBackupClient;
   private final ObjectMapper              mapper;
 
-  private final ObjectMapper migrationComparisonMapper;
-
   private final DynamicConfigurationManager dynamicConfigurationManager;
-  private final ExperimentEnrollmentManager experimentEnrollmentManager;
 
   public enum DeletionReason {
     ADMIN_DELETED("admin"),
@@ -107,25 +92,22 @@ public class AccountsManager {
     }
   }
 
-  public AccountsManager(Accounts accounts, AccountsDynamoDb accountsDynamoDb, FaultTolerantRedisCluster cacheCluster,
+  public AccountsManager(AccountsDynamoDb accountsDynamoDb, FaultTolerantRedisCluster cacheCluster,
       final DeletedAccountsManager deletedAccountsManager,
       final DirectoryQueue directoryQueue,
       final KeysDynamoDb keysDynamoDb, final MessagesManager messagesManager,
-      final MigrationMismatchedAccounts mismatchedAccounts, final UsernamesManager usernamesManager,
+      final UsernamesManager usernamesManager,
       final ProfilesManager profilesManager,
       final StoredVerificationCodeManager pendingAccounts,
       final SecureStorageClient secureStorageClient,
       final SecureBackupClient secureBackupClient,
-      final ExperimentEnrollmentManager experimentEnrollmentManager,
       final DynamicConfigurationManager dynamicConfigurationManager) {
-    this.accounts            = accounts;
-    this.accountsDynamoDb    = accountsDynamoDb;
+    this.accountsDynamoDb = accountsDynamoDb;
     this.cacheCluster        = cacheCluster;
     this.deletedAccountsManager = deletedAccountsManager;
     this.directoryQueue      = directoryQueue;
     this.keysDynamoDb        = keysDynamoDb;
     this.messagesManager = messagesManager;
-    this.mismatchedAccounts = mismatchedAccounts;
     this.usernamesManager = usernamesManager;
     this.profilesManager     = profilesManager;
     this.pendingAccounts = pendingAccounts;
@@ -133,11 +115,7 @@ public class AccountsManager {
     this.secureBackupClient  = secureBackupClient;
     this.mapper              = SystemMapper.getMapper();
 
-    this.migrationComparisonMapper = mapper.copy();
-    migrationComparisonMapper.addMixIn(Device.class, DeviceComparisonMixin.class);
-
     this.dynamicConfigurationManager = dynamicConfigurationManager;
-    this.experimentEnrollmentManager = experimentEnrollmentManager;
   }
 
   public Account create(final String number,
@@ -170,35 +148,11 @@ public class AccountsManager {
 
         final UUID originalUuid = account.getUuid();
 
-        boolean freshUser = primaryCreate(account);
+        boolean freshUser = dynamoCreate(account);
 
         // create() sometimes updates the UUID, if there was a number conflict.
         // for metrics, we want secondary to run with the same original UUID
         final UUID actualUuid = account.getUuid();
-
-        try {
-          if (secondaryWriteEnabled()) {
-
-            account.setUuid(originalUuid);
-
-            runSafelyAndRecordMetrics(() -> secondaryCreate(account), Optional.of(account.getUuid()), freshUser,
-                (primaryResult, secondaryResult) -> {
-
-                  if (primaryResult.equals(secondaryResult)) {
-                    return Optional.empty();
-                  }
-
-                  if (secondaryResult) {
-                    return Optional.of("secondaryFreshUser");
-                  }
-
-                  return Optional.of("primaryFreshUser");
-                },
-                "create");
-          }
-        } finally {
-          account.setUuid(actualUuid);
-        }
 
         redisSet(account);
 
@@ -293,26 +247,7 @@ public class AccountsManager {
 
       final UUID uuid = account.getUuid();
 
-      updatedAccount = updateWithRetries(account, updater, this::primaryUpdate, () -> primaryGet(uuid).get());
-
-      if (secondaryWriteEnabled()) {
-        runSafelyAndRecordMetrics(() -> secondaryGet(uuid).map(secondaryAccount -> {
-              try {
-                return updateWithRetries(secondaryAccount, updater, this::secondaryUpdate, () -> secondaryGet(uuid).get());
-              } catch (final OptimisticLockRetryLimitExceededException e) {
-                if (!dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration()
-                    .isDynamoPrimary()) {
-                  accountsDynamoDb.putUuidForMigrationRetry(uuid);
-                }
-
-                throw e;
-              }
-            }),
-            Optional.of(uuid),
-            Optional.of(updatedAccount),
-            this::compareAccounts,
-            "update");
-      }
+      updatedAccount = updateWithRetries(account, updater, this::dynamoUpdate, () -> dynamoGet(uuid).get());
 
       redisSet(updatedAccount);
     }
@@ -378,14 +313,9 @@ public class AccountsManager {
     try (Timer.Context ignored = getByNumberTimer.time()) {
       Optional<Account> account = redisGet(number);
 
-      if (!account.isPresent()) {
-        account = primaryGet(number);
-        account.ifPresent(value -> redisSet(value));
-
-        if (secondaryReadEnabled()) {
-          runSafelyAndRecordMetrics(() -> secondaryGet(number), Optional.empty(), account, this::compareAccounts,
-              "getByNumber");
-        }
+      if (account.isEmpty()) {
+        account = dynamoGet(number);
+        account.ifPresent(this::redisSet);
       }
 
       return account;
@@ -396,27 +326,13 @@ public class AccountsManager {
     try (Timer.Context ignored = getByUuidTimer.time()) {
       Optional<Account> account = redisGet(uuid);
 
-      if (!account.isPresent()) {
-        account = primaryGet(uuid);
-        account.ifPresent(value -> redisSet(value));
-
-        if (secondaryReadEnabled()) {
-          runSafelyAndRecordMetrics(() -> secondaryGet(uuid), Optional.of(uuid), account, this::compareAccounts,
-              "getByUuid");
-        }
+      if (account.isEmpty()) {
+        account = dynamoGet(uuid);
+        account.ifPresent(this::redisSet);
       }
 
       return account;
     }
-  }
-
-
-  public AccountCrawlChunk getAllFrom(int length) {
-    return accounts.getAllFrom(length);
-  }
-
-  public AccountCrawlChunk getAllFrom(UUID uuid, int length) {
-    return accounts.getAllFrom(uuid, length);
   }
 
   public AccountCrawlChunk getAllFromDynamo(int length) {
@@ -447,16 +363,7 @@ public class AccountsManager {
         deleteBackupServiceDataFuture.join();
 
         redisDelete(account);
-        primaryDelete(account);
-
-        if (secondaryDeleteEnabled()) {
-          try {
-            secondaryDelete(account);
-          } catch (final Exception e) {
-            logger.error("Could not delete account {} from secondary", account.getUuid().toString());
-            Metrics.counter(DYNAMO_MIGRATION_ERROR_COUNTER_NAME, "action", "delete").increment();
-          }
-        }
+        dynamoDelete(account);
 
         return account.getUuid();
       });
@@ -537,100 +444,6 @@ public class AccountsManager {
     }
   }
 
-  private Optional<Account> primaryGet(String number) {
-    return dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration().isDynamoPrimary()
-        ?
-        dynamoGet(number) :
-        databaseGet(number);
-  }
-
-  private Optional<Account> secondaryGet(String number) {
-    return dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration().isDynamoPrimary()
-        ?
-        databaseGet(number) :
-        dynamoGet(number);
-  }
-
-  private Optional<Account> primaryGet(UUID uuid) {
-    return dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration().isDynamoPrimary()
-        ?
-        dynamoGet(uuid) :
-        databaseGet(uuid);
-  }
-
-  private Optional<Account> secondaryGet(UUID uuid) {
-    return dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration().isDynamoPrimary()
-        ?
-        databaseGet(uuid) :
-        dynamoGet(uuid);
-  }
-
-  private boolean primaryCreate(Account account) {
-    return dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration().isDynamoPrimary()
-        ?
-        dynamoCreate(account) :
-        databaseCreate(account);
-  }
-
-  private boolean secondaryCreate(Account account) {
-    return dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration().isDynamoPrimary()
-        ?
-        databaseCreate(account) :
-        dynamoCreate(account);
-  }
-
-  private void primaryUpdate(Account account) {
-    if (dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration().isDynamoPrimary()) {
-      dynamoUpdate(account);
-    } else {
-      databaseUpdate(account);
-    }
-  }
-
-  private void secondaryUpdate(Account account) {
-    if (dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration().isDynamoPrimary()) {
-      databaseUpdate(account);
-    } else {
-      dynamoUpdate(account);
-    }
-  }
-
-  private void primaryDelete(Account account) {
-    if (dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration().isDynamoPrimary()) {
-      dynamoDelete(account);
-    } else {
-      databaseDelete(account);
-    }
-  }
-
-  private void secondaryDelete(Account account) {
-    if (dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration().isDynamoPrimary()) {
-      databaseDelete(account);
-    } else {
-      dynamoDelete(account);
-    }
-  }
-
-  private Optional<Account> databaseGet(String number) {
-    return accounts.get(number);
-  }
-
-  private Optional<Account> databaseGet(UUID uuid) {
-    return accounts.get(uuid);
-  }
-
-  private boolean databaseCreate(Account account) {
-    return accounts.create(account);
-  }
-
-  private void databaseUpdate(Account account) {
-    accounts.update(account);
-  }
-
-  private void databaseDelete(final Account account) {
-    accounts.delete(account.getUuid());
-  }
-
   private Optional<Account> dynamoGet(String number) {
     return accountsDynamoDb.get(number);
   }
@@ -651,173 +464,12 @@ public class AccountsManager {
     accountsDynamoDb.delete(account.getUuid());
   }
 
-  private boolean secondaryDeleteEnabled() {
-    return dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration().isDeleteEnabled();
-  }
-
-  private boolean secondaryReadEnabled() {
-    return dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration().isReadEnabled();
-  }
-
-  private boolean secondaryWriteEnabled() {
-    return secondaryDeleteEnabled()
-        && dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration().isWriteEnabled();
-  }
-
+  // TODO delete
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  @Deprecated
   public Optional<String> compareAccounts(final Optional<Account> maybePrimaryAccount,
       final Optional<Account> maybeSecondaryAccount) {
-
-    if (maybePrimaryAccount.isEmpty() && maybeSecondaryAccount.isEmpty()) {
-      return Optional.empty();
-    }
-
-    if (maybePrimaryAccount.isEmpty()) {
-      return Optional.of("primaryMissing");
-    }
-
-    if (maybeSecondaryAccount.isEmpty()) {
-      return Optional.of("secondaryMissing");
-    }
-
-    final Account primaryAccount = maybePrimaryAccount.get();
-    final Account secondaryAccount = maybeSecondaryAccount.get();
-
-    final int uuidCompare = primaryAccount.getUuid().compareTo(secondaryAccount.getUuid());
-
-    if (uuidCompare != 0) {
-      return Optional.of("uuid");
-    }
-
-    final int numberCompare = primaryAccount.getNumber().compareTo(secondaryAccount.getNumber());
-
-    if (numberCompare != 0) {
-      return Optional.of("number");
-    }
-
-    if (!Objects.equals(primaryAccount.getIdentityKey(), secondaryAccount.getIdentityKey())) {
-      return Optional.of("identityKey");
-    }
-
-    if (!Objects.equals(primaryAccount.getCurrentProfileVersion(), secondaryAccount.getCurrentProfileVersion())) {
-      return Optional.of("currentProfileVersion");
-    }
-
-    if (!Objects.equals(primaryAccount.getProfileName(), secondaryAccount.getProfileName())) {
-      return Optional.of("profileName");
-    }
-
-    if (!Objects.equals(primaryAccount.getAvatar(), secondaryAccount.getAvatar())) {
-      return Optional.of("avatar");
-    }
-
-    if (!Objects.equals(primaryAccount.getUnidentifiedAccessKey(), secondaryAccount.getUnidentifiedAccessKey())) {
-      if (primaryAccount.getUnidentifiedAccessKey().isPresent() && secondaryAccount.getUnidentifiedAccessKey()
-          .isPresent()) {
-
-        if (Arrays.compare(primaryAccount.getUnidentifiedAccessKey().get(),
-            secondaryAccount.getUnidentifiedAccessKey().get()) != 0) {
-          return Optional.of("unidentifiedAccessKey");
-        }
-
-      } else {
-        return Optional.of("unidentifiedAccessKey");
-      }
-    }
-
-    if (!Objects.equals(primaryAccount.isUnrestrictedUnidentifiedAccess(),
-        secondaryAccount.isUnrestrictedUnidentifiedAccess())) {
-      return Optional.of("unrestrictedUnidentifiedAccess");
-    }
-
-    if (!Objects.equals(primaryAccount.isDiscoverableByPhoneNumber(), secondaryAccount.isDiscoverableByPhoneNumber())) {
-      return Optional.of("discoverableByPhoneNumber");
-    }
-
-    if (primaryAccount.getMasterDevice().isPresent() && secondaryAccount.getMasterDevice().isPresent()) {
-      if (!Objects.equals(primaryAccount.getMasterDevice().get().getSignedPreKey(),
-          secondaryAccount.getMasterDevice().get().getSignedPreKey())) {
-        return Optional.of("masterDeviceSignedPreKey");
-      }
-    }
-
-    try {
-      if (!serializedEquals(primaryAccount.getDevices(), secondaryAccount.getDevices())) {
-        return Optional.of("devices");
-      }
-
-      if (primaryAccount.getVersion() != secondaryAccount.getVersion()) {
-        return Optional.of("version");
-      }
-
-      if (primaryAccount.getMasterDevice().isPresent() && secondaryAccount.getMasterDevice().isPresent()) {
-        if (Math.abs(primaryAccount.getMasterDevice().get().getPushTimestamp() -
-            secondaryAccount.getMasterDevice().get().getPushTimestamp()) > 60 * 1_000L) {
-          // These are generally few milliseconds off, because the setter uses System.currentTimeMillis() internally,
-          // but we can be more relaxed
-          return Optional.of("masterDevicePushTimestamp");
-        }
-      }
-
-      if (!serializedEquals(primaryAccount, secondaryAccount)) {
-        return Optional.of("serialization");
-      }
-
-    } catch (JsonProcessingException e) {
-      throw new RuntimeException(e);
-    }
-
     return Optional.empty();
-  }
-
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  private <T> void runSafelyAndRecordMetrics(Callable<T> callable, Optional<UUID> maybeUuid, final T primaryResult,
-      final BiFunction<T, T, Optional<String>> mismatchClassifier, final String action) {
-
-    if (maybeUuid.isPresent()) {
-      // the only time we don’t have a UUID is in getByNumber, which is sufficiently low volume to not be a concern, and
-      // it will also be gated by the global readEnabled configuration
-      final boolean enrolled = experimentEnrollmentManager.isEnrolled(maybeUuid.get(), "accountsDynamoDbMigration");
-
-      if (!enrolled) {
-        return;
-      }
-    }
-
-    try {
-
-      final T secondaryResult = callable.call();
-      compare(primaryResult, secondaryResult, mismatchClassifier, action, maybeUuid);
-
-    } catch (final Exception e) {
-      logger.error("Error running " + action + " in Dynamo", e);
-
-      Metrics.counter(DYNAMO_MIGRATION_ERROR_COUNTER_NAME, "action", action).increment();
-    }
-  }
-
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  private <T> void compare(final T primaryResult, final T secondaryResult,
-      final BiFunction<T, T, Optional<String>> mismatchClassifier, final String action,
-      final Optional<UUID> maybeUUid) {
-
-    DYNAMO_MIGRATION_COMPARISON_COUNTER.increment();
-
-    mismatchClassifier.apply(primaryResult, secondaryResult)
-        .ifPresent(mismatchType -> {
-          final String mismatchDescription = action + ":" + mismatchType;
-          Metrics.counter(DYNAMO_MIGRATION_MISMATCH_COUNTER_NAME,
-                  "mismatchType", mismatchDescription)
-              .increment();
-
-          maybeUUid.ifPresent(uuid -> {
-
-            if (dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration()
-                .isPostCheckMismatches()) {
-              mismatchedAccounts.put(uuid);
-            }
-          });
-        });
   }
 
   private String getAbbreviatedCallChain(final StackTraceElement[] stackTrace) {
@@ -826,23 +478,5 @@ public class AccountsManager {
         .filter(stackTraceElement -> !(stackTraceElement.getClassName().endsWith("AccountsManager") && stackTraceElement.getMethodName().contains("compare")))
         .map(stackTraceElement -> StringUtils.substringAfterLast(stackTraceElement.getClassName(), ".") + ":" + stackTraceElement.getMethodName())
         .collect(Collectors.joining(" -> "));
-  }
-
-  private static abstract class DeviceComparisonMixin extends Device {
-
-    @JsonIgnore
-    private long lastSeen;
-
-    @JsonIgnore
-    private long pushTimestamp;
-
-  }
-
-  private boolean serializedEquals(final Object primary, final Object secondary) throws JsonProcessingException {
-    final byte[] primarySerialized = migrationComparisonMapper.writeValueAsBytes(primary);
-    final byte[] secondarySerialized = migrationComparisonMapper.writeValueAsBytes(secondary);
-    final int serializeCompare = Arrays.compare(primarySerialized, secondarySerialized);
-
-    return serializeCompare == 0;
   }
 }

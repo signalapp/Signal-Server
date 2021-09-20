@@ -8,7 +8,6 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
@@ -17,16 +16,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
-import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.CancellationReason;
@@ -59,12 +52,6 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
   static final String ATTR_CANONICALLY_DISCOVERABLE = "C";
 
   private final DynamoDbClient client;
-  private final DynamoDbAsyncClient asyncClient;
-
-  private final ThreadPoolExecutor migrationThreadPool;
-
-  private final MigrationDeletedAccounts migrationDeletedAccounts;
-  private final MigrationRetryAccounts migrationRetryAccounts;
 
   private final String phoneNumbersTableName;
   private final String accountsTableName;
@@ -76,26 +63,15 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
   private static final Timer GET_ALL_FROM_START_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "getAllFrom"));
   private static final Timer GET_ALL_FROM_OFFSET_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "getAllFromOffset"));
   private static final Timer DELETE_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "delete"));
-  private static final Timer DELETE_RECENTLY_DELETED_UUIDS_TIMER = Metrics.timer(
-      name(AccountsDynamoDb.class, "deleteRecentlyDeletedUuids"));
 
-  private final Logger logger = LoggerFactory.getLogger(AccountsDynamoDb.class);
 
-  public AccountsDynamoDb(DynamoDbClient client, DynamoDbAsyncClient asyncClient,
-      ThreadPoolExecutor migrationThreadPool, String accountsTableName, String phoneNumbersTableName,
-      MigrationDeletedAccounts migrationDeletedAccounts,
-      MigrationRetryAccounts accountsMigrationErrors) {
+  public AccountsDynamoDb(DynamoDbClient client, String accountsTableName, String phoneNumbersTableName) {
 
     super(client);
 
     this.client = client;
-    this.asyncClient = asyncClient;
     this.phoneNumbersTableName = phoneNumbersTableName;
     this.accountsTableName = accountsTableName;
-    this.migrationThreadPool = migrationThreadPool;
-
-    this.migrationDeletedAccounts = migrationDeletedAccounts;
-    this.migrationRetryAccounts = accountsMigrationErrors;
   }
 
   @Override
@@ -215,29 +191,19 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
       }
 
       try {
-        try {
-          UpdateItemResponse response = client.updateItem(updateItemRequest);
+        UpdateItemResponse response = client.updateItem(updateItemRequest);
 
-          account.setVersion(AttributeValues.getInt(response.attributes(), "V", account.getVersion() + 1));
-        } catch (final TransactionConflictException e) {
+        account.setVersion(AttributeValues.getInt(response.attributes(), "V", account.getVersion() + 1));
+      } catch (final TransactionConflictException e) {
 
-          throw new ContestedOptimisticLockException();
+        throw new ContestedOptimisticLockException();
 
-        } catch (final ConditionalCheckFailedException e) {
+      } catch (final ConditionalCheckFailedException e) {
 
-          // the exception doesn’t give details about which condition failed,
-          // but we can infer it was an optimistic locking failure if the UUID is known
-          throw get(account.getUuid()).isPresent() ? new ContestedOptimisticLockException() : e;
-        }
-      } catch (final Exception e) {
-        if (!(e instanceof ContestedOptimisticLockException)) {
-          // the Dynamo account now lags the Postgres account version. Put it in the migration retry table so that it will
-          // get updated faster—otherwise it will be stale until the accounts crawler runs again
-          migrationRetryAccounts.put(account.getUuid());
-        }
-        throw e;
+        // the exception doesn’t give details about which condition failed,
+        // but we can infer it was an optimistic locking failure if the UUID is known
+        throw get(account.getUuid()).isPresent() ? new ContestedOptimisticLockException() : e;
       }
-
     });
   }
 
@@ -279,10 +245,6 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
     DELETE_TIMER.record(() -> delete(uuid, true));
   }
 
-  public void deleteInvalidMigration(UUID uuid) {
-    DELETE_TIMER.record(() -> delete(uuid, false));
-  }
-
   public AccountCrawlChunk getAllFrom(final UUID from, final int maxCount, final int pageSize) {
     final ScanRequest.Builder scanRequestBuilder = ScanRequest.builder()
         .limit(pageSize)
@@ -312,10 +274,6 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
 
   private void delete(UUID uuid, boolean saveInDeletedAccountsTable) {
 
-    if (saveInDeletedAccountsTable) {
-      migrationDeletedAccounts.put(uuid);
-    }
-
     Optional<Account> maybeAccount = get(uuid);
 
     maybeAccount.ifPresent(account -> {
@@ -339,105 +297,6 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
 
       client.transactWriteItems(request);
     });
-  }
-
-  private static final Counter MIGRATED_COUNTER = Metrics.counter(name(AccountsDynamoDb.class, "migration", "count"));
-  private static final Counter ERROR_COUNTER = Metrics.counter(name(AccountsDynamoDb.class, "migration", "error"));
-
-  public CompletableFuture<Void> migrate(List<Account> accounts, int threads) {
-
-    if (threads > migrationThreadPool.getMaximumPoolSize()) {
-      migrationThreadPool.setMaximumPoolSize(threads);
-      migrationThreadPool.setCorePoolSize(threads);
-    } else {
-      migrationThreadPool.setCorePoolSize(threads);
-      migrationThreadPool.setMaximumPoolSize(threads);
-    }
-
-    final List<CompletableFuture<?>> futures = accounts.stream()
-        .map(this::migrate)
-        .map(f -> f.whenCompleteAsync((migrated, e) -> {
-          if (e == null) {
-            MIGRATED_COUNTER.increment(migrated ? 1 : 0);
-          } else {
-            ERROR_COUNTER.increment();
-          }
-        }, migrationThreadPool))
-        .collect(Collectors.toList());
-
-    CompletableFuture<Void> migrationBatch = CompletableFuture.allOf(futures.toArray(new CompletableFuture[]{}));
-
-    return migrationBatch.whenCompleteAsync((result, exception) -> {
-      if (exception != null) {
-        logger.warn("Exception migrating batch", exception);
-      }
-      deleteRecentlyDeletedUuids();
-    }, migrationThreadPool);
-  }
-
-  public void deleteRecentlyDeletedUuids() {
-
-    DELETE_RECENTLY_DELETED_UUIDS_TIMER.record(() -> {
-
-      final List<UUID> recentlyDeletedUuids = migrationDeletedAccounts.getRecentlyDeletedUuids();
-
-      for (UUID recentlyDeletedUuid : recentlyDeletedUuids) {
-        delete(recentlyDeletedUuid, false);
-      }
-
-      migrationDeletedAccounts.delete(recentlyDeletedUuids);
-    });
-  }
-
-  public CompletableFuture<Boolean> migrate(Account account) {
-    try {
-      TransactWriteItem phoneNumberConstraintPut = buildPutWriteItemForPhoneNumberConstraint(account, account.getUuid());
-
-      TransactWriteItem accountPut = buildPutWriteItemForAccount(account, account.getUuid(), Put.builder()
-          .conditionExpression("attribute_not_exists(#uuid) OR (attribute_exists(#uuid) AND #version < :version)")
-          .expressionAttributeNames(Map.of(
-              "#uuid", KEY_ACCOUNT_UUID,
-              "#version", ATTR_VERSION))
-          .expressionAttributeValues(Map.of(
-              ":version", AttributeValues.fromInt(account.getVersion()))));
-
-      final TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
-          .transactItems(phoneNumberConstraintPut, accountPut).build();
-
-      final CompletableFuture<Boolean> resultFuture = new CompletableFuture<>();
-      asyncClient.transactWriteItems(request).whenCompleteAsync((result, exception) -> {
-        if (result != null) {
-          resultFuture.complete(true);
-          return;
-        }
-        if (exception instanceof CompletionException) {
-          // whenCompleteAsync can wrap exceptions in a CompletionException; unwrap it to get to the root cause.
-          exception = exception.getCause();
-        }
-        if (exception instanceof TransactionCanceledException) {
-          // account is already migrated
-          resultFuture.complete(false);
-          return;
-        }
-        try {
-          migrationRetryAccounts.put(account.getUuid());
-        } catch (final Exception e) {
-          logger.error("Could not store account {}", account.getUuid());
-        }
-        resultFuture.completeExceptionally(exception);
-      }, migrationThreadPool);
-      return resultFuture;
-    } catch (Exception e) {
-      return CompletableFuture.failedFuture(e);
-    }
-  }
-
-  void putUuidForMigrationRetry(final UUID uuid) {
-    try {
-      migrationRetryAccounts.put(uuid);
-    } catch (final Exception e) {
-      logger.error("Failed to store for retry: {}", uuid, e);
-    }
   }
 
   private static String extractCancellationReasonCodes(final TransactionCanceledException exception) {

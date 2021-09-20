@@ -5,18 +5,16 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import org.jdbi.v3.core.JdbiException;
-import org.whispersystems.textsecuregcm.storage.mappers.AccountRowMapper;
-import org.whispersystems.textsecuregcm.util.Constants;
-
 import java.sql.SQLException;
 import java.util.Optional;
 import java.util.UUID;
-
-import static com.codahale.metrics.MetricRegistry.name;
+import org.jdbi.v3.core.JdbiException;
+import org.whispersystems.textsecuregcm.util.Constants;
 
 public class Usernames {
 
@@ -34,7 +32,6 @@ public class Usernames {
 
   public Usernames(FaultTolerantDatabase database) {
     this.database = database;
-    this.database.getDatabase().registerRowMapper(new AccountRowMapper());
   }
 
   public boolean put(UUID uuid, String username) {

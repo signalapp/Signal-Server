@@ -23,7 +23,6 @@ import com.opentable.db.postgres.junit5.PreparedDbExtension;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.io.IOException;
 import java.time.Instant;
-import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
@@ -34,18 +33,14 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
-import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicAccountsDynamoDbMigrationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
@@ -75,8 +70,6 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           .attributeType(ScalarAttributeType.B)
           .build())
       .build();
-
-  private Accounts accounts;
 
   private AccountsDynamoDb accountsDynamoDb;
 
@@ -108,39 +101,15 @@ class AccountsManagerConcurrentModificationIntegrationTest {
 
     accountsDynamoDb = new AccountsDynamoDb(
         dynamoDbExtension.getDynamoDbClient(),
-        dynamoDbExtension.getDynamoDbAsyncClient(),
-        new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, new LinkedBlockingDeque<>()),
         dynamoDbExtension.getTableName(),
-        NUMBERS_TABLE_NAME,
-        mock(MigrationDeletedAccounts.class),
-        mock(MigrationRetryAccounts.class));
-
-    {
-      final CircuitBreakerConfiguration circuitBreakerConfiguration = new CircuitBreakerConfiguration();
-      circuitBreakerConfiguration.setIgnoredExceptions(List.of("org.whispersystems.textsecuregcm.storage.ContestedOptimisticLockException"));
-      FaultTolerantDatabase faultTolerantDatabase = new FaultTolerantDatabase("accountsTest",
-          Jdbi.create(db.getTestDatabase()),
-          circuitBreakerConfiguration);
-
-      accounts = new Accounts(faultTolerantDatabase);
-    }
+        NUMBERS_TABLE_NAME
+    );
 
     {
       final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
 
       DynamicConfiguration dynamicConfiguration = new DynamicConfiguration();
       when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
-
-      final ExperimentEnrollmentManager experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
-
-      final DynamicAccountsDynamoDbMigrationConfiguration config = dynamicConfiguration
-          .getAccountsDynamoDbMigrationConfiguration();
-
-      config.setDeleteEnabled(true);
-      config.setReadEnabled(true);
-      config.setWriteEnabled(true);
-
-      when(experimentEnrollmentManager.isEnrolled(any(UUID.class), anyString())).thenReturn(true);
 
       commands = mock(RedisAdvancedClusterCommands.class);
 
@@ -153,20 +122,17 @@ class AccountsManagerConcurrentModificationIntegrationTest {
       }).when(deletedAccountsManager).lockAndTake(anyString(), any());
 
       accountsManager = new AccountsManager(
-          accounts,
           accountsDynamoDb,
           RedisClusterHelper.buildMockRedisCluster(commands),
           deletedAccountsManager,
           mock(DirectoryQueue.class),
           mock(KeysDynamoDb.class),
           mock(MessagesManager.class),
-          mock(MigrationMismatchedAccounts.class),
           mock(UsernamesManager.class),
           mock(ProfilesManager.class),
           mock(StoredVerificationCodeManager.class),
           mock(SecureStorageClient.class),
           mock(SecureBackupClient.class),
-          experimentEnrollmentManager,
           dynamicConfigurationManager);
     }
   }
@@ -225,14 +191,12 @@ class AccountsManagerConcurrentModificationIntegrationTest {
     ).join();
 
     final Account managerAccount = accountsManager.get(uuid).get();
-    final Account dbAccount = accounts.get(uuid).get();
     final Account dynamoAccount = accountsDynamoDb.get(uuid).get();
 
     final Account redisAccount = getLastAccountFromRedisMock(commands);
 
     Stream.of(
         new Pair<>("manager", managerAccount),
-        new Pair<>("db", dbAccount),
         new Pair<>("dynamo", dynamoAccount),
         new Pair<>("redis", redisAccount)
     ).forEach(pair ->

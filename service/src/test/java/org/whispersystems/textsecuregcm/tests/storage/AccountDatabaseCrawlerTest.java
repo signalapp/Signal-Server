@@ -16,7 +16,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
@@ -25,10 +24,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicAccountsDynamoDbMigrationConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountCrawlChunk;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawler;
@@ -36,7 +32,6 @@ import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerCache;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerListener;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
 class AccountDatabaseCrawlerTest {
 
@@ -55,21 +50,13 @@ class AccountDatabaseCrawlerTest {
 
   private final ExecutorService chunkPreReadExecutorService = mock(ExecutorService.class);
 
-  private final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
-
   private final AccountDatabaseCrawler crawler = new AccountDatabaseCrawler(accounts, cache, Arrays.asList(listener),
-      CHUNK_SIZE, CHUNK_INTERVAL_MS, chunkPreReadExecutorService, dynamicConfigurationManager);
-  private DynamicAccountsDynamoDbMigrationConfiguration dynamicAccountsDynamoDbMigrationConfiguration;
+      CHUNK_SIZE, CHUNK_INTERVAL_MS);
 
   @BeforeEach
   void setup() {
     when(account1.getUuid()).thenReturn(ACCOUNT1);
     when(account2.getUuid()).thenReturn(ACCOUNT2);
-
-    when(accounts.getAllFrom(anyInt())).thenReturn(new AccountCrawlChunk(Arrays.asList(account1, account2), ACCOUNT2));
-    when(accounts.getAllFrom(eq(ACCOUNT1), anyInt())).thenReturn(
-        new AccountCrawlChunk(Arrays.asList(account2), ACCOUNT2));
-    when(accounts.getAllFrom(eq(ACCOUNT2), anyInt())).thenReturn(new AccountCrawlChunk(Collections.emptyList(), null));
 
     when(accounts.getAllFromDynamo(anyInt())).thenReturn(
         new AccountCrawlChunk(Arrays.asList(account1, account2), ACCOUNT2));
@@ -81,17 +68,10 @@ class AccountDatabaseCrawlerTest {
     when(cache.claimActiveWork(any(), anyLong())).thenReturn(true);
     when(cache.isAccelerated()).thenReturn(false);
 
-    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
-    dynamicAccountsDynamoDbMigrationConfiguration = mock(DynamicAccountsDynamoDbMigrationConfiguration.class);
-    when(dynamicConfiguration.getAccountsDynamoDbMigrationConfiguration()).thenReturn(
-        dynamicAccountsDynamoDbMigrationConfiguration);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testCrawlStart(final boolean useDynamo) throws AccountDatabaseCrawlerRestartException {
-    when(dynamicAccountsDynamoDbMigrationConfiguration.isDynamoCrawlerEnabled()).thenReturn(useDynamo);
+  @Test
+  void testCrawlStart() throws AccountDatabaseCrawlerRestartException {
     when(cache.getLastUuid()).thenReturn(Optional.empty());
     when(cache.getLastUuidDynamo()).thenReturn(Optional.empty());
 
@@ -99,20 +79,15 @@ class AccountDatabaseCrawlerTest {
     assertThat(accelerated).isFalse();
 
     verify(cache, times(1)).claimActiveWork(any(String.class), anyLong());
-    verify(cache, times(useDynamo ? 0 : 1)).getLastUuid();
-    verify(cache, times(useDynamo ? 1 : 0)).getLastUuidDynamo();
+    verify(cache, times(0)).getLastUuid();
+    verify(cache, times(1)).getLastUuidDynamo();
     verify(listener, times(1)).onCrawlStart();
-    if (useDynamo) {
-      verify(accounts, times(1)).getAllFromDynamo(eq(CHUNK_SIZE));
-      verify(accounts, times(0)).getAllFromDynamo(any(UUID.class), eq(CHUNK_SIZE));
-    } else {
-      verify(accounts, times(1)).getAllFrom(eq(CHUNK_SIZE));
-      verify(accounts, times(0)).getAllFrom(any(UUID.class), eq(CHUNK_SIZE));
-    }
+    verify(accounts, times(1)).getAllFromDynamo(eq(CHUNK_SIZE));
+    verify(accounts, times(0)).getAllFromDynamo(any(UUID.class), eq(CHUNK_SIZE));
     verify(account1, times(0)).getUuid();
     verify(listener, times(1)).timeAndProcessCrawlChunk(eq(Optional.empty()), eq(Arrays.asList(account1, account2)));
-    verify(cache, times(useDynamo ? 0 : 1)).setLastUuid(eq(Optional.of(ACCOUNT2)));
-    verify(cache, times(useDynamo ? 1 : 0)).setLastUuidDynamo(eq(Optional.of(ACCOUNT2)));
+    verify(cache, times(0)).setLastUuid(eq(Optional.of(ACCOUNT2)));
+    verify(cache, times(1)).setLastUuidDynamo(eq(Optional.of(ACCOUNT2)));
     verify(cache, times(1)).isAccelerated();
     verify(cache, times(1)).releaseActiveWork(any(String.class));
 
@@ -123,10 +98,8 @@ class AccountDatabaseCrawlerTest {
     verifyNoMoreInteractions(cache);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testCrawlChunk(final boolean useDynamo) throws AccountDatabaseCrawlerRestartException {
-    when(dynamicAccountsDynamoDbMigrationConfiguration.isDynamoCrawlerEnabled()).thenReturn(useDynamo);
+  @Test
+  void testCrawlChunk() throws AccountDatabaseCrawlerRestartException {
     when(cache.getLastUuid()).thenReturn(Optional.of(ACCOUNT1));
     when(cache.getLastUuidDynamo()).thenReturn(Optional.of(ACCOUNT1));
 
@@ -134,18 +107,13 @@ class AccountDatabaseCrawlerTest {
     assertThat(accelerated).isFalse();
 
     verify(cache, times(1)).claimActiveWork(any(String.class), anyLong());
-    verify(cache, times(useDynamo ? 0: 1)).getLastUuid();
-    verify(cache, times(useDynamo ? 1: 0)).getLastUuidDynamo();
-    if (useDynamo) {
-      verify(accounts, times(0)).getAllFromDynamo(eq(CHUNK_SIZE));
-      verify(accounts, times(1)).getAllFromDynamo(eq(ACCOUNT1), eq(CHUNK_SIZE));
-    } else {
-      verify(accounts, times(0)).getAllFrom(eq(CHUNK_SIZE));
-      verify(accounts, times(1)).getAllFrom(eq(ACCOUNT1), eq(CHUNK_SIZE));
-    }
+    verify(cache, times(0)).getLastUuid();
+    verify(cache, times(1)).getLastUuidDynamo();
+    verify(accounts, times(0)).getAllFromDynamo(eq(CHUNK_SIZE));
+    verify(accounts, times(1)).getAllFromDynamo(eq(ACCOUNT1), eq(CHUNK_SIZE));
     verify(listener, times(1)).timeAndProcessCrawlChunk(eq(Optional.of(ACCOUNT1)), eq(Arrays.asList(account2)));
-    verify(cache, times(useDynamo ? 0 : 1)).setLastUuid(eq(Optional.of(ACCOUNT2)));
-    verify(cache, times(useDynamo ? 1 : 0)).setLastUuidDynamo(eq(Optional.of(ACCOUNT2)));
+    verify(cache, times(0)).setLastUuid(eq(Optional.of(ACCOUNT2)));
+    verify(cache, times(1)).setLastUuidDynamo(eq(Optional.of(ACCOUNT2)));
     verify(cache, times(1)).isAccelerated();
     verify(cache, times(1)).releaseActiveWork(any(String.class));
 
@@ -157,46 +125,8 @@ class AccountDatabaseCrawlerTest {
     verifyNoMoreInteractions(cache);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testCrawlChunk_useDynamoDedicatedMigrationCrawler(final boolean dedicatedMigrationCrawler) throws Exception {
-    crawler.setDedicatedDynamoMigrationCrawler(dedicatedMigrationCrawler);
-
-    when(dynamicAccountsDynamoDbMigrationConfiguration.isDynamoCrawlerEnabled()).thenReturn(true);
-    when(cache.getLastUuid()).thenReturn(Optional.of(ACCOUNT1));
-    when(cache.getLastUuidDynamo()).thenReturn(Optional.of(ACCOUNT1));
-
-    boolean accelerated = crawler.doPeriodicWork();
-    assertThat(accelerated).isFalse();
-
-    verify(cache, times(1)).claimActiveWork(any(String.class), anyLong());
-    verify(cache, times(dedicatedMigrationCrawler ? 1 : 0)).getLastUuid();
-    verify(cache, times(dedicatedMigrationCrawler ? 0 : 1)).getLastUuidDynamo();
-    if (dedicatedMigrationCrawler) {
-      verify(accounts, times(0)).getAllFrom(eq(CHUNK_SIZE));
-      verify(accounts, times(1)).getAllFrom(eq(ACCOUNT1), eq(CHUNK_SIZE));
-    } else {
-      verify(accounts, times(0)).getAllFromDynamo(eq(CHUNK_SIZE));
-      verify(accounts, times(1)).getAllFromDynamo(eq(ACCOUNT1), eq(CHUNK_SIZE));
-    }
-    verify(listener, times(1)).timeAndProcessCrawlChunk(eq(Optional.of(ACCOUNT1)), eq(Arrays.asList(account2)));
-    verify(cache, times(dedicatedMigrationCrawler ? 1 : 0)).setLastUuid(eq(Optional.of(ACCOUNT2)));
-    verify(cache, times(dedicatedMigrationCrawler ? 0 : 1)).setLastUuidDynamo(eq(Optional.of(ACCOUNT2)));
-    verify(cache, times(1)).isAccelerated();
-    verify(cache, times(1)).releaseActiveWork(any(String.class));
-
-    verifyNoInteractions(account1);
-
-    verifyNoMoreInteractions(account2);
-    verifyNoMoreInteractions(accounts);
-    verifyNoMoreInteractions(listener);
-    verifyNoMoreInteractions(cache);
-  }
-
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testCrawlChunkAccelerated(final boolean useDynamo) throws AccountDatabaseCrawlerRestartException {
-    when(dynamicAccountsDynamoDbMigrationConfiguration.isDynamoCrawlerEnabled()).thenReturn(useDynamo);
+  @Test
+  void testCrawlChunkAccelerated() throws AccountDatabaseCrawlerRestartException {
     when(cache.isAccelerated()).thenReturn(true);
     when(cache.getLastUuid()).thenReturn(Optional.of(ACCOUNT1));
     when(cache.getLastUuidDynamo()).thenReturn(Optional.of(ACCOUNT1));
@@ -205,22 +135,17 @@ class AccountDatabaseCrawlerTest {
     assertThat(accelerated).isTrue();
 
     verify(cache, times(1)).claimActiveWork(any(String.class), anyLong());
-    verify(cache, times(useDynamo ? 0 : 1)).getLastUuid();
-    verify(cache, times(useDynamo ? 1 : 0)).getLastUuidDynamo();
-    if (useDynamo) {
-      verify(accounts, times(0)).getAllFromDynamo(eq(CHUNK_SIZE));
-      verify(accounts, times(1)).getAllFromDynamo(eq(ACCOUNT1), eq(CHUNK_SIZE));
-    } else {
-      verify(accounts, times(0)).getAllFrom(eq(CHUNK_SIZE));
-      verify(accounts, times(1)).getAllFrom(eq(ACCOUNT1), eq(CHUNK_SIZE));
-    }
+    verify(cache, times(0)).getLastUuid();
+    verify(cache, times(1)).getLastUuidDynamo();
+    verify(accounts, times(0)).getAllFromDynamo(eq(CHUNK_SIZE));
+    verify(accounts, times(1)).getAllFromDynamo(eq(ACCOUNT1), eq(CHUNK_SIZE));
     verify(listener, times(1)).timeAndProcessCrawlChunk(eq(Optional.of(ACCOUNT1)), eq(Arrays.asList(account2)));
-    verify(cache, times(useDynamo ? 0 : 1)).setLastUuid(eq(Optional.of(ACCOUNT2)));
-    verify(cache, times(useDynamo ? 1 : 0)).setLastUuidDynamo(eq(Optional.of(ACCOUNT2)));
+    verify(cache, times(0)).setLastUuid(eq(Optional.of(ACCOUNT2)));
+    verify(cache, times(1)).setLastUuidDynamo(eq(Optional.of(ACCOUNT2)));
     verify(cache, times(1)).isAccelerated();
     verify(cache, times(1)).releaseActiveWork(any(String.class));
 
-    verifyZeroInteractions(account1);
+    verifyNoInteractions(account1);
 
     verifyNoMoreInteractions(account2);
     verifyNoMoreInteractions(accounts);
@@ -228,36 +153,30 @@ class AccountDatabaseCrawlerTest {
     verifyNoMoreInteractions(cache);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testCrawlChunkRestart(final boolean useDynamo) throws AccountDatabaseCrawlerRestartException {
-    when(dynamicAccountsDynamoDbMigrationConfiguration.isDynamoCrawlerEnabled()).thenReturn(useDynamo);
+  @Test
+  void testCrawlChunkRestart() throws AccountDatabaseCrawlerRestartException {
     when(cache.getLastUuid()).thenReturn(Optional.of(ACCOUNT1));
     when(cache.getLastUuidDynamo()).thenReturn(Optional.of(ACCOUNT1));
-    doThrow(AccountDatabaseCrawlerRestartException.class).when(listener).timeAndProcessCrawlChunk(eq(Optional.of(ACCOUNT1)), eq(Arrays.asList(account2)));
+    doThrow(AccountDatabaseCrawlerRestartException.class).when(listener)
+        .timeAndProcessCrawlChunk(eq(Optional.of(ACCOUNT1)), eq(Arrays.asList(account2)));
 
     boolean accelerated = crawler.doPeriodicWork();
     assertThat(accelerated).isFalse();
 
     verify(cache, times(1)).claimActiveWork(any(String.class), anyLong());
-    verify(cache, times(useDynamo ? 0 : 1)).getLastUuid();
-    verify(cache, times(useDynamo ? 1 : 0)).getLastUuidDynamo();
-    if (useDynamo) {
-      verify(accounts, times(0)).getAllFromDynamo(eq(CHUNK_SIZE));
-      verify(accounts, times(1)).getAllFromDynamo(eq(ACCOUNT1), eq(CHUNK_SIZE));
-    } else {
-      verify(accounts, times(0)).getAllFrom(eq(CHUNK_SIZE));
-      verify(accounts, times(1)).getAllFrom(eq(ACCOUNT1), eq(CHUNK_SIZE));
-    }
+    verify(cache, times(0)).getLastUuid();
+    verify(cache, times(1)).getLastUuidDynamo();
+    verify(accounts, times(0)).getAllFromDynamo(eq(CHUNK_SIZE));
+    verify(accounts, times(1)).getAllFromDynamo(eq(ACCOUNT1), eq(CHUNK_SIZE));
     verify(account2, times(0)).getNumber();
     verify(listener, times(1)).timeAndProcessCrawlChunk(eq(Optional.of(ACCOUNT1)), eq(Arrays.asList(account2)));
-    verify(cache, times(useDynamo ? 0 : 1)).setLastUuid(eq(Optional.empty()));
-    verify(cache, times(useDynamo ? 1 : 0)).setLastUuidDynamo(eq(Optional.empty()));
+    verify(cache, times(0)).setLastUuid(eq(Optional.empty()));
+    verify(cache, times(1)).setLastUuidDynamo(eq(Optional.empty()));
     verify(cache, times(1)).setAccelerated(false);
     verify(cache, times(1)).isAccelerated();
     verify(cache, times(1)).releaseActiveWork(any(String.class));
 
-    verifyZeroInteractions(account1);
+    verifyNoInteractions(account1);
 
     verifyNoMoreInteractions(account2);
     verifyNoMoreInteractions(accounts);
@@ -265,10 +184,8 @@ class AccountDatabaseCrawlerTest {
     verifyNoMoreInteractions(cache);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testCrawlEnd(final boolean useDynamo) {
-    when(dynamicAccountsDynamoDbMigrationConfiguration.isDynamoCrawlerEnabled()).thenReturn(useDynamo);
+  @Test
+  void testCrawlEnd() {
     when(cache.getLastUuid()).thenReturn(Optional.of(ACCOUNT2));
     when(cache.getLastUuidDynamo()).thenReturn(Optional.of(ACCOUNT2));
 
@@ -276,26 +193,21 @@ class AccountDatabaseCrawlerTest {
     assertThat(accelerated).isFalse();
 
     verify(cache, times(1)).claimActiveWork(any(String.class), anyLong());
-    verify(cache, times(useDynamo ? 0 : 1)).getLastUuid();
-    verify(cache, times(useDynamo ? 1 : 0)).getLastUuidDynamo();
-    if (useDynamo) {
-      verify(accounts, times(0)).getAllFromDynamo(eq(CHUNK_SIZE));
-      verify(accounts, times(1)).getAllFromDynamo(eq(ACCOUNT2), eq(CHUNK_SIZE));
-    } else {
-      verify(accounts, times(0)).getAllFrom(eq(CHUNK_SIZE));
-      verify(accounts, times(1)).getAllFrom(eq(ACCOUNT2), eq(CHUNK_SIZE));
-    }
+    verify(cache, times(0)).getLastUuid();
+    verify(cache, times(1)).getLastUuidDynamo();
+    verify(accounts, times(0)).getAllFromDynamo(eq(CHUNK_SIZE));
+    verify(accounts, times(1)).getAllFromDynamo(eq(ACCOUNT2), eq(CHUNK_SIZE));
     verify(account1, times(0)).getNumber();
     verify(account2, times(0)).getNumber();
     verify(listener, times(1)).onCrawlEnd(eq(Optional.of(ACCOUNT2)));
-    verify(cache, times(useDynamo ? 0 : 1)).setLastUuid(eq(Optional.empty()));
-    verify(cache, times(useDynamo ? 1 : 0)).setLastUuidDynamo(eq(Optional.empty()));
+    verify(cache, times(0)).setLastUuid(eq(Optional.empty()));
+    verify(cache, times(1)).setLastUuidDynamo(eq(Optional.empty()));
     verify(cache, times(1)).setAccelerated(false);
     verify(cache, times(1)).isAccelerated();
     verify(cache, times(1)).releaseActiveWork(any(String.class));
 
-    verifyZeroInteractions(account1);
-    verifyZeroInteractions(account2);
+    verifyNoInteractions(account1);
+    verifyNoInteractions(account2);
 
     verifyNoMoreInteractions(accounts);
     verifyNoMoreInteractions(listener);
