@@ -484,10 +484,7 @@ public class ProfileController {
 
       // reordering or making visible existing badges
       if (existingBadges.containsKey(badgeId)) {
-        AccountBadge accountBadge = existingBadges.get(badgeId);
-        if (!accountBadge.isVisible()) {
-          accountBadge = new AccountBadge(badgeId, accountBadge.getExpiration(), true);
-        }
+        AccountBadge accountBadge = existingBadges.get(badgeId).withVisibility(true);
         result.put(badgeId, accountBadge);
       }
     }
@@ -495,10 +492,7 @@ public class ProfileController {
     // take any remaining account badges and make them invisible
     for (final Entry<String, AccountBadge> entry : existingBadges.entrySet()) {
       if (!result.containsKey(entry.getKey())) {
-        AccountBadge accountBadge = entry.getValue();
-        if (accountBadge.isVisible()) {
-          accountBadge = new AccountBadge(accountBadge.getId(), accountBadge.getExpiration(), false);
-        }
+        AccountBadge accountBadge = entry.getValue().withVisibility(false);
         result.put(accountBadge.getId(), accountBadge);
       }
     }

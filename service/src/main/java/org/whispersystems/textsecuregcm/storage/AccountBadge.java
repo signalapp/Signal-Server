@@ -52,6 +52,17 @@ public class AccountBadge {
     );
   }
 
+  public AccountBadge withVisibility(boolean visible) {
+    if (this.visible == visible) {
+      return this;
+    } else {
+      return new AccountBadge(
+          this.id,
+          this.expiration,
+          visible);
+    }
+  }
+
   public String getId() {
     return id;
   }
