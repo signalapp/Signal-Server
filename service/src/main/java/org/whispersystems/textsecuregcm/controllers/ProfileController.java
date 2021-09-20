@@ -477,7 +477,7 @@ public class ProfileController {
       // This is for testing badges and allows them to be added to an account at any time with an expiration of 1 day
       // in the future.
       BadgeConfiguration badgeConfiguration = badgeConfigurationMap.get(badgeId);
-      if (badgeConfiguration != null && "testing".equals(badgeConfiguration.getCategory())) {
+      if (badgeConfiguration != null && badgeConfiguration.isTestBadge()) {
         result.put(badgeId, new AccountBadge(badgeId, clock.instant().plus(Duration.ofDays(1)), true));
         continue;
       }
