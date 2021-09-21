@@ -38,7 +38,7 @@ import software.amazon.awssdk.services.dynamodb.model.TransactionConflictExcepti
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 
-public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountStore {
+public class Accounts extends AbstractDynamoDbStore {
 
   // uuid, primary key
   static final String KEY_ACCOUNT_UUID = "U";
@@ -56,25 +56,28 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
   private final String phoneNumbersTableName;
   private final String accountsTableName;
 
-  private static final Timer CREATE_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "create"));
-  private static final Timer UPDATE_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "update"));
-  private static final Timer GET_BY_NUMBER_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "getByNumber"));
-  private static final Timer GET_BY_UUID_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "getByUuid"));
-  private static final Timer GET_ALL_FROM_START_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "getAllFrom"));
-  private static final Timer GET_ALL_FROM_OFFSET_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "getAllFromOffset"));
-  private static final Timer DELETE_TIMER = Metrics.timer(name(AccountsDynamoDb.class, "delete"));
+  private final int scanPageSize;
+
+  private static final Timer CREATE_TIMER = Metrics.timer(name(Accounts.class, "create"));
+  private static final Timer UPDATE_TIMER = Metrics.timer(name(Accounts.class, "update"));
+  private static final Timer GET_BY_NUMBER_TIMER = Metrics.timer(name(Accounts.class, "getByNumber"));
+  private static final Timer GET_BY_UUID_TIMER = Metrics.timer(name(Accounts.class, "getByUuid"));
+  private static final Timer GET_ALL_FROM_START_TIMER = Metrics.timer(name(Accounts.class, "getAllFrom"));
+  private static final Timer GET_ALL_FROM_OFFSET_TIMER = Metrics.timer(name(Accounts.class, "getAllFromOffset"));
+  private static final Timer DELETE_TIMER = Metrics.timer(name(Accounts.class, "delete"));
 
 
-  public AccountsDynamoDb(DynamoDbClient client, String accountsTableName, String phoneNumbersTableName) {
+  public Accounts(DynamoDbClient client, String accountsTableName, String phoneNumbersTableName,
+      final int scanPageSize) {
 
     super(client);
 
     this.client = client;
     this.phoneNumbersTableName = phoneNumbersTableName;
     this.accountsTableName = accountsTableName;
+    this.scanPageSize = scanPageSize;
   }
 
-  @Override
   public boolean create(Account account) {
     return CREATE_TIMER.record(() -> {
 
@@ -115,7 +118,7 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
           }
 
           if ("TransactionConflict".equals(accountCancellationReason.code())) {
-            // this should only happen during concurrent update()s for an account  migration
+            // this should only happen if two clients manage to make concurrent create() calls
             throw new ContestedOptimisticLockException();
           }
 
@@ -164,7 +167,6 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
         .build();
   }
 
-  @Override
   public void update(Account account) throws ContestedOptimisticLockException {
     UPDATE_TIMER.record(() -> {
       UpdateItemRequest updateItemRequest;
@@ -207,8 +209,6 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
     });
   }
 
-
-  @Override
   public Optional<Account> get(String number) {
     return GET_BY_NUMBER_TIMER.record(() -> {
 
@@ -220,7 +220,7 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
       return Optional.ofNullable(response.item())
           .map(item -> item.get(KEY_ACCOUNT_UUID))
           .map(uuid -> accountByUuid(uuid))
-          .map(AccountsDynamoDb::fromItem);
+          .map(Accounts::fromItem);
     });
   }
 
@@ -233,29 +233,52 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
     return r.item().isEmpty() ? null : r.item();
   }
 
-  @Override
   public Optional<Account> get(UUID uuid) {
     return GET_BY_UUID_TIMER.record(() ->
         Optional.ofNullable(accountByUuid(AttributeValues.fromUUID(uuid)))
-            .map(AccountsDynamoDb::fromItem));
+            .map(Accounts::fromItem));
   }
 
-  @Override
   public void delete(UUID uuid) {
-    DELETE_TIMER.record(() -> delete(uuid, true));
+    DELETE_TIMER.record(() -> {
+
+      Optional<Account> maybeAccount = get(uuid);
+
+      maybeAccount.ifPresent(account -> {
+
+        TransactWriteItem phoneNumberDelete = TransactWriteItem.builder()
+            .delete(Delete.builder()
+                .tableName(phoneNumbersTableName)
+                .key(Map.of(ATTR_ACCOUNT_E164, AttributeValues.fromString(account.getNumber())))
+                .build())
+            .build();
+
+        TransactWriteItem accountDelete = TransactWriteItem.builder()
+            .delete(Delete.builder()
+                .tableName(accountsTableName)
+                .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid)))
+                .build())
+            .build();
+
+        TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
+            .transactItems(phoneNumberDelete, accountDelete).build();
+
+        client.transactWriteItems(request);
+      });
+    });
   }
 
-  public AccountCrawlChunk getAllFrom(final UUID from, final int maxCount, final int pageSize) {
+  public AccountCrawlChunk getAllFrom(final UUID from, final int maxCount) {
     final ScanRequest.Builder scanRequestBuilder = ScanRequest.builder()
-        .limit(pageSize)
+        .limit(scanPageSize)
         .exclusiveStartKey(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(from)));
 
     return scanForChunk(scanRequestBuilder, maxCount, GET_ALL_FROM_OFFSET_TIMER);
   }
 
-  public AccountCrawlChunk getAllFromStart(final int maxCount, final int pageSize) {
+  public AccountCrawlChunk getAllFromStart(final int maxCount) {
     final ScanRequest.Builder scanRequestBuilder = ScanRequest.builder()
-        .limit(pageSize);
+        .limit(scanPageSize);
 
     return scanForChunk(scanRequestBuilder, maxCount, GET_ALL_FROM_START_TIMER);
   }
@@ -266,37 +289,10 @@ public class AccountsDynamoDb extends AbstractDynamoDbStore implements AccountSt
 
     final List<Account> accounts = timer.record(() -> scan(scanRequestBuilder.build(), maxCount)
         .stream()
-        .map(AccountsDynamoDb::fromItem)
+        .map(Accounts::fromItem)
         .collect(Collectors.toList()));
 
     return new AccountCrawlChunk(accounts, accounts.size() > 0 ? accounts.get(accounts.size() - 1).getUuid() : null);
-  }
-
-  private void delete(UUID uuid, boolean saveInDeletedAccountsTable) {
-
-    Optional<Account> maybeAccount = get(uuid);
-
-    maybeAccount.ifPresent(account -> {
-
-      TransactWriteItem phoneNumberDelete = TransactWriteItem.builder()
-          .delete(Delete.builder()
-              .tableName(phoneNumbersTableName)
-              .key(Map.of(ATTR_ACCOUNT_E164, AttributeValues.fromString(account.getNumber())))
-              .build())
-          .build();
-
-      TransactWriteItem accountDelete = TransactWriteItem.builder()
-          .delete(Delete.builder()
-              .tableName(accountsTableName)
-              .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid)))
-              .build())
-          .build();
-
-      TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
-          .transactItems(phoneNumberDelete, accountDelete).build();
-
-      client.transactWriteItems(request);
-    });
   }
 
   private static String extractCancellationReasonCodes(final TransactionCanceledException exception) {

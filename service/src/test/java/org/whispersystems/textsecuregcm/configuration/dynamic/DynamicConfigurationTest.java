@@ -314,29 +314,6 @@ class DynamicConfigurationTest {
   }
 
   @Test
-  void testParseAccountsDynamoDbMigrationConfiguration() throws JsonProcessingException {
-    {
-      final String emptyConfigYaml = "test: true";
-      final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml).orElseThrow();
-
-      assertEquals(10, emptyConfig.getAccountsDynamoDbMigrationConfiguration().getDynamoCrawlerScanPageSize());
-    }
-
-    {
-      final String accountsDynamoDbMigrationConfig =
-          "accountsDynamoDbMigration:\n"
-              + "  dynamoCrawlerScanPageSize: 5000";
-
-      final DynamicAccountsDynamoDbMigrationConfiguration config =
-          DynamicConfigurationManager.parseConfiguration(accountsDynamoDbMigrationConfig).orElseThrow()
-              .getAccountsDynamoDbMigrationConfiguration();
-
-      assertEquals(5000, config.getDynamoCrawlerScanPageSize());
-    }
-  }
-
-  @Test
   void testParseLimits() throws JsonProcessingException {
     {
       final String emptyConfigYaml = "test: true";

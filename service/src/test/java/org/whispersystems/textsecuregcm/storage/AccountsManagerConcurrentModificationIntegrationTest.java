@@ -15,11 +15,7 @@ import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
-import com.opentable.db.postgres.embedded.LiquibasePreparer;
-import com.opentable.db.postgres.junit5.EmbeddedPostgresExtension;
-import com.opentable.db.postgres.junit5.PreparedDbExtension;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.io.IOException;
 import java.time.Instant;
@@ -38,7 +34,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
@@ -55,23 +50,22 @@ import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
 class AccountsManagerConcurrentModificationIntegrationTest {
 
-  @RegisterExtension
-  static PreparedDbExtension db = EmbeddedPostgresExtension.preparedDatabase(LiquibasePreparer.forClasspathLocation("accountsdb.xml"));
-
   private static final String ACCOUNTS_TABLE_NAME = "accounts_test";
   private static final String NUMBERS_TABLE_NAME = "numbers_test";
+
+  private static final int SCAN_PAGE_SIZE = 1;
 
   @RegisterExtension
   static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
       .tableName(ACCOUNTS_TABLE_NAME)
-      .hashKey(AccountsDynamoDb.KEY_ACCOUNT_UUID)
+      .hashKey(Accounts.KEY_ACCOUNT_UUID)
       .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(AccountsDynamoDb.KEY_ACCOUNT_UUID)
+          .attributeName(Accounts.KEY_ACCOUNT_UUID)
           .attributeType(ScalarAttributeType.B)
           .build())
       .build();
 
-  private AccountsDynamoDb accountsDynamoDb;
+  private Accounts accounts;
 
   private AccountsManager accountsManager;
 
@@ -86,11 +80,11 @@ class AccountsManagerConcurrentModificationIntegrationTest {
       CreateTableRequest createNumbersTableRequest = CreateTableRequest.builder()
           .tableName(NUMBERS_TABLE_NAME)
           .keySchema(KeySchemaElement.builder()
-              .attributeName(AccountsDynamoDb.ATTR_ACCOUNT_E164)
+              .attributeName(Accounts.ATTR_ACCOUNT_E164)
               .keyType(KeyType.HASH)
               .build())
           .attributeDefinitions(AttributeDefinition.builder()
-              .attributeName(AccountsDynamoDb.ATTR_ACCOUNT_E164)
+              .attributeName(Accounts.ATTR_ACCOUNT_E164)
               .attributeType(ScalarAttributeType.S)
               .build())
           .provisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT)
@@ -99,18 +93,14 @@ class AccountsManagerConcurrentModificationIntegrationTest {
       dynamoDbExtension.getDynamoDbClient().createTable(createNumbersTableRequest);
     }
 
-    accountsDynamoDb = new AccountsDynamoDb(
+    accounts = new Accounts(
         dynamoDbExtension.getDynamoDbClient(),
         dynamoDbExtension.getTableName(),
-        NUMBERS_TABLE_NAME
-    );
+        NUMBERS_TABLE_NAME,
+        SCAN_PAGE_SIZE);
 
     {
-      final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
-
-      DynamicConfiguration dynamicConfiguration = new DynamicConfiguration();
-      when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
-
+      //noinspection unchecked
       commands = mock(RedisAdvancedClusterCommands.class);
 
       final DeletedAccountsManager deletedAccountsManager = mock(DeletedAccountsManager.class);
@@ -122,7 +112,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
       }).when(deletedAccountsManager).lockAndTake(anyString(), any());
 
       accountsManager = new AccountsManager(
-          accountsDynamoDb,
+          accounts,
           RedisClusterHelper.buildMockRedisCluster(commands),
           deletedAccountsManager,
           mock(DirectoryQueue.class),
@@ -132,8 +122,8 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(ProfilesManager.class),
           mock(StoredVerificationCodeManager.class),
           mock(SecureStorageClient.class),
-          mock(SecureBackupClient.class),
-          dynamicConfigurationManager);
+          mock(SecureBackupClient.class)
+      );
     }
   }
 
@@ -186,12 +176,12 @@ class AccountsManagerConcurrentModificationIntegrationTest {
         modifyAccount(uuid, account -> account.setUnidentifiedAccessKey(unidentifiedAccessKey)),
         modifyAccount(uuid, account -> account.setRegistrationLock(credentials.getHashedAuthenticationToken(), credentials.getSalt())),
         modifyAccount(uuid, account -> account.setUnrestrictedUnidentifiedAccess(unrestrictedUnidentifiedAccess)),
-        modifyDevice(uuid, Device.MASTER_ID, device-> device.setLastSeen(lastSeen)),
-        modifyDevice(uuid, Device.MASTER_ID, device-> device.setName("deviceName"))
+        modifyDevice(uuid, Device.MASTER_ID, device -> device.setLastSeen(lastSeen)),
+        modifyDevice(uuid, Device.MASTER_ID, device -> device.setName("deviceName"))
     ).join();
 
-    final Account managerAccount = accountsManager.get(uuid).get();
-    final Account dynamoAccount = accountsDynamoDb.get(uuid).get();
+    final Account managerAccount = accountsManager.get(uuid).orElseThrow();
+    final Account dynamoAccount = accounts.get(uuid).orElseThrow();
 
     final Account redisAccount = getLastAccountFromRedisMock(commands);
 
@@ -200,10 +190,9 @@ class AccountsManagerConcurrentModificationIntegrationTest {
         new Pair<>("dynamo", dynamoAccount),
         new Pair<>("redis", redisAccount)
     ).forEach(pair ->
-          verifyAccount(pair.first(), pair.second(), profileName, avatar, discoverableByPhoneNumber,
-              currentProfileVersion, identityKey, unidentifiedAccessKey, pin, registrationLock,
-              unrestrictedUnidentifiedAccess, lastSeen)
-        );
+        verifyAccount(pair.first(), pair.second(), profileName, avatar, discoverableByPhoneNumber,
+            currentProfileVersion, identityKey, unidentifiedAccessKey, pin, registrationLock,
+            unrestrictedUnidentifiedAccess, lastSeen));
   }
 
   private Account getLastAccountFromRedisMock(RedisAdvancedClusterCommands<String, String> commands) throws IOException {
@@ -220,9 +209,9 @@ class AccountsManagerConcurrentModificationIntegrationTest {
         () -> assertEquals(profileName, account.getProfileName()),
         () -> assertEquals(avatar, account.getAvatar()),
         () -> assertEquals(discoverableByPhoneNumber, account.isDiscoverableByPhoneNumber()),
-        () -> assertEquals(currentProfileVersion, account.getCurrentProfileVersion().get()),
+        () -> assertEquals(currentProfileVersion, account.getCurrentProfileVersion().orElseThrow()),
         () -> assertEquals(identityKey, account.getIdentityKey()),
-        () -> assertArrayEquals(unidentifiedAccessKey, account.getUnidentifiedAccessKey().get()),
+        () -> assertArrayEquals(unidentifiedAccessKey, account.getUnidentifiedAccessKey().orElseThrow()),
         () -> assertTrue(account.getRegistrationLock().verify(clientRegistrationLock)),
         () -> assertEquals(unrestrictedUnidentifiedAcces, account.isUnrestrictedUnidentifiedAccess())
     );
@@ -231,7 +220,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
   private CompletableFuture<?> modifyAccount(final UUID uuid, final Consumer<Account> accountMutation) {
 
     return CompletableFuture.runAsync(() -> {
-      final Account account = accountsManager.get(uuid).get();
+      final Account account = accountsManager.get(uuid).orElseThrow();
       accountsManager.update(account, accountMutation);
     }, mutationExecutor);
   }
@@ -239,7 +228,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
   private CompletableFuture<?> modifyDevice(final UUID uuid, final long deviceId, final Consumer<Device> deviceMutation) {
 
     return CompletableFuture.runAsync(() -> {
-      final Account account = accountsManager.get(uuid).get();
+      final Account account = accountsManager.get(uuid).orElseThrow();
       accountsManager.updateDevice(account, deviceId, deviceMutation);
     }, mutationExecutor);
   }

@@ -33,7 +33,7 @@ import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.AccountsDynamoDb;
+import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.AccountsManager.DeletionReason;
 import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
@@ -150,9 +150,10 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
       VerificationCodeStore pendingAccounts = new VerificationCodeStore(pendingAccountsDynamoDbClient,
           configuration.getPendingAccountsDynamoDbConfiguration().getTableName());
 
-      AccountsDynamoDb accountsDynamoDb = new AccountsDynamoDb(accountsDynamoDbClient,
+      Accounts accounts = new Accounts(accountsDynamoDbClient,
           configuration.getAccountsDynamoDbConfiguration().getTableName(),
-          configuration.getAccountsDynamoDbConfiguration().getPhoneNumberTableName());
+          configuration.getAccountsDynamoDbConfiguration().getPhoneNumberTableName(),
+          configuration.getAccountsDynamoDbConfiguration().getScanPageSize());
       Usernames usernames = new Usernames(accountDatabase);
       Profiles profiles = new Profiles(accountDatabase);
       ReservedUsernames reservedUsernames = new ReservedUsernames(accountDatabase);
@@ -188,10 +189,9 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
           deletedAccountsLockDynamoDbClient,
           configuration.getDeletedAccountsLockDynamoDbConfiguration().getTableName());
       StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
-      AccountsManager accountsManager = new AccountsManager(accountsDynamoDb, cacheCluster,
-          deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, usernamesManager,
-          profilesManager, pendingAccountsManager, secureStorageClient, secureBackupClient,
-          dynamicConfigurationManager);
+      AccountsManager accountsManager = new AccountsManager(accounts, cacheCluster,
+          deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager,
+          pendingAccountsManager, secureStorageClient, secureBackupClient);
 
       for (String user : users) {
         Optional<Account> account = accountsManager.get(user);

@@ -33,8 +33,6 @@ public class AccountDatabaseCrawlerIntegrationTest extends AbstractRedisClusterT
   private AccountsManager accountsManager;
   private AccountDatabaseCrawlerListener listener;
 
-  private DynamicConfigurationManager dynamicConfigurationManager;
-
   private AccountDatabaseCrawler accountDatabaseCrawler;
 
   private static final int CHUNK_SIZE = 1;
@@ -49,8 +47,6 @@ public class AccountDatabaseCrawlerIntegrationTest extends AbstractRedisClusterT
 
     accountsManager = mock(AccountsManager.class);
     listener = mock(AccountDatabaseCrawlerListener.class);
-
-    dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
 
     when(firstAccount.getUuid()).thenReturn(FIRST_UUID);
     when(secondAccount.getUuid()).thenReturn(SECOND_UUID);

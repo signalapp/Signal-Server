@@ -45,33 +45,35 @@ import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
 import software.amazon.awssdk.services.dynamodb.model.TransactionConflictException;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
-class AccountsDynamoDbTest {
+class AccountsTest {
 
   private static final String ACCOUNTS_TABLE_NAME = "accounts_test";
   private static final String NUMBERS_TABLE_NAME = "numbers_test";
 
+  private static final int SCAN_PAGE_SIZE = 1;
+
   @RegisterExtension
   static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
       .tableName(ACCOUNTS_TABLE_NAME)
-      .hashKey(AccountsDynamoDb.KEY_ACCOUNT_UUID)
+      .hashKey(Accounts.KEY_ACCOUNT_UUID)
       .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(AccountsDynamoDb.KEY_ACCOUNT_UUID)
+          .attributeName(Accounts.KEY_ACCOUNT_UUID)
           .attributeType(ScalarAttributeType.B)
           .build())
       .build();
 
-  private AccountsDynamoDb accountsDynamoDb;
+  private Accounts accounts;
 
   @BeforeEach
   void setupAccountsDao() {
     CreateTableRequest createNumbersTableRequest = CreateTableRequest.builder()
         .tableName(NUMBERS_TABLE_NAME)
         .keySchema(KeySchemaElement.builder()
-            .attributeName(AccountsDynamoDb.ATTR_ACCOUNT_E164)
+            .attributeName(Accounts.ATTR_ACCOUNT_E164)
             .keyType(KeyType.HASH)
             .build())
         .attributeDefinitions(AttributeDefinition.builder()
-            .attributeName(AccountsDynamoDb.ATTR_ACCOUNT_E164)
+            .attributeName(Accounts.ATTR_ACCOUNT_E164)
             .attributeType(ScalarAttributeType.S)
             .build())
         .provisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT)
@@ -79,11 +81,11 @@ class AccountsDynamoDbTest {
 
     dynamoDbExtension.getDynamoDbClient().createTable(createNumbersTableRequest);
 
-    this.accountsDynamoDb = new AccountsDynamoDb(
+    this.accounts = new Accounts(
         dynamoDbExtension.getDynamoDbClient(),
         dynamoDbExtension.getTableName(),
-        NUMBERS_TABLE_NAME
-    );
+        NUMBERS_TABLE_NAME,
+        SCAN_PAGE_SIZE);
   }
 
   @Test
@@ -91,12 +93,12 @@ class AccountsDynamoDbTest {
     Device  device  = generateDevice (1                                            );
     Account account = generateAccount("+14151112222", UUID.randomUUID(), Collections.singleton(device));
 
-    boolean freshUser = accountsDynamoDb.create(account);
+    boolean freshUser = accounts.create(account);
 
     assertThat(freshUser).isTrue();
     verifyStoredState("+14151112222", account.getUuid(), account, true);
 
-    freshUser = accountsDynamoDb.create(account);
+    freshUser = accounts.create(account);
     assertThat(freshUser).isTrue();
     verifyStoredState("+14151112222", account.getUuid(), account, true);
 
@@ -110,7 +112,7 @@ class AccountsDynamoDbTest {
 
     Account account = generateAccount("+14151112222", UUID.randomUUID(), devices);
 
-    accountsDynamoDb.create(account);
+    accounts.create(account);
 
     verifyStoredState("+14151112222", account.getUuid(), account, true);
   }
@@ -131,11 +133,11 @@ class AccountsDynamoDbTest {
     UUID uuidSecond = UUID.randomUUID();
     Account accountSecond = generateAccount("+14152221111", uuidSecond, devicesSecond);
 
-    accountsDynamoDb.create(accountFirst);
-    accountsDynamoDb.create(accountSecond);
+    accounts.create(accountFirst);
+    accounts.create(accountSecond);
 
-    Optional<Account> retrievedFirst = accountsDynamoDb.get("+14151112222");
-    Optional<Account> retrievedSecond = accountsDynamoDb.get("+14152221111");
+    Optional<Account> retrievedFirst = accounts.get("+14151112222");
+    Optional<Account> retrievedSecond = accounts.get("+14152221111");
 
     assertThat(retrievedFirst.isPresent()).isTrue();
     assertThat(retrievedSecond.isPresent()).isTrue();
@@ -143,8 +145,8 @@ class AccountsDynamoDbTest {
     verifyStoredState("+14151112222", uuidFirst, retrievedFirst.get(), accountFirst);
     verifyStoredState("+14152221111", uuidSecond, retrievedSecond.get(), accountSecond);
 
-    retrievedFirst = accountsDynamoDb.get(uuidFirst);
-    retrievedSecond = accountsDynamoDb.get(uuidSecond);
+    retrievedFirst = accounts.get(uuidFirst);
+    retrievedSecond = accounts.get(uuidSecond);
 
     assertThat(retrievedFirst.isPresent()).isTrue();
     assertThat(retrievedSecond.isPresent()).isTrue();
@@ -159,27 +161,27 @@ class AccountsDynamoDbTest {
     UUID    firstUuid = UUID.randomUUID();
     Account account   = generateAccount("+14151112222", firstUuid, Collections.singleton(device));
 
-    accountsDynamoDb.create(account);
+    accounts.create(account);
 
     verifyStoredState("+14151112222", account.getUuid(), account, true);
 
     account.setProfileName("name");
 
-    accountsDynamoDb.update(account);
+    accounts.update(account);
 
     UUID secondUuid = UUID.randomUUID();
 
     device = generateDevice(1);
     account = generateAccount("+14151112222", secondUuid, Collections.singleton(device));
 
-    final boolean freshUser = accountsDynamoDb.create(account);
+    final boolean freshUser = accounts.create(account);
     assertThat(freshUser).isFalse();
     verifyStoredState("+14151112222", firstUuid, account, true);
 
     device = generateDevice(1);
     Account invalidAccount = generateAccount("+14151113333", firstUuid, Collections.singleton(device));
 
-    assertThatThrownBy(() -> accountsDynamoDb.create(invalidAccount));
+    assertThatThrownBy(() -> accounts.create(invalidAccount));
   }
 
   @Test
@@ -187,18 +189,18 @@ class AccountsDynamoDbTest {
     Device  device  = generateDevice (1                                            );
     Account account = generateAccount("+14151112222", UUID.randomUUID(), Collections.singleton(device));
 
-    accountsDynamoDb.create(account);
+    accounts.create(account);
 
     device.setName("foobar");
 
-    accountsDynamoDb.update(account);
+    accounts.update(account);
 
-    Optional<Account> retrieved = accountsDynamoDb.get("+14151112222");
+    Optional<Account> retrieved = accounts.get("+14151112222");
 
     assertThat(retrieved.isPresent()).isTrue();
     verifyStoredState("+14151112222", account.getUuid(), retrieved.get(), account);
 
-    retrieved = accountsDynamoDb.get(account.getUuid());
+    retrieved = accounts.get(account.getUuid());
 
     assertThat(retrieved.isPresent()).isTrue();
     verifyStoredState("+14151112222", account.getUuid(), account, true);
@@ -206,11 +208,11 @@ class AccountsDynamoDbTest {
     device = generateDevice(1);
     Account unknownAccount = generateAccount("+14151113333", UUID.randomUUID(), Collections.singleton(device));
 
-    assertThatThrownBy(() -> accountsDynamoDb.update(unknownAccount)).isInstanceOfAny(ConditionalCheckFailedException.class);
+    assertThatThrownBy(() -> accounts.update(unknownAccount)).isInstanceOfAny(ConditionalCheckFailedException.class);
 
     account.setProfileName("name");
 
-    accountsDynamoDb.update(account);
+    accounts.update(account);
 
     assertThat(account.getVersion()).isEqualTo(2);
 
@@ -218,12 +220,12 @@ class AccountsDynamoDbTest {
 
     account.setVersion(1);
 
-    assertThatThrownBy(() -> accountsDynamoDb.update(account)).isInstanceOfAny(ContestedOptimisticLockException.class);
+    assertThatThrownBy(() -> accounts.update(account)).isInstanceOfAny(ContestedOptimisticLockException.class);
 
     account.setVersion(2);
     account.setProfileName("name2");
 
-    accountsDynamoDb.update(account);
+    accounts.update(account);
 
     verifyStoredState("+14151112222", account.getUuid(), account, true);
   }
@@ -232,8 +234,8 @@ class AccountsDynamoDbTest {
   void testUpdateWithMockTransactionConflictException() {
 
     final DynamoDbClient dynamoDbClient = mock(DynamoDbClient.class);
-    accountsDynamoDb = new AccountsDynamoDb(dynamoDbClient,
-        dynamoDbExtension.getTableName(), NUMBERS_TABLE_NAME);
+    accounts = new Accounts(dynamoDbClient,
+        dynamoDbExtension.getTableName(), NUMBERS_TABLE_NAME, SCAN_PAGE_SIZE);
 
     when(dynamoDbClient.updateItem(any(UpdateItemRequest.class)))
         .thenThrow(TransactionConflictException.class);
@@ -241,7 +243,7 @@ class AccountsDynamoDbTest {
     Device device = generateDevice(1);
     Account account = generateAccount("+14151112222", UUID.randomUUID(), Collections.singleton(device));
 
-    assertThatThrownBy(() -> accountsDynamoDb.update(account)).isInstanceOfAny(ContestedOptimisticLockException.class);
+    assertThatThrownBy(() -> accounts.update(account)).isInstanceOfAny(ContestedOptimisticLockException.class);
   }
 
   @Test
@@ -251,12 +253,12 @@ class AccountsDynamoDbTest {
     for (int i = 1; i <= 100; i++) {
       Account account = generateAccount("+1" + String.format("%03d", i), UUID.randomUUID());
       users.add(account);
-      accountsDynamoDb.create(account);
+      accounts.create(account);
     }
 
     users.sort((account, t1) -> UUIDComparator.staticCompare(account.getUuid(), t1.getUuid()));
 
-    AccountCrawlChunk retrieved = accountsDynamoDb.getAllFromStart(10, 1);
+    AccountCrawlChunk retrieved = accounts.getAllFromStart(10);
     assertThat(retrieved.getAccounts().size()).isEqualTo(10);
 
     for (int i = 0; i < retrieved.getAccounts().size(); i++) {
@@ -273,7 +275,7 @@ class AccountsDynamoDbTest {
     }
 
     for (int j = 0; j < 9; j++) {
-      retrieved = accountsDynamoDb.getAllFrom(retrieved.getLastUuid().orElseThrow(), 10, 1);
+      retrieved = accounts.getAllFrom(retrieved.getLastUuid().orElseThrow(), 10);
       assertThat(retrieved.getAccounts().size()).isEqualTo(10);
 
       for (int i = 0; i < retrieved.getAccounts().size(); i++) {
@@ -295,33 +297,36 @@ class AccountsDynamoDbTest {
 
   @Test
   void testDelete() {
-    final Device  deletedDevice   = generateDevice (1);
-    final Account deletedAccount  = generateAccount("+14151112222", UUID.randomUUID(), Collections.singleton(deletedDevice));
-    final Device  retainedDevice  = generateDevice (1);
-    final Account retainedAccount = generateAccount("+14151112345", UUID.randomUUID(), Collections.singleton(retainedDevice));
+    final Device deletedDevice = generateDevice(1);
+    final Account deletedAccount = generateAccount("+14151112222", UUID.randomUUID(),
+        Collections.singleton(deletedDevice));
+    final Device retainedDevice = generateDevice(1);
+    final Account retainedAccount = generateAccount("+14151112345", UUID.randomUUID(),
+        Collections.singleton(retainedDevice));
 
-    accountsDynamoDb.create(deletedAccount);
-    accountsDynamoDb.create(retainedAccount);
+    accounts.create(deletedAccount);
+    accounts.create(retainedAccount);
 
-    assertThat(accountsDynamoDb.get(deletedAccount.getUuid())).isPresent();
-    assertThat(accountsDynamoDb.get(retainedAccount.getUuid())).isPresent();
+    assertThat(accounts.get(deletedAccount.getUuid())).isPresent();
+    assertThat(accounts.get(retainedAccount.getUuid())).isPresent();
 
-    accountsDynamoDb.delete(deletedAccount.getUuid());
+    accounts.delete(deletedAccount.getUuid());
 
-    assertThat(accountsDynamoDb.get(deletedAccount.getUuid())).isNotPresent();
+    assertThat(accounts.get(deletedAccount.getUuid())).isNotPresent();
 
-    verifyStoredState(retainedAccount.getNumber(), retainedAccount.getUuid(), accountsDynamoDb.get(retainedAccount.getUuid()).get(), retainedAccount);
+    verifyStoredState(retainedAccount.getNumber(), retainedAccount.getUuid(),
+        accounts.get(retainedAccount.getUuid()).get(), retainedAccount);
 
     {
       final Account recreatedAccount = generateAccount(deletedAccount.getNumber(), UUID.randomUUID(),
           Collections.singleton(generateDevice(1)));
 
-      final boolean freshUser = accountsDynamoDb.create(recreatedAccount);
+      final boolean freshUser = accounts.create(recreatedAccount);
 
       assertThat(freshUser).isTrue();
-      assertThat(accountsDynamoDb.get(recreatedAccount.getUuid())).isPresent();
+      assertThat(accounts.get(recreatedAccount.getUuid())).isPresent();
       verifyStoredState(recreatedAccount.getNumber(), recreatedAccount.getUuid(),
-          accountsDynamoDb.get(recreatedAccount.getUuid()).get(), recreatedAccount);
+          accounts.get(recreatedAccount.getUuid()).get(), recreatedAccount);
     }
   }
 
@@ -330,12 +335,12 @@ class AccountsDynamoDbTest {
     Device  device  = generateDevice (1                                            );
     Account account = generateAccount("+14151112222", UUID.randomUUID(), Collections.singleton(device));
 
-    accountsDynamoDb.create(account);
+    accounts.create(account);
 
-    Optional<Account> retrieved = accountsDynamoDb.get("+11111111");
+    Optional<Account> retrieved = accounts.get("+11111111");
     assertThat(retrieved.isPresent()).isFalse();
 
-    retrieved = accountsDynamoDb.get(UUID.randomUUID());
+    retrieved = accounts.get(UUID.randomUUID());
     assertThat(retrieved.isPresent()).isFalse();
   }
 
@@ -357,7 +362,7 @@ class AccountsDynamoDbTest {
     when(client.updateItem(any(UpdateItemRequest.class)))
         .thenThrow(RuntimeException.class);
 
-    AccountsDynamoDb accounts = new AccountsDynamoDb(client, ACCOUNTS_TABLE_NAME, NUMBERS_TABLE_NAME);
+    Accounts accounts = new Accounts(client, ACCOUNTS_TABLE_NAME, NUMBERS_TABLE_NAME, SCAN_PAGE_SIZE);
     Account account = generateAccount("+14151112222", UUID.randomUUID());
 
     try {
@@ -397,13 +402,13 @@ class AccountsDynamoDbTest {
     UUID uuid = UUID.randomUUID();
     Account account = generateAccount("+14151112222", uuid, Collections.singleton(device));
     account.setDiscoverableByPhoneNumber(false);
-    accountsDynamoDb.create(account);
+    accounts.create(account);
     verifyStoredState("+14151112222", account.getUuid(), account, false);
     account.setDiscoverableByPhoneNumber(true);
-    accountsDynamoDb.update(account);
+    accounts.update(account);
     verifyStoredState("+14151112222", account.getUuid(), account, true);
     account.setDiscoverableByPhoneNumber(false);
-    accountsDynamoDb.update(account);
+    accounts.update(account);
     verifyStoredState("+14151112222", account.getUuid(), account, false);
   }
 
@@ -433,20 +438,21 @@ class AccountsDynamoDbTest {
 
     final GetItemResponse get = db.getItem(GetItemRequest.builder()
         .tableName(dynamoDbExtension.getTableName())
-        .key(Map.of(AccountsDynamoDb.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid)))
+        .key(Map.of(Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid)))
         .consistentRead(true)
         .build());
 
     if (get.hasItem()) {
-      String data = new String(get.item().get(AccountsDynamoDb.ATTR_ACCOUNT_DATA).b().asByteArray(), StandardCharsets.UTF_8);
+      String data = new String(get.item().get(Accounts.ATTR_ACCOUNT_DATA).b().asByteArray(), StandardCharsets.UTF_8);
       assertThat(data).isNotEmpty();
 
-      assertThat(AttributeValues.getInt(get.item(), AccountsDynamoDb.ATTR_VERSION, -1))
+      assertThat(AttributeValues.getInt(get.item(), Accounts.ATTR_VERSION, -1))
           .isEqualTo(expecting.getVersion());
 
-      assertThat(AttributeValues.getBool(get.item(), AccountsDynamoDb.ATTR_CANONICALLY_DISCOVERABLE, !canonicallyDiscoverable)).isEqualTo(canonicallyDiscoverable);
+      assertThat(AttributeValues.getBool(get.item(), Accounts.ATTR_CANONICALLY_DISCOVERABLE,
+          !canonicallyDiscoverable)).isEqualTo(canonicallyDiscoverable);
 
-      Account result = AccountsDynamoDb.fromItem(get.item());
+      Account result = Accounts.fromItem(get.item());
       verifyStoredState(number, uuid, result, expecting);
     } else {
       throw new AssertionError("No data");

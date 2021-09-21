@@ -154,7 +154,7 @@ import org.whispersystems.textsecuregcm.storage.AccountCleaner;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawler;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerCache;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerListener;
-import org.whispersystems.textsecuregcm.storage.AccountsDynamoDb;
+import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ContactDiscoveryWriter;
 import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
@@ -337,10 +337,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDeletedAccountsDynamoDbConfiguration().getTableName(),
         config.getDeletedAccountsDynamoDbConfiguration().getNeedsReconciliationIndexName());
 
-    AccountsDynamoDb accountsDynamoDb = new AccountsDynamoDb(accountsDynamoDbClient,
+    Accounts accounts = new Accounts(accountsDynamoDbClient,
         config.getAccountsDynamoDbConfiguration().getTableName(),
-        config.getAccountsDynamoDbConfiguration().getPhoneNumberTableName()
-    );
+        config.getAccountsDynamoDbConfiguration().getPhoneNumberTableName(),
+        config.getAccountsDynamoDbConfiguration().getScanPageSize());
     Usernames usernames = new Usernames(accountDatabase);
     ReservedUsernames reservedUsernames = new ReservedUsernames(accountDatabase);
     Profiles profiles = new Profiles(accountDatabase);
@@ -424,10 +424,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     MessagesManager            messagesManager            = new MessagesManager(messagesDynamoDb, messagesCache, pushLatencyManager, reportMessageManager);
     DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
         deletedAccountsLockDynamoDbClient, config.getDeletedAccountsLockDynamoDbConfiguration().getTableName());
-    AccountsManager accountsManager = new AccountsManager(accountsDynamoDb, cacheCluster,
-        deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, usernamesManager,
-        profilesManager, pendingAccountsManager, secureStorageClient, secureBackupClient,
-        dynamicConfigurationManager);
+    AccountsManager accountsManager = new AccountsManager(accounts, cacheCluster,
+        deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager,
+        pendingAccountsManager, secureStorageClient, secureBackupClient);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
     DeadLetterHandler          deadLetterHandler          = new DeadLetterHandler(accountsManager, messagesManager);
     DispatchManager            dispatchManager            = new DispatchManager(pubSubClientFactory, Optional.of(deadLetterHandler));

@@ -18,15 +18,12 @@ import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
@@ -65,7 +62,7 @@ public class AccountsManager {
 
   private final Logger logger = LoggerFactory.getLogger(AccountsManager.class);
 
-  private final AccountsDynamoDb          accountsDynamoDb;
+  private final Accounts accounts;
   private final FaultTolerantRedisCluster cacheCluster;
   private final DeletedAccountsManager deletedAccountsManager;
   private final DirectoryQueue            directoryQueue;
@@ -77,8 +74,6 @@ public class AccountsManager {
   private final SecureStorageClient       secureStorageClient;
   private final SecureBackupClient        secureBackupClient;
   private final ObjectMapper              mapper;
-
-  private final DynamicConfigurationManager dynamicConfigurationManager;
 
   public enum DeletionReason {
     ADMIN_DELETED("admin"),
@@ -92,7 +87,7 @@ public class AccountsManager {
     }
   }
 
-  public AccountsManager(AccountsDynamoDb accountsDynamoDb, FaultTolerantRedisCluster cacheCluster,
+  public AccountsManager(Accounts accounts, FaultTolerantRedisCluster cacheCluster,
       final DeletedAccountsManager deletedAccountsManager,
       final DirectoryQueue directoryQueue,
       final KeysDynamoDb keysDynamoDb, final MessagesManager messagesManager,
@@ -100,22 +95,20 @@ public class AccountsManager {
       final ProfilesManager profilesManager,
       final StoredVerificationCodeManager pendingAccounts,
       final SecureStorageClient secureStorageClient,
-      final SecureBackupClient secureBackupClient,
-      final DynamicConfigurationManager dynamicConfigurationManager) {
-    this.accountsDynamoDb = accountsDynamoDb;
-    this.cacheCluster        = cacheCluster;
+      final SecureBackupClient secureBackupClient) {
+    this.accounts = accounts;
+    this.cacheCluster = cacheCluster;
     this.deletedAccountsManager = deletedAccountsManager;
-    this.directoryQueue      = directoryQueue;
-    this.keysDynamoDb        = keysDynamoDb;
+    this.directoryQueue = directoryQueue;
+    this.keysDynamoDb = keysDynamoDb;
     this.messagesManager = messagesManager;
     this.usernamesManager = usernamesManager;
-    this.profilesManager     = profilesManager;
+    this.profilesManager = profilesManager;
     this.pendingAccounts = pendingAccounts;
     this.secureStorageClient = secureStorageClient;
     this.secureBackupClient  = secureBackupClient;
     this.mapper              = SystemMapper.getMapper();
 
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
   public Account create(final String number,
@@ -336,15 +329,11 @@ public class AccountsManager {
   }
 
   public AccountCrawlChunk getAllFromDynamo(int length) {
-    final int maxPageSize = dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration()
-        .getDynamoCrawlerScanPageSize();
-    return accountsDynamoDb.getAllFromStart(length, maxPageSize);
+    return accounts.getAllFromStart(length);
   }
 
   public AccountCrawlChunk getAllFromDynamo(UUID uuid, int length) {
-    final int maxPageSize = dynamicConfigurationManager.getConfiguration().getAccountsDynamoDbMigrationConfiguration()
-        .getDynamoCrawlerScanPageSize();
-    return accountsDynamoDb.getAllFrom(uuid, length, maxPageSize);
+    return accounts.getAllFrom(uuid, length);
   }
 
   public void delete(final Account account, final DeletionReason deletionReason) throws InterruptedException {
@@ -445,38 +434,23 @@ public class AccountsManager {
   }
 
   private Optional<Account> dynamoGet(String number) {
-    return accountsDynamoDb.get(number);
+    return accounts.get(number);
   }
 
   private Optional<Account> dynamoGet(UUID uuid) {
-    return accountsDynamoDb.get(uuid);
+    return accounts.get(uuid);
   }
 
   private boolean dynamoCreate(Account account) {
-    return accountsDynamoDb.create(account);
+    return accounts.create(account);
   }
 
   private void dynamoUpdate(Account account) {
-    accountsDynamoDb.update(account);
+    accounts.update(account);
   }
 
   private void dynamoDelete(final Account account) {
-    accountsDynamoDb.delete(account.getUuid());
+    accounts.delete(account.getUuid());
   }
 
-  // TODO delete
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  @Deprecated
-  public Optional<String> compareAccounts(final Optional<Account> maybePrimaryAccount,
-      final Optional<Account> maybeSecondaryAccount) {
-    return Optional.empty();
-  }
-
-  private String getAbbreviatedCallChain(final StackTraceElement[] stackTrace) {
-    return Arrays.stream(stackTrace)
-        .filter(stackTraceElement -> stackTraceElement.getClassName().contains("org.whispersystems"))
-        .filter(stackTraceElement -> !(stackTraceElement.getClassName().endsWith("AccountsManager") && stackTraceElement.getMethodName().contains("compare")))
-        .map(stackTraceElement -> StringUtils.substringAfterLast(stackTraceElement.getClassName(), ".") + ":" + stackTraceElement.getMethodName())
-        .collect(Collectors.joining(" -> "));
-  }
 }

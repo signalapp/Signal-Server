@@ -112,11 +112,6 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
-  private AccountDatabaseCrawlerConfiguration dynamoDbMigrationCrawler;
-
-  @NotNull
-  @Valid
-  @JsonProperty
   private RedisClusterConfiguration pushSchedulerCluster;
 
   @NotNull
@@ -148,21 +143,6 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private AccountsDynamoDbConfiguration accountsDynamoDb;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private DynamoDbConfiguration migrationDeletedAccountsDynamoDb;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private DynamoDbConfiguration migrationMismatchedAccountsDynamoDb;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private DynamoDbConfiguration migrationRetryAccountsDynamoDb;
 
   @Valid
   @NotNull
@@ -376,10 +356,6 @@ public class WhisperServerConfiguration extends Configuration {
     return accountDatabaseCrawler;
   }
 
-  public AccountDatabaseCrawlerConfiguration getDynamoDbMigrationCrawlerConfiguration() {
-    return dynamoDbMigrationCrawler;
-  }
-
   public MessageCacheConfiguration getMessageCacheConfiguration() {
     return messageCache;
   }
@@ -406,18 +382,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public AccountsDynamoDbConfiguration getAccountsDynamoDbConfiguration() {
     return accountsDynamoDb;
-  }
-
-  public DynamoDbConfiguration getMigrationDeletedAccountsDynamoDbConfiguration() {
-    return migrationDeletedAccountsDynamoDb;
-  }
-
-  public DynamoDbConfiguration getMigrationMismatchedAccountsDynamoDbConfiguration() {
-    return migrationMismatchedAccountsDynamoDb;
-  }
-
-  public DynamoDbConfiguration getMigrationRetryAccountsDynamoDbConfiguration() {
-    return migrationRetryAccountsDynamoDb;
   }
 
   public DeletedAccountsDynamoDbConfiguration getDeletedAccountsDynamoDbConfiguration() {

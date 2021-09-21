@@ -106,7 +106,7 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
         final long endTimeMs = System.currentTimeMillis();
         final long sleepIntervalMs = chunkIntervalMs - (endTimeMs - startTimeMs);
         if (sleepIntervalMs > 0) {
-          logger.info("Sleeping {}ms", sleepIntervalMs);
+          logger.debug("Sleeping {}ms", sleepIntervalMs);
           sleepWhileRunning(sleepIntervalMs);
         }
       } finally {
@@ -135,7 +135,7 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
         cacheLastUuid(Optional.empty());
         cache.setAccelerated(false);
       } else {
-        logger.info("Processing chunk");
+        logger.debug("Processing chunk");
         try {
           for (AccountDatabaseCrawlerListener listener : listeners) {
             listener.timeAndProcessCrawlChunk(fromUuid, chunkAccounts.getAccounts());

@@ -6,9 +6,7 @@
 package org.whispersystems.textsecuregcm.tests.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -26,20 +24,17 @@ import static org.mockito.Mockito.when;
 
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
-import java.io.IOException;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -48,7 +43,7 @@ import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.AccountsDynamoDb;
+import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ContestedOptimisticLockException;
 import org.whispersystems.textsecuregcm.storage.DeletedAccountsManager;
@@ -60,12 +55,11 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
-import org.whispersystems.textsecuregcm.tests.util.JsonHelpers;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 
 class AccountsManagerTest {
 
-  private AccountsDynamoDb accountsDynamoDb;
+  private Accounts accounts;
   private DeletedAccountsManager deletedAccountsManager;
   private DirectoryQueue directoryQueue;
   private DynamicConfigurationManager dynamicConfigurationManager;
@@ -86,7 +80,7 @@ class AccountsManagerTest {
 
   @BeforeEach
   void setup() throws InterruptedException {
-    accountsDynamoDb = mock(AccountsDynamoDb.class);
+    accounts = mock(Accounts.class);
     deletedAccountsManager = mock(DeletedAccountsManager.class);
     directoryQueue = mock(DirectoryQueue.class);
     dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
@@ -107,7 +101,7 @@ class AccountsManagerTest {
     }).when(deletedAccountsManager).lockAndTake(anyString(), any());
 
     accountsManager = new AccountsManager(
-        accountsDynamoDb,
+        accounts,
         RedisClusterHelper.buildMockRedisCluster(commands),
         deletedAccountsManager,
         directoryQueue,
@@ -117,8 +111,8 @@ class AccountsManagerTest {
         profilesManager,
         mock(StoredVerificationCodeManager.class),
         mock(SecureStorageClient.class),
-        mock(SecureBackupClient.class),
-        dynamicConfigurationManager);
+        mock(SecureBackupClient.class)
+    );
   }
 
   @Test
@@ -138,7 +132,7 @@ class AccountsManagerTest {
     verify(commands, times(1)).get(eq("Account3::" + uuid));
     verifyNoMoreInteractions(commands);
 
-    verifyNoInteractions(accountsDynamoDb);
+    verifyNoInteractions(accounts);
   }
 
   @Test
@@ -157,7 +151,7 @@ class AccountsManagerTest {
     verify(commands, times(1)).get(eq("Account3::" + uuid));
     verifyNoMoreInteractions(commands);
 
-    verifyNoInteractions(accountsDynamoDb);
+    verifyNoInteractions(accounts);
   }
 
 
@@ -168,7 +162,7 @@ class AccountsManagerTest {
     Account account = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
 
     when(commands.get(eq("AccountMap::+14152222222"))).thenReturn(null);
-    when(accountsDynamoDb.get(eq("+14152222222"))).thenReturn(Optional.of(account));
+    when(accounts.get(eq("+14152222222"))).thenReturn(Optional.of(account));
 
     Optional<Account> retrieved = accountsManager.get("+14152222222");
 
@@ -180,8 +174,8 @@ class AccountsManagerTest {
     verify(commands, times(1)).set(eq("Account3::" + uuid), anyString());
     verifyNoMoreInteractions(commands);
 
-    verify(accountsDynamoDb, times(1)).get(eq("+14152222222"));
-    verifyNoMoreInteractions(accountsDynamoDb);
+    verify(accounts, times(1)).get(eq("+14152222222"));
+    verifyNoMoreInteractions(accounts);
   }
 
   @Test
@@ -191,7 +185,7 @@ class AccountsManagerTest {
     Account account = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
 
     when(commands.get(eq("Account3::" + uuid))).thenReturn(null);
-    when(accountsDynamoDb.get(eq(uuid))).thenReturn(Optional.of(account));
+    when(accounts.get(eq(uuid))).thenReturn(Optional.of(account));
 
     Optional<Account> retrieved = accountsManager.get(uuid);
 
@@ -203,8 +197,8 @@ class AccountsManagerTest {
     verify(commands, times(1)).set(eq("Account3::" + uuid), anyString());
     verifyNoMoreInteractions(commands);
 
-    verify(accountsDynamoDb, times(1)).get(eq(uuid));
-    verifyNoMoreInteractions(accountsDynamoDb);
+    verify(accounts, times(1)).get(eq(uuid));
+    verifyNoMoreInteractions(accounts);
   }
 
   @Test
@@ -213,7 +207,7 @@ class AccountsManagerTest {
     Account account = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
 
     when(commands.get(eq("AccountMap::+14152222222"))).thenThrow(new RedisException("Connection lost!"));
-    when(accountsDynamoDb.get(eq("+14152222222"))).thenReturn(Optional.of(account));
+    when(accounts.get(eq("+14152222222"))).thenReturn(Optional.of(account));
 
     Optional<Account> retrieved = accountsManager.get("+14152222222");
 
@@ -225,18 +219,17 @@ class AccountsManagerTest {
     verify(commands, times(1)).set(eq("Account3::" + uuid), anyString());
     verifyNoMoreInteractions(commands);
 
-    verify(accountsDynamoDb, times(1)).get(eq("+14152222222"));
-    verifyNoMoreInteractions(accountsDynamoDb);
+    verify(accounts, times(1)).get(eq("+14152222222"));
+    verifyNoMoreInteractions(accounts);
   }
 
   @Test
   void testGetAccountByUuidBrokenCache() {
-    final boolean dynamoEnabled = true;
     UUID uuid = UUID.randomUUID();
     Account account = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
 
     when(commands.get(eq("Account3::" + uuid))).thenThrow(new RedisException("Connection lost!"));
-    when(accountsDynamoDb.get(eq(uuid))).thenReturn(Optional.of(account));
+    when(accounts.get(eq(uuid))).thenReturn(Optional.of(account));
 
     Optional<Account> retrieved = accountsManager.get(uuid);
 
@@ -248,76 +241,8 @@ class AccountsManagerTest {
     verify(commands, times(1)).set(eq("Account3::" + uuid), anyString());
     verifyNoMoreInteractions(commands);
 
-    verify(accountsDynamoDb, times(1)).get(eq(uuid));
-    verifyNoMoreInteractions(accountsDynamoDb);
-  }
-
-  // TODO delete
-  @Disabled("migration specific")
-  @Test
-  void testUpdate_dynamoDbMigration() throws IOException {
-
-    UUID uuid = UUID.randomUUID();
-    Account account = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
-
-    when(commands.get(eq("Account3::" + uuid))).thenReturn(null);
-    // database fetches should always return new instances
-    when(accountsDynamoDb.get(uuid)).thenReturn(
-        Optional.of(new Account("+14152222222", uuid, new HashSet<>(), new byte[16])));
-    when(accountsDynamoDb.get(uuid)).thenReturn(
-        Optional.of(new Account("+14152222222", uuid, new HashSet<>(), new byte[16])));
-    doAnswer(ACCOUNT_UPDATE_ANSWER).when(accountsDynamoDb).update(any(Account.class));
-
-    Account updatedAccount = accountsManager.update(account, a -> a.setProfileName("name"));
-
-    assertThrows(AssertionError.class, account::getProfileName, "Account passed to update() should be stale");
-
-    assertNotSame(updatedAccount, account);
-
-    verify(accountsDynamoDb, times(1)).update(account);
-    verifyNoMoreInteractions(accountsDynamoDb);
-
-    ArgumentCaptor<Account> argumentCaptor = ArgumentCaptor.forClass(Account.class);
-    verify(accountsDynamoDb, times(1)).update(argumentCaptor.capture());
-    assertEquals(uuid, argumentCaptor.getValue().getUuid());
-    verify(accountsDynamoDb, times(1)).get(uuid);
-    verifyNoMoreInteractions(accountsDynamoDb);
-
-    ArgumentCaptor<String> redisSetArgumentCapture = ArgumentCaptor.forClass(String.class);
-
-    verify(commands, times(2)).set(anyString(), redisSetArgumentCapture.capture());
-
-    Account accountCached = JsonHelpers.fromJson(redisSetArgumentCapture.getAllValues().get(1), Account.class);
-
-    // uuid is @JsonIgnore, so we need to set it for compareAccounts to work
-    accountCached.setUuid(uuid);
-
-    assertEquals(Optional.empty(),
-        accountsManager.compareAccounts(Optional.of(updatedAccount), Optional.of(accountCached)));
-  }
-
-  // TODO delete
-  @Disabled("migration specific")
-  @Test
-  void testUpdate_dynamoMissing() {
-    UUID uuid = UUID.randomUUID();
-    Account account = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
-
-    when(commands.get(eq("Account3::" + uuid))).thenReturn(null);
-    when(accountsDynamoDb.get(uuid)).thenReturn(Optional.empty());
-    doAnswer(ACCOUNT_UPDATE_ANSWER).when(accountsDynamoDb).update(any());
-
-    Account updatedAccount = accountsManager.update(account, a -> {
-    });
-
-    verify(accountsDynamoDb, times(1)).update(account);
-    verifyNoMoreInteractions(accountsDynamoDb);
-
-    verify(accountsDynamoDb, never()).update(account);
-    verify(accountsDynamoDb, times(1)).get(uuid);
-    verifyNoMoreInteractions(accountsDynamoDb);
-
-    assertEquals(1, updatedAccount.getVersion());
+    verify(accounts, times(1)).get(eq(uuid));
+    verifyNoMoreInteractions(accounts);
   }
 
   @Test
@@ -327,52 +252,51 @@ class AccountsManagerTest {
 
     when(commands.get(eq("Account3::" + uuid))).thenReturn(null);
 
-    when(accountsDynamoDb.get(uuid)).thenReturn(
+    when(accounts.get(uuid)).thenReturn(
         Optional.of(new Account("+14152222222", uuid, new HashSet<>(), new byte[16])));
     doThrow(ContestedOptimisticLockException.class)
         .doAnswer(ACCOUNT_UPDATE_ANSWER)
-        .when(accountsDynamoDb).update(any());
+        .when(accounts).update(any());
 
-    when(accountsDynamoDb.get(uuid)).thenReturn(
+    when(accounts.get(uuid)).thenReturn(
         Optional.of(new Account("+14152222222", uuid, new HashSet<>(), new byte[16])));
     doThrow(ContestedOptimisticLockException.class)
         .doAnswer(ACCOUNT_UPDATE_ANSWER)
-        .when(accountsDynamoDb).update(any());
+        .when(accounts).update(any());
 
     account = accountsManager.update(account, a -> a.setProfileName("name"));
 
     assertEquals(1, account.getVersion());
     assertEquals("name", account.getProfileName());
 
-    verify(accountsDynamoDb, times(1)).get(uuid);
-    verify(accountsDynamoDb, times(2)).update(any());
-    verifyNoMoreInteractions(accountsDynamoDb);
+    verify(accounts, times(1)).get(uuid);
+    verify(accounts, times(2)).update(any());
+    verifyNoMoreInteractions(accounts);
   }
 
   @Test
   void testUpdate_dynamoOptimisticLockingFailureDuringCreate() {
-    UUID                                         uuid                = UUID.randomUUID();
-    Account                                      account             = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
+    UUID uuid = UUID.randomUUID();
+    Account account = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
 
     when(commands.get(eq("Account3::" + uuid))).thenReturn(null);
-    when(accountsDynamoDb.get(uuid)).thenReturn(Optional.empty())
-                                    .thenReturn(Optional.of(account));
-    when(accountsDynamoDb.create(any())).thenThrow(ContestedOptimisticLockException.class);
+    when(accounts.get(uuid)).thenReturn(Optional.empty())
+        .thenReturn(Optional.of(account));
+    when(accounts.create(any())).thenThrow(ContestedOptimisticLockException.class);
 
-    accountsManager.update(account, a -> {});
+    accountsManager.update(account, a -> {
+    });
 
-    verify(accountsDynamoDb, times(1)).update(account);
-    verifyNoMoreInteractions(accountsDynamoDb);
+    verify(accounts, times(1)).update(account);
+    verifyNoMoreInteractions(accounts);
   }
 
   @Test
   void testUpdateDevice() {
-    assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.empty(), Optional.empty()));
-
     final UUID uuid = UUID.randomUUID();
     Account account = new Account("+14152222222", uuid, new HashSet<>(), new byte[16]);
 
-    when(accountsDynamoDb.get(uuid)).thenReturn(
+    when(accounts.get(uuid)).thenReturn(
         Optional.of(new Account("+14152222222", uuid, new HashSet<>(), new byte[16])));
 
     assertTrue(account.getDevices().isEmpty());
@@ -400,90 +324,15 @@ class AccountsManagerTest {
     verify(unknownDeviceUpdater, never()).accept(any(Device.class));
   }
 
-  // TODO delete
-  @Disabled("migration specific")
-  @Test
-  void testCompareAccounts() throws Exception {
-    assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.empty(), Optional.empty()));
-
-    final UUID uuidA = UUID.randomUUID();
-    final Account a1 = new Account("+14152222222", uuidA, new HashSet<>(), new byte[16]);
-
-    assertEquals(Optional.of("primaryMissing"), accountsManager.compareAccounts(Optional.empty(), Optional.of(a1)));
-
-    final Account a2 = new Account("+14152222222", uuidA, new HashSet<>(), new byte[16]);
-
-    assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
-
-    {
-      Device device1 = new Device();
-      device1.setId(1L);
-
-      a1.addDevice(device1);
-
-      assertEquals(Optional.of("devices"), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
-
-      Device device2 = new Device();
-      device2.setId(1L);
-
-      a2.addDevice(device2);
-
-      assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
-
-      device1.setLastSeen(1L);
-
-      assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
-
-      device1.setName("name");
-
-      assertEquals(Optional.of("devices"), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
-
-      device1.setName(null);
-
-      device1.setSignedPreKey(new SignedPreKey(1L, "123", "456"));
-      device2.setSignedPreKey(new SignedPreKey(2L, "123", "456"));
-
-      assertEquals(Optional.of("masterDeviceSignedPreKey"), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
-
-      device1.setSignedPreKey(null);
-      device2.setSignedPreKey(null);
-
-      assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
-
-      device1.setApnId("123");
-      Thread.sleep(5);
-      device2.setApnId("123");
-
-      assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
-
-      a1.removeDevice(1L);
-      a2.removeDevice(1L);
-
-      assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
-    }
-
-    assertEquals(Optional.empty(), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
-
-    a1.setVersion(1);
-
-    assertEquals(Optional.of("version"), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
-
-    a2.setVersion(1);
-
-    a2.setProfileName("name");
-
-    assertEquals(Optional.of("profileName"), accountsManager.compareAccounts(Optional.of(a1), Optional.of(a2)));
-  }
-
   @Test
   void testCreateFreshAccount() throws InterruptedException {
-    when(accountsDynamoDb.create(any())).thenReturn(true);
+    when(accounts.create(any())).thenReturn(true);
 
     final String e164 = "+18005550123";
     final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, true, null);
     accountsManager.create(e164, "password", null, attributes);
 
-    verify(accountsDynamoDb).create(argThat(account -> e164.equals(account.getNumber())));
+    verify(accounts).create(argThat(account -> e164.equals(account.getNumber())));
     verifyNoInteractions(keys);
     verifyNoInteractions(messagesManager);
     verifyNoInteractions(profilesManager);
@@ -493,7 +342,7 @@ class AccountsManagerTest {
   void testReregisterAccount() throws InterruptedException {
     final UUID existingUuid = UUID.randomUUID();
 
-    when(accountsDynamoDb.create(any())).thenAnswer(invocation -> {
+    when(accounts.create(any())).thenAnswer(invocation -> {
       invocation.getArgument(0, Account.class).setUuid(existingUuid);
       return false;
     });
@@ -502,7 +351,7 @@ class AccountsManagerTest {
     final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, true, null);
     accountsManager.create(e164, "password", null, attributes);
 
-    verify(accountsDynamoDb).create(
+    verify(accounts).create(
         argThat(account -> e164.equals(account.getNumber()) && existingUuid.equals(account.getUuid())));
     verify(keys).delete(existingUuid);
     verify(messagesManager).clear(existingUuid);
@@ -519,13 +368,13 @@ class AccountsManagerTest {
       return null;
     }).when(deletedAccountsManager).lockAndTake(anyString(), any());
 
-    when(accountsDynamoDb.create(any())).thenReturn(true);
+    when(accounts.create(any())).thenReturn(true);
 
     final String e164 = "+18005550123";
     final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, true, null);
     accountsManager.create(e164, "password", null, attributes);
 
-    verify(accountsDynamoDb).create(
+    verify(accounts).create(
         argThat(account -> e164.equals(account.getNumber()) && recentlyDeletedUuid.equals(account.getUuid())));
     verifyNoInteractions(keys);
     verifyNoInteractions(messagesManager);
@@ -596,7 +445,7 @@ class AccountsManagerTest {
     accountsManager.updateDeviceLastSeen(account, device, updatedLastSeen);
 
     assertEquals(expectUpdate ? updatedLastSeen : initialLastSeen, device.getLastSeen());
-    verify(accountsDynamoDb, expectUpdate ? times(1) : never()).update(account);
+    verify(accounts, expectUpdate ? times(1) : never()).update(account);
   }
 
   @SuppressWarnings("unused")
