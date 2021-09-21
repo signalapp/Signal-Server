@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <!--
-  ~ Copyright 2013-2020 Signal Messenger, LLC
+  ~ Copyright 2013-2021 Signal Messenger, LLC
   ~ SPDX-License-Identifier: AGPL-3.0-only
   -->
 
@@ -198,7 +198,7 @@
                 <constraints nullable="true"/>
             </column>
         </addColumn>
-        
+
         <dropNotNullConstraint tableName="pending_accounts" columnName="verification_code"/>
     </changeSet>
 
@@ -272,7 +272,7 @@
         </createTable>
 
         <addUniqueConstraint tableName="profiles" columnNames="uuid, version" constraintName="uuid_and_version"/>
-        
+
         <createIndex tableName="profiles" indexName="profiles_uuid">
             <column name="uuid"/>
         </createIndex>
@@ -315,7 +315,7 @@
     <changeSet id="16" author="moxie">
         <dropColumn tableName="keys" columnName="deleted"/>
     </changeSet>
-    
+
     <changeSet id="17" author="ehren">
         <addColumn tableName="remote_config">
             <column name="default_value" type="text"/>
@@ -367,18 +367,18 @@
         </addColumn>
     </changeSet>
 
-  <changeSet id="24" author="chris">
-    <addColumn tableName="pending_accounts">
-      <column name="twilio_verification_sid" type="text">
-        <constraints nullable="true" />
-      </column>
-    </addColumn>
-  </changeSet>
+    <changeSet id="24" author="chris">
+        <addColumn tableName="pending_accounts">
+            <column name="twilio_verification_sid" type="text">
+                <constraints nullable="true" />
+            </column>
+        </addColumn>
+    </changeSet>
 
-  <changeSet id="25" author="chris">
-    <addColumn tableName="accounts">
-      <column name="version" type="int" defaultValue="0"/>
-    </addColumn>
-  </changeSet>
+    <changeSet id="25" author="chris">
+        <addColumn tableName="accounts">
+            <column name="version" type="int" defaultValue="0"/>
+        </addColumn>
+    </changeSet>
 
 </databaseChangeLog>
