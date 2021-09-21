@@ -381,4 +381,8 @@
         </addColumn>
     </changeSet>
 
+    <changeSet id="26" author="chris">
+        <dropTable tableName="accounts"/>
+    </changeSet>
+
 </databaseChangeLog>
