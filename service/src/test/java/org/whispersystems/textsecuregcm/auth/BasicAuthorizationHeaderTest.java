@@ -73,6 +73,7 @@ class BasicAuthorizationHeaderTest {
         "Digest YWxhZGRpbjpvcGVuc2VzYW1l",
         "Basic",
         "Basic ",
+        "BasicYWxhZGRpbjpvcGVuc2VzYW1l",
         "Basic &&&&&&",
         "Basic " + Base64.getEncoder().encodeToString("".getBytes(StandardCharsets.UTF_8)),
         "Basic " + Base64.getEncoder().encodeToString(":".getBytes(StandardCharsets.UTF_8)),
