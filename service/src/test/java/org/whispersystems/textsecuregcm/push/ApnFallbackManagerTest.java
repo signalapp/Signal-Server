@@ -21,7 +21,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
-import org.whispersystems.textsecuregcm.redis.RedisException;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -67,7 +66,7 @@ class ApnFallbackManagerTest {
   }
 
   @Test
-  void testClusterInsert() throws RedisException {
+  void testClusterInsert() {
     final String endpoint = apnFallbackManager.getEndpointKey(account, device);
 
     assertTrue(apnFallbackManager.getPendingDestinations(SlotHash.getSlot(endpoint), 1).isEmpty());
@@ -88,7 +87,7 @@ class ApnFallbackManagerTest {
   }
 
   @Test
-  void testProcessNextSlot() throws RedisException {
+  void testProcessNextSlot() {
     final ApnFallbackManager.NotificationWorker worker = apnFallbackManager.new NotificationWorker();
 
     apnFallbackManager.schedule(account, device, System.currentTimeMillis() - 30_000);

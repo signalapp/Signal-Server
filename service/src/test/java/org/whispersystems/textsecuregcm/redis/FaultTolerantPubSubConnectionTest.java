@@ -19,6 +19,7 @@ import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -56,15 +57,17 @@ public class FaultTolerantPubSubConnectionTest {
     public void testBreaker() {
         when(pubSubCommands.get(anyString()))
                 .thenReturn("value")
-                .thenThrow(new io.lettuce.core.RedisException("Badness has ensued."));
+                .thenThrow(new RuntimeException("Badness has ensued."));
 
         assertEquals("value", faultTolerantPubSubConnection.withPubSubConnection(connection -> connection.sync().get("key")));
 
         assertThrows(RedisException.class,
                 () -> faultTolerantPubSubConnection.withPubSubConnection(connection -> connection.sync().get("OH NO")));
 
-        assertThrows(CallNotPermittedException.class,
+        final RedisException redisException = assertThrows(RedisException.class,
                 () -> faultTolerantPubSubConnection.withPubSubConnection(connection -> connection.sync().get("OH NO")));
+
+        assertTrue(redisException.getCause() instanceof CallNotPermittedException);
     }
 
     @Test

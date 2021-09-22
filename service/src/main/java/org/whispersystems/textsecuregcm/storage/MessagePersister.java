@@ -46,6 +46,8 @@ public class MessagePersister implements Managed {
     static final int QUEUE_BATCH_LIMIT   = 100;
     static final int MESSAGE_BATCH_LIMIT = 100;
 
+    private static final long EXCEPTION_PAUSE_MILLIS = Duration.ofSeconds(3).toMillis();
+
     private static final String DISABLE_PERSISTER_FEATURE_FLAG = "DISABLE_MESSAGE_PERSISTER";
     private static final int WORKER_THREAD_COUNT = 4;
 
@@ -129,6 +131,8 @@ public class MessagePersister implements Managed {
                     logger.warn("Failed to persist queue {}::{}; will schedule for retry", accountUuid, deviceId, e);
 
                     messagesCache.addQueueToPersist(accountUuid, deviceId);
+
+                    Util.sleep(EXCEPTION_PAUSE_MILLIS);
                 }
             }
 
@@ -165,7 +169,7 @@ public class MessagePersister implements Managed {
 
               queueSizeHistogram.update(messageCount);
             } finally {
-                messagesCache.unlockQueueForPersistence(accountUuid, deviceId);
+              messagesCache.unlockQueueForPersistence(accountUuid, deviceId);
             }
         }
     }

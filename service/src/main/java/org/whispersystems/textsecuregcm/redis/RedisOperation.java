@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.redis;
 
+import io.lettuce.core.RedisException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,30 +13,17 @@ public class RedisOperation {
 
   private static final Logger logger = LoggerFactory.getLogger(RedisOperation.class);
 
-  public static void unchecked(Operation operation) {
+  /**
+   * Executes the given task and logs and discards any {@link RedisException} that may be thrown. This method should be
+   * used for best-effort tasks like gathering metrics.
+   *
+   * @param runnable the Redis-related task to be executed
+   */
+  public static void unchecked(final Runnable runnable) {
     try {
-      operation.run();
+      runnable.run();
     } catch (RedisException e) {
-      logger.warn("Jedis failure", e);
+      logger.warn("Redis failure", e);
     }
-  }
-
-  public static boolean unchecked(BooleanOperation operation) {
-    try {
-      return operation.run();
-    } catch (RedisException e) {
-      logger.warn("Jedis failure", e);
-    }
-
-    return false;
-  }
-
-  @FunctionalInterface
-  public interface Operation {
-    public void run() throws RedisException;
-  }
-
-  public interface BooleanOperation {
-    public boolean run() throws RedisException;
   }
 }

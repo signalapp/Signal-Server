@@ -66,15 +66,17 @@ public class FaultTolerantRedisClusterTest {
     public void testBreaker() {
         when(clusterCommands.get(anyString()))
                 .thenReturn("value")
-                .thenThrow(new RedisException("Badness has ensued."));
+                .thenThrow(new RuntimeException("Badness has ensued."));
 
         assertEquals("value", faultTolerantCluster.withCluster(connection -> connection.sync().get("key")));
 
         assertThrows(RedisException.class,
                 () -> faultTolerantCluster.withCluster(connection -> connection.sync().get("OH NO")));
 
-        assertThrows(CallNotPermittedException.class,
+        final RedisException redisException = assertThrows(RedisException.class,
                 () -> faultTolerantCluster.withCluster(connection -> connection.sync().get("OH NO")));
+
+        assertTrue(redisException.getCause() instanceof CallNotPermittedException);
     }
 
     @Test
