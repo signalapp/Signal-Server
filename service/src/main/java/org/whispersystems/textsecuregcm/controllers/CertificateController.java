@@ -35,15 +35,13 @@ public class CertificateController {
 
   private final CertificateGenerator   certificateGenerator;
   private final ServerZkAuthOperations serverZkAuthOperations;
-  private final boolean                isZkEnabled;
 
   private static final String GENERATE_DELIVERY_CERTIFICATE_COUNTER_NAME = name(CertificateGenerator.class, "generateCertificate");
   private static final String INCLUDE_E164_TAG_NAME = "includeE164";
 
-  public CertificateController(CertificateGenerator certificateGenerator, ServerZkAuthOperations serverZkAuthOperations, boolean isZkEnabled) {
+  public CertificateController(CertificateGenerator certificateGenerator, ServerZkAuthOperations serverZkAuthOperations) {
     this.certificateGenerator   = certificateGenerator;
     this.serverZkAuthOperations = serverZkAuthOperations;
-    this.isZkEnabled            = isZkEnabled;
   }
 
   @Timed
@@ -73,9 +71,6 @@ public class CertificateController {
   public GroupCredentials getAuthenticationCredentials(@Auth AuthenticatedAccount auth,
       @PathParam("startRedemptionTime") int startRedemptionTime,
       @PathParam("endRedemptionTime") int endRedemptionTime) {
-    if (!isZkEnabled) {
-      throw new WebApplicationException(Response.Status.NOT_FOUND);
-    }
     if (startRedemptionTime > endRedemptionTime) {
       throw new WebApplicationException(Response.Status.BAD_REQUEST);
     }
