@@ -9,6 +9,7 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.annotations.VisibleForTesting;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.retry.Retry;
+import io.lettuce.core.ClientOptions.DisconnectedBehavior;
 import io.lettuce.core.RedisCommandTimeoutException;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.ClusterClientOptions;
@@ -62,6 +63,7 @@ public class FaultTolerantRedisCluster {
         this.clusterClient = clusterClient;
         this.clusterClient.setDefaultTimeout(commandTimeout);
         this.clusterClient.setOptions(ClusterClientOptions.builder()
+                                                          .disconnectedBehavior(DisconnectedBehavior.REJECT_COMMANDS)
                                                           .validateClusterNodeMembership(false)
                                                           .topologyRefreshOptions(ClusterTopologyRefreshOptions.builder()
                                                                                                                .enableAllAdaptiveRefreshTriggers()
