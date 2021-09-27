@@ -7,27 +7,38 @@ package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import java.net.URL;
 import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
 
 public class BadgeConfiguration {
   public static final String CATEGORY_TESTING = "testing";
 
   private final String id;
-  private final URL imageUrl;
   private final String category;
+  private final String ldpi;
+  private final String mdpi;
+  private final String hdpi;
+  private final String xhdpi;
+  private final String xxhdpi;
+  private final String xxxhdpi;
 
   @JsonCreator
   public BadgeConfiguration(
       @JsonProperty("id") final String id,
-      @JsonProperty("imageUrl") @JsonDeserialize(converter = URLDeserializationConverter.class) final URL imageUrl,
-      @JsonProperty("category") final String category) {
+      @JsonProperty("category") final String category,
+      @JsonProperty("ldpi") final String ldpi,
+      @JsonProperty("mdpi") final String mdpi,
+      @JsonProperty("hdpi") final String hdpi,
+      @JsonProperty("xhdpi") final String xhdpi,
+      @JsonProperty("xxhdpi") final String xxhdpi,
+      @JsonProperty("xxxhdpi") final String xxxhdpi) {
     this.id = id;
-    this.imageUrl = imageUrl;
     this.category = category;
+    this.ldpi = ldpi;
+    this.mdpi = mdpi;
+    this.hdpi = hdpi;
+    this.xhdpi = xhdpi;
+    this.xxhdpi = xxhdpi;
+    this.xxxhdpi = xxxhdpi;
   }
 
   @NotEmpty
@@ -35,15 +46,33 @@ public class BadgeConfiguration {
     return id;
   }
 
-  @NotNull
-  @JsonSerialize(converter = URLSerializationConverter.class)
-  public URL getImageUrl() {
-    return imageUrl;
-  }
-
   @NotEmpty
   public String getCategory() {
     return category;
+  }
+
+  public String getLdpi() {
+    return ldpi;
+  }
+
+  public String getMdpi() {
+    return mdpi;
+  }
+
+  public String getHdpi() {
+    return hdpi;
+  }
+
+  public String getXhdpi() {
+    return xhdpi;
+  }
+
+  public String getXxhdpi() {
+    return xxhdpi;
+  }
+
+  public String getXxxhdpi() {
+    return xxxhdpi;
   }
 
   public boolean isTestBadge() {

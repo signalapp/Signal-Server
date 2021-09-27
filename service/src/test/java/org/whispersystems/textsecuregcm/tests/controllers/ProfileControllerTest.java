@@ -22,8 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Collections;
@@ -96,14 +94,6 @@ class ProfileControllerTest {
 
   private Account profileAccount;
 
-  private static URL makeURL(String url) {
-    try {
-      return new URL(url);
-    } catch (MalformedURLException e) {
-      throw new AssertionError(e);
-    }
-  }
-
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
@@ -118,13 +108,13 @@ class ProfileControllerTest {
           usernamesManager,
           dynamicConfigurationManager,
           (acceptableLanguages, accountBadges, isSelf) -> List.of(
-              new Badge("TEST", "other", makeURL("https://example.com/badge/test"), "Test Badge", "This badge is in unit tests.")
+              new Badge("TEST", "other", "Test Badge", "This badge is in unit tests.", "l", "m", "h", "x", "xx", "xxx")
           ),
           new BadgesConfiguration(List.of(
-              new BadgeConfiguration("TEST", makeURL("https://example.com/badge/test"), "other"),
-              new BadgeConfiguration("TEST1", makeURL("https://example.com/badge/1"), "testing"),
-              new BadgeConfiguration("TEST2", makeURL("https://example.com/badge/2"), "testing"),
-              new BadgeConfiguration("TEST3", makeURL("https://example.com/badge/3"), "testing")
+              new BadgeConfiguration("TEST", "other", "l", "m", "h", "x", "xx", "xxx"),
+              new BadgeConfiguration("TEST1", "testing", "l", "m", "h", "x", "xx", "xxx"),
+              new BadgeConfiguration("TEST2", "testing", "l", "m", "h", "x", "xx", "xxx"),
+              new BadgeConfiguration("TEST3", "testing", "l", "m", "h", "x", "xx", "xxx")
           ), List.of("TEST1")),
           s3client,
           postPolicyGenerator,

@@ -7,28 +7,42 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.net.URL;
 import java.util.Objects;
 
 public class Badge {
   private final String id;
   private final String category;
-  private final URL imageUrl;
   private final String name;
   private final String description;
+  private final String ldpi;
+  private final String mdpi;
+  private final String hdpi;
+  private final String xhdpi;
+  private final String xxhdpi;
+  private final String xxxhdpi;
 
   @JsonCreator
   public Badge(
       @JsonProperty("id") final String id,
       @JsonProperty("category") final String category,
-      @JsonProperty("imageUrl") final URL imageUrl,
       @JsonProperty("name") final String name,
-      @JsonProperty("description") final String description) {
+      @JsonProperty("description") final String description,
+      @JsonProperty("ldpi") final String ldpi,
+      @JsonProperty("mdpi") final String mdpi,
+      @JsonProperty("hdpi") final String hdpi,
+      @JsonProperty("xhdpi") final String xhdpi,
+      @JsonProperty("xxhdpi") final String xxhdpi,
+      @JsonProperty("xxxhdpi") final String xxxhdpi) {
     this.id = id;
     this.category = category;
-    this.imageUrl = imageUrl;
     this.name = name;
     this.description = description;
+    this.ldpi = ldpi;
+    this.mdpi = mdpi;
+    this.hdpi = hdpi;
+    this.xhdpi = xhdpi;
+    this.xxhdpi = xxhdpi;
+    this.xxxhdpi = xxxhdpi;
   }
 
   public String getId() {
@@ -39,16 +53,36 @@ public class Badge {
     return category;
   }
 
-  public URL getImageUrl() {
-    return imageUrl;
-  }
-
   public String getName() {
     return name;
   }
 
   public String getDescription() {
     return description;
+  }
+
+  public String getLdpi() {
+    return ldpi;
+  }
+
+  public String getMdpi() {
+    return mdpi;
+  }
+
+  public String getHdpi() {
+    return hdpi;
+  }
+
+  public String getXhdpi() {
+    return xhdpi;
+  }
+
+  public String getXxhdpi() {
+    return xxhdpi;
+  }
+
+  public String getXxxhdpi() {
+    return xxxhdpi;
   }
 
   @Override
@@ -61,13 +95,15 @@ public class Badge {
     }
     Badge badge = (Badge) o;
     return Objects.equals(id, badge.id) && Objects.equals(category,
-        badge.category) && Objects.equals(imageUrl, badge.imageUrl)
-        && Objects.equals(name, badge.name) && Objects.equals(description,
-        badge.description);
+        badge.category) && Objects.equals(name, badge.name) && Objects.equals(
+        description, badge.description) && Objects.equals(ldpi, badge.ldpi)
+        && Objects.equals(mdpi, badge.mdpi) && Objects.equals(hdpi, badge.hdpi)
+        && Objects.equals(xhdpi, badge.xhdpi) && Objects.equals(xxhdpi,
+        badge.xxhdpi) && Objects.equals(xxxhdpi, badge.xxxhdpi);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(id, category, imageUrl, name, description);
+    return Objects.hash(id, category, name, description, ldpi, mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi);
   }
 }

@@ -6,7 +6,6 @@
 package org.whispersystems.textsecuregcm.badges;
 
 import com.google.common.annotations.VisibleForTesting;
-import java.net.URL;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -103,9 +102,14 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter {
               isSelf,
               accountBadge.getId(),
               configuration.getCategory(),
-              configuration.getImageUrl(),
               resourceBundle.getString(accountBadge.getId() + "_name"),
               resourceBundle.getString(accountBadge.getId() + "_description"),
+              configuration.getLdpi(),
+              configuration.getMdpi(),
+              configuration.getHdpi(),
+              configuration.getXhdpi(),
+              configuration.getXxhdpi(),
+              configuration.getXxxhdpi(),
               accountBadge.getExpiration(),
               accountBadge.isVisible());
         })
@@ -116,9 +120,14 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter {
           isSelf,
           id,
           configuration.getCategory(),
-          configuration.getImageUrl(),
           resourceBundle.getString(id + "_name"),
           resourceBundle.getString(id + "_description"),
+          configuration.getLdpi(),
+          configuration.getMdpi(),
+          configuration.getHdpi(),
+          configuration.getXhdpi(),
+          configuration.getXxhdpi(),
+          configuration.getXxxhdpi(),
           now.plus(Duration.ofDays(1)),
           true);
     }).collect(Collectors.toList()));
@@ -129,15 +138,20 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter {
       final boolean isSelf,
       final String id,
       final String category,
-      final URL imageUrl,
       final String name,
       final String description,
+      final String ldpi,
+      final String mdpi,
+      final String hdpi,
+      final String xhdpi,
+      final String xxhdpi,
+      final String xxxhdpi,
       final Instant expiration,
       final boolean visible) {
     if (isSelf) {
-      return new SelfBadge(id, category, imageUrl, name, description, expiration, visible);
+      return new SelfBadge(id, category, name, description, ldpi, mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi, expiration, visible);
     } else {
-      return new Badge(id, category, imageUrl, name, description);
+      return new Badge(id, category, name, description, ldpi, mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi);
     }
   }
 }
