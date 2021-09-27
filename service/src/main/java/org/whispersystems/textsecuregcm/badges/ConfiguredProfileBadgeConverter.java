@@ -110,6 +110,8 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter {
               configuration.getXhdpi(),
               configuration.getXxhdpi(),
               configuration.getXxxhdpi(),
+              configuration.getLowDetailSvg(),
+              configuration.getHighDetailSvg(),
               accountBadge.getExpiration(),
               accountBadge.isVisible());
         })
@@ -128,6 +130,8 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter {
           configuration.getXhdpi(),
           configuration.getXxhdpi(),
           configuration.getXxxhdpi(),
+          configuration.getLowDetailSvg(),
+          configuration.getHighDetailSvg(),
           now.plus(Duration.ofDays(1)),
           true);
     }).collect(Collectors.toList()));
@@ -146,12 +150,14 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter {
       final String xhdpi,
       final String xxhdpi,
       final String xxxhdpi,
+      final String lsvg,
+      final String hsvg,
       final Instant expiration,
       final boolean visible) {
     if (isSelf) {
-      return new SelfBadge(id, category, name, description, ldpi, mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi, expiration, visible);
+      return new SelfBadge(id, category, name, description, ldpi, mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi, lsvg, hsvg, expiration, visible);
     } else {
-      return new Badge(id, category, name, description, ldpi, mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi);
+      return new Badge(id, category, name, description, ldpi, mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi, lsvg, hsvg);
     }
   }
 }

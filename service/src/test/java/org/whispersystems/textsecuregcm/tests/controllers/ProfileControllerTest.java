@@ -108,13 +108,13 @@ class ProfileControllerTest {
           usernamesManager,
           dynamicConfigurationManager,
           (acceptableLanguages, accountBadges, isSelf) -> List.of(
-              new Badge("TEST", "other", "Test Badge", "This badge is in unit tests.", "l", "m", "h", "x", "xx", "xxx")
+              new Badge("TEST", "other", "Test Badge", "This badge is in unit tests.", "l", "m", "h", "x", "xx", "xxx", "s", "S")
           ),
           new BadgesConfiguration(List.of(
-              new BadgeConfiguration("TEST", "other", "l", "m", "h", "x", "xx", "xxx"),
-              new BadgeConfiguration("TEST1", "testing", "l", "m", "h", "x", "xx", "xxx"),
-              new BadgeConfiguration("TEST2", "testing", "l", "m", "h", "x", "xx", "xxx"),
-              new BadgeConfiguration("TEST3", "testing", "l", "m", "h", "x", "xx", "xxx")
+              new BadgeConfiguration("TEST", "other", "l", "m", "h", "x", "xx", "xxx", "s", "S"),
+              new BadgeConfiguration("TEST1", "testing", "l", "m", "h", "x", "xx", "xxx", "s", "S"),
+              new BadgeConfiguration("TEST2", "testing", "l", "m", "h", "x", "xx", "xxx", "s", "S"),
+              new BadgeConfiguration("TEST3", "testing", "l", "m", "h", "x", "xx", "xxx", "s", "S")
           ), List.of("TEST1")),
           s3client,
           postPolicyGenerator,

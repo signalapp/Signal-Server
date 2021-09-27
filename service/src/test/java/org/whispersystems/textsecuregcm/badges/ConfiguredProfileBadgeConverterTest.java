@@ -63,7 +63,7 @@ public class ConfiguredProfileBadgeConverterTest {
   }
 
   private static BadgeConfiguration newBadge(int i) {
-    return new BadgeConfiguration(idFor(i), "other", "l", "m", "h", "x", "xx", "xxx");
+    return new BadgeConfiguration(idFor(i), "other", "l", "m", "h", "x", "xx", "xxx", "s", "S");
   }
 
   private BadgesConfiguration createBadges(int count) {
@@ -133,15 +133,15 @@ public class ConfiguredProfileBadgeConverterTest {
         arguments(idFor(0), expired, false, false, null),
         arguments(idFor(0), notExpired, false, false, null),
         arguments(idFor(0), expired, true, false, null),
-        arguments(idFor(0), notExpired, true, false, new Badge(idFor(0), "other", nameFor(0), desriptionFor(0), "l", "m", "h", "x", "xx", "xxx")),
+        arguments(idFor(0), notExpired, true, false, new Badge(idFor(0), "other", nameFor(0), desriptionFor(0), "l", "m", "h", "x", "xx", "xxx", "s", "S")),
         arguments(idFor(1), expired, false, false, null),
         arguments(idFor(1), notExpired, false, false, null),
         arguments(idFor(1), expired, true, false, null),
         arguments(idFor(1), notExpired, true, false, null),
         arguments(idFor(0), expired, false, true, null),
-        arguments(idFor(0), notExpired, false, true, new SelfBadge(idFor(0), "other", nameFor(0), desriptionFor(0), "l", "m", "h", "x", "xx", "xxx", notExpired, false)),
+        arguments(idFor(0), notExpired, false, true, new SelfBadge(idFor(0), "other", nameFor(0), desriptionFor(0), "l", "m", "h", "x", "xx", "xxx", "s", "S", notExpired, false)),
         arguments(idFor(0), expired, true, true, null),
-        arguments(idFor(0), notExpired, true, true, new SelfBadge(idFor(0), "other", nameFor(0), desriptionFor(0), "l", "m", "h", "x", "xx", "xxx", notExpired, true)),
+        arguments(idFor(0), notExpired, true, true, new SelfBadge(idFor(0), "other", nameFor(0), desriptionFor(0), "l", "m", "h", "x", "xx", "xxx", "s", "S", notExpired, true)),
         arguments(idFor(1), expired, false, true, null),
         arguments(idFor(1), notExpired, false, true, null),
         arguments(idFor(1), expired, true, true, null),

@@ -20,6 +20,8 @@ public class Badge {
   private final String xhdpi;
   private final String xxhdpi;
   private final String xxxhdpi;
+  private final String lsvg;
+  private final String hsvg;
 
   @JsonCreator
   public Badge(
@@ -32,7 +34,9 @@ public class Badge {
       @JsonProperty("hdpi") final String hdpi,
       @JsonProperty("xhdpi") final String xhdpi,
       @JsonProperty("xxhdpi") final String xxhdpi,
-      @JsonProperty("xxxhdpi") final String xxxhdpi) {
+      @JsonProperty("xxxhdpi") final String xxxhdpi,
+      @JsonProperty("lsvg") final String lsvg,
+      @JsonProperty("hsvg") final String hsvg) {
     this.id = id;
     this.category = category;
     this.name = name;
@@ -43,6 +47,8 @@ public class Badge {
     this.xhdpi = xhdpi;
     this.xxhdpi = xxhdpi;
     this.xxxhdpi = xxxhdpi;
+    this.lsvg = lsvg;
+    this.hsvg = hsvg;
   }
 
   public String getId() {
@@ -85,6 +91,14 @@ public class Badge {
     return xxxhdpi;
   }
 
+  public String getLsvg() {
+    return lsvg;
+  }
+
+  public String getHsvg() {
+    return hsvg;
+  }
+
   @Override
   public boolean equals(final Object o) {
     if (this == o) {
@@ -94,16 +108,34 @@ public class Badge {
       return false;
     }
     Badge badge = (Badge) o;
-    return Objects.equals(id, badge.id) && Objects.equals(category,
-        badge.category) && Objects.equals(name, badge.name) && Objects.equals(
-        description, badge.description) && Objects.equals(ldpi, badge.ldpi)
-        && Objects.equals(mdpi, badge.mdpi) && Objects.equals(hdpi, badge.hdpi)
-        && Objects.equals(xhdpi, badge.xhdpi) && Objects.equals(xxhdpi,
-        badge.xxhdpi) && Objects.equals(xxxhdpi, badge.xxxhdpi);
+    return Objects.equals(id, badge.id)
+        && Objects.equals(category, badge.category)
+        && Objects.equals(name, badge.name)
+        && Objects.equals(description, badge.description)
+        && Objects.equals(ldpi, badge.ldpi)
+        && Objects.equals(mdpi, badge.mdpi)
+        && Objects.equals(hdpi, badge.hdpi)
+        && Objects.equals(xhdpi, badge.xhdpi)
+        && Objects.equals(xxhdpi, badge.xxhdpi)
+        && Objects.equals(xxxhdpi, badge.xxxhdpi)
+        && Objects.equals(lsvg, badge.lsvg)
+        && Objects.equals(hsvg, badge.hsvg);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(id, category, name, description, ldpi, mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi);
+    return Objects.hash(
+        id,
+        category,
+        name,
+        description,
+        ldpi,
+        mdpi,
+        hdpi,
+        xhdpi,
+        xxhdpi,
+        xxxhdpi,
+        lsvg,
+        hsvg);
   }
 }

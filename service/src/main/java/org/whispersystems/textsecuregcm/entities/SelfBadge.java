@@ -27,9 +27,11 @@ public class SelfBadge extends Badge {
       @JsonProperty("xhdpi") final String xhdpi,
       @JsonProperty("xxhdpi") final String xxhdpi,
       @JsonProperty("xxxhdpi") final String xxxhdpi,
+      @JsonProperty("lsvg") final String lsvg,
+      @JsonProperty("hsvg") final String hsvg,
       final Instant expiration,
       final boolean visible) {
-    super(id, category, name, description, ldpi, mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi);
+    super(id, category, name, description, ldpi, mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi, lsvg, hsvg);
     this.expiration = expiration;
     this.visible = visible;
   }
