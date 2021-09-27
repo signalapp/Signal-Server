@@ -74,6 +74,7 @@ public class MessagePersister implements Managed {
                             }
                         } catch (final Throwable t) {
                             logger.warn("Failed to persist queues", t);
+                            Util.sleep(EXCEPTION_PAUSE_MILLIS);
                         }
                     }
                 }
