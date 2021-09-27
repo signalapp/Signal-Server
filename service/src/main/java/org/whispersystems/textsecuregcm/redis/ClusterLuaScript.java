@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 public class ClusterLuaScript {
@@ -33,17 +34,14 @@ public class ClusterLuaScript {
       final String resource,
       final ScriptOutputType scriptOutputType) throws IOException {
 
-    try (final InputStream inputStream = LuaScript.class.getClassLoader().getResourceAsStream(resource);
-        final ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-
-      byte[] buffer = new byte[4096];
-      int read;
-
-      while ((read = inputStream.read(buffer)) != -1) {
-        baos.write(buffer, 0, read);
+    try (final InputStream inputStream = LuaScript.class.getClassLoader().getResourceAsStream(resource)) {
+      if (inputStream == null) {
+        throw new IllegalArgumentException("Script not found: " + resource);
       }
 
-      return new ClusterLuaScript(redisCluster, new String(baos.toByteArray()), scriptOutputType);
+      return new ClusterLuaScript(redisCluster,
+          new String(inputStream.readAllBytes(), StandardCharsets.UTF_8),
+          scriptOutputType);
     }
   }
 
@@ -51,7 +49,7 @@ public class ClusterLuaScript {
   ClusterLuaScript(final FaultTolerantRedisCluster redisCluster,
       final String script,
       final ScriptOutputType scriptOutputType) {
-    
+
     this.redisCluster = redisCluster;
     this.scriptOutputType = scriptOutputType;
     this.script = script;
