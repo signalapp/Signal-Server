@@ -24,117 +24,127 @@ import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 
 public class ClusterLuaScriptTest extends AbstractRedisClusterTest {
 
-    @Test
-    public void testExecuteMovedKey() {
-        final String key   = "key";
-        final String value = "value";
+  @Test
+  public void testExecuteMovedKey() {
+    final String key = "key";
+    final String value = "value";
 
-        final FaultTolerantRedisCluster redisCluster = getRedisCluster();
+    final FaultTolerantRedisCluster redisCluster = getRedisCluster();
 
-        final ClusterLuaScript script = new ClusterLuaScript(redisCluster, "return redis.call(\"SET\", KEYS[1], ARGV[1])", ScriptOutputType.VALUE);
+    final ClusterLuaScript script = new ClusterLuaScript(redisCluster, "return redis.call(\"SET\", KEYS[1], ARGV[1])",
+        ScriptOutputType.VALUE);
 
-        assertEquals("OK", script.execute(List.of(key), List.of(value)));
-        assertEquals(value, redisCluster.withCluster(connection -> connection.sync().get(key)));
+    assertEquals("OK", script.execute(List.of(key), List.of(value)));
+    assertEquals(value, redisCluster.withCluster(connection -> connection.sync().get(key)));
 
-        final int    slot            = SlotHash.getSlot(key);
+    final int slot = SlotHash.getSlot(key);
 
-        final int                           sourcePort          = redisCluster.withCluster(connection -> connection.sync().nodes(node -> node.hasSlot(slot) && node.is(RedisClusterNode.NodeFlag.UPSTREAM)).node(0).getUri().getPort());
-        final RedisCommands<String, String> sourceCommands      = redisCluster.withCluster(connection -> connection.sync().nodes(node -> node.hasSlot(slot) && node.is(RedisClusterNode.NodeFlag.UPSTREAM)).commands(0));
-        final RedisCommands<String, String> destinationCommands = redisCluster.withCluster(connection -> connection.sync().nodes(node -> !node.hasSlot(slot) && node.is(RedisClusterNode.NodeFlag.UPSTREAM)).commands(0));
+    final int sourcePort = redisCluster.withCluster(
+        connection -> connection.sync().nodes(node -> node.hasSlot(slot) && node.is(RedisClusterNode.NodeFlag.UPSTREAM))
+            .node(0).getUri().getPort());
+    final RedisCommands<String, String> sourceCommands = redisCluster.withCluster(
+        connection -> connection.sync().nodes(node -> node.hasSlot(slot) && node.is(RedisClusterNode.NodeFlag.UPSTREAM))
+            .commands(0));
+    final RedisCommands<String, String> destinationCommands = redisCluster.withCluster(connection -> connection.sync()
+        .nodes(node -> !node.hasSlot(slot) && node.is(RedisClusterNode.NodeFlag.UPSTREAM)).commands(0));
 
-        destinationCommands.clusterSetSlotImporting(slot, sourceCommands.clusterMyId());
+    destinationCommands.clusterSetSlotImporting(slot, sourceCommands.clusterMyId());
 
-        assertEquals("OK", script.execute(List.of(key), List.of(value)));
-        assertEquals(value, redisCluster.withCluster(connection -> connection.sync().get(key)));
+    assertEquals("OK", script.execute(List.of(key), List.of(value)));
+    assertEquals(value, redisCluster.withCluster(connection -> connection.sync().get(key)));
 
-        sourceCommands.clusterSetSlotMigrating(slot, destinationCommands.clusterMyId());
+    sourceCommands.clusterSetSlotMigrating(slot, destinationCommands.clusterMyId());
 
-        assertEquals("OK", script.execute(List.of(key), List.of(value)));
-        assertEquals(value, redisCluster.withCluster(connection -> connection.sync().get(key)));
+    assertEquals("OK", script.execute(List.of(key), List.of(value)));
+    assertEquals(value, redisCluster.withCluster(connection -> connection.sync().get(key)));
 
-        for (final String migrateKey : sourceCommands.clusterGetKeysInSlot(slot, Integer.MAX_VALUE)) {
-            destinationCommands.migrate("127.0.0.1", sourcePort, migrateKey, 0, 1000);
-        }
-
-        assertEquals("OK", script.execute(List.of(key), List.of(value)));
-        assertEquals(value, redisCluster.withCluster(connection -> connection.sync().get(key)));
-
-        destinationCommands.clusterSetSlotNode(slot, destinationCommands.clusterMyId());
-
-        assertEquals("OK", script.execute(List.of(key), List.of(value)));
-        assertEquals(value, redisCluster.withCluster(connection -> connection.sync().get(key)));
+    for (final String migrateKey : sourceCommands.clusterGetKeysInSlot(slot, Integer.MAX_VALUE)) {
+      destinationCommands.migrate("127.0.0.1", sourcePort, migrateKey, 0, 1000);
     }
 
-    @Test
-    public void testExecute() {
-        final RedisAdvancedClusterCommands<String, String> commands    = mock(RedisAdvancedClusterCommands.class);
-        final FaultTolerantRedisCluster                    mockCluster = RedisClusterHelper.buildMockRedisCluster(commands);
+    assertEquals("OK", script.execute(List.of(key), List.of(value)));
+    assertEquals(value, redisCluster.withCluster(connection -> connection.sync().get(key)));
 
-        final String           script           = "return redis.call(\"SET\", KEYS[1], ARGV[1])";
-        final String           sha              = "abc123";
-        final ScriptOutputType scriptOutputType = ScriptOutputType.VALUE;
-        final List<String>     keys             = List.of("key");
-        final List<String>     values           = List.of("value");
+    destinationCommands.clusterSetSlotNode(slot, destinationCommands.clusterMyId());
 
-        when(commands.scriptLoad(script)).thenReturn(sha);
-        when(commands.evalsha(any(), any(), any(), any())).thenReturn("OK");
+    assertEquals("OK", script.execute(List.of(key), List.of(value)));
+    assertEquals(value, redisCluster.withCluster(connection -> connection.sync().get(key)));
+  }
 
-        new ClusterLuaScript(mockCluster, script, scriptOutputType).execute(keys, values);
+  @Test
+  public void testExecute() {
+    final RedisAdvancedClusterCommands<String, String> commands = mock(RedisAdvancedClusterCommands.class);
+    final FaultTolerantRedisCluster mockCluster = RedisClusterHelper.buildMockRedisCluster(commands);
 
-        verify(commands).scriptLoad(script);
-        verify(commands).evalsha(sha, scriptOutputType, keys.toArray(new String[0]), values.toArray(new String[0]));
-    }
+    final String script = "return redis.call(\"SET\", KEYS[1], ARGV[1])";
+    final String sha = "abc123";
+    final ScriptOutputType scriptOutputType = ScriptOutputType.VALUE;
+    final List<String> keys = List.of("key");
+    final List<String> values = List.of("value");
 
-    @Test
-    public void testExecuteNoScriptException() {
-        final String key   = "key";
-        final String value = "value";
+    when(commands.scriptLoad(script)).thenReturn(sha);
+    when(commands.evalsha(any(), any(), any(), any())).thenReturn("OK");
 
-        final FaultTolerantRedisCluster redisCluster = getRedisCluster();
+    new ClusterLuaScript(mockCluster, script, scriptOutputType).execute(keys, values);
 
-        final ClusterLuaScript script = new ClusterLuaScript(redisCluster, "return redis.call(\"SET\", KEYS[1], ARGV[1])", ScriptOutputType.VALUE);
+    verify(commands).scriptLoad(script);
+    verify(commands).evalsha(sha, scriptOutputType, keys.toArray(new String[0]), values.toArray(new String[0]));
+  }
 
-        // Remove the scripts created by the CLusterLuaScript constructor
-        redisCluster.useCluster(connection -> connection.sync().upstream().commands().scriptFlush());
+  @Test
+  public void testExecuteNoScriptException() {
+    final String key = "key";
+    final String value = "value";
 
-        assertEquals("OK", script.execute(List.of(key), List.of(value)));
-        assertEquals(value, redisCluster.withCluster(connection -> connection.sync().get(key)));
-    }
+    final FaultTolerantRedisCluster redisCluster = getRedisCluster();
 
-    @Test
-    public void testExecuteBinary() {
-        final RedisAdvancedClusterCommands<String, String> stringCommands = mock(RedisAdvancedClusterCommands.class);
-        final RedisAdvancedClusterCommands<byte[], byte[]> binaryCommands = mock(RedisAdvancedClusterCommands.class);
-        final FaultTolerantRedisCluster                    mockCluster    = RedisClusterHelper.buildMockRedisCluster(stringCommands, binaryCommands);
+    final ClusterLuaScript script = new ClusterLuaScript(redisCluster, "return redis.call(\"SET\", KEYS[1], ARGV[1])",
+        ScriptOutputType.VALUE);
 
-        final String           script           = "return redis.call(\"SET\", KEYS[1], ARGV[1])";
-        final String           sha              = "abc123";
-        final ScriptOutputType scriptOutputType = ScriptOutputType.VALUE;
-        final List<byte[]>     keys             = List.of("key".getBytes(StandardCharsets.UTF_8));
-        final List<byte[]>     values           = List.of("value".getBytes(StandardCharsets.UTF_8));
+    // Remove the scripts created by the CLusterLuaScript constructor
+    redisCluster.useCluster(connection -> connection.sync().upstream().commands().scriptFlush());
 
-        when(stringCommands.scriptLoad(script)).thenReturn(sha);
-        when(binaryCommands.evalsha(any(), any(), any(), any())).thenReturn("OK".getBytes(StandardCharsets.UTF_8));
+    assertEquals("OK", script.execute(List.of(key), List.of(value)));
+    assertEquals(value, redisCluster.withCluster(connection -> connection.sync().get(key)));
+  }
 
-        new ClusterLuaScript(mockCluster, script, scriptOutputType).executeBinary(keys, values);
+  @Test
+  public void testExecuteBinary() {
+    final RedisAdvancedClusterCommands<String, String> stringCommands = mock(RedisAdvancedClusterCommands.class);
+    final RedisAdvancedClusterCommands<byte[], byte[]> binaryCommands = mock(RedisAdvancedClusterCommands.class);
+    final FaultTolerantRedisCluster mockCluster = RedisClusterHelper
+        .buildMockRedisCluster(stringCommands, binaryCommands);
 
-        verify(stringCommands).scriptLoad(script);
-        verify(binaryCommands).evalsha(sha, scriptOutputType, keys.toArray(new byte[0][]), values.toArray(new byte[0][]));
-    }
+    final String script = "return redis.call(\"SET\", KEYS[1], ARGV[1])";
+    final String sha = "abc123";
+    final ScriptOutputType scriptOutputType = ScriptOutputType.VALUE;
+    final List<byte[]> keys = List.of("key".getBytes(StandardCharsets.UTF_8));
+    final List<byte[]> values = List.of("value".getBytes(StandardCharsets.UTF_8));
 
-    @Test
-    public void testExecuteBinaryNoScriptException() {
-        final String key   = "key";
-        final String value = "value";
+    when(stringCommands.scriptLoad(script)).thenReturn(sha);
+    when(binaryCommands.evalsha(any(), any(), any(), any())).thenReturn("OK".getBytes(StandardCharsets.UTF_8));
 
-        final FaultTolerantRedisCluster redisCluster = getRedisCluster();
+    new ClusterLuaScript(mockCluster, script, scriptOutputType).executeBinary(keys, values);
 
-        final ClusterLuaScript script = new ClusterLuaScript(redisCluster, "return redis.call(\"SET\", KEYS[1], ARGV[1])", ScriptOutputType.VALUE);
+    verify(stringCommands).scriptLoad(script);
+    verify(binaryCommands).evalsha(sha, scriptOutputType, keys.toArray(new byte[0][]), values.toArray(new byte[0][]));
+  }
 
-        // Remove the scripts created by the CLusterLuaScript constructor
-        redisCluster.useCluster(connection -> connection.sync().upstream().commands().scriptFlush());
+  @Test
+  public void testExecuteBinaryNoScriptException() {
+    final String key = "key";
+    final String value = "value";
 
-        assertArrayEquals("OK".getBytes(StandardCharsets.UTF_8), (byte[])script.executeBinary(List.of(key.getBytes(StandardCharsets.UTF_8)), List.of(value.getBytes(StandardCharsets.UTF_8))));
-        assertEquals(value, redisCluster.withCluster(connection -> connection.sync().get(key)));
-    }
+    final FaultTolerantRedisCluster redisCluster = getRedisCluster();
+
+    final ClusterLuaScript script = new ClusterLuaScript(redisCluster, "return redis.call(\"SET\", KEYS[1], ARGV[1])",
+        ScriptOutputType.VALUE);
+
+    // Remove the scripts created by the CLusterLuaScript constructor
+    redisCluster.useCluster(connection -> connection.sync().upstream().commands().scriptFlush());
+
+    assertArrayEquals("OK".getBytes(StandardCharsets.UTF_8), (byte[]) script
+        .executeBinary(List.of(key.getBytes(StandardCharsets.UTF_8)), List.of(value.getBytes(StandardCharsets.UTF_8))));
+    assertEquals(value, redisCluster.withCluster(connection -> connection.sync().get(key)));
+  }
 }

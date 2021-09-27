@@ -19,76 +19,84 @@ import java.util.List;
 
 public class ClusterLuaScript {
 
-    private final FaultTolerantRedisCluster redisCluster;
-    private final ScriptOutputType          scriptOutputType;
-    private final String                    script;
-    private final String                    sha;
+  private final FaultTolerantRedisCluster redisCluster;
+  private final ScriptOutputType scriptOutputType;
+  private final String script;
+  private final String sha;
 
-    private static final String[] STRING_ARRAY     = new String[0];
-    private static final byte[][] BYTE_ARRAY_ARRAY = new byte[0][];
+  private static final String[] STRING_ARRAY = new String[0];
+  private static final byte[][] BYTE_ARRAY_ARRAY = new byte[0][];
 
-    private static final Logger log = LoggerFactory.getLogger(ClusterLuaScript.class);
+  private static final Logger log = LoggerFactory.getLogger(ClusterLuaScript.class);
 
-    public static ClusterLuaScript fromResource(final FaultTolerantRedisCluster redisCluster, final String resource, final ScriptOutputType scriptOutputType) throws IOException {
-        try (final InputStream inputStream    = LuaScript.class.getClassLoader().getResourceAsStream(resource);
-             final ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+  public static ClusterLuaScript fromResource(final FaultTolerantRedisCluster redisCluster,
+      final String resource,
+      final ScriptOutputType scriptOutputType) throws IOException {
 
-            byte[] buffer = new byte[4096];
-            int read;
+    try (final InputStream inputStream = LuaScript.class.getClassLoader().getResourceAsStream(resource);
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
 
-            while ((read = inputStream.read(buffer)) != -1) {
-                baos.write(buffer, 0, read);
-            }
+      byte[] buffer = new byte[4096];
+      int read;
 
-            return new ClusterLuaScript(redisCluster, new String(baos.toByteArray()), scriptOutputType);
+      while ((read = inputStream.read(buffer)) != -1) {
+        baos.write(buffer, 0, read);
+      }
+
+      return new ClusterLuaScript(redisCluster, new String(baos.toByteArray()), scriptOutputType);
+    }
+  }
+
+  @VisibleForTesting
+  ClusterLuaScript(final FaultTolerantRedisCluster redisCluster,
+      final String script,
+      final ScriptOutputType scriptOutputType) {
+    
+    this.redisCluster = redisCluster;
+    this.scriptOutputType = scriptOutputType;
+    this.script = script;
+    this.sha = redisCluster.withCluster(connection -> connection.sync().scriptLoad(script));
+  }
+
+  public Object execute(final List<String> keys, final List<String> args) {
+    return redisCluster.withCluster(connection -> {
+      try {
+        final RedisAdvancedClusterCommands<String, String> clusterCommands = connection.sync();
+
+        try {
+          return clusterCommands.evalsha(sha, scriptOutputType, keys.toArray(STRING_ARRAY), args.toArray(STRING_ARRAY));
+        } catch (final RedisNoScriptException e) {
+          reloadScript();
+          return clusterCommands.evalsha(sha, scriptOutputType, keys.toArray(STRING_ARRAY), args.toArray(STRING_ARRAY));
         }
-    }
+      } catch (final Exception e) {
+        log.warn("Failed to execute script", e);
+        throw e;
+      }
+    });
+  }
 
-    @VisibleForTesting
-    ClusterLuaScript(final FaultTolerantRedisCluster redisCluster, final String script, final ScriptOutputType scriptOutputType) {
-        this.redisCluster     = redisCluster;
-        this.scriptOutputType = scriptOutputType;
-        this.script           = script;
-        this.sha              = redisCluster.withCluster(connection -> connection.sync().scriptLoad(script));
-    }
+  public Object executeBinary(final List<byte[]> keys, final List<byte[]> args) {
+    return redisCluster.withBinaryCluster(connection -> {
+      try {
+        final RedisAdvancedClusterCommands<byte[], byte[]> binaryCommands = connection.sync();
 
-    public Object execute(final List<String> keys, final List<String> args) {
-        return redisCluster.withCluster(connection -> {
-            try {
-                final RedisAdvancedClusterCommands<String, String> clusterCommands = connection.sync();
+        try {
+          return binaryCommands
+              .evalsha(sha, scriptOutputType, keys.toArray(BYTE_ARRAY_ARRAY), args.toArray(BYTE_ARRAY_ARRAY));
+        } catch (final RedisNoScriptException e) {
+          reloadScript();
+          return binaryCommands
+              .evalsha(sha, scriptOutputType, keys.toArray(BYTE_ARRAY_ARRAY), args.toArray(BYTE_ARRAY_ARRAY));
+        }
+      } catch (final Exception e) {
+        log.warn("Failed to execute script", e);
+        throw e;
+      }
+    });
+  }
 
-                try {
-                    return clusterCommands.evalsha(sha, scriptOutputType, keys.toArray(STRING_ARRAY), args.toArray(STRING_ARRAY));
-                } catch (final RedisNoScriptException e) {
-                    reloadScript();
-                    return clusterCommands.evalsha(sha, scriptOutputType, keys.toArray(STRING_ARRAY), args.toArray(STRING_ARRAY));
-                }
-            } catch (final Exception e) {
-                log.warn("Failed to execute script", e);
-                throw e;
-            }
-        });
-    }
-
-    public Object executeBinary(final List<byte[]> keys, final List<byte[]> args) {
-        return redisCluster.withBinaryCluster(connection -> {
-            try {
-                final RedisAdvancedClusterCommands<byte[], byte[]> binaryCommands = connection.sync();
-
-                try {
-                    return binaryCommands.evalsha(sha, scriptOutputType, keys.toArray(BYTE_ARRAY_ARRAY), args.toArray(BYTE_ARRAY_ARRAY));
-                } catch (final RedisNoScriptException e) {
-                    reloadScript();
-                    return binaryCommands.evalsha(sha, scriptOutputType, keys.toArray(BYTE_ARRAY_ARRAY), args.toArray(BYTE_ARRAY_ARRAY));
-                }
-            } catch (final Exception e) {
-                log.warn("Failed to execute script", e);
-                throw e;
-            }
-        });
-    }
-
-    private void reloadScript() {
-        redisCluster.useCluster(connection -> connection.sync().upstream().commands().scriptLoad(script));
-    }
+  private void reloadScript() {
+    redisCluster.useCluster(connection -> connection.sync().upstream().commands().scriptLoad(script));
+  }
 }
