@@ -11,41 +11,40 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import java.time.Duration;
-import java.util.List;
 
 public class RedisClusterConfiguration {
 
-    @JsonProperty
-    @NotEmpty
-    private List<String> urls;
+  @JsonProperty
+  @NotEmpty
+  private String configurationUri;
 
-    @JsonProperty
-    @NotNull
-    private Duration timeout = Duration.ofMillis(3_000);
+  @JsonProperty
+  @NotNull
+  private Duration timeout = Duration.ofMillis(3_000);
 
-    @JsonProperty
-    @NotNull
-    @Valid
-    private CircuitBreakerConfiguration circuitBreaker = new CircuitBreakerConfiguration();
+  @JsonProperty
+  @NotNull
+  @Valid
+  private CircuitBreakerConfiguration circuitBreaker = new CircuitBreakerConfiguration();
 
-    @JsonProperty
-    @NotNull
-    @Valid
-    private RetryConfiguration retry = new RetryConfiguration();
+  @JsonProperty
+  @NotNull
+  @Valid
+  private RetryConfiguration retry = new RetryConfiguration();
 
-    public List<String> getUrls() {
-        return urls;
-    }
+  public String getConfigurationUri() {
+    return configurationUri;
+  }
 
-    public Duration getTimeout() {
-        return timeout;
-    }
+  public Duration getTimeout() {
+    return timeout;
+  }
 
-    public CircuitBreakerConfiguration getCircuitBreakerConfiguration() {
-        return circuitBreaker;
-    }
+  public CircuitBreakerConfiguration getCircuitBreakerConfiguration() {
+    return circuitBreaker;
+  }
 
-    public RetryConfiguration getRetryConfiguration() {
-        return retry;
-    }
+  public RetryConfiguration getRetryConfiguration() {
+    return retry;
+  }
 }

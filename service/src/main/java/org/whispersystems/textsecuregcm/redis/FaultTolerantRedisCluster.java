@@ -11,7 +11,6 @@ import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.retry.Retry;
 import io.lettuce.core.RedisCommandTimeoutException;
 import io.lettuce.core.RedisException;
-import io.lettuce.core.RedisURI;
 import io.lettuce.core.cluster.ClusterClientOptions;
 import io.lettuce.core.cluster.ClusterTopologyRefreshOptions;
 import io.lettuce.core.cluster.RedisClusterClient;
@@ -24,7 +23,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisClusterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
@@ -51,7 +49,7 @@ public class FaultTolerantRedisCluster {
 
     public FaultTolerantRedisCluster(final String name, final RedisClusterConfiguration clusterConfiguration, final ClientResources clientResources) {
         this(name,
-             RedisClusterClient.create(clientResources, clusterConfiguration.getUrls().stream().map(RedisURI::create).collect(Collectors.toList())),
+             RedisClusterClient.create(clientResources, clusterConfiguration.getConfigurationUri()),
              clusterConfiguration.getTimeout(),
              clusterConfiguration.getCircuitBreakerConfiguration(),
              clusterConfiguration.getRetryConfiguration());
