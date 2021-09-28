@@ -8,15 +8,17 @@ package org.whispersystems.textsecuregcm.redis;
 import com.google.common.annotations.VisibleForTesting;
 import io.lettuce.core.RedisNoScriptException;
 import io.lettuce.core.ScriptOutputType;
-import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.ByteArrayOutputStream;
+import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.commons.codec.binary.Hex;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ClusterLuaScript {
 
@@ -53,48 +55,40 @@ public class ClusterLuaScript {
     this.redisCluster = redisCluster;
     this.scriptOutputType = scriptOutputType;
     this.script = script;
-    this.sha = redisCluster.withCluster(connection -> connection.sync().scriptLoad(script));
+
+    try {
+      this.sha = Hex.encodeHexString(MessageDigest.getInstance("SHA-1").digest(script.getBytes(StandardCharsets.UTF_8)));
+    } catch (final NoSuchAlgorithmException e) {
+      // All Java implementations are required to support SHA-1, so this should never happen
+      throw new AssertionError(e);
+    }
+  }
+
+  @VisibleForTesting
+  String getSha() {
+    return sha;
   }
 
   public Object execute(final List<String> keys, final List<String> args) {
-    return redisCluster.withCluster(connection -> {
-      try {
-        final RedisAdvancedClusterCommands<String, String> clusterCommands = connection.sync();
-
-        try {
-          return clusterCommands.evalsha(sha, scriptOutputType, keys.toArray(STRING_ARRAY), args.toArray(STRING_ARRAY));
-        } catch (final RedisNoScriptException e) {
-          reloadScript();
-          return clusterCommands.evalsha(sha, scriptOutputType, keys.toArray(STRING_ARRAY), args.toArray(STRING_ARRAY));
-        }
-      } catch (final Exception e) {
-        log.warn("Failed to execute script", e);
-        throw e;
-      }
-    });
+    return redisCluster.withCluster(connection ->
+        execute(connection, keys.toArray(STRING_ARRAY), args.toArray(STRING_ARRAY)));
   }
 
   public Object executeBinary(final List<byte[]> keys, final List<byte[]> args) {
-    return redisCluster.withBinaryCluster(connection -> {
-      try {
-        final RedisAdvancedClusterCommands<byte[], byte[]> binaryCommands = connection.sync();
-
-        try {
-          return binaryCommands
-              .evalsha(sha, scriptOutputType, keys.toArray(BYTE_ARRAY_ARRAY), args.toArray(BYTE_ARRAY_ARRAY));
-        } catch (final RedisNoScriptException e) {
-          reloadScript();
-          return binaryCommands
-              .evalsha(sha, scriptOutputType, keys.toArray(BYTE_ARRAY_ARRAY), args.toArray(BYTE_ARRAY_ARRAY));
-        }
-      } catch (final Exception e) {
-        log.warn("Failed to execute script", e);
-        throw e;
-      }
-    });
+    return redisCluster.withBinaryCluster(connection ->
+        execute(connection, keys.toArray(BYTE_ARRAY_ARRAY), args.toArray(BYTE_ARRAY_ARRAY)));
   }
 
-  private void reloadScript() {
-    redisCluster.useCluster(connection -> connection.sync().upstream().commands().scriptLoad(script));
+  private <T> Object execute(final StatefulRedisClusterConnection<T, T> connection, final T[] keys, final T[] args) {
+    try {
+      try {
+        return connection.sync().evalsha(sha, scriptOutputType, keys, args);
+      } catch (final RedisNoScriptException e) {
+        return connection.sync().eval(script, scriptOutputType, keys, args);
+      }
+    } catch (final Exception e) {
+      log.warn("Failed to execute script", e);
+      throw e;
+    }
   }
 }
