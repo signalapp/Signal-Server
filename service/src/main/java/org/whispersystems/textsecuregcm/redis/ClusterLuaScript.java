@@ -34,7 +34,7 @@ public class ClusterLuaScript {
       final String resource,
       final ScriptOutputType scriptOutputType) throws IOException {
 
-    try (final InputStream inputStream = LuaScript.class.getClassLoader().getResourceAsStream(resource)) {
+    try (final InputStream inputStream = ClusterLuaScript.class.getClassLoader().getResourceAsStream(resource)) {
       if (inputStream == null) {
         throw new IllegalArgumentException("Script not found: " + resource);
       }
