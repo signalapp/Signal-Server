@@ -7,11 +7,9 @@ package org.whispersystems.textsecuregcm.auth;
 
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -26,11 +24,9 @@ import org.whispersystems.textsecuregcm.util.Pair;
  * This {@link WebsocketRefreshRequirementProvider} observes intra-request changes in {@link Account#isEnabled()} and
  * {@link Device#isEnabled()}.
  * <p>
- * If a change in {@link Account#isEnabled()} is observed, then any active WebSocket connections for the account must be
- * closed, in order for clients to get a refreshed {@link io.dropwizard.auth.Auth} object.
- * <p>
- * If a change in {@link Device#isEnabled()} is observed, including deletion of the {@link Device}, then any active
- * WebSocket connections for the device must be closed and re-authenticated.
+ * If a change in {@link Account#isEnabled()} or any associated {@link Device#isEnabled()} is observed, then any active
+ * WebSocket connections for the account must be closed in order for clients to get a refreshed
+ * {@link io.dropwizard.auth.Auth} object with a current device list.
  *
  * @see AuthenticatedAccount
  * @see DisabledPermittedAuthenticatedAccount
@@ -39,7 +35,6 @@ public class AuthEnablementRefreshRequirementProvider implements WebsocketRefres
 
   private static final Logger logger = LoggerFactory.getLogger(AuthEnablementRefreshRequirementProvider.class);
 
-  private static final String ACCOUNT_ENABLED = AuthEnablementRefreshRequirementProvider.class.getName() + ".accountEnabled";
   private static final String DEVICES_ENABLED = AuthEnablementRefreshRequirementProvider.class.getName() + ".devicesEnabled";
 
   @VisibleForTesting
@@ -50,57 +45,34 @@ public class AuthEnablementRefreshRequirementProvider implements WebsocketRefres
   @Override
   public void handleRequestFiltered(final ContainerRequest request) {
     // The authenticated principal, if any, will be available after filters have run.
-    // Now that the account is known, capture a snapshot of `isEnabled` for the account and its devices,
-    // before carrying out the request’s business logic.
+    // Now that the account is known, capture a snapshot of `isEnabled` for the account's devices before carrying out
+    // the request’s business logic.
     ContainerRequestUtil.getAuthenticatedAccount(request)
-        .ifPresent(
-            account -> {
-              request.setProperty(ACCOUNT_ENABLED, account.isEnabled());
-              request.setProperty(DEVICES_ENABLED, buildDevicesEnabledMap(account));
-            });
+        .ifPresent(account -> request.setProperty(DEVICES_ENABLED, buildDevicesEnabledMap(account)));
   }
 
   @Override
   public List<Pair<UUID, Long>> handleRequestFinished(final ContainerRequest request) {
-    // Now that the request is finished, check whether `isEnabled` changed for any of the devices, or the account
-    // as a whole. If the value did change, the affected device(s) must disconnect and reauthenticate.
-    // If a device was removed, it must also disconnect.
-    if (request.getProperty(ACCOUNT_ENABLED) != null &&
-        request.getProperty(DEVICES_ENABLED) != null) {
+    // Now that the request is finished, check whether `isEnabled` changed for any of the devices. If the value did
+    // change or if a devices was added or removed, all devices must disconnect and reauthenticate.
+    if (request.getProperty(DEVICES_ENABLED) != null) {
 
-      final boolean accountInitiallyEnabled = (boolean) request.getProperty(ACCOUNT_ENABLED);
       @SuppressWarnings("unchecked") final Map<Long, Boolean> initialDevicesEnabled =
           (Map<Long, Boolean>) request.getProperty(DEVICES_ENABLED);
 
       return ContainerRequestUtil.getAuthenticatedAccount(request).map(account -> {
         final Set<Long> deviceIdsToDisplace;
+        final Map<Long, Boolean> currentDevicesEnabled = buildDevicesEnabledMap(account);
 
-        if (account.isEnabled() != accountInitiallyEnabled) {
-          // the @Auth for all active connections must change when account.isEnabled() changes
-          deviceIdsToDisplace = account.getDevices().stream()
-              .map(Device::getId).collect(Collectors.toSet());
-
-          deviceIdsToDisplace.addAll(initialDevicesEnabled.keySet());
-
-        } else if (!initialDevicesEnabled.isEmpty()) {
-
-          deviceIdsToDisplace = new HashSet<>();
-          final Map<Long, Boolean> currentDevicesEnabled = buildDevicesEnabledMap(account);
-
-          initialDevicesEnabled.forEach((deviceId, enabled) -> {
-            // `null` indicates the device was removed from the account. Any active presence should be removed.
-            final boolean enabledMatches = Objects.equals(enabled,
-                currentDevicesEnabled.getOrDefault(deviceId, null));
-
-            if (!enabledMatches) {
-              deviceIdsToDisplace.add(deviceId);
-            }
-          });
+        if (!initialDevicesEnabled.equals(currentDevicesEnabled)) {
+          deviceIdsToDisplace = new HashSet<>(initialDevicesEnabled.keySet());
+          deviceIdsToDisplace.addAll(currentDevicesEnabled.keySet());
         } else {
           deviceIdsToDisplace = Collections.emptySet();
         }
 
-        return deviceIdsToDisplace.stream().map(deviceId -> new Pair<>(account.getUuid(), deviceId))
+        return deviceIdsToDisplace.stream()
+            .map(deviceId -> new Pair<>(account.getUuid(), deviceId))
             .collect(Collectors.toList());
       }).orElseGet(() -> {
         logger.error("Request had account, but it is no longer present");
