@@ -44,9 +44,7 @@ public class AuthEnablementRefreshRequirementProvider implements WebsocketRefres
 
   @VisibleForTesting
   Map<Long, Boolean> buildDevicesEnabledMap(final Account account) {
-    return account.getDevices().stream()
-        .collect(() -> new HashMap<>(account.getDevices().size()),
-            (map, device) -> map.put(device.getId(), device.isEnabled()), HashMap::putAll);
+    return account.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::isEnabled));
   }
 
   @Override
