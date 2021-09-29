@@ -295,7 +295,7 @@
         <artifactId>protobuf-maven-plugin</artifactId>
         <version>0.6.1</version>
         <configuration>
-          <protocArtifact>com.google.protobuf:protoc:3.17.2:exe:${os.detected.classifier}</protocArtifact>
+          <protocArtifact>com.google.protobuf:protoc:3.18.0:exe:${os.detected.classifier}</protocArtifact>
         </configuration>
         <executions>
           <execution>
