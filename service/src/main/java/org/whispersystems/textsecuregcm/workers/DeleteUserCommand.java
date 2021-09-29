@@ -20,6 +20,7 @@ import io.lettuce.core.resource.ClientResources;
 import io.micrometer.core.instrument.Metrics;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.jdbi.v3.core.Jdbi;
@@ -28,6 +29,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
+import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -168,10 +170,14 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
           configuration.getMessageCacheConfiguration().getRedisClusterConfiguration(), redisClusterClientResources);
       FaultTolerantRedisCluster metricsCluster = new FaultTolerantRedisCluster("metrics_cluster",
           configuration.getMetricsClusterConfiguration(), redisClusterClientResources);
+      FaultTolerantRedisCluster clientPresenceCluster    = new FaultTolerantRedisCluster("client_presence_cluster",
+          configuration.getClientPresenceClusterConfiguration(), redisClusterClientResources);
       SecureBackupClient secureBackupClient = new SecureBackupClient(backupCredentialsGenerator, backupServiceExecutor,
           configuration.getSecureBackupServiceConfiguration());
       SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
           storageServiceExecutor, configuration.getSecureStorageServiceConfiguration());
+      ClientPresenceManager clientPresenceManager = new ClientPresenceManager(clientPresenceCluster,
+          Executors.newSingleThreadScheduledExecutor(), keyspaceNotificationDispatchExecutor);
       MessagesCache messagesCache = new MessagesCache(messageInsertCacheCluster, messageReadDeleteCluster,
           keyspaceNotificationDispatchExecutor);
       PushLatencyManager pushLatencyManager = new PushLatencyManager(metricsCluster);
@@ -191,7 +197,7 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
       StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
       AccountsManager accountsManager = new AccountsManager(accounts, cacheCluster,
           deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager,
-          pendingAccountsManager, secureStorageClient, secureBackupClient);
+          pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager);
 
       for (String user : users) {
         Optional<Account> account = accountsManager.get(user);

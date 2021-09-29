@@ -36,6 +36,7 @@ import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
@@ -122,7 +123,8 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(ProfilesManager.class),
           mock(StoredVerificationCodeManager.class),
           mock(SecureStorageClient.class),
-          mock(SecureBackupClient.class)
+          mock(SecureBackupClient.class),
+          mock(ClientPresenceManager.class)
       );
     }
   }

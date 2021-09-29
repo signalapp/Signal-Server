@@ -29,7 +29,9 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
+import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
@@ -73,6 +75,7 @@ public class AccountsManager {
   private final StoredVerificationCodeManager pendingAccounts;
   private final SecureStorageClient       secureStorageClient;
   private final SecureBackupClient        secureBackupClient;
+  private final ClientPresenceManager clientPresenceManager;
   private final ObjectMapper              mapper;
 
   public enum DeletionReason {
@@ -95,7 +98,8 @@ public class AccountsManager {
       final ProfilesManager profilesManager,
       final StoredVerificationCodeManager pendingAccounts,
       final SecureStorageClient secureStorageClient,
-      final SecureBackupClient secureBackupClient) {
+      final SecureBackupClient secureBackupClient,
+      final ClientPresenceManager clientPresenceManager) {
     this.accounts = accounts;
     this.cacheCluster = cacheCluster;
     this.deletedAccountsManager = deletedAccountsManager;
@@ -107,8 +111,8 @@ public class AccountsManager {
     this.pendingAccounts = pendingAccounts;
     this.secureStorageClient = secureStorageClient;
     this.secureBackupClient  = secureBackupClient;
+    this.clientPresenceManager = clientPresenceManager;
     this.mapper              = SystemMapper.getMapper();
-
   }
 
   public Account create(final String number,
@@ -353,6 +357,10 @@ public class AccountsManager {
 
         redisDelete(account);
         dynamoDelete(account);
+
+        RedisOperation.unchecked(() ->
+            account.getDevices().forEach(device ->
+                clientPresenceManager.displacePresence(account.getUuid(), device.getId())));
 
         return account.getUuid();
       });

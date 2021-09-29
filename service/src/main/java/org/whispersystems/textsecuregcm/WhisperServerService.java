@@ -426,7 +426,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         deletedAccountsLockDynamoDbClient, config.getDeletedAccountsLockDynamoDbConfiguration().getTableName());
     AccountsManager accountsManager = new AccountsManager(accounts, cacheCluster,
         deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager,
-        pendingAccountsManager, secureStorageClient, secureBackupClient);
+        pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
     DeadLetterHandler          deadLetterHandler          = new DeadLetterHandler(accountsManager, messagesManager);
     DispatchManager            dispatchManager            = new DispatchManager(pubSubClientFactory, Optional.of(deadLetterHandler));

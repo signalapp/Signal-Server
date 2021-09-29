@@ -39,6 +39,7 @@ import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
@@ -111,7 +112,8 @@ class AccountsManagerTest {
         profilesManager,
         mock(StoredVerificationCodeManager.class),
         mock(SecureStorageClient.class),
-        mock(SecureBackupClient.class)
+        mock(SecureBackupClient.class),
+        mock(ClientPresenceManager.class)
     );
   }
 
