@@ -60,7 +60,7 @@ import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
-public class DonationControllerTest {
+class DonationControllerTest {
 
   private static final Executor httpClientExecutor = Executors.newSingleThreadExecutor();
   private static final long nowEpochSeconds = 1_500_000_000L;
