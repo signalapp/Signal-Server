@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.ListResourceBundle;
 import java.util.Locale;
+import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.ResourceBundle.Control;
 import java.util.stream.Stream;
@@ -80,7 +81,7 @@ public class ConfiguredProfileBadgeConverterTest {
         return objects;
       }
     };
-    return new BadgesConfiguration(badges, List.of());
+    return new BadgesConfiguration(badges, List.of(), Map.of());
   }
 
   private BadgeConfiguration getBadge(BadgesConfiguration badgesConfiguration, int i) {

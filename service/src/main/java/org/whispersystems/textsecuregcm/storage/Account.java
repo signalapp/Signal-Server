@@ -353,6 +353,30 @@ public class Account {
     purgeStaleBadges(clock);
   }
 
+  public void makeBadgePrimaryIfExists(Clock clock, String badgeId) {
+    requireNotStale();
+
+    // early exit if it's already the first item in the list
+    if (!badges.isEmpty() && Objects.equals(badges.get(0).getId(), badgeId)) {
+      purgeStaleBadges(clock);
+      return;
+    }
+
+    int indexOfBadge = -1;
+    for (int i = 1; i < badges.size(); i++) {
+      if (Objects.equals(badgeId, badges.get(i).getId())) {
+        indexOfBadge = i;
+        break;
+      }
+    }
+
+    if (indexOfBadge != -1) {
+      badges.add(0, badges.remove(indexOfBadge));
+    }
+
+    purgeStaleBadges(clock);
+  }
+
   public void removeBadge(Clock clock, String id) {
     requireNotStale();
 

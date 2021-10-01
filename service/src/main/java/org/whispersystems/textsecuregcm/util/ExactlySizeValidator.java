@@ -1,34 +1,29 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 package org.whispersystems.textsecuregcm.util;
 
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.validation.ConstraintValidator;
 import javax.validation.ConstraintValidatorContext;
 
+public abstract class ExactlySizeValidator<T> implements ConstraintValidator<ExactlySize, T> {
 
-public class ExactlySizeValidator implements ConstraintValidator<ExactlySize, String> {
-
-  private int[] permittedSizes;
+  private Set<Integer> permittedSizes;
 
   @Override
-  public void initialize(ExactlySize exactlySize) {
-    this.permittedSizes = exactlySize.value();
+  public void initialize(ExactlySize annotation) {
+    permittedSizes = Arrays.stream(annotation.value()).boxed().collect(Collectors.toSet());
   }
 
   @Override
-  public boolean isValid(String object, ConstraintValidatorContext constraintContext) {
-    int objectLength;
-
-    if (object == null) objectLength = 0;
-    else                objectLength = object.length();
-
-    for (int permittedSize : permittedSizes) {
-      if (permittedSize == objectLength) return true;
-    }
-
-    return false;
+  public boolean isValid(T value, ConstraintValidatorContext context) {
+    return permittedSizes.contains(size(value));
   }
+
+  protected abstract int size(T value);
 }

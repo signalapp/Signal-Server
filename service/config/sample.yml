@@ -98,6 +98,11 @@ deletedAccountsLockDynamoDb: # DynamoDb table configuration
   region:
   tableName:
 
+redeemedReceiptsDynamoDb: # DynamoDB table configuration
+  region:
+  tableName:
+  expirationTime: # ISO8601 Duration
+
 migrationDeletedAccountsDynamoDb: # DynamoDB table configuration
   region:
   tableName:
@@ -266,3 +271,5 @@ badges:
       category: other
   badgeIdsEnabledForAll:
     - TEST
+  receiptLevels:
+    '1': TEST

@@ -38,6 +38,7 @@ import org.whispersystems.textsecuregcm.configuration.PushConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RecaptchaConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RecaptchaV2Configuration;
+import org.whispersystems.textsecuregcm.configuration.RedeemedReceiptsDynamoDbConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisClusterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RemoteConfigConfiguration;
@@ -153,6 +154,11 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private DynamoDbConfiguration deletedAccountsLockDynamoDb;
+
+  @Valid
+  @NotNull
+  @JsonProperty
+  private RedeemedReceiptsDynamoDbConfiguration redeemedReceiptsDynamoDb;
 
   @Valid
   @NotNull
@@ -390,6 +396,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public DynamoDbConfiguration getDeletedAccountsLockDynamoDbConfiguration() {
     return deletedAccountsLockDynamoDb;
+  }
+
+  public RedeemedReceiptsDynamoDbConfiguration getRedeemedReceiptsDynamoDbConfiguration() {
+    return redeemedReceiptsDynamoDb;
   }
 
   public DatabaseConfiguration getAbuseDatabaseConfiguration() {

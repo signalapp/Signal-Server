@@ -26,6 +26,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import javax.ws.rs.client.Entity;
@@ -115,7 +116,7 @@ class ProfileControllerTest {
               new BadgeConfiguration("TEST1", "testing", "l", "m", "h", "x", "xx", "xxx", "s", "S"),
               new BadgeConfiguration("TEST2", "testing", "l", "m", "h", "x", "xx", "xxx", "s", "S"),
               new BadgeConfiguration("TEST3", "testing", "l", "m", "h", "x", "xx", "xxx", "s", "S")
-          ), List.of("TEST1")),
+          ), List.of("TEST1"), Map.of(1L, "TEST1", 2L, "TEST2", 3L, "TEST3")),
           s3client,
           postPolicyGenerator,
           policySigner,
