@@ -20,7 +20,6 @@ import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.ResourceExtension;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
@@ -69,14 +68,8 @@ class DonationControllerTest {
   static WireMockExtension wm = WireMockExtension.newInstance()
       .options(wireMockConfig().dynamicPort().dynamicHttpsPort())
       .build();
-  static SecureRandom secureRandom;
-  static {
-    try {
-      secureRandom = SecureRandom.getInstanceStrong();
-    } catch (NoSuchAlgorithmException e) {
-      throw new AssertionError(e);
-    }
-  }
+
+  private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
   static DonationConfiguration getDonationConfiguration() {
     DonationConfiguration configuration = new DonationConfiguration();
@@ -119,10 +112,10 @@ class DonationControllerTest {
     accountsManager = mock(AccountsManager.class);
     AccountsHelper.setupMockUpdate(accountsManager);
     receiptSerialBytes = new byte[ReceiptSerial.SIZE];
-    secureRandom.nextBytes(receiptSerialBytes);
+    SECURE_RANDOM.nextBytes(receiptSerialBytes);
     receiptSerial = new ReceiptSerial(receiptSerialBytes);
     presentation = new byte[ReceiptCredentialPresentation.SIZE];
-    secureRandom.nextBytes(presentation);
+    SECURE_RANDOM.nextBytes(presentation);
     receiptCredentialPresentationFactory = mock(DonationController.ReceiptCredentialPresentationFactory.class);
     receiptCredentialPresentation = mock(ReceiptCredentialPresentation.class);
 

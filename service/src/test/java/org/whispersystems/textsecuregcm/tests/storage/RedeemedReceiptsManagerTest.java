@@ -9,7 +9,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
@@ -31,14 +30,7 @@ class RedeemedReceiptsManagerTest {
 
   private static final long NOW_EPOCH_SECONDS = 1_500_000_000L;
   private static final String REDEEMED_RECEIPTS_TABLE_NAME = "redeemed_receipts";
-  private static final SecureRandom SECURE_RANDOM;
-  static {
-    try {
-      SECURE_RANDOM = SecureRandom.getInstanceStrong();
-    } catch (NoSuchAlgorithmException e) {
-      throw new AssertionError(e);
-    }
-  }
+  private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
   @RegisterExtension
   static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
