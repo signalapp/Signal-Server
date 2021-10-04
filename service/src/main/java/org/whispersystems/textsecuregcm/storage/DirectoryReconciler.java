@@ -26,10 +26,13 @@ public class DirectoryReconciler extends AccountDatabaseCrawlerListener {
 
   private final String replicationName;
   private final DirectoryReconciliationClient reconciliationClient;
+  private final DynamicConfigurationManager dynamicConfigurationManager;
 
-  public DirectoryReconciler(String replicationName, DirectoryReconciliationClient reconciliationClient) {
+  public DirectoryReconciler(String replicationName, DirectoryReconciliationClient reconciliationClient,
+      DynamicConfigurationManager dynamicConfigurationManager) {
     this.reconciliationClient = reconciliationClient;
     this.replicationName = replicationName;
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
   @Override
@@ -38,12 +41,20 @@ public class DirectoryReconciler extends AccountDatabaseCrawlerListener {
 
   @Override
   public void onCrawlEnd(Optional<UUID> fromUuid) {
+    if (!dynamicConfigurationManager.getConfiguration().getDirectoryReconcilerConfiguration().isEnabled()) {
+      return;
+    }
+
     reconciliationClient.complete();
   }
 
   @Override
   protected void onCrawlChunk(final Optional<UUID> fromUuid, final List<Account> accounts)
       throws AccountDatabaseCrawlerRestartException {
+
+    if (!dynamicConfigurationManager.getConfiguration().getDirectoryReconcilerConfiguration().isEnabled()) {
+      return;
+    }
 
     final DirectoryReconciliationRequest addUsersRequest;
     final DirectoryReconciliationRequest deleteUsersRequest;

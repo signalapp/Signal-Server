@@ -487,7 +487,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       final DirectoryReconciliationClient directoryReconciliationClient = new DirectoryReconciliationClient(
           directoryServerConfiguration);
       final DirectoryReconciler directoryReconciler = new DirectoryReconciler(
-          directoryServerConfiguration.getReplicationName(), directoryReconciliationClient);
+          directoryServerConfiguration.getReplicationName(), directoryReconciliationClient,
+          dynamicConfigurationManager);
       // reconcilers are read-only
       accountDatabaseCrawlerListeners.add(directoryReconciler);
 

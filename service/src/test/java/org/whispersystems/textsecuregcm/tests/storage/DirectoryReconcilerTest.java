@@ -20,6 +20,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationRequest;
 import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationRequest.User;
 import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationResponse;
@@ -27,6 +28,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
 import org.whispersystems.textsecuregcm.storage.DirectoryReconciler;
 import org.whispersystems.textsecuregcm.storage.DirectoryReconciliationClient;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
 class DirectoryReconcilerTest {
 
@@ -38,12 +40,17 @@ class DirectoryReconcilerTest {
   private final Account visibleAccount = mock(Account.class);
   private final Account undiscoverableAccount = mock(Account.class);
   private final DirectoryReconciliationClient reconciliationClient = mock(DirectoryReconciliationClient.class);
-  private final DirectoryReconciler directoryReconciler = new DirectoryReconciler("test", reconciliationClient);
+  private final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
+  private final DirectoryReconciler directoryReconciler = new DirectoryReconciler("test", reconciliationClient,
+      dynamicConfigurationManager);
 
-  private final DirectoryReconciliationResponse successResponse = new DirectoryReconciliationResponse(DirectoryReconciliationResponse.Status.OK);
+  private final DirectoryReconciliationResponse successResponse = new DirectoryReconciliationResponse(
+      DirectoryReconciliationResponse.Status.OK);
 
   @BeforeEach
   void setup() {
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
+
     when(visibleAccount.getUuid()).thenReturn(VALID_UUID);
     when(visibleAccount.getNumber()).thenReturn(VALID_NUMBER);
     when(visibleAccount.shouldBeVisibleInDirectory()).thenReturn(true);

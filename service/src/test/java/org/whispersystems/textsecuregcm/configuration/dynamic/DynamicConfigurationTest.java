@@ -374,4 +374,27 @@ class DynamicConfigurationTest {
       assertThat(rateLimitChallengeConfiguration.isUnsealedSenderLimitEnforced()).isFalse();
     }
   }
+
+  @Test
+  void testParseDirectoryReconciler() throws JsonProcessingException {
+    {
+      final String emptyConfigYaml = "test: true";
+      final DynamicConfiguration emptyConfig =
+          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml).orElseThrow();
+
+      assertThat(emptyConfig.getDirectoryReconcilerConfiguration().isEnabled()).isTrue();
+    }
+
+    {
+      final String directoryReconcilerConfig =
+          "directoryReconciler:\n"
+              + "  enabled: false";
+
+      DynamicDirectoryReconcilerConfiguration directoryReconcilerConfiguration =
+          DynamicConfigurationManager.parseConfiguration(directoryReconcilerConfig).orElseThrow()
+              .getDirectoryReconcilerConfiguration();
+
+      assertThat(directoryReconcilerConfiguration.isEnabled()).isFalse();
+    }
+  }
 }
