@@ -172,6 +172,7 @@ import org.whispersystems.textsecuregcm.storage.MessagePersister;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import org.whispersystems.textsecuregcm.storage.NonNormalizedAccountCrawlerListener;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
@@ -496,6 +497,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
           directoryServerConfiguration.getReplicationName(), directoryReconciliationClient);
       deletedAccountsDirectoryReconcilers.add(deletedAccountsDirectoryReconciler);
     }
+    accountDatabaseCrawlerListeners.add(new NonNormalizedAccountCrawlerListener(metricsCluster));
     accountDatabaseCrawlerListeners.add(new ContactDiscoveryWriter(accountsManager));
     // PushFeedbackProcessor may update device properties
     accountDatabaseCrawlerListeners.add(new PushFeedbackProcessor(accountsManager));
