@@ -87,6 +87,7 @@ import org.whispersystems.textsecuregcm.controllers.CertificateController;
 import org.whispersystems.textsecuregcm.controllers.ChallengeController;
 import org.whispersystems.textsecuregcm.controllers.DeviceController;
 import org.whispersystems.textsecuregcm.controllers.DirectoryController;
+import org.whispersystems.textsecuregcm.controllers.DirectoryV2Controller;
 import org.whispersystems.textsecuregcm.controllers.DonationController;
 import org.whispersystems.textsecuregcm.controllers.KeepAliveController;
 import org.whispersystems.textsecuregcm.controllers.KeysController;
@@ -426,6 +427,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ExternalServiceCredentialGenerator directoryCredentialsGenerator = new ExternalServiceCredentialGenerator(config.getDirectoryConfiguration().getDirectoryClientConfiguration().getUserAuthenticationTokenSharedSecret(),
             config.getDirectoryConfiguration().getDirectoryClientConfiguration().getUserAuthenticationTokenUserIdSecret(),
             true);
+    ExternalServiceCredentialGenerator directoryV2CredentialsGenerator = new ExternalServiceCredentialGenerator(
+        config.getDirectoryV2Configuration().getDirectoryV2ClientConfiguration()
+            .getUserAuthenticationTokenSharedSecret(),
+        new byte[0], // no username derivation means no userIdKey needed
+        false, false);
 
     DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
         new DynamicConfigurationManager<>(config.getAppConfig().getApplication(),
@@ -632,6 +638,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new ChallengeController(rateLimitChallengeManager),
         new DeviceController(pendingDevicesManager, accountsManager, messagesManager, keysDynamoDb, rateLimiters, config.getMaxDevices()),
         new DirectoryController(directoryCredentialsGenerator),
+        new DirectoryV2Controller(directoryV2CredentialsGenerator),
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
             ReceiptCredentialPresentation::new, stripeExecutor, config.getDonationConfiguration(), config.getStripe()),
         new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, messagesManager, unsealedSenderRateLimiter, apnFallbackManager,

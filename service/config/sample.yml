@@ -83,6 +83,10 @@ directory:
       replicationPassword:           # CDS replication endpoint password
       replicationCaCertificate:      # CDS replication endpoint TLS certificate trust root
 
+directoryV2:
+  client: # Configuration for interfacing with Contact Discovery Service v2 cluster
+    userAuthenticationTokenSharedSecret: # hex-encoded secret shared with CDS to generate auth tokens for Signal users
+
 messageCache: # Redis server configuration for message store cache
   persistDelayMinutes:
 

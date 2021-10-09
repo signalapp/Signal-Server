@@ -10,6 +10,7 @@ import com.google.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberFormat;
 import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -107,23 +108,12 @@ public class Util {
     return param == null || param.length() == 0;
   }
 
-  public static byte[] combine(byte[] one, byte[] two, byte[] three, byte[] four) {
-    byte[] combined = new byte[one.length + two.length + three.length + four.length];
-    System.arraycopy(one, 0, combined, 0, one.length);
-    System.arraycopy(two, 0, combined, one.length, two.length);
-    System.arraycopy(three, 0, combined, one.length + two.length, three.length);
-    System.arraycopy(four, 0, combined, one.length + two.length + three.length, four.length);
-
-    return combined;
-  }
-
   public static byte[] truncate(byte[] element, int length) {
     byte[] result = new byte[length];
     System.arraycopy(element, 0, result, 0, result.length);
 
     return result;
   }
-
 
   public static byte[][] split(byte[] input, int firstLength, int secondLength) {
     byte[][] parts = new byte[2][];
@@ -161,11 +151,19 @@ public class Util {
     return data;
   }
 
+  public static byte[] longToByteArray(long value) {
+    final ByteBuffer longBuffer = ByteBuffer.allocate(Long.BYTES);
+
+    longBuffer.putLong(value);
+
+    return longBuffer.array();
+  }
+
   public static int toIntExact(long value) {
-    if ((int)value != value) {
+    if ((int) value != value) {
       throw new ArithmeticException("integer overflow");
     }
-    return (int)value;
+    return (int) value;
   }
 
   public static int currentDaysSinceEpoch() {

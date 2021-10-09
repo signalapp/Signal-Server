@@ -27,6 +27,7 @@ import org.whispersystems.textsecuregcm.configuration.DatabaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DatadogConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DeletedAccountsDynamoDbConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
+import org.whispersystems.textsecuregcm.configuration.DirectoryV2Configuration;
 import org.whispersystems.textsecuregcm.configuration.DonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbClientConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbConfiguration;
@@ -124,6 +125,11 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private DirectoryConfiguration directory;
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private DirectoryV2Configuration directoryV2;
 
   @NotNull
   @Valid
@@ -388,6 +394,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public DirectoryConfiguration getDirectoryConfiguration() {
     return directory;
+  }
+
+  public DirectoryV2Configuration getDirectoryV2Configuration() {
+    return directoryV2;
   }
 
   public SecureStorageServiceConfiguration getSecureStorageServiceConfiguration() {
