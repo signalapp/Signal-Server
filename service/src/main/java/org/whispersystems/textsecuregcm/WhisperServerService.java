@@ -662,6 +662,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.jersey().register(rateLimitChallengeExceptionMapper);
     provisioningEnvironment.jersey().register(rateLimitChallengeExceptionMapper);
 
+    environment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
+    webSocketEnvironment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
+    provisioningEnvironment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
+
     WebSocketResourceProviderFactory<AuthenticatedAccount> webSocketServlet = new WebSocketResourceProviderFactory<>(
         webSocketEnvironment, AuthenticatedAccount.class, config.getWebSocketConfiguration());
     WebSocketResourceProviderFactory<AuthenticatedAccount> provisioningServlet = new WebSocketResourceProviderFactory<>(
@@ -675,10 +679,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     provisioning.addMapping("/v1/websocket/provisioning/");
     provisioning.setAsyncSupported(true);
-
-    environment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
-    webSocketEnvironment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
-    provisioningEnvironment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
 
     environment.admin().addTask(new SetRequestLoggingEnabledTask());
     environment.admin().addTask(new SetCrawlerAccelerationTask(accountDatabaseCrawlerCache));
