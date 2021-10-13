@@ -130,7 +130,6 @@ class MessageControllerTest {
   private static final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
   private static final RateLimitChallengeManager rateLimitChallengeManager = mock(RateLimitChallengeManager.class);
   private static final ReportMessageManager reportMessageManager = mock(ReportMessageManager.class);
-  private static final FaultTolerantRedisCluster metricsCluster = RedisClusterHelper.buildMockRedisCluster(redisCommands);
   private static final ExecutorService multiRecipientMessageExecutor = mock(ExecutorService.class);
 
   private final ObjectMapper mapper = new ObjectMapper();
@@ -144,7 +143,7 @@ class MessageControllerTest {
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new MessageController(rateLimiters, messageSender, receiptSender, accountsManager,
           messagesManager, unsealedSenderRateLimiter, apnFallbackManager, dynamicConfigurationManager,
-          rateLimitChallengeManager, reportMessageManager, metricsCluster, multiRecipientMessageExecutor))
+          rateLimitChallengeManager, reportMessageManager, multiRecipientMessageExecutor))
       .build();
 
   @BeforeEach
@@ -198,8 +197,7 @@ class MessageControllerTest {
         apnFallbackManager,
         dynamicConfigurationManager,
         rateLimitChallengeManager,
-        reportMessageManager,
-        metricsCluster
+        reportMessageManager
     );
   }
 

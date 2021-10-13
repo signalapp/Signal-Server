@@ -16,12 +16,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import io.dropwizard.auth.Auth;
 import io.dropwizard.util.DataSize;
-import io.lettuce.core.ScriptOutputType;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
-import java.io.IOException;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -90,8 +88,6 @@ import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
-import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -132,13 +128,9 @@ public class MessageController {
   private final ReportMessageManager        reportMessageManager;
   private final ExecutorService             multiRecipientMessageExecutor;
 
-  private final ClusterLuaScript recordInternationalUnsealedSenderMetricsScript;
-
   private static final String LEGACY_MESSAGE_SENT_COUNTER = name(MessageController.class, "legacyMessageSent");
   private static final String SENT_MESSAGE_COUNTER_NAME                          = name(MessageController.class, "sentMessages");
   private static final String REJECT_UNSEALED_SENDER_COUNTER_NAME                = name(MessageController.class, "rejectUnsealedSenderLimit");
-  private static final String INTERNATIONAL_UNSEALED_SENDER_COUNTER_NAME         = name(MessageController.class, "internationalUnsealedSender");
-  private static final String UNSEALED_SENDER_WITHOUT_PUSH_TOKEN_COUNTER_NAME    = name(MessageController.class, "unsealedSenderWithoutPushToken");
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME                     = name(MessageController.class, "messageContentSize");
   private static final String OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME = name(MessageController.class, "outgoingMessageListSizeBytes");
 
@@ -159,7 +151,6 @@ public class MessageController {
       DynamicConfigurationManager dynamicConfigurationManager,
       RateLimitChallengeManager rateLimitChallengeManager,
       ReportMessageManager reportMessageManager,
-      FaultTolerantRedisCluster metricsCluster,
       @Nonnull ExecutorService multiRecipientMessageExecutor) {
     this.rateLimiters = rateLimiters;
     this.messageSender = messageSender;
@@ -172,13 +163,6 @@ public class MessageController {
     this.rateLimitChallengeManager = rateLimitChallengeManager;
     this.reportMessageManager = reportMessageManager;
     this.multiRecipientMessageExecutor = Objects.requireNonNull(multiRecipientMessageExecutor);
-
-    try {
-      recordInternationalUnsealedSenderMetricsScript = ClusterLuaScript.fromResource(metricsCluster, "lua/record_international_unsealed_sender_metrics.lua", ScriptOutputType.MULTI);
-    } catch (IOException e) {
-      // This should never happen for a script included in our own resource bundle
-      throw new AssertionError("Failed to load script", e);
-    }
   }
 
   @Timed
@@ -196,19 +180,6 @@ public class MessageController {
 
     if (source.isEmpty() && accessKey.isEmpty()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
-    }
-
-    if (source.isPresent() && !source.get().getAccount().getUuid().equals(destinationUuid)) {
-      assert source.get().getAccount().getMasterDevice().isPresent();
-
-      final Device masterDevice = source.get().getAccount().getMasterDevice().get();
-      final String senderCountryCode = Util.getCountryCode(source.get().getAccount().getNumber());
-
-      if (StringUtils.isAllBlank(masterDevice.getApnId(), masterDevice.getVoipApnId(), masterDevice.getGcmId())
-          || masterDevice.getUninstalledFeedbackTimestamp() > 0) {
-        Metrics.counter(UNSEALED_SENDER_WITHOUT_PUSH_TOKEN_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, senderCountryCode)
-            .increment();
-      }
     }
 
     final String senderType;
@@ -283,8 +254,6 @@ public class MessageController {
         final Device masterDevice = source.get().getAccount().getMasterDevice().get();
 
         if (!senderCountryCode.equals(destinationCountryCode)) {
-          recordInternationalUnsealedSenderMetrics(forwardedFor, senderCountryCode, destination.get().getNumber());
-
           if (StringUtils.isAllBlank(masterDevice.getApnId(), masterDevice.getVoipApnId(), masterDevice.getGcmId()) || masterDevice.getUninstalledFeedbackTimestamp() > 0) {
             if (dynamicConfigurationManager.getConfiguration().getMessageRateConfiguration().getRateLimitedCountryCodes().contains(senderCountryCode)) {
 
@@ -705,29 +674,5 @@ public class MessageController {
       logger.debug("Bad B64", e);
       return Optional.empty();
     }
-  }
-
-  @VisibleForTesting
-  void recordInternationalUnsealedSenderMetrics(final String forwardedFor, final String senderCountryCode, final String destinationNumber) {
-    ForwardedIpUtil.getMostRecentProxy(forwardedFor).ifPresent(senderIp -> {
-      final String destinationSetKey = getDestinationSetKey(senderIp);
-      final String messageCountKey = getMessageCountKey(senderIp);
-
-      recordInternationalUnsealedSenderMetricsScript.execute(
-          List.of(destinationSetKey, messageCountKey),
-          List.of(destinationNumber));
-    });
-
-    Metrics.counter(INTERNATIONAL_UNSEALED_SENDER_COUNTER_NAME, SENDER_COUNTRY_TAG_NAME, senderCountryCode).increment();
-  }
-
-  @VisibleForTesting
-  static String getDestinationSetKey(final String senderIp) {
-    return "international_unsealed_sender_destinations::{" + senderIp + "}";
-  }
-
-  @VisibleForTesting
-  static String getMessageCountKey(final String senderIp) {
-    return "international_unsealed_sender_message_count::{" + senderIp + "}";
   }
 }
