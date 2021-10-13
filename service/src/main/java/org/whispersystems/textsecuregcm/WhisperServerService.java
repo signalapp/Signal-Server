@@ -53,6 +53,7 @@ import javax.servlet.DispatcherType;
 import javax.servlet.FilterRegistration;
 import javax.servlet.ServletRegistration;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
+import org.glassfish.jersey.server.ServerProperties;
 import org.jdbi.v3.core.Jdbi;
 import org.signal.zkgroup.ServerSecretParams;
 import org.signal.zkgroup.auth.ServerZkAuthOperations;
@@ -675,10 +676,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     provisioning.addMapping("/v1/websocket/provisioning/");
     provisioning.setAsyncSupported(true);
 
+    environment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
+    webSocketEnvironment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
+    provisioningEnvironment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
+
     environment.admin().addTask(new SetRequestLoggingEnabledTask());
     environment.admin().addTask(new SetCrawlerAccelerationTask(accountDatabaseCrawlerCache));
-
-///
 
     environment.healthChecks().register("cacheCluster", new RedisClusterHealthCheck(cacheCluster));
 
