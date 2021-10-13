@@ -77,19 +77,19 @@ class SubscriptionControllerTest {
       assertThat(longLevelMap).extractingByKey(1L).satisfies(level -> {
         assertThat(level.getBadgeId()).isEqualTo("B1");
         assertThat(level.getCurrencies()).containsKeys("USD").extractingByKey("USD").satisfies(price -> {
-          assertThat(price.getAmount()).isEqualTo("100");
+          assertThat(price).isEqualTo("100");
         });
       });
       assertThat(longLevelMap).extractingByKey(2L).satisfies(level -> {
         assertThat(level.getBadgeId()).isEqualTo("B2");
         assertThat(level.getCurrencies()).containsKeys("USD").extractingByKey("USD").satisfies(price -> {
-          assertThat(price.getAmount()).isEqualTo("200");
+          assertThat(price).isEqualTo("200");
         });
       });
       assertThat(longLevelMap).extractingByKey(3L).satisfies(level -> {
         assertThat(level.getBadgeId()).isEqualTo("B3");
         assertThat(level.getCurrencies()).containsKeys("USD").extractingByKey("USD").satisfies(price -> {
-          assertThat(price.getAmount()).isEqualTo("300");
+          assertThat(price).isEqualTo("300");
         });
       });
     });

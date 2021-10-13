@@ -299,7 +299,8 @@ public class SubscriptionController {
                   return stripeManager.updateSubscription(
                           subscription, priceConfiguration.getId(), level, idempotencyKey)
                       .thenCompose(updatedSubscription ->
-                          subscriptionManager.subscriptionLevelChanged(requestData.subscriberUser, requestData.now, level)
+                          subscriptionManager.subscriptionLevelChanged(requestData.subscriberUser, requestData.now,
+                                  level)
                               .thenApply(unused -> updatedSubscription));
                 }));
           }
@@ -311,28 +312,13 @@ public class SubscriptionController {
 
     public static class Level {
 
-      public static class Price {
-
-        private final BigDecimal amount;
-
-        @JsonCreator
-        public Price(
-            @JsonProperty("amount") BigDecimal amount) {
-          this.amount = amount;
-        }
-
-        public BigDecimal getAmount() {
-          return amount;
-        }
-      }
-
       private final String badgeId;
-      private final Map<String, Price> currencies;
+      private final Map<String, BigDecimal> currencies;
 
       @JsonCreator
       public Level(
           @JsonProperty("badgeId") String badgeId,
-          @JsonProperty("currencies") Map<String, Price> currencies) {
+          @JsonProperty("currencies") Map<String, BigDecimal> currencies) {
         this.badgeId = badgeId;
         this.currencies = currencies;
       }
@@ -341,7 +327,7 @@ public class SubscriptionController {
         return badgeId;
       }
 
-      public Map<String, Price> getCurrencies() {
+      public Map<String, BigDecimal> getCurrencies() {
         return currencies;
       }
     }
@@ -371,7 +357,7 @@ public class SubscriptionController {
               entry -> new GetLevelsResponse.Level(entry.getValue().getBadge(),
                   entry.getValue().getPrices().entrySet().stream().collect(
                       Collectors.toMap(levelEntry -> levelEntry.getKey().toUpperCase(Locale.ROOT),
-                          levelEntry -> new GetLevelsResponse.Level.Price(levelEntry.getValue().getAmount())))))));
+                          levelEntry -> levelEntry.getValue().getAmount()))))));
       return Response.ok(getLevelsResponse).build();
     });
   }
@@ -478,6 +464,7 @@ public class SubscriptionController {
   }
 
   public static class GetReceiptCredentialsRequest {
+
     private final byte[] receiptCredentialRequest;
 
     @JsonCreator
@@ -493,6 +480,7 @@ public class SubscriptionController {
   }
 
   public static class GetReceiptCredentialsResponse {
+
     private final byte[] receiptCredentialResponse;
 
     @JsonCreator
@@ -556,6 +544,7 @@ public class SubscriptionController {
   }
 
   public static class Receipt {
+
     private final Instant expiration;
     private final long level;
     private final String invoiceLineItemId;
