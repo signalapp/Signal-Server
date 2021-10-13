@@ -52,6 +52,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DonationConfiguration;
+import org.whispersystems.textsecuregcm.configuration.StripeConfiguration;
 import org.whispersystems.textsecuregcm.entities.ApplePayAuthorizationRequest;
 import org.whispersystems.textsecuregcm.entities.ApplePayAuthorizationResponse;
 import org.whispersystems.textsecuregcm.entities.RedeemReceiptRequest;
@@ -70,7 +71,7 @@ public class DonationController {
     ReceiptCredentialPresentation build(byte[] bytes) throws InvalidInputException;
   }
 
-  private final Logger logger = LoggerFactory.getLogger(DonationController.class);
+  private static final Logger logger = LoggerFactory.getLogger(DonationController.class);
 
   private final Clock clock;
   private final ServerZkReceiptOperations serverZkReceiptOperations;
@@ -92,7 +93,8 @@ public class DonationController {
       @Nonnull final BadgesConfiguration badgesConfiguration,
       @Nonnull final ReceiptCredentialPresentationFactory receiptCredentialPresentationFactory,
       @Nonnull final Executor httpClientExecutor,
-      @Nonnull final DonationConfiguration configuration) {
+      @Nonnull final DonationConfiguration configuration,
+      @Nonnull final StripeConfiguration stripeConfiguration) {
     this.clock = Objects.requireNonNull(clock);
     this.serverZkReceiptOperations = Objects.requireNonNull(serverZkReceiptOperations);
     this.redeemedReceiptsManager = Objects.requireNonNull(redeemedReceiptsManager);
@@ -100,7 +102,7 @@ public class DonationController {
     this.badgesConfiguration = Objects.requireNonNull(badgesConfiguration);
     this.receiptCredentialPresentationFactory = Objects.requireNonNull(receiptCredentialPresentationFactory);
     this.uri = URI.create(configuration.getUri());
-    this.apiKey = configuration.getApiKey();
+    this.apiKey = stripeConfiguration.getApiKey();
     this.description = configuration.getDescription();
     this.supportedCurrencies = configuration.getSupportedCurrencies();
     this.httpClient = FaultTolerantHttpClient.newBuilder()

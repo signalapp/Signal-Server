@@ -15,7 +15,6 @@ import javax.validation.constraints.NotNull;
 public class DonationConfiguration {
 
   private String uri;
-  private String apiKey;
   private String description;
   private Set<String> supportedCurrencies;
   private CircuitBreakerConfiguration circuitBreaker = new CircuitBreakerConfiguration();
@@ -30,17 +29,6 @@ public class DonationConfiguration {
   @VisibleForTesting
   public void setUri(final String uri) {
     this.uri = uri;
-  }
-
-  @JsonProperty
-  @NotEmpty
-  public String getApiKey() {
-    return apiKey;
-  }
-
-  @VisibleForTesting
-  public void setApiKey(final String apiKey) {
-    this.apiKey = apiKey;
   }
 
   @JsonProperty

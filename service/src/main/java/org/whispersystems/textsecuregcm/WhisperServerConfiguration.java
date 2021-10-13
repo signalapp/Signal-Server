@@ -26,7 +26,9 @@ import org.whispersystems.textsecuregcm.configuration.DatadogConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DeletedAccountsDynamoDbConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DonationConfiguration;
+import org.whispersystems.textsecuregcm.configuration.DynamoDbClientConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbConfiguration;
+import org.whispersystems.textsecuregcm.configuration.DynamoDbTables;
 import org.whispersystems.textsecuregcm.configuration.GcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
@@ -38,12 +40,13 @@ import org.whispersystems.textsecuregcm.configuration.PushConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RecaptchaConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RecaptchaV2Configuration;
-import org.whispersystems.textsecuregcm.configuration.RedeemedReceiptsDynamoDbConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisClusterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RemoteConfigConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SecureBackupServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SecureStorageServiceConfiguration;
+import org.whispersystems.textsecuregcm.configuration.StripeConfiguration;
+import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TestDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TurnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
@@ -54,6 +57,21 @@ import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 
 /** @noinspection MismatchedQueryAndUpdateOfCollection, WeakerAccess */
 public class WhisperServerConfiguration extends Configuration {
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private StripeConfiguration stripe;
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private DynamoDbClientConfiguration dynamoDbClientConfiguration;
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private DynamoDbTables dynamoDbTables;
 
   @NotNull
   @Valid
@@ -154,11 +172,6 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private DynamoDbConfiguration deletedAccountsLockDynamoDb;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private RedeemedReceiptsDynamoDbConfiguration redeemedReceiptsDynamoDb;
 
   @Valid
   @NotNull
@@ -300,7 +313,24 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private BadgesConfiguration badges;
 
+  @Valid
+  @JsonProperty
+  // TODO: Mark as @NotNull when enabled for production.
+  private SubscriptionConfiguration subscription;
+
   private Map<String, String> transparentDataIndex = new HashMap<>();
+
+  public StripeConfiguration getStripe() {
+    return stripe;
+  }
+
+  public DynamoDbClientConfiguration getDynamoDbClientConfiguration() {
+    return dynamoDbClientConfiguration;
+  }
+
+  public DynamoDbTables getDynamoDbTables() {
+    return dynamoDbTables;
+  }
 
   public RecaptchaConfiguration getRecaptchaConfiguration() {
     return recaptcha;
@@ -396,10 +426,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public DynamoDbConfiguration getDeletedAccountsLockDynamoDbConfiguration() {
     return deletedAccountsLockDynamoDb;
-  }
-
-  public RedeemedReceiptsDynamoDbConfiguration getRedeemedReceiptsDynamoDbConfiguration() {
-    return redeemedReceiptsDynamoDb;
   }
 
   public DatabaseConfiguration getAbuseDatabaseConfiguration() {
@@ -514,5 +540,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public BadgesConfiguration getBadges() {
     return badges;
+  }
+
+  public SubscriptionConfiguration getSubscription() {
+    return subscription;
   }
 }

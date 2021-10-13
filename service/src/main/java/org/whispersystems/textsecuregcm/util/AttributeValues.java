@@ -33,6 +33,11 @@ public class AttributeValues {
     return AttributeValue.builder().n(String.valueOf(value)).build();
   }
 
+  public static AttributeValue s(String value) {
+    return AttributeValue.builder().s(value).build();
+  }
+
+
   // More opinionated methods
 
   public static AttributeValue fromString(String value) {

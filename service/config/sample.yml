@@ -1,3 +1,21 @@
+stripe:
+  apiKey:
+  idempotencyKeyGenerator:
+
+dynamoDbClientConfiguration:
+  region: # AWS Region
+
+dynamoDbTables:
+  issuedReceipts:
+    tableName: # DDB Table Name
+    expiration: # Duration of time until rows expire
+    generator: # random binary sequence
+  redeemedReceipts:
+    tableName: # DDB Table Name
+    expiration: # Duration of time until rows expire
+  subscriptions:
+    tableName: # DDB Table Name
+
 twilio: # Twilio gateway configuration
   accountId: 
   accountToken: 
@@ -249,7 +267,6 @@ asnTable:
 
 donation:
   uri: # value
-  apiKey: # value
   supportedCurrencies:
     - # 1st supported currency
     - # 2nd supported currency

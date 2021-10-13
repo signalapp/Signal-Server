@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import io.dropwizard.Application;
 import io.dropwizard.auth.AuthFilter;
 import io.dropwizard.auth.PolymorphicAuthDynamicFeature;
@@ -91,6 +92,7 @@ import org.whispersystems.textsecuregcm.controllers.RemoteConfigController;
 import org.whispersystems.textsecuregcm.controllers.SecureBackupController;
 import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
 import org.whispersystems.textsecuregcm.controllers.StickerController;
+import org.whispersystems.textsecuregcm.controllers.SubscriptionController;
 import org.whispersystems.textsecuregcm.controllers.VoiceVerificationController;
 import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.currency.FixerClient;
@@ -167,6 +169,7 @@ import org.whispersystems.textsecuregcm.storage.DirectoryReconciler;
 import org.whispersystems.textsecuregcm.storage.DirectoryReconciliationClient;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
+import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagePersister;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
@@ -185,9 +188,11 @@ import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.ReservedUsernames;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
+import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Usernames;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.storage.VerificationCodeStore;
+import org.whispersystems.textsecuregcm.stripe.StripeManager;
 import org.whispersystems.textsecuregcm.util.AsnManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
@@ -250,10 +255,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
   }
 
   @Override
-  public void run(WhisperServerConfiguration config, Environment environment)
-      throws Exception {
-
+  public void run(WhisperServerConfiguration config, Environment environment) throws Exception {
     final Clock clock = Clock.systemUTC();
+    final int availableProcessors = Runtime.getRuntime().availableProcessors();
 
     UncaughtExceptionHandler.register();
 
@@ -300,6 +304,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     FaultTolerantDatabase accountDatabase = new FaultTolerantDatabase("accounts_database", accountJdbi, config.getAccountsDatabaseConfiguration().getCircuitBreakerConfiguration());
     FaultTolerantDatabase abuseDatabase   = new FaultTolerantDatabase("abuse_database", abuseJdbi, config.getAbuseDatabaseConfiguration().getCircuitBreakerConfiguration());
 
+    DynamoDbAsyncClient dynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(
+        config.getDynamoDbClientConfiguration(),
+        software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+
     DynamoDbClient messageDynamoDb = DynamoDbFromConfig.client(config.getMessageDynamoDbConfiguration(),
         software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
@@ -336,10 +344,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                 (int) config.getDeletedAccountsLockDynamoDbConfiguration().getClientRequestTimeout().toMillis()))
         .withCredentials(InstanceProfileCredentialsProvider.getInstance())
         .build();
-
-    DynamoDbAsyncClient redeemedReceiptsDynamoDbClient = DynamoDbFromConfig.asyncClient(
-        config.getRedeemedReceiptsDynamoDbConfiguration(),
-        software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
     DeletedAccounts deletedAccounts = new DeletedAccounts(deletedAccountsDynamoDbClient,
         config.getDeletedAccountsDynamoDbConfiguration().getTableName(),
@@ -398,9 +402,16 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ExecutorService          gcmSenderExecutor                    = environment.lifecycle().executorService(name(getClass(), "gcmSender-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService          backupServiceExecutor                = environment.lifecycle().executorService(name(getClass(), "backupService-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService          storageServiceExecutor               = environment.lifecycle().executorService(name(getClass(), "storageService-%d")).maxThreads(1).minThreads(1).build();
-    ExecutorService          donationExecutor                     = environment.lifecycle().executorService(name(getClass(), "donation-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService multiRecipientMessageExecutor = environment.lifecycle()
         .executorService(name(getClass(), "multiRecipientMessage-%d")).minThreads(64).maxThreads(64).build();
+    ExecutorService stripeExecutor = environment.lifecycle().executorService(name(getClass(), "stripe-%d")).
+        maxThreads(availableProcessors).  // mostly this is IO bound so tying to number of processors is tenuous at best
+        minThreads(availableProcessors).  // mostly this is IO bound so tying to number of processors is tenuous at best
+        allowCoreThreadTimeOut(true).
+        build();
+
+    StripeManager stripeManager = new StripeManager(config.getStripe().getApiKey(), stripeExecutor,
+        config.getStripe().getIdempotencyKeyGenerator());
 
     ExternalServiceCredentialGenerator directoryCredentialsGenerator = new ExternalServiceCredentialGenerator(config.getDirectoryConfiguration().getDirectoryClientConfiguration().getUserAuthenticationTokenSharedSecret(),
             config.getDirectoryConfiguration().getDirectoryClientConfiguration().getUserAuthenticationTokenUserIdSecret(),
@@ -445,11 +456,18 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ProvisioningManager        provisioningManager        = new ProvisioningManager(pubSubManager);
     TorExitNodeManager         torExitNodeManager         = new TorExitNodeManager(recurringJobExecutor, config.getTorExitNodeListConfiguration());
     AsnManager                 asnManager                 = new AsnManager(recurringJobExecutor, config.getAsnTableConfiguration());
+    IssuedReceiptsManager issuedReceiptsManager = new IssuedReceiptsManager(
+        config.getDynamoDbTables().getIssuedReceipts().getTableName(),
+        config.getDynamoDbTables().getIssuedReceipts().getExpiration(),
+        dynamoDbAsyncClient,
+        config.getDynamoDbTables().getIssuedReceipts().getGenerator());
     RedeemedReceiptsManager redeemedReceiptsManager = new RedeemedReceiptsManager(
         clock,
-        config.getRedeemedReceiptsDynamoDbConfiguration().getTableName(),
-        redeemedReceiptsDynamoDbClient,
-        config.getRedeemedReceiptsDynamoDbConfiguration().getExpirationTime());
+        config.getDynamoDbTables().getRedeemedReceipts().getTableName(),
+        dynamoDbAsyncClient,
+        config.getDynamoDbTables().getRedeemedReceipts().getExpiration());
+    SubscriptionManager subscriptionManager = new SubscriptionManager(
+        config.getDynamoDbTables().getSubscriptions().getTableName(), dynamoDbAsyncClient);
 
     AccountAuthenticator                  accountAuthenticator                  = new AccountAuthenticator(accountsManager);
     DisabledPermittedAccountAuthenticator disabledPermittedAccountAuthenticator = new DisabledPermittedAccountAuthenticator(accountsManager);
@@ -595,7 +613,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             verifyExperimentEnrollmentManager));
     environment.jersey().register(new KeysController(rateLimiters, keysDynamoDb, accountsManager, preKeyRateLimiter, rateLimitChallengeManager));
 
-    final List<Object> commonControllers = List.of(
+    final List<Object> commonControllers = Lists.newArrayList(
         new AttachmentControllerV1(rateLimiters, config.getAwsAttachmentsConfiguration().getAccessKey(), config.getAwsAttachmentsConfiguration().getAccessSecret(), config.getAwsAttachmentsConfiguration().getBucket()),
         new AttachmentControllerV2(rateLimiters, config.getAwsAttachmentsConfiguration().getAccessKey(), config.getAwsAttachmentsConfiguration().getAccessSecret(), config.getAwsAttachmentsConfiguration().getRegion(), config.getAwsAttachmentsConfiguration().getBucket()),
         new AttachmentControllerV3(rateLimiters, config.getGcpAttachmentsConfiguration().getDomain(), config.getGcpAttachmentsConfiguration().getEmail(), config.getGcpAttachmentsConfiguration().getMaxSizeInBytes(), config.getGcpAttachmentsConfiguration().getPathPrefix(), config.getGcpAttachmentsConfiguration().getRsaSigningKey()),
@@ -604,7 +622,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new DeviceController(pendingDevicesManager, accountsManager, messagesManager, keysDynamoDb, rateLimiters, config.getMaxDevices()),
         new DirectoryController(directoryCredentialsGenerator),
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
-            ReceiptCredentialPresentation::new, donationExecutor, config.getDonationConfiguration()),
+            ReceiptCredentialPresentation::new, stripeExecutor, config.getDonationConfiguration(), config.getStripe()),
         new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, messagesManager, unsealedSenderRateLimiter, apnFallbackManager, dynamicConfigurationManager, rateLimitChallengeManager, reportMessageManager, metricsCluster, declinedMessageReceiptExecutor, multiRecipientMessageExecutor),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),
         new ProfileController(clock, rateLimiters, accountsManager, profilesManager, usernamesManager, dynamicConfigurationManager, profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner, config.getCdnConfiguration().getBucket(), zkProfileOperations),
@@ -616,6 +634,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getCdnConfiguration().getAccessSecret(), config.getCdnConfiguration().getRegion(),
             config.getCdnConfiguration().getBucket())
     );
+    if (config.getSubscription() != null) {
+      commonControllers.add(new SubscriptionController(clock, config.getSubscription(), subscriptionManager,
+          stripeManager, zkReceiptOperations, issuedReceiptsManager));
+    }
 
     for (Object controller : commonControllers) {
       environment.jersey().register(controller);

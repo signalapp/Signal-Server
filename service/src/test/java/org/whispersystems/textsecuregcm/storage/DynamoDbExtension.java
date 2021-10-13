@@ -30,7 +30,7 @@ import software.amazon.awssdk.services.dynamodb.model.ProvisionedThroughput;
 
 public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback {
 
-  static final  String DEFAULT_TABLE_NAME = "test_table";
+  static final String DEFAULT_TABLE_NAME = "test_table";
 
   static final ProvisionedThroughput DEFAULT_PROVISIONED_THROUGHPUT = ProvisionedThroughput.builder()
       .readCapacityUnits(20L)
@@ -164,12 +164,12 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
     private String hashKey;
     private String rangeKey;
 
-    private List<AttributeDefinition> attributeDefinitions = new ArrayList<>();
-    private List<GlobalSecondaryIndex> globalSecondaryIndexes = new ArrayList<>();
-    private List<LocalSecondaryIndex> localSecondaryIndexes = new ArrayList<>();
+    private final List<AttributeDefinition> attributeDefinitions = new ArrayList<>();
+    private final List<GlobalSecondaryIndex> globalSecondaryIndexes = new ArrayList<>();
+    private final List<LocalSecondaryIndex> localSecondaryIndexes = new ArrayList<>();
 
-    private long readCapacityUnits = DEFAULT_PROVISIONED_THROUGHPUT.readCapacityUnits();
-    private long writeCapacityUnits = DEFAULT_PROVISIONED_THROUGHPUT.writeCapacityUnits();
+    private final long readCapacityUnits = DEFAULT_PROVISIONED_THROUGHPUT.readCapacityUnits();
+    private final long writeCapacityUnits = DEFAULT_PROVISIONED_THROUGHPUT.writeCapacityUnits();
 
     private DynamoDbExtensionBuilder() {
 

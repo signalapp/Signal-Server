@@ -49,6 +49,7 @@ import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
+import org.whispersystems.textsecuregcm.configuration.StripeConfiguration;
 import org.whispersystems.textsecuregcm.controllers.DonationController;
 import org.whispersystems.textsecuregcm.entities.ApplePayAuthorizationRequest;
 import org.whispersystems.textsecuregcm.entities.ApplePayAuthorizationResponse;
@@ -73,13 +74,16 @@ class DonationControllerTest {
 
   static DonationConfiguration getDonationConfiguration() {
     DonationConfiguration configuration = new DonationConfiguration();
-    configuration.setApiKey("test-api-key");
     configuration.setDescription("some description");
     configuration.setUri("http://localhost:" + wm.getRuntimeInfo().getHttpPort() + "/foo/bar");
     configuration.setCircuitBreaker(new CircuitBreakerConfiguration());
     configuration.setRetry(new RetryConfiguration());
     configuration.setSupportedCurrencies(Set.of("usd", "gbp"));
     return configuration;
+  }
+
+  static StripeConfiguration getStripeConfiguration() {
+    return new StripeConfiguration("test-api-key", new byte[16]);
   }
 
   static BadgesConfiguration getBadgesConfiguration() {
@@ -135,7 +139,7 @@ class DonationControllerTest {
         .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
         .addResource(new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager,
             getBadgesConfiguration(), receiptCredentialPresentationFactory, httpClientExecutor,
-            getDonationConfiguration()))
+            getDonationConfiguration(), getStripeConfiguration()))
         .build();
     resources.before();
   }
