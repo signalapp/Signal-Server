@@ -44,7 +44,10 @@ import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
+import javax.ws.rs.ProcessingException;
 import javax.ws.rs.Produces;
+import javax.ws.rs.container.ContainerRequestContext;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
@@ -56,9 +59,11 @@ import org.signal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionPriceConfiguration;
+import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager.GetResult;
@@ -76,6 +81,7 @@ public class SubscriptionController {
   private final StripeManager stripeManager;
   private final ServerZkReceiptOperations zkReceiptOperations;
   private final IssuedReceiptsManager issuedReceiptsManager;
+  private final BadgeTranslator badgeTranslator;
 
   public SubscriptionController(
       @Nonnull Clock clock,
@@ -83,13 +89,15 @@ public class SubscriptionController {
       @Nonnull SubscriptionManager subscriptionManager,
       @Nonnull StripeManager stripeManager,
       @Nonnull ServerZkReceiptOperations zkReceiptOperations,
-      @Nonnull IssuedReceiptsManager issuedReceiptsManager) {
+      @Nonnull IssuedReceiptsManager issuedReceiptsManager,
+      @Nonnull BadgeTranslator badgeTranslator) {
     this.clock = Objects.requireNonNull(clock);
     this.config = Objects.requireNonNull(config);
     this.subscriptionManager = Objects.requireNonNull(subscriptionManager);
     this.stripeManager = Objects.requireNonNull(stripeManager);
     this.zkReceiptOperations = Objects.requireNonNull(zkReceiptOperations);
     this.issuedReceiptsManager = Objects.requireNonNull(issuedReceiptsManager);
+    this.badgeTranslator = Objects.requireNonNull(badgeTranslator);
   }
 
   @Timed
@@ -328,19 +336,19 @@ public class SubscriptionController {
 
     public static class Level {
 
-      private final String badgeId;
+      private final Badge badge;
       private final Map<String, BigDecimal> currencies;
 
       @JsonCreator
       public Level(
-          @JsonProperty("badgeId") String badgeId,
+          @JsonProperty("badge") Badge badge,
           @JsonProperty("currencies") Map<String, BigDecimal> currencies) {
-        this.badgeId = badgeId;
+        this.badge = badge;
         this.currencies = currencies;
       }
 
-      public String getBadgeId() {
-        return badgeId;
+      public Badge getBadge() {
+        return badge;
       }
 
       public Map<String, BigDecimal> getCurrencies() {
@@ -366,11 +374,13 @@ public class SubscriptionController {
   @Path("/levels")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> getLevels() {
+  public CompletableFuture<Response> getLevels(@Context ContainerRequestContext containerRequestContext) {
     return CompletableFuture.supplyAsync(() -> {
+      List<Locale> acceptableLanguages = getAcceptableLanguagesForRequest(containerRequestContext);
       GetLevelsResponse getLevelsResponse = new GetLevelsResponse(
           config.getLevels().entrySet().stream().collect(Collectors.toMap(Entry::getKey,
-              entry -> new GetLevelsResponse.Level(entry.getValue().getBadge(),
+              entry -> new GetLevelsResponse.Level(
+                  badgeTranslator.translate(acceptableLanguages, entry.getValue().getBadge()),
                   entry.getValue().getPrices().entrySet().stream().collect(
                       Collectors.toMap(levelEntry -> levelEntry.getKey().toUpperCase(Locale.ROOT),
                           levelEntry -> levelEntry.getValue().getAmount()))))));
@@ -617,6 +627,15 @@ public class SubscriptionController {
       throw new NotFoundException();
     } else {
       return getResult.record;
+    }
+  }
+
+  private List<Locale> getAcceptableLanguagesForRequest(ContainerRequestContext containerRequestContext) {
+    try {
+      return containerRequestContext.getAcceptableLanguages();
+    } catch (final ProcessingException e) {
+      logger.warn("Could not get acceptable languages", e);
+      return List.of();
     }
   }
 

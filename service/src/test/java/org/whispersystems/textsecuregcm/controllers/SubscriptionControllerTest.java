@@ -6,6 +6,8 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
@@ -15,6 +17,7 @@ import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.glassfish.jersey.server.ServerProperties;
@@ -25,10 +28,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.signal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
+import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionPriceConfiguration;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetLevelsResponse;
+import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.stripe.StripeManager;
@@ -44,8 +49,10 @@ class SubscriptionControllerTest {
   private static final StripeManager STRIPE_MANAGER = mock(StripeManager.class);
   private static final ServerZkReceiptOperations ZK_OPS = mock(ServerZkReceiptOperations.class);
   private static final IssuedReceiptsManager ISSUED_RECEIPTS_MANAGER = mock(IssuedReceiptsManager.class);
+  private static final BadgeTranslator BADGE_TRANSLATOR = mock(BadgeTranslator.class);
   private static final SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(
-      CLOCK, SUBSCRIPTION_CONFIG, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER);
+      CLOCK, SUBSCRIPTION_CONFIG, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER,
+      BADGE_TRANSLATOR);
   private static final ResourceExtension RESOURCE_EXTENSION = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
@@ -58,7 +65,8 @@ class SubscriptionControllerTest {
 
   @AfterEach
   void tearDown() {
-    reset(CLOCK, SUBSCRIPTION_CONFIG, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER);
+    reset(CLOCK, SUBSCRIPTION_CONFIG, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER,
+        BADGE_TRANSLATOR);
   }
 
   @Test
@@ -68,6 +76,12 @@ class SubscriptionControllerTest {
         2L, new SubscriptionLevelConfiguration("B2", "P2", Map.of("USD", new SubscriptionPriceConfiguration("R2", BigDecimal.valueOf(200)))),
         3L, new SubscriptionLevelConfiguration("B3", "P3", Map.of("USD", new SubscriptionPriceConfiguration("R3", BigDecimal.valueOf(300))))
     ));
+    when(BADGE_TRANSLATOR.translate(any(), eq("B1"))).thenReturn(new Badge("B1", "cat1", "name1", "desc1",
+        List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S")));
+    when(BADGE_TRANSLATOR.translate(any(), eq("B2"))).thenReturn(new Badge("B2", "cat2", "name2", "desc2",
+        List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S")));
+    when(BADGE_TRANSLATOR.translate(any(), eq("B3"))).thenReturn(new Badge("B3", "cat3", "name3", "desc3",
+        List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S")));
 
     GetLevelsResponse response = RESOURCE_EXTENSION.target("/v1/subscription/levels")
         .request()
@@ -75,19 +89,19 @@ class SubscriptionControllerTest {
 
     assertThat(response.getLevels()).containsKeys(1L, 2L, 3L).satisfies(longLevelMap -> {
       assertThat(longLevelMap).extractingByKey(1L).satisfies(level -> {
-        assertThat(level.getBadgeId()).isEqualTo("B1");
+        assertThat(level.getBadge().getId()).isEqualTo("B1");
         assertThat(level.getCurrencies()).containsKeys("USD").extractingByKey("USD").satisfies(price -> {
           assertThat(price).isEqualTo("100");
         });
       });
       assertThat(longLevelMap).extractingByKey(2L).satisfies(level -> {
-        assertThat(level.getBadgeId()).isEqualTo("B2");
+        assertThat(level.getBadge().getId()).isEqualTo("B2");
         assertThat(level.getCurrencies()).containsKeys("USD").extractingByKey("USD").satisfies(price -> {
           assertThat(price).isEqualTo("200");
         });
       });
       assertThat(longLevelMap).extractingByKey(3L).satisfies(level -> {
-        assertThat(level.getBadgeId()).isEqualTo("B3");
+        assertThat(level.getBadge().getId()).isEqualTo("B3");
         assertThat(level.getCurrencies()).containsKeys("USD").extractingByKey("USD").satisfies(price -> {
           assertThat(price).isEqualTo("300");
         });

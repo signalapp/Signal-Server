@@ -72,7 +72,6 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.auth.WebsocketRefreshApplicationEventListener;
 import org.whispersystems.textsecuregcm.badges.ConfiguredProfileBadgeConverter;
-import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.configuration.DirectoryServerConfiguration;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV1;
@@ -296,7 +295,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.getObjectMapper().setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);
     environment.getObjectMapper().setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
 
-    ProfileBadgeConverter profileBadgeConverter = new ConfiguredProfileBadgeConverter(clock, config.getBadges());
+    ConfiguredProfileBadgeConverter profileBadgeConverter =
+        new ConfiguredProfileBadgeConverter(clock, config.getBadges());
 
     JdbiFactory jdbiFactory = new JdbiFactory(DefaultNameStrategy.CHECK_EMPTY);
     Jdbi        accountJdbi = jdbiFactory.build(environment, config.getAccountsDatabaseConfiguration(), "accountdb");
@@ -636,7 +636,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     );
     if (config.getSubscription() != null) {
       commonControllers.add(new SubscriptionController(clock, config.getSubscription(), subscriptionManager,
-          stripeManager, zkReceiptOperations, issuedReceiptsManager));
+          stripeManager, zkReceiptOperations, issuedReceiptsManager, profileBadgeConverter));
     }
 
     for (Object controller : commonControllers) {
