@@ -305,11 +305,12 @@ public class SubscriptionController {
           }
 
           if (record.subscriptionId == null) {
+            long lastSubscriptionCreatedAt = record.subscriptionCreatedAt != null ? record.subscriptionCreatedAt.getEpochSecond() : 0;
             // we don't have one yet so create it and then record the subscription id
             //
             // this relies on stripe's idempotency key to avoid creating more than one subscription if the client
             // retries this request
-            return stripeManager.createSubscription(record.customerId, priceConfiguration.getId(), level)
+            return stripeManager.createSubscription(record.customerId, priceConfiguration.getId(), level, lastSubscriptionCreatedAt)
                 .thenCompose(subscription -> subscriptionManager.subscriptionCreated(
                         requestData.subscriberUser, subscription.getId(), requestData.now, level)
                     .thenApply(unused -> subscription));

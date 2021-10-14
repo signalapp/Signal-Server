@@ -50,6 +50,7 @@ import javax.annotation.Nullable;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.apache.commons.codec.binary.Hex;
+import org.whispersystems.textsecuregcm.util.Conversions;
 
 public class StripeManager {
 
@@ -139,7 +140,7 @@ public class StripeManager {
     }, executor);
   }
 
-  public CompletableFuture<Subscription> createSubscription(String customerId, String priceId, long level) {
+  public CompletableFuture<Subscription> createSubscription(String customerId, String priceId, long level, long lastSubscriptionCreatedAt) {
     return CompletableFuture.supplyAsync(() -> {
       SubscriptionCreateParams params = SubscriptionCreateParams.builder()
           .setCustomer(customerId)
@@ -152,9 +153,9 @@ public class StripeManager {
         // the idempotency key intentionally excludes priceId
         //
         // If the client tells the server several times in a row before the initial creation of a subscription to
-        // create a subscription, we want to ensure only one gets created. If the prices are different each time,
-        // whichever one gets to stripe first will win (depending on how idempotent the idempotency keys are...)
-        return Subscription.create(params, commonOptions(generateIdempotencyKeyForCustomerId(customerId)));
+        // create a subscription, we want to ensure only one gets created.
+        return Subscription.create(params, commonOptions(generateIdempotencyKeyForCreateSubscription(
+            customerId, lastSubscriptionCreatedAt)));
       } catch (StripeException e) {
         throw new CompletionException(e);
       }
@@ -332,8 +333,11 @@ public class StripeManager {
     return generateIdempotencyKey("subscriberUser", mac -> mac.update(subscriberUser));
   }
 
-  private String generateIdempotencyKeyForCustomerId(String customerId) {
-    return generateIdempotencyKey("customerId", mac -> mac.update(customerId.getBytes(StandardCharsets.UTF_8)));
+  private String generateIdempotencyKeyForCreateSubscription(String customerId, long lastSubscriptionCreatedAt) {
+    return generateIdempotencyKey("customerId", mac -> {
+      mac.update(customerId.getBytes(StandardCharsets.UTF_8));
+      mac.update(Conversions.longToByteArray(lastSubscriptionCreatedAt));
+    });
   }
 
   private String generateIdempotencyKey(String type, Consumer<Mac> byteConsumer) {
