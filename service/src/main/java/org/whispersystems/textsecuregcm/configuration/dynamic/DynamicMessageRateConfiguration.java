@@ -15,21 +15,7 @@ public class DynamicMessageRateConfiguration {
   @JsonProperty
   private boolean enforceUnsealedSenderRateLimit = false;
 
-  @JsonProperty
-  private Set<String> rateLimitedCountryCodes = Collections.emptySet();
-
-  @JsonProperty
-  private Set<String> rateLimitedHosts = Collections.emptySet();
-
   public boolean isEnforceUnsealedSenderRateLimit() {
     return enforceUnsealedSenderRateLimit;
-  }
-
-  public Set<String> getRateLimitedCountryCodes() {
-    return rateLimitedCountryCodes;
-  }
-
-  public Set<String> getRateLimitedHosts() {
-    return rateLimitedHosts;
   }
 }

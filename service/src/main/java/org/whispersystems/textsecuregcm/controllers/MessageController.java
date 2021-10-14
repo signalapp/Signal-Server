@@ -21,7 +21,6 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import java.security.MessageDigest;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -57,7 +56,6 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
@@ -92,11 +90,9 @@ import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.ForwardedIpUtil;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
@@ -123,7 +119,6 @@ public class MessageController {
   private final MessagesManager             messagesManager;
   private final UnsealedSenderRateLimiter   unsealedSenderRateLimiter;
   private final ApnFallbackManager          apnFallbackManager;
-  private final DynamicConfigurationManager dynamicConfigurationManager;
   private final RateLimitChallengeManager   rateLimitChallengeManager;
   private final ReportMessageManager        reportMessageManager;
   private final ExecutorService             multiRecipientMessageExecutor;
@@ -148,7 +143,6 @@ public class MessageController {
       MessagesManager messagesManager,
       UnsealedSenderRateLimiter unsealedSenderRateLimiter,
       ApnFallbackManager apnFallbackManager,
-      DynamicConfigurationManager dynamicConfigurationManager,
       RateLimitChallengeManager rateLimitChallengeManager,
       ReportMessageManager reportMessageManager,
       @Nonnull ExecutorService multiRecipientMessageExecutor) {
@@ -159,7 +153,6 @@ public class MessageController {
     this.messagesManager = messagesManager;
     this.unsealedSenderRateLimiter = unsealedSenderRateLimiter;
     this.apnFallbackManager = apnFallbackManager;
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.rateLimitChallengeManager = rateLimitChallengeManager;
     this.reportMessageManager = reportMessageManager;
     this.multiRecipientMessageExecutor = Objects.requireNonNull(multiRecipientMessageExecutor);
@@ -248,24 +241,6 @@ public class MessageController {
           }
 
           throw new RateLimitChallengeException(source.get().getAccount(), e.getRetryDuration());
-        }
-
-        final String destinationCountryCode = Util.getCountryCode(destination.get().getNumber());
-        final Device masterDevice = source.get().getAccount().getMasterDevice().get();
-
-        if (!senderCountryCode.equals(destinationCountryCode)) {
-          if (StringUtils.isAllBlank(masterDevice.getApnId(), masterDevice.getVoipApnId(), masterDevice.getGcmId()) || masterDevice.getUninstalledFeedbackTimestamp() > 0) {
-            if (dynamicConfigurationManager.getConfiguration().getMessageRateConfiguration().getRateLimitedCountryCodes().contains(senderCountryCode)) {
-
-              final boolean isRateLimitedHost = ForwardedIpUtil.getMostRecentProxy(forwardedFor)
-                  .map(proxy -> dynamicConfigurationManager.getConfiguration().getMessageRateConfiguration().getRateLimitedHosts().contains(proxy))
-                  .orElse(false);
-
-              if (isRateLimitedHost) {
-                throw new RateLimitExceededException(Duration.ofDays(1));
-              }
-            }
-          }
         }
       }
 
