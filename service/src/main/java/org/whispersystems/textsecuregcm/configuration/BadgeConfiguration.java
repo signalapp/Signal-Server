@@ -57,44 +57,4 @@ public class BadgeConfiguration {
   public boolean isTestBadge() {
     return CATEGORY_TESTING.equals(category);
   }
-
-  @Deprecated
-  public String getLdpi() {
-    return sprites.get(0);
-  }
-
-  @Deprecated
-  public String getMdpi() {
-    return sprites.get(1);
-  }
-
-  @Deprecated
-  public String getHdpi() {
-    return sprites.get(2);
-  }
-
-  @Deprecated
-  public String getXhdpi() {
-    return sprites.get(3);
-  }
-
-  @Deprecated
-  public String getXxhdpi() {
-    return sprites.get(4);
-  }
-
-  @Deprecated
-  public String getXxxhdpi() {
-    return sprites.get(5);
-  }
-
-  @Deprecated
-  public String getLowDetailSvg() {
-    return svgs.get(0);
-  }
-
-  @Deprecated
-  public String getHighDetailSvg() {
-    return svgs.get(3);
-  }
 }

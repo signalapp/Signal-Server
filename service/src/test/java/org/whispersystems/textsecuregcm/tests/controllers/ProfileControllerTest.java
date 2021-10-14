@@ -108,8 +108,8 @@ class ProfileControllerTest {
           profilesManager,
           usernamesManager,
           dynamicConfigurationManager,
-          (acceptableLanguages, accountBadges, isSelf) -> List.of(
-              new Badge("TEST", "other", "Test Badge", "This badge is in unit tests.", "l", "m", "h", "x", "xx", "xxx", "s", "S")
+          (acceptableLanguages, accountBadges, isSelf) -> List.of(new Badge("TEST", "other", "Test Badge",
+              "This badge is in unit tests.", List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S"))
           ),
           new BadgesConfiguration(List.of(
               new BadgeConfiguration("TEST", "other", List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S")),

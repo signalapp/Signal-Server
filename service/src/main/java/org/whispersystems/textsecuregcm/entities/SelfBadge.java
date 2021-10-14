@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -21,17 +22,11 @@ public class SelfBadge extends Badge {
       @JsonProperty("category") final String category,
       @JsonProperty("name") final String name,
       @JsonProperty("description") final String description,
-      @JsonProperty("ldpi") final String ldpi,
-      @JsonProperty("mdpi") final String mdpi,
-      @JsonProperty("hdpi") final String hdpi,
-      @JsonProperty("xhdpi") final String xhdpi,
-      @JsonProperty("xxhdpi") final String xxhdpi,
-      @JsonProperty("xxxhdpi") final String xxxhdpi,
-      @JsonProperty("lsvg") final String lsvg,
-      @JsonProperty("hsvg") final String hsvg,
-      final Instant expiration,
-      final boolean visible) {
-    super(id, category, name, description, ldpi, mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi, lsvg, hsvg);
+      @JsonProperty("sprites6") final List<String> sprites6,
+      @JsonProperty("svgs4") final List<String> svgs4,
+      @JsonProperty("expiration") final Instant expiration,
+      @JsonProperty("visible") final boolean visible) {
+    super(id, category, name, description, sprites6, svgs4);
     this.expiration = expiration;
     this.visible = visible;
   }

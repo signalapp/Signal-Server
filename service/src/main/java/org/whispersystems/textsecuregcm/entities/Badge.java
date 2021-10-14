@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
 import java.util.Objects;
 
 public class Badge {
@@ -14,14 +15,8 @@ public class Badge {
   private final String category;
   private final String name;
   private final String description;
-  private final String ldpi;
-  private final String mdpi;
-  private final String hdpi;
-  private final String xhdpi;
-  private final String xxhdpi;
-  private final String xxxhdpi;
-  private final String lsvg;
-  private final String hsvg;
+  private final List<String> sprites6;
+  private final List<String> svgs4;
 
   @JsonCreator
   public Badge(
@@ -29,26 +24,20 @@ public class Badge {
       @JsonProperty("category") final String category,
       @JsonProperty("name") final String name,
       @JsonProperty("description") final String description,
-      @JsonProperty("ldpi") final String ldpi,
-      @JsonProperty("mdpi") final String mdpi,
-      @JsonProperty("hdpi") final String hdpi,
-      @JsonProperty("xhdpi") final String xhdpi,
-      @JsonProperty("xxhdpi") final String xxhdpi,
-      @JsonProperty("xxxhdpi") final String xxxhdpi,
-      @JsonProperty("lsvg") final String lsvg,
-      @JsonProperty("hsvg") final String hsvg) {
+      @JsonProperty("sprites6") final List<String> sprites6,
+      @JsonProperty("svgs4") final List<String> svgs4) {
     this.id = id;
     this.category = category;
     this.name = name;
     this.description = description;
-    this.ldpi = ldpi;
-    this.mdpi = mdpi;
-    this.hdpi = hdpi;
-    this.xhdpi = xhdpi;
-    this.xxhdpi = xxhdpi;
-    this.xxxhdpi = xxxhdpi;
-    this.lsvg = lsvg;
-    this.hsvg = hsvg;
+    this.sprites6 = Objects.requireNonNull(sprites6);
+    if (sprites6.size() != 6) {
+      throw new IllegalArgumentException("sprites must have size 6");
+    }
+    this.svgs4 = Objects.requireNonNull(svgs4);
+    if (svgs4.size() != 4) {
+      throw new IllegalArgumentException("svgs must have size 4");
+    }
   }
 
   public String getId() {
@@ -67,36 +56,52 @@ public class Badge {
     return description;
   }
 
+  public List<String> getSprites6() {
+    return sprites6;
+  }
+
+  public List<String> getSvgs4() {
+    return svgs4;
+  }
+
+  @Deprecated
   public String getLdpi() {
-    return ldpi;
+    return sprites6.get(0);
   }
 
+  @Deprecated
   public String getMdpi() {
-    return mdpi;
+    return sprites6.get(1);
   }
 
+  @Deprecated
   public String getHdpi() {
-    return hdpi;
+    return sprites6.get(2);
   }
 
+  @Deprecated
   public String getXhdpi() {
-    return xhdpi;
+    return sprites6.get(3);
   }
 
+  @Deprecated
   public String getXxhdpi() {
-    return xxhdpi;
+    return sprites6.get(4);
   }
 
+  @Deprecated
   public String getXxxhdpi() {
-    return xxxhdpi;
+    return sprites6.get(5);
   }
 
+  @Deprecated
   public String getLsvg() {
-    return lsvg;
+    return svgs4.get(0);
   }
 
+  @Deprecated
   public String getHsvg() {
-    return hsvg;
+    return svgs4.get(3);
   }
 
   @Override
@@ -112,30 +117,12 @@ public class Badge {
         && Objects.equals(category, badge.category)
         && Objects.equals(name, badge.name)
         && Objects.equals(description, badge.description)
-        && Objects.equals(ldpi, badge.ldpi)
-        && Objects.equals(mdpi, badge.mdpi)
-        && Objects.equals(hdpi, badge.hdpi)
-        && Objects.equals(xhdpi, badge.xhdpi)
-        && Objects.equals(xxhdpi, badge.xxhdpi)
-        && Objects.equals(xxxhdpi, badge.xxxhdpi)
-        && Objects.equals(lsvg, badge.lsvg)
-        && Objects.equals(hsvg, badge.hsvg);
+        && Objects.equals(sprites6, badge.sprites6)
+        && Objects.equals(svgs4, badge.svgs4);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(
-        id,
-        category,
-        name,
-        description,
-        ldpi,
-        mdpi,
-        hdpi,
-        xhdpi,
-        xxhdpi,
-        xxxhdpi,
-        lsvg,
-        hsvg);
+    return Objects.hash(id, category, name, description, sprites6, svgs4);
   }
 }
