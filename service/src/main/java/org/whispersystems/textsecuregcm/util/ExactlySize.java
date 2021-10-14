@@ -22,6 +22,7 @@ import javax.validation.Payload;
 @Constraint(validatedBy = {
     ExactlySizeValidatorForString.class,
     ExactlySizeValidatorForArraysOfByte.class,
+    ExactlySizeValidatorForCollection.class,
 })
 @Documented
 public @interface ExactlySize {

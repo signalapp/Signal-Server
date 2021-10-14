@@ -7,44 +7,29 @@ package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
 import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
+import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 public class BadgeConfiguration {
   public static final String CATEGORY_TESTING = "testing";
 
   private final String id;
   private final String category;
-  private final String ldpi;
-  private final String mdpi;
-  private final String hdpi;
-  private final String xhdpi;
-  private final String xxhdpi;
-  private final String xxxhdpi;
-  private final String lowDetailSvg;
-  private final String highDetailSvg;
+  private final List<String> sprites;
+  private final List<String> svgs;
 
   @JsonCreator
   public BadgeConfiguration(
       @JsonProperty("id") final String id,
       @JsonProperty("category") final String category,
-      @JsonProperty("ldpi") final String ldpi,
-      @JsonProperty("mdpi") final String mdpi,
-      @JsonProperty("hdpi") final String hdpi,
-      @JsonProperty("xhdpi") final String xhdpi,
-      @JsonProperty("xxhdpi") final String xxhdpi,
-      @JsonProperty("xxxhdpi") final String xxxhdpi,
-      @JsonProperty("lowDetailSvg") final String lowDetailSvg,
-      @JsonProperty("highDetailSvg") final String highDetailSvg) {
+      @JsonProperty("sprites") final List<String> sprites,
+      @JsonProperty("svgs") final List<String> svgs) {
     this.id = id;
     this.category = category;
-    this.ldpi = ldpi;
-    this.mdpi = mdpi;
-    this.hdpi = hdpi;
-    this.xhdpi = xhdpi;
-    this.xxhdpi = xxhdpi;
-    this.xxxhdpi = xxxhdpi;
-    this.lowDetailSvg = lowDetailSvg;
-    this.highDetailSvg = highDetailSvg;
+    this.sprites = sprites;
+    this.svgs = svgs;
   }
 
   @NotEmpty
@@ -57,47 +42,59 @@ public class BadgeConfiguration {
     return category;
   }
 
-  @NotEmpty
-  public String getLdpi() {
-    return ldpi;
+  @NotNull
+  @ExactlySize(6)
+  public List<String> getSprites() {
+    return sprites;
   }
 
-  @NotEmpty
-  public String getMdpi() {
-    return mdpi;
-  }
-
-  @NotEmpty
-  public String getHdpi() {
-    return hdpi;
-  }
-
-  @NotEmpty
-  public String getXhdpi() {
-    return xhdpi;
-  }
-
-  @NotEmpty
-  public String getXxhdpi() {
-    return xxhdpi;
-  }
-
-  @NotEmpty
-  public String getXxxhdpi() {
-    return xxxhdpi;
-  }
-
-  @NotEmpty
-  public String getLowDetailSvg() {
-    return lowDetailSvg;
-  }
-
-  @NotEmpty
-  public String getHighDetailSvg() {
-    return highDetailSvg;
+  @NotNull
+  @ExactlySize(4)
+  public List<String> getSvgs() {
+    return svgs;
   }
 
   public boolean isTestBadge() {
     return CATEGORY_TESTING.equals(category);
+  }
+
+  @Deprecated
+  public String getLdpi() {
+    return sprites.get(0);
+  }
+
+  @Deprecated
+  public String getMdpi() {
+    return sprites.get(1);
+  }
+
+  @Deprecated
+  public String getHdpi() {
+    return sprites.get(2);
+  }
+
+  @Deprecated
+  public String getXhdpi() {
+    return sprites.get(3);
+  }
+
+  @Deprecated
+  public String getXxhdpi() {
+    return sprites.get(4);
+  }
+
+  @Deprecated
+  public String getXxxhdpi() {
+    return sprites.get(5);
+  }
+
+  @Deprecated
+  public String getLowDetailSvg() {
+    return svgs.get(0);
+  }
+
+  @Deprecated
+  public String getHighDetailSvg() {
+    return svgs.get(3);
   }
 }

@@ -89,10 +89,10 @@ class DonationControllerTest {
   static BadgesConfiguration getBadgesConfiguration() {
     return new BadgesConfiguration(
         List.of(
-            new BadgeConfiguration("TEST", "other", "l", "m", "h", "x", "xx", "xxx", "s", "S"),
-            new BadgeConfiguration("TEST1", "testing", "l", "m", "h", "x", "xx", "xxx", "s", "S"),
-            new BadgeConfiguration("TEST2", "testing", "l", "m", "h", "x", "xx", "xxx", "s", "S"),
-            new BadgeConfiguration("TEST3", "testing", "l", "m", "h", "x", "xx", "xxx", "s", "S")),
+            new BadgeConfiguration("TEST", "other", List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S")),
+            new BadgeConfiguration("TEST1", "testing", List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S")),
+            new BadgeConfiguration("TEST2", "testing", List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S")),
+            new BadgeConfiguration("TEST3", "testing", List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S"))),
         List.of("TEST"),
         Map.of(1L, "TEST1", 2L, "TEST2", 3L, "TEST3"));
   }

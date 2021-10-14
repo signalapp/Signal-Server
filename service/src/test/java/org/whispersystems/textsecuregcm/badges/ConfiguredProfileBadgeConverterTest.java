@@ -64,7 +64,8 @@ public class ConfiguredProfileBadgeConverterTest {
   }
 
   private static BadgeConfiguration newBadge(int i) {
-    return new BadgeConfiguration(idFor(i), "other", "l", "m", "h", "x", "xx", "xxx", "s", "S");
+    return new BadgeConfiguration(
+        idFor(i), "other", List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S"));
   }
 
   private BadgesConfiguration createBadges(int count) {
