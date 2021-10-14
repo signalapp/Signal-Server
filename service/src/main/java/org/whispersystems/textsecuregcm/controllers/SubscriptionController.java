@@ -11,7 +11,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Strings;
 import com.stripe.model.Invoice;
 import com.stripe.model.InvoiceLineItem;
-import com.stripe.model.Product;
 import com.stripe.model.Subscription;
 import io.dropwizard.auth.Auth;
 import java.math.BigDecimal;
@@ -33,6 +32,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import javax.validation.constraints.NotEmpty;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -188,6 +188,22 @@ public class SubscriptionController {
         .thenApply(this::requireRecordFromGetResult)
         .thenCompose(record -> stripeManager.createSetupIntent(record.customerId))
         .thenApply(setupIntent -> Response.ok(new CreatePaymentMethodResponse(setupIntent.getClientSecret())).build());
+  }
+
+  @Timed
+  @POST
+  @Path("/{subscriberId}/default_payment_method/{paymentMethodId}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletableFuture<Response> setDefaultPaymentMethod(
+      @Auth Optional<AuthenticatedAccount> authenticatedAccount,
+      @PathParam("subscriberId") String subscriberId,
+      @PathParam("paymentMethodId") @NotEmpty String paymentMethodId) {
+    RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
+    return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
+        .thenApply(this::requireRecordFromGetResult)
+        .thenCompose(record -> stripeManager.setDefaultPaymentMethodForCustomer(record.customerId, paymentMethodId))
+        .thenApply(customer -> Response.ok().build());
   }
 
   public static class SetSubscriptionLevelSuccessResponse {
@@ -587,8 +603,7 @@ public class SubscriptionController {
       }
 
       InvoiceLineItem subscriptionLineItem = subscriptionLineItems.stream().findAny().get();
-      Product product = subscriptionLineItem.getPrice().getProductObject();
-      return CompletableFuture.completedFuture(new Receipt(
+      return stripeManager.getProductForPrice(subscriptionLineItem.getPrice().getId()).thenApply(product -> new Receipt(
           Instant.ofEpochSecond(subscriptionLineItem.getPeriod().getEnd()).plus(config.getBadgeGracePeriod()),
           stripeManager.getLevelForProduct(product),
           subscriptionLineItem.getId()));

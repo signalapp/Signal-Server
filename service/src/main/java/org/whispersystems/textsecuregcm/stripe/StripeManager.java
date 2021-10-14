@@ -19,6 +19,8 @@ import com.stripe.model.SubscriptionItem;
 import com.stripe.net.RequestOptions;
 import com.stripe.param.CustomerCreateParams;
 import com.stripe.param.CustomerRetrieveParams;
+import com.stripe.param.CustomerUpdateParams;
+import com.stripe.param.CustomerUpdateParams.InvoiceSettings;
 import com.stripe.param.InvoiceListParams;
 import com.stripe.param.PriceRetrieveParams;
 import com.stripe.param.SetupIntentCreateParams;
@@ -101,6 +103,23 @@ public class StripeManager {
       CustomerRetrieveParams params = CustomerRetrieveParams.builder().build();
       try {
         return Customer.retrieve(customerId, params, commonOptions());
+      } catch (StripeException e) {
+        throw new CompletionException(e);
+      }
+    }, executor);
+  }
+
+  public CompletableFuture<Customer> setDefaultPaymentMethodForCustomer(String customerId, String paymentMethodId) {
+    return CompletableFuture.supplyAsync(() -> {
+      Customer customer = new Customer();
+      customer.setId(customerId);
+      CustomerUpdateParams params = CustomerUpdateParams.builder()
+          .setInvoiceSettings(InvoiceSettings.builder()
+              .setDefaultPaymentMethod(paymentMethodId)
+              .build())
+          .build();
+      try {
+        return customer.update(params, commonOptions());
       } catch (StripeException e) {
         throw new CompletionException(e);
       }
@@ -278,7 +297,6 @@ public class StripeManager {
           .setCreated(InvoiceListParams.Created.builder()
               .setGte(now.minus(Duration.ofDays(90)).getEpochSecond())
               .build())
-          .addExpand("lines.data.price.product")
           .build();
       try {
         ArrayList<Invoice> invoices = Lists.newArrayList(Invoice.list(params, commonOptions())
