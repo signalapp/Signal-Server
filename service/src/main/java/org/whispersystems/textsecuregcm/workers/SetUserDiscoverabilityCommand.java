@@ -114,6 +114,8 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
 
       FaultTolerantRedisCluster cacheCluster = new FaultTolerantRedisCluster("main_cache_cluster",
           configuration.getCacheClusterConfiguration(), redisClusterClientResources);
+      FaultTolerantRedisCluster rateLimitersCluster = new FaultTolerantRedisCluster("rate_limiters",
+          configuration.getRateLimitersCluster(), redisClusterClientResources);
 
       ExecutorService keyspaceNotificationDispatchExecutor = environment.lifecycle()
           .executorService(name(getClass(), "keyspaceNotification-%d")).maxThreads(4).build();
@@ -189,9 +191,10 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
       UsernamesManager usernamesManager = new UsernamesManager(usernames, reservedUsernames, cacheCluster);
       ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
       ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(reportMessagesDynamoDb,
-          configuration.getReportMessageDynamoDbConfiguration().getTableName());
-      ReportMessageManager reportMessageManager = new ReportMessageManager(reportMessageDynamoDb,
-          Metrics.globalRegistry);
+          configuration.getReportMessageDynamoDbConfiguration().getTableName(),
+          configuration.getReportMessageConfiguration().getReportTtl());
+      ReportMessageManager reportMessageManager = new ReportMessageManager(reportMessageDynamoDb, rateLimitersCluster,
+          Metrics.globalRegistry, configuration.getReportMessageConfiguration().getCounterTtl());
       MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, pushLatencyManager,
           reportMessageManager);
       DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,

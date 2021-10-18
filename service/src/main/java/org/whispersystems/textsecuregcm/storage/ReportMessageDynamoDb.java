@@ -15,14 +15,14 @@ public class ReportMessageDynamoDb {
   static final String KEY_HASH = "H";
   static final String ATTR_TTL = "E";
 
-  static final Duration TIME_TO_LIVE = Duration.ofDays(7);
-
   private final DynamoDbClient db;
   private final String tableName;
+  private final Duration ttl;
 
-  public ReportMessageDynamoDb(final DynamoDbClient dynamoDB, final String tableName) {
+  public ReportMessageDynamoDb(final DynamoDbClient dynamoDB, final String tableName, final Duration ttl) {
     this.db = dynamoDB;
     this.tableName = tableName;
+    this.ttl = ttl;
   }
 
   public void store(byte[] hash) {
@@ -30,7 +30,7 @@ public class ReportMessageDynamoDb {
         .tableName(tableName)
         .item(Map.of(
             KEY_HASH, AttributeValues.fromByteArray(hash),
-            ATTR_TTL, AttributeValues.fromLong(Instant.now().plus(TIME_TO_LIVE).getEpochSecond())
+            ATTR_TTL, AttributeValues.fromLong(Instant.now().plus(ttl).getEpochSecond())
         ))
         .build());
   }

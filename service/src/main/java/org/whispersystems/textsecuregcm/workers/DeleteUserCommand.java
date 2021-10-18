@@ -172,6 +172,8 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
           configuration.getMetricsClusterConfiguration(), redisClusterClientResources);
       FaultTolerantRedisCluster clientPresenceCluster    = new FaultTolerantRedisCluster("client_presence_cluster",
           configuration.getClientPresenceClusterConfiguration(), redisClusterClientResources);
+      FaultTolerantRedisCluster rateLimitersCluster = new FaultTolerantRedisCluster("rate_limiters",
+          configuration.getRateLimitersCluster(), redisClusterClientResources);
       SecureBackupClient secureBackupClient = new SecureBackupClient(backupCredentialsGenerator, backupServiceExecutor,
           configuration.getSecureBackupServiceConfiguration());
       SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
@@ -186,9 +188,10 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
       UsernamesManager usernamesManager = new UsernamesManager(usernames, reservedUsernames, cacheCluster);
       ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
       ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(reportMessagesDynamoDb,
-          configuration.getReportMessageDynamoDbConfiguration().getTableName());
-      ReportMessageManager reportMessageManager = new ReportMessageManager(reportMessageDynamoDb,
-          Metrics.globalRegistry);
+          configuration.getReportMessageDynamoDbConfiguration().getTableName(),
+          configuration.getReportMessageConfiguration().getReportTtl());
+      ReportMessageManager reportMessageManager = new ReportMessageManager(reportMessageDynamoDb, rateLimitersCluster,
+          Metrics.globalRegistry, configuration.getReportMessageConfiguration().getCounterTtl());
       MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, pushLatencyManager,
           reportMessageManager);
       DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
