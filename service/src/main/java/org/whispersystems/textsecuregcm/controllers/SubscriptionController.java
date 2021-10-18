@@ -18,6 +18,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Iterator;
@@ -552,7 +553,8 @@ public class SubscriptionController {
                   return CompletableFuture.completedFuture(null);
                 }
                 return issuedReceiptsManager.recordIssuance(
-                    receipt.invoiceLineItemId, receiptCredentialRequest, requestData.now).thenApply(unused -> receipt);
+                        receipt.getInvoiceLineItemId(), receiptCredentialRequest, requestData.now)
+                    .thenApply(unused -> receipt);
               })
               .thenApply(receipt -> {
                 if (receipt == null) {
@@ -616,7 +618,10 @@ public class SubscriptionController {
 
       InvoiceLineItem subscriptionLineItem = subscriptionLineItems.stream().findAny().get();
       return stripeManager.getProductForPrice(subscriptionLineItem.getPrice().getId()).thenApply(product -> new Receipt(
-          Instant.ofEpochSecond(subscriptionLineItem.getPeriod().getEnd()).plus(config.getBadgeGracePeriod()),
+          Instant.ofEpochSecond(subscriptionLineItem.getPeriod().getEnd())
+              .plus(config.getBadgeGracePeriod())
+              .truncatedTo(ChronoUnit.DAYS)
+              .plus(1, ChronoUnit.DAYS),
           stripeManager.getLevelForProduct(product),
           subscriptionLineItem.getId()));
     });
