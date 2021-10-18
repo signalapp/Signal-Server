@@ -59,7 +59,7 @@ public class DynamicConfigurationManager<T> {
   }
 
   @VisibleForTesting
-  public DynamicConfigurationManager(AppConfigClient appConfigClient, String application, String environment,
+  DynamicConfigurationManager(AppConfigClient appConfigClient, String application, String environment,
       String configurationName, String clientId, Class<T> configurationClass) {
     this.appConfigClient = appConfigClient;
     this.application = application;

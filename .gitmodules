@@ -1,0 +1,11 @@
+# Note that the implmentation of the abusive message filter is private; internal
+# developers will need to override this URL with:
+#
+# ```
+# git config submodule.abusive-message-filter.url PRIVATE_URL
+# ```
+#
+# External developers may safely ignore this submodule.
+[submodule "abusive-message-filter"]
+	path = abusive-message-filter
+	url = REDACTED

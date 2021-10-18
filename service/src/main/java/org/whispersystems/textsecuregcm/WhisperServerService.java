@@ -44,6 +44,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.ServiceLoader;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -52,6 +53,7 @@ import java.util.concurrent.TimeUnit;
 import javax.servlet.DispatcherType;
 import javax.servlet.FilterRegistration;
 import javax.servlet.ServletRegistration;
+import javax.ws.rs.container.DynamicFeature;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
 import org.glassfish.jersey.server.ServerProperties;
 import org.jdbi.v3.core.Jdbi;
@@ -64,6 +66,8 @@ import org.signal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.dispatch.DispatchManager;
+import org.whispersystems.textsecuregcm.abuse.AbusiveMessageFilter;
+import org.whispersystems.textsecuregcm.abuse.FilterAbusiveMessages;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
@@ -657,6 +661,32 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     for (Object controller : commonControllers) {
       environment.jersey().register(controller);
       webSocketEnvironment.jersey().register(controller);
+    }
+
+    boolean registeredAbusiveMessageFilter = false;
+
+    for (final AbusiveMessageFilter filter : ServiceLoader.load(AbusiveMessageFilter.class)) {
+      if (filter.getClass().isAnnotationPresent(FilterAbusiveMessages.class)) {
+        try {
+          filter.configure(config.getAbusiveMessageFilterConfiguration().getEnvironment());
+
+          environment.lifecycle().manage(filter);
+          environment.jersey().register(filter);
+          webSocketEnvironment.jersey().register(filter);
+
+          log.info("Registered abusive message filter: {}", filter.getClass().getName());
+          registeredAbusiveMessageFilter = true;
+        } catch (final Exception e) {
+          log.warn("Failed to register abusive message filter: {}", filter.getClass().getName(), e);
+        }
+      } else {
+        log.warn("Abusive message filter {} not annotated with @FilterAbusiveMessages and will not be installed",
+            filter.getClass().getName());
+      }
+    }
+
+    if (!registeredAbusiveMessageFilter) {
+      log.warn("No abusive message filters installed");
     }
 
     WebSocketEnvironment<AuthenticatedAccount> provisioningEnvironment = new WebSocketEnvironment<>(environment,

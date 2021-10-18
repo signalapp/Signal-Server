@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
+import org.whispersystems.textsecuregcm.configuration.AbusiveMessageFilterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AccountDatabaseCrawlerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AccountsDatabaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AccountsDynamoDbConfiguration;
@@ -330,6 +331,10 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private ReportMessageConfiguration reportMessage = new ReportMessageConfiguration();
 
+  @Valid
+  @JsonProperty
+  private AbusiveMessageFilterConfiguration abusiveMessageFilter;
+
   private Map<String, String> transparentDataIndex = new HashMap<>();
 
   public StripeConfiguration getStripe() {
@@ -564,5 +569,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public ReportMessageConfiguration getReportMessageConfiguration() {
     return reportMessage;
+  }
+
+  public AbusiveMessageFilterConfiguration getAbusiveMessageFilterConfiguration() {
+    return abusiveMessageFilter;
   }
 }

@@ -58,6 +58,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.abuse.FilterAbusiveMessages;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CombinedUnidentifiedSenderAccessKeys;
@@ -163,6 +164,7 @@ public class MessageController {
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @FilterAbusiveMessages
   public Response sendMessage(@Auth Optional<AuthenticatedAccount> source,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
       @HeaderParam("User-Agent") String userAgent,
@@ -285,6 +287,7 @@ public class MessageController {
   @PUT
   @Consumes(MultiRecipientMessageProvider.MEDIA_TYPE)
   @Produces(MediaType.APPLICATION_JSON)
+  @FilterAbusiveMessages
   public Response sendMultiRecipientMessage(
       @HeaderParam(OptionalAccess.UNIDENTIFIED) CombinedUnidentifiedSenderAccessKeys accessKeys,
       @HeaderParam("User-Agent") String userAgent,
