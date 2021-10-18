@@ -19,6 +19,7 @@ import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRemoteDeprecationConfiguration;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
@@ -34,7 +35,7 @@ import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
  */
 public class RemoteDeprecationFilter implements Filter {
 
-  private final DynamicConfigurationManager dynamicConfigurationManager;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   private static final String DEPRECATED_CLIENT_COUNTER_NAME = name(RemoteDeprecationFilter.class, "deprecated");
   private static final String PENDING_DEPRECATION_COUNTER_NAME = name(RemoteDeprecationFilter.class, "pendingDeprecation");
@@ -44,7 +45,7 @@ public class RemoteDeprecationFilter implements Filter {
   private static final String BLOCKED_CLIENT_REASON = "blocked";
   private static final String UNRECOGNIZED_UA_REASON = "unrecognized_user_agent";
 
-  public RemoteDeprecationFilter(final DynamicConfigurationManager dynamicConfigurationManager) {
+  public RemoteDeprecationFilter(final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 

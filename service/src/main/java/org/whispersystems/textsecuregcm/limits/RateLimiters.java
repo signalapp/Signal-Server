@@ -10,6 +10,7 @@ import java.util.function.BiFunction;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration.CardinalityRateLimitConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration.RateLimitConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
@@ -48,9 +49,9 @@ public class RateLimiters {
   private final AtomicReference<RateLimiter> dailyPreKeysLimiter;
 
   private final FaultTolerantRedisCluster   cacheCluster;
-  private final DynamicConfigurationManager dynamicConfig;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfig;
 
-  public RateLimiters(RateLimitsConfiguration config, DynamicConfigurationManager dynamicConfig, FaultTolerantRedisCluster cacheCluster) {
+  public RateLimiters(RateLimitsConfiguration config, DynamicConfigurationManager<DynamicConfiguration> dynamicConfig, FaultTolerantRedisCluster cacheCluster) {
     this.cacheCluster  = cacheCluster;
     this.dynamicConfig = dynamicConfig;
 

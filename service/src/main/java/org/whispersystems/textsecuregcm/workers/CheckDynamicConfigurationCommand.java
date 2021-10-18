@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
 public class CheckDynamicConfigurationCommand extends Command {
@@ -31,7 +32,7 @@ public class CheckDynamicConfigurationCommand extends Command {
   public void run(final Bootstrap<?> bootstrap, final Namespace namespace) throws Exception {
     final Path path = Path.of(namespace.getString("file"));
 
-    if (DynamicConfigurationManager.parseConfiguration(Files.readString(path)).isPresent()) {
+    if (DynamicConfigurationManager.parseConfiguration(Files.readString(path), DynamicConfiguration.class).isPresent()) {
       System.out.println("Dynamic configuration file at " + path + " is valid");
     } else {
       System.err.println("Dynamic configuration file at " + path + " is not valid");

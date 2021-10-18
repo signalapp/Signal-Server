@@ -59,6 +59,7 @@ import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.CreateProfileRequest;
 import org.whispersystems.textsecuregcm.entities.Profile;
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
@@ -90,7 +91,7 @@ public class ProfileController {
   private final ProfilesManager  profilesManager;
   private final AccountsManager  accountsManager;
   private final UsernamesManager usernamesManager;
-  private final DynamicConfigurationManager dynamicConfigurationManager;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final ProfileBadgeConverter profileBadgeConverter;
   private final Map<String, BadgeConfiguration> badgeConfigurationMap;
 
@@ -107,7 +108,7 @@ public class ProfileController {
       AccountsManager accountsManager,
       ProfilesManager profilesManager,
       UsernamesManager usernamesManager,
-      DynamicConfigurationManager dynamicConfigurationManager,
+      DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       ProfileBadgeConverter profileBadgeConverter,
       BadgesConfiguration badgesConfiguration,
       S3Client s3client,

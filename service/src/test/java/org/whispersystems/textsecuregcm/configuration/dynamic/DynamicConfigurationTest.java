@@ -32,7 +32,7 @@ class DynamicConfigurationTest {
     {
       final String emptyConfigYaml = "test: true";
       final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml).orElseThrow();
+          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
       assertFalse(emptyConfig.getExperimentEnrollmentConfiguration("test").isPresent());
     }
@@ -52,7 +52,7 @@ class DynamicConfigurationTest {
               "      - 71618739-114c-4b1f-bb0d-6478a44eb600";
 
       final DynamicConfiguration config =
-          DynamicConfigurationManager.parseConfiguration(experimentConfigYaml).orElseThrow();
+          DynamicConfigurationManager.parseConfiguration(experimentConfigYaml, DynamicConfiguration.class).orElseThrow();
 
       assertFalse(config.getExperimentEnrollmentConfiguration("unconfigured").isPresent());
 
@@ -80,7 +80,7 @@ class DynamicConfigurationTest {
     {
       final String emptyConfigYaml = "test: true";
       final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml).orElseThrow();
+          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
       assertFalse(emptyConfig.getPreRegistrationEnrollmentConfiguration("test").isPresent());
     }
@@ -109,7 +109,7 @@ class DynamicConfigurationTest {
               "      - 47";
 
       final DynamicConfiguration config =
-          DynamicConfigurationManager.parseConfiguration(experimentConfigYaml).orElseThrow();
+          DynamicConfigurationManager.parseConfiguration(experimentConfigYaml, DynamicConfiguration.class).orElseThrow();
 
       assertFalse(config.getPreRegistrationEnrollmentConfiguration("unconfigured").isPresent());
 
@@ -161,7 +161,7 @@ class DynamicConfigurationTest {
     {
       final String emptyConfigYaml = "test: true";
       final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml).orElseThrow();
+          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
       assertNotNull(emptyConfig.getRemoteDeprecationConfiguration());
     }
@@ -181,7 +181,7 @@ class DynamicConfigurationTest {
               "      - 1.4.0-beta.2";
 
       final DynamicConfiguration config =
-          DynamicConfigurationManager.parseConfiguration(remoteDeprecationConfig).orElseThrow();
+          DynamicConfigurationManager.parseConfiguration(remoteDeprecationConfig, DynamicConfiguration.class).orElseThrow();
 
       final DynamicRemoteDeprecationConfiguration remoteDeprecationConfiguration = config
           .getRemoteDeprecationConfiguration();
@@ -201,7 +201,7 @@ class DynamicConfigurationTest {
     {
       final String emptyConfigYaml = "test: true";
       final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml).orElseThrow();
+          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
       assertFalse(emptyConfig.getMessageRateConfiguration().isEnforceUnsealedSenderRateLimit());
     }
@@ -212,7 +212,7 @@ class DynamicConfigurationTest {
               "  enforceUnsealedSenderRateLimit: true";
 
       final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(messageRateConfigYaml).orElseThrow();
+          DynamicConfigurationManager.parseConfiguration(messageRateConfigYaml, DynamicConfiguration.class).orElseThrow();
 
       assertTrue(emptyConfig.getMessageRateConfiguration().isEnforceUnsealedSenderRateLimit());
     }
@@ -223,7 +223,7 @@ class DynamicConfigurationTest {
     {
       final String emptyConfigYaml = "test: true";
       final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml).orElseThrow();
+          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
       assertTrue(emptyConfig.getActiveFeatureFlags().isEmpty());
     }
@@ -234,7 +234,7 @@ class DynamicConfigurationTest {
               + "  - testFlag";
 
       final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(featureFlagYaml).orElseThrow();
+          DynamicConfigurationManager.parseConfiguration(featureFlagYaml, DynamicConfiguration.class).orElseThrow();
 
       assertTrue(emptyConfig.getActiveFeatureFlags().contains("testFlag"));
     }
@@ -245,7 +245,7 @@ class DynamicConfigurationTest {
     {
       final String emptyConfigYaml = "test: true";
       final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml).orElseThrow();
+          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
       assertTrue(emptyConfig.getTwilioConfiguration().getNumbers().isEmpty());
     }
@@ -258,7 +258,7 @@ class DynamicConfigurationTest {
               + "    - 2135551313";
 
       final DynamicTwilioConfiguration config =
-          DynamicConfigurationManager.parseConfiguration(twilioConfigYaml).orElseThrow()
+          DynamicConfigurationManager.parseConfiguration(twilioConfigYaml, DynamicConfiguration.class).orElseThrow()
               .getTwilioConfiguration();
 
       assertEquals(List.of("2135551212", "2135551313"), config.getNumbers());
@@ -270,7 +270,7 @@ class DynamicConfigurationTest {
     {
       final String emptyConfigYaml = "test: true";
       final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml).orElseThrow();
+          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
       assertTrue(emptyConfig.getPaymentsConfiguration().getAllowedCountryCodes().isEmpty());
     }
@@ -282,7 +282,7 @@ class DynamicConfigurationTest {
               + "    - 44";
 
       final DynamicPaymentsConfiguration config =
-          DynamicConfigurationManager.parseConfiguration(paymentsConfigYaml).orElseThrow()
+          DynamicConfigurationManager.parseConfiguration(paymentsConfigYaml, DynamicConfiguration.class).orElseThrow()
               .getPaymentsConfiguration();
 
       assertEquals(Set.of("44"), config.getAllowedCountryCodes());
@@ -294,7 +294,7 @@ class DynamicConfigurationTest {
     {
       final String emptyConfigYaml = "test: true";
       final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml).orElseThrow();
+          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
       assertTrue(emptyConfig.getSignupCaptchaConfiguration().getCountryCodes().isEmpty());
     }
@@ -306,7 +306,7 @@ class DynamicConfigurationTest {
               + "    - 1";
 
       final DynamicSignupCaptchaConfiguration config =
-          DynamicConfigurationManager.parseConfiguration(signupCaptchaConfig).orElseThrow()
+          DynamicConfigurationManager.parseConfiguration(signupCaptchaConfig, DynamicConfiguration.class).orElseThrow()
               .getSignupCaptchaConfiguration();
 
       assertEquals(Set.of("1"), config.getCountryCodes());
@@ -318,7 +318,7 @@ class DynamicConfigurationTest {
     {
       final String emptyConfigYaml = "test: true";
       final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml).orElseThrow();
+          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
       assertThat(emptyConfig.getLimits().getUnsealedSenderNumber().getMaxCardinality()).isEqualTo(100);
       assertThat(emptyConfig.getLimits().getUnsealedSenderNumber().getTtl()).isEqualTo(Duration.ofDays(1));
@@ -332,7 +332,7 @@ class DynamicConfigurationTest {
           + "    ttl: PT23H";
 
       final CardinalityRateLimitConfiguration unsealedSenderNumber =
-          DynamicConfigurationManager.parseConfiguration(limitsConfig).orElseThrow()
+          DynamicConfigurationManager.parseConfiguration(limitsConfig, DynamicConfiguration.class).orElseThrow()
               .getLimits().getUnsealedSenderNumber();
 
       assertThat(unsealedSenderNumber.getMaxCardinality()).isEqualTo(99);
@@ -345,7 +345,7 @@ class DynamicConfigurationTest {
     {
       final String emptyConfigYaml = "test: true";
       final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml).orElseThrow();
+          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
       assertThat(emptyConfig.getRateLimitChallengeConfiguration().getClientSupportedVersions()).isEmpty();
       assertThat(emptyConfig.getRateLimitChallengeConfiguration().isPreKeyLimitEnforced()).isFalse();
@@ -362,7 +362,7 @@ class DynamicConfigurationTest {
               + "    DESKTOP: 5.0.0";
 
       DynamicRateLimitChallengeConfiguration rateLimitChallengeConfiguration =
-          DynamicConfigurationManager.parseConfiguration(rateLimitChallengeConfig).orElseThrow()
+          DynamicConfigurationManager.parseConfiguration(rateLimitChallengeConfig, DynamicConfiguration.class).orElseThrow()
               .getRateLimitChallengeConfiguration();
 
       final Map<ClientPlatform, Semver> clientSupportedVersions = rateLimitChallengeConfiguration.getClientSupportedVersions();
@@ -380,7 +380,7 @@ class DynamicConfigurationTest {
     {
       final String emptyConfigYaml = "test: true";
       final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml).orElseThrow();
+          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
       assertThat(emptyConfig.getDirectoryReconcilerConfiguration().isEnabled()).isTrue();
     }
@@ -391,7 +391,7 @@ class DynamicConfigurationTest {
               + "  enabled: false";
 
       DynamicDirectoryReconcilerConfiguration directoryReconcilerConfiguration =
-          DynamicConfigurationManager.parseConfiguration(directoryReconcilerConfig).orElseThrow()
+          DynamicConfigurationManager.parseConfiguration(directoryReconcilerConfig, DynamicConfiguration.class).orElseThrow()
               .getDirectoryReconcilerConfiguration();
 
       assertThat(directoryReconcilerConfiguration.isEnabled()).isFalse();

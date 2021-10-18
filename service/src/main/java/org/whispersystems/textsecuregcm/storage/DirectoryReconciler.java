@@ -15,6 +15,7 @@ import java.util.function.Function;
 import javax.ws.rs.ProcessingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationRequest;
 import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationResponse;
 import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationResponse.Status;
@@ -26,10 +27,10 @@ public class DirectoryReconciler extends AccountDatabaseCrawlerListener {
 
   private final String replicationName;
   private final DirectoryReconciliationClient reconciliationClient;
-  private final DynamicConfigurationManager dynamicConfigurationManager;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   public DirectoryReconciler(String replicationName, DirectoryReconciliationClient reconciliationClient,
-      DynamicConfigurationManager dynamicConfigurationManager) {
+      DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     this.reconciliationClient = reconciliationClient;
     this.replicationName = replicationName;
     this.dynamicConfigurationManager = dynamicConfigurationManager;

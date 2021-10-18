@@ -9,6 +9,7 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 import io.dropwizard.util.Duration;
 import io.micrometer.core.instrument.Metrics;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
@@ -28,11 +29,11 @@ public class PreKeyRateLimiter {
   private static final long RATE_LIMITED_ACCOUNTS_HLL_TTL_SECONDS = Duration.days(1).toSeconds();
 
   private final RateLimiters rateLimiters;
-  private final DynamicConfigurationManager dynamicConfigurationManager;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final RateLimitResetMetricsManager metricsManager;
 
   public PreKeyRateLimiter(final RateLimiters rateLimiters,
-      final DynamicConfigurationManager dynamicConfigurationManager,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final RateLimitResetMetricsManager metricsManager) {
     this.rateLimiters = rateLimiters;
     this.dynamicConfigurationManager = dynamicConfigurationManager;

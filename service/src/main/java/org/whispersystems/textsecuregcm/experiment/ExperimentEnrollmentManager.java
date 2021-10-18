@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.experiment;
 
 import java.util.Optional;
 import java.util.UUID;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicExperimentEnrollmentConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicPreRegistrationExperimentEnrollmentConfiguration;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
@@ -14,9 +15,9 @@ import org.whispersystems.textsecuregcm.util.Util;
 
 public class ExperimentEnrollmentManager {
 
-  private final DynamicConfigurationManager dynamicConfigurationManager;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
-  public ExperimentEnrollmentManager(final DynamicConfigurationManager dynamicConfigurationManager) {
+  public ExperimentEnrollmentManager(final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 

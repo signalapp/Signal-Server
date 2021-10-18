@@ -10,6 +10,7 @@ import static com.codahale.metrics.MetricRegistry.name;
 import io.dropwizard.util.Duration;
 import io.lettuce.core.SetArgs;
 import io.micrometer.core.instrument.Metrics;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
@@ -21,7 +22,7 @@ public class UnsealedSenderRateLimiter {
 
   private final RateLimiters rateLimiters;
   private final FaultTolerantRedisCluster rateLimitCluster;
-  private final DynamicConfigurationManager dynamicConfigurationManager;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final RateLimitResetMetricsManager metricsManager;
 
   private static final String RATE_LIMIT_RESET_COUNTER_NAME = name(UnsealedSenderRateLimiter.class, "reset");
@@ -38,7 +39,7 @@ public class UnsealedSenderRateLimiter {
 
   public UnsealedSenderRateLimiter(final RateLimiters rateLimiters,
       final FaultTolerantRedisCluster rateLimitCluster,
-      final DynamicConfigurationManager dynamicConfigurationManager,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final RateLimitResetMetricsManager metricsManager) {
 
     this.rateLimiters = rateLimiters;

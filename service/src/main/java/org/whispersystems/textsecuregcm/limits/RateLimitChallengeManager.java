@@ -7,6 +7,7 @@ import io.micrometer.core.instrument.Metrics;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
@@ -26,7 +27,7 @@ public class RateLimitChallengeManager {
   private final UnsealedSenderRateLimiter unsealedSenderRateLimiter;
 
   private final RateLimiters rateLimiters;
-  private final DynamicConfigurationManager dynamicConfigurationManager;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   public static final String OPTION_RECAPTCHA = "recaptcha";
   public static final String OPTION_PUSH_CHALLENGE = "pushChallenge";
@@ -43,7 +44,7 @@ public class RateLimitChallengeManager {
       final PreKeyRateLimiter preKeyRateLimiter,
       final UnsealedSenderRateLimiter unsealedSenderRateLimiter,
       final RateLimiters rateLimiters,
-      final DynamicConfigurationManager dynamicConfigurationManager) {
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
 
     this.pushChallengeManager = pushChallengeManager;
     this.recaptchaClient = recaptchaClient;

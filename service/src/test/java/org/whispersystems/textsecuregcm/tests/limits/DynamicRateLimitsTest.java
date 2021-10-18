@@ -21,8 +21,8 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
 class DynamicRateLimitsTest {
 
-  private DynamicConfigurationManager dynamicConfig;
-  private FaultTolerantRedisCluster   redisCluster;
+  private DynamicConfigurationManager<DynamicConfiguration> dynamicConfig;
+  private FaultTolerantRedisCluster redisCluster;
 
   @BeforeEach
   void setup() {

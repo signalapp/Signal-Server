@@ -38,6 +38,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TwilioVerificationTextConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.http.FormDataBodyPublisher;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
@@ -74,12 +75,16 @@ public class TwilioSmsSender {
   private final URI                     smsUri;
   private final URI                     voxUri;
 
-  private final DynamicConfigurationManager dynamicConfigurationManager;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   private final TwilioVerifySender twilioVerifySender;
 
   @VisibleForTesting
-  public TwilioSmsSender(String baseUri, String baseVerifyUri, TwilioConfiguration twilioConfiguration, DynamicConfigurationManager dynamicConfigurationManager) {
+  public TwilioSmsSender(String baseUri,
+      String baseVerifyUri,
+      TwilioConfiguration twilioConfiguration,
+      DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+
     Executor executor = ExecutorUtils.newFixedThreadBoundedQueueExecutor(10, 100);
 
     this.accountId                     = twilioConfiguration.getAccountId();

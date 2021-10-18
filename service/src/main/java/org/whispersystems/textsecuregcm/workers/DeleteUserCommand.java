@@ -28,6 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
@@ -127,9 +128,9 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
           configuration.getSecureStorageServiceConfiguration().getUserAuthenticationTokenSharedSecret(), new byte[0],
           false);
 
-      DynamicConfigurationManager dynamicConfigurationManager = new DynamicConfigurationManager(
+      DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = new DynamicConfigurationManager<>(
           configuration.getAppConfig().getApplication(), configuration.getAppConfig().getEnvironment(),
-          configuration.getAppConfig().getConfigurationName());
+          configuration.getAppConfig().getConfigurationName(), DynamicConfiguration.class);
       dynamicConfigurationManager.start();
 
       DynamoDbClient pendingAccountsDynamoDbClient = DynamoDbFromConfig.client(configuration.getPendingAccountsDynamoDbConfiguration(),

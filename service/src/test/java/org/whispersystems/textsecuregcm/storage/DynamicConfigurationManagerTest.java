@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.appconfig.AppConfigClient;
 import software.amazon.awssdk.services.appconfig.model.GetConfigurationRequest;
@@ -14,13 +15,13 @@ import software.amazon.awssdk.services.appconfig.model.GetConfigurationResponse;
 
 public class DynamicConfigurationManagerTest {
 
-  private DynamicConfigurationManager dynamicConfigurationManager;
+  private DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private AppConfigClient             appConfig;
 
   @Before
   public void setup() {
     this.appConfig                   = mock(AppConfigClient.class);
-    this.dynamicConfigurationManager = new DynamicConfigurationManager(appConfig, "foo", "bar", "baz", "poof");
+    this.dynamicConfigurationManager = new DynamicConfigurationManager<>(appConfig, "foo", "bar", "baz", "poof", DynamicConfiguration.class);
   }
 
   @Test

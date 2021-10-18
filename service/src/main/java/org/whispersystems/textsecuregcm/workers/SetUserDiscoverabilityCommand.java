@@ -27,6 +27,7 @@ import net.sourceforge.argparse4j.inf.Subparser;
 import org.jdbi.v3.core.Jdbi;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
@@ -131,9 +132,9 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
           configuration.getSecureStorageServiceConfiguration().getUserAuthenticationTokenSharedSecret(), new byte[0],
           false);
 
-      DynamicConfigurationManager dynamicConfigurationManager = new DynamicConfigurationManager(
+      DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = new DynamicConfigurationManager<>(
           configuration.getAppConfig().getApplication(), configuration.getAppConfig().getEnvironment(),
-          configuration.getAppConfig().getConfigurationName());
+          configuration.getAppConfig().getConfigurationName(), DynamicConfiguration.class);
       dynamicConfigurationManager.start();
 
       DynamoDbClient pendingAccountsDynamoDbClient = DynamoDbFromConfig

@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -53,7 +54,7 @@ public class MessagePersister implements Managed {
 
     private static final Logger logger = LoggerFactory.getLogger(MessagePersister.class);
 
-    public MessagePersister(final MessagesCache messagesCache, final MessagesManager messagesManager, final AccountsManager accountsManager, final DynamicConfigurationManager dynamicConfigurationManager, final Duration persistDelay) {
+    public MessagePersister(final MessagesCache messagesCache, final MessagesManager messagesManager, final AccountsManager accountsManager, final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager, final Duration persistDelay) {
         this.messagesCache               = messagesCache;
         this.messagesManager             = messagesManager;
         this.accountsManager             = accountsManager;
