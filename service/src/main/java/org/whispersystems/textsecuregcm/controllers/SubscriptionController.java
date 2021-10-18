@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
@@ -530,7 +531,7 @@ public class SubscriptionController {
   public CompletableFuture<Response> getReceiptCredentials(
       @Auth Optional<AuthenticatedAccount> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
-      GetReceiptCredentialsRequest request) {
+      @Valid GetReceiptCredentialsRequest request) {
     RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
     return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
         .thenApply(this::requireRecordFromGetResult)
