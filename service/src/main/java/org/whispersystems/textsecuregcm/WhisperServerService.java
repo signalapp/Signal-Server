@@ -202,11 +202,9 @@ import org.whispersystems.textsecuregcm.storage.Usernames;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.storage.VerificationCodeStore;
 import org.whispersystems.textsecuregcm.stripe.StripeManager;
-import org.whispersystems.textsecuregcm.util.AsnManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
 import org.whispersystems.textsecuregcm.util.HostnameUtil;
-import org.whispersystems.textsecuregcm.util.TorExitNodeManager;
 import org.whispersystems.textsecuregcm.util.logging.LoggingUnhandledExceptionMapper;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
@@ -471,8 +469,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     GCMSender                  gcmSender                  = new GCMSender(gcmSenderExecutor, accountsManager, config.getGcmConfiguration().getApiKey());
     RateLimiters               rateLimiters               = new RateLimiters(config.getLimitsConfiguration(), dynamicConfigurationManager, rateLimitersCluster);
     ProvisioningManager        provisioningManager        = new ProvisioningManager(pubSubManager);
-    TorExitNodeManager         torExitNodeManager         = new TorExitNodeManager(recurringJobExecutor, config.getTorExitNodeListConfiguration());
-    AsnManager                 asnManager                 = new AsnManager(recurringJobExecutor, config.getAsnTableConfiguration());
     IssuedReceiptsManager issuedReceiptsManager = new IssuedReceiptsManager(
         config.getDynamoDbTables().getIssuedReceipts().getTableName(),
         config.getDynamoDbTables().getIssuedReceipts().getExpiration(),
@@ -565,8 +561,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(messagePersister);
     environment.lifecycle().manage(clientPresenceManager);
     environment.lifecycle().manage(currencyManager);
-    environment.lifecycle().manage(torExitNodeManager);
-    environment.lifecycle().manage(asnManager);
     environment.lifecycle().manage(directoryQueue);
 
     StaticCredentialsProvider cdnCredentialsProvider = StaticCredentialsProvider

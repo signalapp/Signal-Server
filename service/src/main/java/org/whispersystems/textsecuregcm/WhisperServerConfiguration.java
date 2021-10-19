@@ -36,7 +36,6 @@ import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguratio
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageDynamoDbConfiguration;
-import org.whispersystems.textsecuregcm.configuration.MonitoredS3ObjectConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PaymentsServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PushConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
@@ -299,16 +298,6 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private MonitoredS3ObjectConfiguration torExitNodeList;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private MonitoredS3ObjectConfiguration asnTable;
-
-  @Valid
-  @NotNull
-  @JsonProperty
   private DonationConfiguration donation;
 
   @Valid
@@ -541,14 +530,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public DynamoDbConfiguration getPendingDevicesDynamoDbConfiguration() {
     return pendingDevicesDynamoDb;
-  }
-
-  public MonitoredS3ObjectConfiguration getTorExitNodeListConfiguration() {
-    return torExitNodeList;
-  }
-
-  public MonitoredS3ObjectConfiguration getAsnTableConfiguration() {
-    return asnTable;
   }
 
   public DonationConfiguration getDonationConfiguration() {
