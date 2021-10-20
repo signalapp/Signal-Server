@@ -45,21 +45,17 @@ public class Util {
     }
   }
 
-  public static boolean isValidNumber(String number) {
-    return number.matches("^\\+[0-9]+") && PHONE_NUMBER_UTIL.isPossibleNumber(number, null);
-  }
-
   /**
    * Checks that the given number is a valid, E164-normalized phone number.
    *
    * @param number the number to check
    *
-   * @throws ImpossibleNumberException if the given number is not a valid phone number at all
-   * @throws NonNormalizedNumberException if the given number is a valid phone number, but isn't E164-normalized
+   * @throws ImpossiblePhoneNumberException if the given number is not a valid phone number at all
+   * @throws NonNormalizedPhoneNumberException if the given number is a valid phone number, but isn't E164-normalized
    */
-  public static void requireNormalizedNumber(final String number) throws ImpossibleNumberException, NonNormalizedNumberException {
+  public static void requireNormalizedNumber(final String number) throws ImpossiblePhoneNumberException, NonNormalizedPhoneNumberException {
     if (!PHONE_NUMBER_UTIL.isPossibleNumber(number, null)) {
-      throw new ImpossibleNumberException();
+      throw new ImpossiblePhoneNumberException();
     }
 
     try {
@@ -67,10 +63,10 @@ public class Util {
       final String normalizedNumber = PHONE_NUMBER_UTIL.format(phoneNumber, PhoneNumberFormat.E164);
 
       if (!number.equals(normalizedNumber)) {
-        throw new NonNormalizedNumberException(number, normalizedNumber);
+        throw new NonNormalizedPhoneNumberException(number, normalizedNumber);
       }
     } catch (final NumberParseException e) {
-      throw new ImpossibleNumberException(e);
+      throw new ImpossiblePhoneNumberException(e);
     }
   }
 

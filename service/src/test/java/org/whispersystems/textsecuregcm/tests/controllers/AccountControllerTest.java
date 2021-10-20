@@ -72,6 +72,9 @@ import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberResponse;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.ApnMessage;
@@ -154,6 +157,8 @@ class AccountControllerTest {
               ImmutableSet.of(AuthenticatedAccount.class,
                   DisabledPermittedAuthenticatedAccount.class)))
       .addProvider(new RateLimitExceededExceptionMapper())
+      .addProvider(new ImpossiblePhoneNumberExceptionMapper())
+      .addProvider(new NonNormalizedPhoneNumberExceptionMapper())
       .setMapper(SystemMapper.getMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new AccountController(pendingAccountsManager,
@@ -395,6 +400,39 @@ class AccountControllerTest {
     verifyNoMoreInteractions(gcmSender);
   }
 
+  @Test
+  void testGetPreauthImpossibleNumber() {
+    final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/fcm/preauth/mytoken/BogusNumber")
+        .request()
+        .get();
+
+    assertThat(response.getStatus()).isEqualTo(400);
+    assertThat(response.readEntity(String.class)).isBlank();
+
+    verifyNoMoreInteractions(gcmSender);
+    verifyNoMoreInteractions(apnSender);
+  }
+
+  @Test
+  void testGetPreauthNonNormalized() {
+    final String number = "+4407700900111";
+
+    final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/fcm/preauth/mytoken/" + number)
+        .request()
+        .get();
+
+    assertThat(response.getStatus()).isEqualTo(400);
+
+    final NonNormalizedPhoneNumberResponse responseEntity = response.readEntity(NonNormalizedPhoneNumberResponse.class);
+    assertThat(responseEntity.getOriginalNumber()).isEqualTo(number);
+    assertThat(responseEntity.getNormalizedNumber()).isEqualTo("+447700900111");
+
+    verifyNoMoreInteractions(gcmSender);
+    verifyNoMoreInteractions(apnSender);
+  }
+
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
   void testSendCode(final boolean enrolledInVerifyExperiment) throws Exception {
@@ -432,6 +470,43 @@ class AccountControllerTest {
     }
     verifyNoMoreInteractions(smsSender);
     verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
+  }
+
+  @Test
+  void testSendCodeImpossibleNumber() {
+    final Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/accounts/sms/code/%s", "Definitely not a real number"))
+            .queryParam("challenge", "1234-push")
+            .request()
+            .header("X-Forwarded-For", NICE_HOST)
+            .get();
+
+    assertThat(response.getStatus()).isEqualTo(400);
+    assertThat(response.readEntity(String.class)).isBlank();
+
+    verify(smsSender, never()).deliverSmsVerification(any(), any(), any());
+  }
+
+  @Test
+  void testSendCodeNonNormalized() {
+    final String number = "+4407700900111";
+
+    final Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/accounts/sms/code/%s", number))
+            .queryParam("challenge", "1234-push")
+            .request()
+            .header("X-Forwarded-For", NICE_HOST)
+            .get();
+
+    assertThat(response.getStatus()).isEqualTo(400);
+
+    final NonNormalizedPhoneNumberResponse responseEntity = response.readEntity(NonNormalizedPhoneNumberResponse.class);
+    assertThat(responseEntity.getOriginalNumber()).isEqualTo(number);
+    assertThat(responseEntity.getNormalizedNumber()).isEqualTo("+447700900111");
+
+    verify(smsSender, never()).deliverSmsVerification(any(), any(), any());
   }
 
   @ParameterizedTest
@@ -1149,6 +1224,46 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(204);
     verify(accountsManager).changeNumber(AuthHelper.VALID_ACCOUNT, number);
+  }
+
+  @Test
+  void testChangePhoneNumberImpossibleNumber() throws InterruptedException {
+    final String number = "This is not a real phone number";
+    final String code = "987654";
+
+    final Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/number")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(400);
+    assertThat(response.readEntity(String.class)).isBlank();
+    verify(accountsManager, never()).changeNumber(any(), any());
+  }
+
+  @Test
+  void testChangePhoneNumberNonNormalized() throws InterruptedException {
+    final String number = "+4407700900111";
+    final String code = "987654";
+
+    final Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/number")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(400);
+
+    final NonNormalizedPhoneNumberResponse responseEntity = response.readEntity(NonNormalizedPhoneNumberResponse.class);
+    assertThat(responseEntity.getOriginalNumber()).isEqualTo(number);
+    assertThat(responseEntity.getNormalizedNumber()).isEqualTo("+447700900111");
+
+    verify(accountsManager, never()).changeNumber(any(), any());
   }
 
   @Test

@@ -80,6 +80,8 @@ import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.ForwardedIpUtil;
 import org.whispersystems.textsecuregcm.util.Hex;
+import org.whispersystems.textsecuregcm.util.ImpossiblePhoneNumberException;
+import org.whispersystems.textsecuregcm.util.NonNormalizedPhoneNumberException;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
 
@@ -160,18 +162,18 @@ public class AccountController {
   @Timed
   @GET
   @Path("/{type}/preauth/{token}/{number}")
+  @Produces(MediaType.APPLICATION_JSON)
   public Response getPreAuth(@PathParam("type")   String pushType,
                              @PathParam("token")  String pushToken,
                              @PathParam("number") String number,
                              @QueryParam("voip")  Optional<Boolean> useVoip)
-  {
+      throws ImpossiblePhoneNumberException, NonNormalizedPhoneNumberException {
+
     if (!"apn".equals(pushType) && !"fcm".equals(pushType)) {
       return Response.status(400).build();
     }
 
-    if (!Util.isValidNumber(number)) {
-      return Response.status(400).build();
-    }
+    Util.requireNormalizedNumber(number);
 
     String                 pushChallenge          = generatePushChallenge();
     StoredVerificationCode storedVerificationCode = new StoredVerificationCode(null,
@@ -195,6 +197,7 @@ public class AccountController {
   @Timed
   @GET
   @Path("/{transport}/code/{number}")
+  @Produces(MediaType.APPLICATION_JSON)
   public Response createAccount(@PathParam("transport")         String transport,
                                 @PathParam("number")            String number,
                                 @HeaderParam("X-Forwarded-For") String forwardedFor,
@@ -203,12 +206,9 @@ public class AccountController {
                                 @QueryParam("client")           Optional<String> client,
                                 @QueryParam("captcha")          Optional<String> captcha,
                                 @QueryParam("challenge")        Optional<String> pushChallenge)
-      throws RateLimitExceededException, RetryLaterException
-  {
-    if (!Util.isValidNumber(number)) {
-      logger.info("Invalid number: " + number);
-      throw new WebApplicationException(Response.status(400).build());
-    }
+      throws RateLimitExceededException, RetryLaterException, ImpossiblePhoneNumberException, NonNormalizedPhoneNumberException {
+
+    Util.requireNormalizedNumber(number);
 
     String sourceHost = ForwardedIpUtil.getMostRecentProxy(forwardedFor).orElseThrow();
 
@@ -340,6 +340,9 @@ public class AccountController {
 
     rateLimiters.getVerifyLimiter().validate(number);
 
+    // Note that successful verification depends on being able to find a stored verification code for the given number.
+    // We check that numbers are normalized before we store verification codes, and so don't need to re-assert
+    // normalization here.
     Optional<StoredVerificationCode> storedVerificationCode = pendingAccounts.getCodeForNumber(number);
 
     if (storedVerificationCode.isEmpty() || !storedVerificationCode.get().isValid(verificationCode)) {
@@ -385,13 +388,15 @@ public class AccountController {
   @Path("/number")
   @Produces(MediaType.APPLICATION_JSON)
   public void changeNumber(@Auth final AuthenticatedAccount authenticatedAccount, @Valid final ChangePhoneNumberRequest request)
-      throws RateLimitExceededException, InterruptedException {
+      throws RateLimitExceededException, InterruptedException, ImpossiblePhoneNumberException, NonNormalizedPhoneNumberException {
 
     if (request.getNumber().equals(authenticatedAccount.getAccount().getNumber())) {
       // This may be a request that got repeated due to poor network conditions or other client error; take no action,
       // but report success since the account is in the desired state
       return;
     }
+
+    Util.requireNormalizedNumber(request.getNumber());
 
     rateLimiters.getVerifyLimiter().validate(request.getNumber());
 

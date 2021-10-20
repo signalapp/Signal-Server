@@ -52,6 +52,7 @@ import java.util.concurrent.TimeUnit;
 import javax.servlet.DispatcherType;
 import javax.servlet.FilterRegistration;
 import javax.servlet.ServletRegistration;
+import javax.ws.rs.ext.ExceptionMapper;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
 import org.glassfish.jersey.server.ServerProperties;
 import org.jdbi.v3.core.Jdbi;
@@ -111,7 +112,9 @@ import org.whispersystems.textsecuregcm.limits.UnsealedSenderRateLimiter;
 import org.whispersystems.textsecuregcm.liquibase.NameableMigrationsBundle;
 import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.IOExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.InvalidWebsocketAddressExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitChallengeExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RetryLaterExceptionMapper;
@@ -708,29 +711,22 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
   private void registerExceptionMappers(Environment environment,
       WebSocketEnvironment<AuthenticatedAccount> webSocketEnvironment,
       WebSocketEnvironment<AuthenticatedAccount> provisioningEnvironment) {
-    environment.jersey().register(new LoggingUnhandledExceptionMapper());
-    environment.jersey().register(new IOExceptionMapper());
-    environment.jersey().register(new RateLimitExceededExceptionMapper());
-    environment.jersey().register(new InvalidWebsocketAddressExceptionMapper());
-    environment.jersey().register(new DeviceLimitExceededExceptionMapper());
-    environment.jersey().register(new RetryLaterExceptionMapper());
-    environment.jersey().register(new ServerRejectedExceptionMapper());
 
-    webSocketEnvironment.jersey().register(new LoggingUnhandledExceptionMapper());
-    webSocketEnvironment.jersey().register(new IOExceptionMapper());
-    webSocketEnvironment.jersey().register(new RateLimitExceededExceptionMapper());
-    webSocketEnvironment.jersey().register(new InvalidWebsocketAddressExceptionMapper());
-    webSocketEnvironment.jersey().register(new DeviceLimitExceededExceptionMapper());
-    webSocketEnvironment.jersey().register(new RetryLaterExceptionMapper());
-    webSocketEnvironment.jersey().register(new ServerRejectedExceptionMapper());
-
-    provisioningEnvironment.jersey().register(new LoggingUnhandledExceptionMapper());
-    provisioningEnvironment.jersey().register(new IOExceptionMapper());
-    provisioningEnvironment.jersey().register(new RateLimitExceededExceptionMapper());
-    provisioningEnvironment.jersey().register(new InvalidWebsocketAddressExceptionMapper());
-    provisioningEnvironment.jersey().register(new DeviceLimitExceededExceptionMapper());
-    provisioningEnvironment.jersey().register(new RetryLaterExceptionMapper());
-    provisioningEnvironment.jersey().register(new ServerRejectedExceptionMapper());
+    List.of(
+        new LoggingUnhandledExceptionMapper(),
+        new IOExceptionMapper(),
+        new RateLimitExceededExceptionMapper(),
+        new InvalidWebsocketAddressExceptionMapper(),
+        new DeviceLimitExceededExceptionMapper(),
+        new RetryLaterExceptionMapper(),
+        new ServerRejectedExceptionMapper(),
+        new ImpossiblePhoneNumberExceptionMapper(),
+        new NonNormalizedPhoneNumberExceptionMapper()
+    ).forEach(exceptionMapper -> {
+      environment.jersey().register(exceptionMapper);
+      webSocketEnvironment.jersey().register(exceptionMapper);
+      provisioningEnvironment.jersey().register(exceptionMapper);
+    });
   }
 
   private void registerCorsFilter(Environment environment) {

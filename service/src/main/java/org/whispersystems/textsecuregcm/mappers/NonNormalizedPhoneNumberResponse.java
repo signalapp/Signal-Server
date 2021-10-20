@@ -3,14 +3,20 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-package org.whispersystems.textsecuregcm.util;
+package org.whispersystems.textsecuregcm.mappers;
 
-public class NonNormalizedNumberException extends Exception {
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public class NonNormalizedPhoneNumberResponse {
 
   private final String originalNumber;
   private final String normalizedNumber;
 
-  public NonNormalizedNumberException(final String originalNumber, final String normalizedNumber) {
+  @JsonCreator
+  NonNormalizedPhoneNumberResponse(@JsonProperty("originalNumber") final String originalNumber,
+      @JsonProperty("normalizedNumber") final String normalizedNumber) {
+
     this.originalNumber = originalNumber;
     this.normalizedNumber = normalizedNumber;
   }
