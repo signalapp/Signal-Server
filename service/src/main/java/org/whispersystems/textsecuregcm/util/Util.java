@@ -4,7 +4,10 @@
  */
 package org.whispersystems.textsecuregcm.util;
 
+import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
+import com.google.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberFormat;
+import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.security.MessageDigest;
@@ -28,6 +31,8 @@ public class Util {
 
   private static final Pattern COUNTRY_CODE_PATTERN = Pattern.compile("^\\+([17]|2[07]|3[0123469]|4[013456789]|5[12345678]|6[0123456]|8[1246]|9[0123458]|\\d{3})");
 
+  private static final PhoneNumberUtil PHONE_NUMBER_UTIL = PhoneNumberUtil.getInstance();
+
   public static byte[] getContactToken(String number) {
     try {
       MessageDigest digest    = MessageDigest.getInstance("SHA1");
@@ -41,7 +46,32 @@ public class Util {
   }
 
   public static boolean isValidNumber(String number) {
-    return number.matches("^\\+[0-9]+") && PhoneNumberUtil.getInstance().isPossibleNumber(number, null);
+    return number.matches("^\\+[0-9]+") && PHONE_NUMBER_UTIL.isPossibleNumber(number, null);
+  }
+
+  /**
+   * Checks that the given number is a valid, E164-normalized phone number.
+   *
+   * @param number the number to check
+   *
+   * @throws ImpossibleNumberException if the given number is not a valid phone number at all
+   * @throws NonNormalizedNumberException if the given number is a valid phone number, but isn't E164-normalized
+   */
+  public static void requireNormalizedNumber(final String number) throws ImpossibleNumberException, NonNormalizedNumberException {
+    if (!PHONE_NUMBER_UTIL.isPossibleNumber(number, null)) {
+      throw new ImpossibleNumberException();
+    }
+
+    try {
+      final PhoneNumber phoneNumber = PHONE_NUMBER_UTIL.parse(number, null);
+      final String normalizedNumber = PHONE_NUMBER_UTIL.format(phoneNumber, PhoneNumberFormat.E164);
+
+      if (!number.equals(normalizedNumber)) {
+        throw new NonNormalizedNumberException(number, normalizedNumber);
+      }
+    } catch (final NumberParseException e) {
+      throw new ImpossibleNumberException(e);
+    }
   }
 
   public static String getCountryCode(String number) {
