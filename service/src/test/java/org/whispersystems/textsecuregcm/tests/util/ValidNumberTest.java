@@ -5,48 +5,52 @@
 
 package org.whispersystems.textsecuregcm.tests.util;
 
-import org.junit.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.util.Util;
 
-import static junit.framework.TestCase.assertTrue;
-import static org.junit.Assert.assertFalse;
+import java.util.stream.Stream;
 
-public class ValidNumberTest {
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-  @Test
-  public void testValidE164() {
-    assertTrue(Util.isValidNumber("+14151231234"));
-    assertTrue(Util.isValidNumber("+71234567890"));
-    assertTrue(Util.isValidNumber("+447535742222"));
-    assertTrue(Util.isValidNumber("+4915174108888"));
+class ValidNumberTest {
+
+  @ParameterizedTest
+  @MethodSource
+  void isValid(final String number, final boolean expectValid) {
+    assertEquals(expectValid, Util.isValidNumber(number));
   }
 
-  @Test
-  public void testInvalidE164() {
-    assertFalse(Util.isValidNumber("+141512312341"));
-    assertFalse(Util.isValidNumber("+712345678901"));
-    assertFalse(Util.isValidNumber("+4475357422221"));
-    assertFalse(Util.isValidNumber("+491517410888811111"));
-  }
+  private static Stream<Arguments> isValid() {
+    return Stream.of(
+        // Valid numbers
+        Arguments.of("+14151231234", true),
+        Arguments.of("+71234567890", true),
+        Arguments.of("+447535742222", true),
+        Arguments.of("+4915174108888", true),
 
-  @Test
-  public void testNotE164() {
-    assertFalse(Util.isValidNumber("+1 415 123 1234"));
-    assertFalse(Util.isValidNumber("+1 (415) 123-1234"));
-    assertFalse(Util.isValidNumber("+1 415)123-1234"));
-    assertFalse(Util.isValidNumber("71234567890"));
-    assertFalse(Util.isValidNumber("001447535742222"));
-    assertFalse(Util.isValidNumber(" +14151231234"));
-    assertFalse(Util.isValidNumber("+1415123123a"));
-  }
+        // Invalid e164s
+        Arguments.of("+141512312341", false),
+        Arguments.of("+712345678901", false),
+        Arguments.of("+4475357422221", false),
+        Arguments.of("+491517410888811111", false),
 
-  @Test
-  public void testShortRegions() {
-    assertTrue(Util.isValidNumber("+298123456"));
-    assertTrue(Util.isValidNumber("+299123456"));
-    assertTrue(Util.isValidNumber("+376123456"));
-    assertTrue(Util.isValidNumber("+68512345"));
-    assertTrue(Util.isValidNumber("+689123456"));
-  }
+        // Non-e164s
+        Arguments.of("+1 415 123 1234", false),
+        Arguments.of("+1 (415) 123-1234", false),
+        Arguments.of("+1 415)123-1234", false),
+        Arguments.of("71234567890", false),
+        Arguments.of("001447535742222", false),
+        Arguments.of(" +14151231234", false),
+        Arguments.of("+1415123123a", false),
 
+        // Short region
+        Arguments.of("+298123456", true),
+        Arguments.of("+299123456", true),
+        Arguments.of("+376123456", true),
+        Arguments.of("+68512345", true),
+        Arguments.of("+689123456", true)
+    );
+  }
 }
