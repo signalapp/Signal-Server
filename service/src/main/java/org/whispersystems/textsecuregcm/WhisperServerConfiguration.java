@@ -328,7 +328,7 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private ReportMessageConfiguration reportMessage;
+  private ReportMessageConfiguration reportMessage = new ReportMessageConfiguration();
 
   private Map<String, String> transparentDataIndex = new HashMap<>();
 
