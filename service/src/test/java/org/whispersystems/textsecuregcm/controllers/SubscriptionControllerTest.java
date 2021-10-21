@@ -29,6 +29,7 @@ import org.signal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
+import org.whispersystems.textsecuregcm.configuration.BoostConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionPriceConfiguration;
@@ -45,14 +46,15 @@ class SubscriptionControllerTest {
 
   private static final Clock CLOCK = mock(Clock.class);
   private static final SubscriptionConfiguration SUBSCRIPTION_CONFIG = mock(SubscriptionConfiguration.class);
+  private static final BoostConfiguration BOOST_CONFIG = mock(BoostConfiguration.class);
   private static final SubscriptionManager SUBSCRIPTION_MANAGER = mock(SubscriptionManager.class);
   private static final StripeManager STRIPE_MANAGER = mock(StripeManager.class);
   private static final ServerZkReceiptOperations ZK_OPS = mock(ServerZkReceiptOperations.class);
   private static final IssuedReceiptsManager ISSUED_RECEIPTS_MANAGER = mock(IssuedReceiptsManager.class);
   private static final BadgeTranslator BADGE_TRANSLATOR = mock(BadgeTranslator.class);
   private static final SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(
-      CLOCK, SUBSCRIPTION_CONFIG, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER,
-      BADGE_TRANSLATOR);
+      CLOCK, SUBSCRIPTION_CONFIG, BOOST_CONFIG, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, ZK_OPS,
+      ISSUED_RECEIPTS_MANAGER, BADGE_TRANSLATOR);
   private static final ResourceExtension RESOURCE_EXTENSION = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())

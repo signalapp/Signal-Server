@@ -640,9 +640,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getCdnConfiguration().getAccessSecret(), config.getCdnConfiguration().getRegion(),
             config.getCdnConfiguration().getBucket())
     );
-    if (config.getSubscription() != null) {
-      commonControllers.add(new SubscriptionController(clock, config.getSubscription(), subscriptionManager,
-          stripeManager, zkReceiptOperations, issuedReceiptsManager, profileBadgeConverter));
+    if (config.getSubscription() != null && config.getBoost() != null) {
+      commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getBoost(),
+          subscriptionManager, stripeManager, zkReceiptOperations, issuedReceiptsManager, profileBadgeConverter));
     }
 
     for (Object controller : commonControllers) {

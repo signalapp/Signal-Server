@@ -20,6 +20,7 @@ import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AppConfigConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AwsAttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
+import org.whispersystems.textsecuregcm.configuration.BoostConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DatabaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DatadogConfiguration;
@@ -320,6 +321,11 @@ public class WhisperServerConfiguration extends Configuration {
   private SubscriptionConfiguration subscription;
 
   @Valid
+  @JsonProperty
+  // TODO: Mark as @NotNull when enabled for production.
+  private BoostConfiguration boost;
+
+  @Valid
   @NotNull
   @JsonProperty
   private ReportMessageConfiguration reportMessage;
@@ -550,6 +556,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public SubscriptionConfiguration getSubscription() {
     return subscription;
+  }
+
+  public BoostConfiguration getBoost() {
+    return boost;
   }
 
   public ReportMessageConfiguration getReportMessageConfiguration() {

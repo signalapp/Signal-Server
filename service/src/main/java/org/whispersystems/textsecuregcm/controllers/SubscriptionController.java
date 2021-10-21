@@ -29,6 +29,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.crypto.Mac;
@@ -62,6 +63,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
+import org.whispersystems.textsecuregcm.configuration.BoostConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionPriceConfiguration;
@@ -78,7 +80,8 @@ public class SubscriptionController {
   private static final Logger logger = LoggerFactory.getLogger(SubscriptionController.class);
 
   private final Clock clock;
-  private final SubscriptionConfiguration config;
+  private final SubscriptionConfiguration subscriptionConfiguration;
+  private final BoostConfiguration boostConfiguration;
   private final SubscriptionManager subscriptionManager;
   private final StripeManager stripeManager;
   private final ServerZkReceiptOperations zkReceiptOperations;
@@ -87,14 +90,16 @@ public class SubscriptionController {
 
   public SubscriptionController(
       @Nonnull Clock clock,
-      @Nonnull SubscriptionConfiguration config,
+      @Nonnull SubscriptionConfiguration subscriptionConfiguration,
+      @Nonnull final BoostConfiguration boostConfiguration,
       @Nonnull SubscriptionManager subscriptionManager,
       @Nonnull StripeManager stripeManager,
       @Nonnull ServerZkReceiptOperations zkReceiptOperations,
       @Nonnull IssuedReceiptsManager issuedReceiptsManager,
       @Nonnull BadgeTranslator badgeTranslator) {
     this.clock = Objects.requireNonNull(clock);
-    this.config = Objects.requireNonNull(config);
+    this.subscriptionConfiguration = Objects.requireNonNull(subscriptionConfiguration);
+    this.boostConfiguration = Objects.requireNonNull(boostConfiguration);
     this.subscriptionManager = Objects.requireNonNull(subscriptionManager);
     this.stripeManager = Objects.requireNonNull(stripeManager);
     this.zkReceiptOperations = Objects.requireNonNull(zkReceiptOperations);
@@ -288,7 +293,7 @@ public class SubscriptionController {
     return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
         .thenApply(this::requireRecordFromGetResult)
         .thenCompose(record -> {
-          SubscriptionLevelConfiguration levelConfiguration = config.getLevels().get(level);
+          SubscriptionLevelConfiguration levelConfiguration = subscriptionConfiguration.getLevels().get(level);
           if (levelConfiguration == null) {
             throw new BadRequestException(Response.status(Status.BAD_REQUEST)
                 .entity(new SetSubscriptionLevelErrorResponse(List.of(
@@ -307,12 +312,14 @@ public class SubscriptionController {
           }
 
           if (record.subscriptionId == null) {
-            long lastSubscriptionCreatedAt = record.subscriptionCreatedAt != null ? record.subscriptionCreatedAt.getEpochSecond() : 0;
+            long lastSubscriptionCreatedAt =
+                record.subscriptionCreatedAt != null ? record.subscriptionCreatedAt.getEpochSecond() : 0;
             // we don't have one yet so create it and then record the subscription id
             //
             // this relies on stripe's idempotency key to avoid creating more than one subscription if the client
             // retries this request
-            return stripeManager.createSubscription(record.customerId, priceConfiguration.getId(), level, lastSubscriptionCreatedAt)
+            return stripeManager.createSubscription(record.customerId, priceConfiguration.getId(), level,
+                    lastSubscriptionCreatedAt)
                 .thenCompose(subscription -> subscriptionManager.subscriptionCreated(
                         requestData.subscriberUser, subscription.getId(), requestData.now, level)
                     .thenApply(unused -> subscription));
@@ -381,7 +388,7 @@ public class SubscriptionController {
     return CompletableFuture.supplyAsync(() -> {
       List<Locale> acceptableLanguages = getAcceptableLanguagesForRequest(containerRequestContext);
       GetLevelsResponse getLevelsResponse = new GetLevelsResponse(
-          config.getLevels().entrySet().stream().collect(Collectors.toMap(Entry::getKey,
+          subscriptionConfiguration.getLevels().entrySet().stream().collect(Collectors.toMap(Entry::getKey,
               entry -> new GetLevelsResponse.Level(
                   badgeTranslator.translate(acceptableLanguages, entry.getValue().getBadge()),
                   entry.getValue().getPrices().entrySet().stream().collect(
@@ -389,6 +396,17 @@ public class SubscriptionController {
                           levelEntry -> levelEntry.getValue().getAmount()))))));
       return Response.ok(getLevelsResponse).build();
     });
+  }
+
+  @Timed
+  @GET
+  @Path("/boost/amounts")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletableFuture<Response> getBoostAmounts() {
+    return CompletableFuture.supplyAsync(() -> Response.ok(
+        boostConfiguration.getCurrencies().entrySet().stream().collect(
+            Collectors.toMap(entry -> entry.getKey().toUpperCase(Locale.ROOT), Function.identity()))).build());
   }
 
   public static class GetSubscriptionInformationResponse {
@@ -619,7 +637,7 @@ public class SubscriptionController {
       InvoiceLineItem subscriptionLineItem = subscriptionLineItems.stream().findAny().get();
       return stripeManager.getProductForPrice(subscriptionLineItem.getPrice().getId()).thenApply(product -> new Receipt(
           Instant.ofEpochSecond(subscriptionLineItem.getPeriod().getEnd())
-              .plus(config.getBadgeGracePeriod())
+              .plus(subscriptionConfiguration.getBadgeGracePeriod())
               .truncatedTo(ChronoUnit.DAYS)
               .plus(1, ChronoUnit.DAYS),
           stripeManager.getLevelForProduct(product),
