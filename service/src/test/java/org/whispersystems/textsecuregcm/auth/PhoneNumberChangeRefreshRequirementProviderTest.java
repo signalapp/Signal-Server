@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.auth;
 
 import org.glassfish.jersey.server.ContainerRequest;
+import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -33,6 +34,7 @@ class PhoneNumberChangeRefreshRequirementProviderTest {
   private PhoneNumberChangeRefreshRequirementProvider provider;
 
   private Account account;
+  private RequestEvent requestEvent;
   private ContainerRequest request;
 
   private static final UUID ACCOUNT_UUID = UUID.randomUUID();
@@ -62,23 +64,26 @@ class PhoneNumberChangeRefreshRequirementProviderTest {
 
     when(request.getProperty(anyString())).thenAnswer(
         invocation -> requestProperties.get(invocation.getArgument(0, String.class)));
+
+    requestEvent = mock(RequestEvent.class);
+    when(requestEvent.getContainerRequest()).thenReturn(request);
   }
 
   @Test
   void handleRequestNoChange() {
     setAuthenticatedAccount(request, account);
 
-    provider.handleRequestFiltered(request);
-    assertEquals(Collections.emptyList(), provider.handleRequestFinished(request));
+    provider.handleRequestFiltered(requestEvent);
+    assertEquals(Collections.emptyList(), provider.handleRequestFinished(requestEvent));
   }
 
   @Test
   void handleRequestNumberChange() {
     setAuthenticatedAccount(request, account);
 
-    provider.handleRequestFiltered(request);
+    provider.handleRequestFiltered(requestEvent);
     when(account.getNumber()).thenReturn(CHANGED_NUMBER);
-    assertEquals(List.of(new Pair<>(ACCOUNT_UUID, Device.MASTER_ID)), provider.handleRequestFinished(request));
+    assertEquals(List.of(new Pair<>(ACCOUNT_UUID, Device.MASTER_ID)), provider.handleRequestFinished(requestEvent));
   }
 
   @Test
@@ -86,11 +91,13 @@ class PhoneNumberChangeRefreshRequirementProviderTest {
     final ContainerRequest request = mock(ContainerRequest.class);
     setAuthenticatedAccount(request, null);
 
-    provider.handleRequestFiltered(request);
-    assertEquals(Collections.emptyList(), provider.handleRequestFinished(request));
+    when(requestEvent.getContainerRequest()).thenReturn(request);
+
+    provider.handleRequestFiltered(requestEvent);
+    assertEquals(Collections.emptyList(), provider.handleRequestFinished(requestEvent));
   }
 
-  private void setAuthenticatedAccount(final ContainerRequest mockRequest, @Nullable final Account account) {
+  private static void setAuthenticatedAccount(final ContainerRequest mockRequest, @Nullable final Account account) {
     final SecurityContext securityContext = mock(SecurityContext.class);
 
     when(mockRequest.getSecurityContext()).thenReturn(securityContext);

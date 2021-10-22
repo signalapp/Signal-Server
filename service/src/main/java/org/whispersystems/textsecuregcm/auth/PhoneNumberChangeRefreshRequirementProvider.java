@@ -11,6 +11,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.glassfish.jersey.server.ContainerRequest;
+import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.Pair;
 
@@ -20,17 +21,18 @@ public class PhoneNumberChangeRefreshRequirementProvider implements WebsocketRef
       PhoneNumberChangeRefreshRequirementProvider.class.getName() + ".initialNumber";
 
   @Override
-  public void handleRequestFiltered(final ContainerRequest request) {
-    ContainerRequestUtil.getAuthenticatedAccount(request)
-        .ifPresent(account -> request.setProperty(INITIAL_NUMBER_KEY, account.getNumber()));
+  public void handleRequestFiltered(final RequestEvent requestEvent) {
+    ContainerRequestUtil.getAuthenticatedAccount(requestEvent.getContainerRequest())
+        .ifPresent(account -> requestEvent.getContainerRequest().setProperty(INITIAL_NUMBER_KEY, account.getNumber()));
   }
 
   @Override
-  public List<Pair<UUID, Long>> handleRequestFinished(final ContainerRequest request) {
-    final String initialNumber = (String) request.getProperty(INITIAL_NUMBER_KEY);
+  public List<Pair<UUID, Long>> handleRequestFinished(final RequestEvent requestEvent) {
+    final String initialNumber = (String) requestEvent.getContainerRequest().getProperty(INITIAL_NUMBER_KEY);
 
     if (initialNumber != null) {
-      final Optional<Account> maybeAuthenticatedAccount = ContainerRequestUtil.getAuthenticatedAccount(request);
+      final Optional<Account> maybeAuthenticatedAccount =
+          ContainerRequestUtil.getAuthenticatedAccount(requestEvent.getContainerRequest());
 
       return maybeAuthenticatedAccount
           .filter(account -> !initialNumber.equals(account.getNumber()))

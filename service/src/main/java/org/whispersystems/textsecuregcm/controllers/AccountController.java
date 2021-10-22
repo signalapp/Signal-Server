@@ -43,6 +43,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
+import org.whispersystems.textsecuregcm.auth.ChangesDeviceEnabledState;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
@@ -434,6 +435,7 @@ public class AccountController {
   @PUT
   @Path("/gcm/")
   @Consumes(MediaType.APPLICATION_JSON)
+  @ChangesDeviceEnabledState
   public void setGcmRegistrationId(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
       @Valid GcmRegistrationId registrationId) {
     Account account = disabledPermittedAuth.getAccount();
@@ -455,6 +457,7 @@ public class AccountController {
   @Timed
   @DELETE
   @Path("/gcm/")
+  @ChangesDeviceEnabledState
   public void deleteGcmRegistrationId(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth) {
     Account account = disabledPermittedAuth.getAccount();
     Device device = disabledPermittedAuth.getAuthenticatedDevice();
@@ -470,6 +473,7 @@ public class AccountController {
   @PUT
   @Path("/apn/")
   @Consumes(MediaType.APPLICATION_JSON)
+  @ChangesDeviceEnabledState
   public void setApnRegistrationId(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
       @Valid ApnRegistrationId registrationId) {
     Account account = disabledPermittedAuth.getAccount();
@@ -486,6 +490,7 @@ public class AccountController {
   @Timed
   @DELETE
   @Path("/apn/")
+  @ChangesDeviceEnabledState
   public void deleteApnRegistrationId(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth) {
     Account account = disabledPermittedAuth.getAccount();
     Device device = disabledPermittedAuth.getAuthenticatedDevice();
@@ -538,6 +543,7 @@ public class AccountController {
   @PUT
   @Path("/attributes/")
   @Consumes(MediaType.APPLICATION_JSON)
+  @ChangesDeviceEnabledState
   public void setAccountAttributes(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
       @HeaderParam("X-Signal-Agent") String userAgent,
       @Valid AccountAttributes attributes) {

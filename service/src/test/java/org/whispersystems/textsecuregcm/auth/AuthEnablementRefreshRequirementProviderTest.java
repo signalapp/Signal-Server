@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -72,6 +73,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.websocket.WebSocketResourceProvider;
@@ -104,14 +106,18 @@ class AuthEnablementRefreshRequirementProviderTest {
       .addResource(new TestResource())
       .build();
 
+  private AccountsManager accountsManager;
   private ClientPresenceManager clientPresenceManager;
 
   private AuthEnablementRefreshRequirementProvider provider;
 
   @BeforeEach
   void setup() {
+    accountsManager = mock(AccountsManager.class);
     clientPresenceManager = mock(ClientPresenceManager.class);
-    provider = new AuthEnablementRefreshRequirementProvider();
+
+    provider = new AuthEnablementRefreshRequirementProvider(accountsManager);
+
     final WebsocketRefreshRequestEventListener listener =
         new WebsocketRefreshRequestEventListener(clientPresenceManager, provider);
 
@@ -121,6 +127,8 @@ class AuthEnablementRefreshRequirementProviderTest {
     account.setUuid(uuid);
     account.addDevice(authenticatedDevice);
     LongStream.range(2, 4).forEach(deviceId -> account.addDevice(DevicesHelper.createDevice(deviceId)));
+
+    when(accountsManager.get(uuid)).thenReturn(Optional.of(account));
 
     account.getDevices()
         .forEach(device -> when(clientPresenceManager.isPresent(uuid, device.getId())).thenReturn(true));
@@ -301,6 +309,8 @@ class AuthEnablementRefreshRequirementProviderTest {
         .get();
 
     assertEquals(200, response.getStatus());
+
+    verify(accountsManager, never()).get(any(UUID.class));
   }
 
   @Nested
@@ -402,6 +412,7 @@ class AuthEnablementRefreshRequirementProviderTest {
 
     @PUT
     @Path("/account/enabled/{enabled}")
+    @ChangesDeviceEnabledState
     public String setAccountEnabled(@Auth TestPrincipal principal, @PathParam("enabled") final boolean enabled) {
 
       final Device device = principal.getAccount().getMasterDevice().orElseThrow();
@@ -415,6 +426,7 @@ class AuthEnablementRefreshRequirementProviderTest {
 
     @POST
     @Path("/account/devices/enabled")
+    @ChangesDeviceEnabledState
     public String setEnabled(@Auth TestPrincipal principal, Map<Long, Boolean> deviceIdsEnabled) {
 
       final StringBuilder response = new StringBuilder();
@@ -431,6 +443,7 @@ class AuthEnablementRefreshRequirementProviderTest {
 
     @PUT
     @Path("/account/devices")
+    @ChangesDeviceEnabledState
     public String addDevices(@Auth TestPrincipal auth, List<String> deviceNames) {
 
       deviceNames.forEach(name -> {
@@ -445,6 +458,7 @@ class AuthEnablementRefreshRequirementProviderTest {
 
     @DELETE
     @Path("/account/devices/{deviceIds}")
+    @ChangesDeviceEnabledState
     public String removeDevices(@Auth TestPrincipal auth, @PathParam("deviceIds") String deviceIds) {
 
       Arrays.stream(deviceIds.split(","))
@@ -456,6 +470,7 @@ class AuthEnablementRefreshRequirementProviderTest {
 
     @POST
     @Path("/account/disableMasterDeviceAndDeleteDevice/{deviceId}")
+    @ChangesDeviceEnabledState
     public String disableMasterDeviceAndRemoveDevice(@Auth TestPrincipal auth, @PathParam("deviceId") long deviceId) {
 
       DevicesHelper.setEnabled(auth.getAccount().getMasterDevice().orElseThrow(), false);

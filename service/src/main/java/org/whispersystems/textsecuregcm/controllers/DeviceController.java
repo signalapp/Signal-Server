@@ -22,11 +22,15 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import org.glassfish.jersey.server.ContainerRequest;
+import org.whispersystems.textsecuregcm.auth.AuthEnablementRefreshRequirementProvider;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
+import org.whispersystems.textsecuregcm.auth.ChangesDeviceEnabledState;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
@@ -89,6 +93,7 @@ public class DeviceController {
   @Timed
   @DELETE
   @Path("/{device_id}")
+  @ChangesDeviceEnabledState
   public void removeDevice(@Auth AuthenticatedAccount auth, @PathParam("device_id") long deviceId) {
     Account account = auth.getAccount();
     if (auth.getAuthenticatedDevice().getId() != Device.MASTER_ID) {
@@ -143,10 +148,12 @@ public class DeviceController {
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
   @Path("/{verification_code}")
+  @ChangesDeviceEnabledState
   public DeviceResponse verifyDeviceToken(@PathParam("verification_code") String verificationCode,
                                           @HeaderParam("Authorization") BasicAuthorizationHeader authorizationHeader,
                                           @HeaderParam("User-Agent") String userAgent,
-                                          @Valid AccountAttributes accountAttributes)
+                                          @Valid AccountAttributes accountAttributes,
+                                          @Context ContainerRequest containerRequest)
       throws RateLimitExceededException, DeviceLimitExceededException
   {
 
@@ -166,6 +173,11 @@ public class DeviceController {
     if (!account.isPresent()) {
       throw new WebApplicationException(Response.status(403).build());
     }
+
+    // Normally, the the "do we need to refresh somebody's websockets" listener can do this on its own. In this case,
+    // we're not using the conventional authentication system, and so we need to give it a hint so it knows who the
+    // active user is and what their device states look like.
+    AuthEnablementRefreshRequirementProvider.setAccount(containerRequest, account.get());
 
     int maxDeviceLimit = MAX_DEVICES;
 
@@ -191,11 +203,11 @@ public class DeviceController {
     device.setCreated(System.currentTimeMillis());
     device.setCapabilities(accountAttributes.getCapabilities());
 
-      accounts.update(account.get(), a -> {
-        device.setId(a.getNextDeviceId());
-        messages.clear(a.getUuid(), device.getId());
-        a.addDevice(device);
-      });
+    accounts.update(account.get(), a -> {
+      device.setId(a.getNextDeviceId());
+      messages.clear(a.getUuid(), device.getId());
+      a.addDevice(device);
+    });
 
     pendingDevices.remove(number);
 

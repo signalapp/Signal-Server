@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.auth;
 import java.util.List;
 import java.util.UUID;
 import org.glassfish.jersey.server.ContainerRequest;
+import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.whispersystems.textsecuregcm.util.Pair;
 
 /**
@@ -19,16 +20,16 @@ public interface WebsocketRefreshRequirementProvider {
   /**
    * Processes a request after filters have run and the request has been mapped to a destination controller.
    *
-   * @param request the request to observe
+   * @param requestEvent the request event to observe
    */
-  void handleRequestFiltered(ContainerRequest request);
+  void handleRequestFiltered(RequestEvent requestEvent);
 
   /**
    * Processes a request after all normal request handling has been completed.
    *
-   * @param request the request to observe
+   * @param requestEvent the request event to observe
    * @return a list of pairs of account UUID/device ID pairs identifying websockets that need to be refreshed as a
    * result of the observed request
    */
-  List<Pair<UUID, Long>> handleRequestFinished(ContainerRequest request);
+  List<Pair<UUID, Long>> handleRequestFinished(RequestEvent requestEvent);
 }

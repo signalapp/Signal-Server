@@ -16,6 +16,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 
+import javax.ws.rs.container.ResourceInfo;
+import javax.ws.rs.core.Context;
+
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 public class WebsocketRefreshRequestEventListener implements RequestEventListener {
@@ -39,17 +42,20 @@ public class WebsocketRefreshRequestEventListener implements RequestEventListene
     this.providers = providers;
   }
 
+  @Context
+  private ResourceInfo resourceInfo;
+
   @Override
   public void onEvent(final RequestEvent event) {
     if (event.getType() == Type.REQUEST_FILTERED) {
       for (final WebsocketRefreshRequirementProvider provider : providers) {
-        provider.handleRequestFiltered(event.getContainerRequest());
+        provider.handleRequestFiltered(event);
       }
     } else if (event.getType() == Type.FINISHED) {
       final AtomicInteger displacedDevices = new AtomicInteger(0);
 
       Arrays.stream(providers)
-          .flatMap(provider -> provider.handleRequestFinished(event.getContainerRequest()).stream())
+          .flatMap(provider -> provider.handleRequestFinished(event).stream())
           .distinct()
           .forEach(pair -> {
             try {

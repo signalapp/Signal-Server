@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
@@ -23,6 +24,7 @@ import io.dropwizard.testing.junit5.ResourceExtension;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 import javax.ws.rs.Path;
 import javax.ws.rs.client.Entity;
@@ -39,12 +41,14 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
+import org.whispersystems.textsecuregcm.auth.WebsocketRefreshApplicationEventListener;
 import org.whispersystems.textsecuregcm.controllers.DeviceController;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
+import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -85,6 +89,7 @@ class DeviceControllerTest {
   private static Account               account               = mock(Account.class               );
   private static Account               maxedAccount          = mock(Account.class);
   private static Device                masterDevice          = mock(Device.class);
+  private static ClientPresenceManager clientPresenceManager = mock(ClientPresenceManager.class);
 
   private static Map<String, Integer>  deviceConfiguration   = new HashMap<>();
 
@@ -93,6 +98,7 @@ class DeviceControllerTest {
       .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
           ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
+      .addProvider(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager))
       .addProvider(new DeviceLimitExceededExceptionMapper())
       .addResource(new DumbVerificationDeviceController(pendingDevicesManager,
           accountsManager,
@@ -143,12 +149,19 @@ class DeviceControllerTest {
         rateLimiter,
         account,
         maxedAccount,
-        masterDevice
+        masterDevice,
+        clientPresenceManager
     );
   }
 
   @Test
   void validDeviceRegisterTest() {
+    when(accountsManager.get(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
+
+    final Device existingDevice = mock(Device.class);
+    when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
+    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(Set.of(existingDevice));
+
     VerificationCode deviceCode = resources.getJerseyTest()
                                            .target("/v1/devices/provisioning/code")
                                            .request()
@@ -170,6 +183,7 @@ class DeviceControllerTest {
 
     verify(pendingDevicesManager).remove(AuthHelper.VALID_NUMBER);
     verify(messagesManager).clear(eq(AuthHelper.VALID_UUID), eq(42L));
+    verify(clientPresenceManager).displacePresence(AuthHelper.VALID_UUID, Device.MASTER_ID);
   }
 
   @Test
