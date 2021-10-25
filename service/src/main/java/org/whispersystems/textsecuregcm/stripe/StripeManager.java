@@ -157,6 +157,20 @@ public class StripeManager {
     }, executor);
   }
 
+  public CompletableFuture<PaymentIntent> getPaymentIntent(String paymentIntentId) {
+    return CompletableFuture.supplyAsync(() -> {
+      try {
+        return PaymentIntent.retrieve(paymentIntentId, commonOptions());
+      } catch (StripeException e) {
+        if (e.getStatusCode() == 404) {
+          return null;
+        } else {
+          throw new CompletionException(e);
+        }
+      }
+    }, executor);
+  }
+
   public CompletableFuture<Subscription> createSubscription(String customerId, String priceId, long level, long lastSubscriptionCreatedAt) {
     return CompletableFuture.supplyAsync(() -> {
       SubscriptionCreateParams params = SubscriptionCreateParams.builder()

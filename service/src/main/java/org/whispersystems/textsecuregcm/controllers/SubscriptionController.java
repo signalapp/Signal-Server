@@ -50,6 +50,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.Produces;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -458,6 +459,82 @@ public class SubscriptionController {
   public CompletableFuture<Response> createBoostPaymentIntent(CreateBoostRequest request) {
     return stripeManager.createPaymentIntent(request.getCurrency(), request.getAmount())
         .thenApply(paymentIntent -> Response.ok(new CreateBoostResponse(paymentIntent.getClientSecret())).build());
+  }
+
+  public static class CreateBoostReceiptCredentialsRequest {
+
+    private final String paymentIntentId;
+    private final byte[] receiptCredentialRequest;
+
+    @JsonCreator
+    public CreateBoostReceiptCredentialsRequest(
+        @JsonProperty("paymentIntentId") String paymentIntentId,
+        @JsonProperty("receiptCredentialRequest") byte[] receiptCredentialRequest) {
+      this.paymentIntentId = paymentIntentId;
+      this.receiptCredentialRequest = receiptCredentialRequest;
+    }
+
+    public String getPaymentIntentId() {
+      return paymentIntentId;
+    }
+
+    public byte[] getReceiptCredentialRequest() {
+      return receiptCredentialRequest;
+    }
+  }
+
+  public static class CreateBoostReceiptCredentialsResponse {
+
+    private final byte[] receiptCredentialResponse;
+
+    @JsonCreator
+    public CreateBoostReceiptCredentialsResponse(
+        @JsonProperty("receiptCredentialResponse") byte[] receiptCredentialResponse) {
+      this.receiptCredentialResponse = receiptCredentialResponse;
+    }
+
+    public byte[] getReceiptCredentialResponse() {
+      return receiptCredentialResponse;
+    }
+  }
+
+  @Timed
+  @POST
+  @Path("/boost/receipt_credentials")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletableFuture<Response> createBoostReceiptCredentials(CreateBoostReceiptCredentialsRequest request) {
+    return stripeManager.getPaymentIntent(request.getPaymentIntentId())
+        .thenCompose(paymentIntent -> {
+          if (paymentIntent == null) {
+            throw new WebApplicationException(Status.NO_CONTENT);
+          }
+          if (!"succeeded".equalsIgnoreCase(paymentIntent.getStatus())) {
+            throw new WebApplicationException(Status.NO_CONTENT);
+          }
+          ReceiptCredentialRequest receiptCredentialRequest;
+          try {
+            receiptCredentialRequest = new ReceiptCredentialRequest(request.getReceiptCredentialRequest());
+          } catch (InvalidInputException e) {
+            throw new BadRequestException("invalid receipt credential request", e);
+          }
+          return issuedReceiptsManager.recordIssuance(paymentIntent.getId(), receiptCredentialRequest, clock.instant())
+              .thenApply(unused -> {
+                Instant expiration = Instant.ofEpochSecond(paymentIntent.getCreated())
+                    .plus(boostConfiguration.getExpiration())
+                    .truncatedTo(ChronoUnit.DAYS)
+                    .plus(1, ChronoUnit.DAYS);
+                ReceiptCredentialResponse receiptCredentialResponse;
+                try {
+                  receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(
+                      receiptCredentialRequest, expiration.getEpochSecond(), boostConfiguration.getLevel());
+                } catch (VerificationFailedException e) {
+                  throw new BadRequestException("receipt credential request failed verification", e);
+                }
+                return Response.ok(new CreateBoostReceiptCredentialsResponse(receiptCredentialResponse.serialize()))
+                    .build();
+              });
+        });
   }
 
   public static class GetSubscriptionInformationResponse {

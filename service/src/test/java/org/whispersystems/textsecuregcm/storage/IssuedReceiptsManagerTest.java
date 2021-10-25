@@ -31,9 +31,9 @@ class IssuedReceiptsManagerTest {
   @RegisterExtension
   static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
       .tableName(ISSUED_RECEIPTS_TABLE_NAME)
-      .hashKey(IssuedReceiptsManager.KEY_INVOICE_LINE_ITEM_ID)
+      .hashKey(IssuedReceiptsManager.KEY_STRIPE_ID)
       .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(IssuedReceiptsManager.KEY_INVOICE_LINE_ITEM_ID)
+          .attributeName(IssuedReceiptsManager.KEY_STRIPE_ID)
           .attributeType(ScalarAttributeType.S)
           .build())
       .build();

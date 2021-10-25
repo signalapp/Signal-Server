@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.configuration;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import javax.validation.Valid;
@@ -18,12 +19,27 @@ import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 public class BoostConfiguration {
 
+  private final long level;
+  private final Duration expiration;
   private final Map<String, List<BigDecimal>> currencies;
 
   @JsonCreator
   public BoostConfiguration(
+      @JsonProperty("level") long level,
+      @JsonProperty("expiration") Duration expiration,
       @JsonProperty("currencies") final Map<String, List<BigDecimal>> currencies) {
+    this.level = level;
+    this.expiration = expiration;
     this.currencies = currencies;
+  }
+
+  public long getLevel() {
+    return level;
+  }
+
+  @NotNull
+  public Duration getExpiration() {
+    return expiration;
   }
 
   @Valid
