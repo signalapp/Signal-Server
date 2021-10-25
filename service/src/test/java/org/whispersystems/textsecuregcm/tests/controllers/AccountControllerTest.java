@@ -1674,6 +1674,21 @@ class AccountControllerTest {
   }
 
   @Test
+  void testSetAccountAttributesBadUnidentifiedKeyLength() {
+    final AccountAttributes attributes = new AccountAttributes(false, 2222, null, null, false, null);
+    attributes.setUnidentifiedAccessKey(new byte[7]);
+
+    Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/attributes/")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.json(attributes));
+
+    assertThat(response.getStatus()).isEqualTo(422);
+  }
+
+  @Test
   void testDeleteAccount() throws InterruptedException {
     Response response =
             resources.getJerseyTest()

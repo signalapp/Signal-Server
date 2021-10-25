@@ -8,6 +8,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import javax.validation.constraints.Size;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
+import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 public class AccountAttributes {
 
@@ -25,6 +26,7 @@ public class AccountAttributes {
   private String registrationLock;
 
   @JsonProperty
+  @ExactlySize({0, 16})
   private byte[] unidentifiedAccessKey;
 
   @JsonProperty
@@ -79,5 +81,10 @@ public class AccountAttributes {
 
   public boolean isDiscoverableByPhoneNumber() {
     return discoverableByPhoneNumber;
+  }
+
+  @VisibleForTesting
+  public void setUnidentifiedAccessKey(final byte[] unidentifiedAccessKey) {
+    this.unidentifiedAccessKey = unidentifiedAccessKey;
   }
 }

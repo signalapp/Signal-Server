@@ -544,6 +544,7 @@ public class AccountController {
   @PUT
   @Path("/attributes/")
   @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
   @ChangesDeviceEnabledState
   public void setAccountAttributes(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
       @HeaderParam("X-Signal-Agent") String userAgent,
