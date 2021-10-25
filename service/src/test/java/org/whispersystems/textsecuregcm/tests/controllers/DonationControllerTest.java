@@ -53,6 +53,7 @@ import org.whispersystems.textsecuregcm.configuration.StripeConfiguration;
 import org.whispersystems.textsecuregcm.controllers.DonationController;
 import org.whispersystems.textsecuregcm.entities.ApplePayAuthorizationRequest;
 import org.whispersystems.textsecuregcm.entities.ApplePayAuthorizationResponse;
+import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.entities.RedeemReceiptRequest;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -89,10 +90,10 @@ class DonationControllerTest {
   static BadgesConfiguration getBadgesConfiguration() {
     return new BadgesConfiguration(
         List.of(
-            new BadgeConfiguration("TEST", "other", List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S")),
-            new BadgeConfiguration("TEST1", "testing", List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S")),
-            new BadgeConfiguration("TEST2", "testing", List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S")),
-            new BadgeConfiguration("TEST3", "testing", List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S"))),
+            new BadgeConfiguration("TEST", "other", List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt"))),
+            new BadgeConfiguration("TEST1", "testing", List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt"))),
+            new BadgeConfiguration("TEST2", "testing", List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt"))),
+            new BadgeConfiguration("TEST3", "testing", List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt")))),
         List.of("TEST"),
         Map.of(1L, "TEST1", 2L, "TEST2", 3L, "TEST3"));
   }

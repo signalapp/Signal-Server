@@ -32,6 +32,7 @@ import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.entities.Badge;
+import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.entities.SelfBadge;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
 
@@ -65,7 +66,7 @@ public class ConfiguredProfileBadgeConverterTest {
 
   private static BadgeConfiguration newBadge(int i) {
     return new BadgeConfiguration(
-        idFor(i), "other", List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S"));
+        idFor(i), "other", List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt")));
   }
 
   private BadgesConfiguration createBadges(int count) {
@@ -135,15 +136,15 @@ public class ConfiguredProfileBadgeConverterTest {
         arguments(idFor(0), expired, false, false, null),
         arguments(idFor(0), notExpired, false, false, null),
         arguments(idFor(0), expired, true, false, null),
-        arguments(idFor(0), notExpired, true, false, new Badge(idFor(0), "other", nameFor(0), desriptionFor(0), List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S"))),
+        arguments(idFor(0), notExpired, true, false, new Badge(idFor(0), "other", nameFor(0), desriptionFor(0), List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt")))),
         arguments(idFor(1), expired, false, false, null),
         arguments(idFor(1), notExpired, false, false, null),
         arguments(idFor(1), expired, true, false, null),
         arguments(idFor(1), notExpired, true, false, null),
         arguments(idFor(0), expired, false, true, null),
-        arguments(idFor(0), notExpired, false, true, new SelfBadge(idFor(0), "other", nameFor(0), desriptionFor(0), List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S"), notExpired, false)),
+        arguments(idFor(0), notExpired, false, true, new SelfBadge(idFor(0), "other", nameFor(0), desriptionFor(0), List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt")), notExpired, false)),
         arguments(idFor(0), expired, true, true, null),
-        arguments(idFor(0), notExpired, true, true, new SelfBadge(idFor(0), "other", nameFor(0), desriptionFor(0), List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S"), notExpired, true)),
+        arguments(idFor(0), notExpired, true, true, new SelfBadge(idFor(0), "other", nameFor(0), desriptionFor(0), List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt")), notExpired, true)),
         arguments(idFor(1), expired, false, true, null),
         arguments(idFor(1), notExpired, false, true, null),
         arguments(idFor(1), expired, true, true, null),

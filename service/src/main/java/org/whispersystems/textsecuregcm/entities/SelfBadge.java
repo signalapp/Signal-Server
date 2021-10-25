@@ -23,10 +23,11 @@ public class SelfBadge extends Badge {
       @JsonProperty("name") final String name,
       @JsonProperty("description") final String description,
       @JsonProperty("sprites6") final List<String> sprites6,
-      @JsonProperty("svgs4") final List<String> svgs4,
+      @JsonProperty("svg") final String svg,
+      @JsonProperty("svgs") final List<BadgeSvg> svgs,
       @JsonProperty("expiration") final Instant expiration,
       @JsonProperty("visible") final boolean visible) {
-    super(id, category, name, description, sprites6, svgs4);
+    super(id, category, name, description, sprites6, svg, svgs);
     this.expiration = expiration;
     this.visible = visible;
   }
@@ -57,5 +58,13 @@ public class SelfBadge extends Badge {
   @Override
   public int hashCode() {
     return Objects.hash(super.hashCode(), expiration, visible);
+  }
+
+  @Override
+  public String toString() {
+    return "SelfBadge{" +
+        "expiration=" + expiration +
+        ", visible=" + visible +
+        '}';
   }
 }

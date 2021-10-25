@@ -10,6 +10,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 public class BadgeConfiguration {
@@ -18,17 +19,20 @@ public class BadgeConfiguration {
   private final String id;
   private final String category;
   private final List<String> sprites;
-  private final List<String> svgs;
+  private final String svg;
+  private final List<BadgeSvg> svgs;
 
   @JsonCreator
   public BadgeConfiguration(
       @JsonProperty("id") final String id,
       @JsonProperty("category") final String category,
       @JsonProperty("sprites") final List<String> sprites,
-      @JsonProperty("svgs") final List<String> svgs) {
+      @JsonProperty("svg") final String svg,
+      @JsonProperty("svgs") final List<BadgeSvg> svgs) {
     this.id = id;
     this.category = category;
     this.sprites = sprites;
+    this.svg = svg;
     this.svgs = svgs;
   }
 
@@ -48,9 +52,13 @@ public class BadgeConfiguration {
     return sprites;
   }
 
+  @NotEmpty
+  public String getSvg() {
+    return svg;
+  }
+
   @NotNull
-  @ExactlySize(4)
-  public List<String> getSvgs() {
+  public List<BadgeSvg> getSvgs() {
     return svgs;
   }
 

@@ -22,6 +22,7 @@ import javax.annotation.Nonnull;
 import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.entities.Badge;
+import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.entities.SelfBadge;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
 
@@ -66,6 +67,7 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter, B
         resourceBundle.getString(configuration.getId() + "_name"),
         resourceBundle.getString(configuration.getId() + "_description"),
         configuration.getSprites(),
+        configuration.getSvg(),
         configuration.getSvgs(),
         null,
         false);
@@ -96,6 +98,7 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter, B
               resourceBundle.getString(accountBadge.getId() + "_name"),
               resourceBundle.getString(accountBadge.getId() + "_description"),
               configuration.getSprites(),
+              configuration.getSvg(),
               configuration.getSvgs(),
               accountBadge.getExpiration(),
               accountBadge.isVisible());
@@ -110,6 +113,7 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter, B
           resourceBundle.getString(id + "_name"),
           resourceBundle.getString(id + "_description"),
           configuration.getSprites(),
+          configuration.getSvg(),
           configuration.getSvgs(),
           now.plus(Duration.ofDays(1)),
           true);
@@ -158,13 +162,14 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter, B
       final String name,
       final String description,
       final List<String> sprites,
-      final List<String> svgs,
+      final String svg,
+      final List<BadgeSvg> svgs,
       final Instant expiration,
       final boolean visible) {
     if (isSelf) {
-      return new SelfBadge(id, category, name, description, sprites, svgs, expiration, visible);
+      return new SelfBadge(id, category, name, description, sprites, svg, svgs, expiration, visible);
     } else {
-      return new Badge(id, category, name, description, sprites, svgs);
+      return new Badge(id, category, name, description, sprites, svg, svgs);
     }
   }
 }

@@ -35,6 +35,7 @@ import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfigura
 import org.whispersystems.textsecuregcm.configuration.SubscriptionPriceConfiguration;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetLevelsResponse;
 import org.whispersystems.textsecuregcm.entities.Badge;
+import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.stripe.StripeManager;
@@ -79,11 +80,11 @@ class SubscriptionControllerTest {
         3L, new SubscriptionLevelConfiguration("B3", "P3", Map.of("USD", new SubscriptionPriceConfiguration("R3", BigDecimal.valueOf(300))))
     ));
     when(BADGE_TRANSLATOR.translate(any(), eq("B1"))).thenReturn(new Badge("B1", "cat1", "name1", "desc1",
-        List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S")));
+        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt"))));
     when(BADGE_TRANSLATOR.translate(any(), eq("B2"))).thenReturn(new Badge("B2", "cat2", "name2", "desc2",
-        List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S")));
+        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt"))));
     when(BADGE_TRANSLATOR.translate(any(), eq("B3"))).thenReturn(new Badge("B3", "cat3", "name3", "desc3",
-        List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S")));
+        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt"))));
 
     GetLevelsResponse response = RESOURCE_EXTENSION.target("/v1/subscription/levels")
         .request()

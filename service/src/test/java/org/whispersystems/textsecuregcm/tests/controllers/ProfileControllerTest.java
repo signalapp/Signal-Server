@@ -53,6 +53,7 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicPaymentsCon
 import org.whispersystems.textsecuregcm.controllers.ProfileController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.Badge;
+import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.entities.CreateProfileRequest;
 import org.whispersystems.textsecuregcm.entities.Profile;
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
@@ -109,13 +110,13 @@ class ProfileControllerTest {
           usernamesManager,
           dynamicConfigurationManager,
           (acceptableLanguages, accountBadges, isSelf) -> List.of(new Badge("TEST", "other", "Test Badge",
-              "This badge is in unit tests.", List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S"))
+              "This badge is in unit tests.", List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt")))
           ),
           new BadgesConfiguration(List.of(
-              new BadgeConfiguration("TEST", "other", List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S")),
-              new BadgeConfiguration("TEST1", "testing", List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S")),
-              new BadgeConfiguration("TEST2", "testing", List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S")),
-              new BadgeConfiguration("TEST3", "testing", List.of("l", "m", "h", "x", "xx", "xxx"), List.of("s", "m", "M", "S"))
+              new BadgeConfiguration("TEST", "other", List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt"))),
+              new BadgeConfiguration("TEST1", "testing", List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt"))),
+              new BadgeConfiguration("TEST2", "testing", List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt"))),
+              new BadgeConfiguration("TEST3", "testing", List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt")))
           ), List.of("TEST1"), Map.of(1L, "TEST1", 2L, "TEST2", 3L, "TEST3")),
           s3client,
           postPolicyGenerator,

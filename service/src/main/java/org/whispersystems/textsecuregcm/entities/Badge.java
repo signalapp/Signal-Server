@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Strings;
 import java.util.List;
 import java.util.Objects;
 
@@ -16,7 +17,8 @@ public class Badge {
   private final String name;
   private final String description;
   private final List<String> sprites6;
-  private final List<String> svgs4;
+  private final String svg;
+  private final List<BadgeSvg> svgs;
 
   @JsonCreator
   public Badge(
@@ -25,7 +27,8 @@ public class Badge {
       @JsonProperty("name") final String name,
       @JsonProperty("description") final String description,
       @JsonProperty("sprites6") final List<String> sprites6,
-      @JsonProperty("svgs4") final List<String> svgs4) {
+      @JsonProperty("svg") final String svg,
+      @JsonProperty("svgs") final List<BadgeSvg> svgs) {
     this.id = id;
     this.category = category;
     this.name = name;
@@ -34,10 +37,11 @@ public class Badge {
     if (sprites6.size() != 6) {
       throw new IllegalArgumentException("sprites must have size 6");
     }
-    this.svgs4 = Objects.requireNonNull(svgs4);
-    if (svgs4.size() != 4) {
-      throw new IllegalArgumentException("svgs must have size 4");
+    if (Strings.isNullOrEmpty(svg)) {
+      throw new IllegalArgumentException("svg cannot be empty");
     }
+    this.svg = svg;
+    this.svgs = Objects.requireNonNull(svgs);
   }
 
   public String getId() {
@@ -60,48 +64,12 @@ public class Badge {
     return sprites6;
   }
 
-  public List<String> getSvgs4() {
-    return svgs4;
+  public String getSvg() {
+    return svg;
   }
 
-  @Deprecated
-  public String getLdpi() {
-    return sprites6.get(0);
-  }
-
-  @Deprecated
-  public String getMdpi() {
-    return sprites6.get(1);
-  }
-
-  @Deprecated
-  public String getHdpi() {
-    return sprites6.get(2);
-  }
-
-  @Deprecated
-  public String getXhdpi() {
-    return sprites6.get(3);
-  }
-
-  @Deprecated
-  public String getXxhdpi() {
-    return sprites6.get(4);
-  }
-
-  @Deprecated
-  public String getXxxhdpi() {
-    return sprites6.get(5);
-  }
-
-  @Deprecated
-  public String getLsvg() {
-    return svgs4.get(0);
-  }
-
-  @Deprecated
-  public String getHsvg() {
-    return svgs4.get(3);
+  public List<BadgeSvg> getSvgs() {
+    return svgs;
   }
 
   @Override
@@ -118,11 +86,25 @@ public class Badge {
         && Objects.equals(name, badge.name)
         && Objects.equals(description, badge.description)
         && Objects.equals(sprites6, badge.sprites6)
-        && Objects.equals(svgs4, badge.svgs4);
+        && Objects.equals(svg, badge.svg)
+        && Objects.equals(svgs, badge.svgs);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(id, category, name, description, sprites6, svgs4);
+    return Objects.hash(id, category, name, description, sprites6, svg, svgs);
+  }
+
+  @Override
+  public String toString() {
+    return "Badge{" +
+        "id='" + id + '\'' +
+        ", category='" + category + '\'' +
+        ", name='" + name + '\'' +
+        ", description='" + description + '\'' +
+        ", sprites6=" + sprites6 +
+        ", svg='" + svg + '\'' +
+        ", svgs=" + svgs +
+        '}';
   }
 }
