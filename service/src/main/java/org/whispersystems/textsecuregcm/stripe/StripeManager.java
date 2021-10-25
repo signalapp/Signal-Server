@@ -11,6 +11,7 @@ import com.stripe.exception.StripeException;
 import com.stripe.model.Customer;
 import com.stripe.model.Invoice;
 import com.stripe.model.InvoiceLineItem;
+import com.stripe.model.PaymentIntent;
 import com.stripe.model.Price;
 import com.stripe.model.Product;
 import com.stripe.model.SetupIntent;
@@ -22,6 +23,7 @@ import com.stripe.param.CustomerRetrieveParams;
 import com.stripe.param.CustomerUpdateParams;
 import com.stripe.param.CustomerUpdateParams.InvoiceSettings;
 import com.stripe.param.InvoiceListParams;
+import com.stripe.param.PaymentIntentCreateParams;
 import com.stripe.param.PriceRetrieveParams;
 import com.stripe.param.SetupIntentCreateParams;
 import com.stripe.param.SubscriptionCancelParams;
@@ -40,6 +42,7 @@ import java.util.Base64;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -134,6 +137,20 @@ public class StripeManager {
           .build();
       try {
         return SetupIntent.create(params, commonOptions());
+      } catch (StripeException e) {
+        throw new CompletionException(e);
+      }
+    }, executor);
+  }
+
+  public CompletableFuture<PaymentIntent> createPaymentIntent(String currency, long amount) {
+    return CompletableFuture.supplyAsync(() -> {
+      PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
+          .setAmount(amount)
+          .setCurrency(currency.toLowerCase(Locale.ROOT))
+          .build();
+      try {
+        return PaymentIntent.create(params, commonOptions());
       } catch (StripeException e) {
         throw new CompletionException(e);
       }

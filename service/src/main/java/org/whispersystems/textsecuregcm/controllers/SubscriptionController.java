@@ -35,6 +35,7 @@ import javax.annotation.Nonnull;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import javax.validation.Valid;
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotEmpty;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
@@ -407,6 +408,56 @@ public class SubscriptionController {
     return CompletableFuture.supplyAsync(() -> Response.ok(
         boostConfiguration.getCurrencies().entrySet().stream().collect(
             Collectors.toMap(entry -> entry.getKey().toUpperCase(Locale.ROOT), Function.identity()))).build());
+  }
+
+  public static class CreateBoostRequest {
+
+    private final String currency;
+    private final long amount;
+
+    @JsonCreator
+    public CreateBoostRequest(
+        @JsonProperty("currency") String currency,
+        @JsonProperty("amount") long amount) {
+      this.currency = currency;
+      this.amount = amount;
+    }
+
+    @NotEmpty
+    @ExactlySize(3)
+    public String getCurrency() {
+      return currency;
+    }
+
+    @Min(1)
+    public long getAmount() {
+      return amount;
+    }
+  }
+
+  public static class CreateBoostResponse {
+
+    private final String clientSecret;
+
+    @JsonCreator
+    public CreateBoostResponse(
+        @JsonProperty("clientSecret") String clientSecret) {
+      this.clientSecret = clientSecret;
+    }
+
+    public String getClientSecret() {
+      return clientSecret;
+    }
+  }
+
+  @Timed
+  @POST
+  @Path("/boost/create")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletableFuture<Response> createBoostPaymentIntent(CreateBoostRequest request) {
+    return stripeManager.createPaymentIntent(request.getCurrency(), request.getAmount())
+        .thenApply(paymentIntent -> Response.ok(new CreateBoostResponse(paymentIntent.getClientSecret())).build());
   }
 
   public static class GetSubscriptionInformationResponse {
