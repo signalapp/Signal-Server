@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
@@ -28,7 +27,6 @@ import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
-import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
@@ -48,10 +46,6 @@ public class AccountsManager {
   private static final Timer          getByNumberTimer = metricRegistry.timer(name(AccountsManager.class, "getByNumber"));
   private static final Timer          getByUuidTimer   = metricRegistry.timer(name(AccountsManager.class, "getByUuid"  ));
   private static final Timer          deleteTimer      = metricRegistry.timer(name(AccountsManager.class, "delete"));
-
-  // TODO Remove this meter when external dependencies have been resolved
-  // Note that this is deliberately namespaced to `AccountController` for metric continuity.
-  private static final Meter newUserMeter = metricRegistry.meter(name(AccountController.class, "brand_new_user"));
 
   private static final Timer redisSetTimer       = metricRegistry.timer(name(AccountsManager.class, "redisSet"      ));
   private static final Timer redisNumberGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisNumberGet"));
@@ -178,7 +172,6 @@ public class AccountsManager {
 
         if (freshUser) {
           tags = Tags.of("type", "new");
-          newUserMeter.mark();
         } else if (!originalUuid.equals(actualUuid)) {
           tags = Tags.of("type", "re-registration");
         } else {
