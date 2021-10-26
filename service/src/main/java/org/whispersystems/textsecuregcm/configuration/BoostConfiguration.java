@@ -22,15 +22,18 @@ public class BoostConfiguration {
   private final long level;
   private final Duration expiration;
   private final Map<String, List<BigDecimal>> currencies;
+  private final String badge;
 
   @JsonCreator
   public BoostConfiguration(
       @JsonProperty("level") long level,
       @JsonProperty("expiration") Duration expiration,
-      @JsonProperty("currencies") final Map<String, List<BigDecimal>> currencies) {
+      @JsonProperty("currencies") Map<String, List<BigDecimal>> currencies,
+      @JsonProperty("badge") String badge) {
     this.level = level;
     this.expiration = expiration;
     this.currencies = currencies;
+    this.badge = badge;
   }
 
   public long getLevel() {
@@ -46,5 +49,10 @@ public class BoostConfiguration {
   @NotNull
   public Map<@NotEmpty String, @Valid @ExactlySize(6) List<@DecimalMin("0.01") @NotNull BigDecimal>> getCurrencies() {
     return currencies;
+  }
+
+  @NotEmpty
+  public String getBadge() {
+    return badge;
   }
 }

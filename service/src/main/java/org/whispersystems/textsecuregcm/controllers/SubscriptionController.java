@@ -92,7 +92,7 @@ public class SubscriptionController {
   public SubscriptionController(
       @Nonnull Clock clock,
       @Nonnull SubscriptionConfiguration subscriptionConfiguration,
-      @Nonnull final BoostConfiguration boostConfiguration,
+      @Nonnull BoostConfiguration boostConfiguration,
       @Nonnull SubscriptionManager subscriptionManager,
       @Nonnull StripeManager stripeManager,
       @Nonnull ServerZkReceiptOperations zkReceiptOperations,
@@ -396,6 +396,50 @@ public class SubscriptionController {
                       Collectors.toMap(levelEntry -> levelEntry.getKey().toUpperCase(Locale.ROOT),
                           levelEntry -> levelEntry.getValue().getAmount()))))));
       return Response.ok(getLevelsResponse).build();
+    });
+  }
+
+  public static class GetBoostBadgesResponse {
+    public static class Level {
+      private final Badge badge;
+
+      @JsonCreator
+      public Level(
+          @JsonProperty("badge") Badge badge) {
+        this.badge = badge;
+      }
+
+      public Badge getBadge() {
+        return badge;
+      }
+    }
+
+    private final Map<Long, Level> levels;
+
+    @JsonCreator
+    public GetBoostBadgesResponse(
+        @JsonProperty("levels") Map<Long, Level> levels) {
+      this.levels = Objects.requireNonNull(levels);
+    }
+
+    public Map<Long, Level> getLevels() {
+      return levels;
+    }
+  }
+
+  @Timed
+  @GET
+  @Path("/boost/badges")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletableFuture<Response> getBoostBadges(@Context ContainerRequestContext containerRequestContext) {
+    return CompletableFuture.supplyAsync(() -> {
+      long boostLevel = boostConfiguration.getLevel();
+      String boostBadge = boostConfiguration.getBadge();
+      List<Locale> acceptableLanguages = getAcceptableLanguagesForRequest(containerRequestContext);
+      GetBoostBadgesResponse getBoostBadgesResponse = new GetBoostBadgesResponse(Map.of(boostLevel,
+          new GetBoostBadgesResponse.Level(badgeTranslator.translate(acceptableLanguages, boostBadge))));
+      return Response.ok(getBoostBadgesResponse).build();
     });
   }
 
