@@ -29,7 +29,6 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.crypto.Mac;
@@ -408,7 +407,7 @@ public class SubscriptionController {
   public CompletableFuture<Response> getBoostAmounts() {
     return CompletableFuture.supplyAsync(() -> Response.ok(
         boostConfiguration.getCurrencies().entrySet().stream().collect(
-            Collectors.toMap(entry -> entry.getKey().toUpperCase(Locale.ROOT), Function.identity()))).build());
+            Collectors.toMap(entry -> entry.getKey().toUpperCase(Locale.ROOT), Entry::getValue))).build());
   }
 
   public static class CreateBoostRequest {
