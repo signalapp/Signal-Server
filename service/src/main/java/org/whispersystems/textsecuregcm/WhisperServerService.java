@@ -170,6 +170,7 @@ import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerCache;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerListener;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.AssignPhoneNumberIdentifierCrawlerListener;
 import org.whispersystems.textsecuregcm.storage.ContactDiscoveryWriter;
 import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
 import org.whispersystems.textsecuregcm.storage.DeletedAccountsDirectoryReconciler;
@@ -545,6 +546,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     }
     accountDatabaseCrawlerListeners.add(new NonNormalizedAccountCrawlerListener(accountsManager, metricsCluster));
     accountDatabaseCrawlerListeners.add(new ContactDiscoveryWriter(accountsManager));
+    accountDatabaseCrawlerListeners.add(new AssignPhoneNumberIdentifierCrawlerListener(accountsManager, phoneNumberIdentifiers));
     // PushFeedbackProcessor may update device properties
     accountDatabaseCrawlerListeners.add(new PushFeedbackProcessor(accountsManager));
     // delete accounts last
