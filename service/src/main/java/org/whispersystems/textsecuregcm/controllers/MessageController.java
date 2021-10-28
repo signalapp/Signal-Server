@@ -110,8 +110,6 @@ public class MessageController {
 
   private final Logger         logger                           = LoggerFactory.getLogger(MessageController.class);
   private final MetricRegistry metricRegistry                   = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private final Meter          unidentifiedMeter                = metricRegistry.meter(name(getClass(), "delivery", "unidentified"));
-  private final Meter          identifiedMeter                  = metricRegistry.meter(name(getClass(), "delivery", "identified"  ));
   private final Meter          rejectOver256kibMessageMeter     = metricRegistry.meter(name(getClass(), "rejectOver256kibMessage"));
   private final Timer          sendMessageInternalTimer         = metricRegistry.timer(name(getClass(), "sendMessageInternal"));
   private final Timer          sendCommonMessageInternalTimer   = metricRegistry.timer(name(getClass(), "sendCommonMessageInternal"));
@@ -144,6 +142,10 @@ public class MessageController {
   private static final String SENDER_TYPE_TAG_NAME = "senderType";
   private static final String SENDER_COUNTRY_TAG_NAME = "senderCountry";
   private static final String RATE_LIMIT_REASON_TAG_NAME = "rateLimitReason";
+
+  private static final String SENDER_TYPE_IDENTIFIED = "identified";
+  private static final String SENDER_TYPE_UNIDENTIFIED = "unidentified";
+  private static final String SENDER_TYPE_SELF = "self";
 
   private static final long MAX_MESSAGE_SIZE = DataSize.kibibytes(256).toBytes();
 
@@ -192,14 +194,12 @@ public class MessageController {
 
     if (source.isPresent()) {
       if (source.get().getAccount().isIdentifiedBy(destinationUuid)) {
-        senderType = "self";
+        senderType = SENDER_TYPE_SELF;
       } else {
-        identifiedMeter.mark();
-        senderType = "identified";
+        senderType = SENDER_TYPE_IDENTIFIED;
       }
     } else {
-      unidentifiedMeter.mark();
-      senderType = "unidentified";
+      senderType = SENDER_TYPE_UNIDENTIFIED;
     }
 
     for (final IncomingMessage message : messages.getMessages()) {
@@ -318,8 +318,6 @@ public class MessageController {
       @QueryParam("ts") long timestamp,
       @Valid MultiRecipientMessage multiRecipientMessage) {
 
-    unidentifiedMeter.mark(multiRecipientMessage.getRecipients().length);
-
     Map<UUID, Account> uuidToAccountMap = Arrays.stream(multiRecipientMessage.getRecipients())
         .map(Recipient::getUuid)
         .distinct()
@@ -375,20 +373,21 @@ public class MessageController {
           .build();
     }
 
-    List<Tag> tags = List.of(
-        UserAgentTagUtil.getPlatformTag(userAgent),
-        Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(online)),
-        Tag.of(SENDER_TYPE_TAG_NAME, "unidentified"));
     List<UUID> uuids404 = Collections.synchronizedList(new ArrayList<>());
-    final Counter counter = Metrics.counter(SENT_MESSAGE_COUNTER_NAME, tags);
+
     try {
+      final Counter sentMessageCounter = Metrics.counter(SENT_MESSAGE_COUNTER_NAME, Tags.of(
+          UserAgentTagUtil.getPlatformTag(userAgent),
+          Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(online)),
+          Tag.of(SENDER_TYPE_TAG_NAME, SENDER_TYPE_UNIDENTIFIED)));
+
       multiRecipientMessageExecutor.invokeAll(Arrays.stream(multiRecipientMessage.getRecipients())
           .map(recipient -> (Callable<Void>) () -> {
             Account destinationAccount = uuidToAccountMap.get(recipient.getUuid());
 
             // we asserted this must exist in validateCompleteDeviceList
             Device destinationDevice = destinationAccount.getDevice(recipient.getDeviceId()).orElseThrow();
-            counter.increment();
+            sentMessageCounter.increment();
             try {
               sendMessage(destinationAccount, destinationDevice, timestamp, online, recipient,
                   multiRecipientMessage.getCommonPayload());
