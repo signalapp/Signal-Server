@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -15,47 +16,58 @@ import java.util.UUID;
 public class OutgoingMessageEntity {
 
   @JsonIgnore
-  private long id;
+  private final long id;
 
   @JsonIgnore
-  private boolean cached;
+  private final boolean cached;
 
   @JsonProperty
-  private UUID guid;
+  private final UUID guid;
 
   @JsonProperty
-  private int type;
+  private final int type;
 
   @JsonProperty
-  private String relay;
+  private final String relay;
 
   @JsonProperty
-  private long timestamp;
+  private final long timestamp;
 
   @JsonProperty
-  private String source;
+  private final String source;
 
   @JsonProperty
-  private UUID sourceUuid;
+  private final UUID sourceUuid;
 
   @JsonProperty
-  private int sourceDevice;
+  private final int sourceDevice;
 
   @JsonProperty
-  private byte[] message;
+  private final UUID destinationUuid;
 
   @JsonProperty
-  private byte[] content;
+  private final byte[] message;
 
   @JsonProperty
-  private long serverTimestamp;
+  private final byte[] content;
 
-  public OutgoingMessageEntity() {}
+  @JsonProperty
+  private final long serverTimestamp;
 
-  public OutgoingMessageEntity(long id, boolean cached,
-                               UUID guid, int type, String relay, long timestamp,
-                               String source, UUID sourceUuid, int sourceDevice,
-                               byte[] message, byte[] content, long serverTimestamp)
+  @JsonCreator
+  public OutgoingMessageEntity(@JsonProperty("id") final long id,
+      @JsonProperty("cached") final boolean cached,
+      @JsonProperty("guid") final UUID guid,
+      @JsonProperty("type") final int type,
+      @JsonProperty("relay") final String relay,
+      @JsonProperty("timestamp") final long timestamp,
+      @JsonProperty("source") final String source,
+      @JsonProperty("sourceUuid") final UUID sourceUuid,
+      @JsonProperty("sourceDevice") final int sourceDevice,
+      @JsonProperty("destinationUuid") final UUID destinationUuid,
+      @JsonProperty("message") final byte[] message,
+      @JsonProperty("content") final byte[] content,
+      @JsonProperty("serverTimestamp") final long serverTimestamp)
   {
     this.id              = id;
     this.cached          = cached;
@@ -66,6 +78,7 @@ public class OutgoingMessageEntity {
     this.source          = source;
     this.sourceUuid      = sourceUuid;
     this.sourceDevice    = sourceDevice;
+    this.destinationUuid = destinationUuid;
     this.message         = message;
     this.content         = content;
     this.serverTimestamp = serverTimestamp;
@@ -97,6 +110,10 @@ public class OutgoingMessageEntity {
 
   public int getSourceDevice() {
     return sourceDevice;
+  }
+
+  public UUID getDestinationUuid() {
+    return destinationUuid;
   }
 
   public byte[] getMessage() {

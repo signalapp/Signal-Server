@@ -112,6 +112,16 @@ public class Account {
     return Optional.ofNullable(phoneNumberIdentifier);
   }
 
+  /**
+   * Tests whether this account's account identifier or phone number identifier matches the given UUID.
+   *
+   * @param identifier the identifier to test
+   * @return {@code true} if this account's identifier or phone number identifier matches
+   */
+  public boolean isIdentifiedBy(final UUID identifier) {
+    return uuid.equals(identifier) || (phoneNumberIdentifier != null && phoneNumberIdentifier.equals(identifier));
+  }
+
   public String getNumber() {
     requireNotStale();
 

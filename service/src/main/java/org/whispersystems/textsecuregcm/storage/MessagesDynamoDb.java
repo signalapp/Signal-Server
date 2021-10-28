@@ -46,6 +46,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   private static final String KEY_SOURCE = "SN";
   private static final String KEY_SOURCE_UUID = "SU";
   private static final String KEY_SOURCE_DEVICE = "SD";
+  private static final String KEY_DESTINATION_UUID = "DU";
   private static final String KEY_MESSAGE = "M";
   private static final String KEY_CONTENT = "C";
   private static final String KEY_TTL = "E";
@@ -224,9 +225,10 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     final String source = AttributeValues.getString(message, KEY_SOURCE, null);
     final UUID sourceUuid = AttributeValues.getUUID(message, KEY_SOURCE_UUID, null);
     final int sourceDevice = AttributeValues.getInt(message, KEY_SOURCE_DEVICE, 0);
+    final UUID destinationUuid = AttributeValues.getUUID(message, KEY_DESTINATION_UUID, null);
     final byte[] messageBytes = AttributeValues.getByteArray(message, KEY_MESSAGE, null);
     final byte[] content = AttributeValues.getByteArray(message, KEY_CONTENT, null);
-    return new OutgoingMessageEntity(-1L, false, messageUuid, type, relay, timestamp, source, sourceUuid, sourceDevice, messageBytes, content, sortKey.getServerTimestamp());
+    return new OutgoingMessageEntity(-1L, false, messageUuid, type, relay, timestamp, source, sourceUuid, sourceDevice, destinationUuid, messageBytes, content, sortKey.getServerTimestamp());
   }
 
   private void deleteRowsMatchingQuery(AttributeValue partitionKey, QueryRequest querySpec) {

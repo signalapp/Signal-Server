@@ -190,14 +190,16 @@ public class MessageController {
 
     final String senderType;
 
-    if (source.isPresent() && !source.get().getAccount().getUuid().equals(destinationUuid)) {
-      identifiedMeter.mark();
-      senderType = "identified";
-    } else if (source.isEmpty()) {
+    if (source.isPresent()) {
+      if (source.get().getAccount().isIdentifiedBy(destinationUuid)) {
+        senderType = "self";
+      } else {
+        identifiedMeter.mark();
+        senderType = "identified";
+      }
+    } else {
       unidentifiedMeter.mark();
       senderType = "unidentified";
-    } else {
-      senderType = "self";
     }
 
     for (final IncomingMessage message : messages.getMessages()) {
@@ -220,12 +222,13 @@ public class MessageController {
     }
 
     try {
-      boolean isSyncMessage = source.isPresent() && source.get().getAccount().getUuid().equals(destinationUuid);
+      boolean isSyncMessage = source.isPresent() && source.get().getAccount().isIdentifiedBy(destinationUuid);
 
       Optional<Account> destination;
 
       if (!isSyncMessage) {
-        destination = accountsManager.getByAccountIdentifier(destinationUuid);
+        destination = accountsManager.getByAccountIdentifier(destinationUuid)
+            .or(() -> accountsManager.getByPhoneNumberIdentifier(destinationUuid));
       } else {
         destination = source.map(AuthenticatedAccount::getAccount);
       }
@@ -233,7 +236,7 @@ public class MessageController {
       OptionalAccess.verify(source.map(AuthenticatedAccount::getAccount), accessKey, destination);
       assert (destination.isPresent());
 
-      if (source.isPresent() && !source.get().getAccount().getUuid().equals(destinationUuid)) {
+      if (source.isPresent() && !source.get().getAccount().isIdentifiedBy(destinationUuid)) {
         final String senderCountryCode = Util.getCountryCode(source.get().getAccount().getNumber());
 
         try {
@@ -278,8 +281,8 @@ public class MessageController {
 
         if (destinationDevice.isPresent()) {
           Metrics.counter(SENT_MESSAGE_COUNTER_NAME, tags).increment();
-          sendMessage(source, destination.get(), destinationDevice.get(), messages.getTimestamp(), messages.isOnline(),
-              incomingMessage, userAgent);
+          sendMessage(source, destination.get(), destinationDevice.get(), destinationUuid, messages.getTimestamp(),
+              messages.isOnline(), incomingMessage, userAgent);
         }
       }
 
@@ -522,6 +525,7 @@ public class MessageController {
   private void sendMessage(Optional<AuthenticatedAccount> source,
       Account destinationAccount,
       Device destinationDevice,
+      UUID destinationUuid,
       long timestamp,
       boolean online,
       IncomingMessage incomingMessage,
@@ -557,22 +561,20 @@ public class MessageController {
 
       messageBuilder.setType(envelopeType)
           .setTimestamp(timestamp == 0 ? System.currentTimeMillis() : timestamp)
-          .setServerTimestamp(System.currentTimeMillis());
+          .setServerTimestamp(System.currentTimeMillis())
+          .setDestinationUuid(destinationUuid.toString());
 
-      if (source.isPresent()) {
-        messageBuilder.setSource(source.get().getAccount().getNumber())
-            .setSourceUuid(source.get().getAccount().getUuid().toString())
-            .setSourceDevice((int) source.get().getAuthenticatedDevice().getId());
-      }
+      source.ifPresent(authenticatedAccount ->
+          messageBuilder.setSource(authenticatedAccount.getAccount().getNumber())
+              .setSourceUuid(authenticatedAccount.getAccount().getUuid().toString())
+              .setSourceDevice((int) authenticatedAccount.getAuthenticatedDevice().getId()));
 
-      if (messageBody.isPresent()) {
+      messageBody.ifPresent(bytes -> {
         Metrics.counter(LEGACY_MESSAGE_SENT_COUNTER).increment();
         messageBuilder.setLegacyMessage(ByteString.copyFrom(messageBody.get()));
-      }
+      });
 
-      if (messageContent.isPresent()) {
-        messageBuilder.setContent(ByteString.copyFrom(messageContent.get()));
-      }
+      messageContent.ifPresent(bytes -> messageBuilder.setContent(ByteString.copyFrom(bytes)));
 
       messageSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build(), online);
     } catch (NotPushRegisteredException e) {
@@ -581,8 +583,12 @@ public class MessageController {
     }
   }
 
-  private void sendMessage(Account destinationAccount, Device destinationDevice, long timestamp, boolean online,
-      Recipient recipient, byte[] commonPayload) throws NoSuchUserException {
+  private void sendMessage(Account destinationAccount,
+      Device destinationDevice,
+      long timestamp,
+      boolean online,
+      Recipient recipient,
+      byte[] commonPayload) throws NoSuchUserException {
     try (final Timer.Context ignored = sendCommonMessageInternalTimer.time()) {
       Envelope.Builder messageBuilder = Envelope.newBuilder();
       long serverTimestamp = System.currentTimeMillis();
@@ -597,7 +603,8 @@ public class MessageController {
           .setType(Type.UNIDENTIFIED_SENDER)
           .setTimestamp(timestamp == 0 ? serverTimestamp : timestamp)
           .setServerTimestamp(serverTimestamp)
-          .setContent(ByteString.copyFrom(payload));
+          .setContent(ByteString.copyFrom(payload))
+          .setDestinationUuid(destinationAccount.getUuid().toString());
 
       messageSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build(), online);
     } catch (NotPushRegisteredException e) {

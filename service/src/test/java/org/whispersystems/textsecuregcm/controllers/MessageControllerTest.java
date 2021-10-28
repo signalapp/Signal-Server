@@ -94,6 +94,7 @@ class MessageControllerTest {
 
   private static final String SINGLE_DEVICE_RECIPIENT = "+14151111111";
   private static final UUID   SINGLE_DEVICE_UUID      = UUID.randomUUID();
+  private static final UUID   SINGLE_DEVICE_PNI       = UUID.randomUUID();
 
   private static final String MULTI_DEVICE_RECIPIENT  = "+14152222222";
   private static final UUID   MULTI_DEVICE_UUID       = UUID.randomUUID();
@@ -156,13 +157,12 @@ class MessageControllerTest {
           false, false, false)));
     }};
 
-    Account singleDeviceAccount  = new Account(SINGLE_DEVICE_RECIPIENT, SINGLE_DEVICE_UUID, UUID.randomUUID(),
-        singleDeviceList, "1234".getBytes());
-    Account multiDeviceAccount   = new Account(MULTI_DEVICE_RECIPIENT, MULTI_DEVICE_UUID, UUID.randomUUID(),
-        multiDeviceList, "1234".getBytes());
+    Account singleDeviceAccount  = new Account(SINGLE_DEVICE_RECIPIENT, SINGLE_DEVICE_UUID, SINGLE_DEVICE_PNI, singleDeviceList, "1234".getBytes());
+    Account multiDeviceAccount   = new Account(MULTI_DEVICE_RECIPIENT, MULTI_DEVICE_UUID, UUID.randomUUID(), multiDeviceList, "1234".getBytes());
     internationalAccount = new Account(INTERNATIONAL_RECIPIENT, INTERNATIONAL_UUID, UUID.randomUUID(), singleDeviceList, "1234".getBytes());
 
     when(accountsManager.getByAccountIdentifier(eq(SINGLE_DEVICE_UUID))).thenReturn(Optional.of(singleDeviceAccount));
+    when(accountsManager.getByPhoneNumberIdentifier(SINGLE_DEVICE_PNI)).thenReturn(Optional.of(singleDeviceAccount));
     when(accountsManager.getByAccountIdentifier(eq(MULTI_DEVICE_UUID))).thenReturn(Optional.of(multiDeviceAccount));
     when(accountsManager.getByAccountIdentifier(INTERNATIONAL_UUID)).thenReturn(Optional.of(internationalAccount));
 
@@ -248,6 +248,25 @@ class MessageControllerTest {
         Arguments.of(String.format("Signal-iOS/%s iOS/14.2", MessageController.IOS_VERSION_WITH_FIXED_ENVELOPE_TYPE.withIncMinor(-1)), true),
         Arguments.of(String.format("Signal-iOS/%s iOS/14.2", MessageController.IOS_VERSION_WITH_FIXED_ENVELOPE_TYPE), false)
     );
+  }
+
+  @Test
+  void testSingleDeviceCurrentByPni() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/messages/%s", SINGLE_DEVICE_PNI))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat("Good Response", response.getStatus(), is(equalTo(200)));
+
+    ArgumentCaptor<Envelope> captor = ArgumentCaptor.forClass(Envelope.class);
+    verify(messageSender, times(1)).sendMessage(any(Account.class), any(Device.class), captor.capture(), eq(false));
+
+    assertTrue(captor.getValue().hasSource());
+    assertTrue(captor.getValue().hasSourceDevice());
   }
 
   @Test
@@ -440,8 +459,8 @@ class MessageControllerTest {
     final UUID sourceUuid     = UUID.randomUUID();
 
     List<OutgoingMessageEntity> messages = new LinkedList<>() {{
-      add(new OutgoingMessageEntity(1L, false, messageGuidOne, Envelope.Type.CIPHERTEXT_VALUE, null, timestampOne, "+14152222222", sourceUuid, 2, "hi there".getBytes(), null, 0));
-      add(new OutgoingMessageEntity(2L, false, null, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, null, timestampTwo, "+14152222222", sourceUuid, 2, null, null, 0));
+      add(new OutgoingMessageEntity(1L, false, messageGuidOne, Envelope.Type.CIPHERTEXT_VALUE, null, timestampOne, "+14152222222", sourceUuid, 2, AuthHelper.VALID_UUID, "hi there".getBytes(), null, 0));
+      add(new OutgoingMessageEntity(2L, false, null, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, null, timestampTwo, "+14152222222", sourceUuid, 2, AuthHelper.VALID_UUID, null, null, 0));
     }};
 
     OutgoingMessageEntityList messagesList = new OutgoingMessageEntityList(messages, false);
@@ -477,8 +496,8 @@ class MessageControllerTest {
     final long timestampTwo = 313388;
 
     List<OutgoingMessageEntity> messages = new LinkedList<OutgoingMessageEntity>() {{
-      add(new OutgoingMessageEntity(1L, false, UUID.randomUUID(), Envelope.Type.CIPHERTEXT_VALUE, null, timestampOne, "+14152222222", UUID.randomUUID(), 2, "hi there".getBytes(), null, 0));
-      add(new OutgoingMessageEntity(2L, false, UUID.randomUUID(), Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, null, timestampTwo, "+14152222222", UUID.randomUUID(), 2, null, null, 0));
+      add(new OutgoingMessageEntity(1L, false, UUID.randomUUID(), Envelope.Type.CIPHERTEXT_VALUE, null, timestampOne, "+14152222222", UUID.randomUUID(), 2, AuthHelper.VALID_UUID, "hi there".getBytes(), null, 0));
+      add(new OutgoingMessageEntity(2L, false, UUID.randomUUID(), Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, null, timestampTwo, "+14152222222", UUID.randomUUID(), 2, AuthHelper.VALID_UUID, null, null, 0));
     }};
 
     OutgoingMessageEntityList messagesList = new OutgoingMessageEntityList(messages, false);
@@ -504,12 +523,12 @@ class MessageControllerTest {
     UUID uuid1 = UUID.randomUUID();
     when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid1)).thenReturn(Optional.of(new OutgoingMessageEntity(
         31337L, true, uuid1, Envelope.Type.CIPHERTEXT_VALUE,
-        null, timestamp, "+14152222222", sourceUuid, 1, "hi".getBytes(), null, 0)));
+        null, timestamp, "+14152222222", sourceUuid, 1, AuthHelper.VALID_UUID, "hi".getBytes(), null, 0)));
 
     UUID uuid2 = UUID.randomUUID();
     when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid2)).thenReturn(Optional.of(new OutgoingMessageEntity(
         31337L, true, uuid2, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE,
-        null, System.currentTimeMillis(), "+14152222222", sourceUuid, 1, null, null, 0)));
+        null, System.currentTimeMillis(), "+14152222222", sourceUuid, 1, AuthHelper.VALID_UUID, null, null, 0)));
 
 
     UUID uuid3 = UUID.randomUUID();
