@@ -13,12 +13,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.ResourceBundle;
-import java.util.ResourceBundle.Control;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
+import org.signal.i18n.HeaderControlledResourceBundleLookup;
 import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.entities.Badge;
@@ -28,37 +26,36 @@ import org.whispersystems.textsecuregcm.storage.AccountBadge;
 
 public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter, BadgeTranslator {
 
-  private static final int MAX_LOCALES = 15;
   @VisibleForTesting
   static final String BASE_NAME = "org.signal.badges.Badges";
 
   private final Clock clock;
   private final Map<String, BadgeConfiguration> knownBadges;
   private final List<String> badgeIdsEnabledForAll;
-  private final ResourceBundleFactory resourceBundleFactory;
+  private final HeaderControlledResourceBundleLookup headerControlledResourceBundleLookup;
 
   public ConfiguredProfileBadgeConverter(
       final Clock clock,
       final BadgesConfiguration badgesConfiguration) {
-    this(clock, badgesConfiguration, ResourceBundle::getBundle);
+    this(clock, badgesConfiguration, new HeaderControlledResourceBundleLookup());
   }
 
   @VisibleForTesting
   public ConfiguredProfileBadgeConverter(
       final Clock clock,
       final BadgesConfiguration badgesConfiguration,
-      final ResourceBundleFactory resourceBundleFactory) {
+      final HeaderControlledResourceBundleLookup headerControlledResourceBundleLookup) {
     this.clock = clock;
     this.knownBadges = badgesConfiguration.getBadges().stream()
         .collect(Collectors.toMap(BadgeConfiguration::getId, Function.identity()));
     this.badgeIdsEnabledForAll = badgesConfiguration.getBadgeIdsEnabledForAll();
-    this.resourceBundleFactory = resourceBundleFactory;
+    this.headerControlledResourceBundleLookup = headerControlledResourceBundleLookup;
   }
 
   @Override
   public Badge translate(final List<Locale> acceptableLanguages, final String badgeId) {
-    final List<Locale> acceptableLocales = getAcceptableLocales(acceptableLanguages);
-    final ResourceBundle resourceBundle = getResourceBundle(acceptableLocales);
+    final ResourceBundle resourceBundle = headerControlledResourceBundleLookup.getResourceBundle(BASE_NAME,
+        acceptableLanguages);
     final BadgeConfiguration configuration = knownBadges.get(badgeId);
     return newBadge(
         false,
@@ -83,8 +80,8 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter, B
     }
 
     final Instant now = clock.instant();
-    final List<Locale> acceptableLocales = getAcceptableLocales(acceptableLanguages);
-    final ResourceBundle resourceBundle = getResourceBundle(acceptableLocales);
+    final ResourceBundle resourceBundle = headerControlledResourceBundleLookup.getResourceBundle(BASE_NAME,
+        acceptableLanguages);
     List<Badge> badges = accountBadges.stream()
         .filter(accountBadge -> (isSelf || accountBadge.isVisible())
             && now.isBefore(accountBadge.getExpiration())
@@ -119,40 +116,6 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter, B
           true);
     }).collect(Collectors.toList()));
     return badges;
-  }
-
-  @Nonnull
-  private ResourceBundle getResourceBundle(final List<Locale> acceptableLocales) {
-    final Locale desiredLocale = acceptableLocales.isEmpty() ? Locale.getDefault() : acceptableLocales.get(0);
-    // define a control with a fallback order as specified in the header
-    Control control = new Control() {
-      @Override
-      public List<String> getFormats(final String baseName) {
-        Objects.requireNonNull(baseName);
-        return Control.FORMAT_PROPERTIES;
-      }
-
-      @Override
-      public Locale getFallbackLocale(final String baseName, final Locale locale) {
-        Objects.requireNonNull(baseName);
-        if (locale.equals(Locale.getDefault())) {
-          return null;
-        }
-        final int localeIndex = acceptableLocales.indexOf(locale);
-        if (localeIndex < 0 || localeIndex >= acceptableLocales.size() - 1) {
-          return Locale.getDefault();
-        }
-        // [0, acceptableLocales.size() - 2] is now the possible range for localeIndex
-        return acceptableLocales.get(localeIndex + 1);
-      }
-    };
-
-    return resourceBundleFactory.createBundle(BASE_NAME, desiredLocale, control);
-  }
-
-  @Nonnull
-  private List<Locale> getAcceptableLocales(final List<Locale> acceptableLanguages) {
-    return acceptableLanguages.stream().limit(MAX_LOCALES).distinct().collect(Collectors.toList());
   }
 
   private Badge newBadge(

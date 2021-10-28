@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-package org.whispersystems.textsecuregcm.badges;
+package org.signal.i18n;
 
 import java.util.Locale;
 import java.util.ResourceBundle;
