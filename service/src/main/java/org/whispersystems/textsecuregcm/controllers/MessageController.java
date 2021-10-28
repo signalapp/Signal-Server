@@ -6,11 +6,6 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
-import com.codahale.metrics.Timer;
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
@@ -95,7 +90,6 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
-import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
@@ -108,12 +102,7 @@ import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
 @Path("/v1/messages")
 public class MessageController {
 
-  private final Logger         logger                           = LoggerFactory.getLogger(MessageController.class);
-  private final MetricRegistry metricRegistry                   = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private final Meter          rejectOver256kibMessageMeter     = metricRegistry.meter(name(getClass(), "rejectOver256kibMessage"));
-  private final Timer          sendMessageInternalTimer         = metricRegistry.timer(name(getClass(), "sendMessageInternal"));
-  private final Timer          sendCommonMessageInternalTimer   = metricRegistry.timer(name(getClass(), "sendCommonMessageInternal"));
-  private final Histogram      outgoingMessageListSizeHistogram = metricRegistry.histogram(name(getClass(), "outgoingMessageListSize"));
+  private static final Logger logger = LoggerFactory.getLogger(MessageController.class);
 
   private final RateLimiters                rateLimiters;
   private final MessageSender               messageSender;
@@ -132,6 +121,7 @@ public class MessageController {
   @VisibleForTesting
   static final Semver IOS_VERSION_WITH_FIXED_ENVELOPE_TYPE = new Semver("5.25.0.0");
 
+  private static final String REJECT_OVERSIZE_MESSAGE_COUNTER = name(MessageController.class, "rejectOversizeMessage");
   private static final String LEGACY_MESSAGE_SENT_COUNTER = name(MessageController.class, "legacyMessageSent");
   private static final String SENT_MESSAGE_COUNTER_NAME = name(MessageController.class, "sentMessages");
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME = name(MessageController.class, "messageContentSize");
@@ -216,7 +206,7 @@ public class MessageController {
       Metrics.summary(CONTENT_SIZE_DISTRIBUTION_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).record(contentLength);
 
       if (contentLength > MAX_MESSAGE_SIZE) {
-        rejectOver256kibMessageMeter.mark();
+        Metrics.counter(REJECT_OVERSIZE_MESSAGE_COUNTER, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).increment();
         return Response.status(Response.Status.REQUEST_ENTITY_TOO_LARGE).build();
       }
     }
@@ -456,8 +446,6 @@ public class MessageController {
         userAgent,
         false);
 
-    outgoingMessageListSizeHistogram.update(outgoingMessages.getMessages().size());
-
     {
       String platform;
 
@@ -530,7 +518,7 @@ public class MessageController {
       IncomingMessage incomingMessage,
       String userAgentString)
       throws NoSuchUserException {
-    try (final Timer.Context ignored = sendMessageInternalTimer.time()) {
+    try {
       Optional<byte[]> messageBody = getMessageBody(incomingMessage);
       Optional<byte[]> messageContent = getMessageContent(incomingMessage);
       Envelope.Builder messageBuilder = Envelope.newBuilder();
@@ -588,7 +576,7 @@ public class MessageController {
       boolean online,
       Recipient recipient,
       byte[] commonPayload) throws NoSuchUserException {
-    try (final Timer.Context ignored = sendCommonMessageInternalTimer.time()) {
+    try {
       Envelope.Builder messageBuilder = Envelope.newBuilder();
       long serverTimestamp = System.currentTimeMillis();
       byte[] recipientKeyMaterial = recipient.getPerRecipientKeyMaterial();
