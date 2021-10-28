@@ -317,12 +317,12 @@ public class WhisperServerConfiguration extends Configuration {
 
   @Valid
   @JsonProperty
-  // TODO: Mark as @NotNull when enabled for production.
+  @NotNull
   private SubscriptionConfiguration subscription;
 
   @Valid
   @JsonProperty
-  // TODO: Mark as @NotNull when enabled for production.
+  @NotNull
   private BoostConfiguration boost;
 
   @Valid
