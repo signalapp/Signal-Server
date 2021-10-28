@@ -29,6 +29,7 @@ import org.signal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
+import org.whispersystems.textsecuregcm.badges.LevelTranslator;
 import org.whispersystems.textsecuregcm.configuration.BoostConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfiguration;
@@ -53,9 +54,10 @@ class SubscriptionControllerTest {
   private static final ServerZkReceiptOperations ZK_OPS = mock(ServerZkReceiptOperations.class);
   private static final IssuedReceiptsManager ISSUED_RECEIPTS_MANAGER = mock(IssuedReceiptsManager.class);
   private static final BadgeTranslator BADGE_TRANSLATOR = mock(BadgeTranslator.class);
+  private static final LevelTranslator LEVEL_TRANSLATOR = mock(LevelTranslator.class);
   private static final SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(
       CLOCK, SUBSCRIPTION_CONFIG, BOOST_CONFIG, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, ZK_OPS,
-      ISSUED_RECEIPTS_MANAGER, BADGE_TRANSLATOR);
+      ISSUED_RECEIPTS_MANAGER, BADGE_TRANSLATOR, LEVEL_TRANSLATOR);
   private static final ResourceExtension RESOURCE_EXTENSION = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
@@ -69,7 +71,7 @@ class SubscriptionControllerTest {
   @AfterEach
   void tearDown() {
     reset(CLOCK, SUBSCRIPTION_CONFIG, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER,
-        BADGE_TRANSLATOR);
+        BADGE_TRANSLATOR, LEVEL_TRANSLATOR);
   }
 
   @Test
@@ -85,6 +87,9 @@ class SubscriptionControllerTest {
         List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt"))));
     when(BADGE_TRANSLATOR.translate(any(), eq("B3"))).thenReturn(new Badge("B3", "cat3", "name3", "desc3",
         List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt"))));
+    when(LEVEL_TRANSLATOR.translate(any(), eq("B1"))).thenReturn("Z1");
+    when(LEVEL_TRANSLATOR.translate(any(), eq("B2"))).thenReturn("Z2");
+    when(LEVEL_TRANSLATOR.translate(any(), eq("B3"))).thenReturn("Z3");
 
     GetLevelsResponse response = RESOURCE_EXTENSION.target("/v1/subscription/levels")
         .request()
@@ -92,18 +97,21 @@ class SubscriptionControllerTest {
 
     assertThat(response.getLevels()).containsKeys(1L, 2L, 3L).satisfies(longLevelMap -> {
       assertThat(longLevelMap).extractingByKey(1L).satisfies(level -> {
+        assertThat(level.getName()).isEqualTo("Z1");
         assertThat(level.getBadge().getId()).isEqualTo("B1");
         assertThat(level.getCurrencies()).containsKeys("USD").extractingByKey("USD").satisfies(price -> {
           assertThat(price).isEqualTo("100");
         });
       });
       assertThat(longLevelMap).extractingByKey(2L).satisfies(level -> {
+        assertThat(level.getName()).isEqualTo("Z2");
         assertThat(level.getBadge().getId()).isEqualTo("B2");
         assertThat(level.getCurrencies()).containsKeys("USD").extractingByKey("USD").satisfies(price -> {
           assertThat(price).isEqualTo("200");
         });
       });
       assertThat(longLevelMap).extractingByKey(3L).satisfies(level -> {
+        assertThat(level.getName()).isEqualTo("Z3");
         assertThat(level.getBadge().getId()).isEqualTo("B3");
         assertThat(level.getCurrencies()).containsKeys("USD").extractingByKey("USD").satisfies(price -> {
           assertThat(price).isEqualTo("300");

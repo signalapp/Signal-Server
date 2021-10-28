@@ -36,13 +36,6 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter, B
 
   public ConfiguredProfileBadgeConverter(
       final Clock clock,
-      final BadgesConfiguration badgesConfiguration) {
-    this(clock, badgesConfiguration, new HeaderControlledResourceBundleLookup());
-  }
-
-  @VisibleForTesting
-  public ConfiguredProfileBadgeConverter(
-      final Clock clock,
       final BadgesConfiguration badgesConfiguration,
       final HeaderControlledResourceBundleLookup headerControlledResourceBundleLookup) {
     this.clock = clock;

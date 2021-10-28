@@ -52,10 +52,10 @@ import java.util.concurrent.TimeUnit;
 import javax.servlet.DispatcherType;
 import javax.servlet.FilterRegistration;
 import javax.servlet.ServletRegistration;
-import javax.ws.rs.ext.ExceptionMapper;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
 import org.glassfish.jersey.server.ServerProperties;
 import org.jdbi.v3.core.Jdbi;
+import org.signal.i18n.HeaderControlledResourceBundleLookup;
 import org.signal.zkgroup.ServerSecretParams;
 import org.signal.zkgroup.auth.ServerZkAuthOperations;
 import org.signal.zkgroup.profiles.ServerZkProfileOperations;
@@ -73,6 +73,7 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.auth.WebsocketRefreshApplicationEventListener;
 import org.whispersystems.textsecuregcm.badges.ConfiguredProfileBadgeConverter;
+import org.whispersystems.textsecuregcm.badges.ResourceBundleLevelTranslator;
 import org.whispersystems.textsecuregcm.configuration.DirectoryServerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
@@ -299,8 +300,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.getObjectMapper().setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);
     environment.getObjectMapper().setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
 
-    ConfiguredProfileBadgeConverter profileBadgeConverter =
-        new ConfiguredProfileBadgeConverter(clock, config.getBadges());
+    HeaderControlledResourceBundleLookup headerControlledResourceBundleLookup =
+        new HeaderControlledResourceBundleLookup();
+    ConfiguredProfileBadgeConverter profileBadgeConverter = new ConfiguredProfileBadgeConverter(
+        clock, config.getBadges(), headerControlledResourceBundleLookup);
+    ResourceBundleLevelTranslator resourceBundleLevelTranslator = new ResourceBundleLevelTranslator(
+        headerControlledResourceBundleLookup);
 
     JdbiFactory jdbiFactory = new JdbiFactory(DefaultNameStrategy.CHECK_EMPTY);
     Jdbi        accountJdbi = jdbiFactory.build(environment, config.getAccountsDatabaseConfiguration(), "accountdb");
@@ -645,7 +650,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     );
     if (config.getSubscription() != null && config.getBoost() != null) {
       commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getBoost(),
-          subscriptionManager, stripeManager, zkReceiptOperations, issuedReceiptsManager, profileBadgeConverter));
+          subscriptionManager, stripeManager, zkReceiptOperations, issuedReceiptsManager, profileBadgeConverter,
+          resourceBundleLevelTranslator));
     }
 
     for (Object controller : commonControllers) {

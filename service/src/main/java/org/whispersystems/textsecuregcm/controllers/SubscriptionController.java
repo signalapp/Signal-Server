@@ -64,6 +64,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
+import org.whispersystems.textsecuregcm.badges.LevelTranslator;
 import org.whispersystems.textsecuregcm.configuration.BoostConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfiguration;
@@ -88,6 +89,7 @@ public class SubscriptionController {
   private final ServerZkReceiptOperations zkReceiptOperations;
   private final IssuedReceiptsManager issuedReceiptsManager;
   private final BadgeTranslator badgeTranslator;
+  private final LevelTranslator levelTranslator;
 
   public SubscriptionController(
       @Nonnull Clock clock,
@@ -97,7 +99,8 @@ public class SubscriptionController {
       @Nonnull StripeManager stripeManager,
       @Nonnull ServerZkReceiptOperations zkReceiptOperations,
       @Nonnull IssuedReceiptsManager issuedReceiptsManager,
-      @Nonnull BadgeTranslator badgeTranslator) {
+      @Nonnull BadgeTranslator badgeTranslator,
+      @Nonnull LevelTranslator levelTranslator) {
     this.clock = Objects.requireNonNull(clock);
     this.subscriptionConfiguration = Objects.requireNonNull(subscriptionConfiguration);
     this.boostConfiguration = Objects.requireNonNull(boostConfiguration);
@@ -106,6 +109,7 @@ public class SubscriptionController {
     this.zkReceiptOperations = Objects.requireNonNull(zkReceiptOperations);
     this.issuedReceiptsManager = Objects.requireNonNull(issuedReceiptsManager);
     this.badgeTranslator = Objects.requireNonNull(badgeTranslator);
+    this.levelTranslator = Objects.requireNonNull(levelTranslator);
   }
 
   @Timed
@@ -347,15 +351,22 @@ public class SubscriptionController {
 
     public static class Level {
 
+      private final String name;
       private final Badge badge;
       private final Map<String, BigDecimal> currencies;
 
       @JsonCreator
       public Level(
+          @JsonProperty("name") String name,
           @JsonProperty("badge") Badge badge,
           @JsonProperty("currencies") Map<String, BigDecimal> currencies) {
+        this.name = name;
         this.badge = badge;
         this.currencies = currencies;
+      }
+
+      public String getName() {
+        return name;
       }
 
       public Badge getBadge() {
@@ -391,6 +402,7 @@ public class SubscriptionController {
       GetLevelsResponse getLevelsResponse = new GetLevelsResponse(
           subscriptionConfiguration.getLevels().entrySet().stream().collect(Collectors.toMap(Entry::getKey,
               entry -> new GetLevelsResponse.Level(
+                  levelTranslator.translate(acceptableLanguages, entry.getValue().getBadge()),
                   badgeTranslator.translate(acceptableLanguages, entry.getValue().getBadge()),
                   entry.getValue().getPrices().entrySet().stream().collect(
                       Collectors.toMap(levelEntry -> levelEntry.getKey().toUpperCase(Locale.ROOT),
