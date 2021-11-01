@@ -125,14 +125,15 @@ public class MessageController {
   private final ExecutorService             multiRecipientMessageExecutor;
 
   private static final String LEGACY_MESSAGE_SENT_COUNTER = name(MessageController.class, "legacyMessageSent");
-  private static final String SENT_MESSAGE_COUNTER_NAME                          = name(MessageController.class, "sentMessages");
-  private static final String REJECT_UNSEALED_SENDER_COUNTER_NAME                = name(MessageController.class, "rejectUnsealedSenderLimit");
-  private static final String CONTENT_SIZE_DISTRIBUTION_NAME                     = name(MessageController.class, "messageContentSize");
+  private static final String SENT_MESSAGE_COUNTER_NAME = name(MessageController.class, "sentMessages");
+  private static final String CONTENT_SIZE_DISTRIBUTION_NAME = name(MessageController.class, "messageContentSize");
   private static final String OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME = name(MessageController.class, "outgoingMessageListSizeBytes");
+  private static final String RATE_LIMITED_MESSAGE_COUNTER_NAME = name(MessageController.class, "rateLimitedMessage");
 
-  private static final String EPHEMERAL_TAG_NAME      = "ephemeral";
-  private static final String SENDER_TYPE_TAG_NAME    = "senderType";
+  private static final String EPHEMERAL_TAG_NAME = "ephemeral";
+  private static final String SENDER_TYPE_TAG_NAME = "senderType";
   private static final String SENDER_COUNTRY_TAG_NAME = "senderCountry";
+  private static final String RATE_LIMIT_REASON_TAG_NAME = "rateLimitReason";
 
   private static final long MAX_MESSAGE_SIZE = DataSize.kibibytes(256).toBytes();
 
@@ -223,20 +224,28 @@ public class MessageController {
       assert (destination.isPresent());
 
       if (source.isPresent() && !source.get().getAccount().getUuid().equals(destinationUuid)) {
-        rateLimiters.getMessagesLimiter().validate(source.get().getAccount().getUuid(), destination.get().getUuid());
-
         final String senderCountryCode = Util.getCountryCode(source.get().getAccount().getNumber());
+
+        try {
+          rateLimiters.getMessagesLimiter().validate(source.get().getAccount().getUuid(), destination.get().getUuid());
+        } catch (final RateLimitExceededException e) {
+          Metrics.counter(RATE_LIMITED_MESSAGE_COUNTER_NAME,
+              SENDER_COUNTRY_TAG_NAME, senderCountryCode,
+              RATE_LIMIT_REASON_TAG_NAME, "singleDestinationRate").increment();
+
+          throw e;
+        }
 
         try {
           unsealedSenderRateLimiter.validate(source.get().getAccount(), destination.get());
         } catch (final RateLimitExceededException e) {
 
           final boolean legacyClient = rateLimitChallengeManager.isClientBelowMinimumVersion(userAgent);
+          final String rateLimitReason = legacyClient ? "unsealedSenderCardinality" : "challengeIssued";
 
-          Metrics.counter(REJECT_UNSEALED_SENDER_COUNTER_NAME,
-                  SENDER_COUNTRY_TAG_NAME, senderCountryCode,
-                  "legacyClient", String.valueOf(legacyClient))
-              .increment();
+          Metrics.counter(RATE_LIMITED_MESSAGE_COUNTER_NAME,
+              SENDER_COUNTRY_TAG_NAME, senderCountryCode,
+              RATE_LIMIT_REASON_TAG_NAME, rateLimitReason).increment();
 
           if (legacyClient) {
             throw e;
