@@ -124,11 +124,9 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
           .executorService(name(getClass(), "storageService-%d")).maxThreads(8).minThreads(1).build();
 
       ExternalServiceCredentialGenerator backupCredentialsGenerator = new ExternalServiceCredentialGenerator(
-          configuration.getSecureBackupServiceConfiguration().getUserAuthenticationTokenSharedSecret(), new byte[0],
-          false);
+          configuration.getSecureBackupServiceConfiguration().getUserAuthenticationTokenSharedSecret(), true);
       ExternalServiceCredentialGenerator storageCredentialsGenerator = new ExternalServiceCredentialGenerator(
-          configuration.getSecureStorageServiceConfiguration().getUserAuthenticationTokenSharedSecret(), new byte[0],
-          false);
+          configuration.getSecureStorageServiceConfiguration().getUserAuthenticationTokenSharedSecret(), true);
 
       DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = new DynamicConfigurationManager<>(
           configuration.getAppConfig().getApplication(), configuration.getAppConfig().getEnvironment(),

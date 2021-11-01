@@ -424,14 +424,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     StripeManager stripeManager = new StripeManager(config.getStripe().getApiKey(), stripeExecutor,
         config.getStripe().getIdempotencyKeyGenerator());
 
-    ExternalServiceCredentialGenerator directoryCredentialsGenerator = new ExternalServiceCredentialGenerator(config.getDirectoryConfiguration().getDirectoryClientConfiguration().getUserAuthenticationTokenSharedSecret(),
-            config.getDirectoryConfiguration().getDirectoryClientConfiguration().getUserAuthenticationTokenUserIdSecret(),
-            true);
+    ExternalServiceCredentialGenerator directoryCredentialsGenerator = new ExternalServiceCredentialGenerator(
+        config.getDirectoryConfiguration().getDirectoryClientConfiguration().getUserAuthenticationTokenSharedSecret(),
+        config.getDirectoryConfiguration().getDirectoryClientConfiguration().getUserAuthenticationTokenUserIdSecret());
     ExternalServiceCredentialGenerator directoryV2CredentialsGenerator = new ExternalServiceCredentialGenerator(
         config.getDirectoryV2Configuration().getDirectoryV2ClientConfiguration()
-            .getUserAuthenticationTokenSharedSecret(),
-        new byte[0], // no username derivation means no userIdKey needed
-        false, false);
+            .getUserAuthenticationTokenSharedSecret(), false);
 
     DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
         new DynamicConfigurationManager<>(config.getAppConfig().getApplication(),
@@ -446,9 +444,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     TwilioVerifyExperimentEnrollmentManager verifyExperimentEnrollmentManager = new TwilioVerifyExperimentEnrollmentManager(
         config.getVoiceVerificationConfiguration(), experimentEnrollmentManager);
 
-    ExternalServiceCredentialGenerator storageCredentialsGenerator   = new ExternalServiceCredentialGenerator(config.getSecureStorageServiceConfiguration().getUserAuthenticationTokenSharedSecret(), new byte[0], false);
-    ExternalServiceCredentialGenerator backupCredentialsGenerator    = new ExternalServiceCredentialGenerator(config.getSecureBackupServiceConfiguration().getUserAuthenticationTokenSharedSecret(), new byte[0], false);
-    ExternalServiceCredentialGenerator paymentsCredentialsGenerator  = new ExternalServiceCredentialGenerator(config.getPaymentsServiceConfiguration().getUserAuthenticationTokenSharedSecret(), new byte[0], false);
+    ExternalServiceCredentialGenerator storageCredentialsGenerator = new ExternalServiceCredentialGenerator(
+        config.getSecureStorageServiceConfiguration().getUserAuthenticationTokenSharedSecret(), true);
+    ExternalServiceCredentialGenerator backupCredentialsGenerator = new ExternalServiceCredentialGenerator(
+        config.getSecureBackupServiceConfiguration().getUserAuthenticationTokenSharedSecret(), true);
+    ExternalServiceCredentialGenerator paymentsCredentialsGenerator = new ExternalServiceCredentialGenerator(
+        config.getPaymentsServiceConfiguration().getUserAuthenticationTokenSharedSecret(), true);
 
     SecureBackupClient         secureBackupClient         = new SecureBackupClient(backupCredentialsGenerator, backupServiceExecutor, config.getSecureBackupServiceConfiguration());
     SecureStorageClient        secureStorageClient        = new SecureStorageClient(storageCredentialsGenerator, storageServiceExecutor, config.getSecureStorageServiceConfiguration());

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -22,13 +22,22 @@ public class ExternalServiceCredentialGenerator {
   private final boolean prependUsername;
   private final Clock clock;
 
-  public ExternalServiceCredentialGenerator(byte[] key, byte[] userIdKey, boolean usernameDerivation) {
-    this(key, userIdKey, usernameDerivation, true);
+  public ExternalServiceCredentialGenerator(byte[] key, byte[] userIdKey) {
+    this(key, userIdKey, true, true);
+  }
+
+  public ExternalServiceCredentialGenerator(byte[] key, boolean prependUsername) {
+    this(key, new byte[0], false, prependUsername);
   }
 
   public ExternalServiceCredentialGenerator(byte[] key, byte[] userIdKey, boolean usernameDerivation,
       boolean prependUsername) {
     this(key, userIdKey, usernameDerivation, prependUsername, Clock.systemUTC());
+  }
+
+  @VisibleForTesting
+  public ExternalServiceCredentialGenerator(byte[] key, byte[] userIdKey, boolean usernameDerivation) {
+    this(key, userIdKey, usernameDerivation, true);
   }
 
   @VisibleForTesting
