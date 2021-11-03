@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,10 +22,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.signal.zkgroup.InvalidInputException;
 import org.signal.zkgroup.ServerSecretParams;
-import org.signal.zkgroup.VerificationFailedException;
-import org.signal.zkgroup.auth.AuthCredential;
 import org.signal.zkgroup.auth.AuthCredentialResponse;
 import org.signal.zkgroup.auth.ClientZkAuthOperations;
 import org.signal.zkgroup.auth.ServerZkAuthOperations;
@@ -46,14 +44,16 @@ import org.whispersystems.textsecuregcm.util.Util;
 class CertificateControllerTest {
 
   private static final String caPublicKey = "BWh+UOhT1hD8bkb+MFRvb6tVqhoG8YYGCzOd7mgjo8cV";
+
+  @SuppressWarnings("unused")
   private static final String caPrivateKey = "EO3Mnf0kfVlVnwSaqPoQnAxhnnGL1JTdXqktCKEe9Eo=";
 
   private static final String signingCertificate = "CiUIDBIhBbTz4h1My+tt+vw+TVscgUe/DeHS0W02tPWAWbTO2xc3EkD+go4bJnU0AcnFfbOLKoiBfCzouZtDYMOVi69rE7r4U9cXREEqOkUmU2WJBjykAxWPCcSTmVTYHDw7hkSp/puG";
   private static final String signingKey         = "ABOxG29xrfq4E7IrW11Eg7+HBbtba9iiS0500YoBjn4=";
 
-  private static ServerSecretParams     serverSecretParams = ServerSecretParams.generate();
-  private static CertificateGenerator   certificateGenerator;
-  private static ServerZkAuthOperations serverZkAuthOperations;
+  private static final ServerSecretParams     serverSecretParams = ServerSecretParams.generate();
+  private static final CertificateGenerator   certificateGenerator;
+  private static final ServerZkAuthOperations serverZkAuthOperations;
 
   static {
     try {
@@ -151,7 +151,7 @@ class CertificateControllerTest {
   }
 
   @Test
-  void testBadAuthentication() throws Exception {
+  void testBadAuthentication() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/certificate/delivery")
                                  .request()
@@ -163,7 +163,7 @@ class CertificateControllerTest {
 
 
   @Test
-  void testNoAuthentication() throws Exception {
+  void testNoAuthentication() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/certificate/delivery")
                                  .request()
@@ -174,7 +174,7 @@ class CertificateControllerTest {
 
 
   @Test
-  void testUnidentifiedAuthentication() throws Exception {
+  void testUnidentifiedAuthentication() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/certificate/delivery")
                                  .request()
@@ -185,7 +185,7 @@ class CertificateControllerTest {
   }
 
   @Test
-  void testDisabledAuthentication() throws Exception {
+  void testDisabledAuthentication() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/certificate/delivery")
                                  .request()
@@ -196,7 +196,7 @@ class CertificateControllerTest {
   }
 
   @Test
-  void testGetSingleAuthCredential() throws InvalidInputException, VerificationFailedException {
+  void testGetSingleAuthCredential() {
     GroupCredentials credentials = resources.getJerseyTest()
                                             .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + Util.currentDaysSinceEpoch())
                                             .request()
@@ -207,11 +207,14 @@ class CertificateControllerTest {
     assertThat(credentials.getCredentials().get(0).getRedemptionTime()).isEqualTo(Util.currentDaysSinceEpoch());
 
     ClientZkAuthOperations clientZkAuthOperations = new ClientZkAuthOperations(serverSecretParams.getPublicParams());
-    AuthCredential         credential             = clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, Util.currentDaysSinceEpoch(), new AuthCredentialResponse(credentials.getCredentials().get(0).getCredential()));
+
+    assertThatCode(() ->
+        clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, Util.currentDaysSinceEpoch(), new AuthCredentialResponse(credentials.getCredentials().get(0).getCredential())))
+        .doesNotThrowAnyException();
   }
 
   @Test
-  void testGetWeekLongAuthCredentials() throws InvalidInputException, VerificationFailedException {
+  void testGetWeekLongAuthCredentials() {
     GroupCredentials credentials = resources.getJerseyTest()
                                             .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + (Util.currentDaysSinceEpoch() + 7))
                                             .request()
@@ -224,12 +227,17 @@ class CertificateControllerTest {
       assertThat(credentials.getCredentials().get(i).getRedemptionTime()).isEqualTo(Util.currentDaysSinceEpoch() + i);
 
       ClientZkAuthOperations clientZkAuthOperations = new ClientZkAuthOperations(serverSecretParams.getPublicParams());
-      AuthCredential         credential             = clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, Util.currentDaysSinceEpoch() + i , new AuthCredentialResponse(credentials.getCredentials().get(i).getCredential()));
+
+      final int time = i;
+
+      assertThatCode(() ->
+          clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, Util.currentDaysSinceEpoch() + time , new AuthCredentialResponse(credentials.getCredentials().get(time).getCredential())))
+          .doesNotThrowAnyException();
     }
   }
 
   @Test
-  void testTooManyDaysOut() throws InvalidInputException {
+  void testTooManyDaysOut() {
     Response response = resources.getJerseyTest()
                                             .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + (Util.currentDaysSinceEpoch() + 8))
                                             .request()
@@ -240,7 +248,7 @@ class CertificateControllerTest {
   }
 
   @Test
-  void testBackwardsInTime() throws InvalidInputException {
+  void testBackwardsInTime() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/certificate/group/" + (Util.currentDaysSinceEpoch() - 1) + "/" + (Util.currentDaysSinceEpoch() + 7))
                                  .request()
@@ -251,7 +259,7 @@ class CertificateControllerTest {
   }
 
   @Test
-  void testBadAuth() throws InvalidInputException {
+  void testBadAuth() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + (Util.currentDaysSinceEpoch() + 7))
                                  .request()
