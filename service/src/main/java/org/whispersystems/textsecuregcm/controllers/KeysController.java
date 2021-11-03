@@ -11,6 +11,7 @@ import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -77,7 +78,7 @@ public class KeysController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   public PreKeyCount getStatus(@Auth AuthenticatedAccount auth) {
-    int count = keys.getCount(auth.getAccount(), auth.getAuthenticatedDevice().getId());
+    int count = keys.getCount(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId());
 
     if (count > 0) {
       count = count - 1;
@@ -109,7 +110,7 @@ public class KeysController {
       });
     }
 
-    keys.store(account, device.getId(), preKeys.getPreKeys());
+    keys.store(account.getUuid(), device.getId(), preKeys.getPreKeys());
   }
 
   @Timed
@@ -211,18 +212,26 @@ public class KeysController {
   }
 
   private Map<Long, PreKey> getLocalKeys(Account destination, String deviceIdSelector) {
-    try {
-      if (deviceIdSelector.equals("*")) {
-        return keys.take(destination);
+    final Map<Long, PreKey> preKeys;
+
+    if (deviceIdSelector.equals("*")) {
+      preKeys = new HashMap<>();
+
+      for (final Device device : destination.getDevices()) {
+        keys.take(destination.getUuid(), device.getId()).ifPresent(preKey -> preKeys.put(device.getId(), preKey));
       }
+    } else {
+      try {
+        long deviceId = Long.parseLong(deviceIdSelector);
 
-      long deviceId = Long.parseLong(deviceIdSelector);
-
-      return keys.take(destination, deviceId)
-              .map(preKey -> Map.of(deviceId, preKey))
-              .orElse(Collections.emptyMap());
-    } catch (NumberFormatException e) {
-      throw new WebApplicationException(Response.status(422).build());
+        preKeys = keys.take(destination.getUuid(), deviceId)
+            .map(preKey -> Map.of(deviceId, preKey))
+            .orElse(Collections.emptyMap());
+      } catch (NumberFormatException e) {
+        throw new WebApplicationException(Response.status(422).build());
+      }
     }
+
+    return preKeys;
   }
 }

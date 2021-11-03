@@ -15,7 +15,6 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
-import static org.whispersystems.textsecuregcm.tests.util.AccountsHelper.eqUuid;
 
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
@@ -26,7 +25,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -142,6 +140,7 @@ class KeysControllerTest {
     when(sampleDevice3.getId()).thenReturn(3L);
     when(sampleDevice4.getId()).thenReturn(4L);
 
+    when(existsAccount.getUuid()).thenReturn(EXISTS_UUID);
     when(existsAccount.getDevice(1L)).thenReturn(Optional.of(sampleDevice));
     when(existsAccount.getDevice(2L)).thenReturn(Optional.of(sampleDevice2));
     when(existsAccount.getDevice(3L)).thenReturn(Optional.of(sampleDevice3));
@@ -161,14 +160,9 @@ class KeysControllerTest {
 
     when(rateLimiters.getPreKeysLimiter()).thenReturn(rateLimiter);
 
-    when(KEYS.take(eq(existsAccount), eq(1L))).thenReturn(Optional.of(SAMPLE_KEY));
+    when(KEYS.take(EXISTS_UUID, 1)).thenReturn(Optional.of(SAMPLE_KEY));
 
-    when(KEYS.take(existsAccount)).thenReturn(Map.of(1L, SAMPLE_KEY,
-                                                             2L, SAMPLE_KEY2,
-                                                             3L, SAMPLE_KEY3,
-                                                             4L, SAMPLE_KEY4));
-
-    when(KEYS.getCount(eq(AuthHelper.VALID_ACCOUNT), eq(1L))).thenReturn(5);
+    when(KEYS.getCount(AuthHelper.VALID_UUID, 1)).thenReturn(5);
 
     when(AuthHelper.VALID_DEVICE.getSignedPreKey()).thenReturn(VALID_DEVICE_SIGNED_KEY);
     when(AuthHelper.VALID_ACCOUNT.getIdentityKey()).thenReturn(null);
@@ -198,7 +192,7 @@ class KeysControllerTest {
 
     assertThat(result.getCount()).isEqualTo(4);
 
-    verify(KEYS).getCount(eq(AuthHelper.VALID_ACCOUNT), eq(1L));
+    verify(KEYS).getCount(AuthHelper.VALID_UUID, 1);
   }
 
 
@@ -257,7 +251,7 @@ class KeysControllerTest {
     assertThat(result.getDevice(1).getPreKey().getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
     assertThat(result.getDevice(1).getSignedPreKey()).isEqualTo(existsAccount.getDevice(1).get().getSignedPreKey());
 
-    verify(KEYS).take(eq(existsAccount), eq(1L));
+    verify(KEYS).take(EXISTS_UUID, 1);
     verifyNoMoreInteractions(KEYS);
   }
 
@@ -275,7 +269,7 @@ class KeysControllerTest {
     assertThat(result.getDevice(1).getPreKey().getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
     assertThat(result.getDevice(1).getSignedPreKey()).isEqualTo(existsAccount.getDevice(1).get().getSignedPreKey());
 
-    verify(KEYS).take(eq(existsAccount), eq(1L));
+    verify(KEYS).take(EXISTS_UUID, 1);
     verifyNoMoreInteractions(KEYS);
   }
 
@@ -321,8 +315,13 @@ class KeysControllerTest {
 
   @Test
   void validMultiRequestTestV2() {
+    when(KEYS.take(EXISTS_UUID, 1)).thenReturn(Optional.of(SAMPLE_KEY));
+    when(KEYS.take(EXISTS_UUID, 2)).thenReturn(Optional.of(SAMPLE_KEY2));
+    when(KEYS.take(EXISTS_UUID, 3)).thenReturn(Optional.of(SAMPLE_KEY3));
+    when(KEYS.take(EXISTS_UUID, 4)).thenReturn(Optional.of(SAMPLE_KEY4));
+
     PreKeyResponse results = resources.getJerseyTest()
-                                      .target(String.format("/v2/keys/%s/*", EXISTS_UUID.toString()))
+                                      .target(String.format("/v2/keys/%s/*", EXISTS_UUID))
                                       .request()
                                       .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                       .get(PreKeyResponse.class);
@@ -332,8 +331,8 @@ class KeysControllerTest {
 
     PreKey signedPreKey   = results.getDevice(1).getSignedPreKey();
     PreKey preKey         = results.getDevice(1).getPreKey();
-    long     registrationId = results.getDevice(1).getRegistrationId();
-    long     deviceId       = results.getDevice(1).getDeviceId();
+    long   registrationId = results.getDevice(1).getRegistrationId();
+    long   deviceId       = results.getDevice(1).getDeviceId();
 
     assertThat(preKey.getKeyId()).isEqualTo(SAMPLE_KEY.getKeyId());
     assertThat(preKey.getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
@@ -365,7 +364,10 @@ class KeysControllerTest {
     assertThat(signedPreKey).isNull();
     assertThat(deviceId).isEqualTo(4);
 
-    verify(KEYS).take(eq(existsAccount));
+    verify(KEYS).take(EXISTS_UUID, 1);
+    verify(KEYS).take(EXISTS_UUID, 2);
+    verify(KEYS).take(EXISTS_UUID, 3);
+    verify(KEYS).take(EXISTS_UUID, 4);
     verifyNoMoreInteractions(KEYS);
   }
 
@@ -433,8 +435,8 @@ class KeysControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(204);
 
-    ArgumentCaptor<List> listCaptor = ArgumentCaptor.forClass(List.class);
-    verify(KEYS).store(eqUuid(AuthHelper.VALID_ACCOUNT), eq(1L), listCaptor.capture());
+    ArgumentCaptor<List<PreKey>> listCaptor = ArgumentCaptor.forClass(List.class);
+    verify(KEYS).store(eq(AuthHelper.VALID_UUID), eq(1L), listCaptor.capture());
 
     List<PreKey> capturedList = listCaptor.getValue();
     assertThat(capturedList.size()).isEqualTo(1);
@@ -467,8 +469,8 @@ class KeysControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(204);
 
-    ArgumentCaptor<List> listCaptor = ArgumentCaptor.forClass(List.class);
-    verify(KEYS).store(eqUuid(AuthHelper.DISABLED_ACCOUNT), eq(1L), listCaptor.capture());
+    ArgumentCaptor<List<PreKey>> listCaptor = ArgumentCaptor.forClass(List.class);
+    verify(KEYS).store(eq(AuthHelper.DISABLED_UUID), eq(1L), listCaptor.capture());
 
     List<PreKey> capturedList = listCaptor.getValue();
     assertThat(capturedList.size()).isEqualTo(1);

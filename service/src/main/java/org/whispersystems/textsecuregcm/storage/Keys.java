@@ -13,7 +13,6 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -42,7 +41,6 @@ public class Keys extends AbstractDynamoDbStore {
 
   private static final Timer               STORE_KEYS_TIMER              = Metrics.timer(name(Keys.class, "storeKeys"));
   private static final Timer               TAKE_KEY_FOR_DEVICE_TIMER     = Metrics.timer(name(Keys.class, "takeKeyForDevice"));
-  private static final Timer               TAKE_KEYS_FOR_ACCOUNT_TIMER   = Metrics.timer(name(Keys.class, "takeKeyForAccount"));
   private static final Timer               GET_KEY_COUNT_TIMER           = Metrics.timer(name(Keys.class, "getKeyCount"));
   private static final Timer               DELETE_KEYS_FOR_DEVICE_TIMER  = Metrics.timer(name(Keys.class, "deleteKeysForDevice"));
   private static final Timer               DELETE_KEYS_FOR_ACCOUNT_TIMER = Metrics.timer(name(Keys.class, "deleteKeysForAccount"));
@@ -54,16 +52,16 @@ public class Keys extends AbstractDynamoDbStore {
     this.tableName = tableName;
   }
 
-  public void store(final Account account, final long deviceId, final List<PreKey> keys) {
+  public void store(final UUID identifier, final long deviceId, final List<PreKey> keys) {
     STORE_KEYS_TIMER.record(() -> {
-      delete(account.getUuid(), deviceId);
+      delete(identifier, deviceId);
 
       writeInBatches(keys, batch -> {
         List<WriteRequest> items = new ArrayList<>();
         for (final PreKey preKey : batch) {
           items.add(WriteRequest.builder()
               .putRequest(PutRequest.builder()
-                  .item(getItemFromPreKey(account.getUuid(), deviceId, preKey))
+                  .item(getItemFromPreKey(identifier, deviceId, preKey))
                   .build())
               .build());
         }
@@ -72,9 +70,9 @@ public class Keys extends AbstractDynamoDbStore {
     });
   }
 
-  public Optional<PreKey> take(final Account account, final long deviceId) {
+  public Optional<PreKey> take(final UUID identifier, final long deviceId) {
     return TAKE_KEY_FOR_DEVICE_TIMER.record(() -> {
-      final AttributeValue partitionKey = getPartitionKey(account.getUuid());
+      final AttributeValue partitionKey = getPartitionKey(identifier);
       QueryRequest queryRequest = QueryRequest.builder()
           .tableName(tableName)
           .keyConditionExpression("#uuid = :uuid AND begins_with (#sort, :sortprefix)")
@@ -113,26 +111,14 @@ public class Keys extends AbstractDynamoDbStore {
     });
   }
 
-  public Map<Long, PreKey> take(final Account account) {
-    return TAKE_KEYS_FOR_ACCOUNT_TIMER.record(() -> {
-      final Map<Long, PreKey> preKeysByDeviceId = new HashMap<>();
-
-      for (final Device device : account.getDevices()) {
-        take(account, device.getId()).ifPresent(preKey -> preKeysByDeviceId.put(device.getId(), preKey));
-      }
-
-      return preKeysByDeviceId;
-    });
-  }
-
-  public int getCount(final Account account, final long deviceId) {
+  public int getCount(final UUID identifier, final long deviceId) {
     return GET_KEY_COUNT_TIMER.record(() -> {
       QueryRequest queryRequest = QueryRequest.builder()
           .tableName(tableName)
           .keyConditionExpression("#uuid = :uuid AND begins_with (#sort, :sortprefix)")
           .expressionAttributeNames(Map.of("#uuid", KEY_ACCOUNT_UUID, "#sort", KEY_DEVICE_ID_KEY_ID))
           .expressionAttributeValues(Map.of(
-              ":uuid", getPartitionKey(account.getUuid()),
+              ":uuid", getPartitionKey(identifier),
               ":sortprefix", getSortKeyPrefix(deviceId)))
           .select(Select.COUNT)
           .consistentRead(false)
