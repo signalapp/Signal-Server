@@ -32,7 +32,7 @@ import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.Select;
 import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
 
-public class KeysDynamoDb extends AbstractDynamoDbStore {
+public class Keys extends AbstractDynamoDbStore {
 
   private final String tableName;
 
@@ -40,16 +40,16 @@ public class KeysDynamoDb extends AbstractDynamoDbStore {
   static final String KEY_DEVICE_ID_KEY_ID = "DK";
   static final String KEY_PUBLIC_KEY = "P";
 
-  private static final Timer               STORE_KEYS_TIMER              = Metrics.timer(name(KeysDynamoDb.class, "storeKeys"));
-  private static final Timer               TAKE_KEY_FOR_DEVICE_TIMER     = Metrics.timer(name(KeysDynamoDb.class, "takeKeyForDevice"));
-  private static final Timer               TAKE_KEYS_FOR_ACCOUNT_TIMER   = Metrics.timer(name(KeysDynamoDb.class, "takeKeyForAccount"));
-  private static final Timer               GET_KEY_COUNT_TIMER           = Metrics.timer(name(KeysDynamoDb.class, "getKeyCount"));
-  private static final Timer               DELETE_KEYS_FOR_DEVICE_TIMER  = Metrics.timer(name(KeysDynamoDb.class, "deleteKeysForDevice"));
-  private static final Timer               DELETE_KEYS_FOR_ACCOUNT_TIMER = Metrics.timer(name(KeysDynamoDb.class, "deleteKeysForAccount"));
-  private static final DistributionSummary CONTESTED_KEY_DISTRIBUTION    = Metrics.summary(name(KeysDynamoDb.class, "contestedKeys"));
-  private static final DistributionSummary KEY_COUNT_DISTRIBUTION        = Metrics.summary(name(KeysDynamoDb.class, "keyCount"));
+  private static final Timer               STORE_KEYS_TIMER              = Metrics.timer(name(Keys.class, "storeKeys"));
+  private static final Timer               TAKE_KEY_FOR_DEVICE_TIMER     = Metrics.timer(name(Keys.class, "takeKeyForDevice"));
+  private static final Timer               TAKE_KEYS_FOR_ACCOUNT_TIMER   = Metrics.timer(name(Keys.class, "takeKeyForAccount"));
+  private static final Timer               GET_KEY_COUNT_TIMER           = Metrics.timer(name(Keys.class, "getKeyCount"));
+  private static final Timer               DELETE_KEYS_FOR_DEVICE_TIMER  = Metrics.timer(name(Keys.class, "deleteKeysForDevice"));
+  private static final Timer               DELETE_KEYS_FOR_ACCOUNT_TIMER = Metrics.timer(name(Keys.class, "deleteKeysForAccount"));
+  private static final DistributionSummary CONTESTED_KEY_DISTRIBUTION    = Metrics.summary(name(Keys.class, "contestedKeys"));
+  private static final DistributionSummary KEY_COUNT_DISTRIBUTION        = Metrics.summary(name(Keys.class, "keyCount"));
 
-  public KeysDynamoDb(final DynamoDbClient dynamoDB, final String tableName) {
+  public Keys(final DynamoDbClient dynamoDB, final String tableName) {
     super(dynamoDB);
     this.tableName = tableName;
   }

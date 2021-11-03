@@ -68,7 +68,7 @@ public class AccountsManager {
   private final FaultTolerantRedisCluster cacheCluster;
   private final DeletedAccountsManager deletedAccountsManager;
   private final DirectoryQueue directoryQueue;
-  private final KeysDynamoDb keysDynamoDb;
+  private final Keys keys;
   private final MessagesManager messagesManager;
   private final UsernamesManager usernamesManager;
   private final ProfilesManager profilesManager;
@@ -96,7 +96,7 @@ public class AccountsManager {
       final FaultTolerantRedisCluster cacheCluster,
       final DeletedAccountsManager deletedAccountsManager,
       final DirectoryQueue directoryQueue,
-      final KeysDynamoDb keysDynamoDb,
+      final Keys keys,
       final MessagesManager messagesManager,
       final UsernamesManager usernamesManager,
       final ProfilesManager profilesManager,
@@ -110,7 +110,7 @@ public class AccountsManager {
     this.cacheCluster = cacheCluster;
     this.deletedAccountsManager = deletedAccountsManager;
     this.directoryQueue = directoryQueue;
-    this.keysDynamoDb = keysDynamoDb;
+    this.keys = keys;
     this.messagesManager = messagesManager;
     this.usernamesManager = usernamesManager;
     this.profilesManager = profilesManager;
@@ -178,7 +178,7 @@ public class AccountsManager {
         // account and need to clear out messages and keys that may have been stored for the old account.
         if (!originalUuid.equals(actualUuid)) {
           messagesManager.clear(actualUuid);
-          keysDynamoDb.delete(actualUuid);
+          keys.delete(actualUuid);
           profilesManager.deleteAll(actualUuid);
         }
 
@@ -437,11 +437,11 @@ public class AccountsManager {
 
     usernamesManager.delete(account.getUuid());
     profilesManager.deleteAll(account.getUuid());
-    keysDynamoDb.delete(account.getUuid());
+    keys.delete(account.getUuid());
     messagesManager.clear(account.getUuid());
 
     account.getPhoneNumberIdentifier().ifPresent(pni -> {
-      keysDynamoDb.delete(pni);
+      keys.delete(pni);
       messagesManager.clear(pni);
     });
 

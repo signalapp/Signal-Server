@@ -44,7 +44,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
+import org.whispersystems.textsecuregcm.storage.Keys;
 import org.whispersystems.textsecuregcm.util.Util;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -52,7 +52,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 public class KeysController {
 
   private final RateLimiters                rateLimiters;
-  private final KeysDynamoDb                keysDynamoDb;
+  private final Keys                        keys;
   private final AccountsManager             accounts;
   private final PreKeyRateLimiter           preKeyRateLimiter;
 
@@ -64,11 +64,11 @@ public class KeysController {
   private static final String SOURCE_COUNTRY_TAG_NAME = "sourceCountry";
   private static final String INTERNATIONAL_TAG_NAME = "international";
 
-  public KeysController(RateLimiters rateLimiters, KeysDynamoDb keysDynamoDb, AccountsManager accounts,
+  public KeysController(RateLimiters rateLimiters, Keys keys, AccountsManager accounts,
       PreKeyRateLimiter preKeyRateLimiter,
       RateLimitChallengeManager rateLimitChallengeManager) {
     this.rateLimiters                = rateLimiters;
-    this.keysDynamoDb                = keysDynamoDb;
+    this.keys = keys;
     this.accounts                    = accounts;
     this.preKeyRateLimiter           = preKeyRateLimiter;
     this.rateLimitChallengeManager   = rateLimitChallengeManager;
@@ -77,7 +77,7 @@ public class KeysController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   public PreKeyCount getStatus(@Auth AuthenticatedAccount auth) {
-    int count = keysDynamoDb.getCount(auth.getAccount(), auth.getAuthenticatedDevice().getId());
+    int count = keys.getCount(auth.getAccount(), auth.getAuthenticatedDevice().getId());
 
     if (count > 0) {
       count = count - 1;
@@ -109,7 +109,7 @@ public class KeysController {
       });
     }
 
-    keysDynamoDb.store(account, device.getId(), preKeys.getPreKeys());
+    keys.store(account, device.getId(), preKeys.getPreKeys());
   }
 
   @Timed
@@ -213,12 +213,12 @@ public class KeysController {
   private Map<Long, PreKey> getLocalKeys(Account destination, String deviceIdSelector) {
     try {
       if (deviceIdSelector.equals("*")) {
-        return keysDynamoDb.take(destination);
+        return keys.take(destination);
       }
 
       long deviceId = Long.parseLong(deviceIdSelector);
 
-      return keysDynamoDb.take(destination, deviceId)
+      return keys.take(destination, deviceId)
               .map(preKey -> Map.of(deviceId, preKey))
               .orElse(Collections.emptyMap());
     } catch (NumberFormatException e) {

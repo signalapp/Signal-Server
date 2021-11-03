@@ -36,7 +36,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.ArgumentCaptor;
-import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -146,7 +145,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           RedisClusterHelper.buildMockRedisCluster(commands),
           deletedAccountsManager,
           mock(DirectoryQueue.class),
-          mock(KeysDynamoDb.class),
+          mock(Keys.class),
           mock(MessagesManager.class),
           mock(UsernamesManager.class),
           mock(ProfilesManager.class),

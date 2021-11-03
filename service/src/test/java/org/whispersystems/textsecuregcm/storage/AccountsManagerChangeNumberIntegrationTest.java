@@ -189,7 +189,7 @@ class AccountsManagerChangeNumberIntegrationTest {
           CACHE_CLUSTER_EXTENSION.getRedisCluster(),
           deletedAccountsManager,
           mock(DirectoryQueue.class),
-          mock(KeysDynamoDb.class),
+          mock(Keys.class),
           mock(MessagesManager.class),
           mock(UsernamesManager.class),
           mock(ProfilesManager.class),

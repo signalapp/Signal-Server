@@ -61,7 +61,7 @@ import org.whispersystems.textsecuregcm.mappers.ServerRejectedExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
+import org.whispersystems.textsecuregcm.storage.Keys;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
@@ -89,7 +89,7 @@ class KeysControllerTest {
   private final SignedPreKey SAMPLE_SIGNED_KEY3      = new SignedPreKey( 3333, "barfoo", "sig33"    );
   private final SignedPreKey VALID_DEVICE_SIGNED_KEY = new SignedPreKey(89898, "zoofarb", "sigvalid");
 
-  private final static KeysDynamoDb                keysDynamoDb                = mock(KeysDynamoDb.class               );
+  private final static Keys KEYS = mock(Keys.class               );
   private final static AccountsManager             accounts                    = mock(AccountsManager.class            );
   private final static PreKeyRateLimiter           preKeyRateLimiter           = mock(PreKeyRateLimiter.class          );
   private final static RateLimitChallengeManager   rateLimitChallengeManager   = mock(RateLimitChallengeManager.class  );
@@ -106,7 +106,7 @@ class KeysControllerTest {
       .addResource(new RateLimitChallengeExceptionMapper(rateLimitChallengeManager))
       .addResource(new ServerRejectedExceptionMapper())
       .addResource(
-          new KeysController(rateLimiters, keysDynamoDb, accounts, preKeyRateLimiter, rateLimitChallengeManager))
+          new KeysController(rateLimiters, KEYS, accounts, preKeyRateLimiter, rateLimitChallengeManager))
       .build();
 
   @BeforeEach
@@ -161,14 +161,14 @@ class KeysControllerTest {
 
     when(rateLimiters.getPreKeysLimiter()).thenReturn(rateLimiter);
 
-    when(keysDynamoDb.take(eq(existsAccount), eq(1L))).thenReturn(Optional.of(SAMPLE_KEY));
+    when(KEYS.take(eq(existsAccount), eq(1L))).thenReturn(Optional.of(SAMPLE_KEY));
 
-    when(keysDynamoDb.take(existsAccount)).thenReturn(Map.of(1L, SAMPLE_KEY,
+    when(KEYS.take(existsAccount)).thenReturn(Map.of(1L, SAMPLE_KEY,
                                                              2L, SAMPLE_KEY2,
                                                              3L, SAMPLE_KEY3,
                                                              4L, SAMPLE_KEY4));
 
-    when(keysDynamoDb.getCount(eq(AuthHelper.VALID_ACCOUNT), eq(1L))).thenReturn(5);
+    when(KEYS.getCount(eq(AuthHelper.VALID_ACCOUNT), eq(1L))).thenReturn(5);
 
     when(AuthHelper.VALID_DEVICE.getSignedPreKey()).thenReturn(VALID_DEVICE_SIGNED_KEY);
     when(AuthHelper.VALID_ACCOUNT.getIdentityKey()).thenReturn(null);
@@ -177,7 +177,7 @@ class KeysControllerTest {
   @AfterEach
   void teardown() {
     reset(
-        keysDynamoDb,
+        KEYS,
         accounts,
         preKeyRateLimiter,
         existsAccount,
@@ -198,7 +198,7 @@ class KeysControllerTest {
 
     assertThat(result.getCount()).isEqualTo(4);
 
-    verify(keysDynamoDb).getCount(eq(AuthHelper.VALID_ACCOUNT), eq(1L));
+    verify(KEYS).getCount(eq(AuthHelper.VALID_ACCOUNT), eq(1L));
   }
 
 
@@ -257,8 +257,8 @@ class KeysControllerTest {
     assertThat(result.getDevice(1).getPreKey().getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
     assertThat(result.getDevice(1).getSignedPreKey()).isEqualTo(existsAccount.getDevice(1).get().getSignedPreKey());
 
-    verify(keysDynamoDb).take(eq(existsAccount), eq(1L));
-    verifyNoMoreInteractions(keysDynamoDb);
+    verify(KEYS).take(eq(existsAccount), eq(1L));
+    verifyNoMoreInteractions(KEYS);
   }
 
   @Test
@@ -275,8 +275,8 @@ class KeysControllerTest {
     assertThat(result.getDevice(1).getPreKey().getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
     assertThat(result.getDevice(1).getSignedPreKey()).isEqualTo(existsAccount.getDevice(1).get().getSignedPreKey());
 
-    verify(keysDynamoDb).take(eq(existsAccount), eq(1L));
-    verifyNoMoreInteractions(keysDynamoDb);
+    verify(KEYS).take(eq(existsAccount), eq(1L));
+    verifyNoMoreInteractions(KEYS);
   }
 
   @Test
@@ -303,7 +303,7 @@ class KeysControllerTest {
                                      .get();
 
     assertThat(response.getStatus()).isEqualTo(401);
-    verifyNoMoreInteractions(keysDynamoDb);
+    verifyNoMoreInteractions(KEYS);
   }
 
   @Test
@@ -315,7 +315,7 @@ class KeysControllerTest {
                                  .get();
 
     assertThat(response.getStatus()).isEqualTo(401);
-    verifyNoMoreInteractions(keysDynamoDb);
+    verifyNoMoreInteractions(KEYS);
   }
 
 
@@ -365,8 +365,8 @@ class KeysControllerTest {
     assertThat(signedPreKey).isNull();
     assertThat(deviceId).isEqualTo(4);
 
-    verify(keysDynamoDb).take(eq(existsAccount));
-    verifyNoMoreInteractions(keysDynamoDb);
+    verify(KEYS).take(eq(existsAccount));
+    verifyNoMoreInteractions(KEYS);
   }
 
 
@@ -434,7 +434,7 @@ class KeysControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
 
     ArgumentCaptor<List> listCaptor = ArgumentCaptor.forClass(List.class);
-    verify(keysDynamoDb).store(eqUuid(AuthHelper.VALID_ACCOUNT), eq(1L), listCaptor.capture());
+    verify(KEYS).store(eqUuid(AuthHelper.VALID_ACCOUNT), eq(1L), listCaptor.capture());
 
     List<PreKey> capturedList = listCaptor.getValue();
     assertThat(capturedList.size()).isEqualTo(1);
@@ -468,7 +468,7 @@ class KeysControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
 
     ArgumentCaptor<List> listCaptor = ArgumentCaptor.forClass(List.class);
-    verify(keysDynamoDb).store(eqUuid(AuthHelper.DISABLED_ACCOUNT), eq(1L), listCaptor.capture());
+    verify(KEYS).store(eqUuid(AuthHelper.DISABLED_ACCOUNT), eq(1L), listCaptor.capture());
 
     List<PreKey> capturedList = listCaptor.getValue();
     assertThat(capturedList.size()).isEqualTo(1);

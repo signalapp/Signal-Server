@@ -56,7 +56,7 @@ import org.whispersystems.textsecuregcm.storage.ContestedOptimisticLockException
 import org.whispersystems.textsecuregcm.storage.DeletedAccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
-import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
+import org.whispersystems.textsecuregcm.storage.Keys;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
@@ -69,7 +69,7 @@ class AccountsManagerTest {
   private Accounts accounts;
   private DeletedAccountsManager deletedAccountsManager;
   private DirectoryQueue directoryQueue;
-  private KeysDynamoDb keys;
+  private Keys keys;
   private MessagesManager messagesManager;
   private ProfilesManager profilesManager;
 
@@ -89,7 +89,7 @@ class AccountsManagerTest {
     accounts = mock(Accounts.class);
     deletedAccountsManager = mock(DeletedAccountsManager.class);
     directoryQueue = mock(DirectoryQueue.class);
-    keys = mock(KeysDynamoDb.class);
+    keys = mock(Keys.class);
     messagesManager = mock(MessagesManager.class);
     profilesManager = mock(ProfilesManager.class);
 

@@ -52,7 +52,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
-import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
+import org.whispersystems.textsecuregcm.storage.Keys;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
@@ -66,7 +66,7 @@ class DeviceControllerTest {
     public DumbVerificationDeviceController(StoredVerificationCodeManager pendingDevices,
                                             AccountsManager accounts,
                                             MessagesManager messages,
-                                            KeysDynamoDb keys,
+                                            Keys keys,
                                             RateLimiters rateLimiters,
                                             Map<String, Integer> deviceConfiguration)
     {
@@ -82,7 +82,7 @@ class DeviceControllerTest {
   private static StoredVerificationCodeManager pendingDevicesManager = mock(StoredVerificationCodeManager.class);
   private static AccountsManager       accountsManager       = mock(AccountsManager.class       );
   private static MessagesManager       messagesManager       = mock(MessagesManager.class);
-  private static KeysDynamoDb          keys                  = mock(KeysDynamoDb.class);
+  private static Keys keys                  = mock(Keys.class);
   private static RateLimiters          rateLimiters          = mock(RateLimiters.class          );
   private static RateLimiter           rateLimiter           = mock(RateLimiter.class           );
   private static Account               account               = mock(Account.class               );

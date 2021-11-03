@@ -22,15 +22,15 @@ public class KeysDynamoDbRule extends LocalDynamoDbRule {
       getDynamoDbClient().createTable(CreateTableRequest.builder()
           .tableName(TABLE_NAME)
           .keySchema(
-              KeySchemaElement.builder().attributeName(KeysDynamoDb.KEY_ACCOUNT_UUID).keyType(KeyType.HASH).build(),
-              KeySchemaElement.builder().attributeName(KeysDynamoDb.KEY_DEVICE_ID_KEY_ID).keyType(KeyType.RANGE)
+              KeySchemaElement.builder().attributeName(Keys.KEY_ACCOUNT_UUID).keyType(KeyType.HASH).build(),
+              KeySchemaElement.builder().attributeName(Keys.KEY_DEVICE_ID_KEY_ID).keyType(KeyType.RANGE)
                   .build())
           .attributeDefinitions(AttributeDefinition.builder()
-                  .attributeName(KeysDynamoDb.KEY_ACCOUNT_UUID)
+                  .attributeName(Keys.KEY_ACCOUNT_UUID)
                   .attributeType(ScalarAttributeType.B)
                   .build(),
               AttributeDefinition.builder()
-                  .attributeName(KeysDynamoDb.KEY_DEVICE_ID_KEY_ID)
+                  .attributeName(Keys.KEY_DEVICE_ID_KEY_ID)
                   .attributeType(ScalarAttributeType.B)
                   .build())
           .provisionedThroughput(ProvisionedThroughput.builder().readCapacityUnits(20L).writeCapacityUnits(20L).build())

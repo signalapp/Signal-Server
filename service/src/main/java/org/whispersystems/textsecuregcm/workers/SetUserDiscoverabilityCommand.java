@@ -42,7 +42,7 @@ import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
 import org.whispersystems.textsecuregcm.storage.DeletedAccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
-import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
+import org.whispersystems.textsecuregcm.storage.Keys;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
@@ -172,7 +172,7 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
       Usernames usernames = new Usernames(accountDatabase);
       Profiles profiles = new Profiles(accountDatabase);
       ReservedUsernames reservedUsernames = new ReservedUsernames(accountDatabase);
-      KeysDynamoDb keysDynamoDb = new KeysDynamoDb(preKeysDynamoDb,
+      Keys keys = new Keys(preKeysDynamoDb,
           configuration.getKeysDynamoDbConfiguration().getTableName());
       MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(messageDynamoDb,
           configuration.getMessageDynamoDbConfiguration().getTableName(),
@@ -210,7 +210,7 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
           configuration.getDeletedAccountsLockDynamoDbConfiguration().getTableName());
       StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
       AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
-          deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager,
+          deletedAccountsManager, directoryQueue, keys, messagesManager, usernamesManager, profilesManager,
           pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager, clock);
 
       Optional<Account> maybeAccount;

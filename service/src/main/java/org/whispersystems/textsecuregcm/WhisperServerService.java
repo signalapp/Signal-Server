@@ -182,7 +182,7 @@ import org.whispersystems.textsecuregcm.storage.DirectoryReconciliationClient;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
-import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
+import org.whispersystems.textsecuregcm.storage.Keys;
 import org.whispersystems.textsecuregcm.storage.MessagePersister;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
@@ -379,7 +379,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     Usernames usernames = new Usernames(accountDatabase);
     ReservedUsernames reservedUsernames = new ReservedUsernames(accountDatabase);
     Profiles profiles = new Profiles(accountDatabase);
-    KeysDynamoDb keysDynamoDb = new KeysDynamoDb(preKeyDynamoDb, config.getKeysDynamoDbConfiguration().getTableName());
+    Keys keys = new Keys(preKeyDynamoDb, config.getKeysDynamoDbConfiguration().getTableName());
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(messageDynamoDb,
         config.getMessageDynamoDbConfiguration().getTableName(),
         config.getMessageDynamoDbConfiguration().getTimeToLive());
@@ -467,7 +467,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
         deletedAccountsLockDynamoDbClient, config.getDeletedAccountsLockDynamoDbConfiguration().getTableName());
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
-        deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager,
+        deletedAccountsManager, directoryQueue, keys, messagesManager, usernamesManager, profilesManager,
         pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager, clock);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
     DeadLetterHandler          deadLetterHandler          = new DeadLetterHandler(accountsManager, messagesManager);
@@ -649,7 +649,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             smsSender, dynamicConfigurationManager, turnTokenGenerator, config.getTestDevices(),
             transitionalRecaptchaClient, gcmSender, apnSender, backupCredentialsGenerator,
             verifyExperimentEnrollmentManager));
-    environment.jersey().register(new KeysController(rateLimiters, keysDynamoDb, accountsManager, preKeyRateLimiter, rateLimitChallengeManager));
+    environment.jersey().register(new KeysController(rateLimiters, keys, accountsManager, preKeyRateLimiter, rateLimitChallengeManager));
 
     final List<Object> commonControllers = Lists.newArrayList(
         new AttachmentControllerV1(rateLimiters, config.getAwsAttachmentsConfiguration().getAccessKey(), config.getAwsAttachmentsConfiguration().getAccessSecret(), config.getAwsAttachmentsConfiguration().getBucket()),
@@ -657,7 +657,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new AttachmentControllerV3(rateLimiters, config.getGcpAttachmentsConfiguration().getDomain(), config.getGcpAttachmentsConfiguration().getEmail(), config.getGcpAttachmentsConfiguration().getMaxSizeInBytes(), config.getGcpAttachmentsConfiguration().getPathPrefix(), config.getGcpAttachmentsConfiguration().getRsaSigningKey()),
         new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().getCertificate(), config.getDeliveryCertificate().getPrivateKey(), config.getDeliveryCertificate().getExpiresDays()), zkAuthOperations),
         new ChallengeController(rateLimitChallengeManager),
-        new DeviceController(pendingDevicesManager, accountsManager, messagesManager, keysDynamoDb, rateLimiters, config.getMaxDevices()),
+        new DeviceController(pendingDevicesManager, accountsManager, messagesManager, keys, rateLimiters, config.getMaxDevices()),
         new DirectoryController(directoryCredentialsGenerator),
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
