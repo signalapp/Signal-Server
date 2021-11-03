@@ -21,10 +21,12 @@ import javax.validation.Valid;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
+import javax.ws.rs.NotFoundException;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -77,8 +79,10 @@ public class KeysController {
 
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  public PreKeyCount getStatus(@Auth AuthenticatedAccount auth) {
-    int count = keys.getCount(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId());
+  public PreKeyCount getStatus(@Auth final AuthenticatedAccount auth,
+      @QueryParam("identity") final Optional<String> identityType) {
+
+    int count = keys.getCount(getIdentifier(auth.getAccount(), identityType), auth.getAuthenticatedDevice().getId());
 
     if (count > 0) {
       count = count - 1;
@@ -90,7 +94,9 @@ public class KeysController {
   @Timed
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
-  public void setKeys(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth, @Valid PreKeyState preKeys) {
+  public void setKeys(@Auth final DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
+      @Valid final PreKeyState preKeys,
+      @QueryParam("identity") final Optional<String> identityType) {
     Account account = disabledPermittedAuth.getAccount();
     Device device = disabledPermittedAuth.getAuthenticatedDevice();
     boolean updateAccount = false;
@@ -103,14 +109,27 @@ public class KeysController {
       updateAccount = true;
     }
 
+    final boolean usePhoneNumberIdentity = usePhoneNumberIdentity(identityType);
+
     if (updateAccount) {
       account = accounts.update(account, a -> {
-        a.getDevice(device.getId()).ifPresent(d -> d.setSignedPreKey(preKeys.getSignedPreKey()));
-        a.setIdentityKey(preKeys.getIdentityKey());
+        a.getDevice(device.getId()).ifPresent(d -> {
+          if (usePhoneNumberIdentity) {
+            d.setPhoneNumberIdentitySignedPreKey(preKeys.getSignedPreKey());
+          } else {
+            d.setSignedPreKey(preKeys.getSignedPreKey());
+          }
+        });
+
+        if (usePhoneNumberIdentity) {
+          a.setPhoneNumberIdentityKey(preKeys.getIdentityKey());
+        } else {
+          a.setIdentityKey(preKeys.getIdentityKey());
+        }
       });
     }
 
-    keys.store(account.getUuid(), device.getId(), preKeys.getPreKeys());
+    keys.store(getIdentifier(account, identityType), device.getId(), preKeys.getPreKeys());
   }
 
   @Timed
@@ -130,14 +149,19 @@ public class KeysController {
 
     final Optional<Account> account = auth.map(AuthenticatedAccount::getAccount);
 
-    Optional<Account> target = accounts.getByAccountIdentifier(targetUuid);
-    OptionalAccess.verify(account, accessKey, target, deviceId);
+    final Account target;
+    {
+      final Optional<Account> maybeTarget = accounts.getByAccountIdentifier(targetUuid)
+          .or(() -> accounts.getByPhoneNumberIdentifier(targetUuid));
 
-    assert (target.isPresent());
+      OptionalAccess.verify(account, accessKey, maybeTarget, deviceId);
+
+      target = maybeTarget.orElseThrow();
+    }
 
     {
       final String sourceCountryCode = account.map(a -> Util.getCountryCode(a.getNumber())).orElse("0");
-      final String targetCountryCode = target.map(a -> Util.getCountryCode(a.getNumber())).orElseThrow();
+      final String targetCountryCode = Util.getCountryCode(target.getNumber());
 
       Metrics.counter(PREKEY_REQUEST_COUNTER_NAME, Tags.of(
           SOURCE_COUNTRY_TAG_NAME, sourceCountryCode,
@@ -147,7 +171,7 @@ public class KeysController {
 
     if (account.isPresent()) {
       rateLimiters.getPreKeysLimiter().validate(
-          account.get().getUuid() + "." + auth.get().getAuthenticatedDevice().getId() + "__" + target.get().getUuid()
+          account.get().getUuid() + "." + auth.get().getAuthenticatedDevice().getId() + "__" + targetUuid
               + "." + deviceId);
 
       try {
@@ -168,12 +192,15 @@ public class KeysController {
       }
     }
 
-    Map<Long, PreKey>        preKeysByDeviceId = getLocalKeys(target.get(), deviceId);
+    final boolean usePhoneNumberIdentity =
+        target.getPhoneNumberIdentifier().map(pni -> pni.equals(targetUuid)).orElse(false);
+
+    Map<Long, PreKey>        preKeysByDeviceId = getLocalKeys(target, deviceId, usePhoneNumberIdentity);
     List<PreKeyResponseItem> responseItems     = new LinkedList<>();
 
-    for (Device device : target.get().getDevices()) {
+    for (Device device : target.getDevices()) {
       if (device.isEnabled() && (deviceId.equals("*") || device.getId() == Long.parseLong(deviceId))) {
-        SignedPreKey signedPreKey = device.getSignedPreKey();
+        SignedPreKey signedPreKey = usePhoneNumberIdentity ? device.getPhoneNumberIdentitySignedPreKey() : device.getSignedPreKey();
         PreKey       preKey       = preKeysByDeviceId.get(device.getId());
 
         if (signedPreKey != null || preKey != null) {
@@ -182,49 +209,73 @@ public class KeysController {
       }
     }
 
+    final String identityKey = usePhoneNumberIdentity ? target.getPhoneNumberIdentityKey() : target.getIdentityKey();
+
     if (responseItems.isEmpty()) return Response.status(404).build();
-    else                         return Response.ok().entity(new PreKeyResponse(target.get().getIdentityKey(), responseItems)).build();
+    else                         return Response.ok().entity(new PreKeyResponse(identityKey, responseItems)).build();
   }
 
   @Timed
   @PUT
   @Path("/signed")
   @Consumes(MediaType.APPLICATION_JSON)
-  public void setSignedKey(@Auth AuthenticatedAccount auth, @Valid SignedPreKey signedPreKey) {
+  public void setSignedKey(@Auth final AuthenticatedAccount auth,
+      @Valid final SignedPreKey signedPreKey,
+      @QueryParam("identity") final Optional<String> identityType) {
+
     Device device = auth.getAuthenticatedDevice();
 
-    accounts.updateDevice(auth.getAccount(), device.getId(), d -> d.setSignedPreKey(signedPreKey));
+    accounts.updateDevice(auth.getAccount(), device.getId(), d -> {
+      if (usePhoneNumberIdentity(identityType)) {
+        d.setPhoneNumberIdentitySignedPreKey(signedPreKey);
+      } else {
+        d.setSignedPreKey(signedPreKey);
+      }
+    });
   }
 
   @Timed
   @GET
   @Path("/signed")
   @Produces(MediaType.APPLICATION_JSON)
-  public Optional<SignedPreKey> getSignedKey(@Auth AuthenticatedAccount auth) {
-    Device device = auth.getAuthenticatedDevice();
-    SignedPreKey signedPreKey = device.getSignedPreKey();
+  public Optional<SignedPreKey> getSignedKey(@Auth final AuthenticatedAccount auth,
+      @QueryParam("identity") final Optional<String> identityType) {
 
-    if (signedPreKey != null) {
-      return Optional.of(signedPreKey);
-    } else {
-      return Optional.empty();
-    }
+    Device device = auth.getAuthenticatedDevice();
+    SignedPreKey signedPreKey = usePhoneNumberIdentity(identityType) ?
+        device.getPhoneNumberIdentitySignedPreKey() : device.getSignedPreKey();
+
+    return Optional.ofNullable(signedPreKey);
   }
 
-  private Map<Long, PreKey> getLocalKeys(Account destination, String deviceIdSelector) {
+  private static boolean usePhoneNumberIdentity(final Optional<String> identityType) {
+    return "pni".equals(identityType.map(String::toLowerCase).orElse("aci"));
+  }
+
+  private static UUID getIdentifier(final Account account, final Optional<String> identityType) {
+    return usePhoneNumberIdentity(identityType) ?
+        account.getPhoneNumberIdentifier().orElseThrow(NotFoundException::new) :
+        account.getUuid();
+  }
+
+  private Map<Long, PreKey> getLocalKeys(Account destination, String deviceIdSelector, final boolean usePhoneNumberIdentity) {
     final Map<Long, PreKey> preKeys;
+
+    final UUID identifier = usePhoneNumberIdentity ?
+        destination.getPhoneNumberIdentifier().orElseThrow(NotFoundException::new) :
+        destination.getUuid();
 
     if (deviceIdSelector.equals("*")) {
       preKeys = new HashMap<>();
 
       for (final Device device : destination.getDevices()) {
-        keys.take(destination.getUuid(), device.getId()).ifPresent(preKey -> preKeys.put(device.getId(), preKey));
+        keys.take(identifier, device.getId()).ifPresent(preKey -> preKeys.put(device.getId(), preKey));
       }
     } else {
       try {
         long deviceId = Long.parseLong(deviceIdSelector);
 
-        preKeys = keys.take(destination.getUuid(), deviceId)
+        preKeys = keys.take(identifier, deviceId)
             .map(preKey -> Map.of(deviceId, preKey))
             .orElse(Collections.emptyMap());
       } catch (NumberFormatException e) {

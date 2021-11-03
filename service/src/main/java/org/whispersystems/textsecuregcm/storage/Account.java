@@ -47,6 +47,9 @@ public class Account {
   @JsonProperty
   private String identityKey;
 
+  @JsonProperty("pniIdentityKey")
+  private String phoneNumberIdentityKey;
+
   @JsonProperty("cpv")
   private String currentProfileVersion;
 
@@ -290,6 +293,14 @@ public class Account {
     return identityKey;
   }
 
+  public String getPhoneNumberIdentityKey() {
+    return phoneNumberIdentityKey;
+  }
+
+  public void setPhoneNumberIdentityKey(final String phoneNumberIdentityKey) {
+    this.phoneNumberIdentityKey = phoneNumberIdentityKey;
+  }
+
   public long getLastSeen() {
     requireNotStale();
 
@@ -506,5 +517,4 @@ public class Account {
       logger.error("Accessor called on stale account", new RuntimeException());
     }
   }
-
 }

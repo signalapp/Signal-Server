@@ -8,9 +8,11 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -68,6 +70,7 @@ class KeysControllerTest {
 
   private static final String EXISTS_NUMBER = "+14152222222";
   private static final UUID   EXISTS_UUID   = UUID.randomUUID();
+  private static final UUID   EXISTS_PNI    = UUID.randomUUID();
 
   private static final String NOT_EXISTS_NUMBER = "+14152222220";
   private static final UUID   NOT_EXISTS_UUID   = UUID.randomUUID();
@@ -81,11 +84,16 @@ class KeysControllerTest {
   private final PreKey SAMPLE_KEY3   = new PreKey(334, "test5");
   private final PreKey SAMPLE_KEY4   = new PreKey(336, "test6");
 
+  private final PreKey SAMPLE_KEY_PNI = new PreKey(7777, "test7");
 
   private final SignedPreKey SAMPLE_SIGNED_KEY       = new SignedPreKey( 1111, "foofoo", "sig11"    );
   private final SignedPreKey SAMPLE_SIGNED_KEY2      = new SignedPreKey( 2222, "foobar", "sig22"    );
   private final SignedPreKey SAMPLE_SIGNED_KEY3      = new SignedPreKey( 3333, "barfoo", "sig33"    );
+  private final SignedPreKey SAMPLE_SIGNED_PNI_KEY   = new SignedPreKey( 4444, "foofoopni", "sig44" );
+  private final SignedPreKey SAMPLE_SIGNED_PNI_KEY2  = new SignedPreKey( 5555, "foobarpni", "sig55" );
+  private final SignedPreKey SAMPLE_SIGNED_PNI_KEY3  = new SignedPreKey( 6666, "barfoopni", "sig66" );
   private final SignedPreKey VALID_DEVICE_SIGNED_KEY = new SignedPreKey(89898, "zoofarb", "sigvalid");
+  private final SignedPreKey VALID_DEVICE_PNI_SIGNED_KEY = new SignedPreKey(7777, "zoofarber", "sigvalidest");
 
   private final static Keys KEYS = mock(Keys.class               );
   private final static AccountsManager             accounts                    = mock(AccountsManager.class            );
@@ -135,12 +143,17 @@ class KeysControllerTest {
     when(sampleDevice2.getSignedPreKey()).thenReturn(SAMPLE_SIGNED_KEY2);
     when(sampleDevice3.getSignedPreKey()).thenReturn(SAMPLE_SIGNED_KEY3);
     when(sampleDevice4.getSignedPreKey()).thenReturn(null);
+    when(sampleDevice.getPhoneNumberIdentitySignedPreKey()).thenReturn(SAMPLE_SIGNED_PNI_KEY);
+    when(sampleDevice2.getPhoneNumberIdentitySignedPreKey()).thenReturn(SAMPLE_SIGNED_PNI_KEY2);
+    when(sampleDevice3.getPhoneNumberIdentitySignedPreKey()).thenReturn(SAMPLE_SIGNED_PNI_KEY3);
+    when(sampleDevice4.getPhoneNumberIdentitySignedPreKey()).thenReturn(null);
     when(sampleDevice.getId()).thenReturn(1L);
     when(sampleDevice2.getId()).thenReturn(2L);
     when(sampleDevice3.getId()).thenReturn(3L);
     when(sampleDevice4.getId()).thenReturn(4L);
 
     when(existsAccount.getUuid()).thenReturn(EXISTS_UUID);
+    when(existsAccount.getPhoneNumberIdentifier()).thenReturn(Optional.of(EXISTS_PNI));
     when(existsAccount.getDevice(1L)).thenReturn(Optional.of(sampleDevice));
     when(existsAccount.getDevice(2L)).thenReturn(Optional.of(sampleDevice2));
     when(existsAccount.getDevice(3L)).thenReturn(Optional.of(sampleDevice3));
@@ -149,11 +162,13 @@ class KeysControllerTest {
     when(existsAccount.getDevices()).thenReturn(allDevices);
     when(existsAccount.isEnabled()).thenReturn(true);
     when(existsAccount.getIdentityKey()).thenReturn("existsidentitykey");
+    when(existsAccount.getPhoneNumberIdentityKey()).thenReturn("existspniidentitykey");
     when(existsAccount.getNumber()).thenReturn(EXISTS_NUMBER);
     when(existsAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of("1337".getBytes()));
 
     when(accounts.getByE164(EXISTS_NUMBER)).thenReturn(Optional.of(existsAccount));
     when(accounts.getByAccountIdentifier(EXISTS_UUID)).thenReturn(Optional.of(existsAccount));
+    when(accounts.getByPhoneNumberIdentifier(EXISTS_PNI)).thenReturn(Optional.of(existsAccount));
 
     when(accounts.getByE164(NOT_EXISTS_NUMBER)).thenReturn(Optional.empty());
     when(accounts.getByAccountIdentifier(NOT_EXISTS_UUID)).thenReturn(Optional.empty());
@@ -161,10 +176,12 @@ class KeysControllerTest {
     when(rateLimiters.getPreKeysLimiter()).thenReturn(rateLimiter);
 
     when(KEYS.take(EXISTS_UUID, 1)).thenReturn(Optional.of(SAMPLE_KEY));
+    when(KEYS.take(EXISTS_PNI, 1)).thenReturn(Optional.of(SAMPLE_KEY_PNI));
 
     when(KEYS.getCount(AuthHelper.VALID_UUID, 1)).thenReturn(5);
 
     when(AuthHelper.VALID_DEVICE.getSignedPreKey()).thenReturn(VALID_DEVICE_SIGNED_KEY);
+    when(AuthHelper.VALID_DEVICE.getPhoneNumberIdentitySignedPreKey()).thenReturn(VALID_DEVICE_PNI_SIGNED_KEY);
     when(AuthHelper.VALID_ACCOUNT.getIdentityKey()).thenReturn(null);
   }
 
@@ -179,6 +196,8 @@ class KeysControllerTest {
         rateLimiter,
         rateLimitChallengeManager
     );
+
+    clearInvocations(AuthHelper.VALID_DEVICE);
   }
 
   @Test
@@ -210,6 +229,20 @@ class KeysControllerTest {
   }
 
   @Test
+  void getPhoneNumberIdentifierSignedPreKeyV2() {
+    SignedPreKey result = resources.getJerseyTest()
+        .target("/v2/keys/signed")
+        .queryParam("identity", "pni")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(SignedPreKey.class);
+
+    assertThat(result.getSignature()).isEqualTo(VALID_DEVICE_PNI_SIGNED_KEY.getSignature());
+    assertThat(result.getKeyId()).isEqualTo(VALID_DEVICE_PNI_SIGNED_KEY.getKeyId());
+    assertThat(result.getPublicKey()).isEqualTo(VALID_DEVICE_PNI_SIGNED_KEY.getPublicKey());
+  }
+
+  @Test
   void putSignedPreKeyV2() {
     SignedPreKey   test     = new SignedPreKey(9998, "fooozzz", "baaarzzz");
     Response response = resources.getJerseyTest()
@@ -221,9 +254,27 @@ class KeysControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
 
     verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(test));
+    verify(AuthHelper.VALID_DEVICE, never()).setPhoneNumberIdentitySignedPreKey(any());
     verify(accounts).updateDevice(eq(AuthHelper.VALID_ACCOUNT), anyLong(), any());
   }
 
+  @Test
+  void putPhoneNumberIdentitySignedPreKeyV2() {
+    final SignedPreKey replacementKey = new SignedPreKey(9998, "fooozzz", "baaarzzz");
+
+    Response response = resources.getJerseyTest()
+        .target("/v2/keys/signed")
+        .queryParam("identity", "pni")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.entity(replacementKey, MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(204);
+
+    verify(AuthHelper.VALID_DEVICE).setPhoneNumberIdentitySignedPreKey(eq(replacementKey));
+    verify(AuthHelper.VALID_DEVICE, never()).setSignedPreKey(any());
+    verify(accounts).updateDevice(eq(AuthHelper.VALID_ACCOUNT), anyLong(), any());
+  }
 
   @Test
   void disabledPutSignedPreKeyV2() {
@@ -252,6 +303,24 @@ class KeysControllerTest {
     assertThat(result.getDevice(1).getSignedPreKey()).isEqualTo(existsAccount.getDevice(1).get().getSignedPreKey());
 
     verify(KEYS).take(EXISTS_UUID, 1);
+    verifyNoMoreInteractions(KEYS);
+  }
+
+  @Test
+  void validSingleRequestByPhoneNumberIdentifierTestV2() {
+    PreKeyResponse result = resources.getJerseyTest()
+        .target(String.format("/v2/keys/%s/1", EXISTS_PNI))
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(PreKeyResponse.class);
+
+    assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getPhoneNumberIdentityKey());
+    assertThat(result.getDevicesCount()).isEqualTo(1);
+    assertThat(result.getDevice(1).getPreKey().getKeyId()).isEqualTo(SAMPLE_KEY_PNI.getKeyId());
+    assertThat(result.getDevice(1).getPreKey().getPublicKey()).isEqualTo(SAMPLE_KEY_PNI.getPublicKey());
+    assertThat(result.getDevice(1).getSignedPreKey()).isEqualTo(existsAccount.getDevice(1).get().getPhoneNumberIdentitySignedPreKey());
+
+    verify(KEYS).take(EXISTS_PNI, 1);
     verifyNoMoreInteractions(KEYS);
   }
 
@@ -445,6 +514,38 @@ class KeysControllerTest {
 
     verify(AuthHelper.VALID_ACCOUNT).setIdentityKey(eq("barbar"));
     verify(AuthHelper.VALID_DEVICE).setSignedPreKey(eq(signedPreKey));
+    verify(accounts).update(eq(AuthHelper.VALID_ACCOUNT), any());
+  }
+
+  @Test
+  void putKeysByPhoneNumberIdentifierTestV2() {
+    final SignedPreKey signedPreKey = new SignedPreKey(31338, "foobaz", "myvalidsig");
+    final String       identityKey  = "barbar";
+
+    List<PreKey> preKeys = List.of(new PreKey(31337, "foobar"));
+
+    PreKeyState preKeyState = new PreKeyState(identityKey, signedPreKey, preKeys);
+
+    Response response =
+        resources.getJerseyTest()
+            .target("/v2/keys")
+            .queryParam("identity", "pni")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(preKeyState, MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(204);
+
+    ArgumentCaptor<List<PreKey>> listCaptor = ArgumentCaptor.forClass(List.class);
+    verify(KEYS).store(eq(AuthHelper.VALID_PNI), eq(1L), listCaptor.capture());
+
+    List<PreKey> capturedList = listCaptor.getValue();
+    assertThat(capturedList.size()).isEqualTo(1);
+    assertThat(capturedList.get(0).getKeyId()).isEqualTo(31337);
+    assertThat(capturedList.get(0).getPublicKey()).isEqualTo("foobar");
+
+    verify(AuthHelper.VALID_ACCOUNT).setPhoneNumberIdentityKey(eq("barbar"));
+    verify(AuthHelper.VALID_DEVICE).setPhoneNumberIdentitySignedPreKey(eq(signedPreKey));
     verify(accounts).update(eq(AuthHelper.VALID_ACCOUNT), any());
   }
 

@@ -53,6 +53,9 @@ public class Device {
   @JsonProperty
   private SignedPreKey signedPreKey;
 
+  @JsonProperty("pniSignedPreKey")
+  private SignedPreKey phoneNumberIdentitySignedPreKey;
+
   @JsonProperty
   private long lastSeen;
 
@@ -213,6 +216,14 @@ public class Device {
 
   public void setSignedPreKey(SignedPreKey signedPreKey) {
     this.signedPreKey = signedPreKey;
+  }
+
+  public SignedPreKey getPhoneNumberIdentitySignedPreKey() {
+    return phoneNumberIdentitySignedPreKey;
+  }
+
+  public void setPhoneNumberIdentitySignedPreKey(final SignedPreKey phoneNumberIdentitySignedPreKey) {
+    this.phoneNumberIdentitySignedPreKey = phoneNumberIdentitySignedPreKey;
   }
 
   public long getPushTimestamp() {

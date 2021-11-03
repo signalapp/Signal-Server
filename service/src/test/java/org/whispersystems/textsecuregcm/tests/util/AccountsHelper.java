@@ -95,6 +95,10 @@ public class AccountsHelper {
             when(updatedAccount.getUuid()).thenAnswer(stubbing);
             break;
           }
+          case "getPhoneNumberIdentifier": {
+            when(updatedAccount.getPhoneNumberIdentifier()).thenAnswer(stubbing);
+            break;
+          }
           case "getNumber": {
             when(updatedAccount.getNumber()).thenAnswer(stubbing);
             break;
