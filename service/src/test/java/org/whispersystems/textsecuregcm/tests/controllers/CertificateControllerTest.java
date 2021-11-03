@@ -7,9 +7,11 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
@@ -17,12 +19,15 @@ import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.io.IOException;
 import java.util.Base64;
+import java.util.Optional;
+import java.util.UUID;
 import javax.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.signal.zkgroup.ServerSecretParams;
+import org.signal.zkgroup.VerificationFailedException;
 import org.signal.zkgroup.auth.AuthCredentialResponse;
 import org.signal.zkgroup.auth.ClientZkAuthOperations;
 import org.signal.zkgroup.auth.ServerZkAuthOperations;
@@ -211,6 +216,41 @@ class CertificateControllerTest {
     assertThatCode(() ->
         clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, Util.currentDaysSinceEpoch(), new AuthCredentialResponse(credentials.getCredentials().get(0).getCredential())))
         .doesNotThrowAnyException();
+  }
+
+  @Test
+  void testGetSingleAuthCredentialByPni() {
+    when(AuthHelper.VALID_ACCOUNT.getPhoneNumberIdentifier()).thenReturn(Optional.of(UUID.randomUUID()));
+
+    GroupCredentials credentials = resources.getJerseyTest()
+        .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + Util.currentDaysSinceEpoch())
+        .queryParam("identity", "pni")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(GroupCredentials.class);
+
+    assertThat(credentials.getCredentials().size()).isEqualTo(1);
+    assertThat(credentials.getCredentials().get(0).getRedemptionTime()).isEqualTo(Util.currentDaysSinceEpoch());
+
+    ClientZkAuthOperations clientZkAuthOperations = new ClientZkAuthOperations(serverSecretParams.getPublicParams());
+
+    assertThatExceptionOfType(VerificationFailedException.class)
+        .isThrownBy(() ->
+            clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, Util.currentDaysSinceEpoch(), new AuthCredentialResponse(credentials.getCredentials().get(0).getCredential())));
+  }
+
+  @Test
+  void testGetSingleAuthCredentialByPniNotSet() {
+    when(AuthHelper.VALID_ACCOUNT.getPhoneNumberIdentifier()).thenReturn(Optional.empty());
+
+    Response response = resources.getJerseyTest()
+        .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + Util.currentDaysSinceEpoch())
+        .queryParam("identity", "pni")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get();
+
+    assertThat(response.getStatus()).isEqualTo(404);
   }
 
   @Test

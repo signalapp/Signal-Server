@@ -14,7 +14,9 @@ import java.security.InvalidKeyException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import javax.ws.rs.GET;
+import javax.ws.rs.NotFoundException;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
@@ -70,7 +72,8 @@ public class CertificateController {
   @Path("/group/{startRedemptionTime}/{endRedemptionTime}")
   public GroupCredentials getAuthenticationCredentials(@Auth AuthenticatedAccount auth,
       @PathParam("startRedemptionTime") int startRedemptionTime,
-      @PathParam("endRedemptionTime") int endRedemptionTime) {
+      @PathParam("endRedemptionTime") int endRedemptionTime,
+      @QueryParam("identity") Optional<String> identityType) {
     if (startRedemptionTime > endRedemptionTime) {
       throw new WebApplicationException(Response.Status.BAD_REQUEST);
     }
@@ -83,10 +86,13 @@ public class CertificateController {
 
     List<GroupCredentials.GroupCredential> credentials = new LinkedList<>();
 
+    final UUID identifier = identityType.map(String::toLowerCase).orElse("aci").equals("pni") ?
+        auth.getAccount().getPhoneNumberIdentifier().orElseThrow(NotFoundException::new) :
+        auth.getAccount().getUuid();
+
     for (int i = startRedemptionTime; i <= endRedemptionTime; i++) {
       credentials.add(new GroupCredentials.GroupCredential(
-          serverZkAuthOperations.issueAuthCredential(auth.getAccount().getUuid(), i)
-              .serialize(),
+          serverZkAuthOperations.issueAuthCredential(identifier, i).serialize(),
           i));
     }
 
