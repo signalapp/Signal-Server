@@ -25,6 +25,8 @@ import static org.mockito.Mockito.when;
 
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
+import java.time.Clock;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.UUID;
@@ -124,7 +126,8 @@ class AccountsManagerTest {
         mock(StoredVerificationCodeManager.class),
         storageClient,
         backupClient,
-        mock(ClientPresenceManager.class));
+        mock(ClientPresenceManager.class),
+        mock(Clock.class));
   }
 
   @Test
@@ -340,7 +343,7 @@ class AccountsManagerTest {
 
     final String e164 = "+18005550123";
     final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, true, null);
-    accountsManager.create(e164, "password", null, attributes);
+    accountsManager.create(e164, "password", null, attributes, new ArrayList<>());
 
     verify(accounts).create(argThat(account -> e164.equals(account.getNumber())));
     verifyNoInteractions(keys);
@@ -359,7 +362,7 @@ class AccountsManagerTest {
 
     final String e164 = "+18005550123";
     final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, true, null);
-    accountsManager.create(e164, "password", null, attributes);
+    accountsManager.create(e164, "password", null, attributes, new ArrayList<>());
 
     verify(accounts).create(
         argThat(account -> e164.equals(account.getNumber()) && existingUuid.equals(account.getUuid())));
@@ -382,7 +385,7 @@ class AccountsManagerTest {
 
     final String e164 = "+18005550123";
     final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, true, null);
-    accountsManager.create(e164, "password", null, attributes);
+    accountsManager.create(e164, "password", null, attributes, new ArrayList<>());
 
     verify(accounts).create(
         argThat(account -> e164.equals(account.getNumber()) && recentlyDeletedUuid.equals(account.getUuid())));
@@ -395,7 +398,7 @@ class AccountsManagerTest {
   @ValueSource(booleans = {true, false})
   void testCreateWithDiscoverability(final boolean discoverable) throws InterruptedException {
     final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, discoverable, null);
-    final Account account = accountsManager.create("+18005550123", "password", null, attributes);
+    final Account account = accountsManager.create("+18005550123", "password", null, attributes, new ArrayList<>());
 
     assertEquals(discoverable, account.isDiscoverableByPhoneNumber());
 
@@ -410,7 +413,7 @@ class AccountsManagerTest {
     final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, true,
         new DeviceCapabilities(false, false, false, hasStorage, false, false, false, false, false));
 
-    final Account account = accountsManager.create("+18005550123", "password", null, attributes);
+    final Account account = accountsManager.create("+18005550123", "password", null, attributes, new ArrayList<>());
 
     assertEquals(hasStorage, account.isStorageSupported());
   }

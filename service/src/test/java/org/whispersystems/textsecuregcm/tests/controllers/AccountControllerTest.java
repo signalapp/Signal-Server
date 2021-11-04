@@ -31,6 +31,7 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -232,10 +233,11 @@ class AccountControllerTest {
     when(accountsManager.get(eq(SENDER_HAS_STORAGE))).thenReturn(Optional.of(senderHasStorage));
     when(accountsManager.get(eq(SENDER_TRANSFER))).thenReturn(Optional.of(senderTransfer));
 
-    when(accountsManager.create(any(), any(), any(), any())).thenAnswer((Answer<Account>) invocation -> {
+    when(accountsManager.create(any(), any(), any(), any(), any())).thenAnswer((Answer<Account>) invocation -> {
       final Account account = mock(Account.class);
       when(account.getUuid()).thenReturn(UUID.randomUUID());
       when(account.getNumber()).thenReturn(invocation.getArgument(0, String.class));
+      when(account.getBadges()).thenReturn(invocation.getArgument(4, List.class));
 
       return account;
     });
@@ -1017,7 +1019,7 @@ class AccountControllerTest {
              .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER, "bar"))
              .put(Entity.entity(new AccountAttributes(), MediaType.APPLICATION_JSON_TYPE), AccountCreationResult.class);
 
-    verify(accountsManager).create(eq(SENDER), eq("bar"), any(), any());
+    verify(accountsManager).create(eq(SENDER), eq("bar"), any(), any(), anyList());
 
     if (enrolledInVerifyExperiment) {
       verify(smsSender).reportVerificationSucceeded("VerificationSid");
@@ -1095,7 +1097,8 @@ class AccountControllerTest {
     verify(pinLimiter).validate(eq(SENDER_REG_LOCK));
 
     verify(accountsManager).create(eq(SENDER_REG_LOCK), eq("bar"), any(), argThat(
-        attributes -> Hex.toStringCondensed(registration_lock_key).equals(attributes.getRegistrationLock())));
+        attributes -> Hex.toStringCondensed(registration_lock_key).equals(attributes.getRegistrationLock())),
+        argThat(List::isEmpty));
   }
 
   @Test

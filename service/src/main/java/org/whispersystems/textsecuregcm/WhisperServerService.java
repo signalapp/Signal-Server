@@ -53,7 +53,6 @@ import java.util.concurrent.TimeUnit;
 import javax.servlet.DispatcherType;
 import javax.servlet.FilterRegistration;
 import javax.servlet.ServletRegistration;
-import javax.ws.rs.container.DynamicFeature;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
 import org.glassfish.jersey.server.ServerProperties;
 import org.jdbi.v3.core.Jdbi;
@@ -458,9 +457,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     MessagesManager            messagesManager            = new MessagesManager(messagesDynamoDb, messagesCache, pushLatencyManager, reportMessageManager);
     DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
         deletedAccountsLockDynamoDbClient, config.getDeletedAccountsLockDynamoDbConfiguration().getTableName());
-    AccountsManager accountsManager = new AccountsManager(accounts, cacheCluster,
-        deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager,
-        pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager);
+    AccountsManager accountsManager = new AccountsManager(accounts, cacheCluster, deletedAccountsManager,
+        directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, pendingAccountsManager,
+        secureStorageClient, secureBackupClient, clientPresenceManager, clock);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
     DeadLetterHandler          deadLetterHandler          = new DeadLetterHandler(accountsManager, messagesManager);
     DispatchManager            dispatchManager            = new DispatchManager(pubSubClientFactory, Optional.of(deadLetterHandler));

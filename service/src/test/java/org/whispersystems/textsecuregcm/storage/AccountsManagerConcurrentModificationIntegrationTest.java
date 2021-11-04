@@ -18,7 +18,9 @@ import static org.mockito.Mockito.verify;
 
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.io.IOException;
+import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
@@ -124,7 +126,8 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(StoredVerificationCodeManager.class),
           mock(SecureStorageClient.class),
           mock(SecureBackupClient.class),
-          mock(ClientPresenceManager.class)
+          mock(ClientPresenceManager.class),
+          mock(Clock.class)
       );
     }
   }
@@ -135,7 +138,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
     final UUID uuid;
     {
       final Account account = accountsManager.update(
-          accountsManager.create("+14155551212", "password", null, new AccountAttributes()),
+          accountsManager.create("+14155551212", "password", null, new AccountAttributes(), new ArrayList<>()),
           a -> {
             a.setUnidentifiedAccessKey(new byte[16]);
 

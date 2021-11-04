@@ -18,6 +18,7 @@ import io.dropwizard.jdbi3.JdbiFactory;
 import io.dropwizard.setup.Environment;
 import io.lettuce.core.resource.ClientResources;
 import io.micrometer.core.instrument.Metrics;
+import java.time.Clock;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -88,6 +89,7 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
       throws Exception
   {
     try {
+      Clock clock = Clock.systemUTC();
       String[] users = namespace.getString("user").split(",");
 
       environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -201,7 +203,7 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
       StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
       AccountsManager accountsManager = new AccountsManager(accounts, cacheCluster,
           deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager,
-          pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager);
+          pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager, clock);
 
       for (String user : users) {
         Optional<Account> account = accountsManager.get(user);

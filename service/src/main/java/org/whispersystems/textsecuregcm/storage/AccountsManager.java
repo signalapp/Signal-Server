@@ -17,6 +17,9 @@ import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
+import java.time.Clock;
+import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -72,6 +75,7 @@ public class AccountsManager {
   private final SecureBackupClient        secureBackupClient;
   private final ClientPresenceManager clientPresenceManager;
   private final ObjectMapper              mapper;
+  private final Clock clock;
 
   public enum DeletionReason {
     ADMIN_DELETED("admin"),
@@ -94,7 +98,8 @@ public class AccountsManager {
       final StoredVerificationCodeManager pendingAccounts,
       final SecureStorageClient secureStorageClient,
       final SecureBackupClient secureBackupClient,
-      final ClientPresenceManager clientPresenceManager) {
+      final ClientPresenceManager clientPresenceManager,
+      final Clock clock) {
     this.accounts = accounts;
     this.cacheCluster = cacheCluster;
     this.deletedAccountsManager = deletedAccountsManager;
@@ -108,12 +113,14 @@ public class AccountsManager {
     this.secureBackupClient  = secureBackupClient;
     this.clientPresenceManager = clientPresenceManager;
     this.mapper              = SystemMapper.getMapper();
+    this.clock = Objects.requireNonNull(clock);
   }
 
   public Account create(final String number,
       final String password,
       final String signalAgent,
-      final AccountAttributes accountAttributes) throws InterruptedException {
+      final AccountAttributes accountAttributes,
+      final List<AccountBadge> accountBadges) throws InterruptedException {
 
     try (Timer.Context ignored = createTimer.time()) {
       final Account account = new Account();
@@ -137,6 +144,7 @@ public class AccountsManager {
         account.setUnidentifiedAccessKey(accountAttributes.getUnidentifiedAccessKey());
         account.setUnrestrictedUnidentifiedAccess(accountAttributes.isUnrestrictedUnidentifiedAccess());
         account.setDiscoverableByPhoneNumber(accountAttributes.isDiscoverableByPhoneNumber());
+        account.setBadges(clock, accountBadges);
 
         final UUID originalUuid = account.getUuid();
 

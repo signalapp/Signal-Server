@@ -353,11 +353,11 @@ public class AccountController {
     storedVerificationCode.flatMap(StoredVerificationCode::getTwilioVerificationSid)
         .ifPresent(smsSender::reportVerificationSucceeded);
 
-      Optional<Account> existingAccount = accounts.get(number);
+    Optional<Account> existingAccount = accounts.get(number);
 
-      if (existingAccount.isPresent()) {
-        verifyRegistrationLock(existingAccount.get(), accountAttributes.getRegistrationLock());
-      }
+    if (existingAccount.isPresent()) {
+      verifyRegistrationLock(existingAccount.get(), accountAttributes.getRegistrationLock());
+    }
 
     if (availableForTransfer.orElse(false) && existingAccount.map(Account::isTransferSupported).orElse(false)) {
       throw new WebApplicationException(Response.status(409).build());
@@ -365,7 +365,8 @@ public class AccountController {
 
     rateLimiters.getVerifyLimiter().clear(number);
 
-    Account account = accounts.create(number, password, signalAgent, accountAttributes);
+    Account account = accounts.create(number, password, signalAgent, accountAttributes,
+        existingAccount.map(Account::getBadges).orElseGet(ArrayList::new));
 
     {
       metricRegistry.meter(name(AccountController.class, "verify", Util.getCountryCode(number))).mark();

@@ -18,6 +18,7 @@ import io.dropwizard.jdbi3.JdbiFactory;
 import io.dropwizard.setup.Environment;
 import io.lettuce.core.resource.ClientResources;
 import io.micrometer.core.instrument.Metrics;
+import java.time.Clock;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -91,6 +92,7 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
       final WhisperServerConfiguration configuration) throws Exception {
 
     try {
+      Clock clock = Clock.systemUTC();
       environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
       JdbiFactory jdbiFactory = new JdbiFactory();
@@ -204,7 +206,7 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
       StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
       AccountsManager accountsManager = new AccountsManager(accounts, cacheCluster,
           deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager,
-          pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager);
+          pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager, clock);
 
       Optional<Account> maybeAccount;
 

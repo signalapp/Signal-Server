@@ -15,6 +15,8 @@ import static org.mockito.Mockito.when;
 import com.opentable.db.postgres.embedded.LiquibasePreparer;
 import com.opentable.db.postgres.junit5.EmbeddedPostgresExtension;
 import com.opentable.db.postgres.junit5.PreparedDbExtension;
+import java.time.Clock;
+import java.util.ArrayList;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -158,7 +160,8 @@ class AccountsManagerChangeNumberIntegrationTest {
           mock(StoredVerificationCodeManager.class),
           secureStorageClient,
           secureBackupClient,
-          clientPresenceManager);
+          clientPresenceManager,
+          mock(Clock.class));
     }
   }
 
@@ -167,7 +170,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     final String originalNumber = "+18005551111";
     final String secondNumber = "+18005552222";
 
-    final Account account = accountsManager.create(originalNumber, "password", null, new AccountAttributes());
+    final Account account = accountsManager.create(originalNumber, "password", null, new AccountAttributes(), new ArrayList<>());
     final UUID originalUuid = account.getUuid();
 
     accountsManager.changeNumber(account, secondNumber);
@@ -188,7 +191,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     final String originalNumber = "+18005551111";
     final String secondNumber = "+18005552222";
 
-    Account account = accountsManager.create(originalNumber, "password", null, new AccountAttributes());
+    Account account = accountsManager.create(originalNumber, "password", null, new AccountAttributes(), new ArrayList<>());
     final UUID originalUuid = account.getUuid();
 
     account = accountsManager.changeNumber(account, secondNumber);
@@ -210,10 +213,10 @@ class AccountsManagerChangeNumberIntegrationTest {
     final String originalNumber = "+18005551111";
     final String secondNumber = "+18005552222";
 
-    final Account account = accountsManager.create(originalNumber, "password", null, new AccountAttributes());
+    final Account account = accountsManager.create(originalNumber, "password", null, new AccountAttributes(), new ArrayList<>());
     final UUID originalUuid = account.getUuid();
 
-    final Account existingAccount = accountsManager.create(secondNumber, "password", null, new AccountAttributes());
+    final Account existingAccount = accountsManager.create(secondNumber, "password", null, new AccountAttributes(), new ArrayList<>());
     final UUID existingAccountUuid = existingAccount.getUuid();
 
     accountsManager.update(existingAccount, a -> a.addDevice(new Device(Device.MASTER_ID, "test", "token", "salt", null, null, null, true, 1, null, 0, 0, null, 0, new DeviceCapabilities())));
@@ -238,15 +241,15 @@ class AccountsManagerChangeNumberIntegrationTest {
     final String originalNumber = "+18005551111";
     final String secondNumber = "+18005552222";
 
-    final Account account = accountsManager.create(originalNumber, "password", null, new AccountAttributes());
+    final Account account = accountsManager.create(originalNumber, "password", null, new AccountAttributes(), new ArrayList<>());
     final UUID originalUuid = account.getUuid();
 
-    final Account existingAccount = accountsManager.create(secondNumber, "password", null, new AccountAttributes());
+    final Account existingAccount = accountsManager.create(secondNumber, "password", null, new AccountAttributes(), new ArrayList<>());
     final UUID existingAccountUuid = existingAccount.getUuid();
 
     accountsManager.changeNumber(account, secondNumber);
 
-    final Account reRegisteredAccount = accountsManager.create(originalNumber, "password", null, new AccountAttributes());
+    final Account reRegisteredAccount = accountsManager.create(originalNumber, "password", null, new AccountAttributes(), new ArrayList<>());
 
     assertEquals(existingAccountUuid, reRegisteredAccount.getUuid());
 
