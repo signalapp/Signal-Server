@@ -4,18 +4,21 @@
  */
 package org.whispersystems.textsecuregcm.configuration;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.validation.Valid;
-import javax.validation.constraints.NotNull;
 
 public class DirectoryV2Configuration {
 
-  @JsonProperty
-  @NotNull
-  @Valid
-  private DirectoryV2ClientConfiguration client;
+  private final DirectoryV2ClientConfiguration clientConfiguration;
 
+  @JsonCreator
+  public DirectoryV2Configuration(@JsonProperty("client") DirectoryV2ClientConfiguration clientConfiguration) {
+    this.clientConfiguration = clientConfiguration;
+  }
+
+  @Valid
   public DirectoryV2ClientConfiguration getDirectoryV2ClientConfiguration() {
-    return client;
+    return clientConfiguration;
   }
 }

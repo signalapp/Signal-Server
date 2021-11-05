@@ -85,7 +85,7 @@ directory:
 
 directoryV2:
   client: # Configuration for interfacing with Contact Discovery Service v2 cluster
-    userAuthenticationTokenSharedSecret: # hex-encoded secret shared with CDS to generate auth tokens for Signal users
+    userAuthenticationTokenSharedSecret: # base64-encoded secret shared with CDS to generate auth tokens for Signal users
 
 messageCache: # Redis server configuration for message store cache
   persistDelayMinutes:

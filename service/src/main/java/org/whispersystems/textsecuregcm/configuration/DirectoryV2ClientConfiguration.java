@@ -4,19 +4,23 @@
  */
 package org.whispersystems.textsecuregcm.configuration;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import javax.validation.constraints.NotEmpty;
-import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
+import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 public class DirectoryV2ClientConfiguration {
 
-  @NotEmpty
-  @JsonProperty
-  private String userAuthenticationTokenSharedSecret;
+  private final byte[] userAuthenticationTokenSharedSecret;
 
-  public byte[] getUserAuthenticationTokenSharedSecret() throws DecoderException {
-    return Hex.decodeHex(userAuthenticationTokenSharedSecret.toCharArray());
+  @JsonCreator
+  public DirectoryV2ClientConfiguration(
+      @JsonProperty("userAuthenticationTokenSharedSecret") final byte[] userAuthenticationTokenSharedSecret) {
+    this.userAuthenticationTokenSharedSecret = userAuthenticationTokenSharedSecret;
+  }
+
+  @ExactlySize({32})
+  public byte[] getUserAuthenticationTokenSharedSecret() {
+    return userAuthenticationTokenSharedSecret;
   }
 
 }
