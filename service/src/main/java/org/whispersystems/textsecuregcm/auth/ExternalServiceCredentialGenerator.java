@@ -30,14 +30,14 @@ public class ExternalServiceCredentialGenerator {
     this(key, new byte[0], false, prependUsername);
   }
 
-  public ExternalServiceCredentialGenerator(byte[] key, byte[] userIdKey, boolean usernameDerivation,
-      boolean prependUsername) {
-    this(key, userIdKey, usernameDerivation, prependUsername, Clock.systemUTC());
-  }
-
   @VisibleForTesting
   public ExternalServiceCredentialGenerator(byte[] key, byte[] userIdKey, boolean usernameDerivation) {
     this(key, userIdKey, usernameDerivation, true);
+  }
+
+  private ExternalServiceCredentialGenerator(byte[] key, byte[] userIdKey, boolean usernameDerivation,
+      boolean prependUsername) {
+    this(key, userIdKey, usernameDerivation, prependUsername, Clock.systemUTC());
   }
 
   @VisibleForTesting
