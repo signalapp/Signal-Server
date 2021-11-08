@@ -138,7 +138,7 @@ class ProfileControllerTest {
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
     when(dynamicConfiguration.getPaymentsConfiguration()).thenReturn(dynamicPaymentsConfiguration);
-    when(dynamicPaymentsConfiguration.getAllowedCountryCodes()).thenReturn(Collections.emptySet());
+    when(dynamicPaymentsConfiguration.getDisallowedCountryCodes()).thenReturn(Collections.emptySet());
 
     when(rateLimiters.getProfileLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getUsernameLookupLimiter()).thenReturn(usernameRateLimiter);
@@ -511,9 +511,6 @@ class ProfileControllerTest {
 
   @Test
   void testSetProfilePaymentAddress() throws InvalidInputException {
-    when(dynamicPaymentsConfiguration.getAllowedCountryCodes())
-        .thenReturn(Set.of(Util.getCountryCode(AuthHelper.VALID_NUMBER_TWO)));
-
     ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
@@ -552,6 +549,9 @@ class ProfileControllerTest {
 
   @Test
   void testSetProfilePaymentAddressCountryNotAllowed() throws InvalidInputException {
+    when(dynamicPaymentsConfiguration.getDisallowedCountryCodes())
+        .thenReturn(Set.of(Util.getCountryCode(AuthHelper.VALID_NUMBER_TWO)));
+
     ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
@@ -600,9 +600,6 @@ class ProfileControllerTest {
 
   @Test
   void testSetProfileUpdatesAccountCurrentVersion() throws InvalidInputException {
-    when(dynamicPaymentsConfiguration.getAllowedCountryCodes())
-        .thenReturn(Set.of(Util.getCountryCode(AuthHelper.VALID_NUMBER_TWO)));
-
     ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID_TWO);
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);

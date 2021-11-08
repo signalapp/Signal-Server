@@ -272,20 +272,20 @@ class DynamicConfigurationTest {
       final DynamicConfiguration emptyConfig =
           DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
-      assertTrue(emptyConfig.getPaymentsConfiguration().getAllowedCountryCodes().isEmpty());
+      assertTrue(emptyConfig.getPaymentsConfiguration().getDisallowedCountryCodes().isEmpty());
     }
 
     {
       final String paymentsConfigYaml =
           "payments:\n"
-              + "  allowedCountryCodes:\n"
+              + "  disallowedCountryCodes:\n"
               + "    - 44";
 
       final DynamicPaymentsConfiguration config =
           DynamicConfigurationManager.parseConfiguration(paymentsConfigYaml, DynamicConfiguration.class).orElseThrow()
               .getPaymentsConfiguration();
 
-      assertEquals(Set.of("44"), config.getAllowedCountryCodes());
+      assertEquals(Set.of("44"), config.getDisallowedCountryCodes());
     }
   }
 

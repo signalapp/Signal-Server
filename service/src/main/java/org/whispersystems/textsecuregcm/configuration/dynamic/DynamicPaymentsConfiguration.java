@@ -12,9 +12,9 @@ import java.util.Set;
 public class DynamicPaymentsConfiguration {
 
   @JsonProperty
-  private Set<String> allowedCountryCodes = Collections.emptySet();
+  private Set<String> disallowedCountryCodes = Collections.emptySet();
 
-  public Set<String> getAllowedCountryCodes() {
-    return allowedCountryCodes;
+  public Set<String> getDisallowedCountryCodes() {
+    return disallowedCountryCodes;
   }
 }
