@@ -5,8 +5,6 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import static com.codahale.metrics.MetricRegistry.name;
-
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
@@ -31,6 +29,8 @@ import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.Select;
 import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 public class Keys extends AbstractDynamoDbStore {
 
   private final String tableName;
@@ -39,13 +39,13 @@ public class Keys extends AbstractDynamoDbStore {
   static final String KEY_DEVICE_ID_KEY_ID = "DK";
   static final String KEY_PUBLIC_KEY = "P";
 
-  private static final Timer               STORE_KEYS_TIMER              = Metrics.timer(name(Keys.class, "storeKeys"));
-  private static final Timer               TAKE_KEY_FOR_DEVICE_TIMER     = Metrics.timer(name(Keys.class, "takeKeyForDevice"));
-  private static final Timer               GET_KEY_COUNT_TIMER           = Metrics.timer(name(Keys.class, "getKeyCount"));
-  private static final Timer               DELETE_KEYS_FOR_DEVICE_TIMER  = Metrics.timer(name(Keys.class, "deleteKeysForDevice"));
-  private static final Timer               DELETE_KEYS_FOR_ACCOUNT_TIMER = Metrics.timer(name(Keys.class, "deleteKeysForAccount"));
-  private static final DistributionSummary CONTESTED_KEY_DISTRIBUTION    = Metrics.summary(name(Keys.class, "contestedKeys"));
-  private static final DistributionSummary KEY_COUNT_DISTRIBUTION        = Metrics.summary(name(Keys.class, "keyCount"));
+  private static final Timer STORE_KEYS_TIMER = Metrics.timer(name(Keys.class, "storeKeys"));
+  private static final Timer TAKE_KEY_FOR_DEVICE_TIMER = Metrics.timer(name(Keys.class, "takeKeyForDevice"));
+  private static final Timer GET_KEY_COUNT_TIMER = Metrics.timer(name(Keys.class, "getKeyCount"));
+  private static final Timer DELETE_KEYS_FOR_DEVICE_TIMER = Metrics.timer(name(Keys.class, "deleteKeysForDevice"));
+  private static final Timer DELETE_KEYS_FOR_ACCOUNT_TIMER = Metrics.timer(name(Keys.class, "deleteKeysForAccount"));
+  private static final DistributionSummary CONTESTED_KEY_DISTRIBUTION = Metrics.summary(name(Keys.class, "contestedKeys"));
+  private static final DistributionSummary KEY_COUNT_DISTRIBUTION = Metrics.summary(name(Keys.class, "keyCount"));
 
   public Keys(final DynamoDbClient dynamoDB, final String tableName) {
     super(dynamoDB);
