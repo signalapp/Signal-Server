@@ -78,22 +78,23 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 @ExtendWith(DropwizardExtensionsSupport.class)
 class ProfileControllerTest {
 
-  private static Clock clock = mock(Clock.class);
-  private static AccountsManager  accountsManager     = mock(AccountsManager.class );
-  private static ProfilesManager  profilesManager     = mock(ProfilesManager.class);
-  private static UsernamesManager usernamesManager    = mock(UsernamesManager.class);
-  private static RateLimiters     rateLimiters        = mock(RateLimiters.class    );
-  private static RateLimiter      rateLimiter         = mock(RateLimiter.class     );
-  private static RateLimiter      usernameRateLimiter = mock(RateLimiter.class     );
+  private static final Clock clock = mock(Clock.class);
+  private static final AccountsManager accountsManager = mock(AccountsManager.class);
+  private static final ProfilesManager profilesManager = mock(ProfilesManager.class);
+  private static final UsernamesManager usernamesManager = mock(UsernamesManager.class);
+  private static final RateLimiters rateLimiters = mock(RateLimiters.class);
+  private static final RateLimiter rateLimiter = mock(RateLimiter.class);
+  private static final RateLimiter usernameRateLimiter = mock(RateLimiter.class);
 
-  private static S3Client                  s3client            = mock(S3Client.class);
-  private static PostPolicyGenerator       postPolicyGenerator = new PostPolicyGenerator("us-west-1", "profile-bucket", "accessKey");
-  private static PolicySigner              policySigner        = new PolicySigner("accessSecret", "us-west-1");
-  private static ServerZkProfileOperations zkProfileOperations = mock(ServerZkProfileOperations.class);
+  private static final S3Client s3client = mock(S3Client.class);
+  private static final PostPolicyGenerator postPolicyGenerator = new PostPolicyGenerator("us-west-1", "profile-bucket", "accessKey");
+  private static final PolicySigner policySigner = new PolicySigner("accessSecret", "us-west-1");
+  private static final ServerZkProfileOperations zkProfileOperations = mock(ServerZkProfileOperations.class);
 
-  private static DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
+  @SuppressWarnings("unchecked")
+  private static final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
+
   private DynamicPaymentsConfiguration dynamicPaymentsConfiguration;
-
   private Account profileAccount;
 
   private static final ResourceExtension resources = ResourceExtension.builder()
@@ -424,12 +425,14 @@ class ProfileControllerTest {
   void testSetProfileWithAvatarUploadAndPreviousAvatar() throws InvalidInputException {
     ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID_TWO);
 
-    ProfileAvatarUploadAttributes uploadAttributes= resources.getJerseyTest()
-                                                             .target("/v1/profile/")
-                                                             .request()
-                                                             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-                                                             .put(Entity.entity(new CreateProfileRequest(commitment, "validversion", "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678", null, null,
-                                                                 null, true, List.of()), MediaType.APPLICATION_JSON_TYPE), ProfileAvatarUploadAttributes.class);
+    resources.getJerseyTest()
+        .target("/v1/profile/")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
+        .put(Entity.entity(new CreateProfileRequest(commitment, "validversion",
+            "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678",
+            null, null,
+            null, true, List.of()), MediaType.APPLICATION_JSON_TYPE), ProfileAvatarUploadAttributes.class);
 
     ArgumentCaptor<VersionedProfile> profileArgumentCaptor = ArgumentCaptor.forClass(VersionedProfile.class);
 
