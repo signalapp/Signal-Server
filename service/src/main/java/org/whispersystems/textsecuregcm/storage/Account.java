@@ -23,7 +23,6 @@ import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.util.Util;
-import javax.annotation.Nullable;
 
 public class Account {
 
@@ -33,9 +32,7 @@ public class Account {
   @JsonIgnore
   private UUID uuid;
 
-  // Nullable only until initial migration is complete
   @JsonProperty("pni")
-  @Nullable
   private UUID phoneNumberIdentifier;
 
   @JsonProperty
@@ -108,11 +105,10 @@ public class Account {
     this.uuid = uuid;
   }
 
-  // Optional only until initial migration is complete
-  public Optional<UUID> getPhoneNumberIdentifier() {
+  public UUID getPhoneNumberIdentifier() {
     requireNotStale();
 
-    return Optional.ofNullable(phoneNumberIdentifier);
+    return phoneNumberIdentifier;
   }
 
   /**

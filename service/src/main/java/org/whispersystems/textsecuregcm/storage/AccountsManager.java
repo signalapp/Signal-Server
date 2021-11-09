@@ -438,12 +438,9 @@ public class AccountsManager {
     usernamesManager.delete(account.getUuid());
     profilesManager.deleteAll(account.getUuid());
     keys.delete(account.getUuid());
+    keys.delete(account.getPhoneNumberIdentifier());
     messagesManager.clear(account.getUuid());
-
-    account.getPhoneNumberIdentifier().ifPresent(pni -> {
-      keys.delete(pni);
-      messagesManager.clear(pni);
-    });
+    messagesManager.clear(account.getPhoneNumberIdentifier());
 
     deleteStorageServiceDataFuture.join();
     deleteBackupServiceDataFuture.join();
@@ -471,9 +468,8 @@ public class AccountsManager {
       cacheCluster.useCluster(connection -> {
         final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
 
-        account.getPhoneNumberIdentifier().ifPresent(pni ->
-            commands.set(getAccountMapKey(pni.toString()), account.getUuid().toString()));
 
+        commands.set(getAccountMapKey(account.getPhoneNumberIdentifier().toString()), account.getUuid().toString());
         commands.set(getAccountMapKey(account.getNumber()), account.getUuid().toString());
         commands.set(getAccountEntityKey(account.getUuid()), accountJson);
       });
@@ -528,11 +524,10 @@ public class AccountsManager {
 
   private void redisDelete(final Account account) {
     try (final Timer.Context ignored = redisDeleteTimer.time()) {
-      cacheCluster.useCluster(connection -> {
-        connection.sync().del(getAccountMapKey(account.getNumber()), getAccountEntityKey(account.getUuid()));
-
-        account.getPhoneNumberIdentifier().ifPresent(pni -> connection.sync().del(getAccountMapKey(pni.toString())));
-      });
+      cacheCluster.useCluster(connection -> connection.sync().del(
+          getAccountMapKey(account.getNumber()),
+          getAccountMapKey(account.getPhoneNumberIdentifier().toString()),
+          getAccountEntityKey(account.getUuid())));
     }
   }
 }

@@ -21,7 +21,6 @@ import javax.validation.Valid;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
-import javax.ws.rs.NotFoundException;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -192,8 +191,7 @@ public class KeysController {
       }
     }
 
-    final boolean usePhoneNumberIdentity =
-        target.getPhoneNumberIdentifier().map(pni -> pni.equals(targetUuid)).orElse(false);
+    final boolean usePhoneNumberIdentity = target.getPhoneNumberIdentifier().equals(targetUuid);
 
     Map<Long, PreKey>        preKeysByDeviceId = getLocalKeys(target, deviceId, usePhoneNumberIdentity);
     List<PreKeyResponseItem> responseItems     = new LinkedList<>();
@@ -254,7 +252,7 @@ public class KeysController {
 
   private static UUID getIdentifier(final Account account, final Optional<String> identityType) {
     return usePhoneNumberIdentity(identityType) ?
-        account.getPhoneNumberIdentifier().orElseThrow(NotFoundException::new) :
+        account.getPhoneNumberIdentifier() :
         account.getUuid();
   }
 
@@ -262,7 +260,7 @@ public class KeysController {
     final Map<Long, PreKey> preKeys;
 
     final UUID identifier = usePhoneNumberIdentity ?
-        destination.getPhoneNumberIdentifier().orElseThrow(NotFoundException::new) :
+        destination.getPhoneNumberIdentifier() :
         destination.getUuid();
 
     if (deviceIdSelector.equals("*")) {

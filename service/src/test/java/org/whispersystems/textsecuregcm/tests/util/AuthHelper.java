@@ -113,7 +113,7 @@ public class AuthHelper {
 
     when(VALID_ACCOUNT.getNumber()).thenReturn(VALID_NUMBER);
     when(VALID_ACCOUNT.getUuid()).thenReturn(VALID_UUID);
-    when(VALID_ACCOUNT.getPhoneNumberIdentifier()).thenReturn(Optional.of(VALID_PNI));
+    when(VALID_ACCOUNT.getPhoneNumberIdentifier()).thenReturn(VALID_PNI);
     when(VALID_ACCOUNT_TWO.getNumber()).thenReturn(VALID_NUMBER_TWO);
     when(VALID_ACCOUNT_TWO.getUuid()).thenReturn(VALID_UUID_TWO);
     when(DISABLED_ACCOUNT.getNumber()).thenReturn(DISABLED_NUMBER);

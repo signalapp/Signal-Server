@@ -392,7 +392,7 @@ public class AccountController {
 
     return new AccountCreationResult(account.getUuid(),
         account.getNumber(),
-        account.getPhoneNumberIdentifier().orElse(null),
+        account.getPhoneNumberIdentifier(),
         existingAccount.map(Account::isStorageSupported).orElse(false));
   }
 
@@ -606,7 +606,7 @@ public class AccountController {
   public AccountCreationResult whoAmI(@Auth AuthenticatedAccount auth) {
     return new AccountCreationResult(auth.getAccount().getUuid(),
         auth.getAccount().getNumber(),
-        auth.getAccount().getPhoneNumberIdentifier().orElse(null),
+        auth.getAccount().getPhoneNumberIdentifier(),
         auth.getAccount().isStorageSupported());
   }
 

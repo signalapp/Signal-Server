@@ -153,7 +153,7 @@ class KeysControllerTest {
     when(sampleDevice4.getId()).thenReturn(4L);
 
     when(existsAccount.getUuid()).thenReturn(EXISTS_UUID);
-    when(existsAccount.getPhoneNumberIdentifier()).thenReturn(Optional.of(EXISTS_PNI));
+    when(existsAccount.getPhoneNumberIdentifier()).thenReturn(EXISTS_PNI);
     when(existsAccount.getDevice(1L)).thenReturn(Optional.of(sampleDevice));
     when(existsAccount.getDevice(2L)).thenReturn(Optional.of(sampleDevice2));
     when(existsAccount.getDevice(3L)).thenReturn(Optional.of(sampleDevice3));

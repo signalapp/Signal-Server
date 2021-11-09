@@ -180,7 +180,7 @@ public class AccountsHelper {
     } else {
       final ObjectMapper mapper = SystemMapper.getMapper();
       updatedAccount = mapper.readValue(mapper.writeValueAsBytes(account), Account.class);
-      updatedAccount.setNumber(account.getNumber(), account.getPhoneNumberIdentifier().orElse(null));
+      updatedAccount.setNumber(account.getNumber(), account.getPhoneNumberIdentifier());
       account.markStale();
     }
 

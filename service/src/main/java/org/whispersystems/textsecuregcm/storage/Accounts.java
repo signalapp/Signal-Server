@@ -108,18 +108,12 @@ public class Accounts extends AbstractDynamoDbStore {
                     .build())
             .build();
 
-        assert account.getPhoneNumberIdentifier().isPresent();
-
-        if (account.getPhoneNumberIdentifier().isEmpty()) {
-          log.error("Account {} is missing a phone number identifier", account.getUuid());
-        }
-
         TransactWriteItem phoneNumberIdentifierConstraintPut = TransactWriteItem.builder()
             .put(
                 Put.builder()
                     .tableName(phoneNumberIdentifierConstraintTableName)
                     .item(Map.of(
-                        ATTR_PNI_UUID, AttributeValues.fromUUID(account.getPhoneNumberIdentifier().get()),
+                        ATTR_PNI_UUID, AttributeValues.fromUUID(account.getPhoneNumberIdentifier()),
                         KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
                     .conditionExpression(
                         "attribute_not_exists(#pni) OR (attribute_exists(#pni) AND #uuid = :uuid)")
@@ -135,11 +129,10 @@ public class Accounts extends AbstractDynamoDbStore {
         final Map<String, AttributeValue> item = new HashMap<>(Map.of(
             KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid()),
             ATTR_ACCOUNT_E164, AttributeValues.fromString(account.getNumber()),
+            ATTR_PNI_UUID, AttributeValues.fromUUID(account.getPhoneNumberIdentifier()),
             ATTR_ACCOUNT_DATA, AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
             ATTR_VERSION, AttributeValues.fromInt(account.getVersion()),
             ATTR_CANONICALLY_DISCOVERABLE, AttributeValues.fromBool(account.shouldBeVisibleInDirectory())));
-
-        account.getPhoneNumberIdentifier().ifPresent(pni -> item.put(ATTR_PNI_UUID, AttributeValues.fromUUID(pni)));
 
         TransactWriteItem accountPut = TransactWriteItem.builder()
             .put(Put.builder()
@@ -180,7 +173,7 @@ public class Accounts extends AbstractDynamoDbStore {
             account.setUuid(UUIDUtil.fromByteBuffer(actualAccountUuid));
 
             final Account existingAccount = getByAccountIdentifier(account.getUuid()).orElseThrow();
-            account.setNumber(existingAccount.getNumber(), existingAccount.getPhoneNumberIdentifier().orElse(account.getPhoneNumberIdentifier().orElseThrow()));
+            account.setNumber(existingAccount.getNumber(), existingAccount.getPhoneNumberIdentifier());
             account.setVersion(existingAccount.getVersion());
 
             update(account);
@@ -220,7 +213,7 @@ public class Accounts extends AbstractDynamoDbStore {
   public void changeNumber(final Account account, final String number, final UUID phoneNumberIdentifier) {
     CHANGE_NUMBER_TIMER.record(() -> {
       final String originalNumber = account.getNumber();
-      final Optional<UUID> originalPni = account.getPhoneNumberIdentifier();
+      final UUID originalPni = account.getPhoneNumberIdentifier();
 
       boolean succeeded = false;
 
@@ -248,12 +241,12 @@ public class Accounts extends AbstractDynamoDbStore {
                 .build())
             .build());
 
-        originalPni.ifPresent(pni -> writeItems.add(TransactWriteItem.builder()
+        writeItems.add(TransactWriteItem.builder()
             .delete(Delete.builder()
                 .tableName(phoneNumberIdentifierConstraintTableName)
-                .key(Map.of(ATTR_PNI_UUID, AttributeValues.fromUUID(pni)))
+                .key(Map.of(ATTR_PNI_UUID, AttributeValues.fromUUID(originalPni)))
                 .build())
-            .build()));
+            .build());
 
         writeItems.add(TransactWriteItem.builder()
             .put(Put.builder()
@@ -301,7 +294,7 @@ public class Accounts extends AbstractDynamoDbStore {
         throw new IllegalArgumentException(e);
       } finally {
         if (!succeeded) {
-          account.setNumber(originalNumber, originalPni.orElse(null));
+          account.setNumber(originalNumber, originalPni);
         }
       }
     });
@@ -312,65 +305,27 @@ public class Accounts extends AbstractDynamoDbStore {
       final List<TransactWriteItem> transactWriteItems = new ArrayList<>(2);
 
       try {
-        final TransactWriteItem updateAccountWriteItem;
-
-        if (account.getPhoneNumberIdentifier().isPresent()) {
-          updateAccountWriteItem = TransactWriteItem.builder()
-              .update(Update.builder()
-                  .tableName(accountsTableName)
-                  .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
-                  .updateExpression("SET #data = :data, #cds = :cds, #pni = :pni ADD #version :version_increment")
-                  .conditionExpression("attribute_exists(#number) AND #version = :version")
-                  .expressionAttributeNames(Map.of("#number", ATTR_ACCOUNT_E164,
-                      "#data", ATTR_ACCOUNT_DATA,
-                      "#cds", ATTR_CANONICALLY_DISCOVERABLE,
-                      "#version", ATTR_VERSION,
-                      "#pni", ATTR_PNI_UUID))
-                  .expressionAttributeValues(Map.of(
-                      ":data", AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
-                      ":cds", AttributeValues.fromBool(account.shouldBeVisibleInDirectory()),
-                      ":version", AttributeValues.fromInt(account.getVersion()),
-                      ":version_increment", AttributeValues.fromInt(1),
-                      ":pni", AttributeValues.fromUUID(account.getPhoneNumberIdentifier().get())))
-                  .build())
-              .build();
-        } else {
-          updateAccountWriteItem = TransactWriteItem.builder()
-              .update(Update.builder()
-                  .tableName(accountsTableName)
-                  .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
-                  .updateExpression("SET #data = :data, #cds = :cds ADD #version :version_increment")
-                  .conditionExpression("attribute_exists(#number) AND #version = :version")
-                  .expressionAttributeNames(Map.of("#number", ATTR_ACCOUNT_E164,
-                      "#data", ATTR_ACCOUNT_DATA,
-                      "#cds", ATTR_CANONICALLY_DISCOVERABLE,
-                      "#version", ATTR_VERSION))
-                  .expressionAttributeValues(Map.of(
-                      ":data", AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
-                      ":cds", AttributeValues.fromBool(account.shouldBeVisibleInDirectory()),
-                      ":version", AttributeValues.fromInt(account.getVersion()),
-                      ":version_increment", AttributeValues.fromInt(1)))
-                  .build())
-              .build();
-        }
+        final TransactWriteItem updateAccountWriteItem = TransactWriteItem.builder()
+            .update(Update.builder()
+                .tableName(accountsTableName)
+                .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
+                .updateExpression("SET #data = :data, #cds = :cds, #pni = :pni ADD #version :version_increment")
+                .conditionExpression("attribute_exists(#number) AND #version = :version")
+                .expressionAttributeNames(Map.of("#number", ATTR_ACCOUNT_E164,
+                    "#data", ATTR_ACCOUNT_DATA,
+                    "#cds", ATTR_CANONICALLY_DISCOVERABLE,
+                    "#version", ATTR_VERSION,
+                    "#pni", ATTR_PNI_UUID))
+                .expressionAttributeValues(Map.of(
+                    ":data", AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
+                    ":cds", AttributeValues.fromBool(account.shouldBeVisibleInDirectory()),
+                    ":version", AttributeValues.fromInt(account.getVersion()),
+                    ":version_increment", AttributeValues.fromInt(1),
+                    ":pni", AttributeValues.fromUUID(account.getPhoneNumberIdentifier())))
+                .build())
+            .build();;
 
         transactWriteItems.add(updateAccountWriteItem);
-
-        // TODO Remove after initial migration to phone number identifiers
-        account.getPhoneNumberIdentifier().ifPresent(phoneNumberIdentifier -> transactWriteItems.add(
-            TransactWriteItem.builder()
-                .put(Put.builder()
-                    .tableName(phoneNumberIdentifierConstraintTableName)
-                    .item(Map.of(
-                        ATTR_PNI_UUID, AttributeValues.fromUUID(account.getPhoneNumberIdentifier().get()),
-                        KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
-                    .conditionExpression("attribute_not_exists(#pni) OR (attribute_exists(#pni) AND #uuid = :uuid)")
-                    .expressionAttributeNames(Map.of("#uuid", KEY_ACCOUNT_UUID, "#pni", ATTR_PNI_UUID))
-                    .expressionAttributeValues(
-                        Map.of(":uuid", AttributeValues.fromUUID(account.getUuid())))
-                    .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
-                    .build())
-                .build()));
       } catch (JsonProcessingException e) {
         throw new IllegalArgumentException(e);
       }
@@ -464,12 +419,12 @@ public class Accounts extends AbstractDynamoDbStore {
 
         final List<TransactWriteItem> transactWriteItems = new ArrayList<>(List.of(phoneNumberDelete, accountDelete));
 
-        account.getPhoneNumberIdentifier().ifPresent(pni -> transactWriteItems.add(TransactWriteItem.builder()
+        transactWriteItems.add(TransactWriteItem.builder()
             .delete(Delete.builder()
                 .tableName(phoneNumberIdentifierConstraintTableName)
-                .key(Map.of(ATTR_PNI_UUID, AttributeValues.fromUUID(pni)))
+                .key(Map.of(ATTR_PNI_UUID, AttributeValues.fromUUID(account.getPhoneNumberIdentifier())))
                 .build())
-            .build()));
+            .build());
 
         TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
             .transactItems(transactWriteItems).build();

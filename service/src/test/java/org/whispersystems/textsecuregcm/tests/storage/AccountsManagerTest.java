@@ -155,7 +155,7 @@ class AccountsManagerTest {
     assertTrue(account.isPresent());
     assertEquals(account.get().getNumber(), "+14152222222");
     assertEquals(account.get().getProfileName(), "test");
-    assertEquals(Optional.of(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e")), account.get().getPhoneNumberIdentifier());
+    assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifier());
 
     verify(commands, times(1)).get(eq("AccountMap::+14152222222"));
     verify(commands, times(1)).get(eq("Account3::" + uuid));
@@ -176,7 +176,7 @@ class AccountsManagerTest {
     assertEquals(account.get().getNumber(), "+14152222222");
     assertEquals(account.get().getUuid(), uuid);
     assertEquals(account.get().getProfileName(), "test");
-    assertEquals(Optional.of(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e")), account.get().getPhoneNumberIdentifier());
+    assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifier());
 
     verify(commands, times(1)).get(eq("Account3::" + uuid));
     verifyNoMoreInteractions(commands);
@@ -197,7 +197,7 @@ class AccountsManagerTest {
     assertTrue(account.isPresent());
     assertEquals(account.get().getNumber(), "+14152222222");
     assertEquals(account.get().getProfileName(), "test");
-    assertEquals(Optional.of(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e")), account.get().getPhoneNumberIdentifier());
+    assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifier());
 
     verify(commands).get(eq("AccountMap::" + pni));
     verify(commands).get(eq("Account3::" + uuid));

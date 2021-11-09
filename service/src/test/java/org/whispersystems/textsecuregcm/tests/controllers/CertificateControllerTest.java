@@ -220,7 +220,7 @@ class CertificateControllerTest {
 
   @Test
   void testGetSingleAuthCredentialByPni() {
-    when(AuthHelper.VALID_ACCOUNT.getPhoneNumberIdentifier()).thenReturn(Optional.of(UUID.randomUUID()));
+    when(AuthHelper.VALID_ACCOUNT.getPhoneNumberIdentifier()).thenReturn(UUID.randomUUID());
 
     GroupCredentials credentials = resources.getJerseyTest()
         .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + Util.currentDaysSinceEpoch())
@@ -237,20 +237,6 @@ class CertificateControllerTest {
     assertThatExceptionOfType(VerificationFailedException.class)
         .isThrownBy(() ->
             clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, Util.currentDaysSinceEpoch(), new AuthCredentialResponse(credentials.getCredentials().get(0).getCredential())));
-  }
-
-  @Test
-  void testGetSingleAuthCredentialByPniNotSet() {
-    when(AuthHelper.VALID_ACCOUNT.getPhoneNumberIdentifier()).thenReturn(Optional.empty());
-
-    Response response = resources.getJerseyTest()
-        .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + Util.currentDaysSinceEpoch())
-        .queryParam("identity", "pni")
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get();
-
-    assertThat(response.getStatus()).isEqualTo(404);
   }
 
   @Test
