@@ -24,7 +24,7 @@ public class RefreshingAccountAndDeviceSupplier implements Supplier<Pair<Account
   @Override
   public Pair<Account, Device> get() {
     if (account.isStale()) {
-      account = accountsManager.get(account.getUuid())
+      account = accountsManager.getByAccountIdentifier(account.getUuid())
           .orElseThrow(() -> new RuntimeException("Could not find account"));
       device = account.getDevice(device.getId())
           .orElseThrow(() -> new RefreshingAccountAndDeviceNotFoundException("Could not find device"));

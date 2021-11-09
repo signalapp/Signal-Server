@@ -33,7 +33,7 @@ public class ReceiptSender {
       return;
     }
 
-    final Account destinationAccount = accountManager.get(destinationUuid)
+    final Account destinationAccount = accountManager.getByAccountIdentifier(destinationUuid)
         .orElseThrow(() -> new NoSuchUserException(destinationUuid));
 
     final Envelope.Builder message = Envelope.newBuilder()

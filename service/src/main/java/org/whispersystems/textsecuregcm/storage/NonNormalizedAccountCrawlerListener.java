@@ -62,7 +62,7 @@ public class NonNormalizedAccountCrawlerListener extends AccountDatabaseCrawlerL
           workingNonNormalizedNumbers++;
 
           try {
-            final Optional<Account> maybeConflictingAccount = accountsManager.get(getNormalizedNumber(account));
+            final Optional<Account> maybeConflictingAccount = accountsManager.getByE164(getNormalizedNumber(account));
 
             if (maybeConflictingAccount.isPresent()) {
               workingConflictingNumbers++;

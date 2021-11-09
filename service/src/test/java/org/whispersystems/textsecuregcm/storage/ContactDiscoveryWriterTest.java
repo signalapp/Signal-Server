@@ -30,7 +30,7 @@ public class ContactDiscoveryWriterTest {
     when(acct.getUuid()).thenReturn(uuid);
     when(acct.isCanonicallyDiscoverable()).thenReturn(canonicallyDiscoverable);
     when(acct.shouldBeVisibleInDirectory()).thenReturn(shouldBeVisible);
-    when(mgr.get(uuid)).thenReturn(Optional.of(acct));
+    when(mgr.getByAccountIdentifier(uuid)).thenReturn(Optional.of(acct));
     ContactDiscoveryWriter writer = new ContactDiscoveryWriter(mgr);
     writer.onCrawlChunk(Optional.empty(), List.of(acct));
     verify(mgr, times(updateCalled ? 1 : 0)).update(acct, ContactDiscoveryWriter.NOOP_UPDATER);

@@ -158,26 +158,30 @@ class AccountTest {
     when(disabledMasterDevice.getId()).thenReturn(1L);
     when(disabledLinkedDevice.getId()).thenReturn(2L);
 
-    assertTrue( new Account("+14151234567", UUID.randomUUID(), Set.of(enabledMasterDevice),                        new byte[0]).isEnabled());
-    assertTrue( new Account("+14151234567", UUID.randomUUID(), Set.of(enabledMasterDevice, enabledLinkedDevice),   new byte[0]).isEnabled());
-    assertTrue( new Account("+14151234567", UUID.randomUUID(), Set.of(enabledMasterDevice, disabledLinkedDevice),  new byte[0]).isEnabled());
-    assertFalse(new Account("+14151234567", UUID.randomUUID(), Set.of(disabledMasterDevice),                       new byte[0]).isEnabled());
-    assertFalse(new Account("+14151234567", UUID.randomUUID(), Set.of(disabledMasterDevice, enabledLinkedDevice),  new byte[0]).isEnabled());
-    assertFalse(new Account("+14151234567", UUID.randomUUID(), Set.of(disabledMasterDevice, disabledLinkedDevice), new byte[0]).isEnabled());
+    assertTrue( new Account("+14151234567", UUID.randomUUID(), UUID.randomUUID(), Set.of(enabledMasterDevice),                        new byte[0]).isEnabled());
+    assertTrue( new Account("+14151234567", UUID.randomUUID(), UUID.randomUUID(),
+        Set.of(enabledMasterDevice, enabledLinkedDevice),   new byte[0]).isEnabled());
+    assertTrue( new Account("+14151234567", UUID.randomUUID(), UUID.randomUUID(),
+        Set.of(enabledMasterDevice, disabledLinkedDevice),  new byte[0]).isEnabled());
+    assertFalse(new Account("+14151234567", UUID.randomUUID(), UUID.randomUUID(), Set.of(disabledMasterDevice),                       new byte[0]).isEnabled());
+    assertFalse(new Account("+14151234567", UUID.randomUUID(), UUID.randomUUID(),
+        Set.of(disabledMasterDevice, enabledLinkedDevice),  new byte[0]).isEnabled());
+    assertFalse(new Account("+14151234567", UUID.randomUUID(), UUID.randomUUID(),
+        Set.of(disabledMasterDevice, disabledLinkedDevice), new byte[0]).isEnabled());
   }
 
   @Test
   void testCapabilities() {
-    Account uuidCapable = new Account("+14152222222", UUID.randomUUID(), new HashSet<Device>() {{
+    Account uuidCapable = new Account("+14152222222", UUID.randomUUID(), UUID.randomUUID(), new HashSet<Device>() {{
       add(gv2CapableDevice);
     }}, "1234".getBytes());
 
-    Account uuidIncapable = new Account("+14152222222", UUID.randomUUID(), new HashSet<Device>() {{
+    Account uuidIncapable = new Account("+14152222222", UUID.randomUUID(), UUID.randomUUID(), new HashSet<Device>() {{
       add(gv2CapableDevice);
       add(gv2IncapableDevice);
     }}, "1234".getBytes());
 
-    Account uuidCapableWithExpiredIncapable = new Account("+14152222222", UUID.randomUUID(), new HashSet<Device>() {{
+    Account uuidCapableWithExpiredIncapable = new Account("+14152222222", UUID.randomUUID(), UUID.randomUUID(), new HashSet<Device>() {{
       add(gv2CapableDevice);
       add(gv2IncapableExpiredDevice);
     }}, "1234".getBytes());
@@ -213,20 +217,20 @@ class AccountTest {
 
     {
       final Account transferableMasterAccount =
-              new Account("+14152222222", UUID.randomUUID(), Collections.singleton(transferCapableMasterDevice), "1234".getBytes());
+              new Account("+14152222222", UUID.randomUUID(), UUID.randomUUID(), Collections.singleton(transferCapableMasterDevice), "1234".getBytes());
 
       assertTrue(transferableMasterAccount.isTransferSupported());
     }
 
     {
       final Account nonTransferableMasterAccount =
-              new Account("+14152222222", UUID.randomUUID(), Collections.singleton(nonTransferCapableMasterDevice), "1234".getBytes());
+              new Account("+14152222222", UUID.randomUUID(), UUID.randomUUID(), Collections.singleton(nonTransferCapableMasterDevice), "1234".getBytes());
 
       assertFalse(nonTransferableMasterAccount.isTransferSupported());
     }
 
     {
-      final Account transferableLinkedAccount = new Account("+14152222222", UUID.randomUUID(), new HashSet<>() {{
+      final Account transferableLinkedAccount = new Account("+14152222222", UUID.randomUUID(), UUID.randomUUID(), new HashSet<>() {{
         add(nonTransferCapableMasterDevice);
         add(transferCapableLinkedDevice);
       }}, "1234".getBytes());
@@ -237,7 +241,7 @@ class AccountTest {
 
   @Test
   void testDiscoverableByPhoneNumber() {
-    final Account account = new Account("+14152222222", UUID.randomUUID(), Collections.singleton(recentMasterDevice),
+    final Account account = new Account("+14152222222", UUID.randomUUID(), UUID.randomUUID(), Collections.singleton(recentMasterDevice),
         "1234".getBytes());
 
     assertTrue(account.isDiscoverableByPhoneNumber(),
@@ -252,66 +256,70 @@ class AccountTest {
 
   @Test
   void isGroupsV2Supported() {
-    assertTrue(new Account("+18005551234", UUID.randomUUID(), Set.of(gv2CapableDevice),
+    assertTrue(new Account("+18005551234", UUID.randomUUID(), UUID.randomUUID(), Set.of(gv2CapableDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isGroupsV2Supported());
-    assertTrue(new Account("+18005551234", UUID.randomUUID(), Set.of(gv2CapableDevice, gv2IncapableExpiredDevice),
+    assertTrue(new Account("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
+        Set.of(gv2CapableDevice, gv2IncapableExpiredDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isGroupsV2Supported());
-    assertFalse(new Account("+18005551234", UUID.randomUUID(), Set.of(gv2CapableDevice, gv2IncapableDevice),
+    assertFalse(new Account("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
+        Set.of(gv2CapableDevice, gv2IncapableDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isGroupsV2Supported());
   }
 
   @Test
   void isGv1MigrationSupported() {
-    assertTrue(new Account("+18005551234", UUID.randomUUID(), Set.of(gv1MigrationCapableDevice),
+    assertTrue(new Account("+18005551234", UUID.randomUUID(), UUID.randomUUID(), Set.of(gv1MigrationCapableDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isGv1MigrationSupported());
     assertFalse(
-        new Account("+18005551234", UUID.randomUUID(), Set.of(gv1MigrationCapableDevice, gv1MigrationIncapableDevice),
+        new Account("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
+            Set.of(gv1MigrationCapableDevice, gv1MigrationIncapableDevice),
             "1234".getBytes(StandardCharsets.UTF_8)).isGv1MigrationSupported());
     assertTrue(new Account("+18005551234", UUID.randomUUID(),
-        Set.of(gv1MigrationCapableDevice, gv1MigrationIncapableExpiredDevice), "1234".getBytes(StandardCharsets.UTF_8))
+        UUID.randomUUID(), Set.of(gv1MigrationCapableDevice, gv1MigrationIncapableExpiredDevice), "1234".getBytes(StandardCharsets.UTF_8))
         .isGv1MigrationSupported());
   }
 
   @Test
   void isSenderKeySupported() {
-    assertThat(new Account("+18005551234", UUID.randomUUID(), Set.of(senderKeyCapableDevice),
+    assertThat(new Account("+18005551234", UUID.randomUUID(), UUID.randomUUID(), Set.of(senderKeyCapableDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isSenderKeySupported()).isTrue();
-    assertThat(new Account("+18005551234", UUID.randomUUID(), Set.of(senderKeyCapableDevice, senderKeyIncapableDevice),
+    assertThat(new Account("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
+        Set.of(senderKeyCapableDevice, senderKeyIncapableDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isSenderKeySupported()).isFalse();
     assertThat(new Account("+18005551234", UUID.randomUUID(),
-        Set.of(senderKeyCapableDevice, senderKeyIncapableExpiredDevice),
+        UUID.randomUUID(), Set.of(senderKeyCapableDevice, senderKeyIncapableExpiredDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isSenderKeySupported()).isTrue();
   }
 
   @Test
   void isAnnouncementGroupSupported() {
     assertThat(new Account("+18005551234", UUID.randomUUID(),
-        Set.of(announcementGroupCapableDevice),
+        UUID.randomUUID(), Set.of(announcementGroupCapableDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isAnnouncementGroupSupported()).isTrue();
     assertThat(new Account("+18005551234", UUID.randomUUID(),
-        Set.of(announcementGroupCapableDevice, announcementGroupIncapableDevice),
+        UUID.randomUUID(), Set.of(announcementGroupCapableDevice, announcementGroupIncapableDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isAnnouncementGroupSupported()).isFalse();
     assertThat(new Account("+18005551234", UUID.randomUUID(),
-        Set.of(announcementGroupCapableDevice, announcementGroupIncapableExpiredDevice),
+        UUID.randomUUID(), Set.of(announcementGroupCapableDevice, announcementGroupIncapableExpiredDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isAnnouncementGroupSupported()).isTrue();
   }
 
   @Test
   void isChangeNumberSupported() {
     assertThat(new Account("+18005551234", UUID.randomUUID(),
-        Set.of(changeNumberCapableDevice),
+        UUID.randomUUID(), Set.of(changeNumberCapableDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isChangeNumberSupported()).isTrue();
     assertThat(new Account("+18005551234", UUID.randomUUID(),
-        Set.of(changeNumberCapableDevice, changeNumberIncapableDevice),
+        UUID.randomUUID(), Set.of(changeNumberCapableDevice, changeNumberIncapableDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isChangeNumberSupported()).isFalse();
     assertThat(new Account("+18005551234", UUID.randomUUID(),
-        Set.of(changeNumberCapableDevice, changeNumberIncapableExpiredDevice),
+        UUID.randomUUID(), Set.of(changeNumberCapableDevice, changeNumberIncapableExpiredDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isChangeNumberSupported()).isTrue();
   }
 
   @Test
   void stale() {
-    final Account account = new Account("+14151234567", UUID.randomUUID(), Collections.emptySet(), new byte[0]);
+    final Account account = new Account("+14151234567", UUID.randomUUID(), UUID.randomUUID(), Collections.emptySet(), new byte[0]);
 
     assertDoesNotThrow(account::getNumber);
 
@@ -327,7 +335,7 @@ class AccountTest {
     final Set<Device> devices = new HashSet<>();
     devices.add(createDevice(Device.MASTER_ID));
 
-    final Account account = new Account("+14151234567", UUID.randomUUID(), devices, new byte[0]);
+    final Account account = new Account("+14151234567", UUID.randomUUID(), UUID.randomUUID(), devices, new byte[0]);
 
     assertThat(account.getNextDeviceId()).isEqualTo(2L);
 
@@ -348,7 +356,7 @@ class AccountTest {
 
   @Test
   void addAndRemoveBadges() {
-    final Account account = new Account("+14151234567", UUID.randomUUID(), Set.of(createDevice(Device.MASTER_ID)), new byte[0]);
+    final Account account = new Account("+14151234567", UUID.randomUUID(), UUID.randomUUID(), Set.of(createDevice(Device.MASTER_ID)), new byte[0]);
     final Clock clock = mock(Clock.class);
     when(clock.instant()).thenReturn(Instant.ofEpochSecond(40));
 

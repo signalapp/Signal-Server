@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
@@ -132,8 +131,8 @@ class DeviceControllerTest {
     when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER)).thenReturn(
         Optional.of(new StoredVerificationCode("5678901", System.currentTimeMillis(), null, null)));
     when(pendingDevicesManager.getCodeForNumber(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.empty());
-    when(accountsManager.get(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(account));
-    when(accountsManager.get(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(maxedAccount));
+    when(accountsManager.getByE164(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(account));
+    when(accountsManager.getByE164(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(maxedAccount));
 
     AccountsHelper.setupMockUpdate(accountsManager);
   }
@@ -156,7 +155,7 @@ class DeviceControllerTest {
 
   @Test
   void validDeviceRegisterTest() {
-    when(accountsManager.get(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
 
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.MASTER_ID);

@@ -72,7 +72,7 @@ public class GCMSenderTest {
     AccountsHelper.setupMockUpdate(accountsManager);
 
     when(destinationAccount.getDevice(1)).thenReturn(Optional.of(destinationDevice));
-    when(accountsManager.get(destinationUuid)).thenReturn(Optional.of(destinationAccount));
+    when(accountsManager.getByAccountIdentifier(destinationUuid)).thenReturn(Optional.of(destinationAccount));
     when(destinationDevice.getGcmId()).thenReturn(gcmId);
 
     when(invalidResult.isInvalidRegistrationId()).thenReturn(true);
@@ -90,7 +90,7 @@ public class GCMSenderTest {
     gcmSender.sendMessage(message);
 
     verify(sender, times(1)).send(any(Message.class));
-    verify(accountsManager, times(1)).get(eq(destinationUuid));
+    verify(accountsManager, times(1)).getByAccountIdentifier(eq(destinationUuid));
     verify(accountsManager, times(1)).updateDevice(eq(destinationAccount), eq(1L), any());
     verify(destinationDevice, times(1)).setUninstalledFeedbackTimestamp(eq(Util.todayInMillis()));
   }
@@ -110,7 +110,7 @@ public class GCMSenderTest {
     Device         destinationDevice  = mock(Device.class        );
 
     when(destinationAccount.getDevice(1)).thenReturn(Optional.of(destinationDevice));
-    when(accountsManager.get(destinationUuid)).thenReturn(Optional.of(destinationAccount));
+    when(accountsManager.getByAccountIdentifier(destinationUuid)).thenReturn(Optional.of(destinationAccount));
     when(destinationDevice.getGcmId()).thenReturn(gcmId);
 
     AccountsHelper.setupMockUpdate(accountsManager);
@@ -131,7 +131,7 @@ public class GCMSenderTest {
     gcmSender.sendMessage(message);
 
     verify(sender, times(1)).send(any(Message.class));
-    verify(accountsManager, times(1)).get(eq(destinationUuid));
+    verify(accountsManager, times(1)).getByAccountIdentifier(eq(destinationUuid));
     verify(accountsManager, times(1)).updateDevice(eq(destinationAccount), eq(1L), any());
     verify(destinationDevice, times(1)).setGcmId(eq(canonicalId));
   }

@@ -159,7 +159,7 @@ public class DonationController {
 
             @Override
             public boolean block() {
-              final Optional<Account> optionalAccount = accountsManager.get(auth.getAccount().getUuid());
+              final Optional<Account> optionalAccount = accountsManager.getByAccountIdentifier(auth.getAccount().getUuid());
               optionalAccount.ifPresent(account -> {
                 accountsManager.update(account, a -> {
                   a.addBadge(clock, new AccountBadge(badgeId, receiptExpiration, request.isVisible()));

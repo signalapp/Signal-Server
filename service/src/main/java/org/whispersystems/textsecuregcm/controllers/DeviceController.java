@@ -168,7 +168,7 @@ public class DeviceController {
       throw new WebApplicationException(Response.status(403).build());
     }
 
-    Optional<Account> account = accounts.get(number);
+    Optional<Account> account = accounts.getByE164(number);
 
     if (!account.isPresent()) {
       throw new WebApplicationException(Response.status(403).build());

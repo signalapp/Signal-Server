@@ -153,11 +153,11 @@ class KeysControllerTest {
     when(existsAccount.getNumber()).thenReturn(EXISTS_NUMBER);
     when(existsAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of("1337".getBytes()));
 
-    when(accounts.get(EXISTS_NUMBER)).thenReturn(Optional.of(existsAccount));
-    when(accounts.get(EXISTS_UUID)).thenReturn(Optional.of(existsAccount));
+    when(accounts.getByE164(EXISTS_NUMBER)).thenReturn(Optional.of(existsAccount));
+    when(accounts.getByAccountIdentifier(EXISTS_UUID)).thenReturn(Optional.of(existsAccount));
 
-    when(accounts.get(NOT_EXISTS_NUMBER)).thenReturn(Optional.empty());
-    when(accounts.get(NOT_EXISTS_UUID)).thenReturn(Optional.empty());
+    when(accounts.getByE164(NOT_EXISTS_NUMBER)).thenReturn(Optional.empty());
+    when(accounts.getByAccountIdentifier(NOT_EXISTS_UUID)).thenReturn(Optional.empty());
 
     when(rateLimiters.getPreKeysLimiter()).thenReturn(rateLimiter);
 

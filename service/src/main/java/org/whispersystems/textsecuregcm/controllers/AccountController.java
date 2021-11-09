@@ -353,7 +353,7 @@ public class AccountController {
     storedVerificationCode.flatMap(StoredVerificationCode::getTwilioVerificationSid)
         .ifPresent(smsSender::reportVerificationSucceeded);
 
-    Optional<Account> existingAccount = accounts.get(number);
+      Optional<Account> existingAccount = accounts.getByE164(number);
 
     if (existingAccount.isPresent()) {
       verifyRegistrationLock(existingAccount.get(), accountAttributes.getRegistrationLock());
@@ -412,7 +412,7 @@ public class AccountController {
     storedVerificationCode.flatMap(StoredVerificationCode::getTwilioVerificationSid)
         .ifPresent(smsSender::reportVerificationSucceeded);
 
-    final Optional<Account> existingAccount = accounts.get(request.getNumber());
+    final Optional<Account> existingAccount = accounts.getByE164(request.getNumber());
 
     if (existingAccount.isPresent()) {
       verifyRegistrationLock(existingAccount.get(), request.getRegistrationLock());

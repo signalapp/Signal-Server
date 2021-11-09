@@ -63,7 +63,7 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
 
         final Account account = mock(Account.class);
 
-        when(accountsManager.get(DESTINATION_ACCOUNT_UUID)).thenReturn(Optional.of(account));
+        when(accountsManager.getByAccountIdentifier(DESTINATION_ACCOUNT_UUID)).thenReturn(Optional.of(account));
         when(account.getNumber()).thenReturn(DESTINATION_ACCOUNT_NUMBER);
         when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
 
@@ -98,7 +98,7 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
     public void testPersistNextQueuesNoQueues() {
         messagePersister.persistNextQueues(Instant.now());
 
-        verify(accountsManager, never()).get(any(UUID.class));
+        verify(accountsManager, never()).getByAccountIdentifier(any(UUID.class));
     }
 
     @Test
@@ -147,7 +147,7 @@ public class MessagePersisterTest extends AbstractRedisClusterTest {
 
             final Account account = mock(Account.class);
 
-            when(accountsManager.get(accountUuid)).thenReturn(Optional.of(account));
+            when(accountsManager.getByAccountIdentifier(accountUuid)).thenReturn(Optional.of(account));
             when(account.getNumber()).thenReturn(accountNumber);
 
             insertMessages(accountUuid, deviceId, messagesPerQueue, now);

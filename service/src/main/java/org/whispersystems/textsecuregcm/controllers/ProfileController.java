@@ -251,7 +251,7 @@ public class ProfileController {
         isSelf = uuid.equals(authedUuid);
       }
 
-      Optional<Account> accountProfile = accountsManager.get(uuid);
+      Optional<Account> accountProfile = accountsManager.getByAccountIdentifier(uuid);
       OptionalAccess.verify(requestAccount, accessKey, accountProfile);
 
       assert(accountProfile.isPresent());
@@ -316,7 +316,7 @@ public class ProfileController {
 
     final boolean isSelf = auth.getAccount().getUuid().equals(uuid.get());
 
-    Optional<Account> accountProfile = accountsManager.get(uuid.get());
+    Optional<Account> accountProfile = accountsManager.getByAccountIdentifier(uuid.get());
 
     if (accountProfile.isEmpty()) {
       throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
@@ -398,7 +398,7 @@ public class ProfileController {
       isSelf = authedUuid.equals(identifier);
     }
 
-    Optional<Account> accountProfile = accountsManager.get(identifier);
+    Optional<Account> accountProfile = accountsManager.getByAccountIdentifier(identifier);
     OptionalAccess.verify(auth.map(AuthenticatedAccount::getAccount), accessKey, accountProfile);
 
     Optional<String> username = usernamesManager.get(accountProfile.get().getUuid());

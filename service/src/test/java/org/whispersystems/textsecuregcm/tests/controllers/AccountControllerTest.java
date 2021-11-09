@@ -224,14 +224,14 @@ class AccountControllerTest {
     when(pendingAccountsManager.getCodeForNumber(SENDER_HAS_STORAGE)).thenReturn(Optional.of(new StoredVerificationCode("666666", System.currentTimeMillis(), null, null)));
     when(pendingAccountsManager.getCodeForNumber(SENDER_TRANSFER)).thenReturn(Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), null, null)));
 
-    when(accountsManager.get(eq(SENDER_PIN))).thenReturn(Optional.of(senderPinAccount));
-    when(accountsManager.get(eq(SENDER_REG_LOCK))).thenReturn(Optional.of(senderRegLockAccount));
-    when(accountsManager.get(eq(SENDER_OVER_PIN))).thenReturn(Optional.of(senderPinAccount));
-    when(accountsManager.get(eq(SENDER))).thenReturn(Optional.empty());
-    when(accountsManager.get(eq(SENDER_OLD))).thenReturn(Optional.empty());
-    when(accountsManager.get(eq(SENDER_PREAUTH))).thenReturn(Optional.empty());
-    when(accountsManager.get(eq(SENDER_HAS_STORAGE))).thenReturn(Optional.of(senderHasStorage));
-    when(accountsManager.get(eq(SENDER_TRANSFER))).thenReturn(Optional.of(senderTransfer));
+    when(accountsManager.getByE164(eq(SENDER_PIN))).thenReturn(Optional.of(senderPinAccount));
+    when(accountsManager.getByE164(eq(SENDER_REG_LOCK))).thenReturn(Optional.of(senderRegLockAccount));
+    when(accountsManager.getByE164(eq(SENDER_OVER_PIN))).thenReturn(Optional.of(senderPinAccount));
+    when(accountsManager.getByE164(eq(SENDER))).thenReturn(Optional.empty());
+    when(accountsManager.getByE164(eq(SENDER_OLD))).thenReturn(Optional.empty());
+    when(accountsManager.getByE164(eq(SENDER_PREAUTH))).thenReturn(Optional.empty());
+    when(accountsManager.getByE164(eq(SENDER_HAS_STORAGE))).thenReturn(Optional.of(senderHasStorage));
+    when(accountsManager.getByE164(eq(SENDER_TRANSFER))).thenReturn(Optional.of(senderTransfer));
 
     when(accountsManager.create(any(), any(), any(), any(), any())).thenAnswer((Answer<Account>) invocation -> {
       final Account account = mock(Account.class);
@@ -1338,7 +1338,7 @@ class AccountControllerTest {
     when(existingAccount.getUuid()).thenReturn(UUID.randomUUID());
     when(existingAccount.getRegistrationLock()).thenReturn(existingRegistrationLock);
 
-    when(accountsManager.get(number)).thenReturn(Optional.of(existingAccount));
+    when(accountsManager.getByE164(number)).thenReturn(Optional.of(existingAccount));
 
     final Response response =
         resources.getJerseyTest()
@@ -1368,7 +1368,7 @@ class AccountControllerTest {
     when(existingAccount.getUuid()).thenReturn(UUID.randomUUID());
     when(existingAccount.getRegistrationLock()).thenReturn(existingRegistrationLock);
 
-    when(accountsManager.get(number)).thenReturn(Optional.of(existingAccount));
+    when(accountsManager.getByE164(number)).thenReturn(Optional.of(existingAccount));
 
     final Response response =
         resources.getJerseyTest()
@@ -1400,7 +1400,7 @@ class AccountControllerTest {
     when(existingAccount.getUuid()).thenReturn(UUID.randomUUID());
     when(existingAccount.getRegistrationLock()).thenReturn(existingRegistrationLock);
 
-    when(accountsManager.get(number)).thenReturn(Optional.of(existingAccount));
+    when(accountsManager.getByE164(number)).thenReturn(Optional.of(existingAccount));
 
     final Response response =
         resources.getJerseyTest()
@@ -1432,7 +1432,7 @@ class AccountControllerTest {
     when(existingAccount.getUuid()).thenReturn(UUID.randomUUID());
     when(existingAccount.getRegistrationLock()).thenReturn(existingRegistrationLock);
 
-    when(accountsManager.get(number)).thenReturn(Optional.of(existingAccount));
+    when(accountsManager.getByE164(number)).thenReturn(Optional.of(existingAccount));
 
     final Response response =
         resources.getJerseyTest()

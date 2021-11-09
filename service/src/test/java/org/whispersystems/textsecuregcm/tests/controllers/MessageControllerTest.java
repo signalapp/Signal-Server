@@ -160,13 +160,15 @@ class MessageControllerTest {
           false, false, false)));
     }};
 
-    Account singleDeviceAccount  = new Account(SINGLE_DEVICE_RECIPIENT, SINGLE_DEVICE_UUID, singleDeviceList, "1234".getBytes());
-    Account multiDeviceAccount   = new Account(MULTI_DEVICE_RECIPIENT, MULTI_DEVICE_UUID, multiDeviceList, "1234".getBytes());
-    internationalAccount = new Account(INTERNATIONAL_RECIPIENT, INTERNATIONAL_UUID, singleDeviceList, "1234".getBytes());
+    Account singleDeviceAccount  = new Account(SINGLE_DEVICE_RECIPIENT, SINGLE_DEVICE_UUID, UUID.randomUUID(),
+        singleDeviceList, "1234".getBytes());
+    Account multiDeviceAccount   = new Account(MULTI_DEVICE_RECIPIENT, MULTI_DEVICE_UUID, UUID.randomUUID(),
+        multiDeviceList, "1234".getBytes());
+    internationalAccount = new Account(INTERNATIONAL_RECIPIENT, INTERNATIONAL_UUID, UUID.randomUUID(), singleDeviceList, "1234".getBytes());
 
-    when(accountsManager.get(eq(SINGLE_DEVICE_UUID))).thenReturn(Optional.of(singleDeviceAccount));
-    when(accountsManager.get(eq(MULTI_DEVICE_UUID))).thenReturn(Optional.of(multiDeviceAccount));
-    when(accountsManager.get(INTERNATIONAL_UUID)).thenReturn(Optional.of(internationalAccount));
+    when(accountsManager.getByAccountIdentifier(eq(SINGLE_DEVICE_UUID))).thenReturn(Optional.of(singleDeviceAccount));
+    when(accountsManager.getByAccountIdentifier(eq(MULTI_DEVICE_UUID))).thenReturn(Optional.of(multiDeviceAccount));
+    when(accountsManager.getByAccountIdentifier(INTERNATIONAL_UUID)).thenReturn(Optional.of(internationalAccount));
 
     when(rateLimiters.getMessagesLimiter()).thenReturn(rateLimiter);
   }

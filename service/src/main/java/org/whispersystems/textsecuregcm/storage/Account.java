@@ -23,6 +23,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.util.Util;
+import javax.annotation.Nullable;
 
 public class Account {
 
@@ -31,6 +32,11 @@ public class Account {
 
   @JsonIgnore
   private UUID uuid;
+
+  // Nullable only until initial migration is complete
+  @JsonProperty("pni")
+  @Nullable
+  private UUID phoneNumberIdentifier;
 
   @JsonProperty
   private String number;
@@ -80,9 +86,10 @@ public class Account {
   public Account() {}
 
   @VisibleForTesting
-  public Account(String number, UUID uuid, Set<Device> devices, byte[] unidentifiedAccessKey) {
+  public Account(String number, UUID uuid, final UUID phoneNumberIdentifier, Set<Device> devices, byte[] unidentifiedAccessKey) {
     this.number                = number;
     this.uuid                  = uuid;
+    this.phoneNumberIdentifier = phoneNumberIdentifier;
     this.devices               = devices;
     this.unidentifiedAccessKey = unidentifiedAccessKey;
   }
@@ -98,22 +105,24 @@ public class Account {
     this.uuid = uuid;
   }
 
-  public void setNumber(String number) {
+  // Optional only until initial migration is complete
+  public Optional<UUID> getPhoneNumberIdentifier() {
     requireNotStale();
 
-    this.number = number;
-  }
-
-  public void setCanonicallyDiscoverable(boolean canonicallyDiscoverable) {
-    requireNotStale();
-
-    this.canonicallyDiscoverable = canonicallyDiscoverable;
+    return Optional.ofNullable(phoneNumberIdentifier);
   }
 
   public String getNumber() {
     requireNotStale();
 
     return number;
+  }
+
+  public void setNumber(String number, UUID phoneNumberIdentifier) {
+    requireNotStale();
+
+    this.number = number;
+    this.phoneNumberIdentifier = phoneNumberIdentifier;
   }
 
   public void addDevice(Device device) {
@@ -245,6 +254,12 @@ public class Account {
     requireNotStale();
 
     return canonicallyDiscoverable;
+  }
+
+  public void setCanonicallyDiscoverable(boolean canonicallyDiscoverable) {
+    requireNotStale();
+
+    this.canonicallyDiscoverable = canonicallyDiscoverable;
   }
 
   public Optional<String> getRelay() {

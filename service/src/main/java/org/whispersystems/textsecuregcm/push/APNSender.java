@@ -125,7 +125,7 @@ public class APNSender implements Managed {
   private void handleUnregisteredUser(String registrationId, UUID uuid, long deviceId) {
 //    logger.info("Got APN Unregistered: " + number + "," + deviceId);
 
-    Optional<Account> account = accountsManager.get(uuid);
+    Optional<Account> account = accountsManager.getByAccountIdentifier(uuid);
 
     if (account.isEmpty()) {
       logger.info("No account found: {}", uuid);

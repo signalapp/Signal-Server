@@ -169,13 +169,13 @@ class ProfileControllerTest {
     when(capabilitiesAccount.isAnnouncementGroupSupported()).thenReturn(true);
     when(capabilitiesAccount.isChangeNumberSupported()).thenReturn(true);
 
-    when(accountsManager.get(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(profileAccount));
-    when(accountsManager.get(AuthHelper.VALID_UUID_TWO)).thenReturn(Optional.of(profileAccount));
+    when(accountsManager.getByE164(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(profileAccount));
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID_TWO)).thenReturn(Optional.of(profileAccount));
     when(usernamesManager.get(AuthHelper.VALID_UUID_TWO)).thenReturn(Optional.of("n00bkiller"));
     when(usernamesManager.get("n00bkiller")).thenReturn(Optional.of(AuthHelper.VALID_UUID_TWO));
 
-    when(accountsManager.get(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(capabilitiesAccount));
-    when(accountsManager.get(AuthHelper.VALID_UUID)).thenReturn(Optional.of(capabilitiesAccount));
+    when(accountsManager.getByE164(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(capabilitiesAccount));
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(capabilitiesAccount));
 
     when(profilesManager.get(eq(AuthHelper.VALID_UUID), eq("someversion"))).thenReturn(Optional.empty());
     when(profilesManager.get(eq(AuthHelper.VALID_UUID_TWO), eq("validversion"))).thenReturn(Optional.of(new VersionedProfile(
@@ -208,7 +208,7 @@ class ProfileControllerTest {
     assertThat(profile.getBadges()).hasSize(1).element(0).has(new Condition<>(
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
 
-    verify(accountsManager).get(AuthHelper.VALID_UUID_TWO);
+    verify(accountsManager).getByAccountIdentifier(AuthHelper.VALID_UUID_TWO);
     verify(usernamesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO));
     verify(rateLimiter, times(1)).validate(AuthHelper.VALID_UUID);
   }
@@ -229,7 +229,7 @@ class ProfileControllerTest {
     assertThat(profile.getBadges()).hasSize(1).element(0).has(new Condition<>(
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
 
-    verify(accountsManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO));
+    verify(accountsManager, times(1)).getByAccountIdentifier(eq(AuthHelper.VALID_UUID_TWO));
     verify(usernamesManager, times(1)).get(eq("n00bkiller"));
     verify(usernameRateLimiter, times(1)).validate(eq(AuthHelper.VALID_UUID));
   }
@@ -591,7 +591,7 @@ class ProfileControllerTest {
     assertThat(profile.getBadges()).hasSize(1).element(0).has(new Condition<>(
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
 
-    verify(accountsManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO));
+    verify(accountsManager, times(1)).getByAccountIdentifier(eq(AuthHelper.VALID_UUID_TWO));
     verify(usernamesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO));
     verify(profilesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO), eq("validversion"));
 

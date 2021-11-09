@@ -52,6 +52,7 @@ public class AccountsManager {
 
   private static final Timer redisSetTimer       = metricRegistry.timer(name(AccountsManager.class, "redisSet"      ));
   private static final Timer redisNumberGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisNumberGet"));
+  private static final Timer redisPniGetTimer    = metricRegistry.timer(name(AccountsManager.class, "redisPniGet"));
   private static final Timer redisUuidGetTimer   = metricRegistry.timer(name(AccountsManager.class, "redisUuidGet"  ));
   private static final Timer redisDeleteTimer    = metricRegistry.timer(name(AccountsManager.class, "redisDelete"   ));
 
@@ -63,18 +64,19 @@ public class AccountsManager {
   private final Logger logger = LoggerFactory.getLogger(AccountsManager.class);
 
   private final Accounts accounts;
+  private final PhoneNumberIdentifiers phoneNumberIdentifiers;
   private final FaultTolerantRedisCluster cacheCluster;
   private final DeletedAccountsManager deletedAccountsManager;
-  private final DirectoryQueue            directoryQueue;
-  private final KeysDynamoDb              keysDynamoDb;
+  private final DirectoryQueue directoryQueue;
+  private final KeysDynamoDb keysDynamoDb;
   private final MessagesManager messagesManager;
   private final UsernamesManager usernamesManager;
-  private final ProfilesManager           profilesManager;
+  private final ProfilesManager profilesManager;
   private final StoredVerificationCodeManager pendingAccounts;
-  private final SecureStorageClient       secureStorageClient;
-  private final SecureBackupClient        secureBackupClient;
+  private final SecureStorageClient secureStorageClient;
+  private final SecureBackupClient secureBackupClient;
   private final ClientPresenceManager clientPresenceManager;
-  private final ObjectMapper              mapper;
+  private final ObjectMapper mapper;
   private final Clock clock;
 
   public enum DeletionReason {
@@ -89,10 +91,13 @@ public class AccountsManager {
     }
   }
 
-  public AccountsManager(Accounts accounts, FaultTolerantRedisCluster cacheCluster,
+  public AccountsManager(final Accounts accounts,
+      final PhoneNumberIdentifiers phoneNumberIdentifiers,
+      final FaultTolerantRedisCluster cacheCluster,
       final DeletedAccountsManager deletedAccountsManager,
       final DirectoryQueue directoryQueue,
-      final KeysDynamoDb keysDynamoDb, final MessagesManager messagesManager,
+      final KeysDynamoDb keysDynamoDb,
+      final MessagesManager messagesManager,
       final UsernamesManager usernamesManager,
       final ProfilesManager profilesManager,
       final StoredVerificationCodeManager pendingAccounts,
@@ -101,6 +106,7 @@ public class AccountsManager {
       final ClientPresenceManager clientPresenceManager,
       final Clock clock) {
     this.accounts = accounts;
+    this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.cacheCluster = cacheCluster;
     this.deletedAccountsManager = deletedAccountsManager;
     this.directoryQueue = directoryQueue;
@@ -137,7 +143,7 @@ public class AccountsManager {
         device.setLastSeen(Util.todayInMillis());
         device.setUserAgent(signalAgent);
 
-        account.setNumber(number);
+        account.setNumber(number, phoneNumberIdentifiers.getPhoneNumberIdentifier(number));
         account.setUuid(maybeRecentlyDeletedUuid.orElseGet(UUID::randomUUID));
         account.addDevice(device);
         account.setRegistrationLockFromAttributes(accountAttributes);
@@ -148,7 +154,7 @@ public class AccountsManager {
 
         final UUID originalUuid = account.getUuid();
 
-        boolean freshUser = dynamoCreate(account);
+        boolean freshUser = accounts.create(account);
 
         // create() sometimes updates the UUID, if there was a number conflict.
         // for metrics, we want secondary to run with the same original UUID
@@ -210,7 +216,7 @@ public class AccountsManager {
     deletedAccountsManager.lockAndPut(account.getNumber(), number, () -> {
       redisDelete(account);
 
-      final Optional<Account> maybeExistingAccount = get(number);
+      final Optional<Account> maybeExistingAccount = getByE164(number);
       final Optional<UUID> displacedUuid;
 
       if (maybeExistingAccount.isPresent()) {
@@ -221,12 +227,13 @@ public class AccountsManager {
       }
 
       final UUID uuid = account.getUuid();
+      final UUID phoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(number);
 
       final Account numberChangedAccount = updateWithRetries(
           account,
           a -> true,
-          a -> dynamoChangeNumber(a, number),
-          () -> dynamoGet(uuid).orElseThrow());
+          a -> accounts.changeNumber(a, number, phoneNumberIdentifier),
+          () -> accounts.getByAccountIdentifier(uuid).orElseThrow());
 
       updatedAccount.set(numberChangedAccount);
       directoryQueue.changePhoneNumber(numberChangedAccount, originalNumber, number);
@@ -286,7 +293,10 @@ public class AccountsManager {
       final UUID uuid = account.getUuid();
       final String originalNumber = account.getNumber();
 
-      updatedAccount = updateWithRetries(account, updater, this::dynamoUpdate, () -> dynamoGet(uuid).get());
+      updatedAccount = updateWithRetries(account,
+          updater,
+          accounts::update,
+          () -> accounts.getByAccountIdentifier(uuid).orElseThrow());
 
       assert updatedAccount.getNumber().equals(originalNumber);
 
@@ -355,12 +365,12 @@ public class AccountsManager {
     });
   }
 
-  public Optional<Account> get(String number) {
+  public Optional<Account> getByE164(String number) {
     try (Timer.Context ignored = getByNumberTimer.time()) {
-      Optional<Account> account = redisGet(number);
+      Optional<Account> account = redisGetByE164(number);
 
       if (account.isEmpty()) {
-        account = dynamoGet(number);
+        account = accounts.getByE164(number);
         account.ifPresent(this::redisSet);
       }
 
@@ -368,12 +378,25 @@ public class AccountsManager {
     }
   }
 
-  public Optional<Account> get(UUID uuid) {
-    try (Timer.Context ignored = getByUuidTimer.time()) {
-      Optional<Account> account = redisGet(uuid);
+  public Optional<Account> getByPhoneNumberIdentifier(UUID pni) {
+    try (Timer.Context ignored = getByNumberTimer.time()) {
+      Optional<Account> account = redisGetByPhoneNumberIdentifier(pni);
 
       if (account.isEmpty()) {
-        account = dynamoGet(uuid);
+        account = accounts.getByPhoneNumberIdentifier(pni);
+        account.ifPresent(this::redisSet);
+      }
+
+      return account;
+    }
+  }
+
+  public Optional<Account> getByAccountIdentifier(UUID uuid) {
+    try (Timer.Context ignored = getByUuidTimer.time()) {
+      Optional<Account> account = redisGetByAccountIdentifier(uuid);
+
+      if (account.isEmpty()) {
+        account = accounts.getByAccountIdentifier(uuid);
         account.ifPresent(this::redisSet);
       }
 
@@ -417,19 +440,24 @@ public class AccountsManager {
     keysDynamoDb.delete(account.getUuid());
     messagesManager.clear(account.getUuid());
 
+    account.getPhoneNumberIdentifier().ifPresent(pni -> {
+      keysDynamoDb.delete(pni);
+      messagesManager.clear(pni);
+    });
+
     deleteStorageServiceDataFuture.join();
     deleteBackupServiceDataFuture.join();
 
     redisDelete(account);
-    dynamoDelete(account);
+    accounts.delete(account.getUuid());
 
     RedisOperation.unchecked(() ->
         account.getDevices().forEach(device ->
             clientPresenceManager.displacePresence(account.getUuid(), device.getId())));
   }
 
-  private String getAccountMapKey(String number) {
-    return "AccountMap::" + number;
+  private String getAccountMapKey(String key) {
+    return "AccountMap::" + key;
   }
 
   private String getAccountEntityKey(UUID uuid) {
@@ -443,6 +471,9 @@ public class AccountsManager {
       cacheCluster.useCluster(connection -> {
         final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
 
+        account.getPhoneNumberIdentifier().ifPresent(pni ->
+            commands.set(getAccountMapKey(pni.toString()), account.getUuid().toString()));
+
         commands.set(getAccountMapKey(account.getNumber()), account.getUuid().toString());
         commands.set(getAccountEntityKey(account.getUuid()), accountJson);
       });
@@ -451,11 +482,19 @@ public class AccountsManager {
     }
   }
 
-  private Optional<Account> redisGet(String number) {
-    try (Timer.Context ignored = redisNumberGetTimer.time()) {
-      final String uuid = cacheCluster.withCluster(connection -> connection.sync().get(getAccountMapKey(number)));
+  private Optional<Account> redisGetByPhoneNumberIdentifier(UUID uuid) {
+    return redisGetBySecondaryKey(uuid.toString(), redisPniGetTimer);
+  }
 
-      if (uuid != null) return redisGet(UUID.fromString(uuid));
+  private Optional<Account> redisGetByE164(String e164) {
+    return redisGetBySecondaryKey(e164, redisNumberGetTimer);
+  }
+
+  private Optional<Account> redisGetBySecondaryKey(String secondaryKey, Timer timer) {
+    try (Timer.Context ignored = timer.time()) {
+      final String uuid = cacheCluster.withCluster(connection -> connection.sync().get(getAccountMapKey(secondaryKey)));
+
+      if (uuid != null) return redisGetByAccountIdentifier(UUID.fromString(uuid));
       else              return Optional.empty();
     } catch (IllegalArgumentException e) {
       logger.warn("Deserialization error", e);
@@ -466,7 +505,7 @@ public class AccountsManager {
     }
   }
 
-  private Optional<Account> redisGet(UUID uuid) {
+  private Optional<Account> redisGetByAccountIdentifier(UUID uuid) {
     try (Timer.Context ignored = redisUuidGetTimer.time()) {
       final String json = cacheCluster.withCluster(connection -> connection.sync().get(getAccountEntityKey(uuid)));
 
@@ -489,32 +528,11 @@ public class AccountsManager {
 
   private void redisDelete(final Account account) {
     try (final Timer.Context ignored = redisDeleteTimer.time()) {
-      cacheCluster.useCluster(connection -> connection.sync()
-          .del(getAccountMapKey(account.getNumber()), getAccountEntityKey(account.getUuid())));
+      cacheCluster.useCluster(connection -> {
+        connection.sync().del(getAccountMapKey(account.getNumber()), getAccountEntityKey(account.getUuid()));
+
+        account.getPhoneNumberIdentifier().ifPresent(pni -> connection.sync().del(getAccountMapKey(pni.toString())));
+      });
     }
-  }
-
-  private Optional<Account> dynamoGet(String number) {
-    return accounts.get(number);
-  }
-
-  private Optional<Account> dynamoGet(UUID uuid) {
-    return accounts.get(uuid);
-  }
-
-  private boolean dynamoCreate(Account account) {
-    return accounts.create(account);
-  }
-
-  private void dynamoUpdate(Account account) {
-    accounts.update(account);
-  }
-
-  private void dynamoDelete(final Account account) {
-    accounts.delete(account.getUuid());
-  }
-
-  private void dynamoChangeNumber(final Account account, final String number) {
-    accounts.changeNumber(account, number);
   }
 }

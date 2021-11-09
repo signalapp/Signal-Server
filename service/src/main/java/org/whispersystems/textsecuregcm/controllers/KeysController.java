@@ -129,7 +129,7 @@ public class KeysController {
 
     final Optional<Account> account = auth.map(AuthenticatedAccount::getAccount);
 
-    Optional<Account> target = accounts.get(targetUuid);
+    Optional<Account> target = accounts.getByAccountIdentifier(targetUuid);
     OptionalAccess.verify(account, accessKey, target, deviceId);
 
     assert (target.isPresent());

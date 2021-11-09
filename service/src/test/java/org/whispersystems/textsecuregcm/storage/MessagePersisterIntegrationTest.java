@@ -82,7 +82,7 @@ class MessagePersisterIntegrationTest {
 
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(accountUuid);
-    when(accountsManager.get(accountUuid)).thenReturn(Optional.of(account));
+    when(accountsManager.getByAccountIdentifier(accountUuid)).thenReturn(Optional.of(account));
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
 
     messagesCache.start();

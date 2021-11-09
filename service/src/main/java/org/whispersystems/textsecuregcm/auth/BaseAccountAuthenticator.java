@@ -78,7 +78,7 @@ public class BaseAccountAuthenticator {
         deviceId = identifierAndDeviceId.second();
       }
 
-      Optional<Account> account = accountsManager.get(accountUuid);
+      Optional<Account> account = accountsManager.getByAccountIdentifier(accountUuid);
 
       if (account.isEmpty()) {
         failureReason = "noSuchAccount";

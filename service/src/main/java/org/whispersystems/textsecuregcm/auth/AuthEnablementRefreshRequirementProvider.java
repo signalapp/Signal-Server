@@ -76,7 +76,7 @@ public class AuthEnablementRefreshRequirementProvider implements WebsocketRefres
       @SuppressWarnings("unchecked") final Map<Long, Boolean> initialDevicesEnabled =
           (Map<Long, Boolean>) requestEvent.getContainerRequest().getProperty(DEVICES_ENABLED);
 
-      return accountsManager.get((UUID) requestEvent.getContainerRequest().getProperty(ACCOUNT_UUID)).map(account -> {
+      return accountsManager.getByAccountIdentifier((UUID) requestEvent.getContainerRequest().getProperty(ACCOUNT_UUID)).map(account -> {
         final Set<Long> deviceIdsToDisplace;
         final Map<Long, Boolean> currentDevicesEnabled = buildDevicesEnabledMap(account);
 

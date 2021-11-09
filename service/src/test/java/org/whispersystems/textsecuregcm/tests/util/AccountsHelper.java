@@ -62,7 +62,7 @@ public class AccountsHelper {
   }
 
   public static void setupMockGet(final AccountsManager mockAccountsManager, final Set<Account> mockAccounts) {
-    when(mockAccountsManager.get(any(UUID.class))).thenAnswer(answer -> {
+    when(mockAccountsManager.getByAccountIdentifier(any(UUID.class))).thenAnswer(answer -> {
 
       final UUID uuid = answer.getArgument(0, UUID.class);
 
@@ -176,7 +176,7 @@ public class AccountsHelper {
     } else {
       final ObjectMapper mapper = SystemMapper.getMapper();
       updatedAccount = mapper.readValue(mapper.writeValueAsBytes(account), Account.class);
-      updatedAccount.setNumber(account.getNumber());
+      updatedAccount.setNumber(account.getNumber(), account.getPhoneNumberIdentifier().orElse(null));
       account.markStale();
     }
 

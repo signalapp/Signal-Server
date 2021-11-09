@@ -51,7 +51,7 @@ public class APNSenderTest {
   public void setup() {
     when(destinationAccount.getDevice(1)).thenReturn(Optional.of(destinationDevice));
     when(destinationDevice.getApnId()).thenReturn(DESTINATION_APN_ID);
-    when(accountsManager.get(DESTINATION_UUID)).thenReturn(Optional.of(destinationAccount));
+    when(accountsManager.getByAccountIdentifier(DESTINATION_UUID)).thenReturn(Optional.of(destinationAccount));
   }
 
   @Test
@@ -158,7 +158,7 @@ public class APNSenderTest {
     assertThat(apnResult.getStatus()).isEqualTo(ApnResult.Status.NO_SUCH_USER);
 
     verifyNoMoreInteractions(apnsClient);
-    verify(accountsManager, times(1)).get(eq(DESTINATION_UUID));
+    verify(accountsManager, times(1)).getByAccountIdentifier(eq(DESTINATION_UUID));
     verify(destinationAccount, times(1)).getDevice(1);
     verify(destinationDevice, times(1)).getApnId();
     verify(destinationDevice, times(1)).getPushTimestamp();
@@ -261,7 +261,7 @@ public class APNSenderTest {
     assertThat(apnResult.getStatus()).isEqualTo(ApnResult.Status.NO_SUCH_USER);
 
     verifyNoMoreInteractions(apnsClient);
-    verify(accountsManager, times(1)).get(eq(DESTINATION_UUID));
+    verify(accountsManager, times(1)).getByAccountIdentifier(eq(DESTINATION_UUID));
     verify(destinationAccount, times(1)).getDevice(1);
     verify(destinationDevice, times(1)).getApnId();
     verify(destinationDevice, times(1)).getPushTimestamp();

@@ -31,9 +31,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
-import org.whispersystems.textsecuregcm.auth.BaseAccountAuthenticator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -62,11 +59,14 @@ class BaseAccountAuthenticatorTest {
     clock = mock(Clock.class);
     baseAccountAuthenticator = new BaseAccountAuthenticator(accountsManager, clock);
 
-    acct1 = new Account("+14088675309", AuthHelper.getRandomUUID(random), Set.of(new Device(1, null, null, null,
+    acct1 = new Account("+14088675309", AuthHelper.getRandomUUID(random), UUID.randomUUID(),
+        Set.of(new Device(1, null, null, null,
         null, null, null, false, 0, null, yesterday, 0, null, 0, null)), null);
-    acct2 = new Account("+14098675309", AuthHelper.getRandomUUID(random), Set.of(new Device(1, null, null, null,
+    acct2 = new Account("+14098675309", AuthHelper.getRandomUUID(random), UUID.randomUUID(),
+        Set.of(new Device(1, null, null, null,
         null, null, null, false, 0, null, yesterday, 0, null, 0, null)), null);
-    oldAccount = new Account("+14108675309", AuthHelper.getRandomUUID(random), Set.of(new Device(1, null, null, null,
+    oldAccount = new Account("+14108675309", AuthHelper.getRandomUUID(random), UUID.randomUUID(),
+        Set.of(new Device(1, null, null, null,
         null, null, null, false, 0, null, oldTime, 0, null, 0, null)), null);
 
     AccountsHelper.setupMockUpdate(accountsManager);
@@ -156,7 +156,7 @@ class BaseAccountAuthenticatorTest {
     final AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
 
     when(clock.instant()).thenReturn(Instant.now());
-    when(accountsManager.get(uuid)).thenReturn(Optional.of(account));
+    when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(account.isEnabled()).thenReturn(true);
@@ -184,7 +184,7 @@ class BaseAccountAuthenticatorTest {
     final AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
 
     when(clock.instant()).thenReturn(Instant.now());
-    when(accountsManager.get(uuid)).thenReturn(Optional.of(account));
+    when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(account.isEnabled()).thenReturn(true);
@@ -213,7 +213,7 @@ class BaseAccountAuthenticatorTest {
     final AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
 
     when(clock.instant()).thenReturn(Instant.now());
-    when(accountsManager.get(uuid)).thenReturn(Optional.of(account));
+    when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(account.isEnabled()).thenReturn(false);
@@ -251,7 +251,7 @@ class BaseAccountAuthenticatorTest {
     final AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
 
     when(clock.instant()).thenReturn(Instant.now());
-    when(accountsManager.get(uuid)).thenReturn(Optional.of(account));
+    when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(account.isEnabled()).thenReturn(true);
@@ -278,7 +278,7 @@ class BaseAccountAuthenticatorTest {
     final AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
 
     when(clock.instant()).thenReturn(Instant.now());
-    when(accountsManager.get(uuid)).thenReturn(Optional.of(account));
+    when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
     when(account.isEnabled()).thenReturn(true);
@@ -303,7 +303,7 @@ class BaseAccountAuthenticatorTest {
         () -> baseAccountAuthenticator.authenticate(new BasicCredentials(username, "password"), true));
 
     assertThat(maybeAuthenticatedAccount).isEmpty();
-    verify(accountsManager, never()).get(any(UUID.class));
+    verify(accountsManager, never()).getByAccountIdentifier(any(UUID.class));
   }
 
   private static Stream<String> testAuthenticateMalformedCredentials() {

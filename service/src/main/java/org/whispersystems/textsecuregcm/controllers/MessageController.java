@@ -215,7 +215,7 @@ public class MessageController {
       Optional<Account> destination;
 
       if (!isSyncMessage) {
-        destination = accountsManager.get(destinationUuid);
+        destination = accountsManager.getByAccountIdentifier(destinationUuid);
       } else {
         destination = source.map(AuthenticatedAccount::getAccount);
       }
@@ -311,7 +311,7 @@ public class MessageController {
         .map(Recipient::getUuid)
         .distinct()
         .collect(Collectors.toUnmodifiableMap(Function.identity(), uuid -> {
-          Optional<Account> account = accountsManager.get(uuid);
+          Optional<Account> account = accountsManager.getByAccountIdentifier(uuid);
           if (account.isEmpty()) {
             throw new WebApplicationException(Status.NOT_FOUND);
           }

@@ -46,6 +46,7 @@ import org.whispersystems.textsecuregcm.storage.KeysDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
@@ -114,6 +115,9 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
       DynamoDbClient deletedAccountsDynamoDbClient = DynamoDbFromConfig
           .client(configuration.getDeletedAccountsDynamoDbConfiguration(),
               software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+      DynamoDbClient phoneNumberIdentifiersDynamoDbClient =
+          DynamoDbFromConfig.client(configuration.getPhoneNumberIdentifiersDynamoDbConfiguration(),
+              software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
       FaultTolerantRedisCluster cacheCluster = new FaultTolerantRedisCluster("main_cache_cluster",
           configuration.getCacheClusterConfiguration(), redisClusterClientResources);
@@ -161,7 +165,10 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
       Accounts accounts = new Accounts(accountsDynamoDbClient,
           configuration.getAccountsDynamoDbConfiguration().getTableName(),
           configuration.getAccountsDynamoDbConfiguration().getPhoneNumberTableName(),
+          configuration.getAccountsDynamoDbConfiguration().getPhoneNumberIdentifierTableName(),
           configuration.getAccountsDynamoDbConfiguration().getScanPageSize());
+      PhoneNumberIdentifiers phoneNumberIdentifiers = new PhoneNumberIdentifiers(phoneNumberIdentifiersDynamoDbClient,
+          configuration.getPhoneNumberIdentifiersDynamoDbConfiguration().getTableName());
       Usernames usernames = new Usernames(accountDatabase);
       Profiles profiles = new Profiles(accountDatabase);
       ReservedUsernames reservedUsernames = new ReservedUsernames(accountDatabase);
@@ -202,16 +209,16 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
           deletedAccountsLockDynamoDbClient,
           configuration.getDeletedAccountsLockDynamoDbConfiguration().getTableName());
       StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
-      AccountsManager accountsManager = new AccountsManager(accounts, cacheCluster,
+      AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
           deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager,
           pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager, clock);
 
       Optional<Account> maybeAccount;
 
       try {
-        maybeAccount = accountsManager.get(UUID.fromString(namespace.getString("user")));
+        maybeAccount = accountsManager.getByAccountIdentifier(UUID.fromString(namespace.getString("user")));
       } catch (final IllegalArgumentException e) {
-        maybeAccount = accountsManager.get(namespace.getString("user"));
+        maybeAccount = accountsManager.getByE164(namespace.getString("user"));
       }
 
       maybeAccount.ifPresentOrElse(account -> {

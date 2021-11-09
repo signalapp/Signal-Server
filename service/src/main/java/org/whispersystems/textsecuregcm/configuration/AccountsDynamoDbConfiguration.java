@@ -8,11 +8,19 @@ public class AccountsDynamoDbConfiguration extends DynamoDbConfiguration {
   @NotNull
   private String phoneNumberTableName;
 
+  @NotNull
+  private String phoneNumberIdentifierTableName;
+
   private int scanPageSize = 100;
 
   @JsonProperty
   public String getPhoneNumberTableName() {
     return phoneNumberTableName;
+  }
+
+  @JsonProperty
+  public String getPhoneNumberIdentifierTableName() {
+    return phoneNumberIdentifierTableName;
   }
 
   @JsonProperty

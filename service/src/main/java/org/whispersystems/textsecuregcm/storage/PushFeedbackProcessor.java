@@ -58,7 +58,7 @@ public class PushFeedbackProcessor extends AccountDatabaseCrawlerListener {
 
       if (update) {
         // fetch a new version, since the chunk is shared and implicitly read-only
-        accountsManager.get(account.getUuid()).ifPresent(accountToUpdate -> {
+        accountsManager.getByAccountIdentifier(account.getUuid()).ifPresent(accountToUpdate -> {
           accountsManager.update(accountToUpdate, a -> {
             for (Device device : a.getDevices()) {
               if (deviceNeedsUpdate(device)) {

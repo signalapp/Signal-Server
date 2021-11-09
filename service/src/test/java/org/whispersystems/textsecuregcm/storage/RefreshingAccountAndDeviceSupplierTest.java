@@ -34,7 +34,7 @@ class RefreshingAccountAndDeviceSupplierTest {
     when(initialDevice.getId()).thenReturn(deviceId);
     when(initialAccount.getDevice(deviceId)).thenReturn(Optional.of(initialDevice));
 
-    when(accountsManager.get(any(UUID.class))).thenAnswer(answer -> {
+    when(accountsManager.getByAccountIdentifier(any(UUID.class))).thenAnswer(answer -> {
       final Account account = mock(Account.class);
       final Device device = mock(Device.class);
 

@@ -43,7 +43,7 @@ public class ContactDiscoveryWriter extends AccountDatabaseCrawlerListener {
         // It’s less than ideal, but crawler listeners currently must not call update()
         // with the accounts from the chunk, because updates cause the account instance to become stale. Instead, they
         // must get a new copy, which they are free to update.
-        accounts.get(account.getUuid()).ifPresent(a -> accounts.update(a, NOOP_UPDATER));
+        accounts.getByAccountIdentifier(account.getUuid()).ifPresent(a -> accounts.update(a, NOOP_UPDATER));
       }
     }
   }

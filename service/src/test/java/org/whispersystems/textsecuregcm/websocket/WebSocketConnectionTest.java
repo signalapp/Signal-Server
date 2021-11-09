@@ -172,8 +172,8 @@ public class WebSocketConnectionTest {
     Account sender1 = mock(Account.class);
     when(sender1.getDevices()).thenReturn(sender1devices);
 
-    when(accountsManager.get("sender1")).thenReturn(Optional.of(sender1));
-    when(accountsManager.get("sender2")).thenReturn(Optional.empty());
+    when(accountsManager.getByE164("sender1")).thenReturn(Optional.of(sender1));
+    when(accountsManager.getByE164("sender2")).thenReturn(Optional.empty());
 
     String userAgent = "user-agent";
 
@@ -327,8 +327,8 @@ public class WebSocketConnectionTest {
     Account sender1 = mock(Account.class);
     when(sender1.getDevices()).thenReturn(sender1devices);
 
-    when(accountsManager.get("sender1")).thenReturn(Optional.of(sender1));
-    when(accountsManager.get("sender2")).thenReturn(Optional.<Account>empty());
+    when(accountsManager.getByE164("sender1")).thenReturn(Optional.of(sender1));
+    when(accountsManager.getByE164("sender2")).thenReturn(Optional.<Account>empty());
 
     String userAgent = "user-agent";
 
@@ -700,8 +700,8 @@ public class WebSocketConnectionTest {
     Account sender1 = mock(Account.class);
     when(sender1.getDevices()).thenReturn(sender1devices);
 
-    when(accountsManager.get("sender1")).thenReturn(Optional.of(sender1));
-    when(accountsManager.get("sender2")).thenReturn(Optional.empty());
+    when(accountsManager.getByE164("sender1")).thenReturn(Optional.of(sender1));
+    when(accountsManager.getByE164("sender2")).thenReturn(Optional.empty());
 
     String userAgent = "Signal-Desktop/1.2.3";
 
@@ -776,8 +776,8 @@ public class WebSocketConnectionTest {
     Account sender1 = mock(Account.class);
     when(sender1.getDevices()).thenReturn(sender1devices);
 
-    when(accountsManager.get("sender1")).thenReturn(Optional.of(sender1));
-    when(accountsManager.get("sender2")).thenReturn(Optional.empty());
+    when(accountsManager.getByE164("sender1")).thenReturn(Optional.of(sender1));
+    when(accountsManager.getByE164("sender2")).thenReturn(Optional.empty());
 
     String userAgent = "Signal-Android/4.68.3";
 

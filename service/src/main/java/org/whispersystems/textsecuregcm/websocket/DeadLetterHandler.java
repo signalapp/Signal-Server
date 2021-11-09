@@ -47,7 +47,7 @@ public class DeadLetterHandler implements DispatchChannel {
       switch (pubSubMessage.getType().getNumber()) {
         case PubSubMessage.Type.DELIVER_VALUE:
           Envelope          message      = Envelope.parseFrom(pubSubMessage.getContent());
-          Optional<Account> maybeAccount = accountsManager.get(address.getNumber());
+          Optional<Account> maybeAccount = accountsManager.getByE164(address.getNumber());
 
           if (maybeAccount.isPresent()) {
             messagesManager.insert(maybeAccount.get().getUuid(), address.getDeviceId(), message);

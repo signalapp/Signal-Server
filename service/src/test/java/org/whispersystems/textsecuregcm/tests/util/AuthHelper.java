@@ -137,17 +137,17 @@ public class AuthHelper {
 
     reset(ACCOUNTS_MANAGER);
 
-    when(ACCOUNTS_MANAGER.get(VALID_NUMBER)).thenReturn(Optional.of(VALID_ACCOUNT));
-    when(ACCOUNTS_MANAGER.get(VALID_UUID)).thenReturn(Optional.of(VALID_ACCOUNT));
+    when(ACCOUNTS_MANAGER.getByE164(VALID_NUMBER)).thenReturn(Optional.of(VALID_ACCOUNT));
+    when(ACCOUNTS_MANAGER.getByAccountIdentifier(VALID_UUID)).thenReturn(Optional.of(VALID_ACCOUNT));
 
-    when(ACCOUNTS_MANAGER.get(VALID_NUMBER_TWO)).thenReturn(Optional.of(VALID_ACCOUNT_TWO));
-    when(ACCOUNTS_MANAGER.get(VALID_UUID_TWO)).thenReturn(Optional.of(VALID_ACCOUNT_TWO));
+    when(ACCOUNTS_MANAGER.getByE164(VALID_NUMBER_TWO)).thenReturn(Optional.of(VALID_ACCOUNT_TWO));
+    when(ACCOUNTS_MANAGER.getByAccountIdentifier(VALID_UUID_TWO)).thenReturn(Optional.of(VALID_ACCOUNT_TWO));
 
-    when(ACCOUNTS_MANAGER.get(DISABLED_NUMBER)).thenReturn(Optional.of(DISABLED_ACCOUNT));
-    when(ACCOUNTS_MANAGER.get(DISABLED_UUID)).thenReturn(Optional.of(DISABLED_ACCOUNT));
+    when(ACCOUNTS_MANAGER.getByE164(DISABLED_NUMBER)).thenReturn(Optional.of(DISABLED_ACCOUNT));
+    when(ACCOUNTS_MANAGER.getByAccountIdentifier(DISABLED_UUID)).thenReturn(Optional.of(DISABLED_ACCOUNT));
 
-    when(ACCOUNTS_MANAGER.get(UNDISCOVERABLE_NUMBER)).thenReturn(Optional.of(UNDISCOVERABLE_ACCOUNT));
-    when(ACCOUNTS_MANAGER.get(UNDISCOVERABLE_UUID)).thenReturn(Optional.of(UNDISCOVERABLE_ACCOUNT));
+    when(ACCOUNTS_MANAGER.getByE164(UNDISCOVERABLE_NUMBER)).thenReturn(Optional.of(UNDISCOVERABLE_ACCOUNT));
+    when(ACCOUNTS_MANAGER.getByAccountIdentifier(UNDISCOVERABLE_UUID)).thenReturn(Optional.of(UNDISCOVERABLE_ACCOUNT));
 
     AccountsHelper.setupMockUpdateForAuthHelper(ACCOUNTS_MANAGER);
 
@@ -220,8 +220,8 @@ public class AuthHelper {
       when(account.getUuid()).thenReturn(uuid);
       when(account.getRelay()).thenReturn(Optional.empty());
       when(account.isEnabled()).thenReturn(true);
-      when(accountsManager.get(number)).thenReturn(Optional.of(account));
-      when(accountsManager.get(uuid)).thenReturn(Optional.of(account));
+      when(accountsManager.getByE164(number)).thenReturn(Optional.of(account));
+      when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     }
   }
 

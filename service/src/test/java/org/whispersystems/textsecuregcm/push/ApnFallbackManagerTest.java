@@ -57,8 +57,8 @@ class ApnFallbackManagerTest {
     when(account.getDevice(DEVICE_ID)).thenReturn(Optional.of(device));
 
     final AccountsManager accountsManager = mock(AccountsManager.class);
-    when(accountsManager.get(ACCOUNT_NUMBER)).thenReturn(Optional.of(account));
-    when(accountsManager.get(ACCOUNT_UUID)).thenReturn(Optional.of(account));
+    when(accountsManager.getByE164(ACCOUNT_NUMBER)).thenReturn(Optional.of(account));
+    when(accountsManager.getByAccountIdentifier(ACCOUNT_UUID)).thenReturn(Optional.of(account));
 
     apnSender = mock(APNSender.class);
 

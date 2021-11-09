@@ -186,6 +186,7 @@ import org.whispersystems.textsecuregcm.storage.MessagesCache;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.NonNormalizedAccountCrawlerListener;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
@@ -330,6 +331,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     DynamoDbClient accountsDynamoDbClient = DynamoDbFromConfig.client(config.getAccountsDynamoDbConfiguration(),
         software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
+    DynamoDbClient phoneNumberIdentifiersDynamoDbClient =
+        DynamoDbFromConfig.client(config.getPhoneNumberIdentifiersDynamoDbConfiguration(),
+            software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+
     DynamoDbClient deletedAccountsDynamoDbClient = DynamoDbFromConfig.client(config.getDeletedAccountsDynamoDbConfiguration(),
         software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
@@ -365,7 +370,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     Accounts accounts = new Accounts(accountsDynamoDbClient,
         config.getAccountsDynamoDbConfiguration().getTableName(),
         config.getAccountsDynamoDbConfiguration().getPhoneNumberTableName(),
+        config.getAccountsDynamoDbConfiguration().getPhoneNumberIdentifierTableName(),
         config.getAccountsDynamoDbConfiguration().getScanPageSize());
+    PhoneNumberIdentifiers phoneNumberIdentifiers = new PhoneNumberIdentifiers(phoneNumberIdentifiersDynamoDbClient,
+        config.getPhoneNumberIdentifiersDynamoDbConfiguration().getTableName());
     Usernames usernames = new Usernames(accountDatabase);
     ReservedUsernames reservedUsernames = new ReservedUsernames(accountDatabase);
     Profiles profiles = new Profiles(accountDatabase);
@@ -465,9 +473,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     MessagesManager            messagesManager            = new MessagesManager(messagesDynamoDb, messagesCache, pushLatencyManager, reportMessageManager);
     DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
         deletedAccountsLockDynamoDbClient, config.getDeletedAccountsLockDynamoDbConfiguration().getTableName());
-    AccountsManager accountsManager = new AccountsManager(accounts, cacheCluster, deletedAccountsManager,
-        directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager, pendingAccountsManager,
-        secureStorageClient, secureBackupClient, clientPresenceManager, clock);
+    AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
+        deletedAccountsManager, directoryQueue, keysDynamoDb, messagesManager, usernamesManager, profilesManager,
+        pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager, clock);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
     DeadLetterHandler          deadLetterHandler          = new DeadLetterHandler(accountsManager, messagesManager);
     DispatchManager            dispatchManager            = new DispatchManager(pubSubClientFactory, Optional.of(deadLetterHandler));

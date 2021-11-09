@@ -99,7 +99,7 @@ public class ApnFallbackManager implements Managed {
 
           final Optional<Account> maybeAccount = separated.map(Pair::first)
                                                           .map(UUID::fromString)
-                                                          .flatMap(accountsManager::get);
+                                                          .flatMap(accountsManager::getByAccountIdentifier);
 
           final Optional<Device> maybeDevice = separated.map(Pair::second)
                                                         .flatMap(deviceId -> maybeAccount.flatMap(account -> account.getDevice(deviceId)));

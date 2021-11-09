@@ -174,6 +174,11 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
+  private DynamoDbConfiguration phoneNumberIdentifiersDynamoDb;
+
+  @Valid
+  @NotNull
+  @JsonProperty
   private DeletedAccountsDynamoDbConfiguration deletedAccountsDynamoDb;
 
   @Valid
@@ -434,6 +439,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public AccountsDynamoDbConfiguration getAccountsDynamoDbConfiguration() {
     return accountsDynamoDb;
+  }
+
+  public DynamoDbConfiguration getPhoneNumberIdentifiersDynamoDbConfiguration() {
+    return phoneNumberIdentifiersDynamoDb;
   }
 
   public DeletedAccountsDynamoDbConfiguration getDeletedAccountsDynamoDbConfiguration() {

@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -49,6 +50,8 @@ class AccountsManagerChangeNumberIntegrationTest {
 
   private static final String ACCOUNTS_TABLE_NAME = "accounts_test";
   private static final String NUMBERS_TABLE_NAME = "numbers_test";
+  private static final String PNI_ASSIGNMENT_TABLE_NAME = "pni_assignment_test";
+  private static final String PNI_TABLE_NAME = "pni_test";
   private static final String NEEDS_RECONCILIATION_INDEX_NAME = "needs_reconciliation_test";
   private static final String DELETED_ACCOUNTS_LOCK_TABLE_NAME = "deleted_accounts_lock_test";
   private static final int SCAN_PAGE_SIZE = 1;
@@ -93,6 +96,16 @@ class AccountsManagerChangeNumberIntegrationTest {
       .build();
 
   @RegisterExtension
+  static DynamoDbExtension PNI_DYNAMO_EXTENSION = DynamoDbExtension.builder()
+      .tableName(PNI_TABLE_NAME)
+      .hashKey(PhoneNumberIdentifiers.KEY_E164)
+      .attributeDefinition(AttributeDefinition.builder()
+          .attributeName(PhoneNumberIdentifiers.KEY_E164)
+          .attributeType(ScalarAttributeType.S)
+          .build())
+      .build();
+
+  @RegisterExtension
   static RedisClusterExtension CACHE_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
   private ClientPresenceManager clientPresenceManager;
@@ -120,14 +133,33 @@ class AccountsManagerChangeNumberIntegrationTest {
       ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbClient().createTable(createNumbersTableRequest);
     }
 
+    {
+      CreateTableRequest createPhoneNumberIdentifierTableRequest = CreateTableRequest.builder()
+          .tableName(PNI_ASSIGNMENT_TABLE_NAME)
+          .keySchema(KeySchemaElement.builder()
+              .attributeName(Accounts.ATTR_PNI_UUID)
+              .keyType(KeyType.HASH)
+              .build())
+          .attributeDefinitions(AttributeDefinition.builder()
+              .attributeName(Accounts.ATTR_PNI_UUID)
+              .attributeType(ScalarAttributeType.B)
+              .build())
+          .provisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT)
+          .build();
+
+      ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbClient().createTable(createPhoneNumberIdentifierTableRequest);
+    }
+
     final Accounts accounts = new Accounts(
         ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbClient(),
         ACCOUNTS_DYNAMO_EXTENSION.getTableName(),
         NUMBERS_TABLE_NAME,
+        PNI_ASSIGNMENT_TABLE_NAME,
         SCAN_PAGE_SIZE);
 
     {
-      final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
+      @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
+          mock(DynamicConfigurationManager.class);
 
       DynamicConfiguration dynamicConfiguration = new DynamicConfiguration();
       when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
@@ -148,8 +180,12 @@ class AccountsManagerChangeNumberIntegrationTest {
 
       clientPresenceManager = mock(ClientPresenceManager.class);
 
+      final PhoneNumberIdentifiers phoneNumberIdentifiers =
+          new PhoneNumberIdentifiers(PNI_DYNAMO_EXTENSION.getDynamoDbClient(), PNI_TABLE_NAME);
+
       accountsManager = new AccountsManager(
           accounts,
+          phoneNumberIdentifiers,
           CACHE_CLUSTER_EXTENSION.getRedisCluster(),
           deletedAccountsManager,
           mock(DirectoryQueue.class),
@@ -172,15 +208,17 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     final Account account = accountsManager.create(originalNumber, "password", null, new AccountAttributes(), new ArrayList<>());
     final UUID originalUuid = account.getUuid();
+    final UUID originalPni = account.getPhoneNumberIdentifier().orElseThrow();
 
     accountsManager.changeNumber(account, secondNumber);
 
-    assertTrue(accountsManager.get(originalNumber).isEmpty());
+    assertTrue(accountsManager.getByE164(originalNumber).isEmpty());
 
-    assertTrue(accountsManager.get(secondNumber).isPresent());
-    assertEquals(Optional.of(originalUuid), accountsManager.get(secondNumber).map(Account::getUuid));
+    assertTrue(accountsManager.getByE164(secondNumber).isPresent());
+    assertEquals(originalUuid, accountsManager.getByE164(secondNumber).map(Account::getUuid).orElseThrow());
+    assertNotEquals(originalPni, accountsManager.getByE164(secondNumber).flatMap(Account::getPhoneNumberIdentifier).orElseThrow());
 
-    assertEquals(secondNumber, accountsManager.get(originalUuid).map(Account::getNumber).orElseThrow());
+    assertEquals(secondNumber, accountsManager.getByAccountIdentifier(originalUuid).map(Account::getNumber).orElseThrow());
 
     assertEquals(Optional.empty(), deletedAccounts.findUuid(originalNumber));
     assertEquals(Optional.empty(), deletedAccounts.findUuid(secondNumber));
@@ -193,16 +231,18 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     Account account = accountsManager.create(originalNumber, "password", null, new AccountAttributes(), new ArrayList<>());
     final UUID originalUuid = account.getUuid();
+    final UUID originalPni = account.getPhoneNumberIdentifier().orElseThrow();
 
     account = accountsManager.changeNumber(account, secondNumber);
     accountsManager.changeNumber(account, originalNumber);
 
-    assertTrue(accountsManager.get(originalNumber).isPresent());
-    assertEquals(Optional.of(originalUuid), accountsManager.get(originalNumber).map(Account::getUuid));
+    assertTrue(accountsManager.getByE164(originalNumber).isPresent());
+    assertEquals(originalUuid, accountsManager.getByE164(originalNumber).map(Account::getUuid).orElseThrow());
+    assertEquals(originalPni, accountsManager.getByE164(originalNumber).flatMap(Account::getPhoneNumberIdentifier).orElseThrow());
 
-    assertTrue(accountsManager.get(secondNumber).isEmpty());
+    assertTrue(accountsManager.getByE164(secondNumber).isEmpty());
 
-    assertEquals(originalNumber, accountsManager.get(originalUuid).map(Account::getNumber).orElseThrow());
+    assertEquals(originalNumber, accountsManager.getByAccountIdentifier(originalUuid).map(Account::getNumber).orElseThrow());
 
     assertEquals(Optional.empty(), deletedAccounts.findUuid(originalNumber));
     assertEquals(Optional.empty(), deletedAccounts.findUuid(secondNumber));
@@ -223,12 +263,12 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     accountsManager.changeNumber(account, secondNumber);
 
-    assertTrue(accountsManager.get(originalNumber).isEmpty());
+    assertTrue(accountsManager.getByE164(originalNumber).isEmpty());
 
-    assertTrue(accountsManager.get(secondNumber).isPresent());
-    assertEquals(Optional.of(originalUuid), accountsManager.get(secondNumber).map(Account::getUuid));
+    assertTrue(accountsManager.getByE164(secondNumber).isPresent());
+    assertEquals(Optional.of(originalUuid), accountsManager.getByE164(secondNumber).map(Account::getUuid));
 
-    assertEquals(secondNumber, accountsManager.get(originalUuid).map(Account::getNumber).orElseThrow());
+    assertEquals(secondNumber, accountsManager.getByAccountIdentifier(originalUuid).map(Account::getNumber).orElseThrow());
 
     verify(clientPresenceManager).displacePresence(existingAccountUuid, Device.MASTER_ID);
 
@@ -243,22 +283,26 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     final Account account = accountsManager.create(originalNumber, "password", null, new AccountAttributes(), new ArrayList<>());
     final UUID originalUuid = account.getUuid();
+    final UUID originalPni = account.getPhoneNumberIdentifier().orElseThrow();
 
     final Account existingAccount = accountsManager.create(secondNumber, "password", null, new AccountAttributes(), new ArrayList<>());
     final UUID existingAccountUuid = existingAccount.getUuid();
 
-    accountsManager.changeNumber(account, secondNumber);
+    final Account changedNumberAccount = accountsManager.changeNumber(account, secondNumber);
+    final UUID secondPni = changedNumberAccount.getPhoneNumberIdentifier().orElseThrow();
 
     final Account reRegisteredAccount = accountsManager.create(originalNumber, "password", null, new AccountAttributes(), new ArrayList<>());
 
     assertEquals(existingAccountUuid, reRegisteredAccount.getUuid());
+    assertEquals(originalPni, reRegisteredAccount.getPhoneNumberIdentifier().orElseThrow());
 
     assertEquals(Optional.empty(), deletedAccounts.findUuid(originalNumber));
     assertEquals(Optional.empty(), deletedAccounts.findUuid(secondNumber));
 
-    accountsManager.changeNumber(reRegisteredAccount, secondNumber);
+    final Account changedNumberReRegisteredAccount = accountsManager.changeNumber(reRegisteredAccount, secondNumber);
 
     assertEquals(Optional.of(originalUuid), deletedAccounts.findUuid(originalNumber));
     assertEquals(Optional.empty(), deletedAccounts.findUuid(secondNumber));
+    assertEquals(secondPni, changedNumberReRegisteredAccount.getPhoneNumberIdentifier().orElseThrow());
   }
 }

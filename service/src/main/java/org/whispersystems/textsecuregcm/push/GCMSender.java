@@ -139,7 +139,7 @@ public class GCMSender {
   }
 
   private Optional<Account> getAccountForEvent(GcmMessage message) {
-    Optional<Account> account = message.getUuid().flatMap(accountsManager::get);
+    Optional<Account> account = message.getUuid().flatMap(accountsManager::getByAccountIdentifier);
 
     if (account.isPresent()) {
       Optional<Device> device = account.get().getDevice(message.getDeviceId());

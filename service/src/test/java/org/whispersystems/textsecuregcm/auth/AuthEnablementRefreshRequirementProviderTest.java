@@ -128,7 +128,7 @@ class AuthEnablementRefreshRequirementProviderTest {
     account.addDevice(authenticatedDevice);
     LongStream.range(2, 4).forEach(deviceId -> account.addDevice(DevicesHelper.createDevice(deviceId)));
 
-    when(accountsManager.get(uuid)).thenReturn(Optional.of(account));
+    when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
 
     account.getDevices()
         .forEach(device -> when(clientPresenceManager.isPresent(uuid, device.getId())).thenReturn(true));
@@ -310,7 +310,7 @@ class AuthEnablementRefreshRequirementProviderTest {
 
     assertEquals(200, response.getStatus());
 
-    verify(accountsManager, never()).get(any(UUID.class));
+    verify(accountsManager, never()).getByAccountIdentifier(any(UUID.class));
   }
 
   @Nested

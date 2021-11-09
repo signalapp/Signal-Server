@@ -15,6 +15,7 @@ import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.io.IOException;
@@ -35,6 +36,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.ArgumentCaptor;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
@@ -55,6 +58,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
 
   private static final String ACCOUNTS_TABLE_NAME = "accounts_test";
   private static final String NUMBERS_TABLE_NAME = "numbers_test";
+  private static final String PNI_TABLE_NAME = "pni_test";
 
   private static final int SCAN_PAGE_SIZE = 1;
 
@@ -96,10 +100,28 @@ class AccountsManagerConcurrentModificationIntegrationTest {
       dynamoDbExtension.getDynamoDbClient().createTable(createNumbersTableRequest);
     }
 
+    {
+      CreateTableRequest createPhoneNumberIdentifierTableRequest = CreateTableRequest.builder()
+          .tableName(PNI_TABLE_NAME)
+          .keySchema(KeySchemaElement.builder()
+              .attributeName(Accounts.ATTR_PNI_UUID)
+              .keyType(KeyType.HASH)
+              .build())
+          .attributeDefinitions(AttributeDefinition.builder()
+              .attributeName(Accounts.ATTR_PNI_UUID)
+              .attributeType(ScalarAttributeType.B)
+              .build())
+          .provisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT)
+          .build();
+
+      dynamoDbExtension.getDynamoDbClient().createTable(createPhoneNumberIdentifierTableRequest);
+    }
+
     accounts = new Accounts(
         dynamoDbExtension.getDynamoDbClient(),
         dynamoDbExtension.getTableName(),
         NUMBERS_TABLE_NAME,
+        PNI_TABLE_NAME,
         SCAN_PAGE_SIZE);
 
     {
@@ -114,8 +136,13 @@ class AccountsManagerConcurrentModificationIntegrationTest {
         return null;
       }).when(deletedAccountsManager).lockAndTake(anyString(), any());
 
+      final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
+      when(phoneNumberIdentifiers.getPhoneNumberIdentifier(anyString()))
+          .thenAnswer((Answer<UUID>) invocation -> UUID.randomUUID());
+
       accountsManager = new AccountsManager(
           accounts,
+          phoneNumberIdentifiers,
           RedisClusterHelper.buildMockRedisCluster(commands),
           deletedAccountsManager,
           mock(DirectoryQueue.class),
@@ -185,8 +212,8 @@ class AccountsManagerConcurrentModificationIntegrationTest {
         modifyDevice(uuid, Device.MASTER_ID, device -> device.setName("deviceName"))
     ).join();
 
-    final Account managerAccount = accountsManager.get(uuid).orElseThrow();
-    final Account dynamoAccount = accounts.get(uuid).orElseThrow();
+    final Account managerAccount = accountsManager.getByAccountIdentifier(uuid).orElseThrow();
+    final Account dynamoAccount = accounts.getByAccountIdentifier(uuid).orElseThrow();
 
     final Account redisAccount = getLastAccountFromRedisMock(commands);
 
@@ -225,7 +252,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
   private CompletableFuture<?> modifyAccount(final UUID uuid, final Consumer<Account> accountMutation) {
 
     return CompletableFuture.runAsync(() -> {
-      final Account account = accountsManager.get(uuid).orElseThrow();
+      final Account account = accountsManager.getByAccountIdentifier(uuid).orElseThrow();
       accountsManager.update(account, accountMutation);
     }, mutationExecutor);
   }
@@ -233,7 +260,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
   private CompletableFuture<?> modifyDevice(final UUID uuid, final long deviceId, final Consumer<Device> deviceMutation) {
 
     return CompletableFuture.runAsync(() -> {
-      final Account account = accountsManager.get(uuid).orElseThrow();
+      final Account account = accountsManager.getByAccountIdentifier(uuid).orElseThrow();
       accountsManager.updateDevice(account, deviceId, deviceMutation);
     }, mutationExecutor);
   }

@@ -146,7 +146,7 @@ public class MessagePersister implements Managed {
 
     @VisibleForTesting
     void persistQueue(final UUID accountUuid, final long deviceId) {
-        final Optional<Account> maybeAccount = accountsManager.get(accountUuid);
+        final Optional<Account> maybeAccount = accountsManager.getByAccountIdentifier(accountUuid);
 
         if (maybeAccount.isEmpty()) {
             logger.error("No account record found for account {}", accountUuid);
