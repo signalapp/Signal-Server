@@ -171,7 +171,6 @@ import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerCache;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerListener;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.AssignPhoneNumberIdentifierCrawlerListener;
 import org.whispersystems.textsecuregcm.storage.ContactDiscoveryWriter;
 import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
 import org.whispersystems.textsecuregcm.storage.DeletedAccountsDirectoryReconciler;
@@ -215,7 +214,6 @@ import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
 import org.whispersystems.textsecuregcm.websocket.DeadLetterHandler;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningConnectListener;
 import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
-import org.whispersystems.textsecuregcm.workers.AssignPniCommand;
 import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.CheckDynamicConfigurationCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
@@ -245,7 +243,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new ServerVersionCommand());
     bootstrap.addCommand(new CheckDynamicConfigurationCommand());
     bootstrap.addCommand(new SetUserDiscoverabilityCommand());
-    bootstrap.addCommand(new AssignPniCommand());
 
     bootstrap.addBundle(new NameableMigrationsBundle<WhisperServerConfiguration>("accountdb", "accountsdb.xml") {
       @Override
@@ -549,7 +546,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final List<AccountDatabaseCrawlerListener> accountDatabaseCrawlerListeners = List.of(
         new NonNormalizedAccountCrawlerListener(accountsManager, metricsCluster),
         new ContactDiscoveryWriter(accountsManager),
-        new AssignPhoneNumberIdentifierCrawlerListener(accountsManager, phoneNumberIdentifiers),
         // PushFeedbackProcessor may update device properties
         new PushFeedbackProcessor(accountsManager),
         // delete accounts last
