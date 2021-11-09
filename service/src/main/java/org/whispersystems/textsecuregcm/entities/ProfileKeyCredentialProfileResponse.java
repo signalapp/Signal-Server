@@ -8,7 +8,7 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import org.signal.zkgroup.profiles.ProfileKeyCredentialResponse;
+import org.signal.libsignal.zkgroup.profiles.ProfileKeyCredentialResponse;
 import javax.annotation.Nullable;
 
 public class ProfileKeyCredentialProfileResponse extends CredentialProfileResponse {

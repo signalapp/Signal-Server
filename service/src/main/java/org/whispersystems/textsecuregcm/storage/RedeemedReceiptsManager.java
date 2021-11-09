@@ -13,7 +13,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
-import org.signal.zkgroup.receipts.ReceiptSerial;
+import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;

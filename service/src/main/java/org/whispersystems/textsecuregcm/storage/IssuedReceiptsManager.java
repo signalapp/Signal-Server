@@ -25,7 +25,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import javax.ws.rs.ClientErrorException;
 import javax.ws.rs.core.Response.Status;
-import org.signal.zkgroup.receipts.ReceiptCredentialRequest;
+import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;

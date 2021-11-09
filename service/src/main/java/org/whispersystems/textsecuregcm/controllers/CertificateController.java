@@ -23,7 +23,7 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import org.signal.zkgroup.auth.ServerZkAuthOperations;
+import org.signal.libsignal.zkgroup.auth.ServerZkAuthOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
 import org.whispersystems.textsecuregcm.entities.DeliveryCertificate;
