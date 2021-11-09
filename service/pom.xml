@@ -53,9 +53,9 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.signal</groupId>
-      <artifactId>zkgroup-java</artifactId>
-      <version>0.8.2</version>
+      <groupId>org.whispersystems</groupId>
+      <artifactId>signal-client-java</artifactId>
+      <version>0.10.0</version>
     </dependency>
     <dependency>
       <groupId>org.whispersystems</groupId>

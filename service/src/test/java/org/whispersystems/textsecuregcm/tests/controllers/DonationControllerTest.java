@@ -119,7 +119,7 @@ class DonationControllerTest {
     receiptSerialBytes = new byte[ReceiptSerial.SIZE];
     SECURE_RANDOM.nextBytes(receiptSerialBytes);
     receiptSerial = new ReceiptSerial(receiptSerialBytes);
-    presentation = new byte[ReceiptCredentialPresentation.SIZE];
+    presentation = new byte[25];
     SECURE_RANDOM.nextBytes(presentation);
     receiptCredentialPresentationFactory = mock(DonationController.ReceiptCredentialPresentationFactory.class);
     receiptCredentialPresentation = mock(ReceiptCredentialPresentation.class);
