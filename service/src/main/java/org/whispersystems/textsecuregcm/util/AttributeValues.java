@@ -119,6 +119,6 @@ public class AttributeValues {
   }
 
   public static UUID getUUID(Map<String, AttributeValue> item, String key, UUID defaultValue) {
-    return AttributeValues.get(item, key).map(AttributeValues::toUUID).orElse(defaultValue);
+    return AttributeValues.get(item, key).filter(av -> av.b() != null).map(AttributeValues::toUUID).orElse(defaultValue);
   }
 }

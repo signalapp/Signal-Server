@@ -57,4 +57,10 @@ public class AttributeValuesTest {
     AttributeValue av = AttributeValues.fromByteBuffer(byteBuffer.flip());
     assertArrayEquals(new byte[]{0, 0, 0, 0, 0, 0, 0, 123}, AttributeValues.getByteArray(Map.of("foo", av), "foo", null));
   }
+
+  @Test
+  void testNullUuid() {
+    final Map<String, AttributeValue> item = Map.of("key", AttributeValue.builder().nul(true).build());
+    assertNull(AttributeValues.getUUID(item, "key", null));
+  }
 }
