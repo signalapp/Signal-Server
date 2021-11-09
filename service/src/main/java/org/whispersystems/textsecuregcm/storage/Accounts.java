@@ -27,6 +27,7 @@ import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.CancellationReason;
+import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.Delete;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
@@ -38,6 +39,8 @@ import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
 import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException;
 import software.amazon.awssdk.services.dynamodb.model.TransactionConflictException;
 import software.amazon.awssdk.services.dynamodb.model.Update;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 
 public class Accounts extends AbstractDynamoDbStore {
 
@@ -302,11 +305,10 @@ public class Accounts extends AbstractDynamoDbStore {
 
   public void update(Account account) throws ContestedOptimisticLockException {
     UPDATE_TIMER.record(() -> {
-      final List<TransactWriteItem> transactWriteItems = new ArrayList<>(2);
+      final UpdateItemRequest updateItemRequest;
 
       try {
-        final TransactWriteItem updateAccountWriteItem = TransactWriteItem.builder()
-            .update(Update.builder()
+        updateItemRequest = UpdateItemRequest.builder()
                 .tableName(accountsTableName)
                 .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
                 .updateExpression("SET #data = :data, #cds = :cds, #pni = :pni ADD #version :version_increment")
@@ -322,32 +324,21 @@ public class Accounts extends AbstractDynamoDbStore {
                     ":version", AttributeValues.fromInt(account.getVersion()),
                     ":version_increment", AttributeValues.fromInt(1),
                     ":pni", AttributeValues.fromUUID(account.getPhoneNumberIdentifier())))
-                .build())
-            .build();;
-
-        transactWriteItems.add(updateAccountWriteItem);
+                .build();
       } catch (JsonProcessingException e) {
         throw new IllegalArgumentException(e);
       }
 
       try {
-        client.transactWriteItems(TransactWriteItemsRequest.builder()
-            .transactItems(transactWriteItems)
-            .build());
-
-        account.setVersion(account.getVersion() + 1);
+        final UpdateItemResponse response = client.updateItem(updateItemRequest);
+        account.setVersion(AttributeValues.getInt(response.attributes(), "V", account.getVersion() + 1));
       } catch (final TransactionConflictException e) {
 
         throw new ContestedOptimisticLockException();
 
-      } catch (final TransactionCanceledException e) {
-
-        if (e.cancellationReasons().size() > 1 && "ConditionalCheckFailed".equals(e.cancellationReasons().get(1).code())) {
-          log.error("Conflicting phone number mapping exists for account {}, PNI {}", account.getUuid(), account.getPhoneNumberIdentifier());
-          throw e;
-        }
-
-        // We can infer an optimistic locking failure if the UUID is known
+      } catch (final ConditionalCheckFailedException e) {
+        // the exception doesn't give details about which condition failed,
+        // but we can infer it was an optimistic locking failure if the UUID is known
         throw getByAccountIdentifier(account.getUuid()).isPresent() ? new ContestedOptimisticLockException() : e;
       }
     });

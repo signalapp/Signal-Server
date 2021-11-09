@@ -40,6 +40,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.CancellationReason;
+import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
@@ -329,7 +330,7 @@ class AccountsTest {
     device = generateDevice(1);
     Account unknownAccount = generateAccount("+14151113333", UUID.randomUUID(), UUID.randomUUID(), Collections.singleton(device));
 
-    assertThatThrownBy(() -> accounts.update(unknownAccount)).isInstanceOfAny(TransactionCanceledException.class);
+    assertThatThrownBy(() -> accounts.update(unknownAccount)).isInstanceOfAny(ConditionalCheckFailedException.class);
 
     account.setProfileName("name");
 
@@ -358,36 +359,12 @@ class AccountsTest {
     accounts = new Accounts(dynamoDbClient,
         dynamoDbExtension.getTableName(), NUMBER_CONSTRAINT_TABLE_NAME, PNI_CONSTRAINT_TABLE_NAME, SCAN_PAGE_SIZE);
 
-    when(dynamoDbClient.transactWriteItems(any(TransactWriteItemsRequest.class)))
+    when(dynamoDbClient.updateItem(any(UpdateItemRequest.class)))
         .thenThrow(TransactionConflictException.class);
 
-    Device device = generateDevice(1);
-    Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), Collections.singleton(device));
+    Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID());
 
     assertThatThrownBy(() -> accounts.update(account)).isInstanceOfAny(ContestedOptimisticLockException.class);
-  }
-
-  @Test
-  // TODO Remove after initial migration is complete
-  void testUpdateWithMockTransactionCancellationException() {
-
-    final DynamoDbClient dynamoDbClient = mock(DynamoDbClient.class);
-    accounts = new Accounts(dynamoDbClient,
-        dynamoDbExtension.getTableName(), NUMBER_CONSTRAINT_TABLE_NAME, PNI_CONSTRAINT_TABLE_NAME, SCAN_PAGE_SIZE);
-
-    when(dynamoDbClient.transactWriteItems(any(TransactWriteItemsRequest.class)))
-        .thenThrow(TransactionCanceledException.builder()
-            .cancellationReasons(CancellationReason.builder()
-                .code("Test")
-                .build())
-            .build());
-
-    when(dynamoDbClient.getItem(any(GetItemRequest.class))).thenReturn(GetItemResponse.builder().build());
-
-    Device device = generateDevice(1);
-    Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), Collections.singleton(device));
-
-    assertThatThrownBy(() -> accounts.update(account)).isInstanceOfAny(TransactionCanceledException.class);
   }
 
   @Test
