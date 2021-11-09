@@ -10,9 +10,9 @@ import com.google.protobuf.ByteString;
 import net.sourceforge.argparse4j.impl.Arguments;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
-import org.whispersystems.textsecuregcm.crypto.Curve;
-import org.whispersystems.textsecuregcm.crypto.ECKeyPair;
-import org.whispersystems.textsecuregcm.crypto.ECPrivateKey;
+import org.whispersystems.libsignal.ecc.Curve;
+import org.whispersystems.libsignal.ecc.ECKeyPair;
+import org.whispersystems.libsignal.ecc.ECPrivateKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 
 import java.io.IOException;
@@ -91,7 +91,12 @@ public class CertificateCommand extends Command {
                                                                     .build()
                                                                     .toByteArray();
 
-    byte[] signature = Curve.calculateSignature(key, certificate);
+    byte[] signature;
+    try {
+      signature = Curve.calculateSignature(key, certificate);
+    } catch (org.whispersystems.libsignal.InvalidKeyException e) {
+      throw new InvalidKeyException(e);
+    }
 
     byte[] signedCertificate = MessageProtos.ServerCertificate.newBuilder()
                                                               .setCertificate(ByteString.copyFrom(certificate))

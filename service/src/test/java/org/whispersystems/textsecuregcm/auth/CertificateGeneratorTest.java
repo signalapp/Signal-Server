@@ -6,7 +6,7 @@
 package org.whispersystems.textsecuregcm.auth;
 
 import org.junit.Test;
-import org.whispersystems.textsecuregcm.crypto.Curve;
+import org.whispersystems.libsignal.ecc.Curve;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 
