@@ -387,7 +387,7 @@ public class Accounts extends AbstractDynamoDbStore {
 
       } catch (final TransactionCanceledException e) {
 
-        if ("ConditionalCheckFailed".equals(e.cancellationReasons().get(1).code())) {
+        if (e.cancellationReasons().size() > 1 && "ConditionalCheckFailed".equals(e.cancellationReasons().get(1).code())) {
           log.error("Conflicting phone number mapping exists for account {}, PNI {}", account.getUuid(), account.getPhoneNumberIdentifier());
           throw e;
         }
