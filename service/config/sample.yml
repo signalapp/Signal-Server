@@ -1,59 +1,65 @@
+# Example, relatively minimal, configuration that passes validation (see `io.dropwizard.cli.CheckCommand`)
+#
+# `unset` values will need to be set to work properly.
+# Most other values are technically valid for a local/demonstration environment, but are probably not production-ready.
+
 stripe:
-  apiKey:
-  idempotencyKeyGenerator:
+  apiKey: unset
+  idempotencyKeyGenerator: abcdefg12345678= # base64 for creating request idempotency hash
 
 dynamoDbClientConfiguration:
-  region: # AWS Region
+  region: us-west-2 # AWS Region
 
 dynamoDbTables:
   issuedReceipts:
-    tableName: # DDB Table Name
-    expiration: # Duration of time until rows expire
-    generator: # random binary sequence
+    tableName: Example_IssuedReceipts
+    expiration: P30D # Duration of time until rows expire
+    generator: abcdefg12345678= # random base64-encoded binary sequence
   redeemedReceipts:
-    tableName: # DDB Table Name
-    expiration: # Duration of time until rows expire
+    tableName: Example_RedeemedReceipts
+    expiration: P30D # Duration of time until rows expire
   subscriptions:
-    tableName: # DDB Table Name
+    tableName: Example_Subscriptions
 
 twilio: # Twilio gateway configuration
-  accountId: 
-  accountToken: 
-  nanpaMessagingServiceSid: # Twilio SID for the messaging service to use for NANPA.
-  messagingServiceSid: # Twilio SID for the message service to use for non-NANPA.
-  verifyServiceSid: # Twilio SID for a Verify service
-  localDomain: # Domain Twilio can connect back to for calls. Should be domain of your service.
+  accountId: unset
+  accountToken: unset
+  nanpaMessagingServiceSid: unset # Twilio SID for the messaging service to use for NANPA.
+  messagingServiceSid: unset # Twilio SID for the message service to use for non-NANPA.
+  verifyServiceSid: unset # Twilio SID for a Verify service
+  localDomain: example.com # Domain Twilio can connect back to for calls. Should be domain of your service.
   defaultClientVerificationTexts:
-    ios: # Text to use for the verification message on iOS. Will be passed to String.format with the verification code as argument 1.
-    androidNg: # Text to use for the verification message on android-ng client types. Will be passed to String.format with the verification code as argument 1.
-    android202001: # Text to use for the verification message on android-2020-01 client types. Will be passed to String.format with the verification code as argument 1.
-    android202103: # Text to use for the verification message on android-2021-03 client types. Will be passed to String.format with the verification code as argument 1.
-    generic: # Text to use when the client type is unrecognized. Will be passed to String.format with the verification code as argument 1.
+    ios: example %1$s # Text to use for the verification message on iOS. Will be passed to String.format with the verification code as argument 1.
+    androidNg: example %1$s # Text to use for the verification message on android-ng client types. Will be passed to String.format with the verification code as argument 1.
+    android202001: example %1$s # Text to use for the verification message on android-2020-01 client types. Will be passed to String.format with the verification code as argument 1.
+    android202103: example %1$s # Text to use for the verification message on android-2021-03 client types. Will be passed to String.format with the verification code as argument 1.
+    generic: example %1$s # Text to use when the client type is unrecognized. Will be passed to String.format with the verification code as argument 1.
   regionalClientVerificationTexts: # Map of country codes to custom texts
     999: # example country code
-      ios:
-      # … all keys from defaultClientVerificationTexts are required
-  androidAppHash: # Hash appended to Android
-  verifyServiceFriendlyName: # Service name used in template. Requires Twilio account rep to enable
+      ios: example %1$s # all keys from defaultClientVerificationTexts are required
+      androidNg: example %1$s
+      android202001: example %1$s
+      android202103: example %1$s
+      generic: example %1$s
+  androidAppHash: example # Hash appended to Android
+  verifyServiceFriendlyName: example # Service name used in template. Requires Twilio account rep to enable
 
 push:
-  queueSize: # Size of push pending queue
+  queueSize: 1000 # Size of push pending queue
 
 turn: # TURN server configuration
-  secret: # TURN server secret
+  secret: example # TURN server secret
   uris:
-    - stun:yourdomain:80
-    - stun:yourdomain.com:443
-    - turn:yourdomain:443?transport=udp
-    - turn:etc.com:80?transport=udp
+    - stun:example.com:80
+    - stun:another.example.com:443
+    - turn:example.com:443?transport=udp
+    - turn:ya.example.com:80?transport=udp
 
 cacheCluster: # Redis server configuration for cache cluster
-  urls:
-    - redis://redis.example.com:6379/
+  configurationUri: redis://redis.example.com:6379/
 
 clientPresenceCluster: # Redis server configuration for client presence cluster
-  urls:
-    - redis://redis.example.com:6379/
+  configurationUri: redis://redis.example.com:6379/
 
 pubsub: # Redis server configuration for pubsub cluster
   url: redis://redis.example.com:6379/
@@ -61,152 +67,190 @@ pubsub: # Redis server configuration for pubsub cluster
     - redis://redis.example.com:6379/
 
 pushSchedulerCluster: # Redis server configuration for push scheduler cluster
-  urls:
-    - redis://redis.example.com:6379/
+  configurationUri: redis://redis.example.com:6379/
 
 rateLimitersCluster: # Redis server configuration for rate limiters cluster
-  urls:
-    - redis://redis.example.com:6379/
+  configurationUri: redis://redis.example.com:6379/
 
 directory:
   client: # Configuration for interfacing with Contact Discovery Service cluster
-    userAuthenticationTokenSharedSecret: # hex-encoded secret shared with CDS used to generate auth tokens for Signal users
-    userAuthenticationTokenUserIdSecret: # hex-encoded secret shared among Signal-Servers to obscure user phone numbers from CDS
+    userAuthenticationTokenSharedSecret: 00000f # hex-encoded secret shared with CDS used to generate auth tokens for Signal users
+    userAuthenticationTokenUserIdSecret: 00000f # hex-encoded secret shared among Signal-Servers to obscure user phone numbers from CDS
   sqs:
-    accessKey:      # AWS SQS accessKey
-    accessSecret:   # AWS SQS accessSecret
-    queueUrls:      # AWS SQS queue urls
+    accessKey: test     # AWS SQS accessKey
+    accessSecret: test  # AWS SQS accessSecret
+    queueUrls: # AWS SQS queue urls
       - https://sqs.example.com/directory.fifo
   server: # One or more CDS servers
-    - replicationName:               # CDS replication name
-      replicationUrl:                # CDS replication endpoint base url
-      replicationPassword:           # CDS replication endpoint password
-      replicationCaCertificate:      # CDS replication endpoint TLS certificate trust root
+    - replicationName: example           # CDS replication name
+      replicationUrl: cds.example.com    # CDS replication endpoint base url
+      replicationPassword: example       # CDS replication endpoint password
+      replicationCaCertificate: |        # CDS replication endpoint TLS certificate trust root
+        -----BEGIN CERTIFICATE-----
+        ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+        ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+        ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+        ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+        ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+        ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+        ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+        ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+        ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+        ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+        ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+        ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+        ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+        ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+        ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+        ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+        ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+        ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+        AAAAAAAAAAAAAAAAAAAA
+        -----END CERTIFICATE-----
 
 directoryV2:
   client: # Configuration for interfacing with Contact Discovery Service v2 cluster
-    userAuthenticationTokenSharedSecret: # base64-encoded secret shared with CDS to generate auth tokens for Signal users
+    userAuthenticationTokenSharedSecret: abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG= # base64-encoded secret shared with CDS to generate auth tokens for Signal users
 
 messageCache: # Redis server configuration for message store cache
-  persistDelayMinutes:
-
+  persistDelayMinutes: 1
   cluster:
-    urls:
-      - redis://redis.example.com:6379/
+    configurationUri: redis://redis.example.com:6379/
 
 metricsCluster:
-  urls:
-    - redis://redis.example.com:6379/
+  configurationUri: redis://redis.example.com:6379/
 
 messageDynamoDb: # DynamoDB table configuration
-  region:
-  tableName:
+  region: us-west-2
+  tableName: Example_Messages
 
 keysDynamoDb: # DynamoDB table configuration
-  region:
-  tableName:
+  region: us-west-2
+  tableName: Example_PreKeys
 
 accountsDynamoDb: # DynamoDB table configuration
-  region:
-  tableName:
-  phoneNumberTableName:
+  region: us-west-2
+  tableName: Example_Accounts
+  phoneNumberTableName: Example_Accounts_PhoneNumbers
+  phoneNumberIdentifierTableName: Example_Accounts_PhoneNumberIdentifiers
 
 deletedAccountsDynamoDb: # DynamoDb table configuration
-  region:
-  tableName:
-  needsReconciliationIndexName:
+  region: us-west-2
+  tableName: Example_DeletedAccounts
+  needsReconciliationIndexName: NeedsReconciliation
 
 deletedAccountsLockDynamoDb: # DynamoDb table configuration
-  region:
-  tableName:
-
-redeemedReceiptsDynamoDb: # DynamoDB table configuration
-  region:
-  tableName:
-  expirationTime: # ISO8601 Duration
-
-migrationDeletedAccountsDynamoDb: # DynamoDB table configuration
-  region:
-  tableName:
-
-migrationRetryAccountsDynamoDb: # DynamoDB table configuration
-  region:
-  tableName:
+  region: us-west-2
+  tableName: Example_DeletedAccountsLock
 
 pendingAccountsDynamoDb: # DynamoDB table configuration
-  region:
-  tableName:
+  region: us-west-2
+  tableName: Example_PendingAccounts
 
 pendingDevicesDynamoDb: # DynamoDB table configuration
-  region:
-  tableName:
+  region: us-west-2
+  tableName: Example_PendingDevices
+
+phoneNumberIdentifiersDynamoDb: # DynamoDB table configuration
+  region: us-west-2
+  tableName: Example_PhoneNumberIdentifiers
 
 pushChallengeDynamoDb: # DynamoDB table configuration
-  region:
-  tableName:
+  region: us-west-2
+  tableName: Example_PushChallenges
 
 reportMessageDynamoDb: # DynamoDB table configuration
-  region:
-  tableName:
+  region: us-west-2
+  tableName: Example_ReportedMessages
 
 awsAttachments: # AWS S3 configuration
-  accessKey:
-  accessSecret:
-  bucket:
-  region:
+  accessKey: test
+  accessSecret: test
+  bucket: aws-attachments
+  region: us-west-2
 
 gcpAttachments: # GCP Storage configuration
-  domain:
-  email:
-  maxSizeInBytes:
+  domain: example.com
+  email: user@example.cocm
+  maxSizeInBytes: 1024
   pathPrefix:
-  rsaSigningKey:
+  rsaSigningKey: |
+    -----BEGIN PRIVATE KEY-----
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    AAAAAAAA
+    -----END PRIVATE KEY-----
 
 abuseDatabase: # Postgresql database configuration
   driverClass: org.postgresql.Driver
-  user:
-  password:
-  url:
+  user: example
+  password: password
+  url: jdbc:postgresql://example.com:5432/abusedb
 
 accountsDatabase: # Postgresql database configuration
   driverClass: org.postgresql.Driver
-  user:
-  password:
-  url:
+  user: example
+  password: password
+  url: jdbc:postgresql://example.com:5432/accountsdb
 
 accountDatabaseCrawler:
-  chunkSize: # accounts per run
-  chunkIntervalMs: # time per run
-
-dynamoDbMigrationCrawler:
-  chunkSize: # accounts per run
-  chunkIntervalMs: # time per run
+  chunkSize: 10           # accounts per run
+  chunkIntervalMs: 60000  # time per run
 
 apn: # Apple Push Notifications configuration
   sandbox: true
-  bundleId:
-  keyId:
-  teamId:
-  signingKey:
+  bundleId: com.example.textsecuregcm
+  keyId: unset
+  teamId: unset
+  signingKey: |
+    -----BEGIN PRIVATE KEY-----
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    AAAAAAAA
+    -----END PRIVATE KEY-----
 
 gcm: # GCM Configuration
-  senderId:
-  apiKey:
+  senderId: 123456789
+  apiKey: unset
 
 cdn:
-  accessKey: # AWS Access Key ID
-  accessSecret: # AWS Access Secret
-  bucket: # S3 Bucket name
-  region: # AWS region
+  accessKey: test    # AWS Access Key ID
+  accessSecret: test # AWS Access Secret
+  bucket: cdn        # S3 Bucket name
+  region: us-west-2  # AWS region
 
 datadog:
-  apiKey:
-  environment:
+  apiKey: unset
+  environment: dev
 
 unidentifiedDelivery:
-  certificate:
-  privateKey:
-  expiresDays:
+  certificate: ABCD1234
+  privateKey: ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789AAAAAAA
+  expiresDays: 7
 
 voiceVerification:
   url: https://cdn-ca.signal.org/verification/
@@ -214,33 +258,74 @@ voiceVerification:
     - en
 
 recaptcha:
-  secret:
+  secret: unset
 
 recaptchaV2:
-  siteKey:
-  scoreFloor:
-  projectPath:
-  credentialConfigurationJson:
+  siteKey: unset
+  scoreFloor: 1.0
+  projectPath: projects/example
+  credentialConfigurationJson: "{ }" # service account configuration for backend authentication
 
 storageService:
-  uri:
-  userAuthenticationTokenSharedSecret:
-  storageCaCertificate:
+  uri: storage.example.com
+  userAuthenticationTokenSharedSecret: 00000f
+  storageCaCertificate: |
+    -----BEGIN CERTIFICATE-----
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    AAAAAAAAAAAAAAAAAAAA
+    -----END CERTIFICATE-----
 
 backupService:
-  uri:
-  userAuthenticationTokenSharedSecret:
-  backupCaCertificate:
+  uri: backup.example.com
+  userAuthenticationTokenSharedSecret: 00000f
+  backupCaCertificate: |
+    -----BEGIN CERTIFICATE-----
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+    AAAAAAAAAAAAAAAAAAAA
+    -----END CERTIFICATE-----
 
 zkConfig:
-  serverPublic:
-  serverSecret:
-  enabled:
+  serverPublic: ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyz
+  serverSecret: ABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/0123456789+abcdefghijklmnopqrstuvwxyzAA==
 
 appConfig:
-  application:
-  environment:
-  configuration:
+  application: example
+  environment: example
+  configuration: example
 
 remoteConfig:
   authorizedTokens:
@@ -249,48 +334,65 @@ remoteConfig:
     - # ...
     - # Nth authorized token
   globalConfig: # keys and values that are given to clients on GET /v1/config
-
+    EXAMPLE_KEY: VALUE
 
 paymentsService:
-  userAuthenticationTokenSharedSecret: # hex-encoded 32-byte secret shared with MobileCoin services used to generate auth tokens for Signal users
-  fixerApiKey:
+  userAuthenticationTokenSharedSecret: 0000000f0000000f0000000f0000000f0000000f0000000f0000000f0000000f # hex-encoded 32-byte secret shared with MobileCoin services used to generate auth tokens for Signal users
+  fixerApiKey: unset
   paymentCurrencies:
-    -
-
-torExitNodeList:
-  s3Region:
-  s3Bucket:
-  objectKey:
-  maxSize:
-
-asnTable:
-  s3Region:
-  s3Bucket:
-  objectKey:
-  maxSize:
+    # list of symbols for supported currencies
+    - MOB
 
 donation:
-  uri: # value
+  uri: donation.example.com # value
   supportedCurrencies:
     - # 1st supported currency
     - # 2nd supported currency
     - # ...
     - # Nth supported currency
-  circuitBreaker:
-    failureRateThreshold: # value
-    ringBufferSizeInHalfOpenState: # value
-    ringBufferSizeInClosedState: # value
-    waitDurationInOpenStateInSeconds: # value
-  retry:
-    maxAttempts: # value
-    waitDuration: # value
 
 badges:
   badges:
     - id: TEST
-      imageUrl: https://example.com/test-badge
       category: other
+      sprites: # exactly 6
+        - sprite-1.png
+        - sprite-2.png
+        - sprite-3.png
+        - sprite-4.png
+        - sprite-5.png
+        - sprite-6.png
+      svg: example.svg
+      svgs:
+        - light: example-light.svg
+          dark: example-dark.svg
+          transparent: example-transparent.svg
   badgeIdsEnabledForAll:
     - TEST
   receiptLevels:
     '1': TEST
+
+subscription: # configuration for Stripe subscriptions
+  badgeGracePeriod: P15D
+  levels:
+    500:
+      badge: EXAMPLE
+      prices:
+        # list of ISO 4217 currency codes and amounts for the given badge level
+        xts:
+          amount: '10'
+          id: price_example # stripe ID
+
+boost:
+  level: 1
+  expiration: P90D
+  badge: EXAMPLE
+  currencies:
+    # ISO 4217 currency codes and amounts in those currencies
+    xts:
+      - '1'
+      - '2'
+      - '4'
+      - '8'
+      - '20'
+      - '40'
