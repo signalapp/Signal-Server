@@ -57,7 +57,7 @@ public class AccountDatabaseCrawlerIntegrationTest extends AbstractRedisClusterT
         .thenReturn(new AccountCrawlChunk(List.of(secondAccount), SECOND_UUID))
         .thenReturn(new AccountCrawlChunk(Collections.emptyList(), null));
 
-    final AccountDatabaseCrawlerCache crawlerCache = new AccountDatabaseCrawlerCache(getRedisCluster());
+    final AccountDatabaseCrawlerCache crawlerCache = new AccountDatabaseCrawlerCache(getRedisCluster(), "test");
     accountDatabaseCrawler = new AccountDatabaseCrawler(accountsManager, crawlerCache, List.of(listener), CHUNK_SIZE,
         CHUNK_INTERVAL_MS);
   }

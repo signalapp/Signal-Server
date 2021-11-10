@@ -526,9 +526,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     MessagePersister messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager, dynamicConfigurationManager, Duration.ofMinutes(config.getMessageCacheConfiguration().getPersistDelayMinutes()));
 
-    // TODO listeners must be ordered so that ones that directly update accounts come last, so that read-only ones are not working with stale data
-    final List<AccountDatabaseCrawlerListener> accountDatabaseCrawlerListeners = new ArrayList<>();
-
+    final List<AccountDatabaseCrawlerListener> directoryReconciliationAccountDatabaseCrawlerListeners = new ArrayList<>();
     final List<DeletedAccountsDirectoryReconciler> deletedAccountsDirectoryReconcilers = new ArrayList<>();
     for (DirectoryServerConfiguration directoryServerConfiguration : config.getDirectoryConfiguration()
         .getDirectoryServerConfiguration()) {
@@ -538,26 +536,34 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
           directoryServerConfiguration.getReplicationName(), directoryReconciliationClient,
           dynamicConfigurationManager);
       // reconcilers are read-only
-      accountDatabaseCrawlerListeners.add(directoryReconciler);
+      directoryReconciliationAccountDatabaseCrawlerListeners.add(directoryReconciler);
 
       final DeletedAccountsDirectoryReconciler deletedAccountsDirectoryReconciler = new DeletedAccountsDirectoryReconciler(
           directoryServerConfiguration.getReplicationName(), directoryReconciliationClient);
       deletedAccountsDirectoryReconcilers.add(deletedAccountsDirectoryReconciler);
     }
-    accountDatabaseCrawlerListeners.add(new NonNormalizedAccountCrawlerListener(accountsManager, metricsCluster));
-    accountDatabaseCrawlerListeners.add(new ContactDiscoveryWriter(accountsManager));
-    accountDatabaseCrawlerListeners.add(new AssignPhoneNumberIdentifierCrawlerListener(accountsManager, phoneNumberIdentifiers));
-    // PushFeedbackProcessor may update device properties
-    accountDatabaseCrawlerListeners.add(new PushFeedbackProcessor(accountsManager));
-    // delete accounts last
-    accountDatabaseCrawlerListeners.add(new AccountCleaner(accountsManager));
 
-    HttpClient                currencyClient  = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).connectTimeout(Duration.ofSeconds(10)).build();
-    FixerClient               fixerClient     = new FixerClient(currencyClient, config.getPaymentsServiceConfiguration().getFixerApiKey());
-    FtxClient                 ftxClient       = new FtxClient(currencyClient);
-    CurrencyConversionManager currencyManager = new CurrencyConversionManager(fixerClient, ftxClient, config.getPaymentsServiceConfiguration().getPaymentCurrencies());
+    AccountDatabaseCrawlerCache directoryReconciliationAccountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(
+        cacheCluster, AccountDatabaseCrawlerCache.DIRECTORY_RECONCILER_PREFIX);
+    AccountDatabaseCrawler directoryReconciliationAccountDatabaseCrawler = new AccountDatabaseCrawler(accountsManager,
+        directoryReconciliationAccountDatabaseCrawlerCache, directoryReconciliationAccountDatabaseCrawlerListeners,
+        config.getAccountDatabaseCrawlerConfiguration().getChunkSize(),
+        config.getAccountDatabaseCrawlerConfiguration().getChunkIntervalMs()
+    );
 
-    AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(cacheCluster);
+    // TODO listeners must be ordered so that ones that directly update accounts come last, so that read-only ones are not working with stale data
+    final List<AccountDatabaseCrawlerListener> accountDatabaseCrawlerListeners = List.of(
+        new NonNormalizedAccountCrawlerListener(accountsManager, metricsCluster),
+        new ContactDiscoveryWriter(accountsManager),
+        new AssignPhoneNumberIdentifierCrawlerListener(accountsManager, phoneNumberIdentifiers),
+        // PushFeedbackProcessor may update device properties
+        new PushFeedbackProcessor(accountsManager),
+        // delete accounts last
+        new AccountCleaner(accountsManager)
+    );
+
+    AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(cacheCluster,
+        AccountDatabaseCrawlerCache.GENERAL_PURPOSE_PREFIX);
     AccountDatabaseCrawler accountDatabaseCrawler = new AccountDatabaseCrawler(accountsManager,
         accountDatabaseCrawlerCache, accountDatabaseCrawlerListeners,
         config.getAccountDatabaseCrawlerConfiguration().getChunkSize(),
@@ -566,12 +572,18 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     DeletedAccountsTableCrawler deletedAccountsTableCrawler = new DeletedAccountsTableCrawler(deletedAccountsManager, deletedAccountsDirectoryReconcilers, cacheCluster, recurringJobExecutor);
 
+    HttpClient                currencyClient  = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).connectTimeout(Duration.ofSeconds(10)).build();
+    FixerClient               fixerClient     = new FixerClient(currencyClient, config.getPaymentsServiceConfiguration().getFixerApiKey());
+    FtxClient                 ftxClient       = new FtxClient(currencyClient);
+    CurrencyConversionManager currencyManager = new CurrencyConversionManager(fixerClient, ftxClient, config.getPaymentsServiceConfiguration().getPaymentCurrencies());
+
     apnSender.setApnFallbackManager(apnFallbackManager);
     environment.lifecycle().manage(new ApplicationShutdownMonitor());
     environment.lifecycle().manage(apnFallbackManager);
     environment.lifecycle().manage(pubSubManager);
     environment.lifecycle().manage(messageSender);
     environment.lifecycle().manage(accountDatabaseCrawler);
+    environment.lifecycle().manage(directoryReconciliationAccountDatabaseCrawler);
     environment.lifecycle().manage(deletedAccountsTableCrawler);
     environment.lifecycle().manage(remoteConfigsManager);
     environment.lifecycle().manage(messagesCache);

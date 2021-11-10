@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.storage;
@@ -16,6 +16,9 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class AccountDatabaseCrawlerCache {
 
+  public static final String GENERAL_PURPOSE_PREFIX = "";
+  public static final String DIRECTORY_RECONCILER_PREFIX = "directory-reconciler";
+
   private static final String ACTIVE_WORKER_KEY = "account_database_crawler_cache_active_worker";
   private static final String LAST_UUID_KEY = "account_database_crawler_cache_last_uuid";
   private static final String ACCELERATE_KEY = "account_database_crawler_cache_accelerate";
@@ -27,17 +30,21 @@ public class AccountDatabaseCrawlerCache {
   private final FaultTolerantRedisCluster cacheCluster;
   private final ClusterLuaScript unlockClusterScript;
 
-  public AccountDatabaseCrawlerCache(FaultTolerantRedisCluster cacheCluster) throws IOException {
+  private final String prefix;
+
+  public AccountDatabaseCrawlerCache(FaultTolerantRedisCluster cacheCluster, String prefix) throws IOException {
     this.cacheCluster = cacheCluster;
     this.unlockClusterScript = ClusterLuaScript.fromResource(cacheCluster, "lua/account_database_crawler/unlock.lua",
         ScriptOutputType.INTEGER);
+
+    this.prefix = prefix + "::";
   }
 
   public void setAccelerated(final boolean accelerated) {
     if (accelerated) {
-      cacheCluster.useCluster(connection -> connection.sync().set(ACCELERATE_KEY, "1"));
+      cacheCluster.useCluster(connection -> connection.sync().set(getPrefixedKey(ACCELERATE_KEY), "1"));
     } else {
-      cacheCluster.useCluster(connection -> connection.sync().del(ACCELERATE_KEY));
+      cacheCluster.useCluster(connection -> connection.sync().del(getPrefixedKey(ACCELERATE_KEY)));
     }
   }
 
@@ -47,16 +54,16 @@ public class AccountDatabaseCrawlerCache {
 
   public boolean claimActiveWork(String workerId, long ttlMs) {
     return "OK".equals(cacheCluster.withCluster(connection -> connection.sync()
-        .set(ACTIVE_WORKER_KEY, workerId, SetArgs.Builder.nx().px(ttlMs))));
+        .set(getPrefixedKey(ACTIVE_WORKER_KEY), workerId, SetArgs.Builder.nx().px(ttlMs))));
   }
 
   public void releaseActiveWork(String workerId) {
-    unlockClusterScript.execute(List.of(ACTIVE_WORKER_KEY), List.of(workerId));
+    unlockClusterScript.execute(List.of(getPrefixedKey(ACTIVE_WORKER_KEY)), List.of(workerId));
   }
 
   public Optional<UUID> getLastUuid() {
     final String lastUuidString = cacheCluster.withCluster(
-        connection -> connection.sync().get(LAST_UUID_KEY));
+        connection -> connection.sync().get(getPrefixedKey(LAST_UUID_KEY)));
 
     if (lastUuidString == null) {
       return Optional.empty();
@@ -68,15 +75,15 @@ public class AccountDatabaseCrawlerCache {
   public void setLastUuid(Optional<UUID> lastUuid) {
     if (lastUuid.isPresent()) {
       cacheCluster.useCluster(connection -> connection.sync()
-          .psetex(LAST_UUID_KEY, LAST_NUMBER_TTL_MS, lastUuid.get().toString()));
+          .psetex(getPrefixedKey(LAST_UUID_KEY), LAST_NUMBER_TTL_MS, lastUuid.get().toString()));
     } else {
-      cacheCluster.useCluster(connection -> connection.sync().del(LAST_UUID_KEY));
+      cacheCluster.useCluster(connection -> connection.sync().del(getPrefixedKey(LAST_UUID_KEY)));
     }
   }
 
   public Optional<UUID> getLastUuidDynamo() {
     final String lastUuidString = cacheCluster.withCluster(
-        connection -> connection.sync().get(LAST_UUID_DYNAMO_KEY));
+        connection -> connection.sync().get(getPrefixedKey(LAST_UUID_DYNAMO_KEY)));
 
     if (lastUuidString == null) {
       return Optional.empty();
@@ -89,9 +96,14 @@ public class AccountDatabaseCrawlerCache {
     if (lastUuid.isPresent()) {
       cacheCluster.useCluster(
           connection -> connection.sync()
-              .psetex(LAST_UUID_DYNAMO_KEY, LAST_NUMBER_TTL_MS, lastUuid.get().toString()));
+              .psetex(getPrefixedKey(LAST_UUID_DYNAMO_KEY), LAST_NUMBER_TTL_MS, lastUuid.get().toString()));
     } else {
-      cacheCluster.useCluster(connection -> connection.sync().del(LAST_UUID_DYNAMO_KEY));
+      cacheCluster.useCluster(connection -> connection.sync().del(getPrefixedKey(LAST_UUID_DYNAMO_KEY)));
     }
   }
+
+  private String getPrefixedKey(final String key) {
+    return prefix + key;
+  }
+
 }
