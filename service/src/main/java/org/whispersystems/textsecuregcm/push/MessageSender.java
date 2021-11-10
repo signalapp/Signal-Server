@@ -124,22 +124,24 @@ public class MessageSender implements Managed {
 
     gcmSender.sendMessage(gcmMessage);
 
-    RedisOperation.unchecked(() -> pushLatencyManager.recordPushSent(account.getUuid(), device.getId()));
+    RedisOperation.unchecked(() -> pushLatencyManager.recordPushSent(account.getUuid(), device.getId(), false));
   }
 
   private void sendApnNotification(Account account, Device device) {
     ApnMessage apnMessage;
 
-    if (!Util.isEmpty(device.getVoipApnId())) {
-      apnMessage = new ApnMessage(device.getVoipApnId(), account.getUuid(), device.getId(), true, Type.NOTIFICATION, Optional.empty());
+    final boolean useVoip = !Util.isEmpty(device.getVoipApnId());
+
+    if (useVoip) {
+      apnMessage = new ApnMessage(device.getVoipApnId(), account.getUuid(), device.getId(), useVoip, Type.NOTIFICATION, Optional.empty());
       RedisOperation.unchecked(() -> apnFallbackManager.schedule(account, device));
     } else {
-      apnMessage = new ApnMessage(device.getApnId(), account.getUuid(), device.getId(), false, Type.NOTIFICATION, Optional.empty());
+      apnMessage = new ApnMessage(device.getApnId(), account.getUuid(), device.getId(), useVoip, Type.NOTIFICATION, Optional.empty());
     }
 
     apnSender.sendMessage(apnMessage);
 
-    RedisOperation.unchecked(() -> pushLatencyManager.recordPushSent(account.getUuid(), device.getId()));
+    RedisOperation.unchecked(() -> pushLatencyManager.recordPushSent(account.getUuid(), device.getId(), useVoip));
   }
 
   @Override

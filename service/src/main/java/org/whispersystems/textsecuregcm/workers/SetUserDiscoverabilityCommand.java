@@ -193,7 +193,7 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
           Executors.newSingleThreadScheduledExecutor(), keyspaceNotificationDispatchExecutor);
       MessagesCache messagesCache = new MessagesCache(messageInsertCacheCluster, messageReadDeleteCluster,
           keyspaceNotificationDispatchExecutor);
-      PushLatencyManager pushLatencyManager = new PushLatencyManager(metricsCluster);
+      PushLatencyManager pushLatencyManager = new PushLatencyManager(metricsCluster, dynamicConfigurationManager);
       DirectoryQueue directoryQueue = new DirectoryQueue(
           configuration.getDirectoryConfiguration().getSqsConfiguration());
       UsernamesManager usernamesManager = new UsernamesManager(usernames, reservedUsernames, cacheCluster);

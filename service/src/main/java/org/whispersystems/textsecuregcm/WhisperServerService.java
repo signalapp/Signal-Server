@@ -468,7 +468,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     UsernamesManager           usernamesManager           = new UsernamesManager(usernames, reservedUsernames, cacheCluster);
     ProfilesManager            profilesManager            = new ProfilesManager(profiles, cacheCluster);
     MessagesCache              messagesCache              = new MessagesCache(messagesCluster, messagesCluster, keyspaceNotificationDispatchExecutor);
-    PushLatencyManager         pushLatencyManager         = new PushLatencyManager(metricsCluster);
+    PushLatencyManager         pushLatencyManager         = new PushLatencyManager(metricsCluster, dynamicConfigurationManager);
     ReportMessageManager       reportMessageManager       = new ReportMessageManager(reportMessageDynamoDb, rateLimitersCluster, Metrics.globalRegistry, config.getReportMessageConfiguration().getCounterTtl());
     MessagesManager            messagesManager            = new MessagesManager(messagesDynamoDb, messagesCache, pushLatencyManager, reportMessageManager);
     DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,

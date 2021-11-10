@@ -51,6 +51,10 @@ public class DynamicConfiguration {
   @JsonProperty
   private DynamicDirectoryReconcilerConfiguration directoryReconciler = new DynamicDirectoryReconcilerConfiguration();
 
+  @JsonProperty
+  @Valid
+  private DynamicPushLatencyConfiguration pushLatency = new DynamicPushLatencyConfiguration(Collections.emptyMap());
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -100,5 +104,9 @@ public class DynamicConfiguration {
 
   public DynamicDirectoryReconcilerConfiguration getDirectoryReconcilerConfiguration() {
     return directoryReconciler;
+  }
+
+  public DynamicPushLatencyConfiguration getPushLatencyConfiguration() {
+    return pushLatency;
   }
 }
