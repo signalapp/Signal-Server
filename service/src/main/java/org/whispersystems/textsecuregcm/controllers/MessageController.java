@@ -14,6 +14,7 @@ import com.codahale.metrics.Timer;
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
+import com.vdurmont.semver4j.Semver;
 import io.dropwizard.auth.Auth;
 import io.dropwizard.util.DataSize;
 import io.micrometer.core.instrument.Counter;
@@ -42,6 +43,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.validation.Valid;
+import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -96,7 +98,9 @@ import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
+import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
+import org.whispersystems.textsecuregcm.util.ua.UserAgent;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
 
@@ -123,6 +127,12 @@ public class MessageController {
   private final RateLimitChallengeManager   rateLimitChallengeManager;
   private final ReportMessageManager        reportMessageManager;
   private final ExecutorService             multiRecipientMessageExecutor;
+
+  @VisibleForTesting
+  static final Semver FIRST_IOS_VERSION_WITH_INCORRECT_ENVELOPE_TYPE = new Semver("5.22.0.32");
+
+  @VisibleForTesting
+  static final Semver IOS_VERSION_WITH_FIXED_ENVELOPE_TYPE = new Semver("5.25.0.0");
 
   private static final String LEGACY_MESSAGE_SENT_COUNTER = name(MessageController.class, "legacyMessageSent");
   private static final String SENT_MESSAGE_COUNTER_NAME = name(MessageController.class, "sentMessages");
@@ -269,7 +279,7 @@ public class MessageController {
         if (destinationDevice.isPresent()) {
           Metrics.counter(SENT_MESSAGE_COUNTER_NAME, tags).increment();
           sendMessage(source, destination.get(), destinationDevice.get(), messages.getTimestamp(), messages.isOnline(),
-              incomingMessage);
+              incomingMessage, userAgent);
         }
       }
 
@@ -514,14 +524,38 @@ public class MessageController {
       Device destinationDevice,
       long timestamp,
       boolean online,
-      IncomingMessage incomingMessage)
+      IncomingMessage incomingMessage,
+      String userAgentString)
       throws NoSuchUserException {
     try (final Timer.Context ignored = sendMessageInternalTimer.time()) {
       Optional<byte[]> messageBody = getMessageBody(incomingMessage);
       Optional<byte[]> messageContent = getMessageContent(incomingMessage);
       Envelope.Builder messageBuilder = Envelope.newBuilder();
 
-      messageBuilder.setType(Envelope.Type.forNumber(incomingMessage.getType()))
+      int envelopeTypeNumber = incomingMessage.getType();
+
+      // Some versions of the iOS app incorrectly use the reserved envelope type 7 for PLAINTEXT_CONTENT instead of type
+      // 8. This check can be removed safely after 2022-03-01.
+      if (envelopeTypeNumber == 7) {
+        try {
+          final UserAgent userAgent = UserAgentUtil.parseUserAgentString(userAgentString);
+          if (userAgent.getPlatform() == ClientPlatform.IOS &&
+              userAgent.getVersion().isGreaterThanOrEqualTo(FIRST_IOS_VERSION_WITH_INCORRECT_ENVELOPE_TYPE) &&
+              userAgent.getVersion().isLowerThan(IOS_VERSION_WITH_FIXED_ENVELOPE_TYPE)) {
+            envelopeTypeNumber = Type.PLAINTEXT_CONTENT.getNumber();
+          }
+        } catch (final UnrecognizedUserAgentException ignored2) {
+        }
+      }
+
+      final Envelope.Type envelopeType = Envelope.Type.forNumber(envelopeTypeNumber);
+
+      if (envelopeType == null) {
+        logger.warn("Received bad envelope type {} from {}", incomingMessage.getType(), userAgentString);
+        throw new BadRequestException();
+      }
+
+      messageBuilder.setType(envelopeType)
           .setTimestamp(timestamp == 0 ? System.currentTimeMillis() : timestamp)
           .setServerTimestamp(System.currentTimeMillis());
 
