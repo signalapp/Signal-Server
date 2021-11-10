@@ -337,6 +337,7 @@
         <version>0.6.1</version>
         <configuration>
           <protocArtifact>com.google.protobuf:protoc:3.18.0:exe:${os.detected.classifier}</protocArtifact>
+          <checkStaleness>true</checkStaleness>
         </configuration>
         <executions>
           <execution>
