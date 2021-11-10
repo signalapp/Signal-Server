@@ -152,7 +152,6 @@ public class PushLatencyManager {
   @VisibleForTesting
   CompletableFuture<PushRecord> takePushRecord(final UUID accountUuid, final long deviceId) {
     final String key = getFirstUnacknowledgedPushKey(accountUuid, deviceId);
-    final String legacyKey = getLegacyFirstUnacknowledgedPushKey(accountUuid, deviceId);
 
     return redisCluster.withCluster(connection -> {
       final CompletableFuture<PushRecord> getFuture = connection.async().get(key).toCompletableFuture()
@@ -168,34 +167,17 @@ public class PushLatencyManager {
             }
           });
 
-      final CompletableFuture<PushRecord> legacyGetFuture = connection.async().get(legacyKey).toCompletableFuture()
-          .thenApply(timestampString -> {
-            if (StringUtils.isNotEmpty(timestampString)) {
-              return new PushRecord(Instant.ofEpochMilli(Long.parseLong(timestampString)), null);
-            } else {
-              return null;
-            }
-          });
-
-      final CompletableFuture<PushRecord> pushRecordFuture = getFuture.thenCombine(legacyGetFuture,
-          (a, b) -> a != null ? a : b);
-
-      pushRecordFuture.whenComplete((record, cause) -> {
+      getFuture.whenComplete((record, cause) -> {
         if (cause == null) {
-          connection.async().del(key, legacyKey);
+          connection.async().del(key);
         }
       });
 
-      return pushRecordFuture;
+      return getFuture;
     });
   }
 
   private static String getFirstUnacknowledgedPushKey(final UUID accountUuid, final long deviceId) {
     return "push_latency::v2::" + accountUuid.toString() + "::" + deviceId;
-  }
-
-  @VisibleForTesting
-  static String getLegacyFirstUnacknowledgedPushKey(final UUID accountUuid, final long deviceId) {
-    return "push_latency::" + accountUuid.toString() + "::" + deviceId;
   }
 }

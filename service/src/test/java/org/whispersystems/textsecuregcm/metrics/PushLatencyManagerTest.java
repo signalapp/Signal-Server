@@ -18,7 +18,6 @@ import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -68,32 +67,6 @@ class PushLatencyManagerTest {
     assertNotNull(pushRecord);
     assertEquals(pushTimestamp, pushRecord.getTimestamp());
     assertEquals(isVoip ? PushType.VOIP : PushType.STANDARD, pushRecord.getPushType());
-
-    assertNull(pushLatencyManager.takePushRecord(accountUuid, deviceId).get());
-  }
-
-  @Test
-  void testTakeLegacyRecord() throws ExecutionException, InterruptedException {
-    final UUID accountUuid = UUID.randomUUID();
-    final long deviceId = 1;
-
-    final Instant pushTimestamp = Instant.ofEpochMilli(123456789);
-
-    final PushLatencyManager pushLatencyManager = new PushLatencyManager(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        dynamicConfigurationManager, Clock.fixed(pushTimestamp, ZoneId.systemDefault()));
-
-    assertNull(pushLatencyManager.takePushRecord(accountUuid, deviceId).get());
-
-    // Inject a legacy record
-    REDIS_CLUSTER_EXTENSION.getRedisCluster().useCluster(connection ->
-        connection.sync().set(PushLatencyManager.getLegacyFirstUnacknowledgedPushKey(accountUuid, deviceId),
-            String.valueOf(pushTimestamp.toEpochMilli())));
-
-    final PushRecord pushRecord = pushLatencyManager.takePushRecord(accountUuid, deviceId).get();
-
-    assertNotNull(pushRecord);
-    assertEquals(pushTimestamp, pushRecord.getTimestamp());
-    assertNull(pushRecord.getPushType());
 
     assertNull(pushLatencyManager.takePushRecord(accountUuid, deviceId).get());
   }
