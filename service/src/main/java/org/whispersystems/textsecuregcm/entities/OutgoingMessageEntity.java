@@ -13,37 +13,16 @@ import java.util.UUID;
 
 public class OutgoingMessageEntity {
 
-  @JsonProperty
   private final UUID guid;
-
-  @JsonProperty
   private final int type;
-
-  @JsonProperty
   private final String relay;
-
-  @JsonProperty
   private final long timestamp;
-
-  @JsonProperty
   private final String source;
-
-  @JsonProperty
   private final UUID sourceUuid;
-
-  @JsonProperty
   private final int sourceDevice;
-
-  @JsonProperty
   private final UUID destinationUuid;
-
-  @JsonProperty
   private final byte[] message;
-
-  @JsonProperty
   private final byte[] content;
-
-  @JsonProperty
   private final long serverTimestamp;
 
   @JsonCreator
