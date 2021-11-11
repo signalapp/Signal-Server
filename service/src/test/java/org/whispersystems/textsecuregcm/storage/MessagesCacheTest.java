@@ -104,7 +104,7 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
         DESTINATION_DEVICE_ID, messageGuid);
 
     assertTrue(maybeRemovedMessage.isPresent());
-    assertEquals(MessagesCache.constructEntityFromEnvelope(0, message), maybeRemovedMessage.get());
+    assertEquals(MessagesCache.constructEntityFromEnvelope(message), maybeRemovedMessage.get());
   }
 
   @Test
@@ -136,7 +136,7 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
         messagesToRemove.stream().map(message -> UUID.fromString(message.getServerGuid()))
             .collect(Collectors.toList()));
 
-    assertEquals(messagesToRemove.stream().map(message -> MessagesCache.constructEntityFromEnvelope(0, message))
+    assertEquals(messagesToRemove.stream().map(MessagesCache::constructEntityFromEnvelope)
             .collect(Collectors.toList()),
         removedMessages);
 
@@ -167,7 +167,7 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
       final MessageProtos.Envelope message = generateRandomMessage(messageGuid, sealedSender);
       final long messageId = messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
 
-      expectedMessages.add(MessagesCache.constructEntityFromEnvelope(messageId, message));
+      expectedMessages.add(MessagesCache.constructEntityFromEnvelope(message));
     }
 
     assertEquals(expectedMessages, messagesCache.get(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount));
@@ -224,7 +224,8 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
         .setServerTimestamp(timestamp)
         .setContent(ByteString.copyFromUtf8(RandomStringUtils.randomAlphanumeric(256)))
         .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
-        .setServerGuid(messageGuid.toString());
+        .setServerGuid(messageGuid.toString())
+        .setDestinationUuid(UUID.randomUUID().toString());
 
     if (!sealedSender) {
       envelopeBuilder.setSourceDevice(random.nextInt(256))
@@ -270,7 +271,7 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
 
     messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID,
         generateRandomMessage(messageGuid, sealedSender));
-    final int slot = SlotHash.getSlot(DESTINATION_UUID.toString() + "::" + DESTINATION_DEVICE_ID);
+    final int slot = SlotHash.getSlot(DESTINATION_UUID + "::" + DESTINATION_DEVICE_ID);
 
     assertTrue(messagesCache.getQueuesToPersist(slot + 1, Instant.now().plusSeconds(60), 100).isEmpty());
 

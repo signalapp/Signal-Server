@@ -167,7 +167,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
     for (final byte[] bytes : serialized) {
       try {
-        removedMessages.add(constructEntityFromEnvelope(0, MessageProtos.Envelope.parseFrom(bytes)));
+        removedMessages.add(constructEntityFromEnvelope(MessageProtos.Envelope.parseFrom(bytes)));
       } catch (final InvalidProtocolBufferException e) {
         logger.warn("Failed to parse envelope", e);
       }
@@ -208,7 +208,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
             final long id = Long.parseLong(new String(queueItems.get(i + 1), StandardCharsets.UTF_8));
 
-            messageEntities.add(constructEntityFromEnvelope(id, message));
+            messageEntities.add(constructEntityFromEnvelope(message));
           } catch (InvalidProtocolBufferException e) {
             logger.warn("Failed to parse envelope", e);
           }
@@ -376,8 +376,8 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   }
 
   @VisibleForTesting
-  static OutgoingMessageEntity constructEntityFromEnvelope(long id, MessageProtos.Envelope envelope) {
-    return new OutgoingMessageEntity(id, true,
+  static OutgoingMessageEntity constructEntityFromEnvelope(MessageProtos.Envelope envelope) {
+    return new OutgoingMessageEntity(
         envelope.hasServerGuid() ? UUID.fromString(envelope.getServerGuid()) : null,
         envelope.getType().getNumber(),
         envelope.getRelay(),

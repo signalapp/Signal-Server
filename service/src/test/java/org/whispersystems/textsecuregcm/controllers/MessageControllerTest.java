@@ -459,8 +459,8 @@ class MessageControllerTest {
     final UUID sourceUuid     = UUID.randomUUID();
 
     List<OutgoingMessageEntity> messages = new LinkedList<>() {{
-      add(new OutgoingMessageEntity(1L, false, messageGuidOne, Envelope.Type.CIPHERTEXT_VALUE, null, timestampOne, "+14152222222", sourceUuid, 2, AuthHelper.VALID_UUID, "hi there".getBytes(), null, 0));
-      add(new OutgoingMessageEntity(2L, false, null, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, null, timestampTwo, "+14152222222", sourceUuid, 2, AuthHelper.VALID_UUID, null, null, 0));
+      add(new OutgoingMessageEntity(messageGuidOne, Envelope.Type.CIPHERTEXT_VALUE, null, timestampOne, "+14152222222", sourceUuid, 2, AuthHelper.VALID_UUID, "hi there".getBytes(), null, 0));
+      add(new OutgoingMessageEntity(null, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, null, timestampTwo, "+14152222222", sourceUuid, 2, AuthHelper.VALID_UUID, null, null, 0));
     }};
 
     OutgoingMessageEntityList messagesList = new OutgoingMessageEntityList(messages, false);
@@ -476,9 +476,6 @@ class MessageControllerTest {
 
 
     assertEquals(response.getMessages().size(), 2);
-
-    assertEquals(response.getMessages().get(0).getId(), 0);
-    assertEquals(response.getMessages().get(1).getId(), 0);
 
     assertEquals(response.getMessages().get(0).getTimestamp(), timestampOne);
     assertEquals(response.getMessages().get(1).getTimestamp(), timestampTwo);
@@ -496,8 +493,8 @@ class MessageControllerTest {
     final long timestampTwo = 313388;
 
     List<OutgoingMessageEntity> messages = new LinkedList<OutgoingMessageEntity>() {{
-      add(new OutgoingMessageEntity(1L, false, UUID.randomUUID(), Envelope.Type.CIPHERTEXT_VALUE, null, timestampOne, "+14152222222", UUID.randomUUID(), 2, AuthHelper.VALID_UUID, "hi there".getBytes(), null, 0));
-      add(new OutgoingMessageEntity(2L, false, UUID.randomUUID(), Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, null, timestampTwo, "+14152222222", UUID.randomUUID(), 2, AuthHelper.VALID_UUID, null, null, 0));
+      add(new OutgoingMessageEntity(UUID.randomUUID(), Envelope.Type.CIPHERTEXT_VALUE, null, timestampOne, "+14152222222", UUID.randomUUID(), 2, AuthHelper.VALID_UUID, "hi there".getBytes(), null, 0));
+      add(new OutgoingMessageEntity(UUID.randomUUID(), Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, null, timestampTwo, "+14152222222", UUID.randomUUID(), 2, AuthHelper.VALID_UUID, null, null, 0));
     }};
 
     OutgoingMessageEntityList messagesList = new OutgoingMessageEntityList(messages, false);
@@ -522,12 +519,12 @@ class MessageControllerTest {
 
     UUID uuid1 = UUID.randomUUID();
     when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid1)).thenReturn(Optional.of(new OutgoingMessageEntity(
-        31337L, true, uuid1, Envelope.Type.CIPHERTEXT_VALUE,
+        uuid1, Envelope.Type.CIPHERTEXT_VALUE,
         null, timestamp, "+14152222222", sourceUuid, 1, AuthHelper.VALID_UUID, "hi".getBytes(), null, 0)));
 
     UUID uuid2 = UUID.randomUUID();
     when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid2)).thenReturn(Optional.of(new OutgoingMessageEntity(
-        31337L, true, uuid2, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE,
+        uuid2, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE,
         null, System.currentTimeMillis(), "+14152222222", sourceUuid, 1, AuthHelper.VALID_UUID, null, null, 0)));
 
 

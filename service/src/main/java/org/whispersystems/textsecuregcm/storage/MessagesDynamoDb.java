@@ -228,7 +228,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     final UUID destinationUuid = AttributeValues.getUUID(message, KEY_DESTINATION_UUID, null);
     final byte[] messageBytes = AttributeValues.getByteArray(message, KEY_MESSAGE, null);
     final byte[] content = AttributeValues.getByteArray(message, KEY_CONTENT, null);
-    return new OutgoingMessageEntity(-1L, false, messageUuid, type, relay, timestamp, source, sourceUuid, sourceDevice, destinationUuid, messageBytes, content, sortKey.getServerTimestamp());
+    return new OutgoingMessageEntity(messageUuid, type, relay, timestamp, source, sourceUuid, sourceDevice, destinationUuid, messageBytes, content, sortKey.getServerTimestamp());
   }
 
   private void deleteRowsMatchingQuery(AttributeValue partitionKey, QueryRequest querySpec) {
