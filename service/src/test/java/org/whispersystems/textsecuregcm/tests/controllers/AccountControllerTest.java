@@ -1749,4 +1749,51 @@ class AccountControllerTest {
         Arguments.of("captcha enforced", true, Set.of("1"), 402)
     );
   }
+
+  @Test
+  void testAccountExists() {
+    final Account account = mock(Account.class);
+
+    final UUID accountIdentifier = UUID.randomUUID();
+    final UUID phoneNumberIdentifier = UUID.randomUUID();
+
+    when(accountsManager.getByAccountIdentifier(any())).thenReturn(Optional.empty());
+    when(accountsManager.getByAccountIdentifier(accountIdentifier)).thenReturn(Optional.of(account));
+    when(accountsManager.getByPhoneNumberIdentifier(any())).thenReturn(Optional.empty());
+    when(accountsManager.getByPhoneNumberIdentifier(phoneNumberIdentifier)).thenReturn(Optional.of(account));
+
+    when(rateLimiters.getCheckAccountExistenceLimiter()).thenReturn(mock(RateLimiter.class));
+
+    assertThat(resources.getJerseyTest()
+        .target(String.format("/v1/accounts/account/%s", accountIdentifier))
+        .request()
+        .header("X-Forwarded-For", "127.0.0.1")
+        .head()
+        .getStatus()).isEqualTo(200);
+
+    assertThat(resources.getJerseyTest()
+        .target(String.format("/v1/accounts/account/%s", phoneNumberIdentifier))
+        .request()
+        .header("X-Forwarded-For", "127.0.0.1")
+        .head()
+        .getStatus()).isEqualTo(200);
+
+    assertThat(resources.getJerseyTest()
+        .target(String.format("/v1/accounts/account/%s", UUID.randomUUID()))
+        .request()
+        .header("X-Forwarded-For", "127.0.0.1")
+        .head()
+        .getStatus()).isEqualTo(404);
+  }
+
+  @Test
+  void testAccountExistsAuthenticated() {
+    assertThat(resources.getJerseyTest()
+        .target(String.format("/v1/accounts/account/%s", UUID.randomUUID()))
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .header("X-Forwarded-For", "127.0.0.1")
+        .head()
+        .getStatus()).isEqualTo(400);
+  }
 }

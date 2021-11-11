@@ -15,6 +15,7 @@ import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -22,13 +23,17 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
+import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
+import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
+import javax.ws.rs.HEAD;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
@@ -36,8 +41,11 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
@@ -625,6 +633,30 @@ public class AccountController {
     }
 
     return Response.ok().build();
+  }
+
+  @HEAD
+  @Path("/account/{uuid}")
+  public Response accountExists(
+      @HeaderParam("X-Forwarded-For") final String forwardedFor,
+      @PathParam("uuid") final UUID uuid,
+      @Context HttpServletRequest request) throws RateLimitExceededException {
+
+    // Disallow clients from making authenticated requests to this endpoint
+    if (StringUtils.isNotBlank(request.getHeader("Authorization"))) {
+      throw new BadRequestException();
+    }
+
+    final String mostRecentProxy = ForwardedIpUtil.getMostRecentProxy(forwardedFor)
+        .orElseThrow(() -> new RateLimitExceededException(Duration.ofHours(1)));
+
+    rateLimiters.getCheckAccountExistenceLimiter().validate(mostRecentProxy);
+
+    final Status status = accounts.getByAccountIdentifier(uuid)
+        .or(() -> accounts.getByPhoneNumberIdentifier(uuid))
+        .isPresent() ? Status.OK : Status.NOT_FOUND;
+
+    return Response.status(status).build();
   }
 
   private void verifyRegistrationLock(final Account existingAccount, @Nullable final String clientRegistrationLock)

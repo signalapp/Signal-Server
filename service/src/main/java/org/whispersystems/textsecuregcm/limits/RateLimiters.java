@@ -39,6 +39,8 @@ public class RateLimiters {
   private final RateLimiter usernameLookupLimiter;
   private final RateLimiter usernameSetLimiter;
 
+  private final RateLimiter checkAccountExistenceLimiter;
+
   private final AtomicReference<CardinalityRateLimiter> unsealedSenderCardinalityLimiter;
   private final AtomicReference<RateLimiter> unsealedIpLimiter;
   private final AtomicReference<RateLimiter> rateLimitResetLimiter;
@@ -126,6 +128,10 @@ public class RateLimiters {
     this.usernameSetLimiter = new RateLimiter(cacheCluster, "usernameSet",
                                               config.getUsernameSet().getBucketSize(),
                                               config.getUsernameSet().getLeakRatePerMinute());
+
+    this.checkAccountExistenceLimiter = new RateLimiter(cacheCluster, "checkAccountExistence",
+        config.getCheckAccountExistence().getBucketSize(),
+        config.getCheckAccountExistence().getLeakRatePerMinute());
 
     this.dailyPreKeysLimiter = new AtomicReference<>(createDailyPreKeysLimiter(cacheCluster, dynamicConfig.getConfiguration().getLimits().getDailyPreKeys()));
 
@@ -285,6 +291,10 @@ public class RateLimiters {
 
   public RateLimiter getUsernameSetLimiter() {
     return usernameSetLimiter;
+  }
+
+  public RateLimiter getCheckAccountExistenceLimiter() {
+    return checkAccountExistenceLimiter;
   }
 
   private CardinalityRateLimiter createUnsealedSenderCardinalityLimiter(FaultTolerantRedisCluster cacheCluster, CardinalityRateLimitConfiguration configuration) {
