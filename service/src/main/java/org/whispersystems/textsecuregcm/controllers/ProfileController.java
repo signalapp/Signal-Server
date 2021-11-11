@@ -19,7 +19,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -76,7 +75,6 @@ import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 import org.whispersystems.textsecuregcm.util.Pair;
-import org.whispersystems.textsecuregcm.util.Util;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 
@@ -137,13 +135,14 @@ public class ProfileController {
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
   public Response setProfile(@Auth AuthenticatedAccount auth, @Valid CreateProfileRequest request) {
-    final Set<String> disallowedPaymentsCountryCodes =
-        dynamicConfigurationManager.getConfiguration().getPaymentsConfiguration().getDisallowedCountryCodes();
+    if (StringUtils.isNotBlank(request.getPaymentAddress())) {
+      final boolean hasDisallowedPrefix =
+          dynamicConfigurationManager.getConfiguration().getPaymentsConfiguration().getDisallowedPrefixes().stream()
+              .anyMatch(prefix -> auth.getAccount().getNumber().startsWith(prefix));
 
-    if (StringUtils.isNotBlank(request.getPaymentAddress()) &&
-        disallowedPaymentsCountryCodes.contains(Util.getCountryCode(auth.getAccount().getNumber()))) {
-
-      return Response.status(Status.FORBIDDEN).build();
+      if (hasDisallowedPrefix) {
+        return Response.status(Status.FORBIDDEN).build();
+      }
     }
 
     Optional<VersionedProfile> currentProfile = profilesManager.get(auth.getAccount().getUuid(), request.getVersion());

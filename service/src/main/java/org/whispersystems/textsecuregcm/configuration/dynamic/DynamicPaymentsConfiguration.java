@@ -7,14 +7,14 @@ package org.whispersystems.textsecuregcm.configuration.dynamic;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collections;
-import java.util.Set;
+import java.util.List;
 
 public class DynamicPaymentsConfiguration {
 
   @JsonProperty
-  private Set<String> disallowedCountryCodes = Collections.emptySet();
+  private List<String> disallowedPrefixes = Collections.emptyList();
 
-  public Set<String> getDisallowedCountryCodes() {
-    return disallowedCountryCodes;
+  public List<String> getDisallowedPrefixes() {
+    return disallowedPrefixes;
   }
 }
