@@ -79,6 +79,7 @@ import org.whispersystems.textsecuregcm.badges.ConfiguredProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.badges.ResourceBundleLevelTranslator;
 import org.whispersystems.textsecuregcm.configuration.DirectoryServerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.controllers.AcceptNumericOnlineFlagRequestFilter;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV1;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV2;
@@ -610,7 +611,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .addFilter("RemoteDeprecationFilter", new RemoteDeprecationFilter(dynamicConfigurationManager))
         .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
 
+    // TODO Remove on or after 2022-03-01
+    final AcceptNumericOnlineFlagRequestFilter acceptNumericOnlineFlagRequestFilter =
+        new AcceptNumericOnlineFlagRequestFilter("v1/messages/multi_recipient");
+
     environment.jersey().register(new ContentLengthFilter(TrafficSource.HTTP));
+    environment.jersey().register(acceptNumericOnlineFlagRequestFilter);
     environment.jersey().register(MultiRecipientMessageProvider.class);
     environment.jersey().register(new MetricsApplicationEventListener(TrafficSource.HTTP));
     environment.jersey()
@@ -632,6 +638,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             clientPresenceManager, retrySchedulingExecutor));
     webSocketEnvironment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
     webSocketEnvironment.jersey().register(new ContentLengthFilter(TrafficSource.WEBSOCKET));
+    webSocketEnvironment.jersey().register(acceptNumericOnlineFlagRequestFilter);
     webSocketEnvironment.jersey().register(MultiRecipientMessageProvider.class);
     webSocketEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET));
     webSocketEnvironment.jersey().register(new KeepAliveController(clientPresenceManager));
