@@ -91,6 +91,8 @@ import org.whispersystems.textsecuregcm.util.ForwardedIpUtil;
 import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.ImpossiblePhoneNumberException;
 import org.whispersystems.textsecuregcm.util.NonNormalizedPhoneNumberException;
+import org.whispersystems.textsecuregcm.util.Username;
+import org.whispersystems.textsecuregcm.util.UsernameValidator;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
 
@@ -617,22 +619,12 @@ public class AccountController {
   @PUT
   @Path("/username/{username}")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response setUsername(@Auth AuthenticatedAccount auth, @PathParam("username") String username)
+  public Response setUsername(@Auth AuthenticatedAccount auth, @PathParam("username") @Username String username)
       throws RateLimitExceededException {
     rateLimiters.getUsernameSetLimiter().validate(auth.getAccount().getUuid());
 
-    if (username == null || username.isEmpty()) {
-      return Response.status(Response.Status.BAD_REQUEST).build();
-    }
-
-    username = username.toLowerCase();
-
-    if (!username.matches("^[a-z_][a-z0-9_]+$")) {
-      return Response.status(Response.Status.BAD_REQUEST).build();
-    }
-
     try {
-      accounts.setUsername(auth.getAccount(), username);
+      accounts.setUsername(auth.getAccount(), UsernameValidator.getCanonicalUsername(username));
     } catch (final UsernameNotAvailableException e) {
       return Response.status(Response.Status.CONFLICT).build();
     }
