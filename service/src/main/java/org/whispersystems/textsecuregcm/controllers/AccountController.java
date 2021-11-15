@@ -390,7 +390,10 @@ public class AccountController {
           .record(Instant.now().toEpochMilli() - storedVerificationCode.get().getTimestamp(), TimeUnit.MILLISECONDS);
     }
 
-    return new AccountCreationResult(account.getUuid(), account.getNumber(), existingAccount.map(Account::isStorageSupported).orElse(false));
+    return new AccountCreationResult(account.getUuid(),
+        account.getNumber(),
+        account.getPhoneNumberIdentifier().orElse(null),
+        existingAccount.map(Account::isStorageSupported).orElse(false));
   }
 
   @Timed
@@ -601,7 +604,10 @@ public class AccountController {
   @Path("/whoami")
   @Produces(MediaType.APPLICATION_JSON)
   public AccountCreationResult whoAmI(@Auth AuthenticatedAccount auth) {
-    return new AccountCreationResult(auth.getAccount().getUuid(), auth.getAccount().getNumber(), auth.getAccount().isStorageSupported());
+    return new AccountCreationResult(auth.getAccount().getUuid(),
+        auth.getAccount().getNumber(),
+        auth.getAccount().getPhoneNumberIdentifier().orElse(null),
+        auth.getAccount().isStorageSupported());
   }
 
   @DELETE
