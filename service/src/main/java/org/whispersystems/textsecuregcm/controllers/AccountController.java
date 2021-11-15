@@ -624,7 +624,7 @@ public class AccountController {
     rateLimiters.getUsernameSetLimiter().validate(auth.getAccount().getUuid());
 
     try {
-      accounts.setUsername(auth.getAccount(), UsernameValidator.getCanonicalUsername(username));
+      accounts.setUsername(auth.getAccount(), username);
     } catch (final UsernameNotAvailableException e) {
       return Response.status(Response.Status.CONFLICT).build();
     }

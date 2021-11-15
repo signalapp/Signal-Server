@@ -40,6 +40,7 @@ import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.UsernameValidator;
 import org.whispersystems.textsecuregcm.util.Util;
 
 public class AccountsManager {
@@ -266,11 +267,13 @@ public class AccountsManager {
   }
 
   public Account setUsername(final Account account, final String username) throws UsernameNotAvailableException {
-    if (account.getUsername().map(username::equals).orElse(false)) {
+    final String canonicalUsername = UsernameValidator.getCanonicalUsername(username);
+
+    if (account.getUsername().map(canonicalUsername::equals).orElse(false)) {
       return account;
     }
 
-    if (reservedUsernames.isReserved(username, account.getUuid())) {
+    if (reservedUsernames.isReserved(canonicalUsername, account.getUuid())) {
       throw new UsernameNotAvailableException();
     }
 
@@ -279,7 +282,7 @@ public class AccountsManager {
     return updateWithRetries(
         account,
         a -> true,
-        a -> accounts.setUsername(a, username),
+        a -> accounts.setUsername(a, canonicalUsername),
         () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow());
   }
 
@@ -478,10 +481,12 @@ public class AccountsManager {
 
   public Optional<Account> getByUsername(final String username) {
     try (final Timer.Context ignored = getByUsernameTimer.time()) {
-      Optional<Account> account = redisGetByUsername(username);
+      final String canonicalUsername = UsernameValidator.getCanonicalUsername(username);
+
+      Optional<Account> account = redisGetByUsername(canonicalUsername);
 
       if (account.isEmpty()) {
-        account = accounts.getByUsername(username);
+        account = accounts.getByUsername(canonicalUsername);
         account.ifPresent(this::redisSet);
       }
 
