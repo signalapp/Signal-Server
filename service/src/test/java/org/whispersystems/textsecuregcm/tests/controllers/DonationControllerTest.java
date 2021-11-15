@@ -10,6 +10,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
@@ -243,5 +244,18 @@ class DonationControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(400);
     assertThat(response.readEntity(String.class)).isEqualTo("receipt serial is already redeemed");
+  }
+
+  @Test
+  void testRedeemReceiptBadCredentialPresentation() throws InvalidInputException {
+    when(receiptCredentialPresentationFactory.build(any())).thenThrow(new InvalidInputException());
+  
+    final Response response = resources.getJerseyTest()
+        .target("/v1/donation/redeem-receipt")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .post(Entity.entity(new RedeemReceiptRequest(presentation, true, true), MediaType.APPLICATION_JSON_TYPE));
+  
+    assertThat(response.getStatus()).isEqualTo(400);
   }
 }
