@@ -11,7 +11,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
@@ -142,7 +142,7 @@ class ChallengeControllerTest {
         .put(Entity.json(recaptchaChallengeJson));
 
     assertEquals(400, response.getStatus());
-    verifyZeroInteractions(rateLimitChallengeManager);
+    verifyNoInteractions(rateLimitChallengeManager);
   }
 
   @Test
@@ -159,7 +159,7 @@ class ChallengeControllerTest {
 
     assertEquals(400, response.getStatus());
 
-    verifyZeroInteractions(rateLimitChallengeManager);
+    verifyNoInteractions(rateLimitChallengeManager);
   }
 
   @Test

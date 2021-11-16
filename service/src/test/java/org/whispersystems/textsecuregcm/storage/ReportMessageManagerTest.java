@@ -6,7 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.micrometer.core.instrument.Counter;
@@ -33,7 +33,7 @@ class ReportMessageManagerTest {
 
     assertDoesNotThrow(() -> reportMessageManager.store(null, messageGuid));
 
-    verifyZeroInteractions(reportMessageDynamoDb);
+    verifyNoInteractions(reportMessageDynamoDb);
 
     reportMessageManager.store(number, messageGuid);
 
