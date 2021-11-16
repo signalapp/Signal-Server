@@ -28,6 +28,7 @@ public class RedeemReceiptRequest {
   }
 
   @NotEmpty
+  @ExactlySize({ReceiptCredentialPresentation.SIZE})
   public byte[] getReceiptCredentialPresentation() {
     return receiptCredentialPresentation;
   }

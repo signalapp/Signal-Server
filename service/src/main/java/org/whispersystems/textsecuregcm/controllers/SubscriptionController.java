@@ -703,7 +703,7 @@ public class SubscriptionController {
       this.receiptCredentialRequest = receiptCredentialRequest;
     }
 
-    @NotEmpty
+    @ExactlySize(ReceiptCredentialRequest.SIZE)
     public byte[] getReceiptCredentialRequest() {
       return receiptCredentialRequest;
     }
@@ -719,7 +719,7 @@ public class SubscriptionController {
       this.receiptCredentialResponse = receiptCredentialResponse;
     }
 
-    @NotEmpty
+    @ExactlySize(ReceiptCredentialResponse.SIZE)
     public byte[] getReceiptCredentialResponse() {
       return receiptCredentialResponse;
     }
