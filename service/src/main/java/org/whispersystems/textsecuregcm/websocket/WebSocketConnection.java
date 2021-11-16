@@ -289,7 +289,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       for (int i = 0; i < messages.getMessages().size(); i++) {
         final OutgoingMessageEntity message = messages.getMessages().get(i);
         final Envelope.Builder builder = Envelope.newBuilder()
-            .setType(Envelope.Type.valueOf(message.getType()))
+            .setType(Envelope.Type.forNumber(message.getType()))
             .setTimestamp(message.getTimestamp())
             .setServerTimestamp(message.getServerTimestamp());
 
