@@ -85,7 +85,7 @@ class DonationControllerTest {
   }
 
   static StripeConfiguration getStripeConfiguration() {
-    return new StripeConfiguration("test-api-key", new byte[16]);
+    return new StripeConfiguration("test-api-key", new byte[16], "Boost Description String");
   }
 
   static BadgesConfiguration getBadgesConfiguration() {

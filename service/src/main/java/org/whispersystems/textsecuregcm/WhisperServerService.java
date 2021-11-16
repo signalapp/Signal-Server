@@ -423,7 +423,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         build();
 
     StripeManager stripeManager = new StripeManager(config.getStripe().getApiKey(), stripeExecutor,
-        config.getStripe().getIdempotencyKeyGenerator());
+        config.getStripe().getIdempotencyKeyGenerator(), config.getStripe().getBoostDescription());
 
     ExternalServiceCredentialGenerator directoryCredentialsGenerator = new ExternalServiceCredentialGenerator(
         config.getDirectoryConfiguration().getDirectoryClientConfiguration().getUserAuthenticationTokenSharedSecret(),

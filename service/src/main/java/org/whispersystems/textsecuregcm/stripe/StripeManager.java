@@ -62,11 +62,13 @@ public class StripeManager {
   private final String apiKey;
   private final Executor executor;
   private final byte[] idempotencyKeyGenerator;
+  private final String boostDescription;
 
   public StripeManager(
       @Nonnull String apiKey,
       @Nonnull Executor executor,
-      @Nonnull byte[] idempotencyKeyGenerator) {
+      @Nonnull byte[] idempotencyKeyGenerator,
+      @Nonnull String boostDescription) {
     this.apiKey = Objects.requireNonNull(apiKey);
     if (Strings.isNullOrEmpty(apiKey)) {
       throw new IllegalArgumentException("apiKey cannot be empty");
@@ -76,6 +78,7 @@ public class StripeManager {
     if (idempotencyKeyGenerator.length == 0) {
       throw new IllegalArgumentException("idempotencyKeyGenerator cannot be empty");
     }
+    this.boostDescription = Objects.requireNonNull(boostDescription);
   }
 
   private RequestOptions commonOptions() {
@@ -148,6 +151,7 @@ public class StripeManager {
       PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
           .setAmount(amount)
           .setCurrency(currency.toLowerCase(Locale.ROOT))
+          .setDescription(boostDescription)
           .build();
       try {
         return PaymentIntent.create(params, commonOptions());
