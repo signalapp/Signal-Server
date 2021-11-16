@@ -153,6 +153,10 @@ pendingDevicesDynamoDb: # DynamoDB table configuration
   region: us-west-2
   tableName: Example_PendingDevices
 
+reservedUsernamesDynamoDb: # DynamoDB table configuration
+  region: us-west-2
+  tableName: Example_ReservedUsernames
+
 phoneNumberIdentifiersDynamoDb: # DynamoDB table configuration
   region: us-west-2
   tableName: Example_PhoneNumberIdentifiers

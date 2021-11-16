@@ -118,6 +118,9 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
       DynamoDbClient phoneNumberIdentifiersDynamoDbClient =
           DynamoDbFromConfig.client(configuration.getPhoneNumberIdentifiersDynamoDbConfiguration(),
               software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+      DynamoDbClient reservedUsernamesDynamoDbClient =
+          DynamoDbFromConfig.client(configuration.getReservedUsernamesDynamoDbConfiguration(),
+              software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
       FaultTolerantRedisCluster cacheCluster = new FaultTolerantRedisCluster("main_cache_cluster",
           configuration.getCacheClusterConfiguration(), redisClusterClientResources);
@@ -171,7 +174,8 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
           configuration.getPhoneNumberIdentifiersDynamoDbConfiguration().getTableName());
       Usernames usernames = new Usernames(accountDatabase);
       Profiles profiles = new Profiles(accountDatabase);
-      ReservedUsernames reservedUsernames = new ReservedUsernames(accountDatabase);
+      ReservedUsernames reservedUsernames = new ReservedUsernames(reservedUsernamesDynamoDbClient,
+          configuration.getReservedUsernamesDynamoDbConfiguration().getTableName());
       Keys keys = new Keys(preKeysDynamoDb,
           configuration.getKeysDynamoDbConfiguration().getTableName());
       MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(messageDynamoDb,

@@ -140,6 +140,10 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
       DynamoDbClient pendingAccountsDynamoDbClient = DynamoDbFromConfig.client(configuration.getPendingAccountsDynamoDbConfiguration(),
           software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
+      DynamoDbClient reservedUsernamesDynamoDbClient =
+          DynamoDbFromConfig.client(configuration.getReservedUsernamesDynamoDbConfiguration(),
+              software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+
       AmazonDynamoDB deletedAccountsLockDynamoDbClient = AmazonDynamoDBClientBuilder.standard()
           .withRegion(configuration.getDeletedAccountsLockDynamoDbConfiguration().getRegion())
           .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(
@@ -166,7 +170,8 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
           configuration.getPhoneNumberIdentifiersDynamoDbConfiguration().getTableName());
       Usernames usernames = new Usernames(accountDatabase);
       Profiles profiles = new Profiles(accountDatabase);
-      ReservedUsernames reservedUsernames = new ReservedUsernames(accountDatabase);
+      ReservedUsernames reservedUsernames = new ReservedUsernames(reservedUsernamesDynamoDbClient,
+          configuration.getReservedUsernamesDynamoDbConfiguration().getTableName());
       Keys keys = new Keys(preKeysDynamoDb,
           configuration.getKeysDynamoDbConfiguration().getTableName());
       MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(messageDynamoDb,

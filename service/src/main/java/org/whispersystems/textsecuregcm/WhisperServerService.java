@@ -332,6 +332,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     DynamoDbClient accountsDynamoDbClient = DynamoDbFromConfig.client(config.getAccountsDynamoDbConfiguration(),
         software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
+    DynamoDbClient reservedUsernamesDynamoDbClient = DynamoDbFromConfig.client(config.getReservedUsernamesDynamoDbConfiguration(),
+        software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+
     DynamoDbClient phoneNumberIdentifiersDynamoDbClient =
         DynamoDbFromConfig.client(config.getPhoneNumberIdentifiersDynamoDbConfiguration(),
             software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
@@ -376,7 +379,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     PhoneNumberIdentifiers phoneNumberIdentifiers = new PhoneNumberIdentifiers(phoneNumberIdentifiersDynamoDbClient,
         config.getPhoneNumberIdentifiersDynamoDbConfiguration().getTableName());
     Usernames usernames = new Usernames(accountDatabase);
-    ReservedUsernames reservedUsernames = new ReservedUsernames(accountDatabase);
+    ReservedUsernames reservedUsernames = new ReservedUsernames(reservedUsernamesDynamoDbClient,
+        config.getReservedUsernamesDynamoDbConfiguration().getTableName());
     Profiles profiles = new Profiles(accountDatabase);
     Keys keys = new Keys(preKeyDynamoDb, config.getKeysDynamoDbConfiguration().getTableName());
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(messageDynamoDb,

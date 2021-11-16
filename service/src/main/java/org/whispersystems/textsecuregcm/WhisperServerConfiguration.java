@@ -209,6 +209,11 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
+  private DynamoDbConfiguration reservedUsernamesDynamoDb;
+
+  @Valid
+  @NotNull
+  @JsonProperty
   private DatabaseConfiguration abuseDatabase;
 
   @Valid
@@ -549,6 +554,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public DynamoDbConfiguration getPendingDevicesDynamoDbConfiguration() {
     return pendingDevicesDynamoDb;
+  }
+
+  public DynamoDbConfiguration getReservedUsernamesDynamoDbConfiguration() {
+    return reservedUsernamesDynamoDb;
   }
 
   public DonationConfiguration getDonationConfiguration() {
