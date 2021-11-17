@@ -5,8 +5,12 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
@@ -24,7 +28,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.validation.Valid;
 import javax.validation.valueextraction.Unwrapping;
+import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.PUT;
@@ -39,14 +45,13 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tags;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.zkgroup.InvalidInputException;
 import org.signal.zkgroup.VerificationFailedException;
+import org.signal.zkgroup.profiles.PniCredentialResponse;
 import org.signal.zkgroup.profiles.ProfileKeyCommitment;
 import org.signal.zkgroup.profiles.ProfileKeyCredentialRequest;
 import org.signal.zkgroup.profiles.ProfileKeyCredentialResponse;
@@ -80,8 +85,6 @@ import org.whispersystems.textsecuregcm.util.Pair;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
-
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/profile")
 public class ProfileController {
@@ -102,6 +105,9 @@ public class ProfileController {
 
   private final S3Client            s3client;
   private final String              bucket;
+
+  private static final String PROFILE_KEY_CREDENTIAL_TYPE = "profileKey";
+  private static final String PNI_CREDENTIAL_TYPE = "pni";
 
   private static final String LEGACY_GET_PROFILE_COUNTER_NAME = name(ProfileController.class, "legacyGetProfileByPlatform");
 
@@ -205,7 +211,7 @@ public class ProfileController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{uuid}/{version}")
-  public Optional<Profile> getProfile(
+  public Profile getProfile(
       @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
       @Context ContainerRequestContext containerRequestContext,
@@ -214,87 +220,107 @@ public class ProfileController {
       throws RateLimitExceededException {
     return getVersionedProfile(auth.map(AuthenticatedAccount::getAccount), accessKey,
         getAcceptableLanguagesForRequest(containerRequestContext), uuid,
-        version, Optional.empty());
+        version, Optional.empty(), Optional.empty());
   }
 
   @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{uuid}/{version}/{credentialRequest}")
-  public Optional<Profile> getProfile(
+  public Profile getProfile(
       @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
       @Context ContainerRequestContext containerRequestContext,
       @PathParam("uuid") UUID uuid,
       @PathParam("version") String version,
-      @PathParam("credentialRequest") String credentialRequest)
+      @PathParam("credentialRequest") String credentialRequest,
+      @QueryParam("credentialType") @DefaultValue(PROFILE_KEY_CREDENTIAL_TYPE) String credentialType)
       throws RateLimitExceededException {
     return getVersionedProfile(auth.map(AuthenticatedAccount::getAccount), accessKey,
         getAcceptableLanguagesForRequest(containerRequestContext), uuid,
-        version, Optional.of(credentialRequest));
+        version, Optional.of(credentialRequest), Optional.of(credentialType));
   }
 
-  private Optional<Profile> getVersionedProfile(
+  private Profile getVersionedProfile(
       Optional<Account> requestAccount,
       Optional<Anonymous> accessKey,
       List<Locale> acceptableLanguages,
       UUID uuid,
       String version,
-      Optional<String> credentialRequest)
+      Optional<String> credentialRequest,
+      Optional<String> credentialType)
       throws RateLimitExceededException {
-    try {
-      if (requestAccount.isEmpty() && accessKey.isEmpty()) {
-        throw new WebApplicationException(Response.Status.UNAUTHORIZED);
-      }
+    if (requestAccount.isEmpty() && accessKey.isEmpty()) {
+      throw new WebApplicationException(Response.Status.UNAUTHORIZED);
+    }
 
-      boolean isSelf = false;
-      if (requestAccount.isPresent()) {
-        UUID authedUuid = requestAccount.get().getUuid();
-        rateLimiters.getProfileLimiter().validate(authedUuid);
-        isSelf = uuid.equals(authedUuid);
-      }
+    boolean isSelf = false;
+    if (requestAccount.isPresent()) {
+      UUID authedUuid = requestAccount.get().getUuid();
+      rateLimiters.getProfileLimiter().validate(authedUuid);
+      isSelf = uuid.equals(authedUuid);
+    }
 
-      Optional<Account> accountProfile = accountsManager.getByAccountIdentifier(uuid);
-      OptionalAccess.verify(requestAccount, accessKey, accountProfile);
+    Optional<Account> accountProfile = accountsManager.getByAccountIdentifier(uuid);
+    OptionalAccess.verify(requestAccount, accessKey, accountProfile);
 
-      assert(accountProfile.isPresent());
+    assert(accountProfile.isPresent());
 
       Optional<String>           username   = accountProfile.flatMap(Account::getUsername);
       Optional<VersionedProfile> profile    = profilesManager.get(uuid, version);
 
-      String name = profile.map(VersionedProfile::getName).orElse(accountProfile.get().getProfileName());
-      String about = profile.map(VersionedProfile::getAbout).orElse(null);
-      String aboutEmoji = profile.map(VersionedProfile::getAboutEmoji).orElse(null);
-      String avatar = profile.map(VersionedProfile::getAvatar).orElse(accountProfile.get().getAvatar());
-      Optional<String> currentProfileVersion = accountProfile.get().getCurrentProfileVersion();
+    String name = profile.map(VersionedProfile::getName).orElse(accountProfile.get().getProfileName());
+    String about = profile.map(VersionedProfile::getAbout).orElse(null);
+    String aboutEmoji = profile.map(VersionedProfile::getAboutEmoji).orElse(null);
+    String avatar = profile.map(VersionedProfile::getAvatar).orElse(accountProfile.get().getAvatar());
+    Optional<String> currentProfileVersion = accountProfile.get().getCurrentProfileVersion();
 
-      // Allow requests where either the version matches the latest version on Account or the latest version on Account
-      // is empty to read the payment address.
-      final String paymentAddress = profile
-          .filter(p -> currentProfileVersion.map(v -> v.equals(version)).orElse(true))
-          .map(VersionedProfile::getPaymentAddress)
-          .orElse(null);
+    // Allow requests where either the version matches the latest version on Account or the latest version on Account
+    // is empty to read the payment address.
+    final String paymentAddress = profile
+        .filter(p -> currentProfileVersion.map(v -> v.equals(version)).orElse(true))
+        .map(VersionedProfile::getPaymentAddress)
+        .orElse(null);
 
-      Optional<ProfileKeyCredentialResponse> credential = getProfileCredential(credentialRequest, profile, uuid);
+    final ProfileKeyCredentialResponse profileKeyCredentialResponse;
+    final PniCredentialResponse pniCredentialResponse;
 
-      return Optional.of(new Profile(
-          name,
-          about,
-          aboutEmoji,
-          avatar,
-          paymentAddress,
-          accountProfile.get().getIdentityKey(),
-          UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
-          accountProfile.get().isUnrestrictedUnidentifiedAccess(),
-          UserCapabilities.createForAccount(accountProfile.get()),
-          username.orElse(null),
-          null,
-          profileBadgeConverter.convert(acceptableLanguages, accountProfile.get().getBadges(), isSelf),
-          credential.orElse(null)));
-    } catch (InvalidInputException e) {
-      logger.info("Bad profile request", e);
-      throw new WebApplicationException(Response.Status.BAD_REQUEST);
+    if (credentialRequest.isPresent() && credentialType.isPresent() && profile.isPresent() && requestAccount.isPresent()) {
+      if (PNI_CREDENTIAL_TYPE.equals(credentialType.get())) {
+        profileKeyCredentialResponse = null;
+        pniCredentialResponse = getPniCredential(credentialRequest.get(),
+            profile.get(),
+            requestAccount.get().getUuid(),
+            requestAccount.get().getPhoneNumberIdentifier());
+      } else if (PROFILE_KEY_CREDENTIAL_TYPE.equals(credentialType.get())) {
+        profileKeyCredentialResponse = getProfileCredential(credentialRequest.get(),
+            profile.get(),
+            requestAccount.get().getUuid());
+
+        pniCredentialResponse = null;
+      } else {
+        throw new BadRequestException();
+      }
+    } else {
+      profileKeyCredentialResponse = null;
+      pniCredentialResponse = null;
     }
+
+    return new Profile(
+        name,
+        about,
+        aboutEmoji,
+        avatar,
+        paymentAddress,
+        accountProfile.get().getIdentityKey(),
+        UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
+        accountProfile.get().isUnrestrictedUnidentifiedAccess(),
+        UserCapabilities.createForAccount(accountProfile.get()),
+        username.orElse(null),
+        null,
+        profileBadgeConverter.convert(acceptableLanguages, accountProfile.get().getBadges(), isSelf),
+        profileKeyCredentialResponse,
+        pniCredentialResponse);
   }
 
 
@@ -332,28 +358,37 @@ public class ProfileController {
             getAcceptableLanguagesForRequest(containerRequestContext),
             accountProfile.getBadges(),
             isSelf),
+        null,
         null);
   }
 
-  private Optional<ProfileKeyCredentialResponse> getProfileCredential(Optional<String>           encodedProfileCredentialRequest,
-                                                                      Optional<VersionedProfile> profile,
-                                                                      UUID                       uuid)
-      throws InvalidInputException
-  {
-    if (encodedProfileCredentialRequest.isEmpty()) return Optional.empty();
-    if (profile.isEmpty())                         return Optional.empty();
-
+  private ProfileKeyCredentialResponse getProfileCredential(final String encodedProfileCredentialRequest,
+      final VersionedProfile profile,
+      final UUID uuid) {
     try {
-      ProfileKeyCommitment         commitment = new ProfileKeyCommitment(profile.get().getCommitment());
-      ProfileKeyCredentialRequest  request    = new ProfileKeyCredentialRequest(Hex.decodeHex(encodedProfileCredentialRequest.get()));
-      ProfileKeyCredentialResponse response   = zkProfileOperations.issueProfileKeyCredential(request, uuid, commitment);
+      final ProfileKeyCommitment commitment = new ProfileKeyCommitment(profile.getCommitment());
+      final ProfileKeyCredentialRequest request = new ProfileKeyCredentialRequest(Hex.decodeHex(encodedProfileCredentialRequest));
 
-      return Optional.of(response);
-    } catch (DecoderException | VerificationFailedException e) {
+      return zkProfileOperations.issueProfileKeyCredential(request, uuid, commitment);
+    } catch (DecoderException | VerificationFailedException | InvalidInputException e) {
       throw new WebApplicationException(e, Response.status(Response.Status.BAD_REQUEST).build());
     }
   }
 
+  private PniCredentialResponse getPniCredential(final String encodedCredentialRequest,
+      final VersionedProfile profile,
+      final UUID accountIdentifier,
+      final UUID phoneNumberIdentifier) {
+
+    try {
+      final ProfileKeyCommitment commitment = new ProfileKeyCommitment(profile.getCommitment());
+      final ProfileKeyCredentialRequest request = new ProfileKeyCredentialRequest(Hex.decodeHex(encodedCredentialRequest));
+
+      return zkProfileOperations.issuePniCredential(request, accountIdentifier, phoneNumberIdentifier, commitment);
+    } catch (DecoderException | VerificationFailedException | InvalidInputException e) {
+      throw new WebApplicationException(e, Response.status(Response.Status.BAD_REQUEST).build());
+    }
+  }
 
   // Old profile endpoints. Replaced by versioned profile endpoints (above)
 
@@ -415,6 +450,7 @@ public class ProfileController {
             getAcceptableLanguagesForRequest(containerRequestContext),
             accountProfile.get().getBadges(),
             isSelf),
+        null,
         null);
   }
 

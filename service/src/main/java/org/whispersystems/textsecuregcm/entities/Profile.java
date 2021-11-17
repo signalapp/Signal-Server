@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.List;
 import java.util.UUID;
+import org.signal.zkgroup.profiles.PniCredentialResponse;
 import org.signal.zkgroup.profiles.ProfileKeyCredentialResponse;
 
 public class Profile {
@@ -56,12 +57,17 @@ public class Profile {
   @JsonDeserialize(using = ProfileKeyCredentialResponseAdapter.Deserializing.class)
   private ProfileKeyCredentialResponse credential;
 
+  @JsonProperty
+  @JsonSerialize(using = PniCredentialResponseAdapter.Serializing.class)
+  @JsonDeserialize(using = PniCredentialResponseAdapter.Deserializing.class)
+  private PniCredentialResponse pniCredential;
+
   public Profile() {}
 
   public Profile(
       String name, String about, String aboutEmoji, String avatar, String paymentAddress, String identityKey,
       String unidentifiedAccess, boolean unrestrictedUnidentifiedAccess, UserCapabilities capabilities, String username,
-      UUID uuid, List<Badge> badges, ProfileKeyCredentialResponse credential)
+      UUID uuid, List<Badge> badges, ProfileKeyCredentialResponse credential, PniCredentialResponse pniCredential)
   {
     this.name = name;
     this.about = about;
@@ -76,6 +82,7 @@ public class Profile {
     this.uuid = uuid;
     this.badges = badges;
     this.credential = credential;
+    this.pniCredential = pniCredential;
   }
 
   @VisibleForTesting
