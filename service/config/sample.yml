@@ -6,6 +6,8 @@
 stripe:
   apiKey: unset
   idempotencyKeyGenerator: abcdefg12345678= # base64 for creating request idempotency hash
+  boostDescription: >
+    Example
 
 dynamoDbClientConfiguration:
   region: us-west-2 # AWS Region
