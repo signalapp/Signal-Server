@@ -82,11 +82,11 @@ class SubscriptionControllerTest {
         3L, new SubscriptionLevelConfiguration("B3", "P3", Map.of("USD", new SubscriptionPriceConfiguration("R3", BigDecimal.valueOf(300))))
     ));
     when(BADGE_TRANSLATOR.translate(any(), eq("B1"))).thenReturn(new Badge("B1", "cat1", "name1", "desc1",
-        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt"))));
+        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld"))));
     when(BADGE_TRANSLATOR.translate(any(), eq("B2"))).thenReturn(new Badge("B2", "cat2", "name2", "desc2",
-        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt"))));
+        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld"))));
     when(BADGE_TRANSLATOR.translate(any(), eq("B3"))).thenReturn(new Badge("B3", "cat3", "name3", "desc3",
-        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt"))));
+        List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld"))));
     when(LEVEL_TRANSLATOR.translate(any(), eq("B1"))).thenReturn("Z1");
     when(LEVEL_TRANSLATOR.translate(any(), eq("B2"))).thenReturn("Z2");
     when(LEVEL_TRANSLATOR.translate(any(), eq("B3"))).thenReturn("Z3");
