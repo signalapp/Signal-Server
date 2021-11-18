@@ -14,13 +14,11 @@ import javax.validation.constraints.NotEmpty;
 public class BadgeSvg {
   private final String light;
   private final String dark;
-  private final String transparent;
 
   @JsonCreator
   public BadgeSvg(
       @JsonProperty("light") final String light,
-      @JsonProperty("dark") final String dark,
-      @JsonProperty("transparent") final String transparent) {
+      @JsonProperty("dark") final String dark) {
     if (Strings.isNullOrEmpty(light)) {
       throw new IllegalArgumentException("light cannot be empty");
     }
@@ -29,10 +27,6 @@ public class BadgeSvg {
       throw new IllegalArgumentException("dark cannot be empty");
     }
     this.dark = dark;
-    if (Strings.isNullOrEmpty(transparent)) {
-      throw new IllegalArgumentException("transparent cannot be empty");
-    }
-    this.transparent = transparent;
   }
 
   @NotEmpty
@@ -45,11 +39,6 @@ public class BadgeSvg {
     return dark;
   }
 
-  @NotEmpty
-  public String getTransparent() {
-    return transparent;
-  }
-
   @Override
   public boolean equals(final Object o) {
     if (this == o) {
@@ -60,13 +49,12 @@ public class BadgeSvg {
     }
     BadgeSvg badgeSvg = (BadgeSvg) o;
     return Objects.equals(light, badgeSvg.light)
-        && Objects.equals(dark, badgeSvg.dark)
-        && Objects.equals(transparent, badgeSvg.transparent);
+        && Objects.equals(dark, badgeSvg.dark);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(light, dark, transparent);
+    return Objects.hash(light, dark);
   }
 
   @Override
@@ -74,7 +62,6 @@ public class BadgeSvg {
     return "BadgeSvg{" +
         "light='" + light + '\'' +
         ", dark='" + dark + '\'' +
-        ", transparent='" + transparent + '\'' +
         '}';
   }
 }
