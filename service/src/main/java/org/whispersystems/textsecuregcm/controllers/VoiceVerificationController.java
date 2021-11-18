@@ -23,32 +23,34 @@ import org.whispersystems.textsecuregcm.util.Util;
 @Path("/v1/voice/")
 public class VoiceVerificationController {
 
-  private static final String PLAY_TWIML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-      "<Response>\n" +
-      "    <Play>%s</Play>\n" +
-      "    <Play>%s</Play>\n" +
-      "    <Play>%s</Play>\n" +
-      "    <Play>%s</Play>\n" +
-      "    <Play>%s</Play>\n" +
-      "    <Play>%s</Play>\n" +
-      "    <Play>%s</Play>\n" +
-      "    <Pause length=\"1\"/>\n" +
-      "    <Play>%s</Play>\n" +
-      "    <Play>%s</Play>\n" +
-      "    <Play>%s</Play>\n" +
-      "    <Play>%s</Play>\n" +
-      "    <Play>%s</Play>\n" +
-      "    <Play>%s</Play>\n" +
-      "    <Play>%s</Play>\n" +
-      "    <Pause length=\"1\"/>\n" +
-      "    <Play>%s</Play>\n" +
-      "    <Play>%s</Play>\n" +
-      "    <Play>%s</Play>\n" +
-      "    <Play>%s</Play>\n" +
-      "    <Play>%s</Play>\n" +
-      "    <Play>%s</Play>\n" +
-      "    <Play>%s</Play>\n" +
-      "</Response>";
+  private static final String PLAY_TWIML = """
+      <?xml version="1.0" encoding="UTF-8"?>
+      <Response>
+          <Play>%s</Play>
+          <Play>%s</Play>
+          <Play>%s</Play>
+          <Play>%s</Play>
+          <Play>%s</Play>
+          <Play>%s</Play>
+          <Play>%s</Play>
+          <Pause length="1"/>
+          <Play>%s</Play>
+          <Play>%s</Play>
+          <Play>%s</Play>
+          <Play>%s</Play>
+          <Play>%s</Play>
+          <Play>%s</Play>
+          <Play>%s</Play>
+          <Pause length="1"/>
+          <Play>%s</Play>
+          <Play>%s</Play>
+          <Play>%s</Play>
+          <Play>%s</Play>
+          <Play>%s</Play>
+          <Play>%s</Play>
+          <Play>%s</Play>
+      </Response>
+      """;
 
   private static final String DEFAULT_LOCALE = "en-US";
 

@@ -56,10 +56,12 @@ class ChallengeControllerTest {
 
   @Test
   void testHandlePushChallenge() throws RateLimitExceededException {
-    final String pushChallengeJson = "{\n"
-        + "  \"type\": \"rateLimitPushChallenge\",\n"
-        + "  \"challenge\": \"Hello I am a push challenge token\"\n"
-        + "}";
+    final String pushChallengeJson = """
+        {
+          "type": "rateLimitPushChallenge",
+          "challenge": "Hello I am a push challenge token"
+        }
+        """;
 
     final Response response = EXTENSION.target("/v1/challenge")
         .request()
@@ -72,10 +74,12 @@ class ChallengeControllerTest {
 
   @Test
   void testHandlePushChallengeRateLimited() throws RateLimitExceededException {
-    final String pushChallengeJson = "{\n"
-        + "  \"type\": \"rateLimitPushChallenge\",\n"
-        + "  \"challenge\": \"Hello I am a push challenge token\"\n"
-        + "}";
+    final String pushChallengeJson = """
+        {
+          "type": "rateLimitPushChallenge",
+          "challenge": "Hello I am a push challenge token"
+        }
+        """;
 
     final Duration retryAfter = Duration.ofMinutes(17);
     doThrow(new RateLimitExceededException(retryAfter)).when(rateLimitChallengeManager).answerPushChallenge(any(), any());
@@ -91,11 +95,13 @@ class ChallengeControllerTest {
 
   @Test
   void testHandleRecaptcha() throws RateLimitExceededException {
-    final String recaptchaChallengeJson = "{\n"
-        + "  \"type\": \"recaptcha\",\n"
-        + "  \"token\": \"A server-generated token\",\n"
-        + "  \"captcha\": \"The value of the solved captcha token\"\n"
-        + "}";
+    final String recaptchaChallengeJson = """
+        {
+          "type": "recaptcha",
+          "token": "A server-generated token",
+          "captcha": "The value of the solved captcha token"
+        }
+        """;
 
     final Response response = EXTENSION.target("/v1/challenge")
         .request()
@@ -109,11 +115,13 @@ class ChallengeControllerTest {
 
   @Test
   void testHandleRecaptchaRateLimited() throws RateLimitExceededException {
-    final String recaptchaChallengeJson = "{\n"
-        + "  \"type\": \"recaptcha\",\n"
-        + "  \"token\": \"A server-generated token\",\n"
-        + "  \"captcha\": \"The value of the solved captcha token\"\n"
-        + "}";
+    final String recaptchaChallengeJson = """
+        {
+          "type": "recaptcha",
+          "token": "A server-generated token",
+          "captcha": "The value of the solved captcha token"
+        }
+        """;
 
     final Duration retryAfter = Duration.ofMinutes(17);
     doThrow(new RateLimitExceededException(retryAfter)).when(rateLimitChallengeManager).answerRecaptchaChallenge(any(), any(), any());
@@ -130,11 +138,13 @@ class ChallengeControllerTest {
 
   @Test
   void testHandleRecaptchaNoForwardedFor() {
-    final String recaptchaChallengeJson = "{\n"
-        + "  \"type\": \"recaptcha\",\n"
-        + "  \"token\": \"A server-generated token\",\n"
-        + "  \"captcha\": \"The value of the solved captcha token\"\n"
-        + "}";
+    final String recaptchaChallengeJson = """
+        {
+          "type": "recaptcha",
+          "token": "A server-generated token",
+          "captcha": "The value of the solved captcha token"
+        }
+        """;
 
     final Response response = EXTENSION.target("/v1/challenge")
         .request()
@@ -147,9 +157,11 @@ class ChallengeControllerTest {
 
   @Test
   void testHandleUnrecognizedAnswer() {
-    final String unrecognizedJson = "{\n"
-        + "  \"type\": \"unrecognized\"\n"
-        + "}";
+    final String unrecognizedJson = """
+        {
+          "type": "unrecognized"
+        }
+        """;
 
     final Response response = EXTENSION.target("/v1/challenge")
         .request()
@@ -187,9 +199,11 @@ class ChallengeControllerTest {
 
   @Test
   void testValidationError() {
-    final String unrecognizedJson = "{\n"
-        + "  \"type\": \"rateLimitPushChallenge\"\n"
-        + "}";
+    final String unrecognizedJson = """
+        {
+          "type": "rateLimitPushChallenge"
+        }
+        """;
 
     final Response response = EXTENSION.target("/v1/challenge")
         .request()

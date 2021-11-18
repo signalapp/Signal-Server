@@ -38,18 +38,19 @@ class DynamicConfigurationTest {
     }
 
     {
-      final String experimentConfigYaml =
-          "experiments:\n" +
-              "  percentageOnly:\n" +
-              "    enrollmentPercentage: 12\n" +
-              "  uuidsAndPercentage:\n" +
-              "    enrolledUuids:\n" +
-              "      - 717b1c09-ed0b-4120-bb0e-f4697534b8e1\n" +
-              "      - 279f264c-56d7-4bbf-b9da-de718ff90903\n" +
-              "    enrollmentPercentage: 77\n" +
-              "  uuidsOnly:\n" +
-              "    enrolledUuids:\n" +
-              "      - 71618739-114c-4b1f-bb0d-6478a44eb600";
+      final String experimentConfigYaml = """
+          experiments:
+            percentageOnly:
+              enrollmentPercentage: 12
+            uuidsAndPercentage:
+              enrolledUuids:
+                - 717b1c09-ed0b-4120-bb0e-f4697534b8e1
+                - 279f264c-56d7-4bbf-b9da-de718ff90903
+              enrollmentPercentage: 77
+            uuidsOnly:
+              enrolledUuids:
+                - 71618739-114c-4b1f-bb0d-6478a44eb600
+          """;
 
       final DynamicConfiguration config =
           DynamicConfigurationManager.parseConfiguration(experimentConfigYaml, DynamicConfiguration.class).orElseThrow();
@@ -86,27 +87,28 @@ class DynamicConfigurationTest {
     }
 
     {
-      final String experimentConfigYaml =
-          "preRegistrationExperiments:\n" +
-              "  percentageOnly:\n" +
-              "    enrollmentPercentage: 17\n" +
-              "  e164sCountryCodesAndPercentage:\n" +
-              "    enrolledE164s:\n" +
-              "      - +120255551212\n" +
-              "      - +3655323174\n" +
-              "    excludedE164s:\n" +
-              "      - +120255551213\n" +
-              "      - +3655323175\n" +
-              "    enrollmentPercentage: 46\n" +
-              "    excludedCountryCodes:\n" +
-              "      - 47\n" +
-              "    includedCountryCodes:\n" +
-              "      - 56\n" +
-              "  e164sAndExcludedCodes:\n" +
-              "    enrolledE164s:\n" +
-              "      - +120255551212\n" +
-              "    excludedCountryCodes:\n" +
-              "      - 47";
+      final String experimentConfigYaml = """
+          preRegistrationExperiments:
+            percentageOnly:
+              enrollmentPercentage: 17
+            e164sCountryCodesAndPercentage:
+              enrolledE164s:
+                - +120255551212
+                - +3655323174
+              excludedE164s:
+                - +120255551213
+                - +3655323175
+              enrollmentPercentage: 46
+              excludedCountryCodes:
+                - 47
+              includedCountryCodes:
+                - 56
+            e164sAndExcludedCodes:
+              enrolledE164s:
+                - +120255551212
+              excludedCountryCodes:
+                - 47
+          """;
 
       final DynamicConfiguration config =
           DynamicConfigurationManager.parseConfiguration(experimentConfigYaml, DynamicConfiguration.class).orElseThrow();
@@ -167,18 +169,17 @@ class DynamicConfigurationTest {
     }
 
     {
-      final String remoteDeprecationConfig =
-          "remoteDeprecation:\n" +
-              "  minimumVersions:\n" +
-              "    IOS: 1.2.3\n" +
-              "    ANDROID: 4.5.6\n" +
-
-              "  versionsPendingDeprecation:\n" +
-              "    DESKTOP: 7.8.9\n" +
-
-              "  blockedVersions:\n" +
-              "    DESKTOP:\n" +
-              "      - 1.4.0-beta.2";
+      final String remoteDeprecationConfig = """
+          remoteDeprecation:
+            minimumVersions:
+              IOS: 1.2.3
+              ANDROID: 4.5.6
+            versionsPendingDeprecation:
+              DESKTOP: 7.8.9
+            blockedVersions:
+              DESKTOP:
+                - 1.4.0-beta.2
+          """;
 
       final DynamicConfiguration config =
           DynamicConfigurationManager.parseConfiguration(remoteDeprecationConfig, DynamicConfiguration.class).orElseThrow();
@@ -207,9 +208,10 @@ class DynamicConfigurationTest {
     }
 
     {
-      final String messageRateConfigYaml =
-          "messageRate:\n" +
-              "  enforceUnsealedSenderRateLimit: true";
+      final String messageRateConfigYaml = """
+          messageRate:
+            enforceUnsealedSenderRateLimit: true
+          """;
 
       final DynamicConfiguration emptyConfig =
           DynamicConfigurationManager.parseConfiguration(messageRateConfigYaml, DynamicConfiguration.class).orElseThrow();
@@ -229,9 +231,10 @@ class DynamicConfigurationTest {
     }
 
     {
-      final String featureFlagYaml =
-          "featureFlags:\n"
-              + "  - testFlag";
+      final String featureFlagYaml = """
+          featureFlags:
+            - testFlag
+          """;
 
       final DynamicConfiguration emptyConfig =
           DynamicConfigurationManager.parseConfiguration(featureFlagYaml, DynamicConfiguration.class).orElseThrow();
@@ -251,11 +254,12 @@ class DynamicConfigurationTest {
     }
 
     {
-      final String twilioConfigYaml =
-          "twilio:\n"
-              + "  numbers:\n"
-              + "    - 2135551212\n"
-              + "    - 2135551313";
+      final String twilioConfigYaml = """
+          twilio:
+            numbers:
+              - 2135551212
+              - 2135551313
+          """;
 
       final DynamicTwilioConfiguration config =
           DynamicConfigurationManager.parseConfiguration(twilioConfigYaml, DynamicConfiguration.class).orElseThrow()
@@ -276,10 +280,11 @@ class DynamicConfigurationTest {
     }
 
     {
-      final String paymentsConfigYaml =
-          "payments:\n"
-              + "  disallowedPrefixes:\n"
-              + "    - +44";
+      final String paymentsConfigYaml = """
+          payments:
+            disallowedPrefixes:
+              - +44
+          """;
 
       final DynamicPaymentsConfiguration config =
           DynamicConfigurationManager.parseConfiguration(paymentsConfigYaml, DynamicConfiguration.class).orElseThrow()
@@ -300,10 +305,11 @@ class DynamicConfigurationTest {
     }
 
     {
-      final String signupCaptchaConfig =
-          "signupCaptcha:\n"
-              + "  countryCodes:\n"
-              + "    - 1";
+      final String signupCaptchaConfig = """
+          signupCaptcha:
+            countryCodes:
+              - 1
+          """;
 
       final DynamicSignupCaptchaConfiguration config =
           DynamicConfigurationManager.parseConfiguration(signupCaptchaConfig, DynamicConfiguration.class).orElseThrow()
@@ -325,11 +331,12 @@ class DynamicConfigurationTest {
     }
 
     {
-      final String limitsConfig =
-          "limits:\n"
-          + "  unsealedSenderNumber:\n"
-          + "    maxCardinality: 99\n"
-          + "    ttl: PT23H";
+      final String limitsConfig = """
+          limits:
+            unsealedSenderNumber:
+              maxCardinality: 99
+              ttl: PT23H
+          """;
 
       final CardinalityRateLimitConfiguration unsealedSenderNumber =
           DynamicConfigurationManager.parseConfiguration(limitsConfig, DynamicConfiguration.class).orElseThrow()
@@ -353,13 +360,14 @@ class DynamicConfigurationTest {
     }
 
     {
-      final String rateLimitChallengeConfig =
-          "rateLimitChallenge:\n"
-              + "  preKeyLimitEnforced: true\n"
-              + "  clientSupportedVersions:\n"
-              + "    IOS: 5.1.0\n"
-              + "    ANDROID: 5.2.0\n"
-              + "    DESKTOP: 5.0.0";
+      final String rateLimitChallengeConfig = """
+          rateLimitChallenge:
+            preKeyLimitEnforced: true
+            clientSupportedVersions:
+              IOS: 5.1.0
+              ANDROID: 5.2.0
+              DESKTOP: 5.0.0
+          """;
 
       DynamicRateLimitChallengeConfiguration rateLimitChallengeConfiguration =
           DynamicConfigurationManager.parseConfiguration(rateLimitChallengeConfig, DynamicConfiguration.class).orElseThrow()
@@ -386,9 +394,10 @@ class DynamicConfigurationTest {
     }
 
     {
-      final String directoryReconcilerConfig =
-          "directoryReconciler:\n"
-              + "  enabled: false";
+      final String directoryReconcilerConfig = """
+          directoryReconciler:
+            enabled: false
+          """;
 
       DynamicDirectoryReconcilerConfiguration directoryReconcilerConfiguration =
           DynamicConfigurationManager.parseConfiguration(directoryReconcilerConfig, DynamicConfiguration.class).orElseThrow()

@@ -17,10 +17,12 @@ class AnswerChallengeRequestTest {
   @Test
   void parse() throws JsonProcessingException {
     {
-      final String pushChallengeJson = "{\n"
-          + "  \"type\": \"rateLimitPushChallenge\",\n"
-          + "  \"challenge\": \"Hello I am a push challenge token\"\n"
-          + "}";
+      final String pushChallengeJson = """
+          {
+            "type": "rateLimitPushChallenge",
+            "challenge": "Hello I am a push challenge token"
+          }
+          """;
 
       final AnswerChallengeRequest answerChallengeRequest =
           SystemMapper.getMapper().readValue(pushChallengeJson, AnswerChallengeRequest.class);
@@ -31,11 +33,13 @@ class AnswerChallengeRequestTest {
     }
 
     {
-      final String recaptchaChallengeJson = "{\n"
-          + "  \"type\": \"recaptcha\",\n"
-          + "  \"token\": \"A server-generated token\",\n"
-          + "  \"captcha\": \"The value of the solved captcha token\"\n"
-          + "}";
+      final String recaptchaChallengeJson = """
+          {
+            "type": "recaptcha",
+            "token": "A server-generated token",
+            "captcha": "The value of the solved captcha token"
+          }
+          """;
 
       final AnswerChallengeRequest answerChallengeRequest =
           SystemMapper.getMapper().readValue(recaptchaChallengeJson, AnswerChallengeRequest.class);
@@ -50,11 +54,13 @@ class AnswerChallengeRequestTest {
     }
 
     {
-      final String unrecognizedTypeJson = "{\n"
-          + "  \"type\": \"unrecognized\",\n"
-          + "  \"token\": \"A server-generated token\",\n"
-          + "  \"captcha\": \"The value of the solved captcha token\"\n"
-          + "}";
+      final String unrecognizedTypeJson = """
+          {
+            "type": "unrecognized",
+            "token": "A server-generated token",
+            "captcha": "The value of the solved captcha token"
+          }
+          """;
 
       assertThrows(InvalidTypeIdException.class,
           () -> SystemMapper.getMapper().readValue(unrecognizedTypeJson, AnswerChallengeRequest.class));
