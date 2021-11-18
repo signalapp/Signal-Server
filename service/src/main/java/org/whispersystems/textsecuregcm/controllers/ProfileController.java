@@ -31,6 +31,7 @@ import javax.validation.valueextraction.Unwrapping;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DefaultValue;
+import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.PUT;
@@ -287,6 +288,10 @@ public class ProfileController {
 
     if (credentialRequest.isPresent() && credentialType.isPresent() && profile.isPresent() && requestAccount.isPresent()) {
       if (PNI_CREDENTIAL_TYPE.equals(credentialType.get())) {
+        if (!isSelf) {
+          throw new ForbiddenException();
+        }
+
         profileKeyCredentialResponse = null;
         pniCredentialResponse = getPniCredential(credentialRequest.get(),
             profile.get(),

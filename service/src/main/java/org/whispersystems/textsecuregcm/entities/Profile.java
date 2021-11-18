@@ -140,4 +140,12 @@ public class Profile {
   public List<Badge> getBadges() {
     return badges;
   }
+
+  public ProfileKeyCredentialResponse getCredential() {
+    return credential;
+  }
+
+  public PniCredentialResponse getPniCredential() {
+    return pniCredential;
+  }
 }
