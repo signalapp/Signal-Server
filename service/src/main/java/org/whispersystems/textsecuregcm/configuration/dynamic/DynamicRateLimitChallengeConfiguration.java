@@ -12,9 +12,6 @@ import javax.validation.constraints.NotNull;
 public class DynamicRateLimitChallengeConfiguration {
 
   @JsonProperty
-  private boolean preKeyLimitEnforced = false;
-
-  @JsonProperty
   boolean unsealedSenderLimitEnforced = false;
 
   @JsonProperty
@@ -28,10 +25,6 @@ public class DynamicRateLimitChallengeConfiguration {
 
   public Optional<Semver> getMinimumSupportedVersion(final ClientPlatform platform) {
     return Optional.ofNullable(clientSupportedVersions.get(platform));
-  }
-
-  public boolean isPreKeyLimitEnforced() {
-    return preKeyLimitEnforced;
   }
 
   public boolean isUnsealedSenderLimitEnforced() {

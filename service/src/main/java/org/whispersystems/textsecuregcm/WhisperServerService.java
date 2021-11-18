@@ -66,6 +66,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.dispatch.DispatchManager;
 import org.whispersystems.textsecuregcm.abuse.AbusiveMessageFilter;
 import org.whispersystems.textsecuregcm.abuse.FilterAbusiveMessages;
+import org.whispersystems.textsecuregcm.abuse.RateLimitChallengeListener;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
@@ -109,12 +110,10 @@ import org.whispersystems.textsecuregcm.filters.ContentLengthFilter;
 import org.whispersystems.textsecuregcm.filters.RemoteDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
 import org.whispersystems.textsecuregcm.limits.DynamicRateLimiters;
-import org.whispersystems.textsecuregcm.limits.PreKeyRateLimiter;
 import org.whispersystems.textsecuregcm.limits.PushChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
-import org.whispersystems.textsecuregcm.limits.RateLimitResetMetricsManager;
+import org.whispersystems.textsecuregcm.limits.RateLimitChallengeOptionManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.limits.UnsealedSenderRateLimiter;
 import org.whispersystems.textsecuregcm.liquibase.NameableMigrationsBundle;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
@@ -492,11 +491,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     AccountAuthenticator                  accountAuthenticator                  = new AccountAuthenticator(accountsManager);
     DisabledPermittedAccountAuthenticator disabledPermittedAccountAuthenticator = new DisabledPermittedAccountAuthenticator(accountsManager);
 
-    RateLimitResetMetricsManager rateLimitResetMetricsManager = new RateLimitResetMetricsManager(metricsCluster, Metrics.globalRegistry);
-
-    UnsealedSenderRateLimiter unsealedSenderRateLimiter = new UnsealedSenderRateLimiter(dynamicRateLimiters, rateLimitersCluster, dynamicConfigurationManager, rateLimitResetMetricsManager);
-    PreKeyRateLimiter preKeyRateLimiter = new PreKeyRateLimiter(dynamicRateLimiters, dynamicConfigurationManager, rateLimitResetMetricsManager);
-
     ApnFallbackManager       apnFallbackManager = new ApnFallbackManager(pushSchedulerCluster, apnSender, accountsManager);
     TwilioSmsSender          twilioSmsSender    = new TwilioSmsSender(config.getTwilioConfiguration(), dynamicConfigurationManager);
     SmsSender                smsSender          = new SmsSender(twilioSmsSender);
@@ -512,8 +506,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     TransitionalRecaptchaClient transitionalRecaptchaClient = new TransitionalRecaptchaClient(legacyRecaptchaClient, enterpriseRecaptchaClient);
     PushChallengeManager     pushChallengeManager = new PushChallengeManager(apnSender, gcmSender, pushChallengeDynamoDb);
     RateLimitChallengeManager rateLimitChallengeManager = new RateLimitChallengeManager(pushChallengeManager,
-        transitionalRecaptchaClient, preKeyRateLimiter, unsealedSenderRateLimiter, dynamicRateLimiters,
-        dynamicConfigurationManager);
+        transitionalRecaptchaClient, dynamicRateLimiters);
+    RateLimitChallengeOptionManager rateLimitChallengeOptionManager =
+        new RateLimitChallengeOptionManager(dynamicRateLimiters, dynamicConfigurationManager);
 
     MessagePersister messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager, dynamicConfigurationManager, Duration.ofMinutes(config.getMessageCacheConfiguration().getPersistDelayMinutes()));
 
@@ -649,7 +644,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             smsSender, dynamicConfigurationManager, turnTokenGenerator, config.getTestDevices(),
             transitionalRecaptchaClient, gcmSender, apnSender, backupCredentialsGenerator,
             verifyExperimentEnrollmentManager));
-    environment.jersey().register(new KeysController(rateLimiters, keys, accountsManager, preKeyRateLimiter, rateLimitChallengeManager));
+    environment.jersey().register(new KeysController(rateLimiters, keys, accountsManager));
 
     final List<Object> commonControllers = Lists.newArrayList(
         new AttachmentControllerV1(rateLimiters, config.getAwsAttachmentsConfiguration().getAccessKey(), config.getAwsAttachmentsConfiguration().getAccessSecret(), config.getAwsAttachmentsConfiguration().getBucket()),
@@ -662,8 +657,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
             ReceiptCredentialPresentation::new, stripeExecutor, config.getDonationConfiguration(), config.getStripe()),
-        new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, messagesManager, unsealedSenderRateLimiter, apnFallbackManager,
-            rateLimitChallengeManager, reportMessageManager, multiRecipientMessageExecutor),
+        new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, messagesManager, apnFallbackManager,
+            reportMessageManager, multiRecipientMessageExecutor),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),
         new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager, profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner, config.getCdnConfiguration().getBucket(), zkProfileOperations),
         new ProvisioningController(rateLimiters, provisioningManager),
@@ -705,6 +700,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         log.warn("Abusive message filter {} not annotated with @FilterAbusiveMessages and will not be installed",
             filter.getClass().getName());
       }
+
+      if (filter instanceof RateLimitChallengeListener) {
+        log.info("Registered rate limit challenge listener: {}", filter.getClass().getName());
+        rateLimitChallengeManager.addListener((RateLimitChallengeListener) filter);
+      }
     }
 
     if (!registeredAbusiveMessageFilter) {
@@ -721,8 +721,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     registerCorsFilter(environment);
     registerExceptionMappers(environment, webSocketEnvironment, provisioningEnvironment);
 
-    RateLimitChallengeExceptionMapper rateLimitChallengeExceptionMapper = new RateLimitChallengeExceptionMapper(
-        rateLimitChallengeManager);
+    RateLimitChallengeExceptionMapper rateLimitChallengeExceptionMapper =
+        new RateLimitChallengeExceptionMapper(rateLimitChallengeOptionManager);
 
     environment.jersey().register(rateLimitChallengeExceptionMapper);
     webSocketEnvironment.jersey().register(rateLimitChallengeExceptionMapper);

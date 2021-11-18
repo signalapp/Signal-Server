@@ -40,9 +40,6 @@ import org.whispersystems.textsecuregcm.entities.PreKeyResponse;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponseItem;
 import org.whispersystems.textsecuregcm.entities.PreKeyState;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
-import org.whispersystems.textsecuregcm.limits.PreKeyRateLimiter;
-import org.whispersystems.textsecuregcm.limits.RateLimitChallengeException;
-import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -57,24 +54,16 @@ public class KeysController {
   private final RateLimiters                rateLimiters;
   private final Keys                        keys;
   private final AccountsManager             accounts;
-  private final PreKeyRateLimiter           preKeyRateLimiter;
-
-  private final RateLimitChallengeManager rateLimitChallengeManager;
 
   private static final String PREKEY_REQUEST_COUNTER_NAME = name(KeysController.class, "preKeyGet");
-  private static final String RATE_LIMITED_GET_PREKEYS_COUNTER_NAME = name(KeysController.class, "rateLimitedGetPreKeys");
 
   private static final String SOURCE_COUNTRY_TAG_NAME = "sourceCountry";
   private static final String INTERNATIONAL_TAG_NAME = "international";
 
-  public KeysController(RateLimiters rateLimiters, Keys keys, AccountsManager accounts,
-      PreKeyRateLimiter preKeyRateLimiter,
-      RateLimitChallengeManager rateLimitChallengeManager) {
-    this.rateLimiters                = rateLimiters;
+  public KeysController(RateLimiters rateLimiters, Keys keys, AccountsManager accounts) {
+    this.rateLimiters = rateLimiters;
     this.keys = keys;
-    this.accounts                    = accounts;
-    this.preKeyRateLimiter           = preKeyRateLimiter;
-    this.rateLimitChallengeManager   = rateLimitChallengeManager;
+    this.accounts = accounts;
   }
 
   @GET
@@ -142,7 +131,7 @@ public class KeysController {
       @PathParam("identifier") UUID targetUuid,
       @PathParam("device_id") String deviceId,
       @HeaderParam("User-Agent") String userAgent)
-      throws RateLimitExceededException, RateLimitChallengeException, ServerRejectedException {
+      throws RateLimitExceededException {
 
     if (!auth.isPresent() && !accessKey.isPresent()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
@@ -174,23 +163,6 @@ public class KeysController {
       rateLimiters.getPreKeysLimiter().validate(
           account.get().getUuid() + "." + auth.get().getAuthenticatedDevice().getId() + "__" + targetUuid
               + "." + deviceId);
-
-      try {
-        preKeyRateLimiter.validate(account.get());
-      } catch (RateLimitExceededException e) {
-
-        final boolean legacyClient = rateLimitChallengeManager.isClientBelowMinimumVersion(userAgent);
-
-        Metrics.counter(RATE_LIMITED_GET_PREKEYS_COUNTER_NAME,
-                SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account.get().getNumber()),
-                "legacyClient", String.valueOf(legacyClient))
-            .increment();
-
-        if (legacyClient) {
-          throw new ServerRejectedException();
-        }
-        throw new RateLimitChallengeException(account.get(), e.getRetryDuration());
-      }
     }
 
     final boolean usePhoneNumberIdentity = target.getPhoneNumberIdentifier().equals(targetUuid);

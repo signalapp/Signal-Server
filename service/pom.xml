@@ -420,7 +420,6 @@
     <dependency>
       <groupId>org.signal</groupId>
       <artifactId>embedded-redis</artifactId>
-      <version>0.8.1</version>
       <scope>test</scope>
     </dependency>
 

@@ -52,11 +52,9 @@ import org.whispersystems.textsecuregcm.entities.PreKeyResponse;
 import org.whispersystems.textsecuregcm.entities.PreKeyState;
 import org.whispersystems.textsecuregcm.entities.RateLimitChallenge;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
-import org.whispersystems.textsecuregcm.limits.PreKeyRateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.mappers.RateLimitChallengeExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ServerRejectedExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -97,8 +95,6 @@ class KeysControllerTest {
 
   private final static Keys KEYS = mock(Keys.class               );
   private final static AccountsManager             accounts                    = mock(AccountsManager.class            );
-  private final static PreKeyRateLimiter           preKeyRateLimiter           = mock(PreKeyRateLimiter.class          );
-  private final static RateLimitChallengeManager   rateLimitChallengeManager   = mock(RateLimitChallengeManager.class  );
   private final static Account                     existsAccount               = mock(Account.class                    );
 
   private static final RateLimiters          rateLimiters  = mock(RateLimiters.class);
@@ -109,10 +105,8 @@ class KeysControllerTest {
       .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(ImmutableSet.of(
           AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-      .addResource(new RateLimitChallengeExceptionMapper(rateLimitChallengeManager))
       .addResource(new ServerRejectedExceptionMapper())
-      .addResource(
-          new KeysController(rateLimiters, KEYS, accounts, preKeyRateLimiter, rateLimitChallengeManager))
+      .addResource(new KeysController(rateLimiters, KEYS, accounts))
       .build();
 
   @BeforeEach
@@ -190,11 +184,9 @@ class KeysControllerTest {
     reset(
         KEYS,
         accounts,
-        preKeyRateLimiter,
         existsAccount,
         rateLimiters,
-        rateLimiter,
-        rateLimitChallengeManager
+        rateLimiter
     );
 
     clearInvocations(AuthHelper.VALID_DEVICE);
@@ -581,52 +573,5 @@ class KeysControllerTest {
     verify(AuthHelper.DISABLED_ACCOUNT).setIdentityKey(eq("barbar"));
     verify(AuthHelper.DISABLED_DEVICE).setSignedPreKey(eq(signedPreKey));
     verify(accounts).update(eq(AuthHelper.DISABLED_ACCOUNT), any());
-  }
-
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testRateLimitChallenge(boolean clientBelowMinimumVersion) throws RateLimitExceededException {
-
-    Duration retryAfter = Duration.ofMinutes(1);
-    doThrow(new RateLimitExceededException(retryAfter))
-        .when(preKeyRateLimiter).validate(any());
-
-    when(
-        rateLimitChallengeManager.isClientBelowMinimumVersion("Signal-Android/5.1.2 Android/30")).thenReturn(
-        clientBelowMinimumVersion);
-    when(rateLimitChallengeManager.getChallengeOptions(AuthHelper.VALID_ACCOUNT))
-        .thenReturn(
-            List.of(RateLimitChallengeManager.OPTION_PUSH_CHALLENGE, RateLimitChallengeManager.OPTION_RECAPTCHA));
-
-    Response result = resources.getJerseyTest()
-        .target(String.format("/v2/keys/%s/*", EXISTS_UUID.toString()))
-        .request()
-        .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("1337".getBytes()))
-        .header("User-Agent", "Signal-Android/5.1.2 Android/30")
-        .get();
-
-    // unidentified access should not be rate limited
-    assertThat(result.getStatus()).isEqualTo(200);
-
-    result = resources.getJerseyTest()
-        .target(String.format("/v2/keys/%s/*", EXISTS_UUID.toString()))
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .header("User-Agent", "Signal-Android/5.1.2 Android/30")
-        .get();
-
-    if (clientBelowMinimumVersion) {
-      assertThat(result.getStatus()).isEqualTo(508);
-    } else {
-      assertThat(result.getStatus()).isEqualTo(428);
-
-      RateLimitChallenge rateLimitChallenge = result.readEntity(RateLimitChallenge.class);
-
-      assertThat(rateLimitChallenge.getToken()).isNotBlank();
-      assertThat(rateLimitChallenge.getOptions()).isNotEmpty();
-      assertThat(rateLimitChallenge.getOptions()).contains("recaptcha");
-      assertThat(rateLimitChallenge.getOptions()).contains("pushChallenge");
-      assertThat(Long.parseLong(result.getHeaderString("Retry-After"))).isEqualTo(retryAfter.toSeconds());
-    }
   }
 }

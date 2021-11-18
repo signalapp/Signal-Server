@@ -18,7 +18,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -35,7 +34,6 @@ import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
-import java.time.Duration;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.HashSet;
@@ -58,7 +56,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
@@ -69,14 +66,10 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
-import org.whispersystems.textsecuregcm.entities.RateLimitChallenge;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
-import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.limits.UnsealedSenderRateLimiter;
-import org.whispersystems.textsecuregcm.mappers.RateLimitChallengeExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.MessageSender;
@@ -113,9 +106,7 @@ class MessageControllerTest {
   private static final MessagesManager             messagesManager             = mock(MessagesManager.class);
   private static final RateLimiters                rateLimiters                = mock(RateLimiters.class);
   private static final RateLimiter                 rateLimiter                 = mock(RateLimiter.class);
-  private static final UnsealedSenderRateLimiter   unsealedSenderRateLimiter   = mock(UnsealedSenderRateLimiter.class);
   private static final ApnFallbackManager          apnFallbackManager          = mock(ApnFallbackManager.class);
-  private static final RateLimitChallengeManager rateLimitChallengeManager = mock(RateLimitChallengeManager.class);
   private static final ReportMessageManager reportMessageManager = mock(ReportMessageManager.class);
   private static final ExecutorService multiRecipientMessageExecutor = mock(ExecutorService.class);
 
@@ -126,11 +117,9 @@ class MessageControllerTest {
       .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
           ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
       .addProvider(RateLimitExceededExceptionMapper.class)
-      .addProvider(new RateLimitChallengeExceptionMapper(rateLimitChallengeManager))
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new MessageController(rateLimiters, messageSender, receiptSender, accountsManager,
-          messagesManager, unsealedSenderRateLimiter, apnFallbackManager,
-              rateLimitChallengeManager, reportMessageManager, multiRecipientMessageExecutor))
+          messagesManager, apnFallbackManager, reportMessageManager, multiRecipientMessageExecutor))
       .build();
 
   @BeforeEach
@@ -179,9 +168,7 @@ class MessageControllerTest {
         messagesManager,
         rateLimiters,
         rateLimiter,
-        unsealedSenderRateLimiter,
         apnFallbackManager,
-        rateLimitChallengeManager,
         reportMessageManager
     );
   }
@@ -280,69 +267,6 @@ class MessageControllerTest {
                 MediaType.APPLICATION_JSON_TYPE));
 
     assertThat("Bad request", response.getStatus(), is(equalTo(422)));
-  }
-
-  @ParameterizedTest
-  @CsvSource({"true, true, 413", "true, false, 428", "false, false, 200"})
-  void testUnsealedSenderCardinalityRateLimited(final boolean rateLimited, final boolean legacyClient,
-      final int expectedStatusCode) throws Exception {
-
-    if (rateLimited) {
-      doThrow(new RateLimitExceededException(Duration.ofHours(1)))
-          .when(unsealedSenderRateLimiter).validate(eq(AuthHelper.VALID_ACCOUNT), eq(internationalAccount));
-
-      when(rateLimitChallengeManager.isClientBelowMinimumVersion(anyString()))
-          .thenReturn(legacyClient);
-    }
-
-    Response response =
-        resources.getJerseyTest()
-            .target(String.format("/v1/messages/%s", INTERNATIONAL_UUID))
-            .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .header("User-Agent", "Signal-Android/5.6.4 Android/30")
-            .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
-                MediaType.APPLICATION_JSON_TYPE));
-
-    if (rateLimited) {
-      assertThat("Error Response", response.getStatus(), is(equalTo(expectedStatusCode)));
-    } else {
-      assertThat("Good Response", response.getStatus(), is(equalTo(expectedStatusCode)));
-    }
-
-    verify(messageSender, rateLimited ? never() : times(1)).sendMessage(any(), any(), any(), anyBoolean());
-  }
-
-  @Test
-  void testRateLimitResetRequirement() throws Exception {
-
-    Duration retryAfter = Duration.ofMinutes(1);
-    doThrow(new RateLimitExceededException(retryAfter))
-        .when(unsealedSenderRateLimiter).validate(any(), any());
-
-    when(rateLimitChallengeManager.isClientBelowMinimumVersion("Signal-Android/5.1.2 Android/30")).thenReturn(false);
-    when(rateLimitChallengeManager.getChallengeOptions(AuthHelper.VALID_ACCOUNT))
-        .thenReturn(
-            List.of(RateLimitChallengeManager.OPTION_PUSH_CHALLENGE, RateLimitChallengeManager.OPTION_RECAPTCHA));
-
-    Response response =
-        resources.getJerseyTest()
-            .target(String.format("/v1/messages/%s", INTERNATIONAL_UUID))
-            .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .header("User-Agent", "Signal-Android/5.1.2 Android/30")
-            .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
-                MediaType.APPLICATION_JSON_TYPE));
-
-    assertEquals(428, response.getStatus());
-
-    RateLimitChallenge rateLimitChallenge = response.readEntity(RateLimitChallenge.class);
-
-    assertFalse(rateLimitChallenge.getToken().isBlank());
-    assertFalse(rateLimitChallenge.getOptions().isEmpty());
-    assertTrue(rateLimitChallenge.getOptions().contains("recaptcha"));
-    assertTrue(rateLimitChallenge.getOptions().contains("pushChallenge"));
-    assertEquals(retryAfter.toSeconds(), Long.parseLong(response.getHeaderString("Retry-After")));
   }
 
   @Test

@@ -75,9 +75,7 @@ import org.whispersystems.textsecuregcm.entities.SendMessageResponse;
 import org.whispersystems.textsecuregcm.entities.SendMultiRecipientMessageResponse;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeException;
-import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.limits.UnsealedSenderRateLimiter;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
@@ -109,9 +107,7 @@ public class MessageController {
   private final ReceiptSender               receiptSender;
   private final AccountsManager             accountsManager;
   private final MessagesManager             messagesManager;
-  private final UnsealedSenderRateLimiter   unsealedSenderRateLimiter;
   private final ApnFallbackManager          apnFallbackManager;
-  private final RateLimitChallengeManager   rateLimitChallengeManager;
   private final ReportMessageManager        reportMessageManager;
   private final ExecutorService             multiRecipientMessageExecutor;
 
@@ -145,9 +141,7 @@ public class MessageController {
       ReceiptSender receiptSender,
       AccountsManager accountsManager,
       MessagesManager messagesManager,
-      UnsealedSenderRateLimiter unsealedSenderRateLimiter,
       ApnFallbackManager apnFallbackManager,
-      RateLimitChallengeManager rateLimitChallengeManager,
       ReportMessageManager reportMessageManager,
       @Nonnull ExecutorService multiRecipientMessageExecutor) {
     this.rateLimiters = rateLimiters;
@@ -155,9 +149,7 @@ public class MessageController {
     this.receiptSender = receiptSender;
     this.accountsManager = accountsManager;
     this.messagesManager = messagesManager;
-    this.unsealedSenderRateLimiter = unsealedSenderRateLimiter;
     this.apnFallbackManager = apnFallbackManager;
-    this.rateLimitChallengeManager = rateLimitChallengeManager;
     this.reportMessageManager = reportMessageManager;
     this.multiRecipientMessageExecutor = Objects.requireNonNull(multiRecipientMessageExecutor);
   }
@@ -237,24 +229,6 @@ public class MessageController {
               RATE_LIMIT_REASON_TAG_NAME, "singleDestinationRate").increment();
 
           throw e;
-        }
-
-        try {
-          unsealedSenderRateLimiter.validate(source.get().getAccount(), destination.get());
-        } catch (final RateLimitExceededException e) {
-
-          final boolean legacyClient = rateLimitChallengeManager.isClientBelowMinimumVersion(userAgent);
-          final String rateLimitReason = legacyClient ? "unsealedSenderCardinality" : "challengeIssued";
-
-          Metrics.counter(RATE_LIMITED_MESSAGE_COUNTER_NAME,
-              SENDER_COUNTRY_TAG_NAME, senderCountryCode,
-              RATE_LIMIT_REASON_TAG_NAME, rateLimitReason).increment();
-
-          if (legacyClient) {
-            throw e;
-          }
-
-          throw new RateLimitChallengeException(source.get().getAccount(), e.getRetryDuration());
         }
       }
 

@@ -17,9 +17,6 @@ public class DynamicRateLimitsConfiguration {
   private int unsealedSenderPermitIncrement = 50;
 
   @JsonProperty
-  private RateLimitConfiguration unsealedSenderIp = new RateLimitConfiguration(120, 2.0 / 60);
-
-  @JsonProperty
   private RateLimitConfiguration rateLimitReset = new RateLimitConfiguration(2, 2.0 / (60 * 24));
 
   @JsonProperty
@@ -33,13 +30,6 @@ public class DynamicRateLimitsConfiguration {
 
   @JsonProperty
   private RateLimitConfiguration pushChallengeSuccess = new RateLimitConfiguration(2, 2.0 / (60 * 24));
-
-  @JsonProperty
-  private RateLimitConfiguration dailyPreKeys = new RateLimitConfiguration(50, 50.0 / (24.0 * 60));
-
-  public RateLimitConfiguration getUnsealedSenderIp() {
-    return unsealedSenderIp;
-  }
 
   public CardinalityRateLimitConfiguration getUnsealedSenderNumber() {
     return unsealedSenderNumber;
@@ -71,9 +61,5 @@ public class DynamicRateLimitsConfiguration {
 
   public int getUnsealedSenderPermitIncrement() {
     return unsealedSenderPermitIncrement;
-  }
-
-  public RateLimitConfiguration getDailyPreKeys() {
-    return dailyPreKeys;
   }
 }
