@@ -69,7 +69,7 @@ public class ConfiguredProfileBadgeConverterTest {
   private static BadgeConfiguration newBadge(int i) {
     return new BadgeConfiguration(
         idFor(i), "other", List.of("l", "m", "h", "x", "xx", "xxx"), "SVG",
-        List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld")));
+        List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt")));
   }
 
   private BadgesConfiguration createBadges(int count) {
@@ -142,7 +142,8 @@ public class ConfiguredProfileBadgeConverterTest {
         arguments(idFor(0), expired, true, false, null),
         arguments(idFor(0), notExpired, true, false,
             new Badge(idFor(0), "other", nameFor(0), desriptionFor(0), List.of("l", "m", "h", "x", "xx", "xxx"), "SVG",
-                List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld")))),
+                List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"),
+                    new BadgeSvg("ll", "ld", "lt")))),
         arguments(idFor(1), expired, false, false, null),
         arguments(idFor(1), notExpired, false, false, null),
         arguments(idFor(1), expired, true, false, null),
@@ -151,13 +152,13 @@ public class ConfiguredProfileBadgeConverterTest {
         arguments(idFor(0), notExpired, false, true,
             new SelfBadge(idFor(0), "other", nameFor(0), desriptionFor(0), List.of("l", "m", "h", "x", "xx", "xxx"),
                 "SVG",
-                List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld")),
+                List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt")),
                 notExpired, false)),
         arguments(idFor(0), expired, true, true, null),
         arguments(idFor(0), notExpired, true, true,
             new SelfBadge(idFor(0), "other", nameFor(0), desriptionFor(0), List.of("l", "m", "h", "x", "xx", "xxx"),
                 "SVG",
-                List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld")),
+                List.of(new BadgeSvg("sl", "sd", "st"), new BadgeSvg("ml", "md", "mt"), new BadgeSvg("ll", "ld", "lt")),
                 notExpired, true)),
         arguments(idFor(1), expired, false, true, null),
         arguments(idFor(1), notExpired, false, true, null),
