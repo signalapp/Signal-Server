@@ -367,7 +367,7 @@ public class ProfileController {
     @PUT
     @Produces(MediaType.APPLICATION_JSON)
     @Path("/name/{name}")
-    public void setProfile(@Auth AuthenticatedAccount auth,
+    public void setLegacyProfile(@Auth AuthenticatedAccount auth,
                            @PathParam("name") @ExactlySize(value = {72, 108}, payload = {Unwrapping.Unwrap.class}) Optional<String> name) {
         accountsManager.update(auth.getAccount(), a -> a.setProfileName(name.orElse(null)));
     }
@@ -377,7 +377,7 @@ public class ProfileController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{identifier}")
-  public Profile getProfile(
+  public Profile getLegacyProfile(
       @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
       @Context ContainerRequestContext containerRequestContext,
@@ -426,7 +426,7 @@ public class ProfileController {
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Path("/form/avatar")
-    public ProfileAvatarUploadAttributes getAvatarUploadForm(@Auth AuthenticatedAccount auth) {
+    public ProfileAvatarUploadAttributes getLegacyAvatarUploadForm(@Auth AuthenticatedAccount auth) {
         String previousAvatar = auth.getAccount().getAvatar();
         String objectName = generateAvatarObjectName();
         ProfileAvatarUploadAttributes profileAvatarUploadAttributes = generateAvatarUploadForm(objectName);
