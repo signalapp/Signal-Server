@@ -606,6 +606,7 @@ public class SubscriptionController {
       private final boolean cancelAtPeriodEnd;
       private final String currency;
       private final BigDecimal amount;
+      private final String status;
 
       public Subscription(
           @JsonProperty("level") long level,
@@ -614,7 +615,8 @@ public class SubscriptionController {
           @JsonProperty("active") boolean active,
           @JsonProperty("cancelAtPeriodEnd") boolean cancelAtPeriodEnd,
           @JsonProperty("currency") String currency,
-          @JsonProperty("amount") BigDecimal amount) {
+          @JsonProperty("amount") BigDecimal amount,
+          @JsonProperty("status") String status) {
         this.level = level;
         this.billingCycleAnchor = billingCycleAnchor;
         this.endOfCurrentPeriod = endOfCurrentPeriod;
@@ -622,6 +624,7 @@ public class SubscriptionController {
         this.cancelAtPeriodEnd = cancelAtPeriodEnd;
         this.currency = currency;
         this.amount = amount;
+        this.status = status;
       }
 
       public long getLevel() {
@@ -650,6 +653,10 @@ public class SubscriptionController {
 
       public BigDecimal getAmount() {
         return amount;
+      }
+
+      public String getStatus() {
+        return status;
       }
     }
 
@@ -691,7 +698,8 @@ public class SubscriptionController {
                           Objects.equals(subscription.getStatus(), "active"),
                           subscription.getCancelAtPeriodEnd(),
                           price.getCurrency().toUpperCase(Locale.ROOT),
-                          price.getUnitAmountDecimal()
+                          price.getUnitAmountDecimal(),
+                          subscription.getStatus()
                       ))).build())));
         });
   }
