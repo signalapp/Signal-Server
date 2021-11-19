@@ -55,6 +55,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
+import org.apache.commons.lang3.StringUtils;
 import org.signal.zkgroup.InvalidInputException;
 import org.signal.zkgroup.VerificationFailedException;
 import org.signal.zkgroup.receipts.ReceiptCredentialRequest;
@@ -562,10 +563,13 @@ public class SubscriptionController {
     return stripeManager.getPaymentIntent(request.getPaymentIntentId())
         .thenCompose(paymentIntent -> {
           if (paymentIntent == null) {
+            throw new WebApplicationException(Status.NOT_FOUND);
+          }
+          if (StringUtils.equalsIgnoreCase("processing", paymentIntent.getStatus())) {
             throw new WebApplicationException(Status.NO_CONTENT);
           }
-          if (!"succeeded".equalsIgnoreCase(paymentIntent.getStatus())) {
-            throw new WebApplicationException(Status.NO_CONTENT);
+          if (!StringUtils.equalsIgnoreCase("succeeded", paymentIntent.getStatus())) {
+            throw new WebApplicationException(Status.PAYMENT_REQUIRED);
           }
           ReceiptCredentialRequest receiptCredentialRequest;
           try {
