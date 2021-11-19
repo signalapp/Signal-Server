@@ -734,7 +734,7 @@ public class SubscriptionController {
   @Path("/{subscriberId}/receipt_credentials")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> getReceiptCredentials(
+  public CompletableFuture<Response> createSubscriptionReceiptCredentials(
       @Auth Optional<AuthenticatedAccount> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
       @Valid GetReceiptCredentialsRequest request) {
