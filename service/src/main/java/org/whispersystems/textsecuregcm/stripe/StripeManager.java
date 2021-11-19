@@ -29,6 +29,7 @@ import com.stripe.param.SetupIntentCreateParams;
 import com.stripe.param.SubscriptionCancelParams;
 import com.stripe.param.SubscriptionCreateParams;
 import com.stripe.param.SubscriptionListParams;
+import com.stripe.param.SubscriptionRetrieveParams;
 import com.stripe.param.SubscriptionUpdateParams;
 import com.stripe.param.SubscriptionUpdateParams.BillingCycleAnchor;
 import com.stripe.param.SubscriptionUpdateParams.ProrationBehavior;
@@ -339,6 +340,19 @@ public class StripeManager {
             .autoPagingIterable(null, commonOptions()));
         invoices.sort(Comparator.comparingLong(Invoice::getCreated).reversed());
         return invoices;
+      } catch (StripeException e) {
+        throw new CompletionException(e);
+      }
+    }, executor);
+  }
+
+  public CompletableFuture<Invoice> getLatestInvoiceForSubscription(String subscriptionId) {
+    return CompletableFuture.supplyAsync(() -> {
+      SubscriptionRetrieveParams params = SubscriptionRetrieveParams.builder()
+          .addExpand("latest_invoice")
+          .build();
+      try {
+        return Subscription.retrieve(subscriptionId, params, commonOptions()).getLatestInvoiceObject();
       } catch (StripeException e) {
         throw new CompletionException(e);
       }

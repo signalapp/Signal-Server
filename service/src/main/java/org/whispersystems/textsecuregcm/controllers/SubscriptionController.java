@@ -21,7 +21,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -743,7 +742,7 @@ public class SubscriptionController {
         .thenApply(this::requireRecordFromGetResult)
         .thenCompose(record -> {
           if (record.subscriptionId == null) {
-            return CompletableFuture.completedFuture(Response.noContent().build());
+            return CompletableFuture.completedFuture(Response.status(Status.NOT_FOUND).build());
           }
           ReceiptCredentialRequest receiptCredentialRequest;
           try {
@@ -751,29 +750,20 @@ public class SubscriptionController {
           } catch (InvalidInputException e) {
             throw new BadRequestException("invalid receipt credential request", e);
           }
-          return stripeManager.getPaidInvoicesForSubscription(record.subscriptionId, requestData.now)
-              .thenCompose(invoices -> checkNextInvoice(invoices.iterator(), record.subscriptionId))
-              .thenCompose(receipt -> {
-                if (receipt == null) {
-                  return CompletableFuture.completedFuture(null);
-                }
-                return issuedReceiptsManager.recordIssuance(
-                        receipt.getInvoiceLineItemId(), receiptCredentialRequest, requestData.now)
-                    .thenApply(unused -> receipt);
-              })
+          return stripeManager.getLatestInvoiceForSubscription(record.subscriptionId)
+              .thenCompose(invoice -> convertInvoiceToReceipt(invoice, record.subscriptionId))
+              .thenCompose(receipt -> issuedReceiptsManager.recordIssuance(
+                      receipt.getInvoiceLineItemId(), receiptCredentialRequest, requestData.now)
+                  .thenApply(unused -> receipt))
               .thenApply(receipt -> {
-                if (receipt == null) {
-                  return Response.noContent().build();
-                } else {
-                  ReceiptCredentialResponse receiptCredentialResponse;
-                  try {
-                    receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(
-                        receiptCredentialRequest, receipt.getExpiration().getEpochSecond(), receipt.getLevel());
-                  } catch (VerificationFailedException e) {
-                    throw new BadRequestException("receipt credential request failed verification", e);
-                  }
-                  return Response.ok(new GetReceiptCredentialsResponse(receiptCredentialResponse.serialize())).build();
+                ReceiptCredentialResponse receiptCredentialResponse;
+                try {
+                  receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(
+                      receiptCredentialRequest, receipt.getExpiration().getEpochSecond(), receipt.getLevel());
+                } catch (VerificationFailedException e) {
+                  throw new BadRequestException("receipt credential request failed verification", e);
                 }
+                return Response.ok(new GetReceiptCredentialsResponse(receiptCredentialResponse.serialize())).build();
               });
         });
   }
@@ -803,33 +793,44 @@ public class SubscriptionController {
     }
   }
 
-  private CompletableFuture<Receipt> checkNextInvoice(Iterator<Invoice> invoiceIterator, String subscriptionId) {
-    if (!invoiceIterator.hasNext()) {
-      return null;
+  private CompletableFuture<Receipt> convertInvoiceToReceipt(Invoice latestSubscriptionInvoice, String subscriptionId) {
+    if (latestSubscriptionInvoice == null) {
+      throw new WebApplicationException(Status.NO_CONTENT);
+    }
+    if (StringUtils.equalsIgnoreCase("open", latestSubscriptionInvoice.getStatus())) {
+      throw new WebApplicationException(Status.NO_CONTENT);
+    }
+    if (!StringUtils.equalsIgnoreCase("paid", latestSubscriptionInvoice.getStatus())) {
+      throw new WebApplicationException(Status.PAYMENT_REQUIRED);
     }
 
-    Invoice invoice = invoiceIterator.next();
-    return stripeManager.getInvoiceLineItemsForInvoice(invoice).thenCompose(invoiceLineItems -> {
+    return stripeManager.getInvoiceLineItemsForInvoice(latestSubscriptionInvoice).thenCompose(invoiceLineItems -> {
       Collection<InvoiceLineItem> subscriptionLineItems = invoiceLineItems.stream()
           .filter(invoiceLineItem -> Objects.equals("subscription", invoiceLineItem.getType()))
           .collect(Collectors.toList());
       if (subscriptionLineItems.isEmpty()) {
-        return checkNextInvoice(invoiceIterator, subscriptionId);
+        throw new IllegalStateException("latest subscription invoice has no subscription line items; subscriptionId="
+            + subscriptionId + "; invoiceId=" + latestSubscriptionInvoice.getId());
       }
       if (subscriptionLineItems.size() > 1) {
-        throw new IllegalStateException("invoice has more than one subscription; subscriptionId=" + subscriptionId
-            + "; count=" + subscriptionLineItems.size());
+        throw new IllegalStateException(
+            "latest subscription invoice has too many subscription line items; subscriptionId=" + subscriptionId
+                + "; invoiceId=" + latestSubscriptionInvoice.getId() + "; count=" + subscriptionLineItems.size());
       }
 
       InvoiceLineItem subscriptionLineItem = subscriptionLineItems.stream().findAny().get();
-      return stripeManager.getProductForPrice(subscriptionLineItem.getPrice().getId()).thenApply(product -> new Receipt(
-          Instant.ofEpochSecond(subscriptionLineItem.getPeriod().getEnd())
-              .plus(subscriptionConfiguration.getBadgeGracePeriod())
-              .truncatedTo(ChronoUnit.DAYS)
-              .plus(1, ChronoUnit.DAYS),
-          stripeManager.getLevelForProduct(product),
-          subscriptionLineItem.getId()));
+      return getReceiptForSubscriptionInvoiceLineItem(subscriptionLineItem);
     });
+  }
+
+  private CompletableFuture<Receipt> getReceiptForSubscriptionInvoiceLineItem(InvoiceLineItem subscriptionLineItem) {
+    return stripeManager.getProductForPrice(subscriptionLineItem.getPrice().getId()).thenApply(product -> new Receipt(
+        Instant.ofEpochSecond(subscriptionLineItem.getPeriod().getEnd())
+            .plus(subscriptionConfiguration.getBadgeGracePeriod())
+            .truncatedTo(ChronoUnit.DAYS)
+            .plus(1, ChronoUnit.DAYS),
+        stripeManager.getLevelForProduct(product),
+        subscriptionLineItem.getId()));
   }
 
   private SubscriptionManager.Record requireRecordFromGetResult(SubscriptionManager.GetResult getResult) {
