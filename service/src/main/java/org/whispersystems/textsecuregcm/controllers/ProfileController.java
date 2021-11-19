@@ -39,6 +39,8 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.binary.Hex;
@@ -64,6 +66,7 @@ import org.whispersystems.textsecuregcm.entities.Profile;
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
 import org.whispersystems.textsecuregcm.entities.UserCapabilities;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -77,6 +80,8 @@ import org.whispersystems.textsecuregcm.util.ExactlySize;
 import org.whispersystems.textsecuregcm.util.Pair;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/profile")
@@ -99,6 +104,8 @@ public class ProfileController {
 
   private final S3Client            s3client;
   private final String              bucket;
+
+  private static final String LEGACY_GET_PROFILE_COUNTER_NAME = name(ProfileController.class, "legacyGetProfileByPlatform");
 
   public ProfileController(
       Clock clock,
@@ -389,6 +396,8 @@ public class ProfileController {
     if (auth.isEmpty() && accessKey.isEmpty()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
+
+    Metrics.counter(LEGACY_GET_PROFILE_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).increment();
 
     boolean isSelf = false;
     if (auth.isPresent()) {
