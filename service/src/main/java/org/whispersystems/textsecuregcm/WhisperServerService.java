@@ -108,6 +108,7 @@ import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.filters.ContentLengthFilter;
 import org.whispersystems.textsecuregcm.filters.RemoteDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
+import org.whispersystems.textsecuregcm.limits.DynamicRateLimiters;
 import org.whispersystems.textsecuregcm.limits.PreKeyRateLimiter;
 import org.whispersystems.textsecuregcm.limits.PushChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
@@ -472,7 +473,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     PubSubManager              pubSubManager              = new PubSubManager(pubsubClient, dispatchManager);
     APNSender                  apnSender                  = new APNSender(apnSenderExecutor, accountsManager, config.getApnConfiguration());
     GCMSender                  gcmSender                  = new GCMSender(gcmSenderExecutor, accountsManager, config.getGcmConfiguration().getApiKey());
-    RateLimiters               rateLimiters               = new RateLimiters(config.getLimitsConfiguration(), dynamicConfigurationManager, rateLimitersCluster);
+    RateLimiters               rateLimiters               = new RateLimiters(config.getLimitsConfiguration(), rateLimitersCluster);
+    DynamicRateLimiters        dynamicRateLimiters        = new DynamicRateLimiters(rateLimitersCluster, dynamicConfigurationManager);
     ProvisioningManager        provisioningManager        = new ProvisioningManager(pubSubManager);
     IssuedReceiptsManager issuedReceiptsManager = new IssuedReceiptsManager(
         config.getDynamoDbTables().getIssuedReceipts().getTableName(),
@@ -492,8 +494,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     RateLimitResetMetricsManager rateLimitResetMetricsManager = new RateLimitResetMetricsManager(metricsCluster, Metrics.globalRegistry);
 
-    UnsealedSenderRateLimiter unsealedSenderRateLimiter = new UnsealedSenderRateLimiter(rateLimiters, rateLimitersCluster, dynamicConfigurationManager, rateLimitResetMetricsManager);
-    PreKeyRateLimiter preKeyRateLimiter = new PreKeyRateLimiter(rateLimiters, dynamicConfigurationManager, rateLimitResetMetricsManager);
+    UnsealedSenderRateLimiter unsealedSenderRateLimiter = new UnsealedSenderRateLimiter(dynamicRateLimiters, rateLimitersCluster, dynamicConfigurationManager, rateLimitResetMetricsManager);
+    PreKeyRateLimiter preKeyRateLimiter = new PreKeyRateLimiter(dynamicRateLimiters, dynamicConfigurationManager, rateLimitResetMetricsManager);
 
     ApnFallbackManager       apnFallbackManager = new ApnFallbackManager(pushSchedulerCluster, apnSender, accountsManager);
     TwilioSmsSender          twilioSmsSender    = new TwilioSmsSender(config.getTwilioConfiguration(), dynamicConfigurationManager);
@@ -510,7 +512,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     TransitionalRecaptchaClient transitionalRecaptchaClient = new TransitionalRecaptchaClient(legacyRecaptchaClient, enterpriseRecaptchaClient);
     PushChallengeManager     pushChallengeManager = new PushChallengeManager(apnSender, gcmSender, pushChallengeDynamoDb);
     RateLimitChallengeManager rateLimitChallengeManager = new RateLimitChallengeManager(pushChallengeManager,
-        transitionalRecaptchaClient, preKeyRateLimiter, unsealedSenderRateLimiter, rateLimiters,
+        transitionalRecaptchaClient, preKeyRateLimiter, unsealedSenderRateLimiter, dynamicRateLimiters,
         dynamicConfigurationManager);
 
     MessagePersister messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager, dynamicConfigurationManager, Duration.ofMinutes(config.getMessageCacheConfiguration().getPersistDelayMinutes()));

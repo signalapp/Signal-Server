@@ -26,12 +26,12 @@ class PreKeyRateLimiterTest {
 
   @BeforeEach
   void setup() {
-    final RateLimiters rateLimiters = mock(RateLimiters.class);
+    final DynamicRateLimiters rateLimiters = mock(DynamicRateLimiters.class);
 
     dailyPreKeyLimiter = mock(RateLimiter.class);
     when(rateLimiters.getDailyPreKeysLimiter()).thenReturn(dailyPreKeyLimiter);
 
-    final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
+    final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
     rateLimitChallengeConfiguration = mock(DynamicRateLimitChallengeConfiguration.class);
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
 

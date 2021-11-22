@@ -26,7 +26,7 @@ public class RateLimitChallengeManager {
   private final PreKeyRateLimiter preKeyRateLimiter;
   private final UnsealedSenderRateLimiter unsealedSenderRateLimiter;
 
-  private final RateLimiters rateLimiters;
+  private final DynamicRateLimiters rateLimiters;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   public static final String OPTION_RECAPTCHA = "recaptcha";
@@ -43,7 +43,7 @@ public class RateLimitChallengeManager {
       final RecaptchaClient recaptchaClient,
       final PreKeyRateLimiter preKeyRateLimiter,
       final UnsealedSenderRateLimiter unsealedSenderRateLimiter,
-      final RateLimiters rateLimiters,
+      final DynamicRateLimiters rateLimiters,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
 
     this.pushChallengeManager = pushChallengeManager;

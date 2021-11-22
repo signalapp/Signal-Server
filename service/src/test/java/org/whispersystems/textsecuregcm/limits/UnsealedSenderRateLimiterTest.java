@@ -38,7 +38,7 @@ class UnsealedSenderRateLimiterTest {
   @BeforeEach
   void setUp() throws Exception {
 
-    final RateLimiters rateLimiters = mock(RateLimiters.class);
+    final DynamicRateLimiters rateLimiters = mock(DynamicRateLimiters.class);
     final CardinalityRateLimiter cardinalityRateLimiter =
         new CardinalityRateLimiter(REDIS_CLUSTER_EXTENSION.getRedisCluster(), "test", Duration.ofDays(1), 1);
 

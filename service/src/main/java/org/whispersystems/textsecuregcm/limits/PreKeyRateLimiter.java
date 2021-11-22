@@ -28,11 +28,11 @@ public class PreKeyRateLimiter {
   private static final String RATE_LIMITED_ACCOUNTS_UNENFORCED_HLL_KEY = "PreKeyRateLimiter::rateLimitedAccounts::unenforced";
   private static final long RATE_LIMITED_ACCOUNTS_HLL_TTL_SECONDS = Duration.days(1).toSeconds();
 
-  private final RateLimiters rateLimiters;
+  private final DynamicRateLimiters rateLimiters;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final RateLimitResetMetricsManager metricsManager;
 
-  public PreKeyRateLimiter(final RateLimiters rateLimiters,
+  public PreKeyRateLimiter(final DynamicRateLimiters rateLimiters,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final RateLimitResetMetricsManager metricsManager) {
     this.rateLimiters = rateLimiters;

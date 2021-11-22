@@ -14,8 +14,8 @@ import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration.Ra
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.limits.CardinalityRateLimiter;
+import org.whispersystems.textsecuregcm.limits.DynamicRateLimiters;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
-import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
@@ -36,7 +36,7 @@ class DynamicRateLimitsTest {
 
   @Test
   void testUnchangingConfiguration() {
-    RateLimiters rateLimiters = new RateLimiters(new RateLimitsConfiguration(), dynamicConfig, redisCluster);
+    DynamicRateLimiters rateLimiters = new DynamicRateLimiters(redisCluster, dynamicConfig);
 
     RateLimiter limiter = rateLimiters.getUnsealedIpLimiter();
 
@@ -64,7 +64,7 @@ class DynamicRateLimitsTest {
 
     when(dynamicConfig.getConfiguration()).thenReturn(configuration);
 
-    RateLimiters rateLimiters = new RateLimiters(new RateLimitsConfiguration(), dynamicConfig, redisCluster);
+    DynamicRateLimiters rateLimiters = new DynamicRateLimiters(redisCluster, dynamicConfig);
 
     CardinalityRateLimiter limiter = rateLimiters.getUnsealedSenderCardinalityLimiter();
 

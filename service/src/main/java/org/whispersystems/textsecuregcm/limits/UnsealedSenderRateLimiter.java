@@ -20,7 +20,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 
 public class UnsealedSenderRateLimiter {
 
-  private final RateLimiters rateLimiters;
+  private final DynamicRateLimiters rateLimiters;
   private final FaultTolerantRedisCluster rateLimitCluster;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final RateLimitResetMetricsManager metricsManager;
@@ -37,7 +37,7 @@ public class UnsealedSenderRateLimiter {
   private static final long RATE_LIMITED_ACCOUNTS_HLL_TTL_SECONDS = Duration.days(1).toSeconds();
 
 
-  public UnsealedSenderRateLimiter(final RateLimiters rateLimiters,
+  public UnsealedSenderRateLimiter(final DynamicRateLimiters rateLimiters,
       final FaultTolerantRedisCluster rateLimitCluster,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final RateLimitResetMetricsManager metricsManager) {

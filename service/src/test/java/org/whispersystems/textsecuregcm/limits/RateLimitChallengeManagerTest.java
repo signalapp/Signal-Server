@@ -35,7 +35,7 @@ class RateLimitChallengeManagerTest {
   private PreKeyRateLimiter preKeyRateLimiter;
   private UnsealedSenderRateLimiter unsealedSenderRateLimiter;
   private DynamicRateLimitChallengeConfiguration rateLimitChallengeConfiguration;
-  private RateLimiters rateLimiters;
+  private DynamicRateLimiters rateLimiters;
 
   private RateLimitChallengeManager rateLimitChallengeManager;
 
@@ -45,9 +45,9 @@ class RateLimitChallengeManagerTest {
     recaptchaClient = mock(RecaptchaClient.class);
     preKeyRateLimiter = mock(PreKeyRateLimiter.class);
     unsealedSenderRateLimiter = mock(UnsealedSenderRateLimiter.class);
-    rateLimiters = mock(RateLimiters.class);
+    rateLimiters = mock(DynamicRateLimiters.class);
 
-    final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
+    final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
     rateLimitChallengeConfiguration = mock(DynamicRateLimitChallengeConfiguration.class);
 
