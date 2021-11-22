@@ -41,7 +41,7 @@ public class LegacyRecaptchaClient implements RecaptchaClient {
                                     .post(Entity.form(formData), VerifyResponse.class);
 
     if (response.success) {
-      logger.info("Got successful captcha time: " + response.challenge_ts + ", current time: " + System.currentTimeMillis());
+      logger.debug("Got successful captcha time: " + response.challenge_ts + ", current time: " + System.currentTimeMillis());
     }
 
     return response.success;
