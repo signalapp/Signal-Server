@@ -16,9 +16,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
@@ -72,6 +75,8 @@ public class Accounts extends AbstractDynamoDbStore {
   private static final Timer GET_ALL_FROM_START_TIMER = Metrics.timer(name(Accounts.class, "getAllFrom"));
   private static final Timer GET_ALL_FROM_OFFSET_TIMER = Metrics.timer(name(Accounts.class, "getAllFromOffset"));
   private static final Timer DELETE_TIMER = Metrics.timer(name(Accounts.class, "delete"));
+
+  private static final Logger log = LoggerFactory.getLogger(Accounts.class);
 
   public Accounts(DynamoDbClient client, String accountsTableName, String phoneNumberConstraintTableName,
       String phoneNumberIdentifierConstraintTableName, final int scanPageSize) {
@@ -462,8 +467,19 @@ public class Accounts extends AbstractDynamoDbStore {
     }
     try {
       Account account = SystemMapper.getMapper().readValue(item.get(ATTR_ACCOUNT_DATA).b().asByteArray(), Account.class);
-      account.setNumber(item.get(ATTR_ACCOUNT_E164).s(), AttributeValues.getUUID(item, ATTR_PNI_UUID, null));
-      account.setUuid(UUIDUtil.fromByteBuffer(item.get(KEY_ACCOUNT_UUID).b().asByteBuffer()));
+
+      final UUID accountIdentifier = UUIDUtil.fromByteBuffer(item.get(KEY_ACCOUNT_UUID).b().asByteBuffer());
+      final UUID phoneNumberIdentifierFromAttribute = AttributeValues.getUUID(item, ATTR_PNI_UUID, null);
+
+      if (account.getPhoneNumberIdentifier() == null || phoneNumberIdentifierFromAttribute == null ||
+          !Objects.equals(account.getPhoneNumberIdentifier(), phoneNumberIdentifierFromAttribute)) {
+
+        log.warn("Missing or mismatched PNIs for account {}. From JSON: {}; from attribute: {}",
+            accountIdentifier, account.getPhoneNumberIdentifier(), phoneNumberIdentifierFromAttribute);
+      }
+
+      account.setNumber(item.get(ATTR_ACCOUNT_E164).s(), phoneNumberIdentifierFromAttribute);
+      account.setUuid(accountIdentifier);
       account.setVersion(Integer.parseInt(item.get(ATTR_VERSION).n()));
       account.setCanonicallyDiscoverable(Optional.ofNullable(item.get(ATTR_CANONICALLY_DISCOVERABLE)).map(av -> av.bool()).orElse(false));
 

@@ -517,6 +517,10 @@ public class AccountsManager {
         Account account = mapper.readValue(json, Account.class);
         account.setUuid(uuid);
 
+        if (account.getPhoneNumberIdentifier() == null) {
+          logger.warn("Account {} loaded from Redis is missing a PNI", uuid);
+        }
+
         return Optional.of(account);
       }
 
