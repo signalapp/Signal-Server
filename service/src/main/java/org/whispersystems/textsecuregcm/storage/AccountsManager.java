@@ -453,8 +453,8 @@ public class AccountsManager {
     deleteStorageServiceDataFuture.join();
     deleteBackupServiceDataFuture.join();
 
-    redisDelete(account);
     accounts.delete(account.getUuid());
+    redisDelete(account);
 
     RedisOperation.unchecked(() ->
         account.getDevices().forEach(device ->
