@@ -72,6 +72,15 @@ public class Badge {
     return svgs;
   }
 
+  /**
+   * Workaround for old Android builds that expect this field to exist but don't care it's an empty string.
+   */
+  @Deprecated
+  @JsonProperty
+  public String getImageUrl() {
+    return "";
+  }
+
   @Override
   public boolean equals(final Object o) {
     if (this == o) {
