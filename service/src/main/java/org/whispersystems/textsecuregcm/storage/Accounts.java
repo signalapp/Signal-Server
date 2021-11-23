@@ -19,8 +19,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
@@ -74,8 +72,6 @@ public class Accounts extends AbstractDynamoDbStore {
   private static final Timer GET_ALL_FROM_START_TIMER = Metrics.timer(name(Accounts.class, "getAllFrom"));
   private static final Timer GET_ALL_FROM_OFFSET_TIMER = Metrics.timer(name(Accounts.class, "getAllFromOffset"));
   private static final Timer DELETE_TIMER = Metrics.timer(name(Accounts.class, "delete"));
-
-  private static final Logger log = LoggerFactory.getLogger(Accounts.class);
 
   public Accounts(DynamoDbClient client, String accountsTableName, String phoneNumberConstraintTableName,
       String phoneNumberIdentifierConstraintTableName, final int scanPageSize) {
@@ -311,19 +307,17 @@ public class Accounts extends AbstractDynamoDbStore {
         updateItemRequest = UpdateItemRequest.builder()
                 .tableName(accountsTableName)
                 .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
-                .updateExpression("SET #data = :data, #cds = :cds, #pni = :pni ADD #version :version_increment")
+                .updateExpression("SET #data = :data, #cds = :cds ADD #version :version_increment")
                 .conditionExpression("attribute_exists(#number) AND #version = :version")
                 .expressionAttributeNames(Map.of("#number", ATTR_ACCOUNT_E164,
                     "#data", ATTR_ACCOUNT_DATA,
                     "#cds", ATTR_CANONICALLY_DISCOVERABLE,
-                    "#version", ATTR_VERSION,
-                    "#pni", ATTR_PNI_UUID))
+                    "#version", ATTR_VERSION))
                 .expressionAttributeValues(Map.of(
                     ":data", AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
                     ":cds", AttributeValues.fromBool(account.shouldBeVisibleInDirectory()),
                     ":version", AttributeValues.fromInt(account.getVersion()),
-                    ":version_increment", AttributeValues.fromInt(1),
-                    ":pni", AttributeValues.fromUUID(account.getPhoneNumberIdentifier())))
+                    ":version_increment", AttributeValues.fromInt(1)))
                 .build();
       } catch (JsonProcessingException e) {
         throw new IllegalArgumentException(e);
