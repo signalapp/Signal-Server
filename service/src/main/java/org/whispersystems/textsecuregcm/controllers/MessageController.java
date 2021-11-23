@@ -503,7 +503,7 @@ public class MessageController {
   public Response reportMessage(@Auth AuthenticatedAccount auth, @PathParam("sourceNumber") String sourceNumber,
       @PathParam("messageGuid") UUID messageGuid) {
 
-    reportMessageManager.report(sourceNumber, messageGuid);
+    reportMessageManager.report(sourceNumber, messageGuid, auth.getAccount().getUuid());
 
     return Response.status(Status.ACCEPTED)
         .build();

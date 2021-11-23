@@ -575,7 +575,7 @@ class MessageControllerTest {
 
     assertThat(response.getStatus(), is(equalTo(202)));
 
-    verify(reportMessageManager).report(senderNumber, messageGuid);
+    verify(reportMessageManager).report(senderNumber, messageGuid, AuthHelper.VALID_UUID);
   }
 
   static Account mockAccountWithDeviceAndRegId(Object... deviceAndRegistrationIds) {

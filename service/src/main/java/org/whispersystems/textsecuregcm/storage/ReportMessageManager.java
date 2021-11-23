@@ -54,7 +54,7 @@ public class ReportMessageManager {
     }
   }
 
-  public void report(String sourceNumber, UUID messageGuid) {
+  public void report(String sourceNumber, UUID messageGuid, UUID reporterUuid) {
 
     final boolean found = reportMessageDynamoDb.remove(hash(messageGuid, sourceNumber));
 
@@ -62,7 +62,7 @@ public class ReportMessageManager {
       rateLimitCluster.useCluster(connection -> {
         final String reportedSenderKey = getReportedSenderKey(sourceNumber);
 
-        connection.sync().pfadd(reportedSenderKey, sourceNumber);
+        connection.sync().pfadd(reportedSenderKey, reporterUuid.toString());
         connection.sync().expire(reportedSenderKey, counterTtl.toSeconds());
       });
 
