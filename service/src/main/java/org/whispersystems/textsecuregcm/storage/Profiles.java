@@ -10,10 +10,17 @@ import static com.codahale.metrics.MetricRegistry.name;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Optional;
 import java.util.UUID;
+import com.google.common.annotations.VisibleForTesting;
+import org.jdbi.v3.core.mapper.RowMapper;
+import org.jdbi.v3.core.result.ResultIterator;
+import org.jdbi.v3.core.statement.StatementContext;
 import org.whispersystems.textsecuregcm.storage.mappers.VersionedProfileMapper;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.Pair;
 
 public class Profiles {
 
@@ -26,6 +33,7 @@ public class Profiles {
   public static final String ABOUT = "about";
   public static final String PAYMENT_ADDRESS = "payment_address";
   public static final String COMMITMENT = "commitment";
+  public static final String DELETED = "deleted";
 
   private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
 
@@ -77,7 +85,7 @@ public class Profiles {
   public Optional<VersionedProfile> get(UUID uuid, String version) {
     return database.with(jdbi -> jdbi.withHandle(handle -> {
       try (Timer.Context ignored = getTimer.time()) {
-        return handle.createQuery("SELECT * FROM profiles WHERE " + UID + " = :uuid AND " + VERSION + " = :version")
+        return handle.createQuery("SELECT * FROM profiles WHERE " + UID + " = :uuid AND " + VERSION + " = :version AND " + DELETED + "= FALSE")
                      .bind("uuid", uuid)
                      .bind("version", version)
                      .mapTo(VersionedProfile.class)

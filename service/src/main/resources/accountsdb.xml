@@ -385,4 +385,14 @@
         <dropTable tableName="accounts"/>
     </changeSet>
 
+  <changeSet id="27" author="jon">
+    <addColumn tableName="profiles">
+      <column name="deleted" type="boolean" defaultValue="false"/>
+    </addColumn>
+  </changeSet>
+
+  <changeSet id="28" author="jon" runInTransaction="false">
+    <sql>CREATE INDEX CONCURRENTLY deleted_profile_index ON profiles (deleted);</sql>
+  </changeSet>
+
 </databaseChangeLog>
