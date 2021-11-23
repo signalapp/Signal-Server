@@ -34,6 +34,7 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
   private static final long WORKER_TTL_MS = 120_000L;
   private static final long ACCELERATED_CHUNK_INTERVAL = 10L;
 
+  private final String name;
   private final AccountsManager accounts;
   private final int chunkSize;
   private final long chunkIntervalMs;
@@ -44,11 +45,13 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
   private AtomicBoolean running = new AtomicBoolean(false);
   private boolean finished;
 
-  public AccountDatabaseCrawler(AccountsManager accounts,
+  public AccountDatabaseCrawler(final String name,
+      AccountsManager accounts,
       AccountDatabaseCrawlerCache cache,
       List<AccountDatabaseCrawlerListener> listeners,
       int chunkSize,
       long chunkIntervalMs) {
+    this.name = name;
     this.accounts = accounts;
     this.chunkSize = chunkSize;
     this.chunkIntervalMs = chunkIntervalMs;
@@ -82,7 +85,7 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
         accelerated = doPeriodicWork();
         sleepWhileRunning(accelerated ? ACCELERATED_CHUNK_INTERVAL : chunkIntervalMs);
       } catch (Throwable t) {
-        logger.warn("error in database crawl: {}: {}", t.getClass().getSimpleName(), t.getMessage(), t);
+        logger.warn("{}: error in database crawl: {}: {}", name, t.getClass().getSimpleName(), t.getMessage(), t);
         Util.sleep(10000);
       }
     }
@@ -106,7 +109,7 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
         final long endTimeMs = System.currentTimeMillis();
         final long sleepIntervalMs = chunkIntervalMs - (endTimeMs - startTimeMs);
         if (sleepIntervalMs > 0) {
-          logger.debug("Sleeping {}ms", sleepIntervalMs);
+          logger.debug("{}: Sleeping {}ms", name, sleepIntervalMs);
           sleepWhileRunning(sleepIntervalMs);
         }
       } finally {
@@ -123,19 +126,19 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
       final Optional<UUID> fromUuid = getLastUuid();
 
       if (fromUuid.isEmpty()) {
-        logger.info("Started crawl");
+        logger.info("{}: Started crawl", name);
         listeners.forEach(AccountDatabaseCrawlerListener::onCrawlStart);
       }
 
       final AccountCrawlChunk chunkAccounts = readChunk(fromUuid, chunkSize);
 
       if (chunkAccounts.getAccounts().isEmpty()) {
-        logger.info("Finished crawl");
+        logger.info("{}: Finished crawl", name);
         listeners.forEach(listener -> listener.onCrawlEnd(fromUuid));
         cacheLastUuid(Optional.empty());
         cache.setAccelerated(false);
       } else {
-        logger.debug("Processing chunk");
+        logger.debug("{}: Processing chunk", name);
         try {
           for (AccountDatabaseCrawlerListener listener : listeners) {
             listener.timeAndProcessCrawlChunk(fromUuid, chunkAccounts.getAccounts());

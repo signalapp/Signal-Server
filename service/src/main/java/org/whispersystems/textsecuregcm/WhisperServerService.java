@@ -542,7 +542,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     AccountDatabaseCrawlerCache directoryReconciliationAccountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(
         cacheCluster, AccountDatabaseCrawlerCache.DIRECTORY_RECONCILER_PREFIX);
-    AccountDatabaseCrawler directoryReconciliationAccountDatabaseCrawler = new AccountDatabaseCrawler(accountsManager,
+    AccountDatabaseCrawler directoryReconciliationAccountDatabaseCrawler = new AccountDatabaseCrawler(
+        "Reconciliation crawler",
+        accountsManager,
         directoryReconciliationAccountDatabaseCrawlerCache, directoryReconciliationAccountDatabaseCrawlerListeners,
         config.getAccountDatabaseCrawlerConfiguration().getChunkSize(),
         config.getAccountDatabaseCrawlerConfiguration().getChunkIntervalMs()
@@ -560,7 +562,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(cacheCluster,
         AccountDatabaseCrawlerCache.GENERAL_PURPOSE_PREFIX);
-    AccountDatabaseCrawler accountDatabaseCrawler = new AccountDatabaseCrawler(accountsManager,
+    AccountDatabaseCrawler accountDatabaseCrawler = new AccountDatabaseCrawler("General-purpose account crawler",
+        accountsManager,
         accountDatabaseCrawlerCache, accountDatabaseCrawlerListeners,
         config.getAccountDatabaseCrawlerConfiguration().getChunkSize(),
         config.getAccountDatabaseCrawlerConfiguration().getChunkIntervalMs()
