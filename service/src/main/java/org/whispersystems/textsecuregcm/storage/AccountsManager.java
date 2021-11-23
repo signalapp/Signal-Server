@@ -292,6 +292,7 @@ public class AccountsManager {
 
       final UUID uuid = account.getUuid();
       final String originalNumber = account.getNumber();
+      final UUID originalPhoneNumberIdentifier = account.getPhoneNumberIdentifier();
 
       updatedAccount = updateWithRetries(account,
           updater,
@@ -302,6 +303,13 @@ public class AccountsManager {
 
       if (!updatedAccount.getNumber().equals(originalNumber)) {
         logger.error("Account number changed via \"normal\" update; numbers must be changed via changeNumber method",
+            new RuntimeException());
+      }
+
+      assert updatedAccount.getPhoneNumberIdentifier().equals(originalPhoneNumberIdentifier);
+
+      if (!updatedAccount.getPhoneNumberIdentifier().equals(originalPhoneNumberIdentifier)) {
+        logger.error("Phone number identifier changed via \"normal\" update; PNIs must be changed via changeNumber method",
             new RuntimeException());
       }
 

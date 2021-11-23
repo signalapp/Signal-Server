@@ -355,18 +355,19 @@ class AccountsManagerTest {
   @Test
   void testUpdate_optimisticLockingFailure() {
     UUID uuid = UUID.randomUUID();
-    Account account = new Account("+14152222222", uuid, UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    UUID pni = UUID.randomUUID();
+    Account account = new Account("+14152222222", uuid, pni, new HashSet<>(), new byte[16]);
 
     when(commands.get(eq("Account3::" + uuid))).thenReturn(null);
 
     when(accounts.getByAccountIdentifier(uuid)).thenReturn(
-        Optional.of(new Account("+14152222222", uuid, UUID.randomUUID(), new HashSet<>(), new byte[16])));
+        Optional.of(new Account("+14152222222", uuid, pni, new HashSet<>(), new byte[16])));
     doThrow(ContestedOptimisticLockException.class)
         .doAnswer(ACCOUNT_UPDATE_ANSWER)
         .when(accounts).update(any());
 
     when(accounts.getByAccountIdentifier(uuid)).thenReturn(
-        Optional.of(new Account("+14152222222", uuid, UUID.randomUUID(), new HashSet<>(), new byte[16])));
+        Optional.of(new Account("+14152222222", uuid, pni, new HashSet<>(), new byte[16])));
     doThrow(ContestedOptimisticLockException.class)
         .doAnswer(ACCOUNT_UPDATE_ANSWER)
         .when(accounts).update(any());
