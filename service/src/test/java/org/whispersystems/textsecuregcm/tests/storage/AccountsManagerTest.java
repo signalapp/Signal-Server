@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.anyString;
@@ -221,9 +222,9 @@ class AccountsManagerTest {
     assertSame(retrieved.get(), account);
 
     verify(commands, times(1)).get(eq("AccountMap::+14152222222"));
-    verify(commands, times(1)).set(eq("AccountMap::+14152222222"), eq(uuid.toString()));
-    verify(commands, times(1)).set(eq("AccountMap::" + pni), eq(uuid.toString()));
-    verify(commands, times(1)).set(eq("Account3::" + uuid), anyString());
+    verify(commands, times(1)).setex(eq("AccountMap::+14152222222"), anyLong(), eq(uuid.toString()));
+    verify(commands, times(1)).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
+    verify(commands, times(1)).setex(eq("Account3::" + uuid), anyLong(), anyString());
     verifyNoMoreInteractions(commands);
 
     verify(accounts, times(1)).getByE164(eq("+14152222222"));
@@ -245,9 +246,9 @@ class AccountsManagerTest {
     assertSame(retrieved.get(), account);
 
     verify(commands, times(1)).get(eq("Account3::" + uuid));
-    verify(commands, times(1)).set(eq("AccountMap::+14152222222"), eq(uuid.toString()));
-    verify(commands, times(1)).set(eq("AccountMap::" + pni), eq(uuid.toString()));
-    verify(commands, times(1)).set(eq("Account3::" + uuid), anyString());
+    verify(commands, times(1)).setex(eq("AccountMap::+14152222222"), anyLong(), eq(uuid.toString()));
+    verify(commands, times(1)).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
+    verify(commands, times(1)).setex(eq("Account3::" + uuid), anyLong(), anyString());
     verifyNoMoreInteractions(commands);
 
     verify(accounts, times(1)).getByAccountIdentifier(eq(uuid));
@@ -270,9 +271,9 @@ class AccountsManagerTest {
     assertSame(retrieved.get(), account);
 
     verify(commands).get(eq("AccountMap::" + pni));
-    verify(commands).set(eq("AccountMap::" + pni), eq(uuid.toString()));
-    verify(commands).set(eq("AccountMap::+14152222222"), eq(uuid.toString()));
-    verify(commands).set(eq("Account3::" + uuid), anyString());
+    verify(commands).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
+    verify(commands).setex(eq("AccountMap::+14152222222"), anyLong(), eq(uuid.toString()));
+    verify(commands).setex(eq("Account3::" + uuid), anyLong(), anyString());
     verifyNoMoreInteractions(commands);
 
     verify(accounts).getByPhoneNumberIdentifier(pni);
@@ -294,9 +295,9 @@ class AccountsManagerTest {
     assertSame(retrieved.get(), account);
 
     verify(commands, times(1)).get(eq("AccountMap::+14152222222"));
-    verify(commands, times(1)).set(eq("AccountMap::+14152222222"), eq(uuid.toString()));
-    verify(commands, times(1)).set(eq("AccountMap::" + pni), eq(uuid.toString()));
-    verify(commands, times(1)).set(eq("Account3::" + uuid), anyString());
+    verify(commands, times(1)).setex(eq("AccountMap::+14152222222"), anyLong(), eq(uuid.toString()));
+    verify(commands, times(1)).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
+    verify(commands, times(1)).setex(eq("Account3::" + uuid), anyLong(), anyString());
     verifyNoMoreInteractions(commands);
 
     verify(accounts, times(1)).getByE164(eq("+14152222222"));
@@ -318,9 +319,9 @@ class AccountsManagerTest {
     assertSame(retrieved.get(), account);
 
     verify(commands, times(1)).get(eq("Account3::" + uuid));
-    verify(commands, times(1)).set(eq("AccountMap::+14152222222"), eq(uuid.toString()));
-    verify(commands, times(1)).set(eq("AccountMap::" + pni), eq(uuid.toString()));
-    verify(commands, times(1)).set(eq("Account3::" + uuid), anyString());
+    verify(commands, times(1)).setex(eq("AccountMap::+14152222222"), anyLong(), eq(uuid.toString()));
+    verify(commands, times(1)).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
+    verify(commands, times(1)).setex(eq("Account3::" + uuid), anyLong(), anyString());
     verifyNoMoreInteractions(commands);
 
     verify(accounts, times(1)).getByAccountIdentifier(eq(uuid));
@@ -343,9 +344,9 @@ class AccountsManagerTest {
     assertSame(retrieved.get(), account);
 
     verify(commands).get(eq("AccountMap::" + pni));
-    verify(commands).set(eq("AccountMap::" + pni), eq(uuid.toString()));
-    verify(commands).set(eq("AccountMap::+14152222222"), eq(uuid.toString()));
-    verify(commands).set(eq("Account3::" + uuid), anyString());
+    verify(commands).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
+    verify(commands).setex(eq("AccountMap::+14152222222"), anyLong(), eq(uuid.toString()));
+    verify(commands).setex(eq("Account3::" + uuid), anyLong(), anyString());
     verifyNoMoreInteractions(commands);
 
     verify(accounts).getByPhoneNumberIdentifier(pni);

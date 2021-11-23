@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doAnswer;
@@ -229,7 +230,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
   private Account getLastAccountFromRedisMock(RedisAdvancedClusterCommands<String, String> commands) throws IOException {
     ArgumentCaptor<String> redisSetArgumentCapture = ArgumentCaptor.forClass(String.class);
 
-    verify(commands, atLeast(20)).set(anyString(), redisSetArgumentCapture.capture());
+    verify(commands, atLeast(20)).setex(anyString(), anyLong(), redisSetArgumentCapture.capture());
 
     return JsonHelpers.fromJson(redisSetArgumentCapture.getValue(), Account.class);
   }

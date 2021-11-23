@@ -18,6 +18,7 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -78,6 +79,12 @@ public class AccountsManager {
   private final ClientPresenceManager clientPresenceManager;
   private final ObjectMapper mapper;
   private final Clock clock;
+
+  // An account that's used at least daily will get reset in the cache at least once per day when its "last seen"
+  // timestamp updates; expiring entries after two days will help clear out "zombie" cache entries that are read
+  // frequently (e.g. the account is in an active group and receives messages frequently), but aren't actively used by
+  // the owner.
+  private static final long CACHE_TTL_SECONDS = Duration.ofDays(2).toSeconds();
 
   public enum DeletionReason {
     ADMIN_DELETED("admin"),
@@ -476,10 +483,9 @@ public class AccountsManager {
       cacheCluster.useCluster(connection -> {
         final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
 
-
-        commands.set(getAccountMapKey(account.getPhoneNumberIdentifier().toString()), account.getUuid().toString());
-        commands.set(getAccountMapKey(account.getNumber()), account.getUuid().toString());
-        commands.set(getAccountEntityKey(account.getUuid()), accountJson);
+        commands.setex(getAccountMapKey(account.getPhoneNumberIdentifier().toString()), CACHE_TTL_SECONDS, account.getUuid().toString());
+        commands.setex(getAccountMapKey(account.getNumber()), CACHE_TTL_SECONDS, account.getUuid().toString());
+        commands.setex(getAccountEntityKey(account.getUuid()), CACHE_TTL_SECONDS, accountJson);
       });
     } catch (JsonProcessingException e) {
       throw new IllegalStateException(e);
