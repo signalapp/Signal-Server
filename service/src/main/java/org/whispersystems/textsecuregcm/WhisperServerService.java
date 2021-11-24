@@ -593,7 +593,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(accountDatabaseCrawler);
     environment.lifecycle().manage(directoryReconciliationAccountDatabaseCrawler);
     environment.lifecycle().manage(deletedAccountsTableCrawler);
-    environment.lifecycle().manage(remoteConfigsManager);
     environment.lifecycle().manage(messagesCache);
     environment.lifecycle().manage(messagePersister);
     environment.lifecycle().manage(clientPresenceManager);

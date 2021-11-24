@@ -5,70 +5,26 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import com.google.common.annotations.VisibleForTesting;
-import io.dropwizard.lifecycle.Managed;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.util.Util;
-
-import java.util.LinkedList;
+import com.google.common.base.Suppliers;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
-public class RemoteConfigsManager implements Managed {
-
-  private final Logger logger = LoggerFactory.getLogger(RemoteConfigsManager.class);
+public class RemoteConfigsManager {
 
   private final RemoteConfigs remoteConfigs;
-  private final long          sleepInterval;
 
-  private final AtomicReference<List<RemoteConfig>> cachedConfigs = new AtomicReference<>(new LinkedList<>());
+  private final Supplier<List<RemoteConfig>> remoteConfigSupplier;
 
   public RemoteConfigsManager(RemoteConfigs remoteConfigs) {
-    this(remoteConfigs, TimeUnit.SECONDS.toMillis(10));
-  }
-
-  @VisibleForTesting
-  public RemoteConfigsManager(RemoteConfigs remoteConfigs, long sleepInterval) {
     this.remoteConfigs = remoteConfigs;
-    this.sleepInterval = sleepInterval;
-  }
 
-  @Override
-  public void start() {
-    refreshCache();
-
-    new Thread(() -> {
-      while (true) {
-        try {
-          refreshCache();
-        } catch (Throwable t) {
-          logger.warn("Error updating remote configs cache", t);
-        }
-
-        Util.sleep(sleepInterval);
-      }
-    }).start();
-  }
-
-  private void refreshCache() {
-    this.cachedConfigs.set(remoteConfigs.getAll());
-
-    synchronized (this.cachedConfigs) {
-      this.cachedConfigs.notifyAll();
-    }
-  }
-
-  @VisibleForTesting
-  void waitForCacheRefresh() throws InterruptedException {
-    synchronized (this.cachedConfigs) {
-      this.cachedConfigs.wait();
-    }
+    remoteConfigSupplier =
+        Suppliers.memoizeWithExpiration(remoteConfigs::getAll, 10, TimeUnit.SECONDS);
   }
 
   public List<RemoteConfig> getAll() {
-    return cachedConfigs.get();
+    return remoteConfigSupplier.get();
   }
 
   public void set(RemoteConfig config) {
@@ -77,10 +33,5 @@ public class RemoteConfigsManager implements Managed {
 
   public void delete(String name) {
     remoteConfigs.delete(name);
-  }
-
-  @Override
-  public void stop() throws Exception {
-
   }
 }

@@ -29,20 +29,17 @@ public class RemoteConfigsManagerTest {
 
   @Before
   public void setup() {
-    RemoteConfigs remoteConfigs = new RemoteConfigs(new FaultTolerantDatabase("remote_configs-test", Jdbi.create(db.getTestDatabase()), new CircuitBreakerConfiguration()));
-    this.remoteConfigs = new RemoteConfigsManager(remoteConfigs, 500);
-    this.remoteConfigs.start();
+    this.remoteConfigs = new RemoteConfigsManager(new RemoteConfigs(
+        new FaultTolerantDatabase("remote_configs-test", Jdbi.create(db.getTestDatabase()), new CircuitBreakerConfiguration())));
   }
 
   @Test
-  public void testUpdate() throws InterruptedException {
+  public void testUpdate() {
     remoteConfigs.set(new RemoteConfig("android.stickers", 50, Set.of(AuthHelper.VALID_UUID), "FALSE", "TRUE", null));
     remoteConfigs.set(new RemoteConfig("value.sometimes", 50, Set.of(), "bar", "baz", null));
     remoteConfigs.set(new RemoteConfig("ios.stickers", 50, Set.of(), "FALSE", "TRUE", null));
     remoteConfigs.set(new RemoteConfig("ios.stickers", 75, Set.of(), "FALSE", "TRUE", null));
     remoteConfigs.set(new RemoteConfig("value.sometimes", 25, Set.of(AuthHelper.VALID_UUID), "abc", "def", null));
-
-    remoteConfigs.waitForCacheRefresh();
 
     List<RemoteConfig> results = remoteConfigs.getAll();
 
