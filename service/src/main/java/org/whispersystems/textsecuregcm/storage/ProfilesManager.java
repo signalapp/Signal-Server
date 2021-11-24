@@ -22,31 +22,32 @@ public class ProfilesManager {
 
   private static final String CACHE_PREFIX = "profiles::";
 
-  private final ProfilesDynamoDb profilesDynamoDb;
+  private final Profiles profiles;
   private final FaultTolerantRedisCluster cacheCluster;
   private final ObjectMapper mapper;
 
-  public ProfilesManager(final ProfilesDynamoDb profilesDynamoDb, final FaultTolerantRedisCluster cacheCluster) {
-    this.profilesDynamoDb = profilesDynamoDb;
+  public ProfilesManager(final Profiles profiles,
+      final FaultTolerantRedisCluster cacheCluster) {
+    this.profiles = profiles;
     this.cacheCluster = cacheCluster;
     this.mapper = SystemMapper.getMapper();
   }
 
   public void set(UUID uuid, VersionedProfile versionedProfile) {
     memcacheSet(uuid, versionedProfile);
-    profilesDynamoDb.set(uuid, versionedProfile);
+    profiles.set(uuid, versionedProfile);
   }
 
   public void deleteAll(UUID uuid) {
     memcacheDelete(uuid);
-    profilesDynamoDb.deleteAll(uuid);
+    profiles.deleteAll(uuid);
   }
 
   public Optional<VersionedProfile> get(UUID uuid, String version) {
     Optional<VersionedProfile> profile = memcacheGet(uuid, version);
 
     if (profile.isEmpty()) {
-      profile = profilesDynamoDb.get(uuid, version);
+      profile = profiles.get(uuid, version);
       profile.ifPresent(versionedProfile -> memcacheSet(uuid, versionedProfile));
     }
 

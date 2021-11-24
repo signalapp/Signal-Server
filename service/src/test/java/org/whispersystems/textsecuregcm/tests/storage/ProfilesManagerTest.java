@@ -25,14 +25,14 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.storage.ProfilesDynamoDb;
+import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 
 public class ProfilesManagerTest {
 
-  private ProfilesDynamoDb profiles;
+  private Profiles profiles;
   private RedisAdvancedClusterCommands<String, String> commands;
 
   private ProfilesManager profilesManager;
@@ -43,7 +43,7 @@ public class ProfilesManagerTest {
     commands = mock(RedisAdvancedClusterCommands.class);
     final FaultTolerantRedisCluster cacheCluster = RedisClusterHelper.buildMockRedisCluster(commands);
 
-    profiles = mock(ProfilesDynamoDb.class);
+    profiles = mock(Profiles.class);
 
     profilesManager = new ProfilesManager(profiles, cacheCluster);
   }

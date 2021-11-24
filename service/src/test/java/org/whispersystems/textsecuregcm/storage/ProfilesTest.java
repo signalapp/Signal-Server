@@ -5,20 +5,56 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.whispersystems.textsecuregcm.util.AttributeValues;
+import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
+
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import org.junit.jupiter.api.Test;
+import java.util.stream.Stream;
 
 public abstract class ProfilesTest {
 
-  protected abstract ProfilesStore getProfilesStore();
+  private static final String PROFILES_TABLE_NAME = "profiles_test";
+
+  @RegisterExtension
+  static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
+      .tableName(PROFILES_TABLE_NAME)
+      .hashKey(Profiles.KEY_ACCOUNT_UUID)
+      .rangeKey(Profiles.ATTR_VERSION)
+      .attributeDefinition(AttributeDefinition.builder()
+          .attributeName(Profiles.KEY_ACCOUNT_UUID)
+          .attributeType(ScalarAttributeType.B)
+          .build())
+      .attributeDefinition(AttributeDefinition.builder()
+          .attributeName(Profiles.ATTR_VERSION)
+          .attributeType(ScalarAttributeType.S)
+          .build())
+      .build();
+
+  private Profiles profiles;
+
+  @BeforeEach
+  void setUp() {
+    profiles = new Profiles(dynamoDbExtension.getDynamoDbClient(),
+        dynamoDbExtension.getDynamoDbAsyncClient(),
+        PROFILES_TABLE_NAME);
+  }
 
   @Test
   void testSetGet() {
-    ProfilesStore profiles = getProfilesStore();
     UUID uuid = UUID.randomUUID();
     VersionedProfile profile = new VersionedProfile("123", "foo", "avatarLocation", "emoji",
         "the very model of a modern major general",
@@ -37,7 +73,6 @@ public abstract class ProfilesTest {
 
   @Test
   void testDeleteReset() {
-    ProfilesStore profiles = getProfilesStore();
     UUID uuid = UUID.randomUUID();
     profiles.set(uuid, new VersionedProfile("123", "foo", "avatarLocation", "emoji",
         "the very model of a modern major general",
@@ -62,7 +97,6 @@ public abstract class ProfilesTest {
 
   @Test
   void testSetGetNullOptionalFields() {
-    ProfilesStore profiles = getProfilesStore();
     UUID uuid = UUID.randomUUID();
     VersionedProfile profile = new VersionedProfile("123", "foo", null, null, null, null,
         "acommitment".getBytes());
@@ -80,7 +114,6 @@ public abstract class ProfilesTest {
 
   @Test
   void testSetReplace() {
-    ProfilesStore profiles = getProfilesStore();
     UUID uuid = UUID.randomUUID();
     VersionedProfile profile = new VersionedProfile("123", "foo", "avatarLocation", null, null,
         "paymentAddress", "acommitment".getBytes());
@@ -113,7 +146,6 @@ public abstract class ProfilesTest {
 
   @Test
   void testMultipleVersions() {
-    ProfilesStore profiles = getProfilesStore();
     UUID uuid = UUID.randomUUID();
     VersionedProfile profileOne = new VersionedProfile("123", "foo", "avatarLocation", null, null,
         null, "acommitmnet".getBytes());
@@ -145,7 +177,6 @@ public abstract class ProfilesTest {
 
   @Test
   void testMissing() {
-    ProfilesStore profiles = getProfilesStore();
     UUID uuid = UUID.randomUUID();
     VersionedProfile profile = new VersionedProfile("123", "foo", "avatarLocation", null, null,
         null, "aDigest".getBytes());
@@ -158,7 +189,6 @@ public abstract class ProfilesTest {
 
   @Test
   void testDelete() {
-    ProfilesStore profiles = getProfilesStore();
     UUID uuid = UUID.randomUUID();
     VersionedProfile profileOne = new VersionedProfile("123", "foo", "avatarLocation", null, null,
         null, "aDigest".getBytes());
@@ -176,5 +206,97 @@ public abstract class ProfilesTest {
     retrieved = profiles.get(uuid, "345");
 
     assertThat(retrieved.isPresent()).isFalse();
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void buildUpdateExpression(final VersionedProfile profile, final String expectedUpdateExpression) {
+    assertEquals(expectedUpdateExpression, Profiles.buildUpdateExpression(profile));
+  }
+
+  private static Stream<Arguments> buildUpdateExpression() {
+    final byte[] commitment = "commitment".getBytes(StandardCharsets.UTF_8);
+
+    return Stream.of(
+        Arguments.of(
+            new VersionedProfile("version", "name", "avatar", "emoji", "about", "paymentAddress", commitment),
+            "SET #commitment = if_not_exists(#commitment, :commitment), #name = :name, #avatar = :avatar, #about = :about, #aboutEmoji = :aboutEmoji, #paymentAddress = :paymentAddress"),
+
+        Arguments.of(
+            new VersionedProfile("version", "name", "avatar", "emoji", "about", null, commitment),
+            "SET #commitment = if_not_exists(#commitment, :commitment), #name = :name, #avatar = :avatar, #about = :about, #aboutEmoji = :aboutEmoji REMOVE #paymentAddress"),
+
+        Arguments.of(
+            new VersionedProfile("version", "name", "avatar", "emoji", null, null, commitment),
+            "SET #commitment = if_not_exists(#commitment, :commitment), #name = :name, #avatar = :avatar, #aboutEmoji = :aboutEmoji REMOVE #about, #paymentAddress"),
+
+        Arguments.of(
+            new VersionedProfile("version", "name", "avatar", null, null, null, commitment),
+            "SET #commitment = if_not_exists(#commitment, :commitment), #name = :name, #avatar = :avatar REMOVE #about, #aboutEmoji, #paymentAddress"),
+
+        Arguments.of(
+            new VersionedProfile("version", "name", null, null, null, null, commitment),
+            "SET #commitment = if_not_exists(#commitment, :commitment), #name = :name REMOVE #avatar, #about, #aboutEmoji, #paymentAddress"),
+
+        Arguments.of(
+            new VersionedProfile("version", null, null, null, null, null, commitment),
+            "SET #commitment = if_not_exists(#commitment, :commitment) REMOVE #name, #avatar, #about, #aboutEmoji, #paymentAddress")
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void buildUpdateExpressionAttributeValues(final VersionedProfile profile, final Map<String, AttributeValue> expectedAttributeValues) {
+    assertEquals(expectedAttributeValues, Profiles.buildUpdateExpressionAttributeValues(profile));
+  }
+
+  private static Stream<Arguments> buildUpdateExpressionAttributeValues() {
+    final byte[] commitment = "commitment".getBytes(StandardCharsets.UTF_8);
+
+    return Stream.of(
+        Arguments.of(
+            new VersionedProfile("version", "name", "avatar", "emoji", "about", "paymentAddress", commitment),
+            Map.of(
+                ":commitment", AttributeValues.fromByteArray(commitment),
+                ":name", AttributeValues.fromString("name"),
+                ":avatar", AttributeValues.fromString("avatar"),
+                ":aboutEmoji", AttributeValues.fromString("emoji"),
+                ":about", AttributeValues.fromString("about"),
+                ":paymentAddress", AttributeValues.fromString("paymentAddress"))),
+
+        Arguments.of(
+            new VersionedProfile("version", "name", "avatar", "emoji", "about", null, commitment),
+            Map.of(
+                ":commitment", AttributeValues.fromByteArray(commitment),
+                ":name", AttributeValues.fromString("name"),
+                ":avatar", AttributeValues.fromString("avatar"),
+                ":aboutEmoji", AttributeValues.fromString("emoji"),
+                ":about", AttributeValues.fromString("about"))),
+
+        Arguments.of(
+            new VersionedProfile("version", "name", "avatar", "emoji", null, null, commitment),
+            Map.of(
+                ":commitment", AttributeValues.fromByteArray(commitment),
+                ":name", AttributeValues.fromString("name"),
+                ":avatar", AttributeValues.fromString("avatar"),
+                ":aboutEmoji", AttributeValues.fromString("emoji"))),
+
+        Arguments.of(
+            new VersionedProfile("version", "name", "avatar", null, null, null, commitment),
+            Map.of(
+                ":commitment", AttributeValues.fromByteArray(commitment),
+                ":name", AttributeValues.fromString("name"),
+                ":avatar", AttributeValues.fromString("avatar"))),
+
+        Arguments.of(
+            new VersionedProfile("version", "name", null, null, null, null, commitment),
+            Map.of(
+                ":commitment", AttributeValues.fromByteArray(commitment),
+                ":name", AttributeValues.fromString("name"))),
+
+        Arguments.of(
+            new VersionedProfile("version", null, null, null, null, null, commitment),
+            Map.of(":commitment", AttributeValues.fromByteArray(commitment)))
+    );
   }
 }

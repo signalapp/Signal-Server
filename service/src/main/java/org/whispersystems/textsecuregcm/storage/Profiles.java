@@ -30,7 +30,7 @@ import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 import software.amazon.awssdk.services.dynamodb.paginators.QueryIterable;
 
-public class ProfilesDynamoDb implements ProfilesStore {
+public class Profiles {
 
   private final DynamoDbClient dynamoDbClient;
   private final DynamoDbAsyncClient dynamoDbAsyncClient;
@@ -70,11 +70,11 @@ public class ProfilesDynamoDb implements ProfilesStore {
       "#aboutEmoji", ATTR_EMOJI,
       "#paymentAddress", ATTR_PAYMENT_ADDRESS);
 
-  private static final Timer SET_PROFILES_TIMER = Metrics.timer(name(ProfilesDynamoDb.class, "set"));
-  private static final Timer GET_PROFILE_TIMER = Metrics.timer(name(ProfilesDynamoDb.class, "get"));
-  private static final Timer DELETE_PROFILES_TIMER = Metrics.timer(name(ProfilesDynamoDb.class, "delete"));
+  private static final Timer SET_PROFILES_TIMER = Metrics.timer(name(Profiles.class, "set"));
+  private static final Timer GET_PROFILE_TIMER = Metrics.timer(name(Profiles.class, "get"));
+  private static final Timer DELETE_PROFILES_TIMER = Metrics.timer(name(Profiles.class, "delete"));
 
-  public ProfilesDynamoDb(final DynamoDbClient dynamoDbClient,
+  public Profiles(final DynamoDbClient dynamoDbClient,
       final DynamoDbAsyncClient dynamoDbAsyncClient,
       final String tableName) {
 
@@ -83,7 +83,6 @@ public class ProfilesDynamoDb implements ProfilesStore {
     this.tableName = tableName;
   }
 
-  @Override
   public void set(final UUID uuid, final VersionedProfile profile) {
     SET_PROFILES_TIMER.record(() -> {
       dynamoDbClient.updateItem(UpdateItemRequest.builder()
@@ -187,7 +186,6 @@ public class ProfilesDynamoDb implements ProfilesStore {
     return expressionValues;
   }
 
-  @Override
   public Optional<VersionedProfile> get(final UUID uuid, final String version) {
     return GET_PROFILE_TIMER.record(() -> {
       final GetItemResponse response = dynamoDbClient.getItem(GetItemRequest.builder()
@@ -211,7 +209,6 @@ public class ProfilesDynamoDb implements ProfilesStore {
         AttributeValues.getByteArray(item, ATTR_COMMITMENT, null));
   }
 
-  @Override
   public void deleteAll(final UUID uuid) {
     DELETE_PROFILES_TIMER.record(() -> {
       final AttributeValue uuidAttributeValue = AttributeValues.fromUUID(uuid);
