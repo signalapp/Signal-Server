@@ -17,20 +17,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
-import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 import software.amazon.awssdk.services.dynamodb.paginators.QueryIterable;
@@ -78,8 +73,6 @@ public class ProfilesDynamoDb implements ProfilesStore {
   private static final Timer SET_PROFILES_TIMER = Metrics.timer(name(ProfilesDynamoDb.class, "set"));
   private static final Timer GET_PROFILE_TIMER = Metrics.timer(name(ProfilesDynamoDb.class, "get"));
   private static final Timer DELETE_PROFILES_TIMER = Metrics.timer(name(ProfilesDynamoDb.class, "delete"));
-
-  private static final Logger log = LoggerFactory.getLogger(ProfilesDynamoDb.class);
 
   public ProfilesDynamoDb(final DynamoDbClient dynamoDbClient,
       final DynamoDbAsyncClient dynamoDbAsyncClient,
@@ -241,60 +234,5 @@ public class ProfilesDynamoDb implements ProfilesStore {
               .build()))
           .toArray(CompletableFuture[]::new)).join();
     });
-  }
-
-  public CompletableFuture<Boolean> migrate(final UUID uuid, final VersionedProfile profile) {
-    final Map<String, AttributeValue> item = new HashMap<>();
-    item.put(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid));
-    item.put(ATTR_VERSION, AttributeValues.fromString(profile.getVersion()));
-    item.put(ATTR_COMMITMENT, AttributeValues.fromByteArray(profile.getCommitment()));
-
-    if (profile.getName() != null) {
-      item.put(ATTR_NAME, AttributeValues.fromString(profile.getName()));
-    }
-
-    if (profile.getAvatar() != null) {
-      item.put(ATTR_AVATAR, AttributeValues.fromString(profile.getAvatar()));
-    }
-
-    if (profile.getAboutEmoji() != null) {
-      item.put(ATTR_EMOJI, AttributeValues.fromString(profile.getAboutEmoji()));
-    }
-
-    if (profile.getAbout() != null) {
-      item.put(ATTR_ABOUT, AttributeValues.fromString(profile.getAbout()));
-    }
-
-    if (profile.getPaymentAddress() != null) {
-      item.put(ATTR_PAYMENT_ADDRESS, AttributeValues.fromString(profile.getPaymentAddress()));
-    }
-
-    return dynamoDbAsyncClient.putItem(PutItemRequest.builder()
-        .tableName(tableName)
-        .item(item)
-        .conditionExpression("attribute_not_exists(#uuid)")
-        .expressionAttributeNames(Map.of("#uuid", KEY_ACCOUNT_UUID))
-        .build())
-        .handle((response, cause) -> {
-          if (cause == null) {
-            return true;
-          } else {
-            final boolean isConditionalCheckFailure = cause instanceof ConditionalCheckFailedException ||
-                (cause instanceof CompletionException && cause.getCause() instanceof ConditionalCheckFailedException);
-
-            if (!isConditionalCheckFailure) {
-              log.warn("Unexpected error migrating profiles {}/{}", uuid, profile.getVersion(), cause);
-            }
-
-            return false;
-          }
-        });
-  }
-
-  public CompletableFuture<?> delete(final UUID uuid, final String version) {
-    return dynamoDbAsyncClient.deleteItem(DeleteItemRequest.builder()
-        .tableName(tableName)
-        .key(buildPrimaryKey(uuid, version))
-        .build());
   }
 }

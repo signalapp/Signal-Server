@@ -12,10 +12,8 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.BiConsumer;
 import org.whispersystems.textsecuregcm.storage.mappers.VersionedProfileMapper;
 import org.whispersystems.textsecuregcm.util.Constants;
-import org.whispersystems.textsecuregcm.util.Pair;
 
 public class Profiles implements ProfilesStore {
 
@@ -102,33 +100,5 @@ public class Profiles implements ProfilesStore {
               .execute();
       }
     }));
-  }
-
-  public void forEach(final BiConsumer<UUID, VersionedProfile> consumer, final int fetchSize) {
-    database.use(jdbi -> jdbi.useHandle(handle -> handle.useTransaction(transactionHandle ->
-        transactionHandle.createQuery("SELECT * FROM profiles WHERE " + DELETED + "= FALSE")
-            .setFetchSize(fetchSize)
-            .map((resultSet, ctx) -> {
-              final UUID uuid = UUID.fromString(resultSet.getString(UID));
-              final VersionedProfile profile = new VersionedProfile(
-                  resultSet.getString(Profiles.VERSION),
-                  resultSet.getString(Profiles.NAME),
-                  resultSet.getString(Profiles.AVATAR),
-                  resultSet.getString(Profiles.ABOUT_EMOJI),
-                  resultSet.getString(Profiles.ABOUT),
-                  resultSet.getString(Profiles.PAYMENT_ADDRESS),
-                  resultSet.getBytes(Profiles.COMMITMENT));
-
-              return new Pair<>(uuid, profile);
-            })
-            .forEach(pair -> consumer.accept(pair.first(), pair.second())))));
-  }
-
-  public void forEachDeletedProfile(final BiConsumer<UUID, String> consumer, final int fetchSize) {
-    database.use(jdbi -> jdbi.useHandle(handle -> handle.useTransaction(transactionHandle ->
-        transactionHandle.createQuery("SELECT " + UID + ", " + VERSION + " FROM profiles WHERE " + DELETED + " = TRUE")
-            .setFetchSize(fetchSize)
-            .map((rs, ctx) -> new Pair<>(UUID.fromString(rs.getString(UID)), rs.getString(VERSION)))
-            .forEach(pair -> consumer.accept(pair.first(), pair.second())))));
   }
 }

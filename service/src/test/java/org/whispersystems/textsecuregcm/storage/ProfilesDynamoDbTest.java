@@ -5,18 +5,12 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -149,45 +143,5 @@ class ProfilesDynamoDbTest extends ProfilesTest {
             new VersionedProfile("version", null, null, null, null, null, commitment),
             Map.of(":commitment", AttributeValues.fromByteArray(commitment)))
     );
-  }
-
-  @ParameterizedTest
-  @MethodSource
-  void migrate(final VersionedProfile profile) {
-    final UUID uuid = UUID.randomUUID();
-
-    assertTrue(assertDoesNotThrow(() -> profiles.migrate(uuid, profile).join()));
-    assertFalse(assertDoesNotThrow(() -> profiles.migrate(uuid, profile).join()));
-
-    assertEquals(Optional.of(profile), profiles.get(uuid, profile.getVersion()));
-  }
-
-  private static Stream<Arguments> migrate() {
-    return Stream.of(
-        Arguments.of(new VersionedProfile("version", "name", "avatar", "emoji", "about", "paymentAddress", "commitment".getBytes(StandardCharsets.UTF_8))),
-        Arguments.of(new VersionedProfile("version", null, "avatar", "emoji", "about", "paymentAddress", "commitment".getBytes(StandardCharsets.UTF_8))),
-        Arguments.of(new VersionedProfile("version", "name", null, "emoji", "about", "paymentAddress", "commitment".getBytes(StandardCharsets.UTF_8))),
-        Arguments.of(new VersionedProfile("version", "name", "avatar", null, "about", "paymentAddress", "commitment".getBytes(StandardCharsets.UTF_8))),
-        Arguments.of(new VersionedProfile("version", "name", "avatar", "emoji", null, "paymentAddress", "commitment".getBytes(StandardCharsets.UTF_8))),
-        Arguments.of(new VersionedProfile("version", "name", "avatar", "emoji", "about", null, "commitment".getBytes(StandardCharsets.UTF_8)))
-    );
-  }
-
-  @Test
-  void delete() {
-    final UUID uuid = UUID.randomUUID();
-    final VersionedProfile firstProfile =
-        new VersionedProfile("version1", "name", "avatar", "emoji", "about", "paymentAddress", "commitment".getBytes(StandardCharsets.UTF_8));
-
-    final VersionedProfile secondProfile =
-        new VersionedProfile("version2", "name", "avatar", "emoji", "about", "paymentAddress", "commitment".getBytes(StandardCharsets.UTF_8));
-
-    profiles.set(uuid, firstProfile);
-    profiles.set(uuid, secondProfile);
-
-    profiles.delete(uuid, firstProfile.getVersion()).join();
-
-    assertTrue(profiles.get(uuid, firstProfile.getVersion()).isEmpty());
-    assertTrue(profiles.get(uuid, secondProfile.getVersion()).isPresent());
   }
 }
