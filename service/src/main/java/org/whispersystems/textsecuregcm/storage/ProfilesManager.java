@@ -8,16 +8,13 @@ package org.whispersystems.textsecuregcm.storage;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.lettuce.core.RedisException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.experiment.Experiment;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.util.SystemMapper;
-
 import java.io.IOException;
 import java.util.Optional;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 public class ProfilesManager {
 
@@ -25,63 +22,31 @@ public class ProfilesManager {
 
   private static final String CACHE_PREFIX = "profiles::";
 
-  private final Profiles profiles;
   private final ProfilesDynamoDb profilesDynamoDb;
   private final FaultTolerantRedisCluster cacheCluster;
-  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final ObjectMapper mapper;
 
-  private final Experiment migrationExperiment = new Experiment("profileMigration");
-
-  public ProfilesManager(final Profiles profiles,
-      final ProfilesDynamoDb profilesDynamoDb,
-      final FaultTolerantRedisCluster cacheCluster,
-      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
-    this.profiles = profiles;
+  public ProfilesManager(final ProfilesDynamoDb profilesDynamoDb, final FaultTolerantRedisCluster cacheCluster) {
     this.profilesDynamoDb = profilesDynamoDb;
     this.cacheCluster = cacheCluster;
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.mapper = SystemMapper.getMapper();
   }
 
   public void set(UUID uuid, VersionedProfile versionedProfile) {
     memcacheSet(uuid, versionedProfile);
-    profiles.set(uuid, versionedProfile);
-
-    if (dynamicConfigurationManager.getConfiguration().getProfileMigrationConfiguration().isDynamoDbWriteEnabled()) {
-      profilesDynamoDb.set(uuid, versionedProfile);
-    }
+    profilesDynamoDb.set(uuid, versionedProfile);
   }
 
   public void deleteAll(UUID uuid) {
     memcacheDelete(uuid);
-    profiles.deleteAll(uuid);
-
-    if (dynamicConfigurationManager.getConfiguration().getProfileMigrationConfiguration().isDynamoDbDeleteEnabled()) {
-      profilesDynamoDb.deleteAll(uuid);
-    }
+    profilesDynamoDb.deleteAll(uuid);
   }
 
   public Optional<VersionedProfile> get(UUID uuid, String version) {
     Optional<VersionedProfile> profile = memcacheGet(uuid, version);
 
     if (profile.isEmpty()) {
-      if (dynamicConfigurationManager.getConfiguration().getProfileMigrationConfiguration().isDynamoDbReadPrimary()) {
-        profile = profilesDynamoDb.get(uuid, version);
-      } else {
-        profile = profiles.get(uuid, version);
-
-        if (dynamicConfigurationManager.getConfiguration().getProfileMigrationConfiguration().isDynamoDbReadForComparisonEnabled()) {
-          final Optional<VersionedProfile> dynamoProfile = profilesDynamoDb.get(uuid, version);
-          migrationExperiment.compareSupplierResult(profile, () -> dynamoProfile);
-
-          if (profile.isEmpty() && dynamoProfile.isPresent() &&
-              dynamicConfigurationManager.getConfiguration().getProfileMigrationConfiguration().isLogMismatches()) {
-            logger.info("Profile {}/{} absent from relational database, but present in DynamoDB", uuid, version);
-          }
-        }
-      }
-
+      profile = profilesDynamoDb.get(uuid, version);
       profile.ifPresent(versionedProfile -> memcacheSet(uuid, versionedProfile));
     }
 

@@ -24,11 +24,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicProfileMigrationConfiguration;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
-import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
@@ -36,7 +32,7 @@ import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 
 public class ProfilesManagerTest {
 
-  private Profiles profiles;
+  private ProfilesDynamoDb profiles;
   private RedisAdvancedClusterCommands<String, String> commands;
 
   private ProfilesManager profilesManager;
@@ -47,22 +43,9 @@ public class ProfilesManagerTest {
     commands = mock(RedisAdvancedClusterCommands.class);
     final FaultTolerantRedisCluster cacheCluster = RedisClusterHelper.buildMockRedisCluster(commands);
 
-    profiles = mock(Profiles.class);
+    profiles = mock(ProfilesDynamoDb.class);
 
-    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
-        mock(DynamicConfigurationManager.class);
-
-    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    final DynamicProfileMigrationConfiguration profileMigrationConfiguration =
-        mock(DynamicProfileMigrationConfiguration.class);
-
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
-    when(dynamicConfiguration.getProfileMigrationConfiguration()).thenReturn(profileMigrationConfiguration);
-
-    profilesManager = new ProfilesManager(profiles,
-        mock(ProfilesDynamoDb.class),
-        cacheCluster,
-        dynamicConfigurationManager);
+    profilesManager = new ProfilesManager(profiles, cacheCluster);
   }
 
   @Test

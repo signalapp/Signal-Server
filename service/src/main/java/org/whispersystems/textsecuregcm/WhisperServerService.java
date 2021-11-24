@@ -188,7 +188,6 @@ import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.NonNormalizedAccountCrawlerListener;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
-import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
@@ -386,7 +385,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getPhoneNumberIdentifiersDynamoDbConfiguration().getTableName());
     ReservedUsernames reservedUsernames = new ReservedUsernames(reservedUsernamesDynamoDbClient,
         config.getReservedUsernamesDynamoDbConfiguration().getTableName());
-    Profiles profiles = new Profiles(accountDatabase);
     ProfilesDynamoDb profilesDynamoDb = new ProfilesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         config.getDynamoDbTables().getProfiles().getTableName());
     Keys keys = new Keys(preKeyDynamoDb, config.getKeysDynamoDbConfiguration().getTableName());
@@ -468,7 +466,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     DirectoryQueue             directoryQueue             = new DirectoryQueue(config.getDirectoryConfiguration().getSqsConfiguration());
     StoredVerificationCodeManager pendingAccountsManager  = new StoredVerificationCodeManager(pendingAccounts);
     StoredVerificationCodeManager pendingDevicesManager   = new StoredVerificationCodeManager(pendingDevices);
-    ProfilesManager            profilesManager            = new ProfilesManager(profiles, profilesDynamoDb, cacheCluster, dynamicConfigurationManager);
+    ProfilesManager            profilesManager            = new ProfilesManager(profilesDynamoDb, cacheCluster);
     MessagesCache              messagesCache              = new MessagesCache(messagesCluster, messagesCluster, keyspaceNotificationDispatchExecutor);
     PushLatencyManager         pushLatencyManager         = new PushLatencyManager(metricsCluster, dynamicConfigurationManager);
     ReportMessageManager       reportMessageManager       = new ReportMessageManager(reportMessageDynamoDb, rateLimitersCluster, Metrics.globalRegistry, config.getReportMessageConfiguration().getCounterTtl());

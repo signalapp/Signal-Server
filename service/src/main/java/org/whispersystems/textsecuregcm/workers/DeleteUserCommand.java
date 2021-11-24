@@ -49,7 +49,6 @@ import org.whispersystems.textsecuregcm.storage.MessagesCache;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
-import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
@@ -177,7 +176,6 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
           configuration.getAccountsDynamoDbConfiguration().getScanPageSize());
       PhoneNumberIdentifiers phoneNumberIdentifiers = new PhoneNumberIdentifiers(phoneNumberIdentifiersDynamoDbClient,
           configuration.getPhoneNumberIdentifiersDynamoDbConfiguration().getTableName());
-      Profiles profiles = new Profiles(accountDatabase);
       ProfilesDynamoDb profilesDynamoDb = new ProfilesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
           configuration.getDynamoDbTables().getProfiles().getTableName());
       ReservedUsernames reservedUsernames = new ReservedUsernames(reservedUsernamesDynamoDbClient,
@@ -208,8 +206,7 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
       PushLatencyManager pushLatencyManager = new PushLatencyManager(metricsCluster, dynamicConfigurationManager);
       DirectoryQueue directoryQueue = new DirectoryQueue(
           configuration.getDirectoryConfiguration().getSqsConfiguration());
-      ProfilesManager profilesManager = new ProfilesManager(profiles, profilesDynamoDb, cacheCluster,
-          dynamicConfigurationManager);
+      ProfilesManager profilesManager = new ProfilesManager(profilesDynamoDb, cacheCluster);
       ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(reportMessagesDynamoDb,
           configuration.getReportMessageDynamoDbConfiguration().getTableName(),
           configuration.getReportMessageConfiguration().getReportTtl());
