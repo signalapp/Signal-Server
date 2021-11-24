@@ -10,14 +10,9 @@ import static com.codahale.metrics.MetricRegistry.name;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Optional;
 import java.util.UUID;
-import com.google.common.annotations.VisibleForTesting;
-import org.jdbi.v3.core.mapper.RowMapper;
-import org.jdbi.v3.core.result.ResultIterator;
-import org.jdbi.v3.core.statement.StatementContext;
+import java.util.function.BiConsumer;
 import org.whispersystems.textsecuregcm.storage.mappers.VersionedProfileMapper;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Pair;
@@ -107,8 +102,8 @@ public class Profiles implements ProfilesStore {
     }));
   }
 
-  public ResultIterator<Pair<UUID, VersionedProfile>> getAll(final int fetchSize) {
-    return database.with(jdbi -> jdbi.withHandle(handle -> handle.inTransaction(transactionHandle ->
+  public void forEach(final BiConsumer<UUID, VersionedProfile> consumer, final int fetchSize) {
+    database.use(jdbi -> jdbi.useHandle(handle -> handle.useTransaction(transactionHandle ->
         transactionHandle.createQuery("SELECT * FROM profiles WHERE " + DELETED + "= FALSE")
             .setFetchSize(fetchSize)
             .map((resultSet, ctx) -> {
@@ -124,21 +119,14 @@ public class Profiles implements ProfilesStore {
 
               return new Pair<>(uuid, profile);
             })
-            .iterator())));
+            .forEach(pair -> consumer.accept(pair.first(), pair.second())))));
   }
 
-  public ResultIterator<Pair<UUID, String>> getDeletedProfiles(final int fetchSize) {
-    return database.with(jdbi -> jdbi.withHandle(handle -> handle.inTransaction(transactionHandle ->
+  public void forEachDeletedProfile(final BiConsumer<UUID, String> consumer, final int fetchSize) {
+    database.use(jdbi -> jdbi.useHandle(handle -> handle.useTransaction(transactionHandle ->
         transactionHandle.createQuery("SELECT " + UID + ", " + VERSION + " FROM profiles WHERE " + DELETED + " = TRUE")
             .setFetchSize(fetchSize)
             .map((rs, ctx) -> new Pair<>(UUID.fromString(rs.getString(UID)), rs.getString(VERSION)))
-            .iterator())));
-  }
-
-  @VisibleForTesting
-  void purgeDeletedProfiles() {
-    database.use(jdbi -> jdbi.useHandle(handle ->
-        handle.createUpdate("DELETE FROM profiles WHERE " + DELETED + " = TRUE")
-            .execute()));
+            .forEach(pair -> consumer.accept(pair.first(), pair.second())))));
   }
 }

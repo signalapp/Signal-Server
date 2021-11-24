@@ -9,22 +9,18 @@ import io.dropwizard.Application;
 import io.dropwizard.cli.EnvironmentCommand;
 import io.dropwizard.jdbi3.JdbiFactory;
 import io.dropwizard.setup.Environment;
-import java.util.UUID;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.core.result.ResultIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesDynamoDb;
-import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
-import org.whispersystems.textsecuregcm.util.Pair;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
@@ -81,60 +77,72 @@ public class MigrateProfilesCommand extends EnvironmentCommand<WhisperServerConf
         configuration.getDynamoDbTables().getProfiles().getTableName());
 
     final int fetchSize = namespace.getInt("fetchSize");
-    final Semaphore semaphore = new Semaphore(namespace.getInt("concurrency"));
+    final int concurrency = namespace.getInt("concurrency");
+
+    final Semaphore semaphore = new Semaphore(concurrency);
 
     log.info("Beginning migration");
 
-    try (final ResultIterator<Pair<UUID, VersionedProfile>> results = profiles.getAll(fetchSize)) {
-      final AtomicInteger profilesProcessed = new AtomicInteger(0);
-      final AtomicInteger profilesMigrated = new AtomicInteger(0);
+    final AtomicInteger profilesProcessed = new AtomicInteger(0);
+    final AtomicInteger profilesMigrated = new AtomicInteger(0);
 
-      while (results.hasNext()) {
+    profiles.forEach((uuid, profile) -> {
+      try {
         semaphore.acquire();
-
-        final Pair<UUID, VersionedProfile> uuidAndProfile = results.next();
-        profilesDynamoDb.migrate(uuidAndProfile.first(), uuidAndProfile.second())
-            .whenComplete((migrated, cause) -> {
-              semaphore.release();
-
-              final int processed = profilesProcessed.incrementAndGet();
-
-              if (cause == null) {
-                if (migrated) {
-                  profilesMigrated.incrementAndGet();
-                }
-              }
-
-              if (processed % 10_000 == 0) {
-                log.info("Processed {} profiles ({} migrated)", processed, profilesMigrated.get());
-              }
-            });
+      } catch (InterruptedException e) {
+        log.warn("Interrupted while waiting to acquire permit");
+        throw new RuntimeException(e);
       }
 
-      log.info("Migration completed; processed {} profiles and migrated {}", profilesProcessed.get(), profilesMigrated.get());
-    }
+      profilesDynamoDb.migrate(uuid, profile)
+          .whenComplete((migrated, cause) -> {
+            semaphore.release();
+
+            final int processed = profilesProcessed.incrementAndGet();
+
+            if (cause == null) {
+              if (migrated) {
+                profilesMigrated.incrementAndGet();
+              }
+            }
+
+            if (processed % 10_000 == 0) {
+              log.info("Processed {} profiles ({} migrated)", processed, profilesMigrated.get());
+            }
+          });
+    }, fetchSize);
+
+    // Wait for all outstanding operations to complete
+    semaphore.acquire(concurrency);
+    semaphore.release(concurrency);
+
+    log.info("Migration completed; processed {} profiles and migrated {}", profilesProcessed.get(), profilesMigrated.get());
 
     log.info("Removing profiles that were deleted during migration");
+    final AtomicInteger profilesDeleted = new AtomicInteger(0);
 
-    try (final ResultIterator<Pair<UUID, String>> results = profiles.getDeletedProfiles(fetchSize)) {
-      final AtomicInteger profilesDeleted = new AtomicInteger(0);
-
-      while (results.hasNext()) {
+    profiles.forEachDeletedProfile((uuid, version) -> {
+      try {
         semaphore.acquire();
-
-        final Pair<UUID, String> uuidAndVersion = results.next();
-
-        profilesDynamoDb.delete(uuidAndVersion.first(), uuidAndVersion.second())
-            .whenComplete((response, cause) -> {
-              semaphore.release();
-
-              if (profilesDeleted.incrementAndGet() % 1_000 == 0) {
-                log.info("Attempted to remove {} profiles", profilesDeleted.get());
-              }
-            });
+      } catch (InterruptedException e) {
+        log.warn("Interrupted while waiting to acquire permit");
+        throw new RuntimeException(e);
       }
 
-      log.info("Removal of deleted profiles complete; attempted to remove {} profiles", profilesDeleted.get());
-    }
+      profilesDynamoDb.delete(uuid, version)
+          .whenComplete((response, cause) -> {
+            semaphore.release();
+
+            if (profilesDeleted.incrementAndGet() % 1_000 == 0) {
+              log.info("Attempted to remove {} profiles", profilesDeleted.get());
+            }
+          });
+    }, fetchSize);
+
+    // Wait for all outstanding operations to complete
+    semaphore.acquire(concurrency);
+    semaphore.release(concurrency);
+
+    log.info("Removal of deleted profiles complete; attempted to remove {} profiles", profilesDeleted.get());
   }
 }

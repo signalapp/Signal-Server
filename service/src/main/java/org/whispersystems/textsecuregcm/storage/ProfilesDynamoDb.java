@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -278,7 +279,10 @@ public class ProfilesDynamoDb implements ProfilesStore {
           if (cause == null) {
             return true;
           } else {
-            if (!(cause instanceof ConditionalCheckFailedException)) {
+            final boolean isConditionalCheckFailure = cause instanceof ConditionalCheckFailedException ||
+                (cause instanceof CompletionException && cause.getCause() instanceof ConditionalCheckFailedException);
+
+            if (!isConditionalCheckFailure) {
               log.warn("Unexpected error migrating profiles {}/{}", uuid, profile.getVersion(), cause);
             }
 
