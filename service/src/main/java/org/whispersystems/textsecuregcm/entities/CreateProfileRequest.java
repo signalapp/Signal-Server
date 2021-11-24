@@ -8,8 +8,9 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import javax.annotation.Nullable;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import org.apache.commons.lang3.StringUtils;
@@ -42,8 +43,8 @@ public class CreateProfileRequest {
   private String paymentAddress;
 
   @JsonProperty
-  @NotNull
-  private List<String> badgeIds = new ArrayList<>();
+  @Nullable
+  private List<String> badgeIds;
 
   @JsonProperty
   @NotNull
@@ -95,7 +96,7 @@ public class CreateProfileRequest {
     return StringUtils.stripToNull(paymentAddress);
   }
 
-  public List<String> getBadges() {
-    return badgeIds;
+  public Optional<List<String>> getBadges() {
+    return Optional.ofNullable(badgeIds);
   }
 }

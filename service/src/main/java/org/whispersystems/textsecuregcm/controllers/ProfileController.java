@@ -187,8 +187,9 @@ public class ProfileController {
       response = Optional.of(generateAvatarUploadForm(avatar));
     }
 
-    List<AccountBadge> updatedBadges = mergeBadgeIdsWithExistingAccountBadges(
-        request.getBadges(), auth.getAccount().getBadges());
+    List<AccountBadge> updatedBadges = request.getBadges()
+        .map(badges -> mergeBadgeIdsWithExistingAccountBadges(badges, auth.getAccount().getBadges()))
+        .orElseGet(() -> auth.getAccount().getBadges());
 
     accountsManager.update(auth.getAccount(), a -> {
       a.setProfileName(request.getName());
