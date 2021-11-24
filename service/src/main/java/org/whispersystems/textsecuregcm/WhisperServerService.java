@@ -189,6 +189,7 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.NonNormalizedAccountCrawlerListener;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.Profiles;
+import org.whispersystems.textsecuregcm.storage.ProfilesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.storage.PushChallengeDynamoDb;
@@ -217,6 +218,7 @@ import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.CheckDynamicConfigurationCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
+import org.whispersystems.textsecuregcm.workers.MigrateProfilesCommand;
 import org.whispersystems.textsecuregcm.workers.ReserveUsernameCommand;
 import org.whispersystems.textsecuregcm.workers.ServerVersionCommand;
 import org.whispersystems.textsecuregcm.workers.SetCrawlerAccelerationTask;
@@ -244,6 +246,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new ServerVersionCommand());
     bootstrap.addCommand(new CheckDynamicConfigurationCommand());
     bootstrap.addCommand(new SetUserDiscoverabilityCommand());
+    bootstrap.addCommand(new MigrateProfilesCommand());
     bootstrap.addCommand(new ReserveUsernameCommand());
 
     bootstrap.addBundle(new NameableMigrationsBundle<WhisperServerConfiguration>("accountdb", "accountsdb.xml") {
@@ -325,6 +328,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbClientConfiguration(),
         software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
+    DynamoDbClient dynamoDbClient = DynamoDbFromConfig.client(
+        config.getDynamoDbClientConfiguration(),
+        software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+
     DynamoDbClient messageDynamoDb = DynamoDbFromConfig.client(config.getMessageDynamoDbConfiguration(),
         software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
@@ -384,6 +391,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ReservedUsernames reservedUsernames = new ReservedUsernames(reservedUsernamesDynamoDbClient,
         config.getReservedUsernamesDynamoDbConfiguration().getTableName());
     Profiles profiles = new Profiles(accountDatabase);
+    ProfilesDynamoDb profilesDynamoDb = new ProfilesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
+        config.getDynamoDbTables().getProfiles().getTableName());
     Keys keys = new Keys(preKeyDynamoDb, config.getKeysDynamoDbConfiguration().getTableName());
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(messageDynamoDb,
         config.getMessageDynamoDbConfiguration().getTableName(),
@@ -426,6 +435,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         minThreads(availableProcessors).  // mostly this is IO bound so tying to number of processors is tenuous at best
         allowCoreThreadTimeOut(true).
         build();
+    ExecutorService profileMigrationExperimentExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "profileMigrationExperiment-%d")).minThreads(8).maxThreads(8).build();
 
     StripeManager stripeManager = new StripeManager(config.getStripe().getApiKey(), stripeExecutor,
         config.getStripe().getIdempotencyKeyGenerator(), config.getStripe().getBoostDescription());
@@ -464,7 +475,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     StoredVerificationCodeManager pendingAccountsManager  = new StoredVerificationCodeManager(pendingAccounts);
     StoredVerificationCodeManager pendingDevicesManager   = new StoredVerificationCodeManager(pendingDevices);
     UsernamesManager           usernamesManager           = new UsernamesManager(usernames, reservedUsernames, cacheCluster);
-    ProfilesManager            profilesManager            = new ProfilesManager(profiles, cacheCluster);
+    ProfilesManager            profilesManager            = new ProfilesManager(profiles, profilesDynamoDb, cacheCluster,
+        dynamicConfigurationManager, profileMigrationExperimentExecutor);
     MessagesCache              messagesCache              = new MessagesCache(messagesCluster, messagesCluster, keyspaceNotificationDispatchExecutor);
     PushLatencyManager         pushLatencyManager         = new PushLatencyManager(metricsCluster, dynamicConfigurationManager);
     ReportMessageManager       reportMessageManager       = new ReportMessageManager(reportMessageDynamoDb, rateLimitersCluster, Metrics.globalRegistry, config.getReportMessageConfiguration().getCounterTtl());

@@ -21,6 +21,17 @@ public class DynamoDbFromConfig {
         .build();
   }
 
+  public static DynamoDbClient client(DynamoDbClientConfiguration config, AwsCredentialsProvider credentialsProvider) {
+    return DynamoDbClient.builder()
+        .region(Region.of(config.getRegion()))
+        .credentialsProvider(credentialsProvider)
+        .overrideConfiguration(ClientOverrideConfiguration.builder()
+            .apiCallTimeout(config.getClientExecutionTimeout())
+            .apiCallAttemptTimeout(config.getClientRequestTimeout())
+            .build())
+        .build();
+  }
+
   public static DynamoDbAsyncClient asyncClient(
       DynamoDbClientConfiguration config,
       AwsCredentialsProvider credentialsProvider) {

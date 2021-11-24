@@ -55,6 +55,10 @@ public class DynamicConfiguration {
   @Valid
   private DynamicPushLatencyConfiguration pushLatency = new DynamicPushLatencyConfiguration(Collections.emptyMap());
 
+  @JsonProperty
+  @Valid
+  private DynamicProfileMigrationConfiguration profileMigration = new DynamicProfileMigrationConfiguration();
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -108,5 +112,9 @@ public class DynamicConfiguration {
 
   public DynamicPushLatencyConfiguration getPushLatencyConfiguration() {
     return pushLatency;
+  }
+
+  public DynamicProfileMigrationConfiguration getProfileMigrationConfiguration() {
+    return profileMigration;
   }
 }

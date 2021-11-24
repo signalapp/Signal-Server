@@ -48,6 +48,7 @@ import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.Profiles;
+import org.whispersystems.textsecuregcm.storage.ProfilesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
@@ -57,6 +58,7 @@ import org.whispersystems.textsecuregcm.storage.Usernames;
 import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.storage.VerificationCodeStore;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
 public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperServerConfiguration> {
@@ -148,6 +150,14 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
           .client(configuration.getPendingAccountsDynamoDbConfiguration(),
               software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
+      DynamoDbAsyncClient dynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(
+          configuration.getDynamoDbClientConfiguration(),
+          software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+
+      DynamoDbClient dynamoDbClient = DynamoDbFromConfig.client(
+          configuration.getDynamoDbClientConfiguration(),
+          software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
+
       AmazonDynamoDB deletedAccountsLockDynamoDbClient = AmazonDynamoDBClientBuilder.standard()
           .withRegion(configuration.getDeletedAccountsLockDynamoDbConfiguration().getRegion())
           .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(
@@ -174,6 +184,8 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
           configuration.getPhoneNumberIdentifiersDynamoDbConfiguration().getTableName());
       Usernames usernames = new Usernames(accountDatabase);
       Profiles profiles = new Profiles(accountDatabase);
+      ProfilesDynamoDb profilesDynamoDb = new ProfilesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
+          configuration.getDynamoDbTables().getProfiles().getTableName());
       ReservedUsernames reservedUsernames = new ReservedUsernames(reservedUsernamesDynamoDbClient,
           configuration.getReservedUsernamesDynamoDbConfiguration().getTableName());
       Keys keys = new Keys(preKeysDynamoDb,
@@ -201,7 +213,8 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
       DirectoryQueue directoryQueue = new DirectoryQueue(
           configuration.getDirectoryConfiguration().getSqsConfiguration());
       UsernamesManager usernamesManager = new UsernamesManager(usernames, reservedUsernames, cacheCluster);
-      ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
+      ProfilesManager profilesManager = new ProfilesManager(profiles, profilesDynamoDb, cacheCluster,
+          dynamicConfigurationManager, Executors.newSingleThreadExecutor());
       ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(reportMessagesDynamoDb,
           configuration.getReportMessageDynamoDbConfiguration().getTableName(),
           configuration.getReportMessageConfiguration().getReportTtl());

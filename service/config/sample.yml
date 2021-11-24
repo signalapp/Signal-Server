@@ -22,6 +22,8 @@ dynamoDbTables:
     expiration: P30D # Duration of time until rows expire
   subscriptions:
     tableName: Example_Subscriptions
+  profiles:
+    tableName: Example_Profiles
 
 twilio: # Twilio gateway configuration
   accountId: unset

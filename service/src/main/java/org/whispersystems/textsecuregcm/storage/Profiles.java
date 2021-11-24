@@ -22,7 +22,7 @@ import org.whispersystems.textsecuregcm.storage.mappers.VersionedProfileMapper;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Pair;
 
-public class Profiles {
+public class Profiles implements ProfilesStore {
 
   public static final String ID = "id";
   public static final String UID = "uuid";
@@ -48,6 +48,7 @@ public class Profiles {
     this.database.getDatabase().registerRowMapper(new VersionedProfileMapper());
   }
 
+  @Override
   public void set(UUID uuid, VersionedProfile profile) {
     database.use(jdbi -> jdbi.useHandle(handle -> {
       try (Timer.Context ignored = setTimer.time()) {
@@ -82,6 +83,7 @@ public class Profiles {
     }));
   }
 
+  @Override
   public Optional<VersionedProfile> get(UUID uuid, String version) {
     return database.with(jdbi -> jdbi.withHandle(handle -> {
       try (Timer.Context ignored = getTimer.time()) {
@@ -94,13 +96,49 @@ public class Profiles {
     }));
   }
 
+  @Override
   public void deleteAll(UUID uuid) {
     database.use(jdbi -> jdbi.useHandle(handle -> {
       try (Timer.Context ignored = deleteTimer.time()) {
-        handle.createUpdate("DELETE FROM profiles WHERE " + UID + " = :uuid")
+        handle.createUpdate("UPDATE profiles SET " + DELETED + " = TRUE WHERE " + UID + " = :uuid")
               .bind("uuid", uuid)
               .execute();
       }
     }));
+  }
+
+  public ResultIterator<Pair<UUID, VersionedProfile>> getAll(final int fetchSize) {
+    return database.with(jdbi -> jdbi.withHandle(handle -> handle.inTransaction(transactionHandle ->
+        transactionHandle.createQuery("SELECT * FROM profiles WHERE " + DELETED + "= FALSE")
+            .setFetchSize(fetchSize)
+            .map((resultSet, ctx) -> {
+              final UUID uuid = UUID.fromString(resultSet.getString(UID));
+              final VersionedProfile profile = new VersionedProfile(
+                  resultSet.getString(Profiles.VERSION),
+                  resultSet.getString(Profiles.NAME),
+                  resultSet.getString(Profiles.AVATAR),
+                  resultSet.getString(Profiles.ABOUT_EMOJI),
+                  resultSet.getString(Profiles.ABOUT),
+                  resultSet.getString(Profiles.PAYMENT_ADDRESS),
+                  resultSet.getBytes(Profiles.COMMITMENT));
+
+              return new Pair<>(uuid, profile);
+            })
+            .iterator())));
+  }
+
+  public ResultIterator<Pair<UUID, String>> getDeletedProfiles(final int fetchSize) {
+    return database.with(jdbi -> jdbi.withHandle(handle -> handle.inTransaction(transactionHandle ->
+        transactionHandle.createQuery("SELECT " + UID + ", " + VERSION + " FROM profiles WHERE " + DELETED + " = TRUE")
+            .setFetchSize(fetchSize)
+            .map((rs, ctx) -> new Pair<>(UUID.fromString(rs.getString(UID)), rs.getString(VERSION)))
+            .iterator())));
+  }
+
+  @VisibleForTesting
+  void purgeDeletedProfiles() {
+    database.use(jdbi -> jdbi.useHandle(handle ->
+        handle.createUpdate("DELETE FROM profiles WHERE " + DELETED + " = TRUE")
+            .execute()));
   }
 }

@@ -5,41 +5,36 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
+import java.util.Arrays;
+import java.util.Objects;
 
 public class VersionedProfile {
 
-  @JsonProperty
-  private String version;
+  private final String version;
+  private final String name;
+  private final String avatar;
+  private final String aboutEmoji;
+  private final String about;
+  private final String paymentAddress;
 
-  @JsonProperty
-  private String name;
-
-  @JsonProperty
-  private String avatar;
-
-  @JsonProperty
-  private String aboutEmoji;
-
-  @JsonProperty
-  private String about;
-
-  @JsonProperty
-  private String paymentAddress;
-
-  @JsonProperty
   @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
   @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
   private byte[] commitment;
 
-  public VersionedProfile() {}
-
+  @JsonCreator
   public VersionedProfile(
-      String version, String name, String avatar, String aboutEmoji, String about, String paymentAddress,
-      byte[] commitment) {
+      @JsonProperty("version") final String version,
+      @JsonProperty("name") final String name,
+      @JsonProperty("avatar") final String avatar,
+      @JsonProperty("aboutEmoji") final String aboutEmoji,
+      @JsonProperty("about") final String about,
+      @JsonProperty("paymentAddress") final String paymentAddress,
+      @JsonProperty("commitment") final byte[] commitment) {
     this.version = version;
     this.name = name;
     this.avatar = avatar;
@@ -75,5 +70,24 @@ public class VersionedProfile {
 
   public byte[] getCommitment() {
     return commitment;
+  }
+
+  @Override
+  public boolean equals(final Object o) {
+    if (this == o)
+      return true;
+    if (o == null || getClass() != o.getClass())
+      return false;
+    final VersionedProfile that = (VersionedProfile) o;
+    return Objects.equals(version, that.version) && Objects.equals(name, that.name) && Objects.equals(avatar,
+        that.avatar) && Objects.equals(aboutEmoji, that.aboutEmoji) && Objects.equals(about, that.about)
+        && Objects.equals(paymentAddress, that.paymentAddress) && Arrays.equals(commitment, that.commitment);
+  }
+
+  @Override
+  public int hashCode() {
+    int result = Objects.hash(version, name, avatar, aboutEmoji, about, paymentAddress);
+    result = 31 * result + Arrays.hashCode(commitment);
+    return result;
   }
 }

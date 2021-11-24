@@ -1,47 +1,27 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-package org.whispersystems.textsecuregcm.tests.storage;
+package org.whispersystems.textsecuregcm.storage;
 
-import com.opentable.db.postgres.embedded.LiquibasePreparer;
-import com.opentable.db.postgres.junit.EmbeddedPostgresRules;
-import com.opentable.db.postgres.junit.PreparedDbRule;
-import org.jdbi.v3.core.Jdbi;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
-import org.whispersystems.textsecuregcm.storage.Profiles;
-import org.whispersystems.textsecuregcm.storage.VersionedProfile;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+public abstract class ProfilesTest {
 
-public class ProfilesTest {
-
-  @Rule
-  public PreparedDbRule db = EmbeddedPostgresRules.preparedDatabase(LiquibasePreparer.forClasspathLocation("accountsdb.xml"));
-
-  private Profiles profiles;
-
-  @Before
-  public void setupProfilesDao() {
-    FaultTolerantDatabase faultTolerantDatabase = new FaultTolerantDatabase("profilesTest",
-                                                                            Jdbi.create(db.getTestDatabase()),
-                                                                            new CircuitBreakerConfiguration());
-
-    this.profiles = new Profiles(faultTolerantDatabase);
-  }
+  protected abstract ProfilesStore getProfilesStore();
 
   @Test
-  public void testSetGet() {
-    UUID             uuid    = UUID.randomUUID();
-    VersionedProfile profile = new VersionedProfile("123", "foo", "avatarLocation", "emoji", "the very model of a modern major general",
+  void testSetGet() {
+    ProfilesStore profiles = getProfilesStore();
+    UUID uuid = UUID.randomUUID();
+    VersionedProfile profile = new VersionedProfile("123", "foo", "avatarLocation", "emoji",
+        "the very model of a modern major general",
         null, "acommitment".getBytes());
     profiles.set(uuid, profile);
 
@@ -56,8 +36,9 @@ public class ProfilesTest {
   }
 
   @Test
-  public void testSetGetNullOptionalFields() {
-    UUID             uuid    = UUID.randomUUID();
+  void testSetGetNullOptionalFields() {
+    ProfilesStore profiles = getProfilesStore();
+    UUID uuid = UUID.randomUUID();
     VersionedProfile profile = new VersionedProfile("123", "foo", null, null, null, null,
         "acommitment".getBytes());
     profiles.set(uuid, profile);
@@ -73,10 +54,11 @@ public class ProfilesTest {
   }
 
   @Test
-  public void testSetReplace() {
-    UUID             uuid    = UUID.randomUUID();
+  void testSetReplace() {
+    ProfilesStore profiles = getProfilesStore();
+    UUID uuid = UUID.randomUUID();
     VersionedProfile profile = new VersionedProfile("123", "foo", "avatarLocation", null, null,
-        null, "acommitment".getBytes());
+        "paymentAddress", "acommitment".getBytes());
     profiles.set(uuid, profile);
 
     Optional<VersionedProfile> retrieved = profiles.get(uuid, "123");
@@ -96,20 +78,22 @@ public class ProfilesTest {
 
     assertThat(retrieved.isPresent()).isTrue();
     assertThat(retrieved.get().getName()).isEqualTo(updated.getName());
-    assertThat(retrieved.get().getCommitment()).isEqualTo(profile.getCommitment());
     assertThat(retrieved.get().getAbout()).isEqualTo(updated.getAbout());
     assertThat(retrieved.get().getAboutEmoji()).isEqualTo(updated.getAboutEmoji());
+    assertThat(retrieved.get().getAvatar()).isEqualTo(updated.getAvatar());
 
     // Commitment should be unchanged after an overwrite
-    assertThat(retrieved.get().getAvatar()).isEqualTo(updated.getAvatar());
+    assertThat(retrieved.get().getCommitment()).isEqualTo(profile.getCommitment());
   }
 
   @Test
-  public void testMultipleVersions() {
-    UUID             uuid    = UUID.randomUUID();
+  void testMultipleVersions() {
+    ProfilesStore profiles = getProfilesStore();
+    UUID uuid = UUID.randomUUID();
     VersionedProfile profileOne = new VersionedProfile("123", "foo", "avatarLocation", null, null,
         null, "acommitmnet".getBytes());
-    VersionedProfile profileTwo = new VersionedProfile("345", "bar", "baz", "emoji", "i keep typing emoju for some reason",
+    VersionedProfile profileTwo = new VersionedProfile("345", "bar", "baz", "emoji",
+        "i keep typing emoju for some reason",
         null, "boof".getBytes());
 
     profiles.set(uuid, profileOne);
@@ -135,8 +119,9 @@ public class ProfilesTest {
   }
 
   @Test
-  public void testMissing() {
-    UUID             uuid    = UUID.randomUUID();
+  void testMissing() {
+    ProfilesStore profiles = getProfilesStore();
+    UUID uuid = UUID.randomUUID();
     VersionedProfile profile = new VersionedProfile("123", "foo", "avatarLocation", null, null,
         null, "aDigest".getBytes());
     profiles.set(uuid, profile);
@@ -147,8 +132,9 @@ public class ProfilesTest {
 
 
   @Test
-  public void testDelete() {
-    UUID             uuid    = UUID.randomUUID();
+  void testDelete() {
+    ProfilesStore profiles = getProfilesStore();
+    UUID uuid = UUID.randomUUID();
     VersionedProfile profileOne = new VersionedProfile("123", "foo", "avatarLocation", null, null,
         null, "aDigest".getBytes());
     VersionedProfile profileTwo = new VersionedProfile("345", "bar", "baz", null, null, null, "boof".getBytes());
@@ -166,6 +152,4 @@ public class ProfilesTest {
 
     assertThat(retrieved.isPresent()).isFalse();
   }
-
-
 }
