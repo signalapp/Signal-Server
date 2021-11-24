@@ -24,6 +24,7 @@ import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -741,5 +742,44 @@ class ProfileControllerTest {
         new AccountBadge("TEST1", Instant.ofEpochSecond(42 + 86400), true),
         new AccountBadge("TEST2", Instant.ofEpochSecond(42 + 86400), false),
         new AccountBadge("TEST3", Instant.ofEpochSecond(42 + 86400), false));
+  }
+
+  @Test
+  void testSetProfileBadgesMissingFromRequest() throws InvalidInputException {
+    ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
+
+    clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
+
+    final String name = RandomStringUtils.randomAlphabetic(380);
+    final String emoji = RandomStringUtils.randomAlphanumeric(80);
+    final String text = RandomStringUtils.randomAlphanumeric(720);
+
+    when(AuthHelper.VALID_ACCOUNT_TWO.getBadges()).thenReturn(List.of(
+        new AccountBadge("TEST", Instant.ofEpochSecond(42 + 86400), true)
+    ));
+
+    // Older clients may not include badges in their requests
+    final String requestJson = String.format("""
+        {
+          "commitment": "%s",
+          "version": "version",
+          "name": "%s",
+          "avatar": false,
+          "aboutEmoji": "%s",
+          "about": "%s"
+        }
+        """,
+        Base64.getEncoder().encodeToString(commitment.serialize()), name, emoji, text);
+
+    Response response = resources.getJerseyTest()
+        .target("/v1/profile/")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
+        .put(Entity.json(requestJson));
+
+    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.hasEntity()).isFalse();
+
+    verify(AuthHelper.VALID_ACCOUNT_TWO).setBadges(refEq(clock), eq(List.of(new AccountBadge("TEST", Instant.ofEpochSecond(42 + 86400), true))));
   }
 }
