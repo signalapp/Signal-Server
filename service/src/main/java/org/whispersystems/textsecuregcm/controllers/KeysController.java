@@ -31,6 +31,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.ChangesDeviceEnabledState;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.entities.PreKey;
@@ -93,6 +94,7 @@ public class KeysController {
   @Timed
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
+  @ChangesDeviceEnabledState
   public void setKeys(@Auth final DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
       @Valid final PreKeyState preKeys,
       @QueryParam("identity") final Optional<String> identityType) {
@@ -217,6 +219,7 @@ public class KeysController {
   @PUT
   @Path("/signed")
   @Consumes(MediaType.APPLICATION_JSON)
+  @ChangesDeviceEnabledState
   public void setSignedKey(@Auth final AuthenticatedAccount auth,
       @Valid final SignedPreKey signedPreKey,
       @QueryParam("identity") final Optional<String> identityType) {
