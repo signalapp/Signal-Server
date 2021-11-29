@@ -196,6 +196,7 @@ import org.whispersystems.textsecuregcm.storage.PushFeedbackProcessor;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigs;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
+import org.whispersystems.textsecuregcm.storage.RemoteConfigsDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.ReservedUsernames;
@@ -394,7 +395,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getMessageDynamoDbConfiguration().getTableName(),
         config.getMessageDynamoDbConfiguration().getTimeToLive());
     AbusiveHostRules abusiveHostRules = new AbusiveHostRules(abuseDatabase);
-    RemoteConfigs remoteConfigs = new RemoteConfigs(accountDatabase);
+    RemoteConfigsDynamoDb remoteConfigsDynamoDb = new RemoteConfigsDynamoDb(dynamoDbClient, config.getDynamoDbTables().getRemoteConfig().getTableName());
     PushChallengeDynamoDb pushChallengeDynamoDb = new PushChallengeDynamoDb(pushChallengeDynamoDbClient, config.getPushChallengeDynamoDbConfiguration().getTableName());
     ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(reportMessageDynamoDbClient, config.getReportMessageDynamoDbConfiguration().getTableName(), config.getReportMessageConfiguration().getReportTtl());
     VerificationCodeStore pendingAccounts = new VerificationCodeStore(pendingAccountsDynamoDbClient, config.getPendingAccountsDynamoDbConfiguration().getTableName());
@@ -478,7 +479,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         deletedAccountsManager, directoryQueue, keys, messagesManager, reservedUsernames, profilesManager,
         pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager, clock);
-    RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
+    RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigsDynamoDb);
     DeadLetterHandler          deadLetterHandler          = new DeadLetterHandler(accountsManager, messagesManager);
     DispatchManager            dispatchManager            = new DispatchManager(pubSubClientFactory, Optional.of(deadLetterHandler));
     PubSubManager              pubSubManager              = new PubSubManager(pubsubClient, dispatchManager);
