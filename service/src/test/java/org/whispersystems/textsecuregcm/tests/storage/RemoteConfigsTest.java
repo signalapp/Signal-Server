@@ -5,38 +5,44 @@
 
 package org.whispersystems.textsecuregcm.tests.storage;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.codahale.metrics.Timer;
 import com.opentable.db.postgres.embedded.LiquibasePreparer;
-import com.opentable.db.postgres.junit.EmbeddedPostgresRules;
-import com.opentable.db.postgres.junit.PreparedDbRule;
+import com.opentable.db.postgres.junit5.EmbeddedPostgresExtension;
+import com.opentable.db.postgres.junit5.PreparedDbExtension;
+import java.util.List;
+import java.util.Set;
 import org.jdbi.v3.core.Jdbi;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
 import org.whispersystems.textsecuregcm.storage.RemoteConfig;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigs;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
-import java.util.List;
-import java.util.Set;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
 public class RemoteConfigsTest {
 
-  @Rule
-  public PreparedDbRule db = EmbeddedPostgresRules.preparedDatabase(LiquibasePreparer.forClasspathLocation("accountsdb.xml"));
+  @RegisterExtension
+  static PreparedDbExtension ACCOUNTS_POSTGRES_EXTENSION =
+      EmbeddedPostgresExtension.preparedDatabase(LiquibasePreparer.forClasspathLocation("accountsdb.xml"));
 
   private RemoteConfigs remoteConfigs;
 
-  @Before
-  public void setup() {
-    this.remoteConfigs = new RemoteConfigs(new FaultTolerantDatabase("remote_configs-test", Jdbi.create(db.getTestDatabase()), new CircuitBreakerConfiguration()));
+  @BeforeEach
+  void setUp() {
+    final FaultTolerantDatabase remoteConfigDatabase = new FaultTolerantDatabase("remote_configs-test", Jdbi.create(ACCOUNTS_POSTGRES_EXTENSION.getTestDatabase()), new CircuitBreakerConfiguration());
+
+    remoteConfigDatabase.use(jdbi -> jdbi.useHandle(handle ->
+        handle.createUpdate("DELETE FROM remote_config").execute()));
+
+    this.remoteConfigs = new RemoteConfigs(remoteConfigDatabase);
   }
 
   @Test
-  public void testStore() {
+  void testStore() {
     remoteConfigs.set(new RemoteConfig("android.stickers", 50, Set.of(AuthHelper.VALID_UUID, AuthHelper.VALID_UUID_TWO), "FALSE", "TRUE", null));
     remoteConfigs.set(new RemoteConfig("value.sometimes", 25, Set.of(AuthHelper.VALID_UUID_TWO), "default", "custom", null));
 
@@ -64,7 +70,7 @@ public class RemoteConfigsTest {
   }
 
   @Test
-  public void testUpdate() {
+  void testUpdate() {
     remoteConfigs.set(new RemoteConfig("android.stickers", 50, Set.of(), "FALSE", "TRUE", null));
     remoteConfigs.set(new RemoteConfig("value.sometimes", 22, Set.of(), "def", "!", null));
     remoteConfigs.set(new RemoteConfig("ios.stickers", 50, Set.of(AuthHelper.DISABLED_UUID), "FALSE", "TRUE", null));
@@ -95,7 +101,7 @@ public class RemoteConfigsTest {
   }
 
   @Test
-  public void testDelete() {
+  void testDelete() {
     remoteConfigs.set(new RemoteConfig("android.stickers", 50, Set.of(AuthHelper.VALID_UUID), "FALSE", "TRUE", null));
     remoteConfigs.set(new RemoteConfig("ios.stickers", 50, Set.of(), "FALSE", "TRUE", null));
     remoteConfigs.set(new RemoteConfig("ios.stickers", 75, Set.of(), "FALSE", "TRUE", null));
