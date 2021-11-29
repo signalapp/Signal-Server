@@ -50,17 +50,20 @@ public class DynamoDbTables {
   private final TableWithExpiration redeemedReceipts;
   private final Table subscriptions;
   private final Table profiles;
+  private final Table remoteConfig;
 
   @JsonCreator
   public DynamoDbTables(
       @JsonProperty("issuedReceipts") final IssuedReceiptsTableConfiguration issuedReceipts,
       @JsonProperty("redeemedReceipts") final TableWithExpiration redeemedReceipts,
       @JsonProperty("subscriptions") final Table subscriptions,
-      @JsonProperty("profiles") final Table profiles) {
+      @JsonProperty("profiles") final Table profiles,
+      @JsonProperty("remoteConfig") final Table remoteConfig) {
     this.issuedReceipts = issuedReceipts;
     this.redeemedReceipts = redeemedReceipts;
     this.subscriptions = subscriptions;
     this.profiles = profiles;
+    this.remoteConfig = remoteConfig;
   }
 
   @Valid
@@ -85,5 +88,11 @@ public class DynamoDbTables {
   @NotNull
   public Table getProfiles() {
     return profiles;
+  }
+
+  @Valid
+  @NotNull
+  public Table getRemoteConfig() {
+    return remoteConfig;
   }
 }

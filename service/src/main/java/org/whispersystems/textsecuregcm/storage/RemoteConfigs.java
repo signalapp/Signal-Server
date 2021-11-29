@@ -15,7 +15,7 @@ import java.util.UUID;
 import org.whispersystems.textsecuregcm.storage.mappers.RemoteConfigRowMapper;
 import org.whispersystems.textsecuregcm.util.Constants;
 
-public class RemoteConfigs {
+public class RemoteConfigs implements RemoteConfigStore {
 
   public static final String ID            = "id";
   public static final String NAME          = "name";
@@ -38,6 +38,7 @@ public class RemoteConfigs {
     this.database.getDatabase().registerArrayType(UUID.class, "uuid");
   }
 
+  @Override
   public void set(RemoteConfig remoteConfig) {
     database.use(jdbi -> jdbi.useHandle(handle -> {
       try (Timer.Context ignored = setTimer.time()) {
@@ -53,6 +54,7 @@ public class RemoteConfigs {
     }));
   }
 
+  @Override
   public List<RemoteConfig> getAll() {
     return database.with(jdbi -> jdbi.withHandle(handle -> {
       try (Timer.Context ignored = getAllTimer.time()) {
@@ -63,6 +65,7 @@ public class RemoteConfigs {
     }));
   }
 
+  @Override
   public void delete(String name) {
     database.use(jdbi -> jdbi.useHandle(handle -> {
       try (Timer.Context ignored = deleteTimer.time()) {

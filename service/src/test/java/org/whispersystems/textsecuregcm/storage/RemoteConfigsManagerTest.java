@@ -5,62 +5,50 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import com.opentable.db.postgres.embedded.LiquibasePreparer;
-import com.opentable.db.postgres.junit.EmbeddedPostgresRules;
-import com.opentable.db.postgres.junit.PreparedDbRule;
-import org.jdbi.v3.core.Jdbi;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
-
-import java.util.List;
-import java.util.Set;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 public class RemoteConfigsManagerTest {
 
-  @Rule
-  public PreparedDbRule db = EmbeddedPostgresRules.preparedDatabase(LiquibasePreparer.forClasspathLocation("accountsdb.xml"));
-
-  private RemoteConfigsManager remoteConfigs;
+  private RemoteConfigStore remoteConfigs;
+  private RemoteConfigsManager remoteConfigsManager;
 
   @Before
   public void setup() {
-    this.remoteConfigs = new RemoteConfigsManager(new RemoteConfigs(
-        new FaultTolerantDatabase("remote_configs-test", Jdbi.create(db.getTestDatabase()), new CircuitBreakerConfiguration())));
+    this.remoteConfigs = mock(RemoteConfigStore.class);
+    this.remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
   }
 
   @Test
-  public void testUpdate() {
-    remoteConfigs.set(new RemoteConfig("android.stickers", 50, Set.of(AuthHelper.VALID_UUID), "FALSE", "TRUE", null));
-    remoteConfigs.set(new RemoteConfig("value.sometimes", 50, Set.of(), "bar", "baz", null));
-    remoteConfigs.set(new RemoteConfig("ios.stickers", 50, Set.of(), "FALSE", "TRUE", null));
-    remoteConfigs.set(new RemoteConfig("ios.stickers", 75, Set.of(), "FALSE", "TRUE", null));
-    remoteConfigs.set(new RemoteConfig("value.sometimes", 25, Set.of(AuthHelper.VALID_UUID), "abc", "def", null));
+  public void testGetAll() {
+    remoteConfigsManager.getAll();
+    remoteConfigsManager.getAll();
 
-    List<RemoteConfig> results = remoteConfigs.getAll();
-
-    assertThat(results.size()).isEqualTo(3);
-
-    assertThat(results.get(0).getName()).isEqualTo("android.stickers");
-    assertThat(results.get(0).getPercentage()).isEqualTo(50);
-    assertThat(results.get(0).getUuids().size()).isEqualTo(1);
-    assertThat(results.get(0).getUuids().contains(AuthHelper.VALID_UUID)).isTrue();
-
-    assertThat(results.get(1).getName()).isEqualTo("ios.stickers");
-    assertThat(results.get(1).getPercentage()).isEqualTo(75);
-    assertThat(results.get(1).getUuids()).isEmpty();
-
-    assertThat(results.get(2).getName()).isEqualTo("value.sometimes");
-    assertThat(results.get(2).getUuids()).hasSize(1);
-    assertThat(results.get(2).getUuids()).contains(AuthHelper.VALID_UUID);
-    assertThat(results.get(2).getPercentage()).isEqualTo(25);
-    assertThat(results.get(2).getDefaultValue()).isEqualTo("abc");
-    assertThat(results.get(2).getValue()).isEqualTo("def");
-
+    // A memoized supplier should prevent multiple calls to the underlying data source
+    verify(remoteConfigs, times(1)).getAll();
   }
 
+  @Test
+  public void testSet() {
+    final RemoteConfig remoteConfig = mock(RemoteConfig.class);
+
+    remoteConfigsManager.set(remoteConfig);
+    remoteConfigsManager.set(remoteConfig);
+
+    verify(remoteConfigs, times(2)).set(remoteConfig);
+  }
+
+  @Test
+  public void testDelete() {
+    final String name = "name";
+
+    remoteConfigsManager.delete(name);
+    remoteConfigsManager.delete(name);
+
+    verify(remoteConfigs, times(2)).delete(name);
+  }
 }

@@ -1,48 +1,25 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-package org.whispersystems.textsecuregcm.tests.storage;
+package org.whispersystems.textsecuregcm.storage;
+
+import org.junit.jupiter.api.Test;
+import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.codahale.metrics.Timer;
-import com.opentable.db.postgres.embedded.LiquibasePreparer;
-import com.opentable.db.postgres.junit5.EmbeddedPostgresExtension;
-import com.opentable.db.postgres.junit5.PreparedDbExtension;
-import java.util.List;
-import java.util.Set;
-import org.jdbi.v3.core.Jdbi;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
-import org.whispersystems.textsecuregcm.storage.RemoteConfig;
-import org.whispersystems.textsecuregcm.storage.RemoteConfigs;
-import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+abstract class RemoteConfigsTest {
 
-public class RemoteConfigsTest {
-
-  @RegisterExtension
-  static PreparedDbExtension ACCOUNTS_POSTGRES_EXTENSION =
-      EmbeddedPostgresExtension.preparedDatabase(LiquibasePreparer.forClasspathLocation("accountsdb.xml"));
-
-  private RemoteConfigs remoteConfigs;
-
-  @BeforeEach
-  void setUp() {
-    final FaultTolerantDatabase remoteConfigDatabase = new FaultTolerantDatabase("remote_configs-test", Jdbi.create(ACCOUNTS_POSTGRES_EXTENSION.getTestDatabase()), new CircuitBreakerConfiguration());
-
-    remoteConfigDatabase.use(jdbi -> jdbi.useHandle(handle ->
-        handle.createUpdate("DELETE FROM remote_config").execute()));
-
-    this.remoteConfigs = new RemoteConfigs(remoteConfigDatabase);
-  }
+  protected abstract RemoteConfigStore getRemoteConfigStore();
 
   @Test
   void testStore() {
+    final RemoteConfigStore remoteConfigs = getRemoteConfigStore();
+
     remoteConfigs.set(new RemoteConfig("android.stickers", 50, Set.of(AuthHelper.VALID_UUID, AuthHelper.VALID_UUID_TWO), "FALSE", "TRUE", null));
     remoteConfigs.set(new RemoteConfig("value.sometimes", 25, Set.of(AuthHelper.VALID_UUID_TWO), "default", "custom", null));
 
@@ -71,6 +48,8 @@ public class RemoteConfigsTest {
 
   @Test
   void testUpdate() {
+    final RemoteConfigStore remoteConfigs = getRemoteConfigStore();
+
     remoteConfigs.set(new RemoteConfig("android.stickers", 50, Set.of(), "FALSE", "TRUE", null));
     remoteConfigs.set(new RemoteConfig("value.sometimes", 22, Set.of(), "def", "!", null));
     remoteConfigs.set(new RemoteConfig("ios.stickers", 50, Set.of(AuthHelper.DISABLED_UUID), "FALSE", "TRUE", null));
@@ -102,6 +81,8 @@ public class RemoteConfigsTest {
 
   @Test
   void testDelete() {
+    final RemoteConfigStore remoteConfigs = getRemoteConfigStore();
+
     remoteConfigs.set(new RemoteConfig("android.stickers", 50, Set.of(AuthHelper.VALID_UUID), "FALSE", "TRUE", null));
     remoteConfigs.set(new RemoteConfig("ios.stickers", 50, Set.of(), "FALSE", "TRUE", null));
     remoteConfigs.set(new RemoteConfig("ios.stickers", 75, Set.of(), "FALSE", "TRUE", null));

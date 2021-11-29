@@ -24,6 +24,8 @@ dynamoDbTables:
     tableName: Example_Subscriptions
   profiles:
     tableName: Example_Profiles
+  remoteConfig:
+    tableName: Example_RemoteConfig
 
 twilio: # Twilio gateway configuration
   accountId: unset
