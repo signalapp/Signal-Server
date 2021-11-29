@@ -313,6 +313,11 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
           builder.setRelay(message.getRelay());
         }
 
+        // TODO Destination UUIDs will be present for all messages after 2021-12-16
+        if (message.getDestinationUuid() != null) {
+          builder.setDestinationUuid(message.getDestinationUuid().toString());
+        }
+
         builder.setServerGuid(message.getGuid().toString());
 
         final Envelope envelope = builder.build();
