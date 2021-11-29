@@ -196,7 +196,6 @@ import org.whispersystems.textsecuregcm.storage.PushFeedbackProcessor;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigs;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
-import org.whispersystems.textsecuregcm.storage.RemoteConfigsDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.ReservedUsernames;
@@ -216,7 +215,6 @@ import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.CheckDynamicConfigurationCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
-import org.whispersystems.textsecuregcm.workers.MigrateRemoteConfigsCommand;
 import org.whispersystems.textsecuregcm.workers.ReserveUsernameCommand;
 import org.whispersystems.textsecuregcm.workers.ServerVersionCommand;
 import org.whispersystems.textsecuregcm.workers.SetCrawlerAccelerationTask;
@@ -244,7 +242,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new ServerVersionCommand());
     bootstrap.addCommand(new CheckDynamicConfigurationCommand());
     bootstrap.addCommand(new SetUserDiscoverabilityCommand());
-    bootstrap.addCommand(new MigrateRemoteConfigsCommand());
     bootstrap.addCommand(new ReserveUsernameCommand());
 
     bootstrap.addBundle(new NameableMigrationsBundle<WhisperServerConfiguration>("accountdb", "accountsdb.xml") {
@@ -395,7 +392,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getMessageDynamoDbConfiguration().getTableName(),
         config.getMessageDynamoDbConfiguration().getTimeToLive());
     AbusiveHostRules abusiveHostRules = new AbusiveHostRules(abuseDatabase);
-    RemoteConfigsDynamoDb remoteConfigsDynamoDb = new RemoteConfigsDynamoDb(dynamoDbClient, config.getDynamoDbTables().getRemoteConfig().getTableName());
+    RemoteConfigs remoteConfigs = new RemoteConfigs(dynamoDbClient, config.getDynamoDbTables().getRemoteConfig().getTableName());
     PushChallengeDynamoDb pushChallengeDynamoDb = new PushChallengeDynamoDb(pushChallengeDynamoDbClient, config.getPushChallengeDynamoDbConfiguration().getTableName());
     ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(reportMessageDynamoDbClient, config.getReportMessageDynamoDbConfiguration().getTableName(), config.getReportMessageConfiguration().getReportTtl());
     VerificationCodeStore pendingAccounts = new VerificationCodeStore(pendingAccountsDynamoDbClient, config.getPendingAccountsDynamoDbConfiguration().getTableName());
@@ -479,7 +476,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         deletedAccountsManager, directoryQueue, keys, messagesManager, reservedUsernames, profilesManager,
         pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager, clock);
-    RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigsDynamoDb);
+    RemoteConfigsManager       remoteConfigsManager       = new RemoteConfigsManager(remoteConfigs);
     DeadLetterHandler          deadLetterHandler          = new DeadLetterHandler(accountsManager, messagesManager);
     DispatchManager            dispatchManager            = new DispatchManager(pubSubClientFactory, Optional.of(deadLetterHandler));
     PubSubManager              pubSubManager              = new PubSubManager(pubsubClient, dispatchManager);

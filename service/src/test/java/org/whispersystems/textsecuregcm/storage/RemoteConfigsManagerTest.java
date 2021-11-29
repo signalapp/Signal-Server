@@ -14,12 +14,12 @@ import org.junit.Test;
 
 public class RemoteConfigsManagerTest {
 
-  private RemoteConfigStore remoteConfigs;
+  private RemoteConfigs remoteConfigs;
   private RemoteConfigsManager remoteConfigsManager;
 
   @Before
   public void setup() {
-    this.remoteConfigs = mock(RemoteConfigStore.class);
+    this.remoteConfigs = mock(RemoteConfigs.class);
     this.remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
   }
 

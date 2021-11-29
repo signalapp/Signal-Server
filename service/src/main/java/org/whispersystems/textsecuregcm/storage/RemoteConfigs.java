@@ -1,78 +1,114 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 package org.whispersystems.textsecuregcm.storage;
 
-import static com.codahale.metrics.MetricRegistry.name;
-
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
-import com.codahale.metrics.Timer;
+import org.whispersystems.textsecuregcm.util.AttributeValues;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
+import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
-import org.whispersystems.textsecuregcm.storage.mappers.RemoteConfigRowMapper;
-import org.whispersystems.textsecuregcm.util.Constants;
+import java.util.stream.Collectors;
 
-public class RemoteConfigs implements RemoteConfigStore {
+public class RemoteConfigs {
 
-  public static final String ID            = "id";
-  public static final String NAME          = "name";
-  public static final String PERCENTAGE    = "percentage";
-  public static final String UUIDS         = "uuids";
-  public static final String DEFAULT_VALUE = "default_value";
-  public static final String VALUE         = "value";
-  public static final String HASH_KEY      = "hash_key";
+  private final DynamoDbClient dynamoDbClient;
+  private final String tableName;
 
-  private final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private final Timer          setTimer       = metricRegistry.timer(name(RemoteConfigs.class, "set"   ));
-  private final Timer          getAllTimer    = metricRegistry.timer(name(RemoteConfigs.class, "getAll"));
-  private final Timer          deleteTimer    = metricRegistry.timer(name(RemoteConfigs.class, "delete"));
+  // Config name; string
+  static final String KEY_NAME = "N";
+  // Rollout percentage; integer
+  private static final String ATTR_PERCENTAGE = "P";
+  // Enrolled UUIDs (ACIs); list of byte arrays
+  private static final String ATTR_UUIDS = "U";
+  // Default value; string
+  private static final String ATTR_DEFAULT_VALUE = "D";
+  // Value when enrolled; string
+  private static final String ATTR_VALUE = "V";
+  // Hash key; string
+  private static final String ATTR_HASH_KEY = "H";
 
-  private final FaultTolerantDatabase database;
-
-  public RemoteConfigs(FaultTolerantDatabase database) {
-    this.database = database;
-    this.database.getDatabase().registerRowMapper(new RemoteConfigRowMapper());
-    this.database.getDatabase().registerArrayType(UUID.class, "uuid");
+  public RemoteConfigs(final DynamoDbClient dynamoDbClient, final String tableName) {
+    this.dynamoDbClient = dynamoDbClient;
+    this.tableName = tableName;
   }
 
-  @Override
-  public void set(RemoteConfig remoteConfig) {
-    database.use(jdbi -> jdbi.useHandle(handle -> {
-      try (Timer.Context ignored = setTimer.time()) {
-        handle.createUpdate("INSERT INTO remote_config (" + NAME + ", " + PERCENTAGE + ", " + UUIDS + ", " + DEFAULT_VALUE + ", " + VALUE + ", " + HASH_KEY + ") VALUES (:name, :percentage, :uuids, :default_value, :value, :hash_key) ON CONFLICT(" + NAME + ") DO UPDATE SET " + PERCENTAGE + " = EXCLUDED." + PERCENTAGE + ", " + UUIDS + " = EXCLUDED." + UUIDS + ", " + DEFAULT_VALUE + " = EXCLUDED." + DEFAULT_VALUE + ", " + VALUE + " = EXCLUDED." + VALUE + ", " + HASH_KEY + " = EXCLUDED." + HASH_KEY)
-            .bind("name", remoteConfig.getName())
-            .bind("percentage", remoteConfig.getPercentage())
-            .bind("uuids", remoteConfig.getUuids().toArray(new UUID[0]))
-            .bind("default_value", remoteConfig.getDefaultValue())
-            .bind("value", remoteConfig.getValue())
-            .bind("hash_key", remoteConfig.getHashKey())
-            .execute();
-      }
-    }));
+  public void set(final RemoteConfig remoteConfig) {
+    final Map<String, AttributeValue> item = new HashMap<>(Map.of(
+        KEY_NAME, AttributeValues.fromString(remoteConfig.getName()),
+        ATTR_PERCENTAGE, AttributeValues.fromInt(remoteConfig.getPercentage())));
+
+    if (remoteConfig.getUuids() != null && !remoteConfig.getUuids().isEmpty()) {
+      final List<SdkBytes> uuidByteSets = remoteConfig.getUuids().stream()
+          .map(UUIDUtil::toByteBuffer)
+          .map(SdkBytes::fromByteBuffer)
+          .collect(Collectors.toList());
+
+      item.put(ATTR_UUIDS, AttributeValue.builder().bs(uuidByteSets).build());
+    }
+
+    if (remoteConfig.getDefaultValue() != null) {
+      item.put(ATTR_DEFAULT_VALUE, AttributeValues.fromString(remoteConfig.getDefaultValue()));
+    }
+
+    if (remoteConfig.getValue() != null) {
+      item.put(ATTR_VALUE, AttributeValues.fromString(remoteConfig.getValue()));
+    }
+
+    if (remoteConfig.getHashKey() != null) {
+      item.put(ATTR_HASH_KEY, AttributeValues.fromString(remoteConfig.getHashKey()));
+    }
+
+    dynamoDbClient.putItem(PutItemRequest.builder()
+        .tableName(tableName)
+        .item(item)
+        .build());
   }
 
-  @Override
   public List<RemoteConfig> getAll() {
-    return database.with(jdbi -> jdbi.withHandle(handle -> {
-      try (Timer.Context ignored = getAllTimer.time()) {
-        return handle.createQuery("SELECT * FROM remote_config")
-                     .mapTo(RemoteConfig.class)
-                     .list();
-      }
-    }));
+    return dynamoDbClient.scanPaginator(ScanRequest.builder()
+            .tableName(tableName)
+            .consistentRead(true)
+            .build())
+        .items()
+        .stream()
+        .map(item -> {
+          final String name = AttributeValues.getString(item, KEY_NAME, null);
+          final int percentage = AttributeValues.getInt(item, ATTR_PERCENTAGE, 0);
+          final String defaultValue = AttributeValues.getString(item, ATTR_DEFAULT_VALUE, null);
+          final String value = AttributeValues.getString(item, ATTR_VALUE, null);
+          final String hashKey = AttributeValues.getString(item, ATTR_HASH_KEY, null);
+
+          final Set<UUID> uuids;
+
+          if (item.containsKey(ATTR_UUIDS)) {
+            uuids = item.get(ATTR_UUIDS).bs().stream()
+                .map(sdkBytes -> UUIDUtil.fromByteBuffer(sdkBytes.asByteBuffer()))
+                .collect(Collectors.toSet());
+          } else {
+            uuids = Collections.emptySet();
+          }
+
+          return new RemoteConfig(name, percentage, uuids, defaultValue, value, hashKey);
+        })
+        .collect(Collectors.toList());
   }
 
-  @Override
-  public void delete(String name) {
-    database.use(jdbi -> jdbi.useHandle(handle -> {
-      try (Timer.Context ignored = deleteTimer.time()) {
-        handle.createUpdate("DELETE FROM remote_config WHERE " + NAME + " = :name")
-              .bind("name", name)
-              .execute();
-      }
-    }));
+  public void delete(final String name) {
+    dynamoDbClient.deleteItem(DeleteItemRequest.builder()
+        .tableName(tableName)
+        .key(Map.of(KEY_NAME, AttributeValues.fromString(name)))
+        .build());
   }
 }

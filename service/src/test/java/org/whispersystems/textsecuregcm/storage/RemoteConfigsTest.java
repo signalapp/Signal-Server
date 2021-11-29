@@ -5,21 +5,40 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
+import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-abstract class RemoteConfigsTest {
+class RemoteConfigsTest {
 
-  protected abstract RemoteConfigStore getRemoteConfigStore();
+  private static final String REMOTE_CONFIGS_TABLE_NAME = "remote_configs_test";
+
+  @RegisterExtension
+  static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
+      .tableName(REMOTE_CONFIGS_TABLE_NAME)
+      .hashKey(RemoteConfigs.KEY_NAME)
+      .attributeDefinition(AttributeDefinition.builder()
+          .attributeName(RemoteConfigs.KEY_NAME)
+          .attributeType(ScalarAttributeType.S)
+          .build())
+      .build();
+
+  private RemoteConfigs remoteConfigs;
+
+  @BeforeEach
+  void setUp() {
+    remoteConfigs = new RemoteConfigs(dynamoDbExtension.getDynamoDbClient(), REMOTE_CONFIGS_TABLE_NAME);
+  }
 
   @Test
   void testStore() {
-    final RemoteConfigStore remoteConfigs = getRemoteConfigStore();
-
     remoteConfigs.set(new RemoteConfig("android.stickers", 50, Set.of(AuthHelper.VALID_UUID, AuthHelper.VALID_UUID_TWO), "FALSE", "TRUE", null));
     remoteConfigs.set(new RemoteConfig("value.sometimes", 25, Set.of(AuthHelper.VALID_UUID_TWO), "default", "custom", null));
 
@@ -48,8 +67,6 @@ abstract class RemoteConfigsTest {
 
   @Test
   void testUpdate() {
-    final RemoteConfigStore remoteConfigs = getRemoteConfigStore();
-
     remoteConfigs.set(new RemoteConfig("android.stickers", 50, Set.of(), "FALSE", "TRUE", null));
     remoteConfigs.set(new RemoteConfig("value.sometimes", 22, Set.of(), "def", "!", null));
     remoteConfigs.set(new RemoteConfig("ios.stickers", 50, Set.of(AuthHelper.DISABLED_UUID), "FALSE", "TRUE", null));
@@ -81,8 +98,6 @@ abstract class RemoteConfigsTest {
 
   @Test
   void testDelete() {
-    final RemoteConfigStore remoteConfigs = getRemoteConfigStore();
-
     remoteConfigs.set(new RemoteConfig("android.stickers", 50, Set.of(AuthHelper.VALID_UUID), "FALSE", "TRUE", null));
     remoteConfigs.set(new RemoteConfig("ios.stickers", 50, Set.of(), "FALSE", "TRUE", null));
     remoteConfigs.set(new RemoteConfig("ios.stickers", 75, Set.of(), "FALSE", "TRUE", null));

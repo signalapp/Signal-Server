@@ -12,11 +12,11 @@ import java.util.function.Supplier;
 
 public class RemoteConfigsManager {
 
-  private final RemoteConfigStore remoteConfigs;
+  private final RemoteConfigs remoteConfigs;
 
   private final Supplier<List<RemoteConfig>> remoteConfigSupplier;
 
-  public RemoteConfigsManager(RemoteConfigStore remoteConfigs) {
+  public RemoteConfigsManager(RemoteConfigs remoteConfigs) {
     this.remoteConfigs = remoteConfigs;
 
     remoteConfigSupplier =
