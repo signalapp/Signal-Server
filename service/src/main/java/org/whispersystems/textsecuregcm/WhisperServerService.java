@@ -435,8 +435,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         minThreads(availableProcessors).  // mostly this is IO bound so tying to number of processors is tenuous at best
         allowCoreThreadTimeOut(true).
         build();
-    ExecutorService profileMigrationExperimentExecutor = environment.lifecycle()
-        .executorService(name(getClass(), "profileMigrationExperiment-%d")).minThreads(8).maxThreads(8).build();
 
     StripeManager stripeManager = new StripeManager(config.getStripe().getApiKey(), stripeExecutor,
         config.getStripe().getIdempotencyKeyGenerator(), config.getStripe().getBoostDescription());
@@ -475,8 +473,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     StoredVerificationCodeManager pendingAccountsManager  = new StoredVerificationCodeManager(pendingAccounts);
     StoredVerificationCodeManager pendingDevicesManager   = new StoredVerificationCodeManager(pendingDevices);
     UsernamesManager           usernamesManager           = new UsernamesManager(usernames, reservedUsernames, cacheCluster);
-    ProfilesManager            profilesManager            = new ProfilesManager(profiles, profilesDynamoDb, cacheCluster,
-        dynamicConfigurationManager, profileMigrationExperimentExecutor);
+    ProfilesManager            profilesManager            = new ProfilesManager(profiles, profilesDynamoDb, cacheCluster, dynamicConfigurationManager);
     MessagesCache              messagesCache              = new MessagesCache(messagesCluster, messagesCluster, keyspaceNotificationDispatchExecutor);
     PushLatencyManager         pushLatencyManager         = new PushLatencyManager(metricsCluster, dynamicConfigurationManager);
     ReportMessageManager       reportMessageManager       = new ReportMessageManager(reportMessageDynamoDb, rateLimitersCluster, Metrics.globalRegistry, config.getReportMessageConfiguration().getCounterTtl());

@@ -18,7 +18,6 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.Executor;
 
 public class ProfilesManager {
 
@@ -32,19 +31,16 @@ public class ProfilesManager {
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final ObjectMapper mapper;
 
-  private final Executor migrationExperimentExecutor;
   private final Experiment migrationExperiment = new Experiment("profileMigration");
 
   public ProfilesManager(final Profiles profiles,
       final ProfilesDynamoDb profilesDynamoDb,
       final FaultTolerantRedisCluster cacheCluster,
-      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
-      final Executor migrationExperimentExecutor) {
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     this.profiles = profiles;
     this.profilesDynamoDb = profilesDynamoDb;
     this.cacheCluster = cacheCluster;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
-    this.migrationExperimentExecutor = migrationExperimentExecutor;
     this.mapper = SystemMapper.getMapper();
   }
 
@@ -76,7 +72,13 @@ public class ProfilesManager {
         profile = profiles.get(uuid, version);
 
         if (dynamicConfigurationManager.getConfiguration().getProfileMigrationConfiguration().isDynamoDbReadForComparisonEnabled()) {
-          migrationExperiment.compareSupplierResultAsync(profile, () -> profilesDynamoDb.get(uuid, version), migrationExperimentExecutor);
+          final Optional<VersionedProfile> dynamoProfile = profilesDynamoDb.get(uuid, version);
+          migrationExperiment.compareSupplierResult(profile, () -> dynamoProfile);
+
+          if (profile.isEmpty() && dynamoProfile.isPresent() &&
+              dynamicConfigurationManager.getConfiguration().getProfileMigrationConfiguration().isLogMismatches()) {
+            logger.info("Profile {}/{} absent from relational database, but present in DynamoDB", uuid, version);
+          }
         }
       }
 

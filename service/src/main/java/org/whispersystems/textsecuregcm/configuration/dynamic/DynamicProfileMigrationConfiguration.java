@@ -21,6 +21,9 @@ public class DynamicProfileMigrationConfiguration {
   @JsonProperty
   private boolean dynamoDbReadPrimary = false;
 
+  @JsonProperty
+  private boolean logMismatches = false;
+
   public boolean isDynamoDbDeleteEnabled() {
     return dynamoDbDeleteEnabled;
   }
@@ -35,5 +38,9 @@ public class DynamicProfileMigrationConfiguration {
 
   public boolean isDynamoDbReadPrimary() {
     return dynamoDbReadPrimary;
+  }
+
+  public boolean isLogMismatches() {
+    return logMismatches;
   }
 }

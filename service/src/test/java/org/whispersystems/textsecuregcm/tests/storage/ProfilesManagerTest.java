@@ -22,7 +22,6 @@ import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.Executor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -63,8 +62,7 @@ public class ProfilesManagerTest {
     profilesManager = new ProfilesManager(profiles,
         mock(ProfilesDynamoDb.class),
         cacheCluster,
-        dynamicConfigurationManager,
-        mock(Executor.class));
+        dynamicConfigurationManager);
   }
 
   @Test

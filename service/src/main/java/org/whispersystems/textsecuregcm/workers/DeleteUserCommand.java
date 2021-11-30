@@ -212,7 +212,7 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
           configuration.getDirectoryConfiguration().getSqsConfiguration());
       UsernamesManager usernamesManager = new UsernamesManager(usernames, reservedUsernames, cacheCluster);
       ProfilesManager profilesManager = new ProfilesManager(profiles, profilesDynamoDb, cacheCluster,
-          dynamicConfigurationManager, Executors.newSingleThreadExecutor());
+          dynamicConfigurationManager);
       ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(reportMessagesDynamoDb,
           configuration.getReportMessageDynamoDbConfiguration().getTableName(),
           configuration.getReportMessageConfiguration().getReportTtl());
