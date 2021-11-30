@@ -6,7 +6,7 @@
 package org.whispersystems.textsecuregcm.websocket;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTimeout;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -122,7 +122,7 @@ class WebSocketConnectionIntegrationTest {
 
     final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(persistedMessageCount + cachedMessageCount);
 
-    assertTimeout(Duration.ofSeconds(15), () -> {
+    assertTimeoutPreemptively(Duration.ofSeconds(15), () -> {
 
       {
         final List<MessageProtos.Envelope> persistedMessages = new ArrayList<>(persistedMessageCount);
@@ -200,7 +200,7 @@ class WebSocketConnectionIntegrationTest {
 
     final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(persistedMessageCount + cachedMessageCount);
 
-    assertTimeout(Duration.ofSeconds(15), () -> {
+    assertTimeoutPreemptively(Duration.ofSeconds(15), () -> {
 
       {
         final List<MessageProtos.Envelope> persistedMessages = new ArrayList<>(persistedMessageCount);

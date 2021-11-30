@@ -6,7 +6,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTimeout;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -101,7 +101,7 @@ class MessagePersisterIntegrationTest {
     final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(messageCount);
     final Instant now = Instant.now();
 
-    assertTimeout(Duration.ofSeconds(15), () -> {
+    assertTimeoutPreemptively(Duration.ofSeconds(15), () -> {
 
       for (int i = 0; i < messageCount; i++) {
         final UUID messageGuid = UUID.randomUUID();
