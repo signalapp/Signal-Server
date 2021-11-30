@@ -248,17 +248,18 @@ class WebSocketConnectionIntegrationTest {
 
       assertTrue(expectedMessages.containsAll(sentMessages));
     });
-    }
+  }
 
-    private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid) {
-        final long timestamp = serialTimestamp++;
+  private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid) {
+    final long timestamp = serialTimestamp++;
 
-        return MessageProtos.Envelope.newBuilder()
-                .setTimestamp(timestamp)
-                .setServerTimestamp(timestamp)
-                .setContent(ByteString.copyFromUtf8(RandomStringUtils.randomAlphanumeric(256)))
-                .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
-                .setServerGuid(messageGuid.toString())
-                .build();
-    }
+    return MessageProtos.Envelope.newBuilder()
+        .setTimestamp(timestamp)
+        .setServerTimestamp(timestamp)
+        .setContent(ByteString.copyFromUtf8(RandomStringUtils.randomAlphanumeric(256)))
+        .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
+        .setServerGuid(messageGuid.toString())
+        .setDestinationUuid(UUID.randomUUID().toString())
+        .build();
+  }
 }

@@ -86,7 +86,8 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
           .put(LOCAL_INDEX_MESSAGE_UUID_KEY_SORT, convertLocalIndexMessageUuidSortKey(messageUuid))
           .put(KEY_TYPE, AttributeValues.fromInt(message.getType().getNumber()))
           .put(KEY_TIMESTAMP, AttributeValues.fromLong(message.getTimestamp()))
-          .put(KEY_TTL, AttributeValues.fromLong(getTtlForMessage(message)));
+          .put(KEY_TTL, AttributeValues.fromLong(getTtlForMessage(message)))
+          .put(KEY_DESTINATION_UUID, AttributeValues.fromUUID(UUID.fromString(message.getDestinationUuid())));
       if (message.hasRelay() && message.getRelay().length() > 0) {
         item.put(KEY_RELAY, AttributeValues.fromString(message.getRelay()));
       }

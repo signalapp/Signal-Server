@@ -154,6 +154,7 @@ class MessagePersisterIntegrationTest {
             .setTimestamp(AttributeValues.getLong(item, "TS", -1))
             .setServerTimestamp(extractServerTimestamp(AttributeValues.getByteArray(item, "S", null)))
             .setContent(ByteString.copyFrom(AttributeValues.getByteArray(item, "C", null)))
+            .setDestinationUuid(AttributeValues.getUUID(item, "DU", null).toString())
             .build());
       }
 
@@ -174,6 +175,7 @@ class MessagePersisterIntegrationTest {
         .setContent(ByteString.copyFromUtf8(RandomStringUtils.randomAlphanumeric(256)))
         .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
         .setServerGuid(messageGuid.toString())
+        .setDestinationUuid(UUID.randomUUID().toString())
         .build();
   }
 }
