@@ -60,8 +60,8 @@ public class MigrateProfilesCommand extends EnvironmentCommand<WhisperServerConf
         .setDefault(64)
         .help("The maximum number of concurrent DynamoDB requests");
 
-    subparser.addArgument("-f", "--file")
-        .dest("file")
+    subparser.addArgument("--csv-file")
+        .dest("csvFile")
         .type(String.class)
         .required(false)
         .help("A CSV containing UUID/version pairs to migrate; if not specified, all profiles are migrated");
@@ -88,7 +88,7 @@ public class MigrateProfilesCommand extends EnvironmentCommand<WhisperServerConf
     ProfilesDynamoDb profilesDynamoDb = new ProfilesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         configuration.getDynamoDbTables().getProfiles().getTableName());
 
-    final String csvFile = namespace.getString("file");
+    final String csvFile = namespace.getString("csvFile");
 
     if (StringUtils.isNotBlank(csvFile)) {
       migrateFromCsvFile(profiles, profilesDynamoDb, csvFile);
