@@ -38,6 +38,7 @@ class MessagesDynamoDbTest {
     builder.setContent(ByteString.copyFrom(new byte[]{(byte) 0xDE, (byte) 0xAD, (byte) 0xBE, (byte) 0xEF}));
     builder.setServerGuid(UUID.randomUUID().toString());
     builder.setServerTimestamp(serverTimestamp);
+    builder.setDestinationUuid(UUID.randomUUID().toString());
 
     MESSAGE1 = builder.build();
 
@@ -48,6 +49,7 @@ class MessagesDynamoDbTest {
     builder.setContent(ByteString.copyFromUtf8("MOO"));
     builder.setServerGuid(UUID.randomUUID().toString());
     builder.setServerTimestamp(serverTimestamp + 1);
+    builder.setDestinationUuid(UUID.randomUUID().toString());
 
     MESSAGE2 = builder.build();
 
@@ -58,6 +60,7 @@ class MessagesDynamoDbTest {
     builder.setContent(ByteString.copyFromUtf8("COW"));
     builder.setServerGuid(UUID.randomUUID().toString());
     builder.setServerTimestamp(serverTimestamp);  // Test same millisecond arrival for two different messages
+    builder.setDestinationUuid(UUID.randomUUID().toString());
 
     MESSAGE3 = builder.build();
   }
@@ -175,6 +178,7 @@ class MessagesDynamoDbTest {
     assertThat(retrieved.getMessage()).isEqualTo(inserted.hasLegacyMessage() ? inserted.getLegacyMessage().toByteArray() : null);
     assertThat(retrieved.getServerTimestamp()).isEqualTo(inserted.getServerTimestamp());
     assertThat(retrieved.getGuid()).isEqualTo(UUID.fromString(inserted.getServerGuid()));
+    assertThat(retrieved.getDestinationUuid()).isEqualTo(UUID.fromString(inserted.getDestinationUuid()));
   }
 
   private static VerifyMessage verify(MessageProtos.Envelope expected) {
