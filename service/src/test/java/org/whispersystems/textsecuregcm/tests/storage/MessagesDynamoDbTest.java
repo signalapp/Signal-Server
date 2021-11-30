@@ -75,10 +75,6 @@ class MessagesDynamoDbTest {
   }
 
   @Test
-  void testServerStart() {
-  }
-
-  @Test
   void testSimpleFetchAfterInsert() {
     final UUID destinationUuid = UUID.randomUUID();
     final int destinationDeviceId = random.nextInt(255) + 1;
