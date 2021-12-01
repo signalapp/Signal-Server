@@ -66,7 +66,6 @@ import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
-import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
@@ -80,7 +79,6 @@ class ProfileControllerTest {
   private static final Clock clock = mock(Clock.class);
   private static final AccountsManager accountsManager = mock(AccountsManager.class);
   private static final ProfilesManager profilesManager = mock(ProfilesManager.class);
-  private static final UsernamesManager usernamesManager = mock(UsernamesManager.class);
   private static final RateLimiters rateLimiters = mock(RateLimiters.class);
   private static final RateLimiter rateLimiter = mock(RateLimiter.class);
   private static final RateLimiter usernameRateLimiter = mock(RateLimiter.class);
@@ -107,7 +105,6 @@ class ProfileControllerTest {
           rateLimiters,
           accountsManager,
           profilesManager,
-          usernamesManager,
           dynamicConfigurationManager,
           (acceptableLanguages, accountBadges, isSelf) -> List.of(new Badge("TEST", "other", "Test Badge",
               "This badge is in unit tests.", List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld")))
@@ -156,6 +153,7 @@ class ProfileControllerTest {
     when(profileAccount.isAnnouncementGroupSupported()).thenReturn(false);
     when(profileAccount.isChangeNumberSupported()).thenReturn(false);
     when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.empty());
+    when(profileAccount.getUsername()).thenReturn(Optional.of("n00bkiller"));
 
     Account capabilitiesAccount = mock(Account.class);
 
@@ -171,8 +169,7 @@ class ProfileControllerTest {
 
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(profileAccount));
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID_TWO)).thenReturn(Optional.of(profileAccount));
-    when(usernamesManager.get(AuthHelper.VALID_UUID_TWO)).thenReturn(Optional.of("n00bkiller"));
-    when(usernamesManager.get("n00bkiller")).thenReturn(Optional.of(AuthHelper.VALID_UUID_TWO));
+    when(accountsManager.getByUsername("n00bkiller")).thenReturn(Optional.of(profileAccount));
 
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(capabilitiesAccount));
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(capabilitiesAccount));
@@ -183,7 +180,6 @@ class ProfileControllerTest {
 
     clearInvocations(rateLimiter);
     clearInvocations(accountsManager);
-    clearInvocations(usernamesManager);
     clearInvocations(usernameRateLimiter);
     clearInvocations(profilesManager);
   }
@@ -209,7 +205,6 @@ class ProfileControllerTest {
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
 
     verify(accountsManager).getByAccountIdentifier(AuthHelper.VALID_UUID_TWO);
-    verify(usernamesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO));
     verify(rateLimiter, times(1)).validate(AuthHelper.VALID_UUID);
   }
 
@@ -229,8 +224,7 @@ class ProfileControllerTest {
     assertThat(profile.getBadges()).hasSize(1).element(0).has(new Condition<>(
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
 
-    verify(accountsManager, times(1)).getByAccountIdentifier(eq(AuthHelper.VALID_UUID_TWO));
-    verify(usernamesManager, times(1)).get(eq("n00bkiller"));
+    verify(accountsManager).getByUsername("n00bkiller");
     verify(usernameRateLimiter, times(1)).validate(eq(AuthHelper.VALID_UUID));
   }
 
@@ -265,8 +259,8 @@ class ProfileControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(404);
 
-    verify(usernamesManager, times(1)).get(eq("n00bkillerzzzzz"));
-    verify(usernameRateLimiter, times(1)).validate(eq(AuthHelper.VALID_UUID));
+    verify(accountsManager).getByUsername("n00bkillerzzzzz");
+    verify(usernameRateLimiter).validate(eq(AuthHelper.VALID_UUID));
   }
 
 
@@ -594,7 +588,6 @@ class ProfileControllerTest {
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
 
     verify(accountsManager, times(1)).getByAccountIdentifier(eq(AuthHelper.VALID_UUID_TWO));
-    verify(usernamesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO));
     verify(profilesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO), eq("validversion"));
 
     verify(rateLimiter, times(1)).validate(AuthHelper.VALID_UUID);

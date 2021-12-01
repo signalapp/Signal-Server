@@ -85,7 +85,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
-import org.whispersystems.textsecuregcm.storage.UsernamesManager;
+import org.whispersystems.textsecuregcm.storage.UsernameNotAvailableException;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.ForwardedIpUtil;
 import org.whispersystems.textsecuregcm.util.Hex;
@@ -123,7 +123,6 @@ public class AccountController {
 
   private final StoredVerificationCodeManager      pendingAccounts;
   private final AccountsManager                    accounts;
-  private final UsernamesManager                   usernames;
   private final AbusiveHostRules                   abusiveHostRules;
   private final RateLimiters                       rateLimiters;
   private final SmsSender                          smsSender;
@@ -139,7 +138,6 @@ public class AccountController {
 
   public AccountController(StoredVerificationCodeManager pendingAccounts,
                            AccountsManager accounts,
-                           UsernamesManager usernames,
                            AbusiveHostRules abusiveHostRules,
                            RateLimiters rateLimiters,
                            SmsSender smsSenderFactory,
@@ -154,7 +152,6 @@ public class AccountController {
   {
     this.pendingAccounts                   = pendingAccounts;
     this.accounts                          = accounts;
-    this.usernames                         = usernames;
     this.abusiveHostRules                  = abusiveHostRules;
     this.rateLimiters                      = rateLimiters;
     this.smsSender                         = smsSenderFactory;
@@ -614,7 +611,7 @@ public class AccountController {
   @Path("/username")
   @Produces(MediaType.APPLICATION_JSON)
   public void deleteUsername(@Auth AuthenticatedAccount auth) {
-    usernames.delete(auth.getAccount().getUuid());
+    accounts.clearUsername(auth.getAccount());
   }
 
   @PUT
@@ -634,7 +631,9 @@ public class AccountController {
       return Response.status(Response.Status.BAD_REQUEST).build();
     }
 
-    if (!usernames.put(auth.getAccount().getUuid(), username)) {
+    try {
+      accounts.setUsername(auth.getAccount(), username);
+    } catch (final UsernameNotAvailableException e) {
       return Response.status(Response.Status.CONFLICT).build();
     }
 

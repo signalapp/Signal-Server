@@ -6,6 +6,8 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -19,7 +21,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -38,8 +39,6 @@ import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.CancellationReason;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
@@ -61,6 +60,7 @@ class AccountsTest {
   private static final String ACCOUNTS_TABLE_NAME = "accounts_test";
   private static final String NUMBER_CONSTRAINT_TABLE_NAME = "numbers_test";
   private static final String PNI_CONSTRAINT_TABLE_NAME = "pni_test";
+  private static final String USERNAME_CONSTRAINT_TABLE_NAME = "username_test";
 
   private static final int SCAN_PAGE_SIZE = 1;
 
@@ -108,11 +108,27 @@ class AccountsTest {
 
     dynamoDbExtension.getDynamoDbClient().createTable(createPhoneNumberIdentifierTableRequest);
 
+    CreateTableRequest createUsernamesTableRequest = CreateTableRequest.builder()
+        .tableName(USERNAME_CONSTRAINT_TABLE_NAME)
+        .keySchema(KeySchemaElement.builder()
+            .attributeName(Accounts.ATTR_USERNAME)
+            .keyType(KeyType.HASH)
+            .build())
+        .attributeDefinitions(AttributeDefinition.builder()
+            .attributeName(Accounts.ATTR_USERNAME)
+            .attributeType(ScalarAttributeType.S)
+            .build())
+        .provisionedThroughput(DynamoDbExtension.DEFAULT_PROVISIONED_THROUGHPUT)
+        .build();
+
+    dynamoDbExtension.getDynamoDbClient().createTable(createUsernamesTableRequest);
+
     this.accounts = new Accounts(
         dynamoDbExtension.getDynamoDbClient(),
         dynamoDbExtension.getTableName(),
         NUMBER_CONSTRAINT_TABLE_NAME,
         PNI_CONSTRAINT_TABLE_NAME,
+        USERNAME_CONSTRAINT_TABLE_NAME,
         SCAN_PAGE_SIZE);
   }
 
@@ -357,7 +373,7 @@ class AccountsTest {
 
     final DynamoDbClient dynamoDbClient = mock(DynamoDbClient.class);
     accounts = new Accounts(dynamoDbClient,
-        dynamoDbExtension.getTableName(), NUMBER_CONSTRAINT_TABLE_NAME, PNI_CONSTRAINT_TABLE_NAME, SCAN_PAGE_SIZE);
+        dynamoDbExtension.getTableName(), NUMBER_CONSTRAINT_TABLE_NAME, PNI_CONSTRAINT_TABLE_NAME, USERNAME_CONSTRAINT_TABLE_NAME, SCAN_PAGE_SIZE);
 
     when(dynamoDbClient.updateItem(any(UpdateItemRequest.class)))
         .thenThrow(TransactionConflictException.class);
@@ -495,7 +511,7 @@ class AccountsTest {
         .thenThrow(RuntimeException.class);
 
     Accounts accounts = new Accounts(client, ACCOUNTS_TABLE_NAME, NUMBER_CONSTRAINT_TABLE_NAME,
-        PNI_CONSTRAINT_TABLE_NAME, SCAN_PAGE_SIZE);
+        PNI_CONSTRAINT_TABLE_NAME, USERNAME_CONSTRAINT_TABLE_NAME, SCAN_PAGE_SIZE);
     Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID());
 
     try {
@@ -644,6 +660,118 @@ class AccountsTest {
         .build());
 
     assertThrows(TransactionCanceledException.class, () -> accounts.changeNumber(account, targetNumber, existingPhoneNumberIdentifier));
+  }
+
+  @Test
+  void testSetUsername() throws UsernameNotAvailableException {
+    final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
+    accounts.create(account);
+
+    final String username = "test";
+
+    assertThat(accounts.getByUsername(username)).isEmpty();
+
+    accounts.setUsername(account, username);
+
+    {
+      final Optional<Account> maybeAccount = accounts.getByUsername(username);
+
+      assertThat(maybeAccount).hasValueSatisfying(retrievedAccount ->
+          assertThat(retrievedAccount.getUsername()).hasValueSatisfying(retrievedUsername ->
+              assertThat(retrievedUsername).isEqualTo(username)));
+
+      verifyStoredState(account.getNumber(), account.getUuid(), account.getPhoneNumberIdentifier(),          maybeAccount.orElseThrow(), account);
+    }
+
+    final String secondUsername = username + "2";
+
+    accounts.setUsername(account, secondUsername);
+
+    assertThat(accounts.getByUsername(username)).isEmpty();
+
+    {
+      final Optional<Account> maybeAccount = accounts.getByUsername(secondUsername);
+
+      assertThat(maybeAccount).isPresent();
+      verifyStoredState(account.getNumber(), account.getUuid(), account.getPhoneNumberIdentifier(),
+          maybeAccount.get(), account);
+    }
+  }
+
+  @Test
+  void testSetUsernameConflict() {
+    final Account firstAccount = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
+    final Account secondAccount = generateAccount("+18005559876", UUID.randomUUID(), UUID.randomUUID());
+
+    accounts.create(firstAccount);
+    accounts.create(secondAccount);
+
+    final String username = "test";
+
+    assertThatNoException().isThrownBy(() -> accounts.setUsername(firstAccount, username));
+
+    final Optional<Account> maybeAccount = accounts.getByUsername(username);
+
+    assertThat(maybeAccount).isPresent();
+    verifyStoredState(firstAccount.getNumber(), firstAccount.getUuid(), firstAccount.getPhoneNumberIdentifier(), maybeAccount.get(), firstAccount);
+
+    assertThatExceptionOfType(UsernameNotAvailableException.class)
+        .isThrownBy(() -> accounts.setUsername(secondAccount, username));
+
+    assertThat(secondAccount.getUsername()).isEmpty();
+  }
+
+  @Test
+  void testSetUsernameVersionMismatch() {
+    final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
+    accounts.create(account);
+    account.setVersion(account.getVersion() + 77);
+
+    assertThatExceptionOfType(ContestedOptimisticLockException.class)
+        .isThrownBy(() -> accounts.setUsername(account, "test"));
+
+    assertThat(account.getUsername()).isEmpty();
+  }
+
+  @Test
+  void testClearUsername() throws UsernameNotAvailableException {
+    final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
+    accounts.create(account);
+
+    final String username = "test";
+
+    accounts.setUsername(account, username);
+    assertThat(accounts.getByUsername(username)).isPresent();
+
+    accounts.clearUsername(account);
+
+    assertThat(accounts.getByUsername(username)).isEmpty();
+    assertThat(accounts.getByAccountIdentifier(account.getUuid()))
+        .hasValueSatisfying(clearedAccount -> assertThat(clearedAccount.getUsername()).isEmpty());
+  }
+
+  @Test
+  void testClearUsernameNoUsername() {
+    final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
+    accounts.create(account);
+
+    assertThatNoException().isThrownBy(() -> accounts.clearUsername(account));
+  }
+
+  @Test
+  void testClearUsernameVersionMismatch() throws UsernameNotAvailableException {
+    final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
+    accounts.create(account);
+
+    final String username = "test";
+
+    accounts.setUsername(account, username);
+
+    account.setVersion(account.getVersion() + 12);
+
+    assertThatExceptionOfType(ContestedOptimisticLockException.class).isThrownBy(() -> accounts.clearUsername(account));
+
+    assertThat(account.getUsername()).hasValueSatisfying(u -> assertThat(u).isEqualTo(username));
   }
 
   private Device generateDevice(long id) {

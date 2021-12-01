@@ -51,6 +51,7 @@ class AccountsManagerChangeNumberIntegrationTest {
   private static final String ACCOUNTS_TABLE_NAME = "accounts_test";
   private static final String NUMBERS_TABLE_NAME = "numbers_test";
   private static final String PNI_ASSIGNMENT_TABLE_NAME = "pni_assignment_test";
+  private static final String USERNAMES_TABLE_NAME = "usernames_test";
   private static final String PNI_TABLE_NAME = "pni_test";
   private static final String NEEDS_RECONCILIATION_INDEX_NAME = "needs_reconciliation_test";
   private static final String DELETED_ACCOUNTS_LOCK_TABLE_NAME = "deleted_accounts_lock_test";
@@ -155,6 +156,7 @@ class AccountsManagerChangeNumberIntegrationTest {
         ACCOUNTS_DYNAMO_EXTENSION.getTableName(),
         NUMBERS_TABLE_NAME,
         PNI_ASSIGNMENT_TABLE_NAME,
+        USERNAMES_TABLE_NAME,
         SCAN_PAGE_SIZE);
 
     {
@@ -191,7 +193,7 @@ class AccountsManagerChangeNumberIntegrationTest {
           mock(DirectoryQueue.class),
           mock(Keys.class),
           mock(MessagesManager.class),
-          mock(UsernamesManager.class),
+          mock(ReservedUsernames.class),
           mock(ProfilesManager.class),
           mock(StoredVerificationCodeManager.class),
           secureStorageClient,

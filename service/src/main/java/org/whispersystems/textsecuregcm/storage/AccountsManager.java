@@ -44,18 +44,20 @@ import org.whispersystems.textsecuregcm.util.Util;
 
 public class AccountsManager {
 
-  private static final MetricRegistry metricRegistry   = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private static final Timer          createTimer      = metricRegistry.timer(name(AccountsManager.class, "create"     ));
-  private static final Timer          updateTimer      = metricRegistry.timer(name(AccountsManager.class, "update"     ));
-  private static final Timer          getByNumberTimer = metricRegistry.timer(name(AccountsManager.class, "getByNumber"));
-  private static final Timer          getByUuidTimer   = metricRegistry.timer(name(AccountsManager.class, "getByUuid"  ));
-  private static final Timer          deleteTimer      = metricRegistry.timer(name(AccountsManager.class, "delete"));
+  private static final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  private static final Timer createTimer = metricRegistry.timer(name(AccountsManager.class, "create"));
+  private static final Timer updateTimer = metricRegistry.timer(name(AccountsManager.class, "update"));
+  private static final Timer getByNumberTimer = metricRegistry.timer(name(AccountsManager.class, "getByNumber"));
+  private static final Timer getByUsernameTimer = metricRegistry.timer(name(AccountsManager.class, "getByUsername"));
+  private static final Timer getByUuidTimer = metricRegistry.timer(name(AccountsManager.class, "getByUuid"));
+  private static final Timer deleteTimer = metricRegistry.timer(name(AccountsManager.class, "delete"));
 
-  private static final Timer redisSetTimer       = metricRegistry.timer(name(AccountsManager.class, "redisSet"      ));
+  private static final Timer redisSetTimer = metricRegistry.timer(name(AccountsManager.class, "redisSet"));
   private static final Timer redisNumberGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisNumberGet"));
-  private static final Timer redisPniGetTimer    = metricRegistry.timer(name(AccountsManager.class, "redisPniGet"));
-  private static final Timer redisUuidGetTimer   = metricRegistry.timer(name(AccountsManager.class, "redisUuidGet"  ));
-  private static final Timer redisDeleteTimer    = metricRegistry.timer(name(AccountsManager.class, "redisDelete"   ));
+  private static final Timer redisUsernameGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisUsernameGet"));
+  private static final Timer redisPniGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisPniGet"));
+  private static final Timer redisUuidGetTimer = metricRegistry.timer(name(AccountsManager.class, "redisUuidGet"));
+  private static final Timer redisDeleteTimer = metricRegistry.timer(name(AccountsManager.class, "redisDelete"));
 
   private static final String CREATE_COUNTER_NAME       = name(AccountsManager.class, "createCounter");
   private static final String DELETE_COUNTER_NAME       = name(AccountsManager.class, "deleteCounter");
@@ -71,7 +73,7 @@ public class AccountsManager {
   private final DirectoryQueue directoryQueue;
   private final Keys keys;
   private final MessagesManager messagesManager;
-  private final UsernamesManager usernamesManager;
+  private final ReservedUsernames reservedUsernames;
   private final ProfilesManager profilesManager;
   private final StoredVerificationCodeManager pendingAccounts;
   private final SecureStorageClient secureStorageClient;
@@ -85,6 +87,11 @@ public class AccountsManager {
   // frequently (e.g. the account is in an active group and receives messages frequently), but aren't actively used by
   // the owner.
   private static final long CACHE_TTL_SECONDS = Duration.ofDays(2).toSeconds();
+
+  @FunctionalInterface
+  private interface AccountPersister {
+    void persistAccount(Account account) throws UsernameNotAvailableException;
+  }
 
   public enum DeletionReason {
     ADMIN_DELETED("admin"),
@@ -105,7 +112,7 @@ public class AccountsManager {
       final DirectoryQueue directoryQueue,
       final Keys keys,
       final MessagesManager messagesManager,
-      final UsernamesManager usernamesManager,
+      final ReservedUsernames reservedUsernames,
       final ProfilesManager profilesManager,
       final StoredVerificationCodeManager pendingAccounts,
       final SecureStorageClient secureStorageClient,
@@ -119,12 +126,12 @@ public class AccountsManager {
     this.directoryQueue = directoryQueue;
     this.keys = keys;
     this.messagesManager = messagesManager;
-    this.usernamesManager = usernamesManager;
     this.profilesManager = profilesManager;
     this.pendingAccounts = pendingAccounts;
     this.secureStorageClient = secureStorageClient;
     this.secureBackupClient  = secureBackupClient;
     this.clientPresenceManager = clientPresenceManager;
+    this.reservedUsernames = reservedUsernames;
     this.mapper              = SystemMapper.getMapper();
     this.clock = Objects.requireNonNull(clock);
   }
@@ -236,11 +243,18 @@ public class AccountsManager {
       final UUID uuid = account.getUuid();
       final UUID phoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(number);
 
-      final Account numberChangedAccount = updateWithRetries(
-          account,
-          a -> true,
-          a -> accounts.changeNumber(a, number, phoneNumberIdentifier),
-          () -> accounts.getByAccountIdentifier(uuid).orElseThrow());
+      final Account numberChangedAccount;
+
+      try {
+        numberChangedAccount = updateWithRetries(
+            account,
+            a -> true,
+            a -> accounts.changeNumber(a, number, phoneNumberIdentifier),
+            () -> accounts.getByAccountIdentifier(uuid).orElseThrow());
+      } catch (UsernameNotAvailableException e) {
+        // This should never happen when changing numbers
+        throw new RuntimeException(e);
+      }
 
       updatedAccount.set(numberChangedAccount);
       directoryQueue.changePhoneNumber(numberChangedAccount, originalNumber, number);
@@ -251,13 +265,51 @@ public class AccountsManager {
     return updatedAccount.get();
   }
 
+  public Account setUsername(final Account account, final String username) throws UsernameNotAvailableException {
+    if (account.getUsername().map(username::equals).orElse(false)) {
+      return account;
+    }
+
+    if (reservedUsernames.isReserved(username, account.getUuid())) {
+      throw new UsernameNotAvailableException();
+    }
+
+    redisDelete(account);
+
+    return updateWithRetries(
+        account,
+        a -> true,
+        a -> accounts.setUsername(a, username),
+        () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow());
+  }
+
+  public Account clearUsername(final Account account) {
+    redisDelete(account);
+
+    try {
+      return updateWithRetries(
+          account,
+          a -> true,
+          accounts::clearUsername,
+          () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow());
+    } catch (UsernameNotAvailableException e) {
+      // This should never happen
+      throw new RuntimeException(e);
+    }
+  }
+
   public Account update(Account account, Consumer<Account> updater) {
 
-    return update(account, a -> {
-      updater.accept(a);
-      // assume that all updaters passed to the public method actually modify the account
-      return true;
-    });
+    try {
+      return update(account, a -> {
+        updater.accept(a);
+        // assume that all updaters passed to the public method actually modify the account
+        return true;
+      });
+    } catch (UsernameNotAvailableException e) {
+      // This should never happen for general-purpose, public account updates
+      throw new RuntimeException(e);
+    }
   }
 
   /**
@@ -266,28 +318,33 @@ public class AccountsManager {
    */
   public Account updateDeviceLastSeen(Account account, Device device, final long lastSeen) {
 
-    return update(account, a -> {
+    try {
+      return update(account, a -> {
 
-      final Optional<Device> maybeDevice = a.getDevice(device.getId());
+        final Optional<Device> maybeDevice = a.getDevice(device.getId());
 
-      return maybeDevice.map(d -> {
-        if (d.getLastSeen() >= lastSeen) {
-          return false;
-        }
+        return maybeDevice.map(d -> {
+          if (d.getLastSeen() >= lastSeen) {
+            return false;
+          }
 
-        d.setLastSeen(lastSeen);
+          d.setLastSeen(lastSeen);
 
-        return true;
+          return true;
 
-      }).orElse(false);
-    });
+        }).orElse(false);
+      });
+    } catch (UsernameNotAvailableException e) {
+      // This should never happen when updating last-seen timestamps
+      throw new RuntimeException(e);
+    }
   }
 
   /**
    * @param account account to update
    * @param updater must return {@code true} if the account was actually updated
    */
-  private Account update(Account account, Function<Account, Boolean> updater) {
+  private Account update(Account account, Function<Account, Boolean> updater) throws UsernameNotAvailableException {
 
     final boolean wasVisibleBeforeUpdate = account.shouldBeVisibleInDirectory();
 
@@ -300,6 +357,7 @@ public class AccountsManager {
       final UUID uuid = account.getUuid();
       final String originalNumber = account.getNumber();
       final UUID originalPhoneNumberIdentifier = account.getPhoneNumberIdentifier();
+      final Optional<String> originalUsername = account.getUsername();
 
       updatedAccount = updateWithRetries(account,
           updater,
@@ -320,6 +378,13 @@ public class AccountsManager {
             new RuntimeException());
       }
 
+      assert updatedAccount.getUsername().equals(originalUsername);
+
+      if (!updatedAccount.getUsername().equals(originalUsername)) {
+        logger.error("Username changed via \"normal\" update; usernames must be changed via setUsername method",
+            new RuntimeException());
+      }
+
       redisSet(updatedAccount);
     }
 
@@ -332,8 +397,8 @@ public class AccountsManager {
     return updatedAccount;
   }
 
-  private Account updateWithRetries(Account account, Function<Account, Boolean> updater, Consumer<Account> persister,
-      Supplier<Account> retriever) {
+  private Account updateWithRetries(Account account, Function<Account, Boolean> updater, AccountPersister persister,
+      Supplier<Account> retriever) throws UsernameNotAvailableException {
 
     if (!updater.apply(account)) {
       return account;
@@ -345,7 +410,7 @@ public class AccountsManager {
     while (tries < maxTries) {
 
       try {
-        persister.accept(account);
+        persister.persistAccount(account);
 
         final Account updatedAccount;
         try {
@@ -373,11 +438,16 @@ public class AccountsManager {
   }
 
   public Account updateDevice(Account account, long deviceId, Consumer<Device> deviceUpdater) {
-    return update(account, a -> {
-      a.getDevice(deviceId).ifPresent(deviceUpdater);
-      // assume that all updaters passed to the public method actually modify the device
-      return true;
-    });
+    try {
+      return update(account, a -> {
+        a.getDevice(deviceId).ifPresent(deviceUpdater);
+        // assume that all updaters passed to the public method actually modify the device
+        return true;
+      });
+    } catch (UsernameNotAvailableException e) {
+      // This should never happen when updating devices
+      throw new RuntimeException(e);
+    }
   }
 
   public Optional<Account> getByE164(String number) {
@@ -399,6 +469,19 @@ public class AccountsManager {
 
       if (account.isEmpty()) {
         account = accounts.getByPhoneNumberIdentifier(pni);
+        account.ifPresent(this::redisSet);
+      }
+
+      return account;
+    }
+  }
+
+  public Optional<Account> getByUsername(final String username) {
+    try (final Timer.Context ignored = getByUsernameTimer.time()) {
+      Optional<Account> account = redisGetByUsername(username);
+
+      if (account.isEmpty()) {
+        account = accounts.getByUsername(username);
         account.ifPresent(this::redisSet);
       }
 
@@ -450,7 +533,6 @@ public class AccountsManager {
     final CompletableFuture<Void> deleteStorageServiceDataFuture = secureStorageClient.deleteStoredData(account.getUuid());
     final CompletableFuture<Void> deleteBackupServiceDataFuture = secureBackupClient.deleteBackups(account.getUuid());
 
-    usernamesManager.delete(account.getUuid());
     profilesManager.deleteAll(account.getUuid());
     keys.delete(account.getUuid());
     keys.delete(account.getPhoneNumberIdentifier());
@@ -486,6 +568,9 @@ public class AccountsManager {
         commands.setex(getAccountMapKey(account.getPhoneNumberIdentifier().toString()), CACHE_TTL_SECONDS, account.getUuid().toString());
         commands.setex(getAccountMapKey(account.getNumber()), CACHE_TTL_SECONDS, account.getUuid().toString());
         commands.setex(getAccountEntityKey(account.getUuid()), CACHE_TTL_SECONDS, accountJson);
+
+        account.getUsername().ifPresent(username ->
+            commands.setex(getAccountMapKey(username), CACHE_TTL_SECONDS, account.getUuid().toString()));
       });
     } catch (JsonProcessingException e) {
       throw new IllegalStateException(e);
@@ -498,6 +583,10 @@ public class AccountsManager {
 
   private Optional<Account> redisGetByE164(String e164) {
     return redisGetBySecondaryKey(e164, redisNumberGetTimer);
+  }
+
+  private Optional<Account> redisGetByUsername(String username) {
+    return redisGetBySecondaryKey(username, redisUsernameGetTimer);
   }
 
   private Optional<Account> redisGetBySecondaryKey(String secondaryKey, Timer timer) {
@@ -542,10 +631,14 @@ public class AccountsManager {
 
   private void redisDelete(final Account account) {
     try (final Timer.Context ignored = redisDeleteTimer.time()) {
-      cacheCluster.useCluster(connection -> connection.sync().del(
-          getAccountMapKey(account.getNumber()),
-          getAccountMapKey(account.getPhoneNumberIdentifier().toString()),
-          getAccountEntityKey(account.getUuid())));
+      cacheCluster.useCluster(connection -> {
+        connection.sync().del(
+            getAccountMapKey(account.getNumber()),
+            getAccountMapKey(account.getPhoneNumberIdentifier().toString()),
+            getAccountEntityKey(account.getUuid()));
+
+        account.getUsername().ifPresent(username -> connection.sync().del(getAccountMapKey(username)));
+      });
     }
   }
 }

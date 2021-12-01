@@ -103,6 +103,10 @@ public class AccountsHelper {
             when(updatedAccount.getNumber()).thenAnswer(stubbing);
             break;
           }
+          case "getUsername": {
+            when(updatedAccount.getUsername()).thenAnswer(stubbing);
+            break;
+          }
           case "getDevices": {
             when(updatedAccount.getDevices())
                 .thenAnswer(stubbing);

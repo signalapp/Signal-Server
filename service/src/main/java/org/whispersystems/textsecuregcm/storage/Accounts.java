@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,19 +58,25 @@ public class Accounts extends AbstractDynamoDbStore {
   static final String ATTR_VERSION = "V";
   // canonically discoverable
   static final String ATTR_CANONICALLY_DISCOVERABLE = "C";
+  // username; string
+  static final String ATTR_USERNAME = "N";
 
   private final DynamoDbClient client;
 
   private final String phoneNumberConstraintTableName;
   private final String phoneNumberIdentifierConstraintTableName;
+  private final String usernamesConstraintTableName;
   private final String accountsTableName;
 
   private final int scanPageSize;
 
   private static final Timer CREATE_TIMER = Metrics.timer(name(Accounts.class, "create"));
   private static final Timer CHANGE_NUMBER_TIMER = Metrics.timer(name(Accounts.class, "changeNumber"));
+  private static final Timer SET_USERNAME_TIMER = Metrics.timer(name(Accounts.class, "setUsername"));
+  private static final Timer CLEAR_USERNAME_TIMER = Metrics.timer(name(Accounts.class, "clearUsername"));
   private static final Timer UPDATE_TIMER = Metrics.timer(name(Accounts.class, "update"));
   private static final Timer GET_BY_NUMBER_TIMER = Metrics.timer(name(Accounts.class, "getByNumber"));
+  private static final Timer GET_BY_USERNAME_TIMER = Metrics.timer(name(Accounts.class, "getByUsername"));
   private static final Timer GET_BY_PNI_TIMER = Metrics.timer(name(Accounts.class, "getByPni"));
   private static final Timer GET_BY_UUID_TIMER = Metrics.timer(name(Accounts.class, "getByUuid"));
   private static final Timer GET_ALL_FROM_START_TIMER = Metrics.timer(name(Accounts.class, "getAllFrom"));
@@ -79,7 +86,8 @@ public class Accounts extends AbstractDynamoDbStore {
   private static final Logger log = LoggerFactory.getLogger(Accounts.class);
 
   public Accounts(DynamoDbClient client, String accountsTableName, String phoneNumberConstraintTableName,
-      String phoneNumberIdentifierConstraintTableName, final int scanPageSize) {
+      String phoneNumberIdentifierConstraintTableName, final String usernamesConstraintTableName,
+      final int scanPageSize) {
 
     super(client);
 
@@ -87,6 +95,7 @@ public class Accounts extends AbstractDynamoDbStore {
     this.phoneNumberConstraintTableName = phoneNumberConstraintTableName;
     this.phoneNumberIdentifierConstraintTableName = phoneNumberIdentifierConstraintTableName;
     this.accountsTableName = accountsTableName;
+    this.usernamesConstraintTableName = usernamesConstraintTableName;
     this.scanPageSize = scanPageSize;
   }
 
@@ -304,6 +313,141 @@ public class Accounts extends AbstractDynamoDbStore {
     });
   }
 
+  public void setUsername(final Account account, final String username)
+      throws ContestedOptimisticLockException, UsernameNotAvailableException {
+    final long startNanos = System.nanoTime();
+
+    final Optional<String> maybeOriginalUsername = account.getUsername();
+    account.setUsername(username);
+
+    boolean succeeded = false;
+
+    try {
+      final List<TransactWriteItem> writeItems = new ArrayList<>();
+
+      writeItems.add(TransactWriteItem.builder()
+          .put(Put.builder()
+              .tableName(usernamesConstraintTableName)
+              .item(Map.of(
+                  KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid()),
+                  ATTR_USERNAME, AttributeValues.fromString(username)))
+              .conditionExpression("attribute_not_exists(#username)")
+              .expressionAttributeNames(Map.of("#username", ATTR_USERNAME))
+              .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
+              .build())
+          .build());
+
+      writeItems.add(
+          TransactWriteItem.builder()
+              .update(Update.builder()
+                  .tableName(accountsTableName)
+                  .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
+                  .updateExpression("SET #data = :data, #username = :username ADD #version :version_increment")
+                  .conditionExpression("#version = :version")
+                  .expressionAttributeNames(Map.of("#data", ATTR_ACCOUNT_DATA,
+                      "#username", ATTR_USERNAME,
+                      "#version", ATTR_VERSION))
+                  .expressionAttributeValues(Map.of(
+                      ":data", AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
+                      ":username", AttributeValues.fromString(username),
+                      ":version", AttributeValues.fromInt(account.getVersion()),
+                      ":version_increment", AttributeValues.fromInt(1)))
+                  .build())
+              .build());
+
+      maybeOriginalUsername.ifPresent(originalUsername -> writeItems.add(TransactWriteItem.builder()
+          .delete(Delete.builder()
+              .tableName(usernamesConstraintTableName)
+              .key(Map.of(ATTR_USERNAME, AttributeValues.fromString(originalUsername)))
+              .build())
+          .build()));
+
+      final TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
+          .transactItems(writeItems)
+          .build();
+
+      client.transactWriteItems(request);
+
+      account.setVersion(account.getVersion() + 1);
+      succeeded = true;
+    } catch (final JsonProcessingException e) {
+      throw new IllegalArgumentException(e);
+    } catch (final TransactionCanceledException e) {
+      if ("ConditionalCheckFailed".equals(e.cancellationReasons().get(0).code())) {
+        throw new UsernameNotAvailableException();
+      } else if ("ConditionalCheckFailed".equals(e.cancellationReasons().get(1).code())) {
+        throw new ContestedOptimisticLockException();
+      }
+
+      throw e;
+    } finally {
+      if (!succeeded) {
+        account.setUsername(maybeOriginalUsername.orElse(null));
+      }
+
+      SET_USERNAME_TIMER.record(System.nanoTime() - startNanos, TimeUnit.NANOSECONDS);
+    }
+  }
+
+  public void clearUsername(Account account) {
+    account.getUsername().ifPresent(username -> {
+      CLEAR_USERNAME_TIMER.record(() -> {
+        account.setUsername(null);
+
+        boolean succeeded = false;
+
+        try {
+          final List<TransactWriteItem> writeItems = new ArrayList<>();
+
+          writeItems.add(
+              TransactWriteItem.builder()
+                  .update(Update.builder()
+                      .tableName(accountsTableName)
+                      .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
+                      .updateExpression("SET #data = :data REMOVE #username ADD #version :version_increment")
+                      .conditionExpression("#version = :version")
+                      .expressionAttributeNames(Map.of("#data", ATTR_ACCOUNT_DATA,
+                          "#username", ATTR_USERNAME,
+                          "#version", ATTR_VERSION))
+                      .expressionAttributeValues(Map.of(
+                          ":data", AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
+                          ":version", AttributeValues.fromInt(account.getVersion()),
+                          ":version_increment", AttributeValues.fromInt(1)))
+                      .build())
+                  .build());
+
+          writeItems.add(TransactWriteItem.builder()
+              .delete(Delete.builder()
+                  .tableName(usernamesConstraintTableName)
+                  .key(Map.of(ATTR_USERNAME, AttributeValues.fromString(username)))
+                  .build())
+              .build());
+
+          final TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
+              .transactItems(writeItems)
+              .build();
+
+          client.transactWriteItems(request);
+
+          account.setVersion(account.getVersion() + 1);
+          succeeded = true;
+        } catch (final JsonProcessingException e) {
+          throw new IllegalArgumentException(e);
+        } catch (final TransactionCanceledException e) {
+          if ("ConditionalCheckFailed".equals(e.cancellationReasons().get(0).code())) {
+            throw new ContestedOptimisticLockException();
+          }
+
+          throw e;
+        } finally {
+          if (!succeeded) {
+            account.setUsername(username);
+          }
+        }
+      });
+    });
+  }
+
   public void update(Account account) throws ContestedOptimisticLockException {
     UPDATE_TIMER.record(() -> {
       final UpdateItemRequest updateItemRequest;
@@ -349,6 +493,21 @@ public class Accounts extends AbstractDynamoDbStore {
       final GetItemResponse response = client.getItem(GetItemRequest.builder()
           .tableName(phoneNumberConstraintTableName)
           .key(Map.of(ATTR_ACCOUNT_E164, AttributeValues.fromString(number)))
+          .build());
+
+      return Optional.ofNullable(response.item())
+          .map(item -> item.get(KEY_ACCOUNT_UUID))
+          .map(this::accountByUuid)
+          .map(Accounts::fromItem);
+    });
+  }
+
+  public Optional<Account> getByUsername(final String username) {
+    return GET_BY_USERNAME_TIMER.record(() -> {
+
+      final GetItemResponse response = client.getItem(GetItemRequest.builder()
+          .tableName(usernamesConstraintTableName)
+          .key(Map.of(ATTR_USERNAME, AttributeValues.fromString(username)))
           .build());
 
       return Optional.ofNullable(response.item())
@@ -416,6 +575,13 @@ public class Accounts extends AbstractDynamoDbStore {
                 .build())
             .build());
 
+        account.getUsername().ifPresent(username -> transactWriteItems.add(TransactWriteItem.builder()
+            .delete(Delete.builder()
+                .tableName(usernamesConstraintTableName)
+                .key(Map.of(ATTR_USERNAME, AttributeValues.fromString(username)))
+                .build())
+            .build()));
+
         TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
             .transactItems(transactWriteItems).build();
 
@@ -480,6 +646,7 @@ public class Accounts extends AbstractDynamoDbStore {
 
       account.setNumber(item.get(ATTR_ACCOUNT_E164).s(), phoneNumberIdentifierFromAttribute);
       account.setUuid(accountIdentifier);
+      account.setUsername(AttributeValues.getString(item, ATTR_USERNAME, null));
       account.setVersion(Integer.parseInt(item.get(ATTR_VERSION).n()));
       account.setCanonicallyDiscoverable(Optional.ofNullable(item.get(ATTR_CANONICALLY_DISCOVERABLE)).map(av -> av.bool()).orElse(false));
 

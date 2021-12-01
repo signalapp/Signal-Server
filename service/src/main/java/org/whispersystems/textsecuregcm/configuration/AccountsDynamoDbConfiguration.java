@@ -11,6 +11,9 @@ public class AccountsDynamoDbConfiguration extends DynamoDbConfiguration {
   @NotNull
   private String phoneNumberIdentifierTableName;
 
+  @NotNull
+  private String usernamesTableName;
+
   private int scanPageSize = 100;
 
   @JsonProperty
@@ -24,8 +27,12 @@ public class AccountsDynamoDbConfiguration extends DynamoDbConfiguration {
   }
 
   @JsonProperty
+  public String getUsernamesTableName() {
+    return usernamesTableName;
+  }
+
+  @JsonProperty
   public int getScanPageSize() {
     return scanPageSize;
   }
-
 }

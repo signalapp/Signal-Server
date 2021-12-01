@@ -137,6 +137,7 @@ accountsDynamoDb: # DynamoDB table configuration
   tableName: Example_Accounts
   phoneNumberTableName: Example_Accounts_PhoneNumbers
   phoneNumberIdentifierTableName: Example_Accounts_PhoneNumberIdentifiers
+  usernamesTableName: Example_Accounts_Usernames
 
 deletedAccountsDynamoDb: # DynamoDb table configuration
   region: us-west-2

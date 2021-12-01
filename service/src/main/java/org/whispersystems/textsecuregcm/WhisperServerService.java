@@ -202,8 +202,6 @@ import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.ReservedUsernames;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
-import org.whispersystems.textsecuregcm.storage.Usernames;
-import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.storage.VerificationCodeStore;
 import org.whispersystems.textsecuregcm.stripe.StripeManager;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -384,10 +382,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getAccountsDynamoDbConfiguration().getTableName(),
         config.getAccountsDynamoDbConfiguration().getPhoneNumberTableName(),
         config.getAccountsDynamoDbConfiguration().getPhoneNumberIdentifierTableName(),
+        config.getAccountsDynamoDbConfiguration().getUsernamesTableName(),
         config.getAccountsDynamoDbConfiguration().getScanPageSize());
     PhoneNumberIdentifiers phoneNumberIdentifiers = new PhoneNumberIdentifiers(phoneNumberIdentifiersDynamoDbClient,
         config.getPhoneNumberIdentifiersDynamoDbConfiguration().getTableName());
-    Usernames usernames = new Usernames(accountDatabase);
     ReservedUsernames reservedUsernames = new ReservedUsernames(reservedUsernamesDynamoDbClient,
         config.getReservedUsernamesDynamoDbConfiguration().getTableName());
     Profiles profiles = new Profiles(accountDatabase);
@@ -472,7 +470,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     DirectoryQueue             directoryQueue             = new DirectoryQueue(config.getDirectoryConfiguration().getSqsConfiguration());
     StoredVerificationCodeManager pendingAccountsManager  = new StoredVerificationCodeManager(pendingAccounts);
     StoredVerificationCodeManager pendingDevicesManager   = new StoredVerificationCodeManager(pendingDevices);
-    UsernamesManager           usernamesManager           = new UsernamesManager(usernames, reservedUsernames, cacheCluster);
     ProfilesManager            profilesManager            = new ProfilesManager(profiles, profilesDynamoDb, cacheCluster, dynamicConfigurationManager);
     MessagesCache              messagesCache              = new MessagesCache(messagesCluster, messagesCluster, keyspaceNotificationDispatchExecutor);
     PushLatencyManager         pushLatencyManager         = new PushLatencyManager(metricsCluster, dynamicConfigurationManager);
@@ -481,7 +478,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
         deletedAccountsLockDynamoDbClient, config.getDeletedAccountsLockDynamoDbConfiguration().getTableName());
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
-        deletedAccountsManager, directoryQueue, keys, messagesManager, usernamesManager, profilesManager,
+        deletedAccountsManager, directoryQueue, keys, messagesManager, reservedUsernames, profilesManager,
         pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager, clock);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
     DeadLetterHandler          deadLetterHandler          = new DeadLetterHandler(accountsManager, messagesManager);
@@ -660,7 +657,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     // these should be common, but use @Auth DisabledPermittedAccount, which isn’t supported yet on websocket
     environment.jersey().register(
-        new AccountController(pendingAccountsManager, accountsManager, usernamesManager, abusiveHostRules, rateLimiters,
+        new AccountController(pendingAccountsManager, accountsManager, abusiveHostRules, rateLimiters,
             smsSender, dynamicConfigurationManager, turnTokenGenerator, config.getTestDevices(),
             transitionalRecaptchaClient, gcmSender, apnSender, backupCredentialsGenerator,
             verifyExperimentEnrollmentManager));
@@ -680,7 +677,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, messagesManager, unsealedSenderRateLimiter, apnFallbackManager,
             rateLimitChallengeManager, reportMessageManager, multiRecipientMessageExecutor),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),
-        new ProfileController(clock, rateLimiters, accountsManager, profilesManager, usernamesManager, dynamicConfigurationManager, profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner, config.getCdnConfiguration().getBucket(), zkProfileOperations),
+        new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager, profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner, config.getCdnConfiguration().getBucket(), zkProfileOperations),
         new ProvisioningController(rateLimiters, provisioningManager),
         new RemoteConfigController(remoteConfigsManager, config.getRemoteConfigConfiguration().getAuthorizedTokens(), config.getRemoteConfigConfiguration().getGlobalConfig()),
         new SecureBackupController(backupCredentialsGenerator),

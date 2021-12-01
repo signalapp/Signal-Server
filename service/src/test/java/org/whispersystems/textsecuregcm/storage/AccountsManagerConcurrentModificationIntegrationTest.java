@@ -59,6 +59,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
   private static final String ACCOUNTS_TABLE_NAME = "accounts_test";
   private static final String NUMBERS_TABLE_NAME = "numbers_test";
   private static final String PNI_TABLE_NAME = "pni_test";
+  private static final String USERNAMES_TABLE_NAME = "usernames_test";
 
   private static final int SCAN_PAGE_SIZE = 1;
 
@@ -122,6 +123,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
         dynamoDbExtension.getTableName(),
         NUMBERS_TABLE_NAME,
         PNI_TABLE_NAME,
+        USERNAMES_TABLE_NAME,
         SCAN_PAGE_SIZE);
 
     {
@@ -148,7 +150,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(DirectoryQueue.class),
           mock(Keys.class),
           mock(MessagesManager.class),
-          mock(UsernamesManager.class),
+          mock(ReservedUsernames.class),
           mock(ProfilesManager.class),
           mock(StoredVerificationCodeManager.class),
           mock(SecureStorageClient.class),

@@ -74,7 +74,6 @@ import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
-import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 import org.whispersystems.textsecuregcm.util.Pair;
@@ -93,7 +92,6 @@ public class ProfileController {
   private final RateLimiters     rateLimiters;
   private final ProfilesManager  profilesManager;
   private final AccountsManager  accountsManager;
-  private final UsernamesManager usernamesManager;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final ProfileBadgeConverter profileBadgeConverter;
   private final Map<String, BadgeConfiguration> badgeConfigurationMap;
@@ -112,7 +110,6 @@ public class ProfileController {
       RateLimiters rateLimiters,
       AccountsManager accountsManager,
       ProfilesManager profilesManager,
-      UsernamesManager usernamesManager,
       DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       ProfileBadgeConverter profileBadgeConverter,
       BadgesConfiguration badgesConfiguration,
@@ -125,7 +122,6 @@ public class ProfileController {
     this.rateLimiters        = rateLimiters;
     this.accountsManager     = accountsManager;
     this.profilesManager     = profilesManager;
-    this.usernamesManager    = usernamesManager;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.profileBadgeConverter = profileBadgeConverter;
     this.badgeConfigurationMap = badgesConfiguration.getBadges().stream().collect(Collectors.toMap(
@@ -263,7 +259,7 @@ public class ProfileController {
 
       assert(accountProfile.isPresent());
 
-      Optional<String>           username   = usernamesManager.get(accountProfile.get().getUuid());
+      Optional<String>           username   = accountProfile.flatMap(Account::getUsername);
       Optional<VersionedProfile> profile    = profilesManager.get(uuid, version);
 
       String name = profile.map(VersionedProfile::getName).orElse(accountProfile.get().getProfileName());
@@ -315,35 +311,26 @@ public class ProfileController {
 
     username = username.toLowerCase();
 
-    Optional<UUID> uuid = usernamesManager.get(username);
+    final Account accountProfile = accountsManager.getByUsername(username)
+        .orElseThrow(() -> new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build()));
 
-    if (uuid.isEmpty()) {
-      throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
-    }
-
-    final boolean isSelf = auth.getAccount().getUuid().equals(uuid.get());
-
-    Optional<Account> accountProfile = accountsManager.getByAccountIdentifier(uuid.get());
-
-    if (accountProfile.isEmpty()) {
-      throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build());
-    }
+    final boolean isSelf = auth.getAccount().getUuid().equals(accountProfile.getUuid());
 
     return new Profile(
-        accountProfile.get().getProfileName(),
+        accountProfile.getProfileName(),
         null,
         null,
-        accountProfile.get().getAvatar(),
+        accountProfile.getAvatar(),
         null,
-        accountProfile.get().getIdentityKey(),
-        UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
-        accountProfile.get().isUnrestrictedUnidentifiedAccess(),
-        UserCapabilities.createForAccount(accountProfile.get()),
+        accountProfile.getIdentityKey(),
+        UnidentifiedAccessChecksum.generateFor(accountProfile.getUnidentifiedAccessKey()),
+        accountProfile.isUnrestrictedUnidentifiedAccess(),
+        UserCapabilities.createForAccount(accountProfile),
         username,
-        accountProfile.get().getUuid(),
+        accountProfile.getUuid(),
         profileBadgeConverter.convert(
             getAcceptableLanguagesForRequest(containerRequestContext),
-            accountProfile.get().getBadges(),
+            accountProfile.getBadges(),
             isSelf),
         null);
   }
@@ -410,7 +397,7 @@ public class ProfileController {
     Optional<Account> accountProfile = accountsManager.getByAccountIdentifier(identifier);
     OptionalAccess.verify(auth.map(AuthenticatedAccount::getAccount), accessKey, accountProfile);
 
-    Optional<String> username = usernamesManager.get(accountProfile.get().getUuid());
+    Optional<String> username = accountProfile.flatMap(Account::getUsername);
 
     return new Profile(
         accountProfile.get().getProfileName(),

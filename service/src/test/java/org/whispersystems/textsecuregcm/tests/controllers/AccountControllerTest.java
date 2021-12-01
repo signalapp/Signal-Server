@@ -90,7 +90,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
-import org.whispersystems.textsecuregcm.storage.UsernamesManager;
+import org.whispersystems.textsecuregcm.storage.UsernameNotAvailableException;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.Hex;
@@ -141,7 +141,6 @@ class AccountControllerTest {
   private static RecaptchaClient        recaptchaClient        = mock(RecaptchaClient.class);
   private static GCMSender              gcmSender              = mock(GCMSender.class);
   private static APNSender              apnSender              = mock(APNSender.class);
-  private static UsernamesManager       usernamesManager       = mock(UsernamesManager.class);
 
   private static DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
 
@@ -164,7 +163,6 @@ class AccountControllerTest {
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new AccountController(pendingAccountsManager,
           accountsManager,
-          usernamesManager,
           abusiveHostRules,
           rateLimiters,
           smsSender,
@@ -242,8 +240,8 @@ class AccountControllerTest {
       return account;
     });
 
-    when(usernamesManager.put(eq(AuthHelper.VALID_UUID), eq("n00bkiller"))).thenReturn(true);
-    when(usernamesManager.put(eq(AuthHelper.VALID_UUID), eq("takenusername"))).thenReturn(false);
+    when(accountsManager.setUsername(AuthHelper.VALID_ACCOUNT, "takenusername"))
+        .thenThrow(new UsernameNotAvailableException());
 
     {
       DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
@@ -293,7 +291,6 @@ class AccountControllerTest {
         recaptchaClient,
         gcmSender,
         apnSender,
-        usernamesManager,
         verifyExperimentEnrollmentManager);
 
     clearInvocations(AuthHelper.DISABLED_DEVICE);
@@ -1622,7 +1619,7 @@ class AccountControllerTest {
                  .delete();
 
     assertThat(response.getStatus()).isEqualTo(204);
-    verify(usernamesManager, times(1)).delete(eq(AuthHelper.VALID_UUID));
+    verify(accountsManager).clearUsername(AuthHelper.VALID_ACCOUNT);
   }
 
   @Test

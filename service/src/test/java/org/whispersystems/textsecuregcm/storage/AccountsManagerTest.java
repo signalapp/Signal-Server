@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-package org.whispersystems.textsecuregcm.tests.storage;
+package org.whispersystems.textsecuregcm.storage;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -44,25 +45,14 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.stubbing.Answer;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
-import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.Accounts;
-import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.ContestedOptimisticLockException;
-import org.whispersystems.textsecuregcm.storage.DeletedAccountsManager;
-import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
-import org.whispersystems.textsecuregcm.storage.Keys;
-import org.whispersystems.textsecuregcm.storage.MessagesManager;
-import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
-import org.whispersystems.textsecuregcm.storage.ProfilesManager;
-import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
-import org.whispersystems.textsecuregcm.storage.UsernamesManager;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 
 class AccountsManagerTest {
@@ -73,9 +63,12 @@ class AccountsManagerTest {
   private Keys keys;
   private MessagesManager messagesManager;
   private ProfilesManager profilesManager;
+  private ReservedUsernames reservedUsernames;
 
   private RedisAdvancedClusterCommands<String, String> commands;
   private AccountsManager accountsManager;
+
+  private static final UUID RESERVED_FOR_UUID = UUID.randomUUID();
 
   private static final Answer<?> ACCOUNT_UPDATE_ANSWER = (answer) -> {
     // it is implicit in the update() contract is that a successful call will
@@ -93,6 +86,7 @@ class AccountsManagerTest {
     keys = mock(Keys.class);
     messagesManager = mock(MessagesManager.class);
     profilesManager = mock(ProfilesManager.class);
+    reservedUsernames = mock(ReservedUsernames.class);
 
     //noinspection unchecked
     commands = mock(RedisAdvancedClusterCommands.class);
@@ -127,6 +121,13 @@ class AccountsManagerTest {
       return phoneNumberIdentifiersByE164.computeIfAbsent(number, n -> UUID.randomUUID());
     });
 
+    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
+        mock(DynamicConfigurationManager.class);
+
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+
     accountsManager = new AccountsManager(
         accounts,
         phoneNumberIdentifiers,
@@ -135,7 +136,7 @@ class AccountsManagerTest {
         directoryQueue,
         keys,
         messagesManager,
-        mock(UsernamesManager.class),
+        reservedUsernames,
         profilesManager,
         mock(StoredVerificationCodeManager.class),
         storageClient,
@@ -201,6 +202,29 @@ class AccountsManagerTest {
     assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifier());
 
     verify(commands).get(eq("AccountMap::" + pni));
+    verify(commands).get(eq("Account3::" + uuid));
+    verifyNoMoreInteractions(commands);
+
+    verifyNoInteractions(accounts);
+  }
+
+  @Test
+  void testGetByUsernameInCache() {
+    UUID uuid = UUID.randomUUID();
+    String username = "test";
+
+    when(commands.get(eq("AccountMap::" + username))).thenReturn(uuid.toString());
+    when(commands.get(eq("Account3::" + uuid))).thenReturn("{\"number\": \"+14152222222\", \"name\": \"test\", \"pni\": \"de24dc73-fbd8-41be-a7d5-764c70d9da7e\", \"username\": \"test\"}");
+
+    Optional<Account> account = accountsManager.getByUsername(username);
+
+    assertTrue(account.isPresent());
+    assertEquals(account.get().getNumber(), "+14152222222");
+    assertEquals(account.get().getProfileName(), "test");
+    assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifier());
+    assertEquals(Optional.of(username), account.get().getUsername());
+
+    verify(commands).get(eq("AccountMap::" + username));
     verify(commands).get(eq("Account3::" + uuid));
     verifyNoMoreInteractions(commands);
 
@@ -281,6 +305,33 @@ class AccountsManagerTest {
   }
 
   @Test
+  void testGetAccountByUsernameNotInCache() {
+    UUID uuid = UUID.randomUUID();
+    String username = "test";
+
+    Account account = new Account("+14152222222", uuid, UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    account.setUsername(username);
+
+    when(commands.get(eq("AccountMap::" + username))).thenReturn(null);
+    when(accounts.getByUsername(username)).thenReturn(Optional.of(account));
+
+    Optional<Account> retrieved = accountsManager.getByUsername(username);
+
+    assertTrue(retrieved.isPresent());
+    assertSame(retrieved.get(), account);
+
+    verify(commands).get(eq("AccountMap::" + username));
+    verify(commands).setex(eq("AccountMap::" + username), anyLong(), eq(uuid.toString()));
+    verify(commands).setex(eq("AccountMap::" + account.getPhoneNumberIdentifier()), anyLong(), eq(uuid.toString()));
+    verify(commands).setex(eq("AccountMap::+14152222222"), anyLong(), eq(uuid.toString()));
+    verify(commands).setex(eq("Account3::" + uuid), anyLong(), anyString());
+    verifyNoMoreInteractions(commands);
+
+    verify(accounts).getByUsername(username);
+    verifyNoMoreInteractions(accounts);
+  }
+
+  @Test
   void testGetAccountByNumberBrokenCache() {
     UUID uuid = UUID.randomUUID();
     UUID pni = UUID.randomUUID();
@@ -350,6 +401,33 @@ class AccountsManagerTest {
     verifyNoMoreInteractions(commands);
 
     verify(accounts).getByPhoneNumberIdentifier(pni);
+    verifyNoMoreInteractions(accounts);
+  }
+
+  @Test
+  void testGetAccountByUsernameBrokenCache() {
+    UUID uuid = UUID.randomUUID();
+    String username = "test";
+
+    Account account = new Account("+14152222222", uuid, UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    account.setUsername(username);
+
+    when(commands.get(eq("AccountMap::" + username))).thenThrow(new RedisException("OH NO"));
+    when(accounts.getByUsername(username)).thenReturn(Optional.of(account));
+
+    Optional<Account> retrieved = accountsManager.getByUsername(username);
+
+    assertTrue(retrieved.isPresent());
+    assertSame(retrieved.get(), account);
+
+    verify(commands).get(eq("AccountMap::" + username));
+    verify(commands).setex(eq("AccountMap::" + username), anyLong(), eq(uuid.toString()));
+    verify(commands).setex(eq("AccountMap::" + account.getPhoneNumberIdentifier()), anyLong(), eq(uuid.toString()));
+    verify(commands).setex(eq("AccountMap::+14152222222"), anyLong(), eq(uuid.toString()));
+    verify(commands).setex(eq("Account3::" + uuid), anyLong(), anyString());
+    verifyNoMoreInteractions(commands);
+
+    verify(accounts).getByUsername(username);
     verifyNoMoreInteractions(accounts);
   }
 
@@ -626,5 +704,55 @@ class AccountsManagerTest {
     final Account account = new Account(originalNumber, uuid, UUID.randomUUID(), new HashSet<>(), new byte[16]);
 
     assertThrows(AssertionError.class, () -> accountsManager.update(account, a -> a.setNumber(targetNumber, UUID.randomUUID())));
+  }
+
+  @Test
+  void testSetUsername() throws UsernameNotAvailableException {
+    final Account account = new Account("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    final String username = "test";
+
+    assertDoesNotThrow(() -> accountsManager.setUsername(account, username));
+    verify(accounts).setUsername(account, username);
+  }
+
+  @Test
+  void testSetUsernameSameUsername() throws UsernameNotAvailableException {
+    final Account account = new Account("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    final String username = "test";
+    account.setUsername(username);
+
+    assertDoesNotThrow(() -> accountsManager.setUsername(account, username));
+    verify(accounts, never()).setUsername(eq(account), any());
+  }
+
+  @Test
+  void testSetUsernameNotAvailable() throws UsernameNotAvailableException {
+    final Account account = new Account("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    final String username = "test";
+
+    doThrow(new UsernameNotAvailableException()).when(accounts).setUsername(account, username);
+
+    assertThrows(UsernameNotAvailableException.class, () -> accountsManager.setUsername(account, username));
+    verify(accounts).setUsername(account, username);
+
+    assertTrue(account.getUsername().isEmpty());
+  }
+
+  @Test
+  void testSetUsernameReserved() {
+    final String username = "reserved";
+    when(reservedUsernames.isReserved(eq(username), any())).thenReturn(true);
+
+    final Account account = new Account("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new HashSet<>(), new byte[16]);
+
+    assertThrows(UsernameNotAvailableException.class, () -> accountsManager.setUsername(account, username));
+    assertTrue(account.getUsername().isEmpty());
+  }
+
+  @Test
+  void testSetUsernameViaUpdate() {
+    final Account account = new Account("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new HashSet<>(), new byte[16]);
+
+    assertThrows(AssertionError.class, () -> accountsManager.update(account, a -> a.setUsername("test")));
   }
 }

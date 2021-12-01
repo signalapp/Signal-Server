@@ -23,6 +23,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.util.Util;
+import javax.annotation.Nullable;
 
 public class Account {
 
@@ -37,6 +38,10 @@ public class Account {
 
   @JsonProperty
   private String number;
+
+  @JsonProperty
+  @Nullable
+  private String username;
 
   @JsonProperty
   private Set<Device> devices = new HashSet<>();
@@ -132,6 +137,18 @@ public class Account {
 
     this.number = number;
     this.phoneNumberIdentifier = phoneNumberIdentifier;
+  }
+
+  public Optional<String> getUsername() {
+    requireNotStale();
+
+    return Optional.ofNullable(username);
+  }
+
+  public void setUsername(final String username) {
+    requireNotStale();
+
+    this.username = username;
   }
 
   public void addDevice(Device device) {
