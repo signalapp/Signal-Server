@@ -5,12 +5,12 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import org.junit.jupiter.api.Test;
-
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
 public abstract class ProfilesTest {
 
@@ -33,6 +33,31 @@ public abstract class ProfilesTest {
     assertThat(retrieved.get().getCommitment()).isEqualTo(profile.getCommitment());
     assertThat(retrieved.get().getAbout()).isEqualTo(profile.getAbout());
     assertThat(retrieved.get().getAboutEmoji()).isEqualTo(profile.getAboutEmoji());
+  }
+
+  @Test
+  void testDeleteReset() {
+    ProfilesStore profiles = getProfilesStore();
+    UUID uuid = UUID.randomUUID();
+    profiles.set(uuid, new VersionedProfile("123", "foo", "avatarLocation", "emoji",
+        "the very model of a modern major general",
+        null, "acommitment".getBytes()));
+
+    profiles.deleteAll(uuid);
+
+    VersionedProfile updatedProfile = new VersionedProfile("123", "name", "differentAvatarLocation",
+        "differentEmoji", "changed text", "paymentAddress", "differentcommitment".getBytes(StandardCharsets.UTF_8));
+
+    profiles.set(uuid, updatedProfile);
+
+    Optional<VersionedProfile> retrieved = profiles.get(uuid, "123");
+
+    assertThat(retrieved.isPresent()).isTrue();
+    assertThat(retrieved.get().getName()).isEqualTo(updatedProfile.getName());
+    assertThat(retrieved.get().getAvatar()).isEqualTo(updatedProfile.getAvatar());
+    assertThat(retrieved.get().getCommitment()).isEqualTo(updatedProfile.getCommitment());
+    assertThat(retrieved.get().getAbout()).isEqualTo(updatedProfile.getAbout());
+    assertThat(retrieved.get().getAboutEmoji()).isEqualTo(updatedProfile.getAboutEmoji());
   }
 
   @Test
