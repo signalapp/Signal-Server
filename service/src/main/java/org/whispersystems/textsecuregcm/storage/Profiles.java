@@ -64,7 +64,9 @@ public class Profiles implements ProfilesStore {
                 + AVATAR + " = EXCLUDED." + AVATAR + ", "
                 + ABOUT + " = EXCLUDED." + ABOUT + ", "
                 + ABOUT_EMOJI + " = EXCLUDED." + ABOUT_EMOJI + ", "
-                + PAYMENT_ADDRESS + " = EXCLUDED." + PAYMENT_ADDRESS)
+                + PAYMENT_ADDRESS + " = EXCLUDED." + PAYMENT_ADDRESS + ", "
+                + DELETED + " = FALSE, "
+                + COMMITMENT + " = CASE WHEN profiles." + DELETED + " = TRUE THEN EXCLUDED." + COMMITMENT + " ELSE profiles." + COMMITMENT + " END")
             .bind("uuid", uuid)
             .bind("version", profile.getVersion())
             .bind("name", profile.getName())
