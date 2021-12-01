@@ -1,4 +1,4 @@
-# Note that the implmentation of the abusive message filter is private; internal
+# Note that the implementation of the abusive message filter is private; internal
 # developers will need to override this URL with:
 #
 # ```
