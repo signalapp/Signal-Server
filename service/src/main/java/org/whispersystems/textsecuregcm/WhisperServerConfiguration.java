@@ -15,7 +15,6 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.configuration.AbusiveMessageFilterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AccountDatabaseCrawlerConfiguration;
-import org.whispersystems.textsecuregcm.configuration.AccountsDatabaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AccountsDynamoDbConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AppConfigConfiguration;
@@ -225,11 +224,6 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private List<MaxDeviceConfiguration> maxDevices = new LinkedList<>();
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private AccountsDatabaseConfiguration accountsDatabase;
 
   @Valid
   @NotNull
@@ -460,10 +454,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public DatabaseConfiguration getAbuseDatabaseConfiguration() {
     return abuseDatabase;
-  }
-
-  public AccountsDatabaseConfiguration getAccountsDatabaseConfiguration() {
-    return accountsDatabase;
   }
 
   public RateLimitsConfiguration getLimitsConfiguration() {

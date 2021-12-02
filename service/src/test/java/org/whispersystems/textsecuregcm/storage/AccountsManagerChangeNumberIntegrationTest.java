@@ -13,9 +13,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.opentable.db.postgres.embedded.LiquibasePreparer;
-import com.opentable.db.postgres.junit5.EmbeddedPostgresExtension;
-import com.opentable.db.postgres.junit5.PreparedDbExtension;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Optional;
@@ -43,10 +40,6 @@ import software.amazon.awssdk.services.dynamodb.model.ProvisionedThroughput;
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
 class AccountsManagerChangeNumberIntegrationTest {
-
-  @RegisterExtension
-  static PreparedDbExtension ACCOUNTS_POSTGRES_EXTENSION =
-      EmbeddedPostgresExtension.preparedDatabase(LiquibasePreparer.forClasspathLocation("accountsdb.xml"));
 
   private static final String ACCOUNTS_TABLE_NAME = "accounts_test";
   private static final String NUMBERS_TABLE_NAME = "numbers_test";
