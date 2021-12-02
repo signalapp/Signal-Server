@@ -5,21 +5,20 @@
 
 package org.whispersystems.textsecuregcm.auth;
 
-import java.util.Arrays;
-import java.util.concurrent.atomic.AtomicInteger;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
+import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.ws.rs.container.ResourceInfo;
+import javax.ws.rs.core.Context;
 import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.glassfish.jersey.server.monitoring.RequestEvent.Type;
 import org.glassfish.jersey.server.monitoring.RequestEventListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
-
-import javax.ws.rs.container.ResourceInfo;
-import javax.ws.rs.core.Context;
-
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 public class WebsocketRefreshRequestEventListener implements RequestEventListener {
 
@@ -60,7 +59,7 @@ public class WebsocketRefreshRequestEventListener implements RequestEventListene
           .forEach(pair -> {
             try {
               displacedDevices.incrementAndGet();
-              clientPresenceManager.displacePresence(pair.first(), pair.second());
+              clientPresenceManager.disconnectPresence(pair.first(), pair.second());
             } catch (final Exception e) {
               logger.error("Could not displace device presence", e);
             }

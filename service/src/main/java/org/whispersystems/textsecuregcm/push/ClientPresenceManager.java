@@ -171,8 +171,16 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
     }
   }
 
-  public void displacePresence(final UUID accountUuid, final long deviceId) {
-    displacePresence(getPresenceKey(accountUuid, deviceId));
+  public void disconnectPresence(final UUID accountUuid, final long deviceId) {
+    final String presenceKey = getPresenceKey(accountUuid, deviceId);
+
+    if (isLocallyPresent(accountUuid, deviceId)) {
+      displacePresence(presenceKey);
+    }
+
+    // If connected locally, we still need to clean up the presence key.
+    // If connected remotely, the other server will get a keyspace message and handle the disconnect
+    presenceCluster.useCluster(connection -> connection.sync().del(presenceKey));
   }
 
   private void displacePresence(final String presenceKey) {
@@ -268,18 +276,22 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
   public void message(final RedisClusterNode node, final String channel, final String message) {
     pubSubMessageMeter.mark();
 
-    if ("set".equals(message) && channel.startsWith("__keyspace@0__:presence::{")) {
-      // Another process has overwritten this presence key, which means the client has connected to another host.
-      // At this point, we're on a Lettuce IO thread and need to dispatch to a separate thread before making
-      // synchronous Lettuce calls to avoid deadlocking.
-      keyspaceNotificationExecutorService.execute(() -> {
-        try {
-          displacePresence(channel.substring("__keyspace@0__:".length()));
-          remoteDisplacementMeter.mark();
-        } catch (final Exception e) {
-          log.warn("Error displacing presence", e);
-        }
-      });
+    if (channel.startsWith("__keyspace@0__:presence::{")) {
+      if ("set".equals(message) || "del".equals(message)) {
+        // for "set", another process has overwritten this presence key, which means the client has connected to another host.
+        // for "del", another process has indicated the client should be disconnected
+
+        // At this point, we're on a Lettuce IO thread and need to dispatch to a separate thread before making
+        // synchronous Lettuce calls to avoid deadlocking.
+        keyspaceNotificationExecutorService.execute(() -> {
+          try {
+            displacePresence(channel.substring("__keyspace@0__:".length()));
+            remoteDisplacementMeter.mark();
+          } catch (final Exception e) {
+            log.warn("Error displacing presence", e);
+          }
+        });
+      }
     }
   }
 

@@ -552,7 +552,7 @@ public class AccountsManager {
 
     RedisOperation.unchecked(() ->
         account.getDevices().forEach(device ->
-            clientPresenceManager.displacePresence(account.getUuid(), device.getId())));
+            clientPresenceManager.disconnectPresence(account.getUuid(), device.getId())));
   }
 
   private String getAccountMapKey(String key) {

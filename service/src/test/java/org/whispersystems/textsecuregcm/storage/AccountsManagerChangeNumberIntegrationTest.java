@@ -265,7 +265,7 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     assertEquals(secondNumber, accountsManager.getByAccountIdentifier(originalUuid).map(Account::getNumber).orElseThrow());
 
-    verify(clientPresenceManager).displacePresence(existingAccountUuid, Device.MASTER_ID);
+    verify(clientPresenceManager).disconnectPresence(existingAccountUuid, Device.MASTER_ID);
 
     assertEquals(Optional.of(existingAccountUuid), deletedAccounts.findUuid(originalNumber));
     assertEquals(Optional.empty(), deletedAccounts.findUuid(secondNumber));

@@ -190,12 +190,12 @@ class AuthEnablementRefreshRequirementProviderTest {
     assertAll(
         initialEnabled.keySet().stream()
             .map(deviceId -> () -> verify(clientPresenceManager, times(expectDisplacedPresence ? 1 : 0))
-                .displacePresence(account.getUuid(), deviceId)));
+                .disconnectPresence(account.getUuid(), deviceId)));
 
     assertAll(
         finalEnabled.keySet().stream()
             .map(deviceId -> () -> verify(clientPresenceManager, times(expectDisplacedPresence ? 1 : 0))
-                .displacePresence(account.getUuid(), deviceId)));
+                .disconnectPresence(account.getUuid(), deviceId)));
   }
 
   static Stream<Arguments> testDeviceEnabledChanged() {
@@ -227,9 +227,9 @@ class AuthEnablementRefreshRequirementProviderTest {
 
     assertEquals(initialDeviceCount + addedDeviceNames.size(), account.getDevices().size());
 
-    verify(clientPresenceManager).displacePresence(account.getUuid(), 1);
-    verify(clientPresenceManager).displacePresence(account.getUuid(), 2);
-    verify(clientPresenceManager).displacePresence(account.getUuid(), 3);
+    verify(clientPresenceManager).disconnectPresence(account.getUuid(), 1);
+    verify(clientPresenceManager).disconnectPresence(account.getUuid(), 2);
+    verify(clientPresenceManager).disconnectPresence(account.getUuid(), 3);
   }
 
   @ParameterizedTest
@@ -260,7 +260,7 @@ class AuthEnablementRefreshRequirementProviderTest {
     assertEquals(200, response.getStatus());
 
     initialDeviceIds.forEach(deviceId ->
-        verify(clientPresenceManager).displacePresence(account.getUuid(), deviceId));
+        verify(clientPresenceManager).disconnectPresence(account.getUuid(), deviceId));
 
     verifyNoMoreInteractions(clientPresenceManager);
   }
@@ -285,8 +285,8 @@ class AuthEnablementRefreshRequirementProviderTest {
 
     assertTrue(account.getDevice(deletedDeviceId).isEmpty());
 
-    initialDeviceIds.forEach(deviceId -> verify(clientPresenceManager).displacePresence(account.getUuid(), deviceId));
-    verify(clientPresenceManager).displacePresence(account.getUuid(), deletedDeviceId);
+    initialDeviceIds.forEach(deviceId -> verify(clientPresenceManager).disconnectPresence(account.getUuid(), deviceId));
+    verify(clientPresenceManager).disconnectPresence(account.getUuid(), deletedDeviceId);
 
     verifyNoMoreInteractions(clientPresenceManager);
   }

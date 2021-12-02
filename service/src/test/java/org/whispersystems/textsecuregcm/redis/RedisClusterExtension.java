@@ -135,7 +135,7 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
 
     try {
       final StatefulRedisConnection<String, String> connection = meetClient.connect();
-      final RedisCommands<String, String> commands   = connection.sync();
+      final RedisCommands<String, String> commands = connection.sync();
 
       for (int i = 1; i < nodes.length; i++) {
         commands.clusterMeet("127.0.0.1", nodes[i].ports().get(0));
@@ -148,7 +148,7 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
 
     for (int i = 0; i < nodes.length; i++) {
       final int startInclusive = i * slotsPerNode;
-      final int endExclusive   = i == nodes.length - 1 ? SlotHash.SLOT_COUNT : (i + 1) * slotsPerNode;
+      final int endExclusive = i == nodes.length - 1 ? SlotHash.SLOT_COUNT : (i + 1) * slotsPerNode;
 
       final RedisClient assignSlotClient = RedisClient.create(RedisURI.create("127.0.0.1", nodes[i].ports().get(0)));
 
