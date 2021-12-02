@@ -203,7 +203,7 @@ public class DeviceController {
     device.setCreated(System.currentTimeMillis());
     device.setCapabilities(accountAttributes.getCapabilities());
 
-    accounts.update(account.get(), a -> {
+    final Account updatedAccount = accounts.update(account.get(), a -> {
       device.setId(a.getNextDeviceId());
       messages.clear(a.getUuid(), device.getId());
       a.addDevice(device);
@@ -211,7 +211,7 @@ public class DeviceController {
 
     pendingDevices.remove(number);
 
-    return new DeviceResponse(device.getId());
+    return new DeviceResponse(updatedAccount.getUuid(), updatedAccount.getPhoneNumberIdentifier(), device.getId());
   }
 
   @Timed

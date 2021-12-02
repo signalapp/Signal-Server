@@ -8,7 +8,14 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 
+import java.util.UUID;
+
 public class DeviceResponse {
+  @JsonProperty
+  private UUID uuid;
+
+  @JsonProperty
+  private UUID pni;
 
   @JsonProperty
   private long deviceId;
@@ -16,8 +23,18 @@ public class DeviceResponse {
   @VisibleForTesting
   public DeviceResponse() {}
 
-  public DeviceResponse(long deviceId) {
+  public DeviceResponse(UUID uuid, UUID pni, long deviceId) {
+    this.uuid = uuid;
+    this.pni = pni;
     this.deviceId = deviceId;
+  }
+
+  public UUID getUuid() {
+    return uuid;
+  }
+
+  public UUID getPni() {
+    return pni;
   }
 
   public long getDeviceId() {
