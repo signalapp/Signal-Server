@@ -265,10 +265,10 @@ public class ProfileController {
     Optional<Account> accountProfile = accountsManager.getByAccountIdentifier(uuid);
     OptionalAccess.verify(requestAccount, accessKey, accountProfile);
 
-    assert(accountProfile.isPresent());
+    assert accountProfile.isPresent();
 
-      Optional<String>           username   = accountProfile.flatMap(Account::getUsername);
-      Optional<VersionedProfile> profile    = profilesManager.get(uuid, version);
+    Optional<String>           username   = accountProfile.flatMap(Account::getUsername);
+    Optional<VersionedProfile> profile    = profilesManager.get(uuid, version);
 
     String name = profile.map(VersionedProfile::getName).orElse(accountProfile.get().getProfileName());
     String about = profile.map(VersionedProfile::getAbout).orElse(null);
@@ -286,7 +286,7 @@ public class ProfileController {
     final ProfileKeyCredentialResponse profileKeyCredentialResponse;
     final PniCredentialResponse pniCredentialResponse;
 
-    if (credentialRequest.isPresent() && credentialType.isPresent() && profile.isPresent() && requestAccount.isPresent()) {
+    if (credentialRequest.isPresent() && credentialType.isPresent() && profile.isPresent()) {
       if (PNI_CREDENTIAL_TYPE.equals(credentialType.get())) {
         if (!isSelf) {
           throw new ForbiddenException();
@@ -300,7 +300,7 @@ public class ProfileController {
       } else if (PROFILE_KEY_CREDENTIAL_TYPE.equals(credentialType.get())) {
         profileKeyCredentialResponse = getProfileCredential(credentialRequest.get(),
             profile.get(),
-            requestAccount.get().getUuid());
+            uuid);
 
         pniCredentialResponse = null;
       } else {
