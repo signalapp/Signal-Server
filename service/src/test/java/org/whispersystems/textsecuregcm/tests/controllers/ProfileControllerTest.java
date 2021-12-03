@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.tests.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.ArgumentMatchers.refEq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.clearInvocations;
@@ -22,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
@@ -30,8 +32,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.MultivaluedHashMap;
+import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -41,6 +46,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.signal.zkgroup.InvalidInputException;
 import org.signal.zkgroup.ServerPublicParams;
@@ -51,10 +59,12 @@ import org.signal.zkgroup.profiles.PniCredentialResponse;
 import org.signal.zkgroup.profiles.ProfileKey;
 import org.signal.zkgroup.profiles.ProfileKeyCommitment;
 import org.signal.zkgroup.profiles.ProfileKeyCredentialRequest;
+import org.signal.zkgroup.profiles.ProfileKeyCredentialRequestContext;
 import org.signal.zkgroup.profiles.ProfileKeyCredentialResponse;
 import org.signal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
+import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -96,6 +106,8 @@ class ProfileControllerTest {
   private static final PostPolicyGenerator postPolicyGenerator = new PostPolicyGenerator("us-west-1", "profile-bucket", "accessKey");
   private static final PolicySigner policySigner = new PolicySigner("accessSecret", "us-west-1");
   private static final ServerZkProfileOperations zkProfileOperations = mock(ServerZkProfileOperations.class);
+
+  private static final byte[] UNIDENTIFIED_ACCESS_KEY = "test-uak".getBytes(StandardCharsets.UTF_8);
 
   @SuppressWarnings("unchecked")
   private static final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
@@ -747,12 +759,16 @@ class ProfileControllerTest {
         new AccountBadge("TEST3", Instant.ofEpochSecond(42 + 86400), false));
   }
 
-  @Test
-  void testGetProfileWithProfileKeyCredential() throws InvalidInputException, VerificationFailedException {
+  @ParameterizedTest
+  @MethodSource
+  void testGetProfileWithProfileKeyCredential(final MultivaluedMap<String, Object> authHeaders)
+      throws VerificationFailedException, InvalidInputException {
     final String version = "version";
+    final byte[] unidentifiedAccessKey = "test-uak".getBytes(StandardCharsets.UTF_8);
 
     final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
     final ServerPublicParams serverPublicParams = serverSecretParams.getPublicParams();
+
     final ServerZkProfileOperations serverZkProfile = new ServerZkProfileOperations(serverSecretParams);
     final ClientZkProfileOperations clientZkProfile = new ClientZkProfileOperations(serverPublicParams);
 
@@ -765,13 +781,16 @@ class ProfileControllerTest {
     final VersionedProfile versionedProfile = mock(VersionedProfile.class);
     when(versionedProfile.getCommitment()).thenReturn(profileKeyCommitment.serialize());
 
-    final ProfileKeyCredentialRequest credentialRequest =
-        clientZkProfile.createProfileKeyCredentialRequestContext(AuthHelper.VALID_UUID, profileKey).getRequest();
+    final ProfileKeyCredentialRequestContext profileKeyCredentialRequestContext =
+        clientZkProfile.createProfileKeyCredentialRequestContext(AuthHelper.VALID_UUID, profileKey);
+
+    final ProfileKeyCredentialRequest credentialRequest = profileKeyCredentialRequestContext.getRequest();
 
     final Account account = mock(Account.class);
     when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
     when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
     when(account.isEnabled()).thenReturn(true);
+    when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
 
     final ProfileKeyCredentialResponse credentialResponse =
         serverZkProfile.issueProfileKeyCredential(credentialRequest, AuthHelper.VALID_UUID, profileKeyCommitment);
@@ -784,7 +803,7 @@ class ProfileControllerTest {
     final Profile profile = resources.getJerseyTest()
         .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, version, Hex.encodeHexString(credentialRequest.serialize())))
         .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .headers(authHeaders)
         .get(Profile.class);
 
     assertThat(profile.getUuid()).isNull();
@@ -793,6 +812,18 @@ class ProfileControllerTest {
 
     verify(zkProfileOperations).issueProfileKeyCredential(credentialRequest, AuthHelper.VALID_UUID, profileKeyCommitment);
     verify(zkProfileOperations, never()).issuePniCredential(any(), any(), any(), any());
+
+    final ClientZkProfileOperations clientZkProfileCipher = new ClientZkProfileOperations(serverPublicParams);
+    assertThatNoException().isThrownBy(() ->
+        clientZkProfileCipher.receiveProfileKeyCredential(profileKeyCredentialRequestContext, profile.getCredential()));
+  }
+
+  private static Stream<Arguments> testGetProfileWithProfileKeyCredential() {
+    return Stream.of(
+        Arguments.of(new MultivaluedHashMap<>(Map.of(OptionalAccess.UNIDENTIFIED, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_KEY)))),
+        Arguments.of(new MultivaluedHashMap<>(Map.of("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD)))),
+        Arguments.of(new MultivaluedHashMap<>(Map.of("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))))
+    );
   }
 
   @Test
