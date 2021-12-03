@@ -30,6 +30,7 @@ import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixtur
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
+import com.vdurmont.semver4j.Semver;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
@@ -232,6 +233,7 @@ class MessageControllerTest {
     return Stream.of(
         Arguments.of(String.format("Signal-iOS/%s iOS/14.2", MessageController.FIRST_IOS_VERSION_WITH_INCORRECT_ENVELOPE_TYPE), true),
         Arguments.of(String.format("Signal-iOS/%s iOS/14.2", MessageController.FIRST_IOS_VERSION_WITH_INCORRECT_ENVELOPE_TYPE.nextPatch()), true),
+        Arguments.of(String.format("Signal-iOS/%s iOS/14.2", new Semver("5.22.0.38")), true),
         Arguments.of(String.format("Signal-iOS/%s iOS/14.2", MessageController.IOS_VERSION_WITH_FIXED_ENVELOPE_TYPE.withIncMinor(-1)), true),
         Arguments.of(String.format("Signal-iOS/%s iOS/14.2", MessageController.IOS_VERSION_WITH_FIXED_ENVELOPE_TYPE), false)
     );

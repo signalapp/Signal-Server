@@ -112,10 +112,10 @@ public class MessageController {
   private final ExecutorService             multiRecipientMessageExecutor;
 
   @VisibleForTesting
-  static final Semver FIRST_IOS_VERSION_WITH_INCORRECT_ENVELOPE_TYPE = new Semver("5.22.0.32");
+  static final Semver FIRST_IOS_VERSION_WITH_INCORRECT_ENVELOPE_TYPE = new Semver("5.22.0");
 
   @VisibleForTesting
-  static final Semver IOS_VERSION_WITH_FIXED_ENVELOPE_TYPE = new Semver("5.25.0.0");
+  static final Semver IOS_VERSION_WITH_FIXED_ENVELOPE_TYPE = new Semver("5.25.0");
 
   private static final String REJECT_OVERSIZE_MESSAGE_COUNTER = name(MessageController.class, "rejectOversizeMessage");
   private static final String LEGACY_MESSAGE_SENT_COUNTER = name(MessageController.class, "legacyMessageSent");
@@ -505,7 +505,7 @@ public class MessageController {
         try {
           final UserAgent userAgent = UserAgentUtil.parseUserAgentString(userAgentString);
           if (userAgent.getPlatform() == ClientPlatform.IOS &&
-              userAgent.getVersion().isGreaterThanOrEqualTo(FIRST_IOS_VERSION_WITH_INCORRECT_ENVELOPE_TYPE) &&
+              FIRST_IOS_VERSION_WITH_INCORRECT_ENVELOPE_TYPE.isLowerThanOrEqualTo(userAgent.getVersion()) &&
               userAgent.getVersion().isLowerThan(IOS_VERSION_WITH_FIXED_ENVELOPE_TYPE)) {
             envelopeTypeNumber = Type.PLAINTEXT_CONTENT.getNumber();
           }
