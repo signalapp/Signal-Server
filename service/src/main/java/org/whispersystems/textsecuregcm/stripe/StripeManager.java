@@ -44,6 +44,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -53,6 +54,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
 import org.apache.commons.codec.binary.Hex;
 import org.whispersystems.textsecuregcm.util.Conversions;
 
@@ -147,6 +151,9 @@ public class StripeManager {
     }, executor);
   }
 
+  /**
+   * Creates a payment intent. May throw a 400 WebApplicationException if the amount is too small.
+   */
   public CompletableFuture<PaymentIntent> createPaymentIntent(String currency, long amount) {
     return CompletableFuture.supplyAsync(() -> {
       PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
@@ -157,7 +164,14 @@ public class StripeManager {
       try {
         return PaymentIntent.create(params, commonOptions());
       } catch (StripeException e) {
-        throw new CompletionException(e);
+        if ("amount_too_small".equalsIgnoreCase(e.getCode())) {
+          throw new WebApplicationException(Response
+              .status(Status.BAD_REQUEST)
+              .entity(Map.of("error", "amount_too_small"))
+              .build());
+        } else {
+          throw new CompletionException(e);
+        }
       }
     }, executor);
   }
