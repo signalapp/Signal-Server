@@ -5,9 +5,16 @@
 
 package org.whispersystems.textsecuregcm.tests.storage;
 
-import com.opentable.db.postgres.embedded.LiquibasePreparer;
-import com.opentable.db.postgres.junit.EmbeddedPostgresRules;
-import com.opentable.db.postgres.junit.PreparedDbRule;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+
+import io.zonky.test.db.postgres.embedded.LiquibasePreparer;
+import io.zonky.test.db.postgres.junit.EmbeddedPostgresRules;
+import io.zonky.test.db.postgres.junit.PreparedDbRule;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.List;
 import org.jdbi.v3.core.Jdbi;
 import org.junit.Before;
 import org.junit.Rule;
@@ -16,14 +23,6 @@ import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguratio
 import org.whispersystems.textsecuregcm.storage.AbusiveHostRule;
 import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
 import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
-
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.List;
-
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 public class AbusiveHostRulesTest {
 
