@@ -5,12 +5,8 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
-
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tags;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
@@ -27,7 +23,6 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.validation.Valid;
-import javax.validation.valueextraction.Unwrapping;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DefaultValue;
@@ -72,7 +67,6 @@ import org.whispersystems.textsecuregcm.entities.Profile;
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
 import org.whispersystems.textsecuregcm.entities.UserCapabilities;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -81,7 +75,6 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
-import org.whispersystems.textsecuregcm.util.ExactlySize;
 import org.whispersystems.textsecuregcm.util.Pair;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
@@ -109,8 +102,6 @@ public class ProfileController {
 
   private static final String PROFILE_KEY_CREDENTIAL_TYPE = "profileKey";
   private static final String PNI_CREDENTIAL_TYPE = "pni";
-
-  private static final String LEGACY_GET_PROFILE_COUNTER_NAME = name(ProfileController.class, "legacyGetProfileByPlatform");
 
   public ProfileController(
       Clock clock,
@@ -395,24 +386,13 @@ public class ProfileController {
     }
   }
 
-  // Old profile endpoints. Replaced by versioned profile endpoints (above)
-
-    @Deprecated
-    @Timed
-    @PUT
-    @Produces(MediaType.APPLICATION_JSON)
-    @Path("/name/{name}")
-    public void setLegacyProfile(@Auth AuthenticatedAccount auth,
-                           @PathParam("name") @ExactlySize(value = {72, 108}, payload = {Unwrapping.Unwrap.class}) Optional<String> name) {
-        accountsManager.update(auth.getAccount(), a -> a.setProfileName(name.orElse(null)));
-    }
-
-  @Deprecated
+  // Although clients should generally be using versioned profiles wherever possible, there are still a few lingering
+  // use cases for getting profiles without a version (e.g. getting a contact's unidentified access key checksum).
   @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{identifier}")
-  public Profile getLegacyProfile(
+  public Profile getUnversionedProfile(
       @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
       @Context ContainerRequestContext containerRequestContext,
@@ -424,8 +404,6 @@ public class ProfileController {
     if (auth.isEmpty() && accessKey.isEmpty()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
-
-    Metrics.counter(LEGACY_GET_PROFILE_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).increment();
 
     boolean isSelf = false;
     if (auth.isPresent()) {
@@ -458,30 +436,6 @@ public class ProfileController {
         null,
         null);
   }
-
-    @Deprecated
-    @Timed
-    @GET
-    @Produces(MediaType.APPLICATION_JSON)
-    @Path("/form/avatar")
-    public ProfileAvatarUploadAttributes getLegacyAvatarUploadForm(@Auth AuthenticatedAccount auth) {
-        String previousAvatar = auth.getAccount().getAvatar();
-        String objectName = generateAvatarObjectName();
-        ProfileAvatarUploadAttributes profileAvatarUploadAttributes = generateAvatarUploadForm(objectName);
-
-        if (previousAvatar != null && previousAvatar.startsWith("profiles/")) {
-            s3client.deleteObject(DeleteObjectRequest.builder()
-                    .bucket(bucket)
-                    .key(previousAvatar)
-                    .build());
-        }
-
-        accountsManager.update(auth.getAccount(), a -> a.setAvatar(objectName));
-
-    return profileAvatarUploadAttributes;
-  }
-
-  ////
 
   private ProfileAvatarUploadAttributes generateAvatarUploadForm(String objectName) {
     ZonedDateTime        now            = ZonedDateTime.now(ZoneOffset.UTC);

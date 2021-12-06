@@ -324,46 +324,6 @@ class ProfileControllerTest {
   }
 
   @Test
-  void testSetProfileNameDeprecated() {
-    Response response = resources.getJerseyTest()
-                                 .target("/v1/profile/name/123456789012345678901234567890123456789012345678901234567890123456789012")
-                                 .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                                 .put(Entity.text(""));
-
-    assertThat(response.getStatus()).isEqualTo(204);
-
-    verify(accountsManager, times(1)).update(any(Account.class), any());
-  }
-
-  @Test
-  void testSetProfileNameExtendedDeprecated() {
-    Response response = resources.getJerseyTest()
-                                 .target("/v1/profile/name/123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678")
-                                 .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                                 .put(Entity.text(""));
-
-    assertThat(response.getStatus()).isEqualTo(204);
-
-    verify(accountsManager, times(1)).update(any(Account.class), any());
-  }
-
-  @Test
-  void testSetProfileNameWrongSizeDeprecated() {
-    Response response = resources.getJerseyTest()
-                                 .target("/v1/profile/name/1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890")
-                                 .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                                 .put(Entity.text(""));
-
-    assertThat(response.getStatus()).isEqualTo(400);
-    verifyNoMoreInteractions(accountsManager);
-  }
-
-  /////
-
-  @Test
   void testSetProfileWantAvatarUpload() throws InvalidInputException {
     ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
 
