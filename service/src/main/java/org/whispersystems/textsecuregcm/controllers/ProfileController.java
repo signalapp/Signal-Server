@@ -168,11 +168,6 @@ public class ProfileController {
         currentAvatar = Optional.of(currentProfile.get().getAvatar());
       }
 
-      if (currentAvatar.isEmpty() && auth.getAccount().getAvatar() != null && auth.getAccount().getAvatar()
-          .startsWith("profiles/")) {
-        currentAvatar = Optional.of(auth.getAccount().getAvatar());
-      }
-
       currentAvatar.ifPresent(s -> s3client.deleteObject(DeleteObjectRequest.builder()
           .bucket(bucket)
           .key(s)
@@ -186,8 +181,6 @@ public class ProfileController {
         .orElseGet(() -> auth.getAccount().getBadges());
 
     accountsManager.update(auth.getAccount(), a -> {
-      a.setProfileName(request.getName());
-      a.setAvatar(avatar);
       a.setBadges(clock, updatedBadges);
       a.setCurrentProfileVersion(request.getVersion());
     });
@@ -261,10 +254,10 @@ public class ProfileController {
     Optional<String>           username   = accountProfile.flatMap(Account::getUsername);
     Optional<VersionedProfile> profile    = profilesManager.get(uuid, version);
 
-    String name = profile.map(VersionedProfile::getName).orElse(accountProfile.get().getProfileName());
+    String name = profile.map(VersionedProfile::getName).orElse(null);
     String about = profile.map(VersionedProfile::getAbout).orElse(null);
     String aboutEmoji = profile.map(VersionedProfile::getAboutEmoji).orElse(null);
-    String avatar = profile.map(VersionedProfile::getAvatar).orElse(accountProfile.get().getAvatar());
+    String avatar = profile.map(VersionedProfile::getAvatar).orElse(null);
     Optional<String> currentProfileVersion = accountProfile.get().getCurrentProfileVersion();
 
     // Allow requests where either the version matches the latest version on Account or the latest version on Account
@@ -339,10 +332,10 @@ public class ProfileController {
     final boolean isSelf = auth.getAccount().getUuid().equals(accountProfile.getUuid());
 
     return new Profile(
-        accountProfile.getProfileName(),
         null,
         null,
-        accountProfile.getAvatar(),
+        null,
+        null,
         null,
         accountProfile.getIdentityKey(),
         UnidentifiedAccessChecksum.generateFor(accountProfile.getUnidentifiedAccessKey()),
@@ -418,10 +411,10 @@ public class ProfileController {
     Optional<String> username = accountProfile.flatMap(Account::getUsername);
 
     return new Profile(
-        accountProfile.get().getProfileName(),
         null,
         null,
-        accountProfile.get().getAvatar(),
+        null,
+        null,
         null,
         accountProfile.get().getIdentityKey(),
         UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),

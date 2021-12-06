@@ -68,8 +68,6 @@ class AccountsManagerTest {
   private RedisAdvancedClusterCommands<String, String> commands;
   private AccountsManager accountsManager;
 
-  private static final UUID RESERVED_FOR_UUID = UUID.randomUUID();
-
   private static final Answer<?> ACCOUNT_UPDATE_ANSWER = (answer) -> {
     // it is implicit in the update() contract is that a successful call will
     // result in an incremented version
@@ -150,13 +148,12 @@ class AccountsManagerTest {
     UUID uuid = UUID.randomUUID();
 
     when(commands.get(eq("AccountMap::+14152222222"))).thenReturn(uuid.toString());
-    when(commands.get(eq("Account3::" + uuid))).thenReturn("{\"number\": \"+14152222222\", \"name\": \"test\", \"pni\": \"de24dc73-fbd8-41be-a7d5-764c70d9da7e\"}");
+    when(commands.get(eq("Account3::" + uuid))).thenReturn("{\"number\": \"+14152222222\", \"pni\": \"de24dc73-fbd8-41be-a7d5-764c70d9da7e\"}");
 
     Optional<Account> account = accountsManager.getByE164("+14152222222");
 
     assertTrue(account.isPresent());
     assertEquals(account.get().getNumber(), "+14152222222");
-    assertEquals(account.get().getProfileName(), "test");
     assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifier());
 
     verify(commands, times(1)).get(eq("AccountMap::+14152222222"));
@@ -170,14 +167,13 @@ class AccountsManagerTest {
   void testGetAccountByUuidInCache() {
     UUID uuid = UUID.randomUUID();
 
-    when(commands.get(eq("Account3::" + uuid))).thenReturn("{\"number\": \"+14152222222\", \"name\": \"test\", \"pni\": \"de24dc73-fbd8-41be-a7d5-764c70d9da7e\"}");
+    when(commands.get(eq("Account3::" + uuid))).thenReturn("{\"number\": \"+14152222222\", \"pni\": \"de24dc73-fbd8-41be-a7d5-764c70d9da7e\"}");
 
     Optional<Account> account = accountsManager.getByAccountIdentifier(uuid);
 
     assertTrue(account.isPresent());
     assertEquals(account.get().getNumber(), "+14152222222");
     assertEquals(account.get().getUuid(), uuid);
-    assertEquals(account.get().getProfileName(), "test");
     assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifier());
 
     verify(commands, times(1)).get(eq("Account3::" + uuid));
@@ -192,13 +188,12 @@ class AccountsManagerTest {
     UUID pni = UUID.randomUUID();
 
     when(commands.get(eq("AccountMap::" + pni))).thenReturn(uuid.toString());
-    when(commands.get(eq("Account3::" + uuid))).thenReturn("{\"number\": \"+14152222222\", \"name\": \"test\", \"pni\": \"de24dc73-fbd8-41be-a7d5-764c70d9da7e\"}");
+    when(commands.get(eq("Account3::" + uuid))).thenReturn("{\"number\": \"+14152222222\", \"pni\": \"de24dc73-fbd8-41be-a7d5-764c70d9da7e\"}");
 
     Optional<Account> account = accountsManager.getByPhoneNumberIdentifier(pni);
 
     assertTrue(account.isPresent());
     assertEquals(account.get().getNumber(), "+14152222222");
-    assertEquals(account.get().getProfileName(), "test");
     assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifier());
 
     verify(commands).get(eq("AccountMap::" + pni));
@@ -214,13 +209,12 @@ class AccountsManagerTest {
     String username = "test";
 
     when(commands.get(eq("AccountMap::" + username))).thenReturn(uuid.toString());
-    when(commands.get(eq("Account3::" + uuid))).thenReturn("{\"number\": \"+14152222222\", \"name\": \"test\", \"pni\": \"de24dc73-fbd8-41be-a7d5-764c70d9da7e\", \"username\": \"test\"}");
+    when(commands.get(eq("Account3::" + uuid))).thenReturn("{\"number\": \"+14152222222\", \"pni\": \"de24dc73-fbd8-41be-a7d5-764c70d9da7e\", \"username\": \"test\"}");
 
     Optional<Account> account = accountsManager.getByUsername(username);
 
     assertTrue(account.isPresent());
     assertEquals(account.get().getNumber(), "+14152222222");
-    assertEquals(account.get().getProfileName(), "test");
     assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifier());
     assertEquals(Optional.of(username), account.get().getUsername());
 
@@ -451,10 +445,10 @@ class AccountsManagerTest {
         .doAnswer(ACCOUNT_UPDATE_ANSWER)
         .when(accounts).update(any());
 
-    account = accountsManager.update(account, a -> a.setProfileName("name"));
+    account = accountsManager.update(account, a -> a.setIdentityKey("identity-key"));
 
     assertEquals(1, account.getVersion());
-    assertEquals("name", account.getProfileName());
+    assertEquals("identity-key", account.getIdentityKey());
 
     verify(accounts, times(1)).getByAccountIdentifier(uuid);
     verify(accounts, times(2)).update(any());

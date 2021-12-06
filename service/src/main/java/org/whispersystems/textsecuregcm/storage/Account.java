@@ -56,12 +56,6 @@ public class Account {
   private String currentProfileVersion;
 
   @JsonProperty
-  private String name;
-
-  @JsonProperty
-  private String avatar;
-
-  @JsonProperty
   private List<AccountBadge> badges = new ArrayList<>();
 
   @JsonProperty
@@ -338,30 +332,6 @@ public class Account {
     requireNotStale();
 
     this.currentProfileVersion = currentProfileVersion;
-  }
-
-  public String getProfileName() {
-    requireNotStale();
-
-    return name;
-  }
-
-  public void setProfileName(String name) {
-    requireNotStale();
-
-    this.name = name;
-  }
-
-  public String getAvatar() {
-    requireNotStale();
-
-    return avatar;
-  }
-
-  public void setAvatar(String avatar) {
-    requireNotStale();
-
-    this.avatar = avatar;
   }
 
   public List<AccountBadge> getBadges() {

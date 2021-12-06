@@ -164,8 +164,6 @@ class ProfileControllerTest {
     profileAccount = mock(Account.class);
 
     when(profileAccount.getIdentityKey()).thenReturn("bar");
-    when(profileAccount.getProfileName()).thenReturn("baz");
-    when(profileAccount.getAvatar()).thenReturn("profiles/bang");
     when(profileAccount.getUuid()).thenReturn(AuthHelper.VALID_UUID_TWO);
     when(profileAccount.isEnabled()).thenReturn(true);
     when(profileAccount.isGroupsV2Supported()).thenReturn(false);
@@ -179,8 +177,6 @@ class ProfileControllerTest {
     Account capabilitiesAccount = mock(Account.class);
 
     when(capabilitiesAccount.getIdentityKey()).thenReturn("barz");
-    when(capabilitiesAccount.getProfileName()).thenReturn("bazz");
-    when(capabilitiesAccount.getAvatar()).thenReturn("profiles/bangz");
     when(capabilitiesAccount.isEnabled()).thenReturn(true);
     when(capabilitiesAccount.isGroupsV2Supported()).thenReturn(true);
     when(capabilitiesAccount.isGv1MigrationSupported()).thenReturn(true);
@@ -220,8 +216,8 @@ class ProfileControllerTest {
                               .get(Profile.class);
 
     assertThat(profile.getIdentityKey()).isEqualTo("bar");
-    assertThat(profile.getName()).isEqualTo("baz");
-    assertThat(profile.getAvatar()).isEqualTo("profiles/bang");
+    assertThat(profile.getName()).isNull();
+    assertThat(profile.getAvatar()).isNull();
     assertThat(profile.getUsername()).isEqualTo("n00bkiller");
     assertThat(profile.getBadges()).hasSize(1).element(0).has(new Condition<>(
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
@@ -239,8 +235,8 @@ class ProfileControllerTest {
                               .get(Profile.class);
 
     assertThat(profile.getIdentityKey()).isEqualTo("bar");
-    assertThat(profile.getName()).isEqualTo("baz");
-    assertThat(profile.getAvatar()).isEqualTo("profiles/bang");
+    assertThat(profile.getName()).isNull();
+    assertThat(profile.getAvatar()).isNull();
     assertThat(profile.getUsername()).isEqualTo("n00bkiller");
     assertThat(profile.getUuid()).isEqualTo(AuthHelper.VALID_UUID_TWO);
     assertThat(profile.getBadges()).hasSize(1).element(0).has(new Condition<>(
@@ -383,9 +379,6 @@ class ProfileControllerTest {
     verify(profilesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO), eq("anotherversion"));
     verify(profilesManager, times(1)).set(eq(AuthHelper.VALID_UUID_TWO), profileArgumentCaptor.capture());
 
-    verify(AuthHelper.VALID_ACCOUNT_TWO).setProfileName("123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678");
-    verify(AuthHelper.VALID_ACCOUNT_TWO).setAvatar(null);
-
     verifyNoMoreInteractions(s3client);
 
     assertThat(profileArgumentCaptor.getValue().getCommitment()).isEqualTo(commitment.serialize());
@@ -472,9 +465,6 @@ class ProfileControllerTest {
     verify(profilesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO), eq("anotherversion"));
     verify(profilesManager, times(1)).set(eq(AuthHelper.VALID_UUID_TWO), profileArgumentCaptor.capture());
 
-    verify(AuthHelper.VALID_ACCOUNT_TWO).setProfileName(name);
-    verify(AuthHelper.VALID_ACCOUNT_TWO).setAvatar(null);
-
     verifyNoMoreInteractions(s3client);
 
     final VersionedProfile profile = profileArgumentCaptor.getValue();
@@ -509,9 +499,6 @@ class ProfileControllerTest {
 
     verify(profilesManager).get(eq(AuthHelper.VALID_UUID_TWO), eq("yetanotherversion"));
     verify(profilesManager).set(eq(AuthHelper.VALID_UUID_TWO), profileArgumentCaptor.capture());
-
-    verify(AuthHelper.VALID_ACCOUNT_TWO).setProfileName(eq(name));
-    verify(AuthHelper.VALID_ACCOUNT_TWO).setAvatar(null);
 
     verifyNoMoreInteractions(s3client);
 

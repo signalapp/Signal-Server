@@ -294,8 +294,6 @@ class AccountsTest {
     assertPhoneNumberConstraintExists("+14151112222", firstUuid);
     assertPhoneNumberIdentifierConstraintExists(firstPni, firstUuid);
 
-    account.setProfileName("name");
-
     accounts.update(account);
 
     UUID secondUuid = UUID.randomUUID();
@@ -348,8 +346,6 @@ class AccountsTest {
 
     assertThatThrownBy(() -> accounts.update(unknownAccount)).isInstanceOfAny(ConditionalCheckFailedException.class);
 
-    account.setProfileName("name");
-
     accounts.update(account);
 
     assertThat(account.getVersion()).isEqualTo(2);
@@ -361,7 +357,6 @@ class AccountsTest {
     assertThatThrownBy(() -> accounts.update(account)).isInstanceOfAny(ContestedOptimisticLockException.class);
 
     account.setVersion(2);
-    account.setProfileName("name2");
 
     accounts.update(account);
 

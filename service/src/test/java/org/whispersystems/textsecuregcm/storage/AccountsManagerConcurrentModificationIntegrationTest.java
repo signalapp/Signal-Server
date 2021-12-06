@@ -189,8 +189,6 @@ class AccountsManagerConcurrentModificationIntegrationTest {
       uuid = account.getUuid();
     }
 
-    final String profileName = "name";
-    final String avatar = "avatar";
     final boolean discoverableByPhoneNumber = false;
     final String currentProfileVersion = "cpv";
     final String identityKey = "ikey";
@@ -202,8 +200,6 @@ class AccountsManagerConcurrentModificationIntegrationTest {
     final long lastSeen = Instant.now().getEpochSecond();
 
     CompletableFuture.allOf(
-        modifyAccount(uuid, account -> account.setProfileName(profileName)),
-        modifyAccount(uuid, account -> account.setAvatar(avatar)),
         modifyAccount(uuid, account -> account.setDiscoverableByPhoneNumber(discoverableByPhoneNumber)),
         modifyAccount(uuid, account -> account.setCurrentProfileVersion(currentProfileVersion)),
         modifyAccount(uuid, account -> account.setIdentityKey(identityKey)),
@@ -224,7 +220,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
         new Pair<>("dynamo", dynamoAccount),
         new Pair<>("redis", redisAccount)
     ).forEach(pair ->
-        verifyAccount(pair.first(), pair.second(), profileName, avatar, discoverableByPhoneNumber,
+        verifyAccount(pair.first(), pair.second(), discoverableByPhoneNumber,
             currentProfileVersion, identityKey, unidentifiedAccessKey, pin, registrationLock,
             unrestrictedUnidentifiedAccess, lastSeen));
   }
@@ -237,11 +233,9 @@ class AccountsManagerConcurrentModificationIntegrationTest {
     return JsonHelpers.fromJson(redisSetArgumentCapture.getValue(), Account.class);
   }
 
-  private void verifyAccount(final String name, final Account account, final String profileName, final String avatar, final boolean discoverableByPhoneNumber, final String currentProfileVersion, final String identityKey, final byte[] unidentifiedAccessKey, final String pin, final String clientRegistrationLock, final boolean unrestrictedUnidentifiedAcces, final long lastSeen) {
+  private void verifyAccount(final String name, final Account account, final boolean discoverableByPhoneNumber, final String currentProfileVersion, final String identityKey, final byte[] unidentifiedAccessKey, final String pin, final String clientRegistrationLock, final boolean unrestrictedUnidentifiedAcces, final long lastSeen) {
 
     assertAll(name,
-        () -> assertEquals(profileName, account.getProfileName()),
-        () -> assertEquals(avatar, account.getAvatar()),
         () -> assertEquals(discoverableByPhoneNumber, account.isDiscoverableByPhoneNumber()),
         () -> assertEquals(currentProfileVersion, account.getCurrentProfileVersion().orElseThrow()),
         () -> assertEquals(identityKey, account.getIdentityKey()),
