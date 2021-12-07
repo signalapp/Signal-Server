@@ -214,7 +214,6 @@ import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.CheckDynamicConfigurationCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
-import org.whispersystems.textsecuregcm.workers.MigrateAbusiveHostRulesCommand;
 import org.whispersystems.textsecuregcm.workers.ReserveUsernameCommand;
 import org.whispersystems.textsecuregcm.workers.ServerVersionCommand;
 import org.whispersystems.textsecuregcm.workers.SetCrawlerAccelerationTask;
@@ -243,7 +242,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new CheckDynamicConfigurationCommand());
     bootstrap.addCommand(new SetUserDiscoverabilityCommand());
     bootstrap.addCommand(new ReserveUsernameCommand());
-    bootstrap.addCommand(new MigrateAbusiveHostRulesCommand());
 
     bootstrap.addBundle(new NameableMigrationsBundle<WhisperServerConfiguration>("abusedb", "abusedb.xml") {
       @Override
@@ -310,10 +308,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     Jdbi abuseJdbi = jdbiFactory.build(environment, config.getAbuseDatabaseConfiguration(), "abusedb");
 
     FaultTolerantDatabase abuseDatabase = new FaultTolerantDatabase("abuse_database", abuseJdbi,
-        config.getAbuseDatabaseConfiguration().getCircuitBreakerConfiguration());
-
-    Jdbi newAbuseJdbi = jdbiFactory.build(environment, config.getAbuseDatabaseConfiguration(), "abusedb2");
-    FaultTolerantDatabase newAbuseDatabase = new FaultTolerantDatabase("abuse_database2", newAbuseJdbi,
         config.getAbuseDatabaseConfiguration().getCircuitBreakerConfiguration());
 
     DynamoDbAsyncClient dynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(
@@ -394,8 +388,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(messageDynamoDb,
         config.getMessageDynamoDbConfiguration().getTableName(),
         config.getMessageDynamoDbConfiguration().getTimeToLive());
-    AbusiveHostRules abusiveHostRules = new AbusiveHostRules(abuseDatabase, newAbuseDatabase,
-        dynamicConfigurationManager);
+    AbusiveHostRules abusiveHostRules = new AbusiveHostRules(abuseDatabase);
     RemoteConfigs remoteConfigs = new RemoteConfigs(dynamoDbClient,
         config.getDynamoDbTables().getRemoteConfig().getTableName());
     PushChallengeDynamoDb pushChallengeDynamoDb = new PushChallengeDynamoDb(pushChallengeDynamoDbClient,

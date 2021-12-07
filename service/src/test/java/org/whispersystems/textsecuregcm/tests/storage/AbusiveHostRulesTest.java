@@ -6,8 +6,6 @@
 package org.whispersystems.textsecuregcm.tests.storage;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import io.zonky.test.db.postgres.embedded.LiquibasePreparer;
 import io.zonky.test.db.postgres.junit5.EmbeddedPostgresExtension;
@@ -22,11 +20,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicAbusiveHostRulesMigrationConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.storage.AbusiveHostRule;
 import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.FaultTolerantDatabase;
 
 class AbusiveHostRulesTest {
@@ -43,20 +38,9 @@ class AbusiveHostRulesTest {
 
   @BeforeEach
   void setup() {
-    //noinspection unchecked
-    final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(
-        DynamicConfigurationManager.class);
-    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
-    when(dynamicConfiguration.getAbusiveHostRulesMigrationConfiguration()).thenReturn(
-        new DynamicAbusiveHostRulesMigrationConfiguration());
-
     this.abusiveHostRules = new AbusiveHostRules(
         new FaultTolerantDatabase("abusive_hosts-test", Jdbi.create(db.getTestDatabase()),
-            new CircuitBreakerConfiguration()),
-        new FaultTolerantDatabase("abusive_hosts-test", Jdbi.create(newDb.getTestDatabase()),
-            new CircuitBreakerConfiguration()),
-        dynamicConfigurationManager);
+            new CircuitBreakerConfiguration()));
   }
 
   @Test
@@ -145,32 +129,6 @@ class AbusiveHostRulesTest {
     assertThat(resultSet.getInt("blocked")).isEqualTo(1);
     assertThat(resultSet.getString("regions")).isNullOrEmpty();
     assertThat(resultSet.getString("notes")).isEqualTo("Testing one two");
-  }
-
-  @Test
-  void testMigrate() throws Exception {
-    final int rules = 20;
-    for (int i = 1; i <= rules; i++) {
-      abusiveHostRules.setBlockedHost("172.17.0." + i, "Testing one two " + i);
-    }
-
-    PreparedStatement statement = newDb.getTestDatabase().getConnection()
-        .prepareStatement("SELECT * from abusive_host_rules");
-
-    assertThat(queryResultSize(statement.executeQuery())).isEqualTo(0);
-
-    abusiveHostRules.forEachInOldDatabase((rule, host) -> abusiveHostRules.migrateAbusiveHostRule(rule, host), 5);
-
-    assertThat(queryResultSize(statement.executeQuery())).isEqualTo(rules);
-  }
-
-  private int queryResultSize(ResultSet resultSet) throws SQLException {
-    int migrated = 0;
-    while (resultSet.next()) {
-      migrated++;
-    }
-
-    return migrated;
   }
 
 }
