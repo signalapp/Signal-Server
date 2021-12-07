@@ -8,6 +8,8 @@ package org.whispersystems.textsecuregcm.auth;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 
+import javax.ws.rs.NotAuthorizedException;
+import javax.ws.rs.NotFoundException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 import java.security.MessageDigest;
@@ -36,9 +38,9 @@ public class OptionalAccess {
         }
 
         if (requestAccount.isPresent()) {
-          throw new WebApplicationException(Response.Status.NOT_FOUND);
+          throw new NotFoundException();
         } else {
-          throw new WebApplicationException(Response.Status.UNAUTHORIZED);
+          throw new NotAuthorizedException(Response.Status.UNAUTHORIZED);
         }
       }
     } catch (NumberFormatException e) {
@@ -56,7 +58,7 @@ public class OptionalAccess {
 
     //noinspection ConstantConditions
     if (requestAccount.isPresent() && (targetAccount.isEmpty() || (targetAccount.isPresent() && !targetAccount.get().isEnabled()))) {
-      throw new WebApplicationException(Response.Status.NOT_FOUND);
+      throw new NotFoundException();
     }
 
     if (accessKey.isPresent() && targetAccount.isPresent() && targetAccount.get().isEnabled() && targetAccount.get().isUnrestrictedUnidentifiedAccess()) {
@@ -72,7 +74,7 @@ public class OptionalAccess {
       return;
     }
 
-    throw new WebApplicationException(Response.Status.UNAUTHORIZED);
+    throw new NotAuthorizedException(Response.Status.UNAUTHORIZED);
   }
 
 }

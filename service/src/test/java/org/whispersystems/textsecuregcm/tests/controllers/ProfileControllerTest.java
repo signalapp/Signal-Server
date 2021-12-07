@@ -73,9 +73,12 @@ import org.whispersystems.textsecuregcm.controllers.ProfileController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
+import org.whispersystems.textsecuregcm.entities.BaseProfileResponse;
 import org.whispersystems.textsecuregcm.entities.CreateProfileRequest;
-import org.whispersystems.textsecuregcm.entities.Profile;
+import org.whispersystems.textsecuregcm.entities.PniCredentialProfileResponse;
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
+import org.whispersystems.textsecuregcm.entities.ProfileKeyCredentialProfileResponse;
+import org.whispersystems.textsecuregcm.entities.VersionedProfileResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
@@ -209,16 +212,14 @@ class ProfileControllerTest {
 
   @Test
   void testProfileGetByUuid() throws RateLimitExceededException {
-    Profile profile= resources.getJerseyTest()
+    BaseProfileResponse profile = resources.getJerseyTest()
                               .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO)
                               .request()
                               .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                              .get(Profile.class);
+                              .get(BaseProfileResponse.class);
 
     assertThat(profile.getIdentityKey()).isEqualTo("bar");
-    assertThat(profile.getName()).isNull();
-    assertThat(profile.getAvatar()).isNull();
-    assertThat(profile.getUsername()).isEqualTo("n00bkiller");
+    assertThat(profile.getUsername()).isNull();
     assertThat(profile.getBadges()).hasSize(1).element(0).has(new Condition<>(
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
 
@@ -228,16 +229,14 @@ class ProfileControllerTest {
 
   @Test
   void testProfileGetByUsername() throws RateLimitExceededException {
-    Profile profile= resources.getJerseyTest()
+    BaseProfileResponse profile = resources.getJerseyTest()
                               .target("/v1/profile/username/n00bkiller")
                               .request()
                               .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                              .get(Profile.class);
+                              .get(BaseProfileResponse.class);
 
     assertThat(profile.getIdentityKey()).isEqualTo("bar");
-    assertThat(profile.getName()).isNull();
-    assertThat(profile.getAvatar()).isNull();
-    assertThat(profile.getUsername()).isEqualTo("n00bkiller");
+    assertThat(profile.getUsername()).isNull();
     assertThat(profile.getUuid()).isEqualTo(AuthHelper.VALID_UUID_TWO);
     assertThat(profile.getBadges()).hasSize(1).element(0).has(new Condition<>(
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
@@ -295,11 +294,11 @@ class ProfileControllerTest {
 
   @Test
   void testProfileCapabilities() {
-    Profile profile= resources.getJerseyTest()
+    BaseProfileResponse profile = resources.getJerseyTest()
                               .target("/v1/profile/" + AuthHelper.VALID_UUID)
                               .request()
                               .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                              .get(Profile.class);
+                              .get(BaseProfileResponse.class);
 
     assertThat(profile.getCapabilities().isGv2()).isTrue();
     assertThat(profile.getCapabilities().isGv1Migration()).isTrue();
@@ -311,7 +310,7 @@ class ProfileControllerTest {
         .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO)
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-        .get(Profile.class);
+        .get(BaseProfileResponse.class);
 
     assertThat(profile.getCapabilities().isGv2()).isFalse();
     assertThat(profile.getCapabilities().isGv1Migration()).isFalse();
@@ -538,22 +537,22 @@ class ProfileControllerTest {
 
   @Test
   void testGetProfileByVersion() throws RateLimitExceededException {
-    Profile profile = resources.getJerseyTest()
+    VersionedProfileResponse profile = resources.getJerseyTest()
                                .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO + "/validversion")
                                .request()
                                .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                               .get(Profile.class);
+                               .get(VersionedProfileResponse.class);
 
-    assertThat(profile.getIdentityKey()).isEqualTo("bar");
+    assertThat(profile.getBaseProfileResponse().getIdentityKey()).isEqualTo("bar");
     assertThat(profile.getName()).isEqualTo("validname");
     assertThat(profile.getAbout()).isEqualTo("about");
     assertThat(profile.getAboutEmoji()).isEqualTo("emoji");
     assertThat(profile.getAvatar()).isEqualTo("profiles/validavatar");
-    assertThat(profile.getCapabilities().isGv2()).isFalse();
-    assertThat(profile.getCapabilities().isGv1Migration()).isFalse();
-    assertThat(profile.getUsername()).isEqualTo("n00bkiller");
-    assertThat(profile.getUuid()).isNull();
-    assertThat(profile.getBadges()).hasSize(1).element(0).has(new Condition<>(
+    assertThat(profile.getBaseProfileResponse().getCapabilities().isGv2()).isFalse();
+    assertThat(profile.getBaseProfileResponse().getCapabilities().isGv1Migration()).isFalse();
+    assertThat(profile.getBaseProfileResponse().getUsername()).isNull();
+    assertThat(profile.getBaseProfileResponse().getUuid()).isEqualTo(AuthHelper.VALID_UUID_TWO);
+    assertThat(profile.getBaseProfileResponse().getBadges()).hasSize(1).element(0).has(new Condition<>(
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
 
     verify(accountsManager, times(1)).getByAccountIdentifier(eq(AuthHelper.VALID_UUID_TWO));
@@ -587,11 +586,11 @@ class ProfileControllerTest {
   void testGetProfileReturnsNoPaymentAddressIfCurrentVersionMismatch() {
     when(profilesManager.get(AuthHelper.VALID_UUID_TWO, "validversion")).thenReturn(
         Optional.of(new VersionedProfile(null, null, null, null, null, "paymentaddress", null)));
-    Profile profile = resources.getJerseyTest()
+    VersionedProfileResponse profile = resources.getJerseyTest()
         .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO + "/validversion")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get(Profile.class);
+        .get(VersionedProfileResponse.class);
     assertThat(profile.getPaymentAddress()).isEqualTo("paymentaddress");
 
     when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.of("validversion"));
@@ -599,7 +598,7 @@ class ProfileControllerTest {
         .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO + "/validversion")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get(Profile.class);
+        .get(VersionedProfileResponse.class);
     assertThat(profile.getPaymentAddress()).isEqualTo("paymentaddress");
 
     when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.of("someotherversion"));
@@ -607,7 +606,7 @@ class ProfileControllerTest {
         .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO + "/validversion")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get(Profile.class);
+        .get(VersionedProfileResponse.class);
     assertThat(profile.getPaymentAddress()).isNull();
   }
 
@@ -747,15 +746,14 @@ class ProfileControllerTest {
     when(zkProfileOperations.issueProfileKeyCredential(credentialRequest, AuthHelper.VALID_UUID, profileKeyCommitment))
         .thenReturn(credentialResponse);
 
-    final Profile profile = resources.getJerseyTest()
+    final ProfileKeyCredentialProfileResponse profile = resources.getJerseyTest()
         .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, version, Hex.encodeHexString(credentialRequest.serialize())))
         .request()
         .headers(authHeaders)
-        .get(Profile.class);
+        .get(ProfileKeyCredentialProfileResponse.class);
 
-    assertThat(profile.getUuid()).isNull();
+    assertThat(profile.getVersionedProfileResponse().getBaseProfileResponse().getUuid()).isEqualTo(AuthHelper.VALID_UUID);
     assertThat(profile.getCredential()).isEqualTo(credentialResponse);
-    assertThat(profile.getPniCredential()).isNull();
 
     verify(zkProfileOperations).issueProfileKeyCredential(credentialRequest, AuthHelper.VALID_UUID, profileKeyCommitment);
     verify(zkProfileOperations, never()).issuePniCredential(any(), any(), any(), any());
@@ -809,15 +807,14 @@ class ProfileControllerTest {
     when(zkProfileOperations.issuePniCredential(credentialRequest, AuthHelper.VALID_UUID, AuthHelper.VALID_PNI, profileKeyCommitment))
         .thenReturn(credentialResponse);
 
-    final Profile profile = resources.getJerseyTest()
+    final PniCredentialProfileResponse profile = resources.getJerseyTest()
         .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, version, Hex.encodeHexString(credentialRequest.serialize())))
         .queryParam("credentialType", "pni")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get(Profile.class);
+        .get(PniCredentialProfileResponse.class);
 
-    assertThat(profile.getUuid()).isNull();
-    assertThat(profile.getCredential()).isNull();
+    assertThat(profile.getVersionedProfileResponse().getBaseProfileResponse().getUuid()).isEqualTo(AuthHelper.VALID_UUID);
     assertThat(profile.getPniCredential()).isEqualTo(credentialResponse);
 
     verify(zkProfileOperations, never()).issueProfileKeyCredential(any(), any(), any());

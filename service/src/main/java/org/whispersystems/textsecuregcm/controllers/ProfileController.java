@@ -29,6 +29,8 @@ import javax.ws.rs.DefaultValue;
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
+import javax.ws.rs.NotAuthorizedException;
+import javax.ws.rs.NotFoundException;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -63,9 +65,13 @@ import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.CreateProfileRequest;
-import org.whispersystems.textsecuregcm.entities.Profile;
+import org.whispersystems.textsecuregcm.entities.CredentialProfileResponse;
+import org.whispersystems.textsecuregcm.entities.PniCredentialProfileResponse;
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
+import org.whispersystems.textsecuregcm.entities.ProfileKeyCredentialProfileResponse;
+import org.whispersystems.textsecuregcm.entities.BaseProfileResponse;
 import org.whispersystems.textsecuregcm.entities.UserCapabilities;
+import org.whispersystems.textsecuregcm.entities.VersionedProfileResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
@@ -196,23 +202,28 @@ public class ProfileController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{uuid}/{version}")
-  public Profile getProfile(
+  public VersionedProfileResponse getProfile(
       @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
       @Context ContainerRequestContext containerRequestContext,
       @PathParam("uuid") UUID uuid,
       @PathParam("version") String version)
       throws RateLimitExceededException {
-    return getVersionedProfile(auth.map(AuthenticatedAccount::getAccount), accessKey,
-        getAcceptableLanguagesForRequest(containerRequestContext), uuid,
-        version, Optional.empty(), Optional.empty());
+
+    final Optional<Account> maybeRequester = auth.map(AuthenticatedAccount::getAccount);
+    final Account targetAccount = verifyPermissionToReceiveProfile(maybeRequester, accessKey, uuid);
+
+    return buildVersionedProfileResponse(targetAccount,
+        version,
+        isSelfProfileRequest(maybeRequester, uuid),
+        containerRequestContext);
   }
 
   @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{uuid}/{version}/{credentialRequest}")
-  public Profile getProfile(
+  public CredentialProfileResponse getProfile(
       @Auth Optional<AuthenticatedAccount> auth,
       @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
       @Context ContainerRequestContext containerRequestContext,
@@ -221,134 +232,140 @@ public class ProfileController {
       @PathParam("credentialRequest") String credentialRequest,
       @QueryParam("credentialType") @DefaultValue(PROFILE_KEY_CREDENTIAL_TYPE) String credentialType)
       throws RateLimitExceededException {
-    return getVersionedProfile(auth.map(AuthenticatedAccount::getAccount), accessKey,
-        getAcceptableLanguagesForRequest(containerRequestContext), uuid,
-        version, Optional.of(credentialRequest), Optional.of(credentialType));
-  }
 
-  private Profile getVersionedProfile(
-      Optional<Account> requestAccount,
-      Optional<Anonymous> accessKey,
-      List<Locale> acceptableLanguages,
-      UUID uuid,
-      String version,
-      Optional<String> credentialRequest,
-      Optional<String> credentialType)
-      throws RateLimitExceededException {
-    if (requestAccount.isEmpty() && accessKey.isEmpty()) {
-      throw new WebApplicationException(Response.Status.UNAUTHORIZED);
-    }
+    final Optional<Account> maybeRequester = auth.map(AuthenticatedAccount::getAccount);
+    final Account targetAccount = verifyPermissionToReceiveProfile(maybeRequester, accessKey, uuid);
+    final boolean isSelf = isSelfProfileRequest(maybeRequester, uuid);
 
-    boolean isSelf = false;
-    if (requestAccount.isPresent()) {
-      UUID authedUuid = requestAccount.get().getUuid();
-      rateLimiters.getProfileLimiter().validate(authedUuid);
-      isSelf = uuid.equals(authedUuid);
-    }
+    switch (credentialType) {
+      case PROFILE_KEY_CREDENTIAL_TYPE -> {
+        return buildProfileKeyCredentialProfileResponse(targetAccount,
+            version,
+            credentialRequest,
+            isSelf,
+            containerRequestContext);
+      }
 
-    Optional<Account> accountProfile = accountsManager.getByAccountIdentifier(uuid);
-    OptionalAccess.verify(requestAccount, accessKey, accountProfile);
-
-    assert accountProfile.isPresent();
-
-    Optional<String>           username   = accountProfile.flatMap(Account::getUsername);
-    Optional<VersionedProfile> profile    = profilesManager.get(uuid, version);
-
-    String name = profile.map(VersionedProfile::getName).orElse(null);
-    String about = profile.map(VersionedProfile::getAbout).orElse(null);
-    String aboutEmoji = profile.map(VersionedProfile::getAboutEmoji).orElse(null);
-    String avatar = profile.map(VersionedProfile::getAvatar).orElse(null);
-    Optional<String> currentProfileVersion = accountProfile.get().getCurrentProfileVersion();
-
-    // Allow requests where either the version matches the latest version on Account or the latest version on Account
-    // is empty to read the payment address.
-    final String paymentAddress = profile
-        .filter(p -> currentProfileVersion.map(v -> v.equals(version)).orElse(true))
-        .map(VersionedProfile::getPaymentAddress)
-        .orElse(null);
-
-    final ProfileKeyCredentialResponse profileKeyCredentialResponse;
-    final PniCredentialResponse pniCredentialResponse;
-
-    if (credentialRequest.isPresent() && credentialType.isPresent() && profile.isPresent()) {
-      if (PNI_CREDENTIAL_TYPE.equals(credentialType.get())) {
+      case PNI_CREDENTIAL_TYPE -> {
         if (!isSelf) {
           throw new ForbiddenException();
         }
 
-        profileKeyCredentialResponse = null;
-        pniCredentialResponse = getPniCredential(credentialRequest.get(),
-            profile.get(),
-            requestAccount.get().getUuid(),
-            requestAccount.get().getPhoneNumberIdentifier());
-      } else if (PROFILE_KEY_CREDENTIAL_TYPE.equals(credentialType.get())) {
-        profileKeyCredentialResponse = getProfileCredential(credentialRequest.get(),
-            profile.get(),
-            uuid);
-
-        pniCredentialResponse = null;
-      } else {
-        throw new BadRequestException();
+        return buildPniCredentialProfileResponse(targetAccount,
+            version,
+            credentialRequest,
+            containerRequestContext);
       }
-    } else {
-      profileKeyCredentialResponse = null;
-      pniCredentialResponse = null;
-    }
 
-    return new Profile(
-        name,
-        about,
-        aboutEmoji,
-        avatar,
-        paymentAddress,
-        accountProfile.get().getIdentityKey(),
-        UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
-        accountProfile.get().isUnrestrictedUnidentifiedAccess(),
-        UserCapabilities.createForAccount(accountProfile.get()),
-        username.orElse(null),
-        null,
-        profileBadgeConverter.convert(acceptableLanguages, accountProfile.get().getBadges(), isSelf),
-        profileKeyCredentialResponse,
-        pniCredentialResponse);
+      default -> throw new BadRequestException();
+    }
   }
 
+  // Although clients should generally be using versioned profiles wherever possible, there are still a few lingering
+  // use cases for getting profiles without a version (e.g. getting a contact's unidentified access key checksum).
+  @Timed
+  @GET
+  @Produces(MediaType.APPLICATION_JSON)
+  @Path("/{identifier}")
+  public BaseProfileResponse getUnversionedProfile(
+      @Auth Optional<AuthenticatedAccount> auth,
+      @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
+      @Context ContainerRequestContext containerRequestContext,
+      @HeaderParam("User-Agent") String userAgent,
+      @PathParam("identifier") UUID identifier,
+      @QueryParam("ca") boolean useCaCertificate)
+      throws RateLimitExceededException {
+
+    final Optional<Account> maybeRequester = auth.map(AuthenticatedAccount::getAccount);
+    final Account targetAccount = verifyPermissionToReceiveProfile(maybeRequester, accessKey, identifier);
+
+    return buildBaseProfileResponse(targetAccount,
+        isSelfProfileRequest(maybeRequester, identifier),
+        containerRequestContext);
+  }
+
+  private ProfileKeyCredentialProfileResponse buildProfileKeyCredentialProfileResponse(final Account account,
+      final String version,
+      final String encodedCredentialRequest,
+      final boolean isSelf,
+      final ContainerRequestContext containerRequestContext) {
+
+    final VersionedProfile profile =
+        profilesManager.get(account.getUuid(), version).orElseThrow(NotFoundException::new);
+
+    return new ProfileKeyCredentialProfileResponse(
+        buildVersionedProfileResponse(account, version, isSelf, containerRequestContext),
+        getProfileCredential(encodedCredentialRequest, profile, account.getUuid()));
+  }
+
+  private PniCredentialProfileResponse buildPniCredentialProfileResponse(final Account account,
+      final String version,
+      final String encodedCredentialRequest,
+      final ContainerRequestContext containerRequestContext) {
+
+    final VersionedProfile profile =
+        profilesManager.get(account.getUuid(), version).orElseThrow(NotFoundException::new);
+
+    return new PniCredentialProfileResponse(
+        buildVersionedProfileResponse(account, version, true, containerRequestContext),
+        getPniCredential(encodedCredentialRequest, profile, account.getUuid(), account.getPhoneNumberIdentifier()));
+  }
+
+  private VersionedProfileResponse buildVersionedProfileResponse(final Account account,
+      final String version,
+      final boolean isSelf,
+      final ContainerRequestContext containerRequestContext) {
+
+    final Optional<VersionedProfile> maybeProfile = profilesManager.get(account.getUuid(), version);
+
+    final String name = maybeProfile.map(VersionedProfile::getName).orElse(null);
+    final String about = maybeProfile.map(VersionedProfile::getAbout).orElse(null);
+    final String aboutEmoji = maybeProfile.map(VersionedProfile::getAboutEmoji).orElse(null);
+    final String avatar = maybeProfile.map(VersionedProfile::getAvatar).orElse(null);
+
+    // Allow requests where either the version matches the latest version on Account or the latest version on Account
+    // is empty to read the payment address.
+    final String paymentAddress = maybeProfile
+        .filter(p -> account.getCurrentProfileVersion().map(v -> v.equals(version)).orElse(true))
+        .map(VersionedProfile::getPaymentAddress)
+        .orElse(null);
+
+    return new VersionedProfileResponse(buildBaseProfileResponse(account, isSelf, containerRequestContext),
+        name, about, aboutEmoji, avatar, paymentAddress);
+  }
+
+  private BaseProfileResponse buildBaseProfileResponse(final Account account,
+      final boolean isSelf,
+      final ContainerRequestContext containerRequestContext) {
+
+    return new BaseProfileResponse(account.getIdentityKey(),
+        UnidentifiedAccessChecksum.generateFor(account.getUnidentifiedAccessKey()),
+        account.isUnrestrictedUnidentifiedAccess(),
+        UserCapabilities.createForAccount(account),
+        profileBadgeConverter.convert(
+            getAcceptableLanguagesForRequest(containerRequestContext),
+            account.getBadges(),
+            isSelf),
+        isSelf ? account.getUsername().orElse(null) : null,
+        account.getUuid());
+  }
 
   @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/username/{username}")
-  public Profile getProfileByUsername(
+  public BaseProfileResponse getProfileByUsername(
       @Auth AuthenticatedAccount auth,
       @Context ContainerRequestContext containerRequestContext,
       @PathParam("username") String username)
       throws RateLimitExceededException {
+
     rateLimiters.getUsernameLookupLimiter().validate(auth.getAccount().getUuid());
 
-    username = username.toLowerCase();
+    final Account targetAccount = accountsManager.getByUsername(username).orElseThrow(NotFoundException::new);
+    final boolean isSelf = auth.getAccount().getUuid().equals(targetAccount.getUuid());
 
-    final Account accountProfile = accountsManager.getByUsername(username)
-        .orElseThrow(() -> new WebApplicationException(Response.status(Response.Status.NOT_FOUND).build()));
-
-    final boolean isSelf = auth.getAccount().getUuid().equals(accountProfile.getUuid());
-
-    return new Profile(
-        null,
-        null,
-        null,
-        null,
-        null,
-        accountProfile.getIdentityKey(),
-        UnidentifiedAccessChecksum.generateFor(accountProfile.getUnidentifiedAccessKey()),
-        accountProfile.isUnrestrictedUnidentifiedAccess(),
-        UserCapabilities.createForAccount(accountProfile),
-        username,
-        accountProfile.getUuid(),
-        profileBadgeConverter.convert(
-            getAcceptableLanguagesForRequest(containerRequestContext),
-            accountProfile.getBadges(),
-            isSelf),
-        null,
-        null);
+    return buildBaseProfileResponse(targetAccount, isSelf, containerRequestContext);
   }
 
   private ProfileKeyCredentialResponse getProfileCredential(final String encodedProfileCredentialRequest,
@@ -377,57 +394,6 @@ public class ProfileController {
     } catch (DecoderException | VerificationFailedException | InvalidInputException e) {
       throw new WebApplicationException(e, Response.status(Response.Status.BAD_REQUEST).build());
     }
-  }
-
-  // Although clients should generally be using versioned profiles wherever possible, there are still a few lingering
-  // use cases for getting profiles without a version (e.g. getting a contact's unidentified access key checksum).
-  @Timed
-  @GET
-  @Produces(MediaType.APPLICATION_JSON)
-  @Path("/{identifier}")
-  public Profile getUnversionedProfile(
-      @Auth Optional<AuthenticatedAccount> auth,
-      @HeaderParam(OptionalAccess.UNIDENTIFIED) Optional<Anonymous> accessKey,
-      @Context ContainerRequestContext containerRequestContext,
-      @HeaderParam("User-Agent") String userAgent,
-      @PathParam("identifier") UUID identifier,
-      @QueryParam("ca") boolean useCaCertificate)
-      throws RateLimitExceededException {
-
-    if (auth.isEmpty() && accessKey.isEmpty()) {
-      throw new WebApplicationException(Response.Status.UNAUTHORIZED);
-    }
-
-    boolean isSelf = false;
-    if (auth.isPresent()) {
-      UUID authedUuid = auth.get().getAccount().getUuid();
-      rateLimiters.getProfileLimiter().validate(authedUuid);
-      isSelf = authedUuid.equals(identifier);
-    }
-
-    Optional<Account> accountProfile = accountsManager.getByAccountIdentifier(identifier);
-    OptionalAccess.verify(auth.map(AuthenticatedAccount::getAccount), accessKey, accountProfile);
-
-    Optional<String> username = accountProfile.flatMap(Account::getUsername);
-
-    return new Profile(
-        null,
-        null,
-        null,
-        null,
-        null,
-        accountProfile.get().getIdentityKey(),
-        UnidentifiedAccessChecksum.generateFor(accountProfile.get().getUnidentifiedAccessKey()),
-        accountProfile.get().isUnrestrictedUnidentifiedAccess(),
-        UserCapabilities.createForAccount(accountProfile.get()),
-        username.orElse(null),
-        null,
-        profileBadgeConverter.convert(
-            getAcceptableLanguagesForRequest(containerRequestContext),
-            accountProfile.get().getBadges(),
-            isSelf),
-        null,
-        null);
   }
 
   private ProfileAvatarUploadAttributes generateAvatarUploadForm(String objectName) {
@@ -496,5 +462,43 @@ public class ProfileController {
     }
 
     return new ArrayList<>(result.values());
+  }
+
+  /**
+   * Verifies that the requester has permission to view the profile of the account identified by the given ACI.
+   *
+   * @param maybeRequester the authenticated account requesting the profile, if any
+   * @param maybeAccessKey an anonymous access key for the target account
+   * @param targetUuid the ACI of the target account
+   *
+   * @return the target account
+   *
+   * @throws RateLimitExceededException if the requester must wait before requesting the target account's profile
+   * @throws NotFoundException if no account was found for the target ACI
+   * @throws NotAuthorizedException if the requester is not authorized to receive the target account's profile or if the
+   * requester was not authenticated and did not present an anonymous access key
+   */
+  private Account verifyPermissionToReceiveProfile(final Optional<Account> maybeRequester,
+      final Optional<Anonymous> maybeAccessKey,
+      final UUID targetUuid) throws RateLimitExceededException {
+
+    if (maybeRequester.isEmpty() && maybeAccessKey.isEmpty()) {
+      throw new WebApplicationException(Response.Status.UNAUTHORIZED);
+    }
+
+    if (maybeRequester.isPresent()) {
+      rateLimiters.getProfileLimiter().validate(maybeRequester.get().getUuid());
+    }
+
+    final Optional<Account> maybeTargetAccount = accountsManager.getByAccountIdentifier(targetUuid);
+
+    OptionalAccess.verify(maybeRequester, maybeAccessKey, maybeTargetAccount);
+    assert maybeTargetAccount.isPresent();
+
+    return maybeTargetAccount.get();
+  }
+
+  private boolean isSelfProfileRequest(final Optional<Account> maybeRequester, final UUID targetUuid) {
+    return maybeRequester.map(requester -> requester.getUuid().equals(targetUuid)).orElse(false);
   }
 }
