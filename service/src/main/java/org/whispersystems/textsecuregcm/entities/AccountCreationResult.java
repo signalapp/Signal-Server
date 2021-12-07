@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import javax.annotation.Nullable;
 import java.util.UUID;
 
 public class AccountCreationResult {
@@ -15,6 +16,10 @@ public class AccountCreationResult {
   private final UUID uuid;
   private final String number;
   private final UUID pni;
+
+  @Nullable
+  private final String username;
+
   private final boolean storageCapable;
 
   @JsonCreator
@@ -22,11 +27,13 @@ public class AccountCreationResult {
       @JsonProperty("uuid") final UUID uuid,
       @JsonProperty("number") final String number,
       @JsonProperty("pni") final UUID pni,
+      @JsonProperty("username") @Nullable final String username,
       @JsonProperty("storageCapable") final boolean storageCapable) {
 
     this.uuid = uuid;
     this.number = number;
     this.pni = pni;
+    this.username = username;
     this.storageCapable = storageCapable;
   }
 
@@ -40,6 +47,11 @@ public class AccountCreationResult {
 
   public UUID getPni() {
     return pni;
+  }
+
+  @Nullable
+  public String getUsername() {
+    return username;
   }
 
   public boolean isStorageCapable() {
