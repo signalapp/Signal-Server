@@ -5,9 +5,7 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,9 +27,6 @@ public class BaseProfileResponse {
   private List<Badge> badges;
 
   @JsonProperty
-  private String username;
-
-  @JsonProperty
   private UUID uuid;
 
   public BaseProfileResponse() {
@@ -42,7 +37,6 @@ public class BaseProfileResponse {
       final boolean unrestrictedUnidentifiedAccess,
       final UserCapabilities capabilities,
       final List<Badge> badges,
-      @Nullable final String username,
       final UUID uuid) {
 
     this.identityKey = identityKey;
@@ -50,7 +44,6 @@ public class BaseProfileResponse {
     this.unrestrictedUnidentifiedAccess = unrestrictedUnidentifiedAccess;
     this.capabilities = capabilities;
     this.badges = badges;
-    this.username = username;
     this.uuid = uuid;
   }
 
@@ -72,10 +65,6 @@ public class BaseProfileResponse {
 
   public List<Badge> getBadges() {
     return badges;
-  }
-
-  public String getUsername() {
-    return username;
   }
 
   public UUID getUuid() {

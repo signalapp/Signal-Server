@@ -346,7 +346,6 @@ public class ProfileController {
             getAcceptableLanguagesForRequest(containerRequestContext),
             account.getBadges(),
             isSelf),
-        isSelf ? account.getUsername().orElse(null) : null,
         account.getUuid());
   }
 

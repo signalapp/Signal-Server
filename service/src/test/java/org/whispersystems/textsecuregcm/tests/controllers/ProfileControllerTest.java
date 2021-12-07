@@ -219,7 +219,6 @@ class ProfileControllerTest {
                               .get(BaseProfileResponse.class);
 
     assertThat(profile.getIdentityKey()).isEqualTo("bar");
-    assertThat(profile.getUsername()).isNull();
     assertThat(profile.getBadges()).hasSize(1).element(0).has(new Condition<>(
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
 
@@ -236,7 +235,6 @@ class ProfileControllerTest {
                               .get(BaseProfileResponse.class);
 
     assertThat(profile.getIdentityKey()).isEqualTo("bar");
-    assertThat(profile.getUsername()).isNull();
     assertThat(profile.getUuid()).isEqualTo(AuthHelper.VALID_UUID_TWO);
     assertThat(profile.getBadges()).hasSize(1).element(0).has(new Condition<>(
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
@@ -550,7 +548,6 @@ class ProfileControllerTest {
     assertThat(profile.getAvatar()).isEqualTo("profiles/validavatar");
     assertThat(profile.getBaseProfileResponse().getCapabilities().isGv2()).isFalse();
     assertThat(profile.getBaseProfileResponse().getCapabilities().isGv1Migration()).isFalse();
-    assertThat(profile.getBaseProfileResponse().getUsername()).isNull();
     assertThat(profile.getBaseProfileResponse().getUuid()).isEqualTo(AuthHelper.VALID_UUID_TWO);
     assertThat(profile.getBaseProfileResponse().getBadges()).hasSize(1).element(0).has(new Condition<>(
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
