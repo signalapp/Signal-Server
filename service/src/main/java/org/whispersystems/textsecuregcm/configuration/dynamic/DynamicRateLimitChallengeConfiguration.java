@@ -12,9 +12,6 @@ import javax.validation.constraints.NotNull;
 public class DynamicRateLimitChallengeConfiguration {
 
   @JsonProperty
-  boolean unsealedSenderLimitEnforced = false;
-
-  @JsonProperty
   @NotNull
   private Map<ClientPlatform, Semver> clientSupportedVersions = Collections.emptyMap();
 
@@ -25,9 +22,5 @@ public class DynamicRateLimitChallengeConfiguration {
 
   public Optional<Semver> getMinimumSupportedVersion(final ClientPlatform platform) {
     return Optional.ofNullable(clientSupportedVersions.get(platform));
-  }
-
-  public boolean isUnsealedSenderLimitEnforced() {
-    return unsealedSenderLimitEnforced;
   }
 }

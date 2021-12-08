@@ -355,13 +355,11 @@ class DynamicConfigurationTest {
           DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
       assertThat(emptyConfig.getRateLimitChallengeConfiguration().getClientSupportedVersions()).isEmpty();
-      assertThat(emptyConfig.getRateLimitChallengeConfiguration().isUnsealedSenderLimitEnforced()).isFalse();
     }
 
     {
       final String rateLimitChallengeConfig = """
           rateLimitChallenge:
-            unsealedSenderLimitEnforced: true
             clientSupportedVersions:
               IOS: 5.1.0
               ANDROID: 5.2.0
@@ -377,7 +375,6 @@ class DynamicConfigurationTest {
       assertThat(clientSupportedVersions.get(ClientPlatform.IOS)).isEqualTo(new Semver("5.1.0"));
       assertThat(clientSupportedVersions.get(ClientPlatform.ANDROID)).isEqualTo(new Semver("5.2.0"));
       assertThat(clientSupportedVersions.get(ClientPlatform.DESKTOP)).isEqualTo(new Semver("5.0.0"));
-      assertThat(rateLimitChallengeConfiguration.isUnsealedSenderLimitEnforced()).isTrue();
     }
   }
 
