@@ -13,19 +13,47 @@ dynamoDbClientConfiguration:
   region: us-west-2 # AWS Region
 
 dynamoDbTables:
+  accounts:
+    tableName: Example_Accounts
+    phoneNumberTableName: Example_Accounts_PhoneNumbers
+    phoneNumberIdentifierTableName: Example_Accounts_PhoneNumberIdentifiers
+    usernamesTableName: Example_Accounts_Usernames
+    scanPageSize: 100
+  deletedAccounts:
+    tableName: Example_DeletedAccounts
+    needsReconciliationIndexName: NeedsReconciliation
+  deletedAccountsLock:
+    tableName: Example_DeletedAccountsLock
   issuedReceipts:
     tableName: Example_IssuedReceipts
     expiration: P30D # Duration of time until rows expire
     generator: abcdefg12345678= # random base64-encoded binary sequence
+  keys:
+    tableName: Example_Keys
+  messages:
+    tableName: Example_Messages
+    expiration: P30D # Duration of time until rows expire
+  pendingAccounts:
+    tableName: Example_PendingAccounts
+  pendingDevices:
+    tableName: Example_PendingDevices
+  phoneNumberIdentifiers:
+    tableName: Example_PhoneNumberIdentifiers
+  profiles:
+    tableName: Example_Profiles
+  pushChallenge:
+    tableName: Example_PushChallenge
   redeemedReceipts:
     tableName: Example_RedeemedReceipts
     expiration: P30D # Duration of time until rows expire
-  subscriptions:
-    tableName: Example_Subscriptions
-  profiles:
-    tableName: Example_Profiles
   remoteConfig:
     tableName: Example_RemoteConfig
+  reportMessage:
+    tableName: Example_ReportMessage
+  reservedUsernames:
+    tableName: Example_ReservedUsernames
+  subscriptions:
+    tableName: Example_Subscriptions
 
 twilio: # Twilio gateway configuration
   accountId: unset
@@ -125,54 +153,6 @@ messageCache: # Redis server configuration for message store cache
 
 metricsCluster:
   configurationUri: redis://redis.example.com:6379/
-
-messageDynamoDb: # DynamoDB table configuration
-  region: us-west-2
-  tableName: Example_Messages
-
-keysDynamoDb: # DynamoDB table configuration
-  region: us-west-2
-  tableName: Example_PreKeys
-
-accountsDynamoDb: # DynamoDB table configuration
-  region: us-west-2
-  tableName: Example_Accounts
-  phoneNumberTableName: Example_Accounts_PhoneNumbers
-  phoneNumberIdentifierTableName: Example_Accounts_PhoneNumberIdentifiers
-  usernamesTableName: Example_Accounts_Usernames
-
-deletedAccountsDynamoDb: # DynamoDb table configuration
-  region: us-west-2
-  tableName: Example_DeletedAccounts
-  needsReconciliationIndexName: NeedsReconciliation
-
-deletedAccountsLockDynamoDb: # DynamoDb table configuration
-  region: us-west-2
-  tableName: Example_DeletedAccountsLock
-
-pendingAccountsDynamoDb: # DynamoDB table configuration
-  region: us-west-2
-  tableName: Example_PendingAccounts
-
-pendingDevicesDynamoDb: # DynamoDB table configuration
-  region: us-west-2
-  tableName: Example_PendingDevices
-
-reservedUsernamesDynamoDb: # DynamoDB table configuration
-  region: us-west-2
-  tableName: Example_ReservedUsernames
-
-phoneNumberIdentifiersDynamoDb: # DynamoDB table configuration
-  region: us-west-2
-  tableName: Example_PhoneNumberIdentifiers
-
-pushChallengeDynamoDb: # DynamoDB table configuration
-  region: us-west-2
-  tableName: Example_PushChallenges
-
-reportMessageDynamoDb: # DynamoDB table configuration
-  region: us-west-2
-  tableName: Example_ReportedMessages
 
 awsAttachments: # AWS S3 configuration
   accessKey: test

@@ -41,11 +41,11 @@ public class ReserveUsernameCommand extends ConfiguredCommand<WhisperServerConfi
   protected void run(final Bootstrap<WhisperServerConfiguration> bootstrap, final Namespace namespace,
       final WhisperServerConfiguration config) throws Exception {
 
-    final DynamoDbClient reservedUsernamesDynamoDbClient = DynamoDbFromConfig.client(config.getReservedUsernamesDynamoDbConfiguration(),
+    final DynamoDbClient dynamoDbClient = DynamoDbFromConfig.client(config.getDynamoDbClientConfiguration(),
         software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
-    final ReservedUsernames reservedUsernames = new ReservedUsernames(reservedUsernamesDynamoDbClient,
-        config.getReservedUsernamesDynamoDbConfiguration().getTableName());
+    final ReservedUsernames reservedUsernames = new ReservedUsernames(dynamoDbClient,
+        config.getDynamoDbTables().getReservedUsernames().getTableName());
 
     final String pattern = namespace.getString("pattern").trim();
 

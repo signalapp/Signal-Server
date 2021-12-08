@@ -94,26 +94,6 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
 
       ClientResources redisClusterClientResources = ClientResources.builder().build();
 
-      DynamoDbClient reportMessagesDynamoDb = DynamoDbFromConfig
-          .client(configuration.getReportMessageDynamoDbConfiguration(),
-              software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
-      DynamoDbClient messageDynamoDb = DynamoDbFromConfig.client(configuration.getMessageDynamoDbConfiguration(),
-          software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
-      DynamoDbClient preKeysDynamoDb = DynamoDbFromConfig.client(configuration.getKeysDynamoDbConfiguration(),
-          software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
-      DynamoDbClient accountsDynamoDbClient = DynamoDbFromConfig
-          .client(configuration.getAccountsDynamoDbConfiguration(),
-              software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
-      DynamoDbClient deletedAccountsDynamoDbClient = DynamoDbFromConfig
-          .client(configuration.getDeletedAccountsDynamoDbConfiguration(),
-              software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
-      DynamoDbClient phoneNumberIdentifiersDynamoDbClient =
-          DynamoDbFromConfig.client(configuration.getPhoneNumberIdentifiersDynamoDbConfiguration(),
-              software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
-      DynamoDbClient reservedUsernamesDynamoDbClient =
-          DynamoDbFromConfig.client(configuration.getReservedUsernamesDynamoDbConfiguration(),
-              software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
-
       FaultTolerantRedisCluster cacheCluster = new FaultTolerantRedisCluster("main_cache_cluster",
           configuration.getCacheClusterConfiguration(), redisClusterClientResources);
       FaultTolerantRedisCluster rateLimitersCluster = new FaultTolerantRedisCluster("rate_limiters",
@@ -136,10 +116,6 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
           configuration.getAppConfig().getConfigurationName(), DynamicConfiguration.class);
       dynamicConfigurationManager.start();
 
-      DynamoDbClient pendingAccountsDynamoDbClient = DynamoDbFromConfig
-          .client(configuration.getPendingAccountsDynamoDbConfiguration(),
-              software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
-
       DynamoDbAsyncClient dynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(
           configuration.getDynamoDbClientConfiguration(),
           software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
@@ -149,39 +125,39 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
           software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
       AmazonDynamoDB deletedAccountsLockDynamoDbClient = AmazonDynamoDBClientBuilder.standard()
-          .withRegion(configuration.getDeletedAccountsLockDynamoDbConfiguration().getRegion())
+          .withRegion(configuration.getDynamoDbClientConfiguration().getRegion())
           .withClientConfiguration(new ClientConfiguration().withClientExecutionTimeout(
-              ((int) configuration.getDeletedAccountsLockDynamoDbConfiguration().getClientExecutionTimeout()
+              ((int) configuration.getDynamoDbClientConfiguration().getClientExecutionTimeout()
                   .toMillis()))
               .withRequestTimeout(
-                  (int) configuration.getDeletedAccountsLockDynamoDbConfiguration().getClientRequestTimeout()
+                  (int) configuration.getDynamoDbClientConfiguration().getClientRequestTimeout()
                       .toMillis()))
           .withCredentials(InstanceProfileCredentialsProvider.getInstance())
           .build();
 
-      DeletedAccounts deletedAccounts = new DeletedAccounts(deletedAccountsDynamoDbClient,
-          configuration.getDeletedAccountsDynamoDbConfiguration().getTableName(),
-          configuration.getDeletedAccountsDynamoDbConfiguration().getNeedsReconciliationIndexName());
-      VerificationCodeStore pendingAccounts = new VerificationCodeStore(pendingAccountsDynamoDbClient,
-          configuration.getPendingAccountsDynamoDbConfiguration().getTableName());
+      DeletedAccounts deletedAccounts = new DeletedAccounts(dynamoDbClient,
+          configuration.getDynamoDbTables().getDeletedAccounts().getTableName(),
+          configuration.getDynamoDbTables().getDeletedAccounts().getNeedsReconciliationIndexName());
+      VerificationCodeStore pendingAccounts = new VerificationCodeStore(dynamoDbClient,
+          configuration.getDynamoDbTables().getPendingAccounts().getTableName());
 
-      Accounts accounts = new Accounts(accountsDynamoDbClient,
-          configuration.getAccountsDynamoDbConfiguration().getTableName(),
-          configuration.getAccountsDynamoDbConfiguration().getPhoneNumberTableName(),
-          configuration.getAccountsDynamoDbConfiguration().getPhoneNumberIdentifierTableName(),
-          configuration.getAccountsDynamoDbConfiguration().getUsernamesTableName(),
-          configuration.getAccountsDynamoDbConfiguration().getScanPageSize());
-      PhoneNumberIdentifiers phoneNumberIdentifiers = new PhoneNumberIdentifiers(phoneNumberIdentifiersDynamoDbClient,
-          configuration.getPhoneNumberIdentifiersDynamoDbConfiguration().getTableName());
+      Accounts accounts = new Accounts(dynamoDbClient,
+          configuration.getDynamoDbTables().getAccounts().getTableName(),
+          configuration.getDynamoDbTables().getAccounts().getPhoneNumberTableName(),
+          configuration.getDynamoDbTables().getAccounts().getPhoneNumberIdentifierTableName(),
+          configuration.getDynamoDbTables().getAccounts().getUsernamesTableName(),
+          configuration.getDynamoDbTables().getAccounts().getScanPageSize());
+      PhoneNumberIdentifiers phoneNumberIdentifiers = new PhoneNumberIdentifiers(dynamoDbClient,
+          configuration.getDynamoDbTables().getPhoneNumberIdentifiers().getTableName());
       Profiles profiles = new Profiles(dynamoDbClient, dynamoDbAsyncClient,
           configuration.getDynamoDbTables().getProfiles().getTableName());
-      ReservedUsernames reservedUsernames = new ReservedUsernames(reservedUsernamesDynamoDbClient,
-          configuration.getReservedUsernamesDynamoDbConfiguration().getTableName());
-      Keys keys = new Keys(preKeysDynamoDb,
-          configuration.getKeysDynamoDbConfiguration().getTableName());
-      MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(messageDynamoDb,
-          configuration.getMessageDynamoDbConfiguration().getTableName(),
-          configuration.getMessageDynamoDbConfiguration().getTimeToLive());
+      ReservedUsernames reservedUsernames = new ReservedUsernames(dynamoDbClient,
+          configuration.getDynamoDbTables().getReservedUsernames().getTableName());
+      Keys keys = new Keys(dynamoDbClient,
+          configuration.getDynamoDbTables().getKeys().getTableName());
+      MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient,
+          configuration.getDynamoDbTables().getMessages().getTableName(),
+          configuration.getDynamoDbTables().getMessages().getExpiration());
       FaultTolerantRedisCluster messageInsertCacheCluster = new FaultTolerantRedisCluster("message_insert_cluster",
           configuration.getMessageCacheConfiguration().getRedisClusterConfiguration(), redisClusterClientResources);
       FaultTolerantRedisCluster messageReadDeleteCluster = new FaultTolerantRedisCluster("message_read_delete_cluster",
@@ -202,8 +178,8 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
       DirectoryQueue directoryQueue = new DirectoryQueue(
           configuration.getDirectoryConfiguration().getSqsConfiguration());
       ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
-      ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(reportMessagesDynamoDb,
-          configuration.getReportMessageDynamoDbConfiguration().getTableName(),
+      ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(dynamoDbClient,
+          configuration.getDynamoDbTables().getReportMessage().getTableName(),
           configuration.getReportMessageConfiguration().getReportTtl());
       ReportMessageManager reportMessageManager = new ReportMessageManager(reportMessageDynamoDb, rateLimitersCluster,
           Metrics.globalRegistry, configuration.getReportMessageConfiguration().getCounterTtl());
@@ -211,7 +187,7 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
           reportMessageManager);
       DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
           deletedAccountsLockDynamoDbClient,
-          configuration.getDeletedAccountsLockDynamoDbConfiguration().getTableName());
+          configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());
       StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
       AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
           deletedAccountsManager, directoryQueue, keys, messagesManager, reservedUsernames, profilesManager,

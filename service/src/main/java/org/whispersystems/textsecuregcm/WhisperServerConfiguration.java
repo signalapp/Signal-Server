@@ -15,7 +15,6 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.configuration.AbusiveMessageFilterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AccountDatabaseCrawlerConfiguration;
-import org.whispersystems.textsecuregcm.configuration.AccountsDynamoDbConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AppConfigConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AwsAttachmentsConfiguration;
@@ -24,18 +23,15 @@ import org.whispersystems.textsecuregcm.configuration.BoostConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DatabaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DatadogConfiguration;
-import org.whispersystems.textsecuregcm.configuration.DeletedAccountsDynamoDbConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryV2Configuration;
 import org.whispersystems.textsecuregcm.configuration.DonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbClientConfiguration;
-import org.whispersystems.textsecuregcm.configuration.DynamoDbConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbTables;
 import org.whispersystems.textsecuregcm.configuration.GcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
-import org.whispersystems.textsecuregcm.configuration.MessageDynamoDbConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PaymentsServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PushConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
@@ -154,61 +150,6 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private RedisClusterConfiguration clientPresenceCluster;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private MessageDynamoDbConfiguration messageDynamoDb;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private DynamoDbConfiguration keysDynamoDb;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private AccountsDynamoDbConfiguration accountsDynamoDb;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private DynamoDbConfiguration phoneNumberIdentifiersDynamoDb;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private DeletedAccountsDynamoDbConfiguration deletedAccountsDynamoDb;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private DynamoDbConfiguration deletedAccountsLockDynamoDb;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private DynamoDbConfiguration pushChallengeDynamoDb;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private DynamoDbConfiguration reportMessageDynamoDb;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private DynamoDbConfiguration pendingAccountsDynamoDb;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private DynamoDbConfiguration pendingDevicesDynamoDb;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private DynamoDbConfiguration reservedUsernamesDynamoDb;
 
   @Valid
   @NotNull
@@ -428,30 +369,6 @@ public class WhisperServerConfiguration extends Configuration {
     return rateLimitersCluster;
   }
 
-  public MessageDynamoDbConfiguration getMessageDynamoDbConfiguration() {
-    return messageDynamoDb;
-  }
-
-  public DynamoDbConfiguration getKeysDynamoDbConfiguration() {
-    return keysDynamoDb;
-  }
-
-  public AccountsDynamoDbConfiguration getAccountsDynamoDbConfiguration() {
-    return accountsDynamoDb;
-  }
-
-  public DynamoDbConfiguration getPhoneNumberIdentifiersDynamoDbConfiguration() {
-    return phoneNumberIdentifiersDynamoDb;
-  }
-
-  public DeletedAccountsDynamoDbConfiguration getDeletedAccountsDynamoDbConfiguration() {
-    return deletedAccountsDynamoDb;
-  }
-
-  public DynamoDbConfiguration getDeletedAccountsLockDynamoDbConfiguration() {
-    return deletedAccountsLockDynamoDb;
-  }
-
   public DatabaseConfiguration getAbuseDatabaseConfiguration() {
     return abuseDatabase;
   }
@@ -528,26 +445,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public AppConfigConfiguration getAppConfig() {
     return appConfig;
-  }
-
-  public DynamoDbConfiguration getPushChallengeDynamoDbConfiguration() {
-    return pushChallengeDynamoDb;
-  }
-
-  public DynamoDbConfiguration getReportMessageDynamoDbConfiguration() {
-    return reportMessageDynamoDb;
-  }
-
-  public DynamoDbConfiguration getPendingAccountsDynamoDbConfiguration() {
-    return pendingAccountsDynamoDb;
-  }
-
-  public DynamoDbConfiguration getPendingDevicesDynamoDbConfiguration() {
-    return pendingDevicesDynamoDb;
-  }
-
-  public DynamoDbConfiguration getReservedUsernamesDynamoDbConfiguration() {
-    return reservedUsernamesDynamoDb;
   }
 
   public DonationConfiguration getDonationConfiguration() {

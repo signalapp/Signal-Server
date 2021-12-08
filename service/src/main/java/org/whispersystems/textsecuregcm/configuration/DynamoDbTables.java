@@ -46,53 +46,152 @@ public class DynamoDbTables {
     }
   }
 
+  private final AccountsTableConfiguration accounts;
+  private final DeletedAccountsTableConfiguration deletedAccounts;
+  private final Table deletedAccountsLock;
   private final IssuedReceiptsTableConfiguration issuedReceipts;
-  private final TableWithExpiration redeemedReceipts;
-  private final Table subscriptions;
+  private final Table keys;
+  private final TableWithExpiration messages;
+  private final Table pendingAccounts;
+  private final Table pendingDevices;
+  private final Table phoneNumberIdentifiers;
   private final Table profiles;
+  private final Table pushChallenge;
+  private final TableWithExpiration redeemedReceipts;
   private final Table remoteConfig;
+  private final Table reportMessage;
+  private final Table reservedUsernames;
+  private final Table subscriptions;
 
-  @JsonCreator
   public DynamoDbTables(
+      @JsonProperty("accounts") final AccountsTableConfiguration accounts,
+      @JsonProperty("deletedAccounts") final DeletedAccountsTableConfiguration deletedAccounts,
+      @JsonProperty("deletedAccountsLock") final Table deletedAccountsLock,
       @JsonProperty("issuedReceipts") final IssuedReceiptsTableConfiguration issuedReceipts,
-      @JsonProperty("redeemedReceipts") final TableWithExpiration redeemedReceipts,
-      @JsonProperty("subscriptions") final Table subscriptions,
+      @JsonProperty("keys") final Table keys,
+      @JsonProperty("messages") final TableWithExpiration messages,
+      @JsonProperty("pendingAccounts") final Table pendingAccounts,
+      @JsonProperty("pendingDevices") final Table pendingDevices,
+      @JsonProperty("phoneNumberIdentifiers") final Table phoneNumberIdentifiers,
       @JsonProperty("profiles") final Table profiles,
-      @JsonProperty("remoteConfig") final Table remoteConfig) {
+      @JsonProperty("pushChallenge") final Table pushChallenge,
+      @JsonProperty("redeemedReceipts") final TableWithExpiration redeemedReceipts,
+      @JsonProperty("remoteConfig") final Table remoteConfig,
+      @JsonProperty("reportMessage") final Table reportMessage,
+      @JsonProperty("reservedUsernames") final Table reservedUsernames,
+      @JsonProperty("subscriptions") final Table subscriptions) {
+
+    this.accounts = accounts;
+    this.deletedAccounts = deletedAccounts;
+    this.deletedAccountsLock = deletedAccountsLock;
     this.issuedReceipts = issuedReceipts;
-    this.redeemedReceipts = redeemedReceipts;
-    this.subscriptions = subscriptions;
+    this.keys = keys;
+    this.messages = messages;
+    this.pendingAccounts = pendingAccounts;
+    this.pendingDevices = pendingDevices;
+    this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.profiles = profiles;
+    this.pushChallenge = pushChallenge;
+    this.redeemedReceipts = redeemedReceipts;
     this.remoteConfig = remoteConfig;
+    this.reportMessage = reportMessage;
+    this.reservedUsernames = reservedUsernames;
+    this.subscriptions = subscriptions;
   }
 
-  @Valid
   @NotNull
+  @Valid
+  public AccountsTableConfiguration getAccounts() {
+    return accounts;
+  }
+
+  @NotNull
+  @Valid
+  public DeletedAccountsTableConfiguration getDeletedAccounts() {
+    return deletedAccounts;
+  }
+
+  @NotNull
+  @Valid
+  public Table getDeletedAccountsLock() {
+    return deletedAccountsLock;
+  }
+
+  @NotNull
+  @Valid
   public IssuedReceiptsTableConfiguration getIssuedReceipts() {
     return issuedReceipts;
   }
 
-  @Valid
   @NotNull
-  public TableWithExpiration getRedeemedReceipts() {
-    return redeemedReceipts;
+  @Valid
+  public Table getKeys() {
+    return keys;
   }
 
-  @Valid
   @NotNull
-  public Table getSubscriptions() {
-    return subscriptions;
+  @Valid
+  public TableWithExpiration getMessages() {
+    return messages;
   }
 
-  @Valid
   @NotNull
+  @Valid
+  public Table getPendingAccounts() {
+    return pendingAccounts;
+  }
+
+  @NotNull
+  @Valid
+  public Table getPendingDevices() {
+    return pendingDevices;
+  }
+
+  @NotNull
+  @Valid
+  public Table getPhoneNumberIdentifiers() {
+    return phoneNumberIdentifiers;
+  }
+
+  @NotNull
+  @Valid
   public Table getProfiles() {
     return profiles;
   }
 
-  @Valid
   @NotNull
+  @Valid
+  public Table getPushChallenge() {
+    return pushChallenge;
+  }
+
+  @NotNull
+  @Valid
+  public TableWithExpiration getRedeemedReceipts() {
+    return redeemedReceipts;
+  }
+
+  @NotNull
+  @Valid
   public Table getRemoteConfig() {
     return remoteConfig;
+  }
+
+  @NotNull
+  @Valid
+  public Table getReportMessage() {
+    return reportMessage;
+  }
+
+  @NotNull
+  @Valid
+  public Table getReservedUsernames() {
+    return reservedUsernames;
+  }
+
+  @NotNull
+  @Valid
+  public Table getSubscriptions() {
+    return subscriptions;
   }
 }
