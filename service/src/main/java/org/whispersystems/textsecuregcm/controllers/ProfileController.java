@@ -43,6 +43,8 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.binary.Hex;
@@ -85,6 +87,8 @@ import org.whispersystems.textsecuregcm.util.Pair;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/profile")
 public class ProfileController {
@@ -108,6 +112,8 @@ public class ProfileController {
 
   private static final String PROFILE_KEY_CREDENTIAL_TYPE = "profileKey";
   private static final String PNI_CREDENTIAL_TYPE = "pni";
+
+  private static final Counter VERSION_NOT_FOUND_COUNTER = Metrics.counter(name(ProfileController.class, "versionNotFound"));
 
   public ProfileController(
       Clock clock,
@@ -317,6 +323,11 @@ public class ProfileController {
       final ContainerRequestContext containerRequestContext) {
 
     final Optional<VersionedProfile> maybeProfile = profilesManager.get(account.getUuid(), version);
+
+    if (maybeProfile.isEmpty()) {
+      // Hypothesis: this should basically never happen since clients can't delete versions
+      VERSION_NOT_FOUND_COUNTER.increment();
+    }
 
     final String name = maybeProfile.map(VersionedProfile::getName).orElse(null);
     final String about = maybeProfile.map(VersionedProfile::getAbout).orElse(null);
