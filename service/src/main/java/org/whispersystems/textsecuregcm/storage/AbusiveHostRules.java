@@ -112,10 +112,10 @@ public class AbusiveHostRules {
       try (Timer.Context timer = insertTimer.time()) {
         return handle.createUpdate(
                 "INSERT INTO abusive_host_rules(host, blocked, notes, regions) VALUES(:host::inet, :blocked, :notes, :regions) ON CONFLICT DO NOTHING")
-            .bind("host", rule.getHost())
-            .bind("blocked", rule.isBlocked() ? 1 : 0)
+            .bind("host", rule.host())
+            .bind("blocked", rule.blocked() ? 1 : 0)
             .bind("notes", notes)
-            .bind("regions", String.join(",", rule.getRegions()))
+            .bind("regions", String.join(",", rule.regions()))
             .execute();
       }
     }));

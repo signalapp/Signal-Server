@@ -92,7 +92,6 @@ import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.ImpossiblePhoneNumberException;
 import org.whispersystems.textsecuregcm.util.NonNormalizedPhoneNumberException;
 import org.whispersystems.textsecuregcm.util.Username;
-import org.whispersystems.textsecuregcm.util.UsernameValidator;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
 
@@ -728,14 +727,14 @@ public class AccountController {
     List<AbusiveHostRule> abuseRules = abusiveHostRules.getAbusiveHostRulesFor(sourceHost);
 
     for (AbusiveHostRule abuseRule : abuseRules) {
-      if (abuseRule.isBlocked()) {
+      if (abuseRule.blocked()) {
         logger.info("Blocked host: {}, {}, {} ({})", transport, number, sourceHost, forwardedFor);
         blockedHostMeter.mark();
         return new CaptchaRequirement(true, false);
       }
 
-      if (!abuseRule.getRegions().isEmpty()) {
-        if (abuseRule.getRegions().stream().noneMatch(number::startsWith)) {
+      if (!abuseRule.regions().isEmpty()) {
+        if (abuseRule.regions().stream().noneMatch(number::startsWith)) {
           logger.info("Restricted host: {}, {}, {} ({})", transport, number, sourceHost, forwardedFor);
           filteredHostMeter.mark();
           return new CaptchaRequirement(true, false);

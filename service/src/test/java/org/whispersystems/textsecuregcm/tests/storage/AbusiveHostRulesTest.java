@@ -69,9 +69,9 @@ class AbusiveHostRulesTest {
 
     List<AbusiveHostRule> rules = abusiveHostRules.getAbusiveHostRulesFor("192.168.1.1");
     assertThat(rules.size()).isEqualTo(1);
-    assertThat(rules.get(0).getRegions().isEmpty()).isTrue();
-    assertThat(rules.get(0).getHost()).isEqualTo("192.168.1.1");
-    assertThat(rules.get(0).isBlocked()).isTrue();
+    assertThat(rules.get(0).regions().isEmpty()).isTrue();
+    assertThat(rules.get(0).host()).isEqualTo("192.168.1.1");
+    assertThat(rules.get(0).blocked()).isTrue();
   }
 
   @Test
@@ -84,9 +84,9 @@ class AbusiveHostRulesTest {
 
     List<AbusiveHostRule> rules = abusiveHostRules.getAbusiveHostRulesFor("192.168.1.1");
     assertThat(rules.size()).isEqualTo(1);
-    assertThat(rules.get(0).getRegions().isEmpty()).isTrue();
-    assertThat(rules.get(0).getHost()).isEqualTo("192.168.1.0/24");
-    assertThat(rules.get(0).isBlocked()).isTrue();
+    assertThat(rules.get(0).regions().isEmpty()).isTrue();
+    assertThat(rules.get(0).host()).isEqualTo("192.168.1.0/24");
+    assertThat(rules.get(0).blocked()).isTrue();
   }
 
   @Test
@@ -112,8 +112,8 @@ class AbusiveHostRulesTest {
 
     List<AbusiveHostRule> rules = abusiveHostRules.getAbusiveHostRulesFor("192.168.1.100");
     assertThat(rules.size()).isEqualTo(1);
-    assertThat(rules.get(0).isBlocked()).isFalse();
-    assertThat(rules.get(0).getRegions()).isEqualTo(Arrays.asList("+1", "+49"));
+    assertThat(rules.get(0).blocked()).isFalse();
+    assertThat(rules.get(0).regions()).isEqualTo(Arrays.asList("+1", "+49"));
   }
 
   @Test
