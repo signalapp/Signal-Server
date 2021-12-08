@@ -66,6 +66,8 @@ class WebSocketConnectionIntegrationTest {
   @RegisterExtension
   static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
+  private static final int SEND_FUTURES_TIMEOUT_MILLIS = 100;
+
   private ExecutorService executorService;
   private MessagesDynamoDb messagesDynamoDb;
   private MessagesCache messagesCache;
@@ -102,6 +104,7 @@ class WebSocketConnectionIntegrationTest {
         new AuthenticatedAccount(() -> new Pair<>(account, device)),
         device,
         webSocketClient,
+        SEND_FUTURES_TIMEOUT_MILLIS,
         retrySchedulingExecutor);
   }
 
