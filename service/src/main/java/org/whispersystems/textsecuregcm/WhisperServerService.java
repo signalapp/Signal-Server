@@ -214,6 +214,7 @@ import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.CheckDynamicConfigurationCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
+import org.whispersystems.textsecuregcm.workers.MigrateAbusiveHostRulesCommand;
 import org.whispersystems.textsecuregcm.workers.ReserveUsernameCommand;
 import org.whispersystems.textsecuregcm.workers.ServerVersionCommand;
 import org.whispersystems.textsecuregcm.workers.SetCrawlerAccelerationTask;
@@ -242,6 +243,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new CheckDynamicConfigurationCommand());
     bootstrap.addCommand(new SetUserDiscoverabilityCommand());
     bootstrap.addCommand(new ReserveUsernameCommand());
+    bootstrap.addCommand(new MigrateAbusiveHostRulesCommand());
 
     bootstrap.addBundle(new NameableMigrationsBundle<WhisperServerConfiguration>("abusedb", "abusedb.xml") {
       @Override
@@ -305,9 +307,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         headerControlledResourceBundleLookup);
 
     JdbiFactory jdbiFactory = new JdbiFactory(DefaultNameStrategy.CHECK_EMPTY);
-    Jdbi        abuseJdbi   = jdbiFactory.build(environment, config.getAbuseDatabaseConfiguration(), "abusedb"  );
+    Jdbi abuseJdbi = jdbiFactory.build(environment, config.getAbuseDatabaseConfiguration(), "abusedb");
 
-    FaultTolerantDatabase abuseDatabase = new FaultTolerantDatabase("abuse_database", abuseJdbi, config.getAbuseDatabaseConfiguration().getCircuitBreakerConfiguration());
+    FaultTolerantDatabase abuseDatabase = new FaultTolerantDatabase("abuse_database", abuseJdbi,
+        config.getAbuseDatabaseConfiguration().getCircuitBreakerConfiguration());
+
+    Jdbi newAbuseJdbi = jdbiFactory.build(environment, config.getAbuseDatabaseConfiguration(), "abusedb2");
+    FaultTolerantDatabase newAbuseDatabase = new FaultTolerantDatabase("abuse_database2", newAbuseJdbi,
+        config.getAbuseDatabaseConfiguration().getCircuitBreakerConfiguration());
 
     DynamoDbAsyncClient dynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(
         config.getDynamoDbClientConfiguration(),
@@ -365,6 +372,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDeletedAccountsDynamoDbConfiguration().getTableName(),
         config.getDeletedAccountsDynamoDbConfiguration().getNeedsReconciliationIndexName());
 
+    DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
+        new DynamicConfigurationManager<>(config.getAppConfig().getApplication(),
+            config.getAppConfig().getEnvironment(),
+            config.getAppConfig().getConfigurationName(),
+            DynamicConfiguration.class);
+
     Accounts accounts = new Accounts(accountsDynamoDbClient,
         config.getAccountsDynamoDbConfiguration().getTableName(),
         config.getAccountsDynamoDbConfiguration().getPhoneNumberTableName(),
@@ -381,12 +394,19 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(messageDynamoDb,
         config.getMessageDynamoDbConfiguration().getTableName(),
         config.getMessageDynamoDbConfiguration().getTimeToLive());
-    AbusiveHostRules abusiveHostRules = new AbusiveHostRules(abuseDatabase);
-    RemoteConfigs remoteConfigs = new RemoteConfigs(dynamoDbClient, config.getDynamoDbTables().getRemoteConfig().getTableName());
-    PushChallengeDynamoDb pushChallengeDynamoDb = new PushChallengeDynamoDb(pushChallengeDynamoDbClient, config.getPushChallengeDynamoDbConfiguration().getTableName());
-    ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(reportMessageDynamoDbClient, config.getReportMessageDynamoDbConfiguration().getTableName(), config.getReportMessageConfiguration().getReportTtl());
-    VerificationCodeStore pendingAccounts = new VerificationCodeStore(pendingAccountsDynamoDbClient, config.getPendingAccountsDynamoDbConfiguration().getTableName());
-    VerificationCodeStore pendingDevices = new VerificationCodeStore(pendingDevicesDynamoDbClient, config.getPendingDevicesDynamoDbConfiguration().getTableName());
+    AbusiveHostRules abusiveHostRules = new AbusiveHostRules(abuseDatabase, newAbuseDatabase,
+        dynamicConfigurationManager);
+    RemoteConfigs remoteConfigs = new RemoteConfigs(dynamoDbClient,
+        config.getDynamoDbTables().getRemoteConfig().getTableName());
+    PushChallengeDynamoDb pushChallengeDynamoDb = new PushChallengeDynamoDb(pushChallengeDynamoDbClient,
+        config.getPushChallengeDynamoDbConfiguration().getTableName());
+    ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(reportMessageDynamoDbClient,
+        config.getReportMessageDynamoDbConfiguration().getTableName(),
+        config.getReportMessageConfiguration().getReportTtl());
+    VerificationCodeStore pendingAccounts = new VerificationCodeStore(pendingAccountsDynamoDbClient,
+        config.getPendingAccountsDynamoDbConfiguration().getTableName());
+    VerificationCodeStore pendingDevices = new VerificationCodeStore(pendingDevicesDynamoDbClient,
+        config.getPendingDevicesDynamoDbConfiguration().getTableName());
 
     RedisClientFactory  pubSubClientFactory = new RedisClientFactory("pubsub_cache", config.getPubsubCacheConfiguration().getUrl(), config.getPubsubCacheConfiguration().getReplicaUrls(), config.getPubsubCacheConfiguration().getCircuitBreakerConfiguration());
     ReplicatedJedisPool pubsubClient        = pubSubClientFactory.getRedisClientPool();
@@ -429,12 +449,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ExternalServiceCredentialGenerator directoryV2CredentialsGenerator = new ExternalServiceCredentialGenerator(
         config.getDirectoryV2Configuration().getDirectoryV2ClientConfiguration()
             .getUserAuthenticationTokenSharedSecret(), false);
-
-    DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
-        new DynamicConfigurationManager<>(config.getAppConfig().getApplication(),
-            config.getAppConfig().getEnvironment(),
-            config.getAppConfig().getConfigurationName(),
-            DynamicConfiguration.class);
 
     dynamicConfigurationManager.start();
 

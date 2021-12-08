@@ -59,6 +59,10 @@ public class DynamicConfiguration {
   @Valid
   private DynamicProfileMigrationConfiguration profileMigration = new DynamicProfileMigrationConfiguration();
 
+  @JsonProperty
+  @Valid
+  private DynamicAbusiveHostRulesMigrationConfiguration abusiveHostRulesMigration = new DynamicAbusiveHostRulesMigrationConfiguration();
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -116,5 +120,9 @@ public class DynamicConfiguration {
 
   public DynamicProfileMigrationConfiguration getProfileMigrationConfiguration() {
     return profileMigration;
+  }
+
+  public DynamicAbusiveHostRulesMigrationConfiguration getAbusiveHostRulesMigrationConfiguration() {
+    return abusiveHostRulesMigration;
   }
 }

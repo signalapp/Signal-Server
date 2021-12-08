@@ -221,6 +221,12 @@ abuseDatabase: # Postgresql database configuration
   password: password
   url: jdbc:postgresql://example.com:5432/abusedb
 
+newAbuseDatabase: # Postgresql database configuration
+  driverClass: org.postgresql.Driver
+  user: example
+  password: password
+  url: jdbc:postgresql://new.example.com:5432/abusedb
+
 accountDatabaseCrawler:
   chunkSize: 10           # accounts per run
   chunkIntervalMs: 60000  # time per run

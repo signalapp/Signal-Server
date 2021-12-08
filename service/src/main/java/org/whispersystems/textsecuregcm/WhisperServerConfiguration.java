@@ -218,6 +218,11 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
+  private DatabaseConfiguration newAbuseDatabase;
+
+  @Valid
+  @NotNull
+  @JsonProperty
   private List<TestDeviceConfiguration> testDevices = new LinkedList<>();
 
   @Valid
@@ -454,6 +459,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public DatabaseConfiguration getAbuseDatabaseConfiguration() {
     return abuseDatabase;
+  }
+
+  public DatabaseConfiguration getNewAbuseDatabaseConfiguration() {
+    return newAbuseDatabase;
   }
 
   public RateLimitsConfiguration getLimitsConfiguration() {
