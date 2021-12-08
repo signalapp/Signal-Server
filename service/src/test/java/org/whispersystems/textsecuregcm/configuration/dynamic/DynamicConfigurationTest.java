@@ -13,7 +13,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.vdurmont.semver4j.Semver;
-import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -21,7 +20,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
-import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration.CardinalityRateLimitConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration.RateLimitConfiguration;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
@@ -326,24 +325,24 @@ class DynamicConfigurationTest {
       final DynamicConfiguration emptyConfig =
           DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
-      assertThat(emptyConfig.getLimits().getUnsealedSenderNumber().getMaxCardinality()).isEqualTo(100);
-      assertThat(emptyConfig.getLimits().getUnsealedSenderNumber().getTtl()).isEqualTo(Duration.ofDays(1));
+      assertThat(emptyConfig.getLimits().getRateLimitReset().getBucketSize()).isEqualTo(2);
+      assertThat(emptyConfig.getLimits().getRateLimitReset().getLeakRatePerMinute()).isEqualTo(2.0 / (60 * 24));
     }
 
     {
       final String limitsConfig = """
           limits:
-            unsealedSenderNumber:
-              maxCardinality: 99
-              ttl: PT23H
+            rateLimitReset:
+              bucketSize: 17
+              leakRatePerMinute: 44
           """;
 
-      final CardinalityRateLimitConfiguration unsealedSenderNumber =
+      final RateLimitConfiguration resetRateLimitConfiguration =
           DynamicConfigurationManager.parseConfiguration(limitsConfig, DynamicConfiguration.class).orElseThrow()
-              .getLimits().getUnsealedSenderNumber();
+              .getLimits().getRateLimitReset();
 
-      assertThat(unsealedSenderNumber.getMaxCardinality()).isEqualTo(99);
-      assertThat(unsealedSenderNumber.getTtl()).isEqualTo(Duration.ofHours(23));
+      assertThat(resetRateLimitConfiguration.getBucketSize()).isEqualTo(17);
+      assertThat(resetRateLimitConfiguration.getLeakRatePerMinute()).isEqualTo(44);
     }
   }
 
