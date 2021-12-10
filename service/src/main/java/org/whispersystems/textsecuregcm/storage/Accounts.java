@@ -498,7 +498,7 @@ public class Accounts extends AbstractDynamoDbStore {
       return Optional.ofNullable(response.item())
           .map(item -> item.get(KEY_ACCOUNT_UUID))
           .map(this::accountByUuid)
-          .map(Accounts::fromItem);
+          .map(this::fromItem);
     });
   }
 
@@ -513,7 +513,7 @@ public class Accounts extends AbstractDynamoDbStore {
       return Optional.ofNullable(response.item())
           .map(item -> item.get(KEY_ACCOUNT_UUID))
           .map(this::accountByUuid)
-          .map(Accounts::fromItem);
+          .map(this::fromItem);
     });
   }
 
@@ -528,7 +528,7 @@ public class Accounts extends AbstractDynamoDbStore {
       return Optional.ofNullable(response.item())
           .map(item -> item.get(KEY_ACCOUNT_UUID))
           .map(this::accountByUuid)
-          .map(Accounts::fromItem);
+          .map(this::fromItem);
     });
   }
 
@@ -544,7 +544,7 @@ public class Accounts extends AbstractDynamoDbStore {
   public Optional<Account> getByAccountIdentifier(UUID uuid) {
     return GET_BY_UUID_TIMER.record(() ->
         Optional.ofNullable(accountByUuid(AttributeValues.fromUUID(uuid)))
-            .map(Accounts::fromItem));
+            .map(this::fromItem));
   }
 
   public void delete(UUID uuid) {
@@ -611,7 +611,7 @@ public class Accounts extends AbstractDynamoDbStore {
 
     final List<Account> accounts = timer.record(() -> scan(scanRequestBuilder.build(), maxCount)
         .stream()
-        .map(Accounts::fromItem)
+        .map(this::fromItem)
         .collect(Collectors.toList()));
 
     return new AccountCrawlChunk(accounts, accounts.size() > 0 ? accounts.get(accounts.size() - 1).getUuid() : null);
@@ -623,8 +623,9 @@ public class Accounts extends AbstractDynamoDbStore {
         .collect(Collectors.joining(", "));
   }
 
+  // TODO Make this static once PNI repairs are complete and the call to #update(Account) is no longer needed
   @VisibleForTesting
-  static Account fromItem(Map<String, AttributeValue> item) {
+  Account fromItem(Map<String, AttributeValue> item) {
     if (!item.containsKey(ATTR_ACCOUNT_DATA) ||
         !item.containsKey(ATTR_ACCOUNT_E164) ||
         // TODO: eventually require ATTR_CANONICALLY_DISCOVERABLE
@@ -644,11 +645,26 @@ public class Accounts extends AbstractDynamoDbStore {
             accountIdentifier, account.getPhoneNumberIdentifier(), phoneNumberIdentifierFromAttribute);
       }
 
+      boolean shouldResetPni = false;
+
+      if (account.getPhoneNumberIdentifier() == null && phoneNumberIdentifierFromAttribute != null) {
+        log.info("Account {} has a PNI in its attributes, but not JSON blob; will repair", accountIdentifier);
+        shouldResetPni = true;
+      }
+
       account.setNumber(item.get(ATTR_ACCOUNT_E164).s(), phoneNumberIdentifierFromAttribute);
       account.setUuid(accountIdentifier);
       account.setUsername(AttributeValues.getString(item, ATTR_USERNAME, null));
       account.setVersion(Integer.parseInt(item.get(ATTR_VERSION).n()));
       account.setCanonicallyDiscoverable(Optional.ofNullable(item.get(ATTR_CANONICALLY_DISCOVERABLE)).map(av -> av.bool()).orElse(false));
+
+      if (shouldResetPni) {
+        try {
+          update(account);
+        } catch (final Exception e) {
+          log.warn("Failed to reset PNI for account {}", accountIdentifier, e);
+        }
+      }
 
       return account;
 
