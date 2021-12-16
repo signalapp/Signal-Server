@@ -540,7 +540,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     CurrencyConversionManager currencyManager = new CurrencyConversionManager(fixerClient, ftxClient, config.getPaymentsServiceConfiguration().getPaymentCurrencies());
 
     apnSender.setApnFallbackManager(apnFallbackManager);
-    environment.lifecycle().manage(new ApplicationShutdownMonitor());
     environment.lifecycle().manage(apnFallbackManager);
     environment.lifecycle().manage(pubSubManager);
     environment.lifecycle().manage(messageSender);
@@ -724,6 +723,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.admin().addTask(new SetCrawlerAccelerationTask(accountDatabaseCrawlerCache));
 
     environment.healthChecks().register("cacheCluster", new RedisClusterHealthCheck(cacheCluster));
+
+    environment.lifecycle().manage(new ApplicationShutdownMonitor());
 
     environment.metrics().register(name(CpuUsageGauge.class, "cpu"), new CpuUsageGauge(3, TimeUnit.SECONDS));
     environment.metrics().register(name(FreeMemoryGauge.class, "free_memory"), new FreeMemoryGauge());
