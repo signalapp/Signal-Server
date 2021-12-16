@@ -769,6 +769,29 @@ class ProfileControllerTest {
   }
 
   @Test
+  void testGetProfileWithProfileKeyCredentialVersionNotFound() throws VerificationFailedException {
+    final Account account = mock(Account.class);
+    when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
+    when(account.getCurrentProfileVersion()).thenReturn(Optional.of("version"));
+    when(account.isEnabled()).thenReturn(true);
+
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
+    when(profilesManager.get(any(), any())).thenReturn(Optional.empty());
+
+    final ProfileKeyCredentialProfileResponse profile = resources.getJerseyTest()
+        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, "version-that-does-not-exist", "credential-request"))
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(ProfileKeyCredentialProfileResponse.class);
+
+    assertThat(profile.getVersionedProfileResponse().getBaseProfileResponse().getUuid()).isEqualTo(AuthHelper.VALID_UUID);
+    assertThat(profile.getCredential()).isNull();
+
+    verify(zkProfileOperations, never()).issueProfileKeyCredential(any(), any(), any());
+    verify(zkProfileOperations, never()).issuePniCredential(any(), any(), any(), any());
+  }
+
+  @Test
   void testGetProfileWithPniCredential() throws InvalidInputException, VerificationFailedException {
     final String version = "version";
 
@@ -861,6 +884,30 @@ class ProfileControllerTest {
         .get();
 
     assertThat(response.getStatus()).isEqualTo(403);
+
+    verify(zkProfileOperations, never()).issueProfileKeyCredential(any(), any(), any());
+    verify(zkProfileOperations, never()).issuePniCredential(any(), any(), any(), any());
+  }
+
+  @Test
+  void testGetProfileWithPniCredentialVersionNotFound() throws VerificationFailedException {
+    final Account account = mock(Account.class);
+    when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
+    when(account.getCurrentProfileVersion()).thenReturn(Optional.of("version"));
+    when(account.isEnabled()).thenReturn(true);
+
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
+    when(profilesManager.get(any(), any())).thenReturn(Optional.empty());
+
+    final PniCredentialProfileResponse profile = resources.getJerseyTest()
+        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, "version-that-does-not-exist", "credential-request"))
+        .queryParam("credentialType", "pni")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(PniCredentialProfileResponse.class);
+
+    assertThat(profile.getVersionedProfileResponse().getBaseProfileResponse().getUuid()).isEqualTo(AuthHelper.VALID_UUID);
+    assertThat(profile.getPniCredential()).isNull();
 
     verify(zkProfileOperations, never()).issueProfileKeyCredential(any(), any(), any());
     verify(zkProfileOperations, never()).issuePniCredential(any(), any(), any(), any());

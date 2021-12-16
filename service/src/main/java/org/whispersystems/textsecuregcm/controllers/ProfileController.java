@@ -296,12 +296,13 @@ public class ProfileController {
       final boolean isSelf,
       final ContainerRequestContext containerRequestContext) {
 
-    final VersionedProfile profile =
-        profilesManager.get(account.getUuid(), version).orElseThrow(NotFoundException::new);
+    final ProfileKeyCredentialResponse profileKeyCredentialResponse = profilesManager.get(account.getUuid(), version)
+        .map(profile -> getProfileCredential(encodedCredentialRequest, profile, account.getUuid()))
+        .orElse(null);
 
     return new ProfileKeyCredentialProfileResponse(
         buildVersionedProfileResponse(account, version, isSelf, containerRequestContext),
-        getProfileCredential(encodedCredentialRequest, profile, account.getUuid()));
+        profileKeyCredentialResponse);
   }
 
   private PniCredentialProfileResponse buildPniCredentialProfileResponse(final Account account,
@@ -309,12 +310,13 @@ public class ProfileController {
       final String encodedCredentialRequest,
       final ContainerRequestContext containerRequestContext) {
 
-    final VersionedProfile profile =
-        profilesManager.get(account.getUuid(), version).orElseThrow(NotFoundException::new);
+    final PniCredentialResponse pniCredentialResponse = profilesManager.get(account.getUuid(), version)
+        .map(profile -> getPniCredential(encodedCredentialRequest, profile, account.getUuid(), account.getPhoneNumberIdentifier()))
+        .orElse(null);
 
     return new PniCredentialProfileResponse(
         buildVersionedProfileResponse(account, version, true, containerRequestContext),
-        getPniCredential(encodedCredentialRequest, profile, account.getUuid(), account.getPhoneNumberIdentifier()));
+        pniCredentialResponse);
   }
 
   private VersionedProfileResponse buildVersionedProfileResponse(final Account account,
