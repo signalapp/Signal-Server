@@ -11,21 +11,20 @@ import static com.github.tomakehurst.wiremock.client.WireMock.matching;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.verify;
-import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.github.tomakehurst.wiremock.junit.WireMockRule;
+import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import java.util.List;
 import java.util.Locale.LanguageRange;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TwilioVerificationTextConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -33,7 +32,7 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicTwilioConfi
 import org.whispersystems.textsecuregcm.sms.TwilioSmsSender;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
-public class TwilioSmsSenderTest {
+class TwilioSmsSenderTest {
 
   private static final String       ACCOUNT_ID                  = "test_account_id";
   private static final String       ACCOUNT_TOKEN               = "test_account_token";
@@ -42,14 +41,16 @@ public class TwilioSmsSenderTest {
   private static final String       VERIFY_SERVICE_SID          = "verify_service_sid";
   private static final String       LOCAL_DOMAIN                = "test.com";
 
-  @Rule
-  public WireMockRule wireMockRule = new WireMockRule(options().dynamicPort().dynamicHttpsPort());
+  @RegisterExtension
+  private final WireMockExtension wireMock = WireMockExtension.newInstance()
+      .options(wireMockConfig().dynamicPort().dynamicHttpsPort())
+      .build();
 
-  private DynamicConfigurationManager dynamicConfigurationManager;
+  private DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private TwilioSmsSender sender;
 
-  @Before
-  public void setup() {
+  @BeforeEach
+  void setup() {
 
     dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
     DynamicConfiguration dynamicConfiguration = new DynamicConfiguration();
@@ -59,7 +60,7 @@ public class TwilioSmsSenderTest {
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
     TwilioConfiguration configuration = createTwilioConfiguration();
-    sender = new TwilioSmsSender("http://localhost:" + wireMockRule.port(), "http://localhost:11111", configuration, dynamicConfigurationManager);
+    sender = new TwilioSmsSender("http://localhost:" + wireMock.getPort(), "http://localhost:11111", configuration, dynamicConfigurationManager);
   }
 
   @Nonnull
@@ -95,7 +96,7 @@ public class TwilioSmsSenderTest {
   }
 
   private void setupSuccessStubForSms() {
-    wireMockRule.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+    wireMock.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
                                  .withBasicAuth(ACCOUNT_ID, ACCOUNT_TOKEN)
                                  .willReturn(aResponse()
                                                      .withHeader("Content-Type", "application/json")
@@ -103,68 +104,68 @@ public class TwilioSmsSenderTest {
   }
 
   @Test
-  public void testSendSms() {
+  void testSendSms() {
     setupSuccessStubForSms();
 
     boolean success = sender.deliverSmsVerification("+14153333333", Optional.of("android-ng"), "123-456").join();
 
     assertThat(success).isTrue();
 
-    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+    wireMock.verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
         .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
         .withRequestBody(equalTo("MessagingServiceSid=nanpa_test_messaging_service_id&To=%2B14153333333&Body=%3C%23%3E+Verify+on+AndroidNg%3A+123-456%0A%0Acharacters")));
   }
 
   @Test
-  public void testSendSmsAndroid202001() {
+  void testSendSmsAndroid202001() {
     setupSuccessStubForSms();
 
     boolean success = sender.deliverSmsVerification("+14153333333", Optional.of("android-2020-01"), "123-456").join();
 
     assertThat(success).isTrue();
 
-    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+    wireMock.verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
             .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
             .withRequestBody(equalTo("MessagingServiceSid=nanpa_test_messaging_service_id&To=%2B14153333333&Body=Verify+on+Android202001%3A+123-456%0A%0Asomelink%3A%2F%2Fverify%2F123-456%0A%0Acharacters")));
   }
 
   @Test
-  public void testSendSmsAndroid202103() {
+  void testSendSmsAndroid202103() {
     setupSuccessStubForSms();
 
     boolean success = sender.deliverSmsVerification("+14153333333", Optional.of("android-2021-03"), "123456").join();
 
     assertThat(success).isTrue();
 
-    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+    wireMock.verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
         .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
         .withRequestBody(equalTo("MessagingServiceSid=nanpa_test_messaging_service_id&To=%2B14153333333&Body=Verify+on+Android202103%3A+123456%0A%0Acharacters")));
   }
 
   @Test
-  public void testSendSmsNanpaMessagingService() {
+  void testSendSmsNanpaMessagingService() {
     setupSuccessStubForSms();
     TwilioConfiguration configuration = createTwilioConfiguration();
     configuration.setNanpaMessagingServiceSid(NANPA_MESSAGING_SERVICE_SID);
 
-    TwilioSmsSender sender = new TwilioSmsSender("http://localhost:" + wireMockRule.port(),
+    TwilioSmsSender sender = new TwilioSmsSender("http://localhost:" + wireMock.getPort(),
         "http://localhost:11111", configuration, dynamicConfigurationManager);
 
     assertThat(sender.deliverSmsVerification("+14153333333", Optional.of("ios"), "654-321").join()).isTrue();
-    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+    wireMock.verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
             .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
             .withRequestBody(equalTo("MessagingServiceSid=nanpa_test_messaging_service_id&To=%2B14153333333&Body=Verify+on+iOS%3A+654-321%0A%0Asomelink%3A%2F%2Fverify%2F654-321")));
 
-    wireMockRule.resetRequests();
+    wireMock.resetRequests();
     assertThat(sender.deliverSmsVerification("+447911123456", Optional.of("ios"), "654-321").join()).isTrue();
-    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+    wireMock.verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
            .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
            .withRequestBody(equalTo("MessagingServiceSid=test_messaging_services_id&To=%2B447911123456&Body=Verify+on+iOS%3A+654-321%0A%0Asomelink%3A%2F%2Fverify%2F654-321")));
   }
 
   @Test
-  public void testSendVox() {
-    wireMockRule.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Calls.json"))
+  void testSendVox() {
+    wireMock.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Calls.json"))
                              .withBasicAuth(ACCOUNT_ID, ACCOUNT_TOKEN)
                              .willReturn(aResponse()
                                              .withHeader("Content-Type", "application/json")
@@ -174,14 +175,14 @@ public class TwilioSmsSenderTest {
 
     assertThat(success).isTrue();
 
-    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Calls.json"))
+    wireMock.verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Calls.json"))
         .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
         .withRequestBody(matching("To=%2B14153333333&From=%2B1415(1111111|2222222)&Url=https%3A%2F%2Ftest.com%2Fv1%2Fvoice%2Fdescription%2F123-456%3Fl%3Den-US")));
   }
 
   @Test
-  public void testSendVoxMultipleLocales() {
-    wireMockRule.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Calls.json"))
+  void testSendVoxMultipleLocales() {
+    wireMock.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Calls.json"))
         .withBasicAuth(ACCOUNT_ID, ACCOUNT_TOKEN)
         .willReturn(aResponse()
             .withHeader("Content-Type", "application/json")
@@ -191,14 +192,14 @@ public class TwilioSmsSenderTest {
 
     assertThat(success).isTrue();
 
-    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Calls.json"))
+    wireMock.verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Calls.json"))
         .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
         .withRequestBody(matching("To=%2B14153333333&From=%2B1415(1111111|2222222)&Url=https%3A%2F%2Ftest.com%2Fv1%2Fvoice%2Fdescription%2F123-456%3Fl%3Den-US%26l%3Dar-US%26l%3Dfa-US%26l%3Dzh-US%26l%3Dru-RU%26l%3Dzh-US")));
   }
 
   @Test
-  public void testSendSmsFiveHundred() {
-    wireMockRule.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+  void testSendSmsFiveHundred() {
+    wireMock.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
                              .withBasicAuth(ACCOUNT_ID, ACCOUNT_TOKEN)
                              .willReturn(aResponse()
                                              .withStatus(500)
@@ -209,14 +210,14 @@ public class TwilioSmsSenderTest {
 
     assertThat(success).isFalse();
 
-    verify(3, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+    wireMock.verify(3, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
         .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
         .withRequestBody(equalTo("MessagingServiceSid=nanpa_test_messaging_service_id&To=%2B14153333333&Body=%3C%23%3E+Verify+on+AndroidNg%3A+123-456%0A%0Acharacters")));
   }
 
   @Test
-  public void testSendVoxFiveHundred() {
-    wireMockRule.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Calls.json"))
+  void testSendVoxFiveHundred() {
+    wireMock.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Calls.json"))
                              .withBasicAuth(ACCOUNT_ID, ACCOUNT_TOKEN)
                              .willReturn(aResponse()
                                              .withStatus(500)
@@ -227,14 +228,14 @@ public class TwilioSmsSenderTest {
 
     assertThat(success).isFalse();
 
-    verify(3, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Calls.json"))
+    wireMock.verify(3, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Calls.json"))
         .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
         .withRequestBody(matching("To=%2B14153333333&From=%2B1415(1111111|2222222)&Url=https%3A%2F%2Ftest.com%2Fv1%2Fvoice%2Fdescription%2F123-456%3Fl%3Den-US")));
 
   }
 
   @Test
-  public void testSendSmsNetworkFailure() {
+  void testSendSmsNetworkFailure() {
     TwilioConfiguration configuration = createTwilioConfiguration();
     TwilioSmsSender sender = new TwilioSmsSender("http://localhost:" + 39873, "http://localhost:" + 39873, configuration, dynamicConfigurationManager);
 
@@ -244,8 +245,8 @@ public class TwilioSmsSenderTest {
   }
 
   @Test
-  public void testRetrySmsOnUnreachableErrorCodeIsTriedOnlyOnceWithoutSenderId() {
-    wireMockRule.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+  void testRetrySmsOnUnreachableErrorCodeIsTriedOnlyOnceWithoutSenderId() {
+    wireMock.stubFor(post(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
                                  .withBasicAuth(ACCOUNT_ID, ACCOUNT_TOKEN)
                                  .willReturn(aResponse()
                                                      .withStatus(400)
@@ -256,33 +257,33 @@ public class TwilioSmsSenderTest {
 
     assertThat(success).isFalse();
 
-    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+    wireMock.verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
             .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
             .withRequestBody(equalTo("MessagingServiceSid=nanpa_test_messaging_service_id&To=%2B14153333333&Body=%3C%23%3E+Verify+on+AndroidNg%3A+123-456%0A%0Acharacters")));
   }
 
   @Test
-  public void testSendSmsChina() {
+  void testSendSmsChina() {
     setupSuccessStubForSms();
 
     boolean success = sender.deliverSmsVerification("+861065529988", Optional.of("android-ng"), "123-456").join();
 
     assertThat(success).isTrue();
 
-    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+    wireMock.verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
             .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
             .withRequestBody(equalTo("MessagingServiceSid=test_messaging_services_id&To=%2B861065529988&Body=%3C%23%3E+Verify+on+AndroidNg%3A+123-456%0A%0Acharacters%E2%80%88")));
   }
 
   @Test
-  public void testSendSmsRegionalVerificationText() {
+  void testSendSmsRegionalVerificationText() {
     setupSuccessStubForSms();
 
     boolean success = sender.deliverSmsVerification("+33655512673", Optional.of("android-ng"), "123-456").join();
 
     assertThat(success).isTrue();
 
-    verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
+    wireMock.verify(1, postRequestedFor(urlEqualTo("/2010-04-01/Accounts/" + ACCOUNT_ID + "/Messages.json"))
         .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
         .withRequestBody(equalTo("MessagingServiceSid=test_messaging_services_id&To=%2B33655512673&Body=%5B33%5D+%3C%23%3E+Verify+on+AndroidNg%3A+123-456%0A%0Acharacters")));
   }

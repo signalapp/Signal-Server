@@ -4,21 +4,6 @@
  */
 package org.whispersystems.textsecuregcm.tests.storage;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.AccountCleaner;
-import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
-import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.Device;
-
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -28,7 +13,21 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-public class AccountCleanerTest {
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountCleaner;
+import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
+
+class AccountCleanerTest {
 
   private final AccountsManager accountsManager = mock(AccountsManager.class);
 
@@ -41,8 +40,8 @@ public class AccountCleanerTest {
   private final Device  undeletedEnabledDevice   = mock(Device.class );
 
 
-  @Before
-  public void setup() {
+  @BeforeEach
+  void setup() {
     when(deletedDisabledDevice.isEnabled()).thenReturn(false);
     when(deletedDisabledDevice.getGcmId()).thenReturn(null);
     when(deletedDisabledDevice.getApnId()).thenReturn(null);
@@ -72,7 +71,7 @@ public class AccountCleanerTest {
   }
 
   @Test
-  public void testAccounts() throws AccountDatabaseCrawlerRestartException, InterruptedException {
+  void testAccounts() throws AccountDatabaseCrawlerRestartException, InterruptedException {
     AccountCleaner accountCleaner = new AccountCleaner(accountsManager);
     accountCleaner.onCrawlStart();
     accountCleaner.timeAndProcessCrawlChunk(Optional.empty(), Arrays.asList(deletedDisabledAccount, undeletedDisabledAccount, undeletedEnabledAccount));
@@ -86,7 +85,7 @@ public class AccountCleanerTest {
   }
 
   @Test
-  public void testMaxAccountUpdates() throws AccountDatabaseCrawlerRestartException, InterruptedException {
+  void testMaxAccountUpdates() throws AccountDatabaseCrawlerRestartException, InterruptedException {
     List<Account> accounts = new LinkedList<>();
     accounts.add(undeletedEnabledAccount);
 

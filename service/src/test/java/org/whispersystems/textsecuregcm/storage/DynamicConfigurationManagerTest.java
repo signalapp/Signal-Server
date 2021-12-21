@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import software.amazon.awssdk.core.SdkBytes;
@@ -13,19 +13,19 @@ import software.amazon.awssdk.services.appconfig.AppConfigClient;
 import software.amazon.awssdk.services.appconfig.model.GetConfigurationRequest;
 import software.amazon.awssdk.services.appconfig.model.GetConfigurationResponse;
 
-public class DynamicConfigurationManagerTest {
+class DynamicConfigurationManagerTest {
 
   private DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private AppConfigClient             appConfig;
 
-  @Before
-  public void setup() {
+  @BeforeEach
+  void setup() {
     this.appConfig                   = mock(AppConfigClient.class);
     this.dynamicConfigurationManager = new DynamicConfigurationManager<>(appConfig, "foo", "bar", "baz", "poof", DynamicConfiguration.class);
   }
 
   @Test
-  public void testGetConfig() {
+  void testGetConfig() {
     ArgumentCaptor<GetConfigurationRequest> captor = ArgumentCaptor.forClass(GetConfigurationRequest.class);
     when(appConfig.getConfiguration(captor.capture())).thenReturn(
         GetConfigurationResponse.builder().content(SdkBytes.fromByteArray("test: true".getBytes())).configurationVersion("1").build());

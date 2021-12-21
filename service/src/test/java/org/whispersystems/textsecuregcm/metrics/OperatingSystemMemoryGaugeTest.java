@@ -1,21 +1,17 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 package org.whispersystems.textsecuregcm.metrics;
 
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
-import org.junit.Test;
-import org.junit.runner.RunWith;
 
-import java.util.Map;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import static org.junit.Assert.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
-@RunWith(JUnitParamsRunner.class)
-public class OperatingSystemMemoryGaugeTest {
+class OperatingSystemMemoryGaugeTest {
 
     private static final String MEMINFO =
         """
@@ -74,13 +70,13 @@ public class OperatingSystemMemoryGaugeTest {
             DirectMap1G:     2097152 kB
             """;
 
-    @Test
-    @Parameters(method = "argumentsForTestGetValue")
+    @ParameterizedTest
+    @MethodSource("argumentsForTestGetValue")
     public void testGetValue(final String metricName, final long expectedValue) {
         assertEquals(expectedValue, new OperatingSystemMemoryGauge(metricName).getValue(MEMINFO.lines()));
     }
 
-    private static Object argumentsForTestGetValue() {
+    private static Object[] argumentsForTestGetValue() {
         return new Object[] {
                 new Object[] { "MemTotal",       16052208L },
                 new Object[] { "Active(anon)",   5580980L  },

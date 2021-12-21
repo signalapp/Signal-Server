@@ -15,7 +15,7 @@ import static org.mockito.Mockito.when;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.whispersystems.gcm.server.Message;
 import org.whispersystems.gcm.server.Result;
 import org.whispersystems.gcm.server.Sender;
@@ -28,10 +28,10 @@ import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.SynchronousExecutorService;
 import org.whispersystems.textsecuregcm.util.Util;
 
-public class GCMSenderTest {
+class GCMSenderTest {
 
   @Test
-  public void testSendMessage() {
+  void testSendMessage() {
     AccountsManager            accountsManager = mock(AccountsManager.class);
     Sender                     sender          = mock(Sender.class         );
     Result                     successResult   = mock(Result.class         );
@@ -57,7 +57,7 @@ public class GCMSenderTest {
   }
 
   @Test
-  public void testSendUninstalled() {
+  void testSendUninstalled() {
     UUID destinationUuid = UUID.randomUUID();
     String gcmId = "foo";
 
@@ -96,7 +96,7 @@ public class GCMSenderTest {
   }
 
   @Test
-  public void testCanonicalId() {
+  void testCanonicalId() {
     UUID destinationUuid     = UUID.randomUUID();
     String gcmId             = "foo";
     String canonicalId       = "bar";

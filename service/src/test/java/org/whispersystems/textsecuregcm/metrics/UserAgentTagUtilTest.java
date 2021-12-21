@@ -5,23 +5,20 @@
 
 package org.whispersystems.textsecuregcm.metrics;
 
-import io.micrometer.core.instrument.Tag;
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.micrometer.core.instrument.Tag;
 import java.util.HashSet;
 import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+class UserAgentTagUtilTest {
 
-@RunWith(JUnitParamsRunner.class)
-public class UserAgentTagUtilTest {
-
-    @Test
-    @Parameters(method = "argumentsForTestGetUserAgentTags")
+    @ParameterizedTest
+    @MethodSource("argumentsForTestGetUserAgentTags")
     public void testGetUserAgentTags(final String userAgent, final List<Tag> expectedTags) {
         assertEquals(new HashSet<>(expectedTags),
                      new HashSet<>(UserAgentTagUtil.getUserAgentTags(userAgent)));
@@ -32,7 +29,7 @@ public class UserAgentTagUtilTest {
     }
 
     @SuppressWarnings("unused")
-    private Object argumentsForTestGetUserAgentTags() {
+    private static Object[] argumentsForTestGetUserAgentTags() {
         return new Object[] {
                 new Object[] { "This is obviously not a reasonable User-Agent string.", UserAgentTagUtil.UNRECOGNIZED_TAGS },
                 new Object[] { null,                                                    UserAgentTagUtil.UNRECOGNIZED_TAGS },
@@ -52,7 +49,7 @@ public class UserAgentTagUtilTest {
     }
 
     @Test
-    public void testGetUserAgentTagsFlooded() {
+    void testGetUserAgentTagsFlooded() {
         for (int i = 0; i < UserAgentTagUtil.MAX_VERSIONS; i++) {
             UserAgentTagUtil.getUserAgentTags(String.format("Signal-Android 4.0.%d (Android 8.1)", i));
         }
@@ -67,13 +64,13 @@ public class UserAgentTagUtilTest {
         assertTrue(tags.contains(Tag.of(UserAgentTagUtil.VERSION_TAG, "4.0.0")));
     }
 
-    @Test
-    @Parameters(method = "argumentsForTestGetPlatformTag")
+    @ParameterizedTest
+    @MethodSource("argumentsForTestGetPlatformTag")
     public void testGetPlatformTag(final String userAgent, final Tag expectedTag) {
         assertEquals(expectedTag, UserAgentTagUtil.getPlatformTag(userAgent));
     }
 
-    private Object argumentsForTestGetPlatformTag() {
+    private static Object[] argumentsForTestGetPlatformTag() {
         return new Object[] {
                 new Object[] { "This is obviously not a reasonable User-Agent string.", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "unrecognized") },
                 new Object[] { null,                                                    Tag.of(UserAgentTagUtil.PLATFORM_TAG, "unrecognized") },

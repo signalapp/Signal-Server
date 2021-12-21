@@ -5,38 +5,35 @@
 
 package org.whispersystems.textsecuregcm.util.ua;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import com.vdurmont.semver4j.Semver;
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
-import static org.junit.Assert.*;
+class UserAgentUtilTest {
 
-@RunWith(JUnitParamsRunner.class)
-public class UserAgentUtilTest {
-
-    @Test
-    @Parameters(method = "argumentsForTestParseUserAgentString")
-    public void testParseUserAgentString(final String userAgentString, final UserAgent expectedUserAgent) throws UnrecognizedUserAgentException {
+    @ParameterizedTest
+    @MethodSource("argumentsForTestParseUserAgentString")
+    void testParseUserAgentString(final String userAgentString, final UserAgent expectedUserAgent) throws UnrecognizedUserAgentException {
         assertEquals(expectedUserAgent, UserAgentUtil.parseUserAgentString(userAgentString));
     }
 
-    private static Object argumentsForTestParseUserAgentString() {
+    private static Object[] argumentsForTestParseUserAgentString() {
         return new Object[] {
                 new Object[] { "Signal-Android/4.68.3 Android/25",    new UserAgent(ClientPlatform.ANDROID, new Semver("4.68.3"), "Android/25") },
                 new Object[] { "Signal-Android 4.53.7 (Android 8.1)", new UserAgent(ClientPlatform.ANDROID, new Semver("4.53.7"), "(Android 8.1)") },
         };
     }
 
-    @Test
-    @Parameters(method = "argumentsForTestParseBogusUserAgentString")
-    public void testParseBogusUserAgentString(final String userAgentString) {
+    @ParameterizedTest
+    @MethodSource("argumentsForTestParseBogusUserAgentString")
+    void testParseBogusUserAgentString(final String userAgentString) {
         assertThrows(UnrecognizedUserAgentException.class, () -> UserAgentUtil.parseUserAgentString(userAgentString));
     }
 
-    private static Object argumentsForTestParseBogusUserAgentString() {
+    private static Object[] argumentsForTestParseBogusUserAgentString() {
         return new Object[] {
                 null,
                 "This is obviously not a reasonable User-Agent string.",
@@ -44,13 +41,13 @@ public class UserAgentUtilTest {
         };
     }
 
-    @Test
-    @Parameters(method = "argumentsForTestParseStandardUserAgentString")
-    public void testParseStandardUserAgentString(final String userAgentString, final UserAgent expectedUserAgent) {
+    @ParameterizedTest
+    @MethodSource("argumentsForTestParseStandardUserAgentString")
+    void testParseStandardUserAgentString(final String userAgentString, final UserAgent expectedUserAgent) {
         assertEquals(expectedUserAgent, UserAgentUtil.parseStandardUserAgentString(userAgentString));
     }
 
-    private static Object argumentsForTestParseStandardUserAgentString() {
+    private static Object[] argumentsForTestParseStandardUserAgentString() {
         return new Object[] {
                 new Object[] { "This is obviously not a reasonable User-Agent string.", null },
                 new Object[] { "Signal-Android/4.68.3 Android/25",                      new UserAgent(ClientPlatform.ANDROID, new Semver("4.68.3"), "Android/25") },
@@ -66,13 +63,13 @@ public class UserAgentUtilTest {
         };
     }
 
-    @Test
-    @Parameters(method = "argumentsForTestParseLegacyUserAgentString")
-    public void testParseLegacyUserAgentString(final String userAgentString, final UserAgent expectedUserAgent) {
+    @ParameterizedTest
+    @MethodSource("argumentsForTestParseLegacyUserAgentString")
+    void testParseLegacyUserAgentString(final String userAgentString, final UserAgent expectedUserAgent) {
         assertEquals(expectedUserAgent, UserAgentUtil.parseLegacyUserAgentString(userAgentString));
     }
 
-    private static Object argumentsForTestParseLegacyUserAgentString() {
+    private static Object[] argumentsForTestParseLegacyUserAgentString() {
         return new Object[] {
                 new Object[] { "This is obviously not a reasonable User-Agent string.", null },
                 new Object[] { "Signal-Android 4.53.7 (Android 8.1)",                   new UserAgent(ClientPlatform.ANDROID, new Semver("4.53.7"), "(Android 8.1)") },

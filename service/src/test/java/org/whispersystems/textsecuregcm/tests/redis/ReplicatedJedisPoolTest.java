@@ -5,25 +5,28 @@
 
 package org.whispersystems.textsecuregcm.tests.redis;
 
-import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
-import org.junit.Test;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
+import org.junit.jupiter.api.Test;
+import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
+import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.exceptions.JedisException;
 
-public class ReplicatedJedisPoolTest {
+class ReplicatedJedisPoolTest {
 
   @Test
-  public void testWriteCheckoutNoSlaves() {
+  void testWriteCheckoutNoSlaves() {
     JedisPool master = mock(JedisPool.class);
 
     try {
@@ -35,7 +38,7 @@ public class ReplicatedJedisPoolTest {
   }
 
   @Test
-  public void testWriteCheckoutWithSlaves() {
+  void testWriteCheckoutWithSlaves() {
     JedisPool master   = mock(JedisPool.class);
     JedisPool slave    = mock(JedisPool.class);
     Jedis     instance = mock(Jedis.class    );
@@ -50,7 +53,7 @@ public class ReplicatedJedisPoolTest {
   }
 
   @Test
-  public void testReadCheckouts() {
+  void testReadCheckouts() {
     JedisPool master      = mock(JedisPool.class);
     JedisPool slaveOne    = mock(JedisPool.class);
     JedisPool slaveTwo    = mock(JedisPool.class);
@@ -72,7 +75,7 @@ public class ReplicatedJedisPoolTest {
   }
 
   @Test
-  public void testBrokenReadCheckout() {
+  void testBrokenReadCheckout() {
     JedisPool master      = mock(JedisPool.class);
     JedisPool slaveOne    = mock(JedisPool.class);
     JedisPool slaveTwo    = mock(JedisPool.class);
@@ -91,7 +94,7 @@ public class ReplicatedJedisPoolTest {
   }
 
   @Test
-  public void testAllBrokenReadCheckout() {
+  void testAllBrokenReadCheckout() {
     JedisPool master      = mock(JedisPool.class);
     JedisPool slaveOne    = mock(JedisPool.class);
     JedisPool slaveTwo    = mock(JedisPool.class);
@@ -112,7 +115,7 @@ public class ReplicatedJedisPoolTest {
   }
 
   @Test
-  public void testCircuitBreakerOpen() {
+  void testCircuitBreakerOpen() {
     CircuitBreakerConfiguration configuration = new CircuitBreakerConfiguration();
     configuration.setFailureRateThreshold(50);
     configuration.setRingBufferSizeInClosedState(2);
@@ -146,7 +149,7 @@ public class ReplicatedJedisPoolTest {
   }
 
   @Test
-  public void testCircuitBreakerHalfOpen() throws InterruptedException {
+  void testCircuitBreakerHalfOpen() throws InterruptedException {
     CircuitBreakerConfiguration configuration = new CircuitBreakerConfiguration();
     configuration.setFailureRateThreshold(50);
     configuration.setRingBufferSizeInClosedState(2);
@@ -199,8 +202,6 @@ public class ReplicatedJedisPoolTest {
     } catch (CallNotPermittedException e) {
       // good
     }
-
   }
-
 
 }

@@ -5,36 +5,32 @@
 
 package org.whispersystems.textsecuregcm.securebackup;
 
-import com.github.tomakehurst.wiremock.junit.WireMockRule;
-import org.apache.commons.lang3.RandomStringUtils;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Rule;
-import org.junit.Test;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
-import org.whispersystems.textsecuregcm.configuration.SecureBackupServiceConfiguration;
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.delete;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
-import java.security.Security;
+import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import java.security.cert.CertificateException;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
+import org.whispersystems.textsecuregcm.configuration.SecureBackupServiceConfiguration;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
-import static com.github.tomakehurst.wiremock.client.WireMock.delete;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
-import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
-import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-public class SecureBackupClientTest {
+class SecureBackupClientTest {
 
   private UUID accountUuid;
   private ExternalServiceCredentialGenerator credentialGenerator;
@@ -42,17 +38,19 @@ public class SecureBackupClientTest {
 
   private SecureBackupClient secureStorageClient;
 
-  @Rule
-  public WireMockRule wireMockRule = new WireMockRule(options().dynamicPort().dynamicHttpsPort());
+  @RegisterExtension
+  private final WireMockExtension wireMock = WireMockExtension.newInstance()
+      .options(wireMockConfig().dynamicPort().dynamicHttpsPort())
+      .build();
 
-  @Before
-  public void setUp() throws CertificateException {
+  @BeforeEach
+  void setUp() throws CertificateException {
     accountUuid         = UUID.randomUUID();
     credentialGenerator = mock(ExternalServiceCredentialGenerator.class);
     httpExecutor        = Executors.newSingleThreadExecutor();
 
     final SecureBackupServiceConfiguration config = new SecureBackupServiceConfiguration();
-    config.setUri("http://localhost:" + wireMockRule.port());
+    config.setUri("http://localhost:" + wireMock.getPort());
 
     // This is a randomly-generated, throwaway certificate that's not actually connected to anything
     config.setBackupCaCertificate("""
@@ -76,20 +74,20 @@ public class SecureBackupClientTest {
     secureStorageClient = new SecureBackupClient(credentialGenerator, httpExecutor, config);
   }
 
-  @After
-  public void tearDown() throws InterruptedException {
+  @AfterEach
+  void tearDown() throws InterruptedException {
     httpExecutor.shutdown();
     httpExecutor.awaitTermination(1, TimeUnit.SECONDS);
   }
 
   @Test
-  public void deleteStoredData() {
+  void deleteStoredData() {
     final String username = RandomStringUtils.randomAlphabetic(16);
     final String password = RandomStringUtils.randomAlphanumeric(32);
 
     when(credentialGenerator.generateFor(accountUuid.toString())).thenReturn(new ExternalServiceCredentials(username, password));
 
-    wireMockRule.stubFor(delete(urlEqualTo(SecureBackupClient.DELETE_PATH))
+    wireMock.stubFor(delete(urlEqualTo(SecureBackupClient.DELETE_PATH))
         .withBasicAuth(username, password)
         .willReturn(aResponse().withStatus(202)));
 
@@ -98,13 +96,13 @@ public class SecureBackupClientTest {
   }
 
   @Test
-  public void deleteStoredDataFailure() {
+  void deleteStoredDataFailure() {
     final String username = RandomStringUtils.randomAlphabetic(16);
     final String password = RandomStringUtils.randomAlphanumeric(32);
 
     when(credentialGenerator.generateFor(accountUuid.toString())).thenReturn(new ExternalServiceCredentials(username, password));
 
-    wireMockRule.stubFor(delete(urlEqualTo(SecureBackupClient.DELETE_PATH))
+    wireMock.stubFor(delete(urlEqualTo(SecureBackupClient.DELETE_PATH))
         .withBasicAuth(username, password)
         .willReturn(aResponse().withStatus(400)));
 

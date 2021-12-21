@@ -5,20 +5,6 @@
 
 package org.whispersystems.textsecuregcm.experiment;
 
-import io.micrometer.core.instrument.Timer;
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.TimeUnit;
-
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -27,16 +13,27 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 
-@RunWith(JUnitParamsRunner.class)
-public class ExperimentTest {
+import io.micrometer.core.instrument.Timer;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+
+class ExperimentTest {
 
     private Timer matchTimer;
     private Timer errorTimer;
 
     private Experiment experiment;
 
-    @Before
-    public void setUp() {
+    @BeforeEach
+    void setUp() {
         matchTimer = mock(Timer.class);
         errorTimer = mock(Timer.class);
 
@@ -44,31 +41,31 @@ public class ExperimentTest {
     }
 
     @Test
-    public void compareFutureResult() {
+    void compareFutureResult() {
         experiment.compareFutureResult(12, CompletableFuture.completedFuture(12));
         verify(matchTimer).record(anyLong(), eq(TimeUnit.NANOSECONDS));
     }
 
     @Test
-    public void compareFutureResultError() {
+    void compareFutureResultError() {
         experiment.compareFutureResult(12, CompletableFuture.failedFuture(new RuntimeException("OH NO")));
         verify(errorTimer).record(anyLong(), eq(TimeUnit.NANOSECONDS));
     }
 
     @Test
-    public void compareSupplierResultMatch() {
+    void compareSupplierResultMatch() {
         experiment.compareSupplierResult(12, () -> 12);
         verify(matchTimer).record(anyLong(), eq(TimeUnit.NANOSECONDS));
     }
 
     @Test
-    public void compareSupplierResultError() {
+    void compareSupplierResultError() {
         experiment.compareSupplierResult(12, () -> { throw new RuntimeException("OH NO"); });
         verify(errorTimer).record(anyLong(), eq(TimeUnit.NANOSECONDS));
     }
 
     @Test
-    public void compareSupplierResultAsyncMatch() throws InterruptedException {
+    void compareSupplierResultAsyncMatch() throws InterruptedException {
         final ExecutorService experimentExecutor = Executors.newSingleThreadExecutor();
 
         experiment.compareSupplierResultAsync(12, () -> 12, experimentExecutor);
@@ -79,7 +76,7 @@ public class ExperimentTest {
     }
 
     @Test
-    public void compareSupplierResultAsyncError() throws InterruptedException {
+    void compareSupplierResultAsyncError() throws InterruptedException {
         final ExecutorService experimentExecutor = Executors.newSingleThreadExecutor();
 
         experiment.compareSupplierResultAsync(12, () -> { throw new RuntimeException("OH NO"); }, experimentExecutor);
@@ -90,7 +87,7 @@ public class ExperimentTest {
     }
 
     @Test
-    public void compareSupplierResultAsyncRejection() {
+    void compareSupplierResultAsyncRejection() {
         final ExecutorService executorService = mock(ExecutorService.class);
         doThrow(new RejectedExecutionException()).when(executorService).execute(any(Runnable.class));
 
@@ -98,8 +95,8 @@ public class ExperimentTest {
         verify(errorTimer).record(anyLong(), eq(TimeUnit.NANOSECONDS));
     }
 
-    @Test
-    @Parameters(method = "argumentsForTestRecordResult")
+    @ParameterizedTest
+    @MethodSource("argumentsForTestRecordResult")
     public void testRecordResult(final Object expected, final Object actual, final Experiment experiment, final Timer expectedTimer) {
         reset(expectedTimer);
 
@@ -110,7 +107,7 @@ public class ExperimentTest {
     }
 
     @SuppressWarnings("unused")
-    private Object argumentsForTestRecordResult() {
+    private static Object[] argumentsForTestRecordResult() {
         // Hack: parameters are set before the @Before method gets called
         final Timer matchTimer                  = mock(Timer.class);
         final Timer errorTimer                  = mock(Timer.class);

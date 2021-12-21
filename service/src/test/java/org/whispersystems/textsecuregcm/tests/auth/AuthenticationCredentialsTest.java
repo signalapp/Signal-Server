@@ -5,15 +5,15 @@
 
 package org.whispersystems.textsecuregcm.tests.auth;
 
-import org.junit.Test;
-import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
-
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
-public class AuthenticationCredentialsTest {
+import org.junit.jupiter.api.Test;
+import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
+
+class AuthenticationCredentialsTest {
 
   @Test
-  public void testCreating() {
+  void testCreating() {
     AuthenticationCredentials credentials = new AuthenticationCredentials("mypassword");
     assertThat(credentials.getSalt()).isNotEmpty();
     assertThat(credentials.getHashedAuthenticationToken()).isNotEmpty();
@@ -21,7 +21,7 @@ public class AuthenticationCredentialsTest {
   }
 
   @Test
-  public void testMatching() {
+  void testMatching() {
     AuthenticationCredentials credentials = new AuthenticationCredentials("mypassword");
 
     AuthenticationCredentials provided = new AuthenticationCredentials(credentials.getHashedAuthenticationToken(), credentials.getSalt());
@@ -29,12 +29,11 @@ public class AuthenticationCredentialsTest {
   }
 
   @Test
-  public void testMisMatching() {
+  void testMisMatching() {
     AuthenticationCredentials credentials = new AuthenticationCredentials("mypassword");
 
     AuthenticationCredentials provided = new AuthenticationCredentials(credentials.getHashedAuthenticationToken(), credentials.getSalt());
     assertThat(provided.verify("wrong")).isFalse();
   }
-
 
 }

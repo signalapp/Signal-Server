@@ -5,30 +5,26 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.whispersystems.textsecuregcm.entities.SignedPreKey;
-
-import java.time.Duration;
-
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
-@RunWith(JUnitParamsRunner.class)
-public class DeviceTest {
+import java.time.Duration;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 
-    @Test
-    @Parameters(method = "argumentsForTestIsEnabled")
-    public void testIsEnabled(final boolean master, final boolean fetchesMessages, final String apnId, final String gcmId, final SignedPreKey signedPreKey, final Duration timeSinceLastSeen, final boolean expectEnabled) {
+class DeviceTest {
+
+    @ParameterizedTest
+    @MethodSource("argumentsForTestIsEnabled")
+    void testIsEnabled(final boolean master, final boolean fetchesMessages, final String apnId, final String gcmId, final SignedPreKey signedPreKey, final Duration timeSinceLastSeen, final boolean expectEnabled) {
         final long lastSeen = System.currentTimeMillis() - timeSinceLastSeen.toMillis();
         final Device device = new Device(master ? 1 : 2, "test", "auth-token", "salt", gcmId, apnId, null, fetchesMessages, 1, signedPreKey, lastSeen, lastSeen, "user-agent", 0, null);
 
         assertEquals(expectEnabled, device.isEnabled());
     }
 
-    private static Object argumentsForTestIsEnabled() {
+    private static Object[] argumentsForTestIsEnabled() {
         return new Object[] {
                 //             master fetchesMessages apnId     gcmId     signedPreKey              lastSeen             expectEnabled
                 new Object[] { true,  false,          null,     null,     null,                     Duration.ofDays(60), false },
@@ -66,9 +62,9 @@ public class DeviceTest {
         };
     }
 
-    @Test
-    @Parameters(method = "argumentsForTestIsGroupsV2Supported")
-    public void testIsGroupsV2Supported(final boolean master, final String apnId, final boolean gv2Capability, final boolean gv2_2Capability, final boolean gv2_3Capability, final boolean expectGv2Supported) {
+    @ParameterizedTest
+    @MethodSource("argumentsForTestIsGroupsV2Supported")
+    void testIsGroupsV2Supported(final boolean master, final String apnId, final boolean gv2Capability, final boolean gv2_2Capability, final boolean gv2_3Capability, final boolean expectGv2Supported) {
         final Device.DeviceCapabilities capabilities = new Device.DeviceCapabilities(gv2Capability, gv2_2Capability, gv2_3Capability, false, false, false,
             false, false, false);
         final Device                    device       = new Device(master ? 1 : 2, "test", "auth-token", "salt",
@@ -77,7 +73,7 @@ public class DeviceTest {
         assertEquals(expectGv2Supported, device.isGroupsV2Supported());
     }
 
-    private static Object argumentsForTestIsGroupsV2Supported() {
+    private static Object[] argumentsForTestIsGroupsV2Supported() {
         return new Object[] {
                 //             master apnId     gv2    gv2-2  gv2-3  capable
 

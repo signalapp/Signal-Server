@@ -20,20 +20,18 @@ import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRemoteDeprecationConfiguration;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
-@RunWith(JUnitParamsRunner.class)
-public class RemoteDeprecationFilterTest {
+class RemoteDeprecationFilterTest {
 
     @Test
-    public void testEmptyMap() throws IOException, ServletException {
+    void testEmptyMap() throws IOException, ServletException {
         // We're happy as long as there's no exception
         final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
         final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
@@ -56,8 +54,9 @@ public class RemoteDeprecationFilterTest {
         verify(servletResponse, never()).sendError(anyInt());
     }
 
-    @Test
-    @Parameters({"Unrecognized UA             | false",
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value =
+                {"Unrecognized UA             | false",
                  "Signal-Android/4.68.3       | false",
                  "Signal-iOS/3.9.0            | false",
                  "Signal-Desktop/1.2.3        | false",
@@ -67,7 +66,7 @@ public class RemoteDeprecationFilterTest {
                  "Signal-Desktop/8.0.0-beta.2 | true",
                  "Signal-Desktop/8.0.0-beta.1 | false",
                  "Signal-iOS/8.0.0-beta.2     | false"})
-    public void testFilter(final String userAgent, final boolean expectDeprecation) throws IOException, ServletException {
+    void testFilter(final String userAgent, final boolean expectDeprecation) throws IOException, ServletException {
       final EnumMap<ClientPlatform, Semver> minimumVersionsByPlatform = new EnumMap<>(ClientPlatform.class);
       minimumVersionsByPlatform.put(ClientPlatform.ANDROID, new Semver("1.0.0"));
       minimumVersionsByPlatform.put(ClientPlatform.IOS, new Semver("1.0.0"));

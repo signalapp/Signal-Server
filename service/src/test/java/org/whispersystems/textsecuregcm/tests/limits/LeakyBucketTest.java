@@ -1,27 +1,26 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2021 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 package org.whispersystems.textsecuregcm.tests.limits;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.Test;
-import org.whispersystems.textsecuregcm.limits.LeakyBucket;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Test;
+import org.whispersystems.textsecuregcm.limits.LeakyBucket;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.assertTrue;
-
-public class LeakyBucketTest {
+class LeakyBucketTest {
 
   @Test
-  public void testFull() {
+  void testFull() {
     LeakyBucket leakyBucket = new LeakyBucket(2, 1.0 / 2.0);
 
     assertTrue(leakyBucket.add(1));
@@ -36,7 +35,7 @@ public class LeakyBucketTest {
   }
 
   @Test
-  public void testLapseRate() throws IOException {
+  void testLapseRate() throws IOException {
     ObjectMapper mapper     = new ObjectMapper();
     String       serialized = "{\"bucketSize\":2,\"leakRatePerMillis\":8.333333333333334E-6,\"spaceRemaining\":0,\"lastUpdateTimeMillis\":" + (System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(2)) + "}";
 
@@ -50,7 +49,7 @@ public class LeakyBucketTest {
   }
 
   @Test
-  public void testLapseShort() throws Exception {
+  void testLapseShort() throws Exception {
     ObjectMapper mapper     = new ObjectMapper();
     String       serialized = "{\"bucketSize\":2,\"leakRatePerMillis\":8.333333333333334E-6,\"spaceRemaining\":0,\"lastUpdateTimeMillis\":" + (System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(1)) + "}";
 
@@ -59,7 +58,7 @@ public class LeakyBucketTest {
   }
 
   @Test
-  public void testGetTimeUntilSpaceAvailable() throws Exception {
+  void testGetTimeUntilSpaceAvailable() throws Exception {
     ObjectMapper mapper = new ObjectMapper();
 
     {
