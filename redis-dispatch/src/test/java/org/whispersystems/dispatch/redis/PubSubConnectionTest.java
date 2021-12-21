@@ -4,9 +4,9 @@
  */
 package org.whispersystems.dispatch.redis;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
@@ -18,12 +18,12 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.security.SecureRandom;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
-public class PubSubConnectionTest {
+class PubSubConnectionTest {
 
   private static final String REPLY = "*3\r\n" +
       "$9\r\n" +
@@ -60,8 +60,7 @@ public class PubSubConnectionTest {
 
 
   @Test
-  public void testSubscribe() throws IOException {
-//    ByteChannel      byteChannel = mock(ByteChannel.class);
+  void testSubscribe() throws IOException {
     OutputStream outputStream = mock(OutputStream.class);
     Socket       socket       = mock(Socket.class      );
     when(socket.getOutputStream()).thenReturn(outputStream);
@@ -76,7 +75,7 @@ public class PubSubConnectionTest {
   }
 
   @Test
-  public void testUnsubscribe() throws IOException {
+  void testUnsubscribe() throws IOException {
     OutputStream outputStream = mock(OutputStream.class);
     Socket       socket       = mock(Socket.class      );
     when(socket.getOutputStream()).thenReturn(outputStream);
@@ -91,7 +90,7 @@ public class PubSubConnectionTest {
   }
 
   @Test
-  public void testTricklyResponse() throws Exception {
+  void testTricklyResponse() throws Exception {
     InputStream  inputStream  = mockInputStreamFor(new TrickleInputStream(REPLY.getBytes()));
     OutputStream outputStream = mock(OutputStream.class);
     Socket       socket       = mock(Socket.class      );
@@ -103,7 +102,7 @@ public class PubSubConnectionTest {
   }
 
   @Test
-  public void testFullResponse() throws Exception {
+  void testFullResponse() throws Exception {
     InputStream  inputStream  = mockInputStreamFor(new FullInputStream(REPLY.getBytes()));
     OutputStream outputStream = mock(OutputStream.class);
     Socket       socket       = mock(Socket.class      );
@@ -115,7 +114,7 @@ public class PubSubConnectionTest {
   }
 
   @Test
-  public void testRandomLengthResponse() throws Exception {
+  void testRandomLengthResponse() throws Exception {
     InputStream  inputStream  = mockInputStreamFor(new RandomInputStream(REPLY.getBytes()));
     OutputStream outputStream = mock(OutputStream.class);
     Socket       socket       = mock(Socket.class      );

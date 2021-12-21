@@ -4,48 +4,32 @@
  */
 package org.whispersystems.dispatch.redis.protocol;
 
-import org.junit.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-
-public class StringReplyHeaderTest {
+class StringReplyHeaderTest {
 
   @Test
-  public void testNull() {
-    try {
-      new StringReplyHeader(null);
-      throw new AssertionError();
-    } catch (IOException e) {
-      // good
-    }
+  void testNull() {
+    assertThrows(IOException.class, () -> new StringReplyHeader(null));
   }
 
   @Test
-  public void testBadNumber() {
-    try {
-      new StringReplyHeader("$100A");
-      throw new AssertionError();
-    } catch (IOException e) {
-      // good
-    }
+  void testBadNumber() {
+    assertThrows(IOException.class, () -> new StringReplyHeader("$100A"));
   }
 
   @Test
-  public void testBadPrefix() {
-    try {
-      new StringReplyHeader("*");
-      throw new AssertionError();
-    } catch (IOException e) {
-      // good
-    }
+  void testBadPrefix() {
+    assertThrows(IOException.class, () -> new StringReplyHeader("*"));
   }
 
   @Test
-  public void testValid() throws IOException {
+  void testValid() throws IOException {
     assertEquals(1000, new StringReplyHeader("$1000").getStringLength());
   }
-
 
 }

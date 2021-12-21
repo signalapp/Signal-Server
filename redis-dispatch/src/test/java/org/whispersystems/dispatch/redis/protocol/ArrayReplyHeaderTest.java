@@ -5,42 +5,41 @@
 package org.whispersystems.dispatch.redis.protocol;
 
 
-import org.junit.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+class ArrayReplyHeaderTest {
 
-public class ArrayReplyHeaderTest {
-
-
-  @Test(expected = IOException.class)
-  public void testNull() throws IOException {
-    new ArrayReplyHeader(null);
-  }
-
-  @Test(expected = IOException.class)
-  public void testBadPrefix() throws IOException {
-    new ArrayReplyHeader(":3");
-  }
-
-  @Test(expected = IOException.class)
-  public void testEmpty() throws IOException {
-    new ArrayReplyHeader("");
-  }
-
-  @Test(expected = IOException.class)
-  public void testTruncated() throws IOException {
-    new ArrayReplyHeader("*");
-  }
-
-  @Test(expected = IOException.class)
-  public void testBadNumber() throws IOException {
-    new ArrayReplyHeader("*ABC");
+  @Test
+  void testNull() {
+    assertThrows(IOException.class, () -> new ArrayReplyHeader(null));
   }
 
   @Test
-  public void testValid() throws IOException {
+  void testBadPrefix() {
+    assertThrows(IOException.class, () -> new ArrayReplyHeader(":3"));
+  }
+
+  @Test
+  void testEmpty() {
+    assertThrows(IOException.class, () -> new ArrayReplyHeader(""));
+  }
+
+  @Test
+  void testTruncated() {
+    assertThrows(IOException.class, () -> new ArrayReplyHeader("*"));
+  }
+
+  @Test
+  void testBadNumber() {
+    assertThrows(IOException.class, () -> new ArrayReplyHeader("*ABC"));
+  }
+
+  @Test
+  void testValid() throws IOException {
     assertEquals(4, new ArrayReplyHeader("*4").getElementCount());
   }
 

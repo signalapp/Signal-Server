@@ -4,27 +4,24 @@
  */
 package org.whispersystems.dispatch;
 
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExternalResource;
-import org.mockito.ArgumentCaptor;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
-import org.whispersystems.dispatch.io.RedisPubSubConnectionFactory;
-import org.whispersystems.dispatch.redis.PubSubConnection;
-import org.whispersystems.dispatch.redis.PubSubReply;
-
-import java.io.IOException;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Optional;
-
-import static org.junit.Assert.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.stubbing.Answer;
+import org.whispersystems.dispatch.io.RedisPubSubConnectionFactory;
+import org.whispersystems.dispatch.redis.PubSubConnection;
+import org.whispersystems.dispatch.redis.PubSubReply;
 
 public class DispatchManagerTest {
 
@@ -33,31 +30,23 @@ public class DispatchManagerTest {
   private DispatchManager              dispatchManager;
   private PubSubReplyInputStream       pubSubReplyInputStream;
 
-  @Rule
-  public ExternalResource resource = new ExternalResource() {
-    @Override
-    protected void before() throws Throwable {
-      pubSubConnection       = mock(PubSubConnection.class  );
-      socketFactory          = mock(RedisPubSubConnectionFactory.class);
-      pubSubReplyInputStream = new PubSubReplyInputStream();
+  @BeforeEach
+  void setUp() throws Exception {
+    pubSubConnection       = mock(PubSubConnection.class  );
+    socketFactory          = mock(RedisPubSubConnectionFactory.class);
+    pubSubReplyInputStream = new PubSubReplyInputStream();
 
-      when(socketFactory.connect()).thenReturn(pubSubConnection);
-      when(pubSubConnection.read()).thenAnswer(new Answer<PubSubReply>() {
-        @Override
-        public PubSubReply answer(InvocationOnMock invocationOnMock) throws Throwable {
-          return pubSubReplyInputStream.read();
-        }
-      });
+    when(socketFactory.connect()).thenReturn(pubSubConnection);
+    when(pubSubConnection.read()).thenAnswer((Answer<PubSubReply>) invocationOnMock -> pubSubReplyInputStream.read());
 
-      dispatchManager = new DispatchManager(socketFactory, Optional.empty());
-      dispatchManager.start();
-    }
+    dispatchManager = new DispatchManager(socketFactory, Optional.empty());
+    dispatchManager.start();
+  }
 
-    @Override
-    protected void after() {
-
-    }
-  };
+  @AfterEach
+  void tearDown() {
+    dispatchManager.shutdown();
+  }
 
   @Test
   public void testConnect() {
@@ -65,7 +54,7 @@ public class DispatchManagerTest {
   }
 
   @Test
-  public void testSubscribe() throws IOException {
+  public void testSubscribe() {
     DispatchChannel dispatchChannel = mock(DispatchChannel.class);
     dispatchManager.subscribe("foo", dispatchChannel);
     pubSubReplyInputStream.write(new PubSubReply(PubSubReply.Type.SUBSCRIBE, "foo", Optional.empty()));
@@ -74,7 +63,7 @@ public class DispatchManagerTest {
   }
 
   @Test
-  public void testSubscribeUnsubscribe() throws IOException {
+  public void testSubscribeUnsubscribe() {
     DispatchChannel dispatchChannel = mock(DispatchChannel.class);
     dispatchManager.subscribe("foo", dispatchChannel);
     dispatchManager.unsubscribe("foo", dispatchChannel);
@@ -86,7 +75,7 @@ public class DispatchManagerTest {
   }
 
   @Test
-  public void testMessages() throws IOException {
+  public void testMessages() {
     DispatchChannel fooChannel = mock(DispatchChannel.class);
     DispatchChannel barChannel = mock(DispatchChannel.class);
 
