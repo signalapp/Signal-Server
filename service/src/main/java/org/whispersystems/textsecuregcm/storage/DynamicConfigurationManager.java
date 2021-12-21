@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.validation.ConstraintViolation;
 import javax.validation.Validation;
 import javax.validation.Validator;
+import io.micrometer.core.instrument.Metrics;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +24,8 @@ import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.services.appconfig.AppConfigClient;
 import software.amazon.awssdk.services.appconfig.model.GetConfigurationRequest;
 import software.amazon.awssdk.services.appconfig.model.GetConfigurationResponse;
+
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 public class DynamicConfigurationManager<T> {
 
@@ -45,6 +48,10 @@ public class DynamicConfigurationManager<T> {
       .registerModule(new JavaTimeModule());
 
   private static final Validator VALIDATOR = Validation.buildDefaultValidatorFactory().getValidator();
+
+  private static final String ERROR_COUNTER_NAME = name(DynamicConfigurationManager.class, "error");
+  private static final String ERROR_TYPE_TAG_NAME = "type";
+  private static final String CONFIG_CLASS_TAG_NAME = "configClass";
 
   private static final Logger logger = LoggerFactory.getLogger(DynamicConfigurationManager.class);
 
@@ -106,23 +113,36 @@ public class DynamicConfigurationManager<T> {
   private Optional<T> retrieveDynamicConfiguration() throws JsonProcessingException {
     final String previousVersion = lastConfigResult != null ? lastConfigResult.configurationVersion() : null;
 
-    lastConfigResult = appConfigClient.getConfiguration(GetConfigurationRequest.builder()
-        .application(application)
-        .environment(environment)
-        .configuration(configurationName)
-        .clientId(clientId)
-        .clientConfigurationVersion(previousVersion)
-        .build());
+    try {
+      lastConfigResult = appConfigClient.getConfiguration(GetConfigurationRequest.builder()
+          .application(application)
+          .environment(environment)
+          .configuration(configurationName)
+          .clientId(clientId)
+          .clientConfigurationVersion(previousVersion)
+          .build());
+    } catch (final RuntimeException e) {
+      Metrics.counter(ERROR_COUNTER_NAME, ERROR_TYPE_TAG_NAME, "fetch").increment();
+      throw e;
+    }
 
     final Optional<T> maybeDynamicConfiguration;
 
     if (!StringUtils.equals(lastConfigResult.configurationVersion(), previousVersion)) {
       logger.info("Received new config version: {}", lastConfigResult.configurationVersion());
 
-      maybeDynamicConfiguration =
-          parseConfiguration(
-              StandardCharsets.UTF_8.decode(lastConfigResult.content().asByteBuffer().asReadOnlyBuffer()).toString(),
-              configurationClass);
+      try {
+        maybeDynamicConfiguration =
+            parseConfiguration(
+                StandardCharsets.UTF_8.decode(lastConfigResult.content().asByteBuffer().asReadOnlyBuffer()).toString(),
+                configurationClass);
+      } catch (final JsonProcessingException e) {
+        Metrics.counter(ERROR_COUNTER_NAME,
+            ERROR_TYPE_TAG_NAME, "parse",
+            CONFIG_CLASS_TAG_NAME, configurationClass.getName()).increment();
+
+        throw e;
+      }
     } else {
       // No change since last version
       maybeDynamicConfiguration = Optional.empty();
