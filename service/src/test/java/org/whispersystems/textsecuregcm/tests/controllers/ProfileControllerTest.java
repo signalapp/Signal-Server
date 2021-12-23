@@ -325,7 +325,7 @@ class ProfileControllerTest {
                                                               .request()
                                                               .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                                               .put(Entity.entity(new CreateProfileRequest(commitment, "someversion", "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678", null, null,
-                                                                  null, true, List.of()), MediaType.APPLICATION_JSON_TYPE), ProfileAvatarUploadAttributes.class);
+                                                                  null, true, false, List.of()), MediaType.APPLICATION_JSON_TYPE), ProfileAvatarUploadAttributes.class);
 
     ArgumentCaptor<VersionedProfile> profileArgumentCaptor = ArgumentCaptor.forClass(VersionedProfile.class);
 
@@ -339,7 +339,8 @@ class ProfileControllerTest {
     assertThat(profileArgumentCaptor.getValue().getVersion()).isEqualTo("someversion");
     assertThat(profileArgumentCaptor.getValue().getName()).isEqualTo("123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678");
     assertThat(profileArgumentCaptor.getValue().getAboutEmoji()).isNull();
-    assertThat(profileArgumentCaptor.getValue().getAbout()).isNull();  }
+    assertThat(profileArgumentCaptor.getValue().getAbout()).isNull();
+  }
 
   @Test
   void testSetProfileWantAvatarUploadWithBadProfileSize() throws InvalidInputException {
@@ -349,8 +350,7 @@ class ProfileControllerTest {
                                  .target("/v1/profile/")
                                  .request()
                                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                                 .put(Entity.entity(new CreateProfileRequest(commitment, "someversion", "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890", null, null,
-                                     null, true, List.of()), MediaType.APPLICATION_JSON_TYPE));
+                                 .put(Entity.entity(new CreateProfileRequest(commitment, "someversion", "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890", null, null, null, true, false, List.of()), MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(422);
   }
@@ -366,7 +366,7 @@ class ProfileControllerTest {
                                  .request()
                                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
                                  .put(Entity.entity(new CreateProfileRequest(commitment, "anotherversion", "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678", null, null,
-                                     null, false, List.of()), MediaType.APPLICATION_JSON_TYPE));
+                                     null, false, false, List.of()), MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.hasEntity()).isFalse();
@@ -397,7 +397,7 @@ class ProfileControllerTest {
         .put(Entity.entity(new CreateProfileRequest(commitment, "validversion",
             "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678",
             null, null,
-            null, true, List.of()), MediaType.APPLICATION_JSON_TYPE), ProfileAvatarUploadAttributes.class);
+            null, true, false, List.of()), MediaType.APPLICATION_JSON_TYPE), ProfileAvatarUploadAttributes.class);
 
     ArgumentCaptor<VersionedProfile> profileArgumentCaptor = ArgumentCaptor.forClass(VersionedProfile.class);
 
@@ -410,7 +410,116 @@ class ProfileControllerTest {
     assertThat(profileArgumentCaptor.getValue().getVersion()).isEqualTo("validversion");
     assertThat(profileArgumentCaptor.getValue().getName()).isEqualTo("123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678");
     assertThat(profileArgumentCaptor.getValue().getAboutEmoji()).isNull();
-    assertThat(profileArgumentCaptor.getValue().getAbout()).isNull();  }
+    assertThat(profileArgumentCaptor.getValue().getAbout()).isNull();
+  }
+
+  @Test
+  void testSetProfileClearPreviousAvatar() throws InvalidInputException {
+    ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID_TWO);
+
+    Response response = resources.getJerseyTest()
+                                 .target("/v1/profile/")
+                                 .request()
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
+                                 .put(Entity.entity(new CreateProfileRequest(commitment, "validversion", "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678", null, null, null, false, false, List.of()), MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.hasEntity()).isFalse();
+
+    ArgumentCaptor<VersionedProfile> profileArgumentCaptor = ArgumentCaptor.forClass(VersionedProfile.class);
+
+    verify(profilesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO), eq("validversion"));
+    verify(profilesManager, times(1)).set(eq(AuthHelper.VALID_UUID_TWO), profileArgumentCaptor.capture());
+    verify(s3client, times(1)).deleteObject(eq(DeleteObjectRequest.builder().bucket("profilesBucket").key("profiles/validavatar").build()));
+
+    assertThat(profileArgumentCaptor.getValue().getCommitment()).isEqualTo(commitment.serialize());
+    assertThat(profileArgumentCaptor.getValue().getAvatar()).isNull();
+    assertThat(profileArgumentCaptor.getValue().getVersion()).isEqualTo("validversion");
+    assertThat(profileArgumentCaptor.getValue().getName()).isEqualTo("123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678");
+    assertThat(profileArgumentCaptor.getValue().getAboutEmoji()).isNull();
+    assertThat(profileArgumentCaptor.getValue().getAbout()).isNull();
+  }
+
+  @Test
+  void testSetProfileWithSameAvatar() throws InvalidInputException {
+    ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID_TWO);
+
+    Response response = resources.getJerseyTest()
+                                 .target("/v1/profile/")
+                                 .request()
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
+                                 .put(Entity.entity(new CreateProfileRequest(commitment, "validversion", "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678", null, null, null, true, true, List.of()), MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.hasEntity()).isFalse();
+
+    ArgumentCaptor<VersionedProfile> profileArgumentCaptor = ArgumentCaptor.forClass(VersionedProfile.class);
+
+    verify(profilesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO), eq("validversion"));
+    verify(profilesManager, times(1)).set(eq(AuthHelper.VALID_UUID_TWO), profileArgumentCaptor.capture());
+    verify(s3client, never()).deleteObject(any(DeleteObjectRequest.class));
+
+    assertThat(profileArgumentCaptor.getValue().getCommitment()).isEqualTo(commitment.serialize());
+    assertThat(profileArgumentCaptor.getValue().getAvatar()).isEqualTo("profiles/validavatar");
+    assertThat(profileArgumentCaptor.getValue().getVersion()).isEqualTo("validversion");
+    assertThat(profileArgumentCaptor.getValue().getName()).isEqualTo("123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678");
+    assertThat(profileArgumentCaptor.getValue().getAboutEmoji()).isNull();
+    assertThat(profileArgumentCaptor.getValue().getAbout()).isNull();
+  }
+
+  @Test
+  void testSetProfileClearPreviousAvatarDespiteSameAvatarFlagSet() throws InvalidInputException {
+    ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID_TWO);
+
+    resources.getJerseyTest()
+        .target("/v1/profile/")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
+        .put(Entity.entity(new CreateProfileRequest(commitment, "validversion",
+            "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678",
+            null, null,
+            null, false, true, List.of()), MediaType.APPLICATION_JSON_TYPE));
+
+    ArgumentCaptor<VersionedProfile> profileArgumentCaptor = ArgumentCaptor.forClass(VersionedProfile.class);
+
+    verify(profilesManager, times(1)).get(eq(AuthHelper.VALID_UUID_TWO), eq("validversion"));
+    verify(profilesManager, times(1)).set(eq(AuthHelper.VALID_UUID_TWO), profileArgumentCaptor.capture());
+    verify(s3client, times(1)).deleteObject(eq(DeleteObjectRequest.builder().bucket("profilesBucket").key("profiles/validavatar").build()));
+
+    assertThat(profileArgumentCaptor.getValue().getCommitment()).isEqualTo(commitment.serialize());
+    assertThat(profileArgumentCaptor.getValue().getAvatar()).isNull();
+    assertThat(profileArgumentCaptor.getValue().getVersion()).isEqualTo("validversion");
+    assertThat(profileArgumentCaptor.getValue().getName()).isEqualTo("123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678");
+    assertThat(profileArgumentCaptor.getValue().getAboutEmoji()).isNull();
+    assertThat(profileArgumentCaptor.getValue().getAbout()).isNull();
+  }
+
+  @Test
+  void testSetProfileWithSameAvatarDespiteNoPreviousAvatar() throws InvalidInputException {
+    ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(AuthHelper.VALID_UUID);
+
+    Response response = resources.getJerseyTest()
+                                 .target("/v1/profile/")
+                                 .request()
+                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+                                 .put(Entity.entity(new CreateProfileRequest(commitment, "validversion", "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678", null, null, null, true, true, List.of()), MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.hasEntity()).isFalse();
+
+    ArgumentCaptor<VersionedProfile> profileArgumentCaptor = ArgumentCaptor.forClass(VersionedProfile.class);
+
+    verify(profilesManager, times(1)).get(eq(AuthHelper.VALID_UUID), eq("validversion"));
+    verify(profilesManager, times(1)).set(eq(AuthHelper.VALID_UUID), profileArgumentCaptor.capture());
+    verify(s3client, never()).deleteObject(any(DeleteObjectRequest.class));
+
+    assertThat(profileArgumentCaptor.getValue().getCommitment()).isEqualTo(commitment.serialize());
+    assertThat(profileArgumentCaptor.getValue().getAvatar()).isNull();
+    assertThat(profileArgumentCaptor.getValue().getVersion()).isEqualTo("validversion");
+    assertThat(profileArgumentCaptor.getValue().getName()).isEqualTo("123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678");
+    assertThat(profileArgumentCaptor.getValue().getAboutEmoji()).isNull();
+    assertThat(profileArgumentCaptor.getValue().getAbout()).isNull();
+  }
 
   @Test
   void testSetProfileExtendedName() throws InvalidInputException {
@@ -422,7 +531,7 @@ class ProfileControllerTest {
             .target("/v1/profile/")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-            .put(Entity.entity(new CreateProfileRequest(commitment, "validversion", name, null, null, null, true, List.of()), MediaType.APPLICATION_JSON_TYPE), ProfileAvatarUploadAttributes.class);
+            .put(Entity.entity(new CreateProfileRequest(commitment, "validversion", name, null, null, null, true, false, List.of()), MediaType.APPLICATION_JSON_TYPE), ProfileAvatarUploadAttributes.class);
 
     ArgumentCaptor<VersionedProfile> profileArgumentCaptor = ArgumentCaptor.forClass(VersionedProfile.class);
 
@@ -452,7 +561,7 @@ class ProfileControllerTest {
             .target("/v1/profile/")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-            .put(Entity.entity(new CreateProfileRequest(commitment, "anotherversion", name, emoji, text, null, false, List.of()), MediaType.APPLICATION_JSON_TYPE));
+            .put(Entity.entity(new CreateProfileRequest(commitment, "anotherversion", name, emoji, text, null, false, false, List.of()), MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.hasEntity()).isFalse();
@@ -487,7 +596,7 @@ class ProfileControllerTest {
         .target("/v1/profile")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-        .put(Entity.entity(new CreateProfileRequest(commitment, "yetanotherversion", name, null, null, paymentAddress, false, List.of()), MediaType.APPLICATION_JSON_TYPE));
+        .put(Entity.entity(new CreateProfileRequest(commitment, "yetanotherversion", name, null, null, paymentAddress, false, false, List.of()), MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.hasEntity()).isFalse();
@@ -525,7 +634,7 @@ class ProfileControllerTest {
         .target("/v1/profile")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-        .put(Entity.entity(new CreateProfileRequest(commitment, "yetanotherversion", name, null, null, paymentAddress, false, List.of()), MediaType.APPLICATION_JSON_TYPE));
+        .put(Entity.entity(new CreateProfileRequest(commitment, "yetanotherversion", name, null, null, paymentAddress, false, false, List.of()), MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(403);
     assertThat(response.hasEntity()).isFalse();
@@ -571,7 +680,7 @@ class ProfileControllerTest {
         .target("/v1/profile")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-        .put(Entity.entity(new CreateProfileRequest(commitment, "someversion", name, null, null, paymentAddress, false, List.of()), MediaType.APPLICATION_JSON_TYPE));
+        .put(Entity.entity(new CreateProfileRequest(commitment, "someversion", name, null, null, paymentAddress, false, false, List.of()), MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.hasEntity()).isFalse();
@@ -621,7 +730,7 @@ class ProfileControllerTest {
         .target("/v1/profile/")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-        .put(Entity.entity(new CreateProfileRequest(commitment, "anotherversion", name, emoji, text, null, false, List.of("TEST2")), MediaType.APPLICATION_JSON_TYPE));
+        .put(Entity.entity(new CreateProfileRequest(commitment, "anotherversion", name, emoji, text, null, false, false, List.of("TEST2")), MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.hasEntity()).isFalse();
 
@@ -641,7 +750,7 @@ class ProfileControllerTest {
         .target("/v1/profile/")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-        .put(Entity.entity(new CreateProfileRequest(commitment, "anotherversion", name, emoji, text, null, false, List.of("TEST3", "TEST2")), MediaType.APPLICATION_JSON_TYPE));
+        .put(Entity.entity(new CreateProfileRequest(commitment, "anotherversion", name, emoji, text, null, false, false, List.of("TEST3", "TEST2")), MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.hasEntity()).isFalse();
 
@@ -664,7 +773,7 @@ class ProfileControllerTest {
         .target("/v1/profile/")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-        .put(Entity.entity(new CreateProfileRequest(commitment, "anotherversion", name, emoji, text, null, false, List.of("TEST2", "TEST3")), MediaType.APPLICATION_JSON_TYPE));
+        .put(Entity.entity(new CreateProfileRequest(commitment, "anotherversion", name, emoji, text, null, false, false, List.of("TEST2", "TEST3")), MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.hasEntity()).isFalse();
 
@@ -687,7 +796,7 @@ class ProfileControllerTest {
         .target("/v1/profile/")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-        .put(Entity.entity(new CreateProfileRequest(commitment, "anotherversion", name, emoji, text, null, false, List.of("TEST1")), MediaType.APPLICATION_JSON_TYPE));
+        .put(Entity.entity(new CreateProfileRequest(commitment, "anotherversion", name, emoji, text, null, false, false, List.of("TEST1")), MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.hasEntity()).isFalse();
 

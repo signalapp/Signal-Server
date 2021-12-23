@@ -159,8 +159,23 @@ public class ProfileController {
     }
 
     Optional<VersionedProfile> currentProfile = profilesManager.get(auth.getAccount().getUuid(), request.getVersion());
-    String avatar = request.isAvatar() ? generateAvatarObjectName() : null;
-    Optional<ProfileAvatarUploadAttributes> response = Optional.empty();
+
+    Optional<String> currentAvatar = Optional.empty();
+    if (currentProfile.isPresent() && currentProfile.get().getAvatar() != null && currentProfile.get().getAvatar().startsWith("profiles/")) {
+      currentAvatar = Optional.of(currentProfile.get().getAvatar());
+    }
+
+    String avatar = null;
+    switch (request.getAvatarChange()) {
+      case UNCHANGED:
+        avatar = currentAvatar.orElse(null);
+        break;
+      case CLEAR:
+        break;
+      case UPDATE:
+        avatar = generateAvatarObjectName();
+        break;
+    }
 
     profilesManager.set(auth.getAccount().getUuid(),
         new VersionedProfile(
@@ -172,20 +187,11 @@ public class ProfileController {
             request.getPaymentAddress(),
             request.getCommitment().serialize()));
 
-    if (request.isAvatar()) {
-      Optional<String> currentAvatar = Optional.empty();
-
-      if (currentProfile.isPresent() && currentProfile.get().getAvatar() != null && currentProfile.get().getAvatar()
-          .startsWith("profiles/")) {
-        currentAvatar = Optional.of(currentProfile.get().getAvatar());
-      }
-
+    if (request.getAvatarChange() != CreateProfileRequest.AvatarChange.UNCHANGED) {
       currentAvatar.ifPresent(s -> s3client.deleteObject(DeleteObjectRequest.builder()
           .bucket(bucket)
           .key(s)
           .build()));
-
-      response = Optional.of(generateAvatarUploadForm(avatar));
     }
 
     List<AccountBadge> updatedBadges = request.getBadges()
@@ -197,8 +203,8 @@ public class ProfileController {
       a.setCurrentProfileVersion(request.getVersion());
     });
 
-    if (response.isPresent()) {
-      return Response.ok(response).build();
+    if (request.getAvatarChange() == CreateProfileRequest.AvatarChange.UPDATE) {
+      return Response.ok(generateAvatarUploadForm(avatar)).build();
     } else {
       return Response.ok().build();
     }
