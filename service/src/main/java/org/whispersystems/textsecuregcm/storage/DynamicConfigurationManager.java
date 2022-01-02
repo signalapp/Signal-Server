@@ -50,7 +50,7 @@ public class DynamicConfigurationManager<T> {
 
   public DynamicConfigurationManager(String application, String environment, String configurationName,
       Class<T> configurationClass) {
-    this(AppConfigClient.builder()
+    this(new NewAppConfigClientBuilder()
             .overrideConfiguration(ClientOverrideConfiguration.builder()
                 .apiCallTimeout(Duration.ofMillis(10000))
                 .apiCallAttemptTimeout(Duration.ofMillis(10000)).build())
