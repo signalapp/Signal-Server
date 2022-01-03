@@ -1,3 +1,8 @@
+/*
+ * Copyright 2021-2022 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.sms;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
@@ -6,7 +11,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
@@ -16,11 +21,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale.LanguageRange;
 import java.util.Optional;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
@@ -89,7 +96,7 @@ class TwilioVerifySenderTest {
   }
 
   @ParameterizedTest
-  @MethodSource("argumentsForDeliverSmsVerificationWithVerify")
+  @MethodSource
   void deliverSmsVerificationWithVerify(@Nullable final String client, @Nullable final String languageRange,
       final boolean expectAppHash, @Nullable final String expectedLocale) throws Exception {
 
@@ -114,17 +121,18 @@ class TwilioVerifySenderTest {
         )));
   }
 
-  private static Object[] argumentsForDeliverSmsVerificationWithVerify() {
-    return new Object[][]{
+  @SuppressWarnings("unused")
+  private static Stream<Arguments> deliverSmsVerificationWithVerify() {
+    return Stream.of(
         // client, languageRange, expectAppHash, expectedLocale
-        {"ios", "fr-CA, en", false, "fr"},
-        {"android-2021-03", "zh-HK, it", true, "zh-HK"},
-        {null, null, false, null}
-    };
+        Arguments.of("ios", "fr-CA, en", false, "fr"),
+        Arguments.of("android-2021-03", "zh-HK, it", true, "zh-HK"),
+        Arguments.of(null, null, false, null)
+    );
   }
 
   @ParameterizedTest
-  @MethodSource("argumentsForDeliverVoxVerificationWithVerify")
+  @MethodSource
   void deliverVoxVerificationWithVerify(@Nullable final String languageRange,
       @Nullable final String expectedLocale) throws Exception {
 
@@ -147,14 +155,15 @@ class TwilioVerifySenderTest {
                 + "&CustomCode=123456")));
   }
 
-  private static Object[] argumentsForDeliverVoxVerificationWithVerify() {
-    return new Object[][]{
+  @SuppressWarnings("unused")
+  private static Stream<Arguments> deliverVoxVerificationWithVerify() {
+    return Stream.of(
         // languageRange, expectedLocale
-        {"fr-CA, en", "fr"},
-        {"zh-HK, it", "zh-HK"},
-        {"en-CAA, en", "en"},
-        {null, null}
-    };
+        Arguments.of("fr-CA, en", "fr"),
+        Arguments.of("zh-HK, it", "zh-HK"),
+        Arguments.of("en-CAA, en", "en"),
+        Arguments.of(null, null)
+    );
   }
 
   @Test
@@ -203,16 +212,17 @@ class TwilioVerifySenderTest {
     wireMock.stubFor(post(urlEqualTo("/v2/Services/" + VERIFY_SERVICE_SID + "/Verifications/" + VERIFICATION_SID))
         .withBasicAuth(ACCOUNT_ID, ACCOUNT_TOKEN)
         .willReturn(aResponse()
-        .withStatus(200)
-        .withHeader("Content-Type", "application/json")
-        .withBody("{\"status\": \"approved\", \"sid\": \"" + VERIFICATION_SID + "\"}")));
+            .withStatus(200)
+            .withHeader("Content-Type", "application/json")
+            .withBody("{\"status\": \"approved\", \"sid\": \"" + VERIFICATION_SID + "\"}")));
 
     final Boolean success = sender.reportVerificationSucceeded(VERIFICATION_SID).get();
 
     assertThat(success).isTrue();
 
-    wireMock.verify(1, postRequestedFor(urlEqualTo("/v2/Services/" + VERIFY_SERVICE_SID + "/Verifications/" + VERIFICATION_SID))
-        .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
-        .withRequestBody(equalTo("Status=approved")));
+    wireMock.verify(1,
+        postRequestedFor(urlEqualTo("/v2/Services/" + VERIFY_SERVICE_SID + "/Verifications/" + VERIFICATION_SID))
+            .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
+            .withRequestBody(equalTo("Status=approved")));
   }
 }
