@@ -15,14 +15,17 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.validation.ConstraintViolation;
 import javax.validation.Validation;
 import javax.validation.Validator;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.Util;
+import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.services.appconfig.AppConfigClient;
-import software.amazon.awssdk.services.appconfig.model.GetConfigurationRequest;
-import software.amazon.awssdk.services.appconfig.model.GetConfigurationResponse;
+import software.amazon.awssdk.services.appconfigdata.AppConfigDataClient;
+import software.amazon.awssdk.services.appconfigdata.model.GetLatestConfigurationRequest;
+import software.amazon.awssdk.services.appconfigdata.model.GetLatestConfigurationResponse;
+import software.amazon.awssdk.services.appconfigdata.model.StartConfigurationSessionRequest;
+import software.amazon.awssdk.services.appconfigdata.model.StartConfigurationSessionResponse;
 
 public class DynamicConfigurationManager<T> {
 
@@ -32,11 +35,13 @@ public class DynamicConfigurationManager<T> {
   private final String clientId;
   private final AppConfigClient appConfigClient;
 
+  private final AppConfigDataClient appConfigDataClient;
+
   private final Class<T> configurationClass;
 
   private final AtomicReference<T> configuration = new AtomicReference<>();
 
-  private GetConfigurationResponse lastConfigResult;
+  private GetLatestConfigurationResponse lastConfigResult;
 
   private boolean initialized = false;
 
@@ -50,18 +55,24 @@ public class DynamicConfigurationManager<T> {
 
   public DynamicConfigurationManager(String application, String environment, String configurationName,
       Class<T> configurationClass) {
-    this(new NewAppConfigClientBuilder()
+    this(AppConfigClient.builder()
             .overrideConfiguration(ClientOverrideConfiguration.builder()
                 .apiCallTimeout(Duration.ofMillis(10000))
                 .apiCallAttemptTimeout(Duration.ofMillis(10000)).build())
+            .build(),
+        AppConfigDataClient.builder()
+            .overrideConfiguration(ClientOverrideConfiguration.builder()
+            .apiCallTimeout(Duration.ofMillis(10000))
+            .apiCallAttemptTimeout(Duration.ofMillis(10000)).build())
             .build(),
         application, environment, configurationName, UUID.randomUUID().toString(), configurationClass);
   }
 
   @VisibleForTesting
-  DynamicConfigurationManager(AppConfigClient appConfigClient, String application, String environment,
+  DynamicConfigurationManager(AppConfigClient appConfigClient, AppConfigDataClient appConfigDataClient, String application, String environment,
       String configurationName, String clientId, Class<T> configurationClass) {
     this.appConfigClient = appConfigClient;
+    this.appConfigDataClient = appConfigDataClient;
     this.application = application;
     this.environment = environment;
     this.configurationName = configurationName;
@@ -104,24 +115,26 @@ public class DynamicConfigurationManager<T> {
   }
 
   private Optional<T> retrieveDynamicConfiguration() throws JsonProcessingException {
-    final String previousVersion = lastConfigResult != null ? lastConfigResult.configurationVersion() : null;
+    final SdkBytes previousVersion = lastConfigResult != null ? lastConfigResult.configuration() : null;
 
-    lastConfigResult = appConfigClient.getConfiguration(GetConfigurationRequest.builder()
-        .application(application)
-        .environment(environment)
-        .configuration(configurationName)
-        .clientId(clientId)
-        .clientConfigurationVersion(previousVersion)
+    StartConfigurationSessionResponse scsr = appConfigDataClient.startConfigurationSession(StartConfigurationSessionRequest.builder()
+        .applicationIdentifier(application)
+        .environmentIdentifier(environment)
+        .configurationProfileIdentifier(configurationName)
+        .build());
+
+    lastConfigResult = appConfigDataClient.getLatestConfiguration(GetLatestConfigurationRequest.builder()
+        .configurationToken(scsr.initialConfigurationToken())
         .build());
 
     final Optional<T> maybeDynamicConfiguration;
 
-    if (!StringUtils.equals(lastConfigResult.configurationVersion(), previousVersion)) {
-      logger.info("Received new config version: {}", lastConfigResult.configurationVersion());
+    if (!lastConfigResult.configuration().equals(previousVersion)) {
+      logger.info("Received new config version: {}", scsr.initialConfigurationToken());
 
       maybeDynamicConfiguration =
           parseConfiguration(
-              StandardCharsets.UTF_8.decode(lastConfigResult.content().asByteBuffer().asReadOnlyBuffer()).toString(),
+              StandardCharsets.UTF_8.decode(lastConfigResult.configuration().asByteBuffer().asReadOnlyBuffer()).toString(),
               configurationClass);
     } else {
       // No change since last version

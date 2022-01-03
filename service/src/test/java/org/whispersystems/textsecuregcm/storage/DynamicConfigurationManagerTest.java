@@ -12,6 +12,7 @@ import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.appconfig.AppConfigClient;
 import software.amazon.awssdk.services.appconfig.model.GetConfigurationRequest;
 import software.amazon.awssdk.services.appconfig.model.GetConfigurationResponse;
+import software.amazon.awssdk.services.appconfigdata.AppConfigDataClient;
 
 public class DynamicConfigurationManagerTest {
 
@@ -21,7 +22,8 @@ public class DynamicConfigurationManagerTest {
   @Before
   public void setup() {
     this.appConfig                   = mock(AppConfigClient.class);
-    this.dynamicConfigurationManager = new DynamicConfigurationManager<>(appConfig, "foo", "bar", "baz", "poof", DynamicConfiguration.class);
+    AppConfigDataClient appConfigDataClient = mock(AppConfigDataClient.class);
+    this.dynamicConfigurationManager = new DynamicConfigurationManager<>(appConfig, appConfigDataClient, "foo", "bar", "baz", "poof", DynamicConfiguration.class);
   }
 
   @Test
