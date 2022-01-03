@@ -176,6 +176,12 @@
       <groupId>io.dropwizard</groupId>
       <artifactId>dropwizard-testing</artifactId>
       <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>junit</groupId>
+          <artifactId>junit</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
@@ -351,6 +357,12 @@
       <groupId>org.glassfish.jersey.test-framework</groupId>
       <artifactId>jersey-test-framework-core</artifactId>
       <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>junit</groupId>
+          <artifactId>junit</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.glassfish.jersey.test-framework.providers</groupId>
@@ -393,11 +405,6 @@
       <artifactId>junit-jupiter-params</artifactId>
       <scope>test</scope>
     </dependency>
-    <dependency>
-      <groupId>org.junit.vintage</groupId>
-      <artifactId>junit-vintage-engine</artifactId>
-      <scope>test</scope>
-    </dependency>
 
     <dependency>
       <groupId>org.signal</groupId>
@@ -433,13 +440,6 @@
     <dependency>
       <groupId>com.stripe</groupId>
       <artifactId>stripe-java</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>pl.pragmatists</groupId>
-      <artifactId>JUnitParams</artifactId>
-      <version>1.1.1</version>
-      <scope>test</scope>
     </dependency>
   </dependencies>
 
