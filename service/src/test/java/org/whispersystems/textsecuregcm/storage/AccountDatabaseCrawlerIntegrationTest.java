@@ -5,7 +5,7 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import static org.junit.Assert.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -18,11 +18,15 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.junit.Before;
-import org.junit.Test;
-import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 
-public class AccountDatabaseCrawlerIntegrationTest extends AbstractRedisClusterTest {
+class AccountDatabaseCrawlerIntegrationTest {
+
+  @RegisterExtension
+  static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
   private static final UUID FIRST_UUID = UUID.fromString("82339e80-81cd-48e2-9ed2-ccd5dd262ad9");
   private static final UUID SECOND_UUID = UUID.fromString("cc705c84-33cf-456b-8239-a6a34e2f561a");
@@ -38,9 +42,8 @@ public class AccountDatabaseCrawlerIntegrationTest extends AbstractRedisClusterT
   private static final int CHUNK_SIZE = 1;
   private static final long CHUNK_INTERVAL_MS = 0;
 
-  @Before
-  public void setUp() throws Exception {
-    super.setUp();
+  @BeforeEach
+  void setUp() throws Exception {
 
     firstAccount = mock(Account.class);
     secondAccount = mock(Account.class);
@@ -57,13 +60,13 @@ public class AccountDatabaseCrawlerIntegrationTest extends AbstractRedisClusterT
         .thenReturn(new AccountCrawlChunk(List.of(secondAccount), SECOND_UUID))
         .thenReturn(new AccountCrawlChunk(Collections.emptyList(), null));
 
-    final AccountDatabaseCrawlerCache crawlerCache = new AccountDatabaseCrawlerCache(getRedisCluster(), "test");
+    final AccountDatabaseCrawlerCache crawlerCache = new AccountDatabaseCrawlerCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(), "test");
     accountDatabaseCrawler = new AccountDatabaseCrawler("test", accountsManager, crawlerCache, List.of(listener), CHUNK_SIZE,
         CHUNK_INTERVAL_MS);
   }
 
   @Test
-  public void testCrawlUninterrupted() throws AccountDatabaseCrawlerRestartException {
+  void testCrawlUninterrupted() throws AccountDatabaseCrawlerRestartException {
     assertFalse(accountDatabaseCrawler.doPeriodicWork());
     assertFalse(accountDatabaseCrawler.doPeriodicWork());
     assertFalse(accountDatabaseCrawler.doPeriodicWork());
@@ -79,7 +82,7 @@ public class AccountDatabaseCrawlerIntegrationTest extends AbstractRedisClusterT
   }
 
   @Test
-  public void testCrawlWithReset() throws AccountDatabaseCrawlerRestartException {
+  void testCrawlWithReset() throws AccountDatabaseCrawlerRestartException {
     doThrow(new AccountDatabaseCrawlerRestartException("OH NO")).doNothing()
         .when(listener).timeAndProcessCrawlChunk(Optional.empty(), List.of(firstAccount));
 

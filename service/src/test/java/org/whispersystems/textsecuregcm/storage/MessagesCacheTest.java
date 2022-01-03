@@ -5,13 +5,15 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.protobuf.ByteString;
 import io.lettuce.core.cluster.SlotHash;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,18 +26,21 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
-import org.whispersystems.textsecuregcm.redis.AbstractRedisClusterTest;
+import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 
-@RunWith(JUnitParamsRunner.class)
-public class MessagesCacheTest extends AbstractRedisClusterTest {
+class MessagesCacheTest {
+
+  @RegisterExtension
+  static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
   private ExecutorService notificationExecutorService;
   private MessagesCache messagesCache;
@@ -46,40 +51,38 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
   private static final UUID DESTINATION_UUID = UUID.randomUUID();
   private static final int DESTINATION_DEVICE_ID = 7;
 
-  @Override
-  @Before
-  public void setUp() throws Exception {
-    super.setUp();
+  @BeforeEach
+  void setUp() throws Exception {
 
-    getRedisCluster().useCluster(
-        connection -> connection.sync().upstream().commands().configSet("notify-keyspace-events", "Klgz"));
+    REDIS_CLUSTER_EXTENSION.getRedisCluster().useCluster(connection -> {
+      connection.sync().flushall();
+      connection.sync().upstream().commands().configSet("notify-keyspace-events", "K$glz");
+    });
 
     notificationExecutorService = Executors.newSingleThreadExecutor();
-    messagesCache = new MessagesCache(getRedisCluster(), getRedisCluster(), notificationExecutorService);
+    messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(), REDIS_CLUSTER_EXTENSION.getRedisCluster(), notificationExecutorService);
 
     messagesCache.start();
   }
 
-  @Override
-  public void tearDown() throws Exception {
+  @AfterEach
+  void tearDown() throws Exception {
     messagesCache.stop();
 
     notificationExecutorService.shutdown();
     notificationExecutorService.awaitTermination(1, TimeUnit.SECONDS);
-
-    super.tearDown();
   }
 
-  @Test
-  @Parameters({"true", "false"})
-  public void testInsert(final boolean sealedSender) {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testInsert(final boolean sealedSender) {
     final UUID messageGuid = UUID.randomUUID();
     assertTrue(messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID,
         generateRandomMessage(messageGuid, sealedSender)) > 0);
   }
 
   @Test
-  public void testDoubleInsertGuid() {
+  void testDoubleInsertGuid() {
     final UUID duplicateGuid = UUID.randomUUID();
     final MessageProtos.Envelope duplicateMessage = generateRandomMessage(duplicateGuid, false);
 
@@ -90,9 +93,9 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
     assertEquals(firstId, secondId);
   }
 
-  @Test
-  @Parameters({"true", "false"})
-  public void testRemoveByUUID(final boolean sealedSender) {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testRemoveByUUID(final boolean sealedSender) {
     final UUID messageGuid = UUID.randomUUID();
 
     assertEquals(Optional.empty(), messagesCache.remove(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageGuid));
@@ -107,9 +110,9 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
     assertEquals(MessagesCache.constructEntityFromEnvelope(message), maybeRemovedMessage.get());
   }
 
-  @Test
-  @Parameters({"true", "false"})
-  public void testRemoveBatchByUUID(final boolean sealedSender) {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testRemoveBatchByUUID(final boolean sealedSender) {
     final int messageCount = 10;
 
     final List<MessageProtos.Envelope> messagesToRemove = new ArrayList<>(messageCount);
@@ -145,7 +148,7 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
   }
 
   @Test
-  public void testHasMessages() {
+  void testHasMessages() {
     assertFalse(messagesCache.hasMessages(DESTINATION_UUID, DESTINATION_DEVICE_ID));
 
     final UUID messageGuid = UUID.randomUUID();
@@ -155,9 +158,9 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
     assertTrue(messagesCache.hasMessages(DESTINATION_UUID, DESTINATION_DEVICE_ID));
   }
 
-  @Test
-  @Parameters({"true", "false"})
-  public void testGetMessages(final boolean sealedSender) {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testGetMessages(final boolean sealedSender) {
     final int messageCount = 100;
 
     final List<OutgoingMessageEntity> expectedMessages = new ArrayList<>(messageCount);
@@ -173,9 +176,9 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
     assertEquals(expectedMessages, messagesCache.get(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount));
   }
 
-  @Test
-  @Parameters({"true", "false"})
-  public void testClearQueueForDevice(final boolean sealedSender) {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testClearQueueForDevice(final boolean sealedSender) {
     final int messageCount = 100;
 
     for (final int deviceId : new int[]{DESTINATION_DEVICE_ID, DESTINATION_DEVICE_ID + 1}) {
@@ -193,9 +196,9 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
     assertEquals(messageCount, messagesCache.get(DESTINATION_UUID, DESTINATION_DEVICE_ID + 1, messageCount).size());
   }
 
-  @Test
-  @Parameters({"true", "false"})
-  public void testClearQueueForAccount(final boolean sealedSender) {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testClearQueueForAccount(final boolean sealedSender) {
     final int messageCount = 100;
 
     for (final int deviceId : new int[]{DESTINATION_DEVICE_ID, DESTINATION_DEVICE_ID + 1}) {
@@ -236,13 +239,13 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
   }
 
   @Test
-  public void testClearNullUuid() {
+  void testClearNullUuid() {
     // We're happy as long as this doesn't throw an exception
     messagesCache.clear(null);
   }
 
   @Test
-  public void testGetAccountFromQueueName() {
+  void testGetAccountFromQueueName() {
     assertEquals(DESTINATION_UUID,
         MessagesCache.getAccountUuidFromQueueName(
             new String(MessagesCache.getMessageQueueKey(DESTINATION_UUID, DESTINATION_DEVICE_ID),
@@ -250,7 +253,7 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
   }
 
   @Test
-  public void testGetDeviceIdFromQueueName() {
+  void testGetDeviceIdFromQueueName() {
     assertEquals(DESTINATION_DEVICE_ID,
         MessagesCache.getDeviceIdFromQueueName(
             new String(MessagesCache.getMessageQueueKey(DESTINATION_UUID, DESTINATION_DEVICE_ID),
@@ -258,14 +261,14 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
   }
 
   @Test
-  public void testGetQueueNameFromKeyspaceChannel() {
+  void testGetQueueNameFromKeyspaceChannel() {
     assertEquals("1b363a31-a429-4fb6-8959-984a025e72ff::7",
         MessagesCache.getQueueNameFromKeyspaceChannel(
             "__keyspace@0__:user_queue::{1b363a31-a429-4fb6-8959-984a025e72ff::7}"));
   }
 
-  @Test
-  @Parameters({"true", "false"})
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
   public void testGetQueuesToPersist(final boolean sealedSender) {
     final UUID messageGuid = UUID.randomUUID();
 
@@ -282,8 +285,8 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
     assertEquals(DESTINATION_DEVICE_ID, MessagesCache.getDeviceIdFromQueueName(queues.get(0)));
   }
 
-  @Test(timeout = 5_000L)
-  public void testNotifyListenerNewMessage() throws InterruptedException {
+  @Test
+  void testNotifyListenerNewMessage() {
     final AtomicBoolean notified = new AtomicBoolean(false);
     final UUID messageGuid = UUID.randomUUID();
 
@@ -301,21 +304,23 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
       }
     };
 
-    messagesCache.addMessageAvailabilityListener(DESTINATION_UUID, DESTINATION_DEVICE_ID, listener);
-    messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID,
-        generateRandomMessage(messageGuid, true));
+    assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+      messagesCache.addMessageAvailabilityListener(DESTINATION_UUID, DESTINATION_DEVICE_ID, listener);
+      messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID,
+          generateRandomMessage(messageGuid, true));
 
-    synchronized (notified) {
-      while (!notified.get()) {
-        notified.wait();
+      synchronized (notified) {
+        while (!notified.get()) {
+          notified.wait();
+        }
       }
-    }
 
-    assertTrue(notified.get());
+      assertTrue(notified.get());
+    });
   }
 
-  @Test(timeout = 5_000L)
-  public void testNotifyListenerPersisted() throws InterruptedException {
+  @Test
+  void testNotifyListenerPersisted() {
     final AtomicBoolean notified = new AtomicBoolean(false);
 
     final MessageAvailabilityListener listener = new MessageAvailabilityListener() {
@@ -332,18 +337,20 @@ public class MessagesCacheTest extends AbstractRedisClusterTest {
       }
     };
 
-    messagesCache.addMessageAvailabilityListener(DESTINATION_UUID, DESTINATION_DEVICE_ID, listener);
+    assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+      messagesCache.addMessageAvailabilityListener(DESTINATION_UUID, DESTINATION_DEVICE_ID, listener);
 
-    messagesCache.lockQueueForPersistence(DESTINATION_UUID, DESTINATION_DEVICE_ID);
-    messagesCache.unlockQueueForPersistence(DESTINATION_UUID, DESTINATION_DEVICE_ID);
+      messagesCache.lockQueueForPersistence(DESTINATION_UUID, DESTINATION_DEVICE_ID);
+      messagesCache.unlockQueueForPersistence(DESTINATION_UUID, DESTINATION_DEVICE_ID);
 
-    synchronized (notified) {
-      while (!notified.get()) {
-        notified.wait();
+      synchronized (notified) {
+        while (!notified.get()) {
+          notified.wait();
+        }
       }
-    }
 
-    assertTrue(notified.get());
+      assertTrue(notified.get());
+    });
   }
 
 }

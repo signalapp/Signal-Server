@@ -1,11 +1,11 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013-2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 package org.whispersystems.textsecuregcm.redis;
 
-import static org.junit.Assume.assumeFalse;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisException;
@@ -178,9 +178,9 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
         Thread.sleep(sleepMillis);
         tries++;
 
-        if (tries == 10) {
+        if (tries == 20) {
           throw new RuntimeException(
-              String.format("Timeout: Redis not ready after waiting %d milliseconds", sleepMillis));
+              String.format("Timeout: Redis not ready after waiting %d milliseconds", tries * sleepMillis));
         }
       }
     } finally {
