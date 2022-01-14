@@ -187,6 +187,31 @@ class DeviceControllerTest {
   }
 
   @Test
+  void verifyDeviceWithNullAccountAttributes() {
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
+
+    final Device existingDevice = mock(Device.class);
+    when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
+    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(Set.of(existingDevice));
+
+    VerificationCode deviceCode = resources.getJerseyTest()
+        .target("/v1/devices/provisioning/code")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(VerificationCode.class);
+
+    assertThat(deviceCode).isEqualTo(new VerificationCode(5678901));
+
+    final Response response = resources.getJerseyTest()
+        .target("/v1/devices/5678901")
+        .request()
+        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+        .put(Entity.json(""));
+
+    assertThat(response.getStatus()).isNotEqualTo(500);
+  }
+
+  @Test
   void verifyDeviceTokenBadCredentials() {
     final Response response = resources.getJerseyTest()
         .target("/v1/devices/5678901")

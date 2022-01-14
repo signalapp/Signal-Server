@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.validation.Valid;
+import javax.validation.constraints.NotNull;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -152,7 +153,7 @@ public class DeviceController {
   public DeviceResponse verifyDeviceToken(@PathParam("verification_code") String verificationCode,
                                           @HeaderParam("Authorization") BasicAuthorizationHeader authorizationHeader,
                                           @HeaderParam("User-Agent") String userAgent,
-                                          @Valid AccountAttributes accountAttributes,
+                                          @NotNull @Valid AccountAttributes accountAttributes,
                                           @Context ContainerRequest containerRequest)
       throws RateLimitExceededException, DeviceLimitExceededException
   {
@@ -164,17 +165,17 @@ public class DeviceController {
 
     Optional<StoredVerificationCode> storedVerificationCode = pendingDevices.getCodeForNumber(number);
 
-    if (!storedVerificationCode.isPresent() || !storedVerificationCode.get().isValid(verificationCode)) {
+    if (storedVerificationCode.isEmpty() || !storedVerificationCode.get().isValid(verificationCode)) {
       throw new WebApplicationException(Response.status(403).build());
     }
 
     Optional<Account> account = accounts.getByE164(number);
 
-    if (!account.isPresent()) {
+    if (account.isEmpty()) {
       throw new WebApplicationException(Response.status(403).build());
     }
 
-    // Normally, the the "do we need to refresh somebody's websockets" listener can do this on its own. In this case,
+    // Normally, the "do we need to refresh somebody's websockets" listener can do this on its own. In this case,
     // we're not using the conventional authentication system, and so we need to give it a hint so it knows who the
     // active user is and what their device states look like.
     AuthEnablementRefreshRequirementProvider.setAccount(containerRequest, account.get());
