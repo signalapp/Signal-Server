@@ -28,10 +28,6 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
-  private DynamicMessageRateConfiguration messageRate = new DynamicMessageRateConfiguration();
-
-  @JsonProperty
-  @Valid
   private DynamicPaymentsConfiguration payments = new DynamicPaymentsConfiguration();
 
   @JsonProperty
@@ -71,10 +67,6 @@ public class DynamicConfiguration {
 
   public DynamicRemoteDeprecationConfiguration getRemoteDeprecationConfiguration() {
     return remoteDeprecation;
-  }
-
-  public DynamicMessageRateConfiguration getMessageRateConfiguration() {
-    return messageRate;
   }
 
   public DynamicPaymentsConfiguration getPaymentsConfiguration() {
