@@ -686,7 +686,7 @@ class AccountsManagerTest {
     assertEquals(targetNumber, account.getNumber());
 
     verify(directoryQueue).changePhoneNumber(argThat(a -> a.getUuid().equals(uuid)), eq(originalNumber), eq(targetNumber));
-    verify(directoryQueue, never()).deleteAccount(any());
+    verify(directoryQueue).deleteAccount(existingAccount);
   }
 
   @Test

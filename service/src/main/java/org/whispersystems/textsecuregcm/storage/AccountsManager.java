@@ -236,6 +236,7 @@ public class AccountsManager {
 
       if (maybeExistingAccount.isPresent()) {
         delete(maybeExistingAccount.get());
+        directoryQueue.deleteAccount(maybeExistingAccount.get());
         displacedUuid = maybeExistingAccount.map(Account::getUuid);
       } else {
         displacedUuid = Optional.empty();
