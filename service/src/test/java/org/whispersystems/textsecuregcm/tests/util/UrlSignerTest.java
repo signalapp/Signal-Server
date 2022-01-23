@@ -5,18 +5,17 @@
 
 package org.whispersystems.textsecuregcm.tests.util;
 
-import com.amazonaws.HttpMethod;
-import org.junit.Test;
-import org.whispersystems.textsecuregcm.s3.UrlSigner;
-
-import java.net.URL;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class UrlSignerTest {
+import com.amazonaws.HttpMethod;
+import java.net.URL;
+import org.junit.jupiter.api.Test;
+import org.whispersystems.textsecuregcm.s3.UrlSigner;
+
+class UrlSignerTest {
 
   @Test
-  public void testTransferAcceleration() {
+  void testTransferAcceleration() {
     UrlSigner signer = new UrlSigner("foo", "bar", "attachments-test");
     URL url = signer.getPreSignedUrl(1234, HttpMethod.GET, false);
 
@@ -24,7 +23,7 @@ public class UrlSignerTest {
   }
 
   @Test
-  public void testTransferUnaccelerated() {
+  void testTransferUnaccelerated() {
     UrlSigner signer = new UrlSigner("foo", "bar", "attachments-test");
     URL url = signer.getPreSignedUrl(1234, HttpMethod.GET, true);
 

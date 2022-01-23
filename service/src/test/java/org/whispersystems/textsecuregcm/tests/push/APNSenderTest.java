@@ -5,6 +5,15 @@
 
 package org.whispersystems.textsecuregcm.tests.push;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+
 import com.eatthepath.pushy.apns.ApnsClient;
 import com.eatthepath.pushy.apns.ApnsPushNotification;
 import com.eatthepath.pushy.apns.DeliveryPriority;
@@ -12,8 +21,13 @@ import com.eatthepath.pushy.apns.PushNotificationResponse;
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
 import com.eatthepath.pushy.apns.util.concurrent.PushNotificationFuture;
 import com.google.common.util.concurrent.ListenableFuture;
-import org.junit.Before;
-import org.junit.Test;
+import java.time.Instant;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.push.APNSender;
@@ -27,16 +41,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.SynchronousExecutorService;
 
-import java.time.Instant;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
-
-public class APNSenderTest {
+class APNSenderTest {
 
   private static final UUID DESTINATION_UUID = UUID.randomUUID();
   private static final String DESTINATION_APN_ID = "foo";
@@ -47,15 +52,15 @@ public class APNSenderTest {
   private final Device             destinationDevice  = mock(Device.class);
   private final ApnFallbackManager fallbackManager    = mock(ApnFallbackManager.class);
 
-  @Before
-  public void setup() {
+  @BeforeEach
+  void setup() {
     when(destinationAccount.getDevice(1)).thenReturn(Optional.of(destinationDevice));
     when(destinationDevice.getApnId()).thenReturn(DESTINATION_APN_ID);
     when(accountsManager.getByAccountIdentifier(DESTINATION_UUID)).thenReturn(Optional.of(destinationAccount));
   }
 
   @Test
-  public void testSendVoip() throws Exception {
+  void testSendVoip() throws Exception {
     ApnsClient      apnsClient      = mock(ApnsClient.class);
 
     PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
@@ -89,7 +94,7 @@ public class APNSenderTest {
   }
 
   @Test
-  public void testSendApns() throws Exception {
+  void testSendApns() throws Exception {
     ApnsClient apnsClient = mock(ApnsClient.class);
 
     PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
@@ -123,7 +128,7 @@ public class APNSenderTest {
   }
 
   @Test
-  public void testUnregisteredUser() throws Exception {
+  void testUnregisteredUser() throws Exception {
     ApnsClient      apnsClient      = mock(ApnsClient.class);
 
     PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
@@ -227,7 +232,7 @@ public class APNSenderTest {
 //  }
 
   @Test
-  public void testRecentUnregisteredUser() throws Exception {
+  void testRecentUnregisteredUser() throws Exception {
     ApnsClient      apnsClient      = mock(ApnsClient.class);
 
     PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
@@ -322,7 +327,7 @@ public class APNSenderTest {
 //  }
 
   @Test
-  public void testGenericFailure() throws Exception {
+  void testGenericFailure() throws Exception {
     ApnsClient      apnsClient      = mock(ApnsClient.class);
 
     PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);
@@ -356,7 +361,7 @@ public class APNSenderTest {
   }
 
   @Test
-  public void testFailure() throws Exception {
+  void testFailure() throws Exception {
     ApnsClient      apnsClient      = mock(ApnsClient.class);
 
     PushNotificationResponse<SimpleApnsPushNotification> response = mock(PushNotificationResponse.class);

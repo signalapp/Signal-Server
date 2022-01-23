@@ -4,17 +4,16 @@
  */
 package org.whispersystems.gcm.server;
 
-import org.junit.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.whispersystems.gcm.server.util.JsonHelpers.jsonFixture;
 
 import java.io.IOException;
-
-import static org.junit.Assert.assertEquals;
-import static org.whispersystems.gcm.server.util.JsonHelpers.jsonFixture;
+import org.junit.jupiter.api.Test;
 
 public class MessageTest {
 
   @Test
-  public void testMinimal() throws IOException {
+  void testMinimal() throws IOException {
     Message message = Message.newBuilder()
                              .withDestination("1")
                              .build();
@@ -23,7 +22,7 @@ public class MessageTest {
   }
 
   @Test
-  public void testComplete() throws IOException {
+  void testComplete() throws IOException {
     Message message = Message.newBuilder()
                              .withDestination("1")
                              .withCollapseKey("collapse")
@@ -36,7 +35,7 @@ public class MessageTest {
   }
 
   @Test
-  public void testWithData() throws IOException {
+  void testWithData() throws IOException {
     Message message = Message.newBuilder()
                              .withDestination("2")
                              .withDataPart("key1", "value1")

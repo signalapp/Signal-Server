@@ -4,36 +4,36 @@
  */
 package org.whispersystems.dispatch.redis.protocol;
 
-import org.junit.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+class IntReplyHeaderTest {
 
-public class IntReplyHeaderTest {
-
-  @Test(expected = IOException.class)
-  public void testNull() throws IOException {
-    new IntReply(null);
-  }
-
-  @Test(expected = IOException.class)
-  public void testEmpty() throws IOException {
-    new IntReply("");
-  }
-
-  @Test(expected = IOException.class)
-  public void testBadNumber() throws IOException {
-    new IntReply(":A");
-  }
-
-  @Test(expected = IOException.class)
-  public void testBadFormat() throws IOException {
-    new IntReply("*");
+  @Test
+  void testNull() {
+    assertThrows(IOException.class, () -> new IntReply(null));
   }
 
   @Test
-  public void testValid() throws IOException {
+  void testEmpty() {
+    assertThrows(IOException.class, () -> new IntReply(""));
+  }
+
+  @Test
+  void testBadNumber() {
+    assertThrows(IOException.class, () -> new IntReply(":A"));
+  }
+
+  @Test
+  void testBadFormat() {
+    assertThrows(IOException.class, () -> new IntReply("*"));
+  }
+
+  @Test
+  void testValid() throws IOException {
     assertEquals(23, new IntReply(":23").getValue());
   }
 }

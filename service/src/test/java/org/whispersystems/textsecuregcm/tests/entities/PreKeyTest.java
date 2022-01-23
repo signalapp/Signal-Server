@@ -5,18 +5,19 @@
 
 package org.whispersystems.textsecuregcm.tests.entities;
 
-import org.junit.Test;
-import org.whispersystems.textsecuregcm.entities.PreKey;
-
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.*;
+import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.asJson;
+import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixture;
 
-public class PreKeyTest {
+import org.junit.jupiter.api.Test;
+import org.whispersystems.textsecuregcm.entities.PreKey;
+
+class PreKeyTest {
 
   @Test
-  public void serializeToJSONV2() throws Exception {
+  void serializeToJSONV2() throws Exception {
     PreKey preKey = new PreKey(1234, "test");
 
     assertThat("PreKeyV2 Serialization works",

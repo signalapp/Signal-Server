@@ -5,15 +5,15 @@
 
 package org.whispersystems.textsecuregcm.util;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import io.lettuce.core.cluster.SlotHash;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-
-public class RedisClusterUtilTest {
+class RedisClusterUtilTest {
 
     @Test
-    public void testGetMinimalHashTag() {
+    void testGetMinimalHashTag() {
         for (int slot = 0; slot < SlotHash.SLOT_COUNT; slot++) {
             assertEquals(slot, SlotHash.getSlot(RedisClusterUtil.getMinimalHashTag(slot)));
         }

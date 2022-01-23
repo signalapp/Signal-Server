@@ -10,13 +10,13 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.entities.CurrencyConversionEntityList;
 
-public class CurrencyConversionManagerTest {
+class CurrencyConversionManagerTest {
 
   @Test
-  public void testCurrencyCalculations() throws IOException {
+  void testCurrencyCalculations() throws IOException {
     FixerClient fixerClient = mock(FixerClient.class);
     FtxClient   ftxClient   = mock(FtxClient.class);
 
@@ -43,7 +43,7 @@ public class CurrencyConversionManagerTest {
   }
 
   @Test
-  public void testCurrencyCalculations_noTrailingZeros() throws IOException {
+  void testCurrencyCalculations_noTrailingZeros() throws IOException {
     FixerClient fixerClient = mock(FixerClient.class);
     FtxClient   ftxClient   = mock(FtxClient.class);
 
@@ -72,7 +72,7 @@ public class CurrencyConversionManagerTest {
   }
 
   @Test
-  public void testCurrencyCalculations_accuracy() throws IOException {
+  void testCurrencyCalculations_accuracy() throws IOException {
     FixerClient fixerClient = mock(FixerClient.class);
     FtxClient   ftxClient   = mock(FtxClient.class);
 
@@ -100,7 +100,7 @@ public class CurrencyConversionManagerTest {
   }
 
   @Test
-  public void testCurrencyCalculationsTimeoutNoRun() throws IOException {
+  void testCurrencyCalculationsTimeoutNoRun() throws IOException {
     FixerClient fixerClient = mock(FixerClient.class);
     FtxClient   ftxClient   = mock(FtxClient.class);
 
@@ -131,7 +131,7 @@ public class CurrencyConversionManagerTest {
   }
 
   @Test
-  public void testCurrencyCalculationsFtxTimeoutWithRun() throws IOException {
+  void testCurrencyCalculationsFtxTimeoutWithRun() throws IOException {
     FixerClient fixerClient = mock(FixerClient.class);
     FtxClient   ftxClient   = mock(FtxClient.class);
 
@@ -163,7 +163,7 @@ public class CurrencyConversionManagerTest {
 
 
   @Test
-  public void testCurrencyCalculationsFixerTimeoutWithRun() throws IOException {
+  void testCurrencyCalculationsFixerTimeoutWithRun() throws IOException {
     FixerClient fixerClient = mock(FixerClient.class);
     FtxClient   ftxClient   = mock(FtxClient.class);
 
@@ -197,7 +197,6 @@ public class CurrencyConversionManagerTest {
     assertThat(conversions.getCurrencies().get(0).getConversions().get("EUR")).isEqualTo(new BigDecimal("2.1687586"));
     assertThat(conversions.getCurrencies().get(0).getConversions().get("FJD")).isEqualTo(new BigDecimal("4.835595"));
     assertThat(conversions.getCurrencies().get(0).getConversions().get("FKP")).isEqualTo(new BigDecimal("1.7470981"));
-
   }
 
 }

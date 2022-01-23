@@ -1,108 +1,125 @@
 /*
- * Copyright 2021 Signal Messenger, LLC
+ * Copyright 2021-2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 package org.whispersystems.textsecuregcm.storage;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.entities.PreKey;
+import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
-public class KeysTest {
+class KeysTest {
 
-    private Keys keys;
+  private static final String TABLE_NAME = "Signal_Keys_Test";
 
-    @ClassRule
-    public static KeysDynamoDbRule dynamoDbRule = new KeysDynamoDbRule();
+  private Keys keys;
 
-    private static final UUID ACCOUNT_UUID = UUID.randomUUID();
-    private static final long DEVICE_ID = 1L;
+  @RegisterExtension
+  static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
+      .tableName(TABLE_NAME)
+      .hashKey(Keys.KEY_ACCOUNT_UUID)
+      .rangeKey(Keys.KEY_DEVICE_ID_KEY_ID)
+      .attributeDefinition(AttributeDefinition.builder()
+          .attributeName(Keys.KEY_ACCOUNT_UUID)
+          .attributeType(ScalarAttributeType.B)
+          .build())
+      .attributeDefinition(
+          AttributeDefinition.builder()
+              .attributeName(Keys.KEY_DEVICE_ID_KEY_ID)
+              .attributeType(ScalarAttributeType.B)
+              .build())
+      .build();
 
-    @Before
-    public void setup() {
-        keys = new Keys(dynamoDbRule.getDynamoDbClient(), KeysDynamoDbRule.TABLE_NAME);
-    }
+  private static final UUID ACCOUNT_UUID = UUID.randomUUID();
+  private static final long DEVICE_ID = 1L;
 
-    @Test
-    public void testStore() {
-        assertEquals("Initial pre-key count for an account should be zero",
-                0, keys.getCount(ACCOUNT_UUID, DEVICE_ID));
+  @BeforeEach
+  void setup() {
+    keys = new Keys(dynamoDbExtension.getDynamoDbClient(), TABLE_NAME);
+  }
 
-        keys.store(ACCOUNT_UUID, DEVICE_ID, List.of(new PreKey(1, "public-key")));
-        assertEquals(1, keys.getCount(ACCOUNT_UUID, DEVICE_ID));
+  @Test
+  void testStore() {
+    assertEquals(0, keys.getCount(ACCOUNT_UUID, DEVICE_ID),
+        "Initial pre-key count for an account should be zero");
 
-        keys.store(ACCOUNT_UUID, DEVICE_ID, List.of(new PreKey(1, "public-key")));
-        assertEquals("Repeatedly storing same key should have no effect",
-                1, keys.getCount(ACCOUNT_UUID, DEVICE_ID));
+    keys.store(ACCOUNT_UUID, DEVICE_ID, List.of(new PreKey(1, "public-key")));
+    assertEquals(1, keys.getCount(ACCOUNT_UUID, DEVICE_ID));
 
-        keys.store(ACCOUNT_UUID, DEVICE_ID, List.of(new PreKey(2, "different-public-key")));
-        assertEquals("Inserting a new key should overwrite all prior keys for the given account/device",
-                1, keys.getCount(ACCOUNT_UUID, DEVICE_ID));
+    keys.store(ACCOUNT_UUID, DEVICE_ID, List.of(new PreKey(1, "public-key")));
+    assertEquals(1, keys.getCount(ACCOUNT_UUID, DEVICE_ID),
+        "Repeatedly storing same key should have no effect");
 
-        keys.store(ACCOUNT_UUID, DEVICE_ID, List.of(new PreKey(3, "third-public-key"), new PreKey(4, "fourth-public-key")));
-        assertEquals("Inserting multiple new keys should overwrite all prior keys for the given account/device",
-                2, keys.getCount(ACCOUNT_UUID, DEVICE_ID));
-    }
+    keys.store(ACCOUNT_UUID, DEVICE_ID, List.of(new PreKey(2, "different-public-key")));
+    assertEquals(1, keys.getCount(ACCOUNT_UUID, DEVICE_ID),
+        "Inserting a new key should overwrite all prior keys for the given account/device");
 
-    @Test
-    public void testTakeAccountAndDeviceId() {
-        assertEquals(Optional.empty(), keys.take(ACCOUNT_UUID, DEVICE_ID));
+    keys.store(ACCOUNT_UUID, DEVICE_ID, List.of(new PreKey(3, "third-public-key"), new PreKey(4, "fourth-public-key")));
+    assertEquals(2, keys.getCount(ACCOUNT_UUID, DEVICE_ID),
+        "Inserting multiple new keys should overwrite all prior keys for the given account/device");
+  }
 
-        final PreKey preKey = new PreKey(1, "public-key");
+  @Test
+  void testTakeAccountAndDeviceId() {
+    assertEquals(Optional.empty(), keys.take(ACCOUNT_UUID, DEVICE_ID));
 
-        keys.store(ACCOUNT_UUID, DEVICE_ID, List.of(preKey, new PreKey(2, "different-pre-key")));
-        assertEquals(Optional.of(preKey), keys.take(ACCOUNT_UUID, DEVICE_ID));
-        assertEquals(1, keys.getCount(ACCOUNT_UUID, DEVICE_ID));
-    }
+    final PreKey preKey = new PreKey(1, "public-key");
 
-    @Test
-    public void testGetCount() {
-        assertEquals(0, keys.getCount(ACCOUNT_UUID, DEVICE_ID));
+    keys.store(ACCOUNT_UUID, DEVICE_ID, List.of(preKey, new PreKey(2, "different-pre-key")));
+    assertEquals(Optional.of(preKey), keys.take(ACCOUNT_UUID, DEVICE_ID));
+    assertEquals(1, keys.getCount(ACCOUNT_UUID, DEVICE_ID));
+  }
 
-        keys.store(ACCOUNT_UUID, DEVICE_ID, List.of(new PreKey(1, "public-key")));
-        assertEquals(1, keys.getCount(ACCOUNT_UUID, DEVICE_ID));
-    }
+  @Test
+  void testGetCount() {
+    assertEquals(0, keys.getCount(ACCOUNT_UUID, DEVICE_ID));
 
-    @Test
-    public void testDeleteByAccount() {
-        keys.store(ACCOUNT_UUID, DEVICE_ID, List.of(new PreKey(1, "public-key"), new PreKey(2, "different-public-key")));
-        keys.store(ACCOUNT_UUID, DEVICE_ID + 1, List.of(new PreKey(3, "public-key-for-different-device")));
+    keys.store(ACCOUNT_UUID, DEVICE_ID, List.of(new PreKey(1, "public-key")));
+    assertEquals(1, keys.getCount(ACCOUNT_UUID, DEVICE_ID));
+  }
 
-        assertEquals(2, keys.getCount(ACCOUNT_UUID, DEVICE_ID));
-        assertEquals(1, keys.getCount(ACCOUNT_UUID, DEVICE_ID + 1));
+  @Test
+  void testDeleteByAccount() {
+    keys.store(ACCOUNT_UUID, DEVICE_ID, List.of(new PreKey(1, "public-key"), new PreKey(2, "different-public-key")));
+    keys.store(ACCOUNT_UUID, DEVICE_ID + 1, List.of(new PreKey(3, "public-key-for-different-device")));
 
-        keys.delete(ACCOUNT_UUID);
+    assertEquals(2, keys.getCount(ACCOUNT_UUID, DEVICE_ID));
+    assertEquals(1, keys.getCount(ACCOUNT_UUID, DEVICE_ID + 1));
 
-        assertEquals(0, keys.getCount(ACCOUNT_UUID, DEVICE_ID));
-        assertEquals(0, keys.getCount(ACCOUNT_UUID, DEVICE_ID + 1));
-    }
+    keys.delete(ACCOUNT_UUID);
 
-    @Test
-    public void testDeleteByAccountAndDevice() {
-        keys.store(ACCOUNT_UUID, DEVICE_ID, List.of(new PreKey(1, "public-key"), new PreKey(2, "different-public-key")));
-        keys.store(ACCOUNT_UUID, DEVICE_ID + 1, List.of(new PreKey(3, "public-key-for-different-device")));
+    assertEquals(0, keys.getCount(ACCOUNT_UUID, DEVICE_ID));
+    assertEquals(0, keys.getCount(ACCOUNT_UUID, DEVICE_ID + 1));
+  }
 
-        assertEquals(2, keys.getCount(ACCOUNT_UUID, DEVICE_ID));
-        assertEquals(1, keys.getCount(ACCOUNT_UUID, DEVICE_ID + 1));
+  @Test
+  void testDeleteByAccountAndDevice() {
+    keys.store(ACCOUNT_UUID, DEVICE_ID, List.of(new PreKey(1, "public-key"), new PreKey(2, "different-public-key")));
+    keys.store(ACCOUNT_UUID, DEVICE_ID + 1, List.of(new PreKey(3, "public-key-for-different-device")));
 
-        keys.delete(ACCOUNT_UUID, DEVICE_ID);
+    assertEquals(2, keys.getCount(ACCOUNT_UUID, DEVICE_ID));
+    assertEquals(1, keys.getCount(ACCOUNT_UUID, DEVICE_ID + 1));
 
-        assertEquals(0, keys.getCount(ACCOUNT_UUID, DEVICE_ID));
-        assertEquals(1, keys.getCount(ACCOUNT_UUID, DEVICE_ID + 1));
-    }
+    keys.delete(ACCOUNT_UUID, DEVICE_ID);
 
-    @Test
-    public void testSortKeyPrefix() {
-      AttributeValue got = Keys.getSortKeyPrefix(123);
-      assertArrayEquals(new byte[]{0, 0, 0, 0, 0, 0, 0, 123}, got.b().asByteArray());
-    }
+    assertEquals(0, keys.getCount(ACCOUNT_UUID, DEVICE_ID));
+    assertEquals(1, keys.getCount(ACCOUNT_UUID, DEVICE_ID + 1));
+  }
+
+  @Test
+  void testSortKeyPrefix() {
+    AttributeValue got = Keys.getSortKeyPrefix(123);
+    assertArrayEquals(new byte[]{0, 0, 0, 0, 0, 0, 0, 123}, got.b().asByteArray());
+  }
 }

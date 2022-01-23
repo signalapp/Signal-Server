@@ -9,22 +9,22 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 
-public class RemoteConfigsManagerTest {
+class RemoteConfigsManagerTest {
 
   private RemoteConfigs remoteConfigs;
   private RemoteConfigsManager remoteConfigsManager;
 
-  @Before
-  public void setup() {
+  @BeforeEach
+  void setup() {
     this.remoteConfigs = mock(RemoteConfigs.class);
     this.remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
   }
 
   @Test
-  public void testGetAll() {
+  void testGetAll() {
     remoteConfigsManager.getAll();
     remoteConfigsManager.getAll();
 
@@ -33,7 +33,7 @@ public class RemoteConfigsManagerTest {
   }
 
   @Test
-  public void testSet() {
+  void testSet() {
     final RemoteConfig remoteConfig = mock(RemoteConfig.class);
 
     remoteConfigsManager.set(remoteConfig);
@@ -43,7 +43,7 @@ public class RemoteConfigsManagerTest {
   }
 
   @Test
-  public void testDelete() {
+  void testDelete() {
     final String name = "name";
 
     remoteConfigsManager.delete(name);

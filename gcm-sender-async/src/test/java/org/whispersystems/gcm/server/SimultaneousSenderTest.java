@@ -6,32 +6,33 @@ package org.whispersystems.gcm.server;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
-import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
-import static junit.framework.TestCase.assertTrue;
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.whispersystems.gcm.server.util.FixtureHelpers.fixture;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
-import com.github.tomakehurst.wiremock.junit.WireMockRule;
+import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
-public class SimultaneousSenderTest {
+class SimultaneousSenderTest {
 
-  @Rule
-  public WireMockRule wireMock = new WireMockRule(WireMockConfiguration.options().dynamicPort().dynamicHttpsPort());
+  @RegisterExtension
+  private final WireMockExtension wireMock = WireMockExtension.newInstance()
+      .options(wireMockConfig().dynamicPort().dynamicHttpsPort())
+      .build();
 
   private static final ObjectMapper mapper = new ObjectMapper();
 
@@ -42,13 +43,13 @@ public class SimultaneousSenderTest {
   }
 
   @Test
-  public void testSimultaneousSuccess() throws TimeoutException, InterruptedException, ExecutionException, JsonProcessingException {
-    stubFor(post(urlPathEqualTo("/gcm/send"))
+  void testSimultaneousSuccess() throws TimeoutException, InterruptedException, ExecutionException {
+    wireMock.stubFor(post(urlPathEqualTo("/gcm/send"))
                 .willReturn(aResponse()
                                 .withStatus(200)
                                 .withBody(fixture("fixtures/response-success.json"))));
 
-    Sender                          sender  = new Sender("foobarbaz", mapper, 2, "http://localhost:" + wireMock.port() + "/gcm/send");
+    Sender                          sender  = new Sender("foobarbaz", mapper, 2, "http://localhost:" + wireMock.getPort() + "/gcm/send");
     List<CompletableFuture<Result>> results = new LinkedList<>();
 
     for (int i=0;i<1000;i++) {
@@ -65,13 +66,13 @@ public class SimultaneousSenderTest {
   }
 
   @Test
-  @Ignore
-  public void testSimultaneousFailure() throws TimeoutException, InterruptedException {
-    stubFor(post(urlPathEqualTo("/gcm/send"))
+  @Disabled
+  void testSimultaneousFailure() {
+    wireMock.stubFor(post(urlPathEqualTo("/gcm/send"))
                 .willReturn(aResponse()
                                 .withStatus(503)));
 
-    Sender                         sender   = new Sender("foobarbaz", mapper, 2, "http://localhost:" + wireMock.port() + "/gcm/send");
+    Sender                         sender   = new Sender("foobarbaz", mapper, 2, "http://localhost:" + wireMock.getPort() + "/gcm/send");
     List<CompletableFuture<Result>> futures = new LinkedList<>();
 
     for (int i=0;i<1000;i++) {
@@ -79,11 +80,9 @@ public class SimultaneousSenderTest {
     }
 
     for (CompletableFuture<Result> future : futures) {
-      try {
-        Result result = future.get(60, TimeUnit.SECONDS);
-      } catch (ExecutionException e) {
-        assertTrue(e.getCause().toString(), e.getCause() instanceof ServerFailedException);
-      }
+      final ExecutionException e = assertThrows(ExecutionException.class, () -> future.get(60, TimeUnit.SECONDS));
+
+      assertTrue(e.getCause() instanceof ServerFailedException, e.getCause().toString());
     }
   }
 }

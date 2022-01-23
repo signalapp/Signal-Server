@@ -5,9 +5,10 @@
 
 package org.whispersystems.textsecuregcm.websocket;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -27,6 +28,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.auth.basic.BasicCredentials;
 import io.lettuce.core.RedisException;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -43,8 +45,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.mockito.ArgumentMatchers;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
@@ -66,7 +68,7 @@ import org.whispersystems.websocket.auth.WebSocketAuthenticator.AuthenticationRe
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 
-public class WebSocketConnectionTest {
+class WebSocketConnectionTest {
 
   private static final String VALID_USER   = "+14152222222";
   private static final String INVALID_USER = "+14151111111";
@@ -84,8 +86,8 @@ public class WebSocketConnectionTest {
   private ApnFallbackManager apnFallbackManager;
   private ScheduledExecutorService retrySchedulingExecutor;
 
-  @Before
-  public void setup() {
+  @BeforeEach
+  void setup() {
     accountAuthenticator = mock(AccountAuthenticator.class);
     accountsManager = mock(AccountsManager.class);
     account = mock(Account.class);
@@ -98,7 +100,7 @@ public class WebSocketConnectionTest {
   }
 
   @Test
-  public void testCredentials() throws Exception {
+  void testCredentials() {
     MessagesManager storedMessages = mock(MessagesManager.class);
     WebSocketAccountAuthenticator webSocketAuthenticator = new WebSocketAccountAuthenticator(accountAuthenticator);
     AuthenticatedConnectListener connectListener = new AuthenticatedConnectListener(receiptSender, storedMessages,
@@ -143,7 +145,7 @@ public class WebSocketConnectionTest {
   }
 
   @Test
-  public void testOpen() throws Exception {
+  void testOpen() throws Exception {
     MessagesManager storedMessages = mock(MessagesManager.class);
 
     UUID accountUuid   = UUID.randomUUID();
@@ -187,7 +189,7 @@ public class WebSocketConnectionTest {
     when(client.sendRequest(eq("PUT"), eq("/api/v1/message"), ArgumentMatchers.nullable(List.class), ArgumentMatchers.<Optional<byte[]>>any()))
         .thenAnswer(new Answer<CompletableFuture<WebSocketResponseMessage>>() {
           @Override
-          public CompletableFuture<WebSocketResponseMessage> answer(InvocationOnMock invocationOnMock) throws Throwable {
+          public CompletableFuture<WebSocketResponseMessage> answer(InvocationOnMock invocationOnMock) {
             CompletableFuture<WebSocketResponseMessage> future = new CompletableFuture<>();
             futures.add(future);
             return future;
@@ -217,8 +219,8 @@ public class WebSocketConnectionTest {
     verify(client).close(anyInt(), anyString());
   }
 
-  @Test(timeout = 5_000L)
-  public void testOnlineSend() throws Exception {
+  @Test
+  public void testOnlineSend() {
     final MessagesManager messagesManager = mock(MessagesManager.class);
     final WebSocketClient client = mock(WebSocketClient.class);
     final WebSocketConnection connection = new WebSocketConnection(receiptSender, messagesManager, auth, device, client,
@@ -250,34 +252,36 @@ public class WebSocketConnectionTest {
       return CompletableFuture.completedFuture(successResponse);
     });
 
-    // This is a little hacky and non-obvious, but because the first call to getMessagesForDevice returns empty list of
-    // messages, the call to CompletableFuture.allOf(...) in processStoredMessages will produce an instantly-succeeded
-    // future, and the whenComplete method will get called immediately on THIS thread, so we don't need to synchronize
-    // or wait for anything.
-    connection.start();
+    assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+      // This is a little hacky and non-obvious, but because the first call to getMessagesForDevice returns empty list of
+      // messages, the call to CompletableFuture.allOf(...) in processStoredMessages will produce an instantly-succeeded
+      // future, and the whenComplete method will get called immediately on THIS thread, so we don't need to synchronize
+      // or wait for anything.
+      connection.start();
 
-    connection.handleNewMessagesAvailable();
+      connection.handleNewMessagesAvailable();
 
-    synchronized (sendCounter) {
-      while (sendCounter.get() < 1) {
-        sendCounter.wait();
+      synchronized (sendCounter) {
+        while (sendCounter.get() < 1) {
+          sendCounter.wait();
+        }
       }
-    }
 
-    connection.handleNewMessagesAvailable();
+      connection.handleNewMessagesAvailable();
 
-    synchronized (sendCounter) {
-      while (sendCounter.get() < 2) {
-        sendCounter.wait();
+      synchronized (sendCounter) {
+        while (sendCounter.get() < 2) {
+          sendCounter.wait();
+        }
       }
-    }
+    });
 
     verify(client, times(1)).sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), any(List.class), eq(Optional.empty()));
     verify(client, times(2)).sendRequest(eq("PUT"), eq("/api/v1/message"), any(List.class), any(Optional.class));
   }
 
   @Test
-  public void testPendingSend() throws Exception {
+  void testPendingSend() throws Exception {
     MessagesManager storedMessages  = mock(MessagesManager.class);
 
     final UUID senderTwoUuid = UUID.randomUUID();
@@ -344,7 +348,7 @@ public class WebSocketConnectionTest {
     when(client.sendRequest(eq("PUT"), eq("/api/v1/message"), ArgumentMatchers.nullable(List.class), ArgumentMatchers.<Optional<byte[]>>any()))
         .thenAnswer(new Answer<CompletableFuture<WebSocketResponseMessage>>() {
           @Override
-          public CompletableFuture<WebSocketResponseMessage> answer(InvocationOnMock invocationOnMock) throws Throwable {
+          public CompletableFuture<WebSocketResponseMessage> answer(InvocationOnMock invocationOnMock) {
             CompletableFuture<WebSocketResponseMessage> future = new CompletableFuture<>();
             futures.add(future);
             return future;
@@ -372,8 +376,8 @@ public class WebSocketConnectionTest {
     verify(client).close(anyInt(), anyString());
   }
 
-  @Test(timeout = 5000L)
-  public void testProcessStoredMessageConcurrency() throws InterruptedException {
+  @Test
+  void testProcessStoredMessageConcurrency() throws InterruptedException {
     final MessagesManager messagesManager = mock(MessagesManager.class);
     final WebSocketClient client = mock(WebSocketClient.class);
     final WebSocketConnection connection = new WebSocketConnection(receiptSender, messagesManager, auth, device, client,
@@ -406,37 +410,40 @@ public class WebSocketConnectionTest {
     final Thread[]       threads               = new Thread[10];
     final CountDownLatch unblockedThreadsLatch = new CountDownLatch(threads.length - 1);
 
-    for (int i = 0; i < threads.length; i++) {
-      threads[i] = new Thread(() -> {
-        connection.processStoredMessages();
-        unblockedThreadsLatch.countDown();
-      });
 
-      threads[i].start();
-    }
+    assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+      for (int i = 0; i < threads.length; i++) {
+        threads[i] = new Thread(() -> {
+          connection.processStoredMessages();
+          unblockedThreadsLatch.countDown();
+        });
 
-    unblockedThreadsLatch.await();
-
-    synchronized (threadWaiting) {
-      while (!threadWaiting.get()) {
-        threadWaiting.wait();
+        threads[i].start();
       }
-    }
 
-    synchronized (returnMessageList) {
-      returnMessageList.set(true);
-      returnMessageList.notifyAll();
-    }
+      unblockedThreadsLatch.await();
 
-    for (final Thread thread : threads) {
-      thread.join();
-    }
+      synchronized (threadWaiting) {
+        while (!threadWaiting.get()) {
+          threadWaiting.wait();
+        }
+      }
+
+      synchronized (returnMessageList) {
+        returnMessageList.set(true);
+        returnMessageList.notifyAll();
+      }
+
+      for (final Thread thread : threads) {
+        thread.join();
+      }
+    });
 
     verify(messagesManager).getMessagesForDevice(any(UUID.class), anyLong(), anyString(), eq(false));
   }
 
-  @Test(timeout = 5000L)
-  public void testProcessStoredMessagesMultiplePages() throws InterruptedException {
+  @Test
+  void testProcessStoredMessagesMultiplePages() {
     final MessagesManager messagesManager = mock(MessagesManager.class);
     final WebSocketClient client = mock(WebSocketClient.class);
     final WebSocketConnection connection = new WebSocketConnection(receiptSender, messagesManager, auth, device, client,
@@ -471,16 +478,18 @@ public class WebSocketConnectionTest {
       return CompletableFuture.completedFuture(successResponse);
     });
 
-    connection.processStoredMessages();
+    assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+      connection.processStoredMessages();
 
-    sendLatch.await();
+      sendLatch.await();
+    });
 
     verify(client, times(firstPageMessages.size() + secondPageMessages.size())).sendRequest(eq("PUT"), eq("/api/v1/message"), any(List.class), any(Optional.class));
     verify(client).sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), any(List.class), eq(Optional.empty()));
   }
 
-  @Test(timeout = 5000L)
-  public void testProcessStoredMessagesContainsSenderUuid() throws InterruptedException {
+  @Test
+  void testProcessStoredMessagesContainsSenderUuid() {
     final MessagesManager messagesManager = mock(MessagesManager.class);
     final WebSocketClient client = mock(WebSocketClient.class);
     final WebSocketConnection connection = new WebSocketConnection(receiptSender, messagesManager, auth, device, client,
@@ -508,9 +517,11 @@ public class WebSocketConnectionTest {
       return CompletableFuture.completedFuture(successResponse);
     });
 
-    connection.processStoredMessages();
+    assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+      connection.processStoredMessages();
 
-    sendLatch.await();
+      sendLatch.await();
+    });
 
     verify(client, times(messages.size())).sendRequest(eq("PUT"), eq("/api/v1/message"), any(List.class), argThat(argument -> {
       if (argument.isEmpty()) {
@@ -532,7 +543,7 @@ public class WebSocketConnectionTest {
   }
 
   @Test
-  public void testProcessStoredMessagesSingleEmptyCall() {
+  void testProcessStoredMessagesSingleEmptyCall() {
     final MessagesManager messagesManager = mock(MessagesManager.class);
     final WebSocketClient client = mock(WebSocketClient.class);
     final WebSocketConnection connection = new WebSocketConnection(receiptSender, messagesManager, auth, device, client,
@@ -561,8 +572,8 @@ public class WebSocketConnectionTest {
     verify(client, times(1)).sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), any(List.class), eq(Optional.empty()));
   }
 
-  @Test(timeout = 5000L)
-  public void testRequeryOnStateMismatch() throws InterruptedException {
+  @Test
+  public void testRequeryOnStateMismatch() {
     final MessagesManager messagesManager = mock(MessagesManager.class);
     final WebSocketClient client = mock(WebSocketClient.class);
     final WebSocketConnection connection = new WebSocketConnection(receiptSender, messagesManager, auth, device, client,
@@ -601,16 +612,18 @@ public class WebSocketConnectionTest {
       return CompletableFuture.completedFuture(successResponse);
     });
 
-    connection.processStoredMessages();
+    assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+      connection.processStoredMessages();
 
-    sendLatch.await();
+      sendLatch.await();
+    });
 
     verify(client, times(firstPageMessages.size() + secondPageMessages.size())).sendRequest(eq("PUT"), eq("/api/v1/message"), any(List.class), any(Optional.class));
     verify(client).sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), any(List.class), eq(Optional.empty()));
   }
 
   @Test
-  public void testProcessCachedMessagesOnly() {
+  void testProcessCachedMessagesOnly() {
     final MessagesManager messagesManager = mock(MessagesManager.class);
     final WebSocketClient client = mock(WebSocketClient.class);
     final WebSocketConnection connection = new WebSocketConnection(receiptSender, messagesManager, auth, device, client,
@@ -643,7 +656,7 @@ public class WebSocketConnectionTest {
   }
 
   @Test
-  public void testProcessDatabaseMessagesAfterPersist() {
+  void testProcessDatabaseMessagesAfterPersist() {
     final MessagesManager messagesManager = mock(MessagesManager.class);
     final WebSocketClient client = mock(WebSocketClient.class);
     final WebSocketConnection connection = new WebSocketConnection(receiptSender, messagesManager, auth, device, client,
@@ -673,7 +686,7 @@ public class WebSocketConnectionTest {
   }
 
   @Test
-  public void testDiscardOversizedMessagesForDesktop() {
+  void testDiscardOversizedMessagesForDesktop() {
     MessagesManager storedMessages = mock(MessagesManager.class);
 
     UUID accountUuid   = UUID.randomUUID();
@@ -718,8 +731,7 @@ public class WebSocketConnectionTest {
         ArgumentMatchers.<Optional<byte[]>>any()))
         .thenAnswer(new Answer<CompletableFuture<WebSocketResponseMessage>>() {
           @Override
-          public CompletableFuture<WebSocketResponseMessage> answer(InvocationOnMock invocationOnMock)
-              throws Throwable {
+          public CompletableFuture<WebSocketResponseMessage> answer(InvocationOnMock invocationOnMock) {
             CompletableFuture<WebSocketResponseMessage> future = new CompletableFuture<>();
             futures.add(future);
             return future;
@@ -749,7 +761,7 @@ public class WebSocketConnectionTest {
   }
 
   @Test
-  public void testSendOversizedMessagesForNonDesktop() throws Exception {
+  void testSendOversizedMessagesForNonDesktop() {
     MessagesManager storedMessages = mock(MessagesManager.class);
 
     UUID accountUuid   = UUID.randomUUID();
@@ -794,8 +806,7 @@ public class WebSocketConnectionTest {
         ArgumentMatchers.<Optional<byte[]>>any()))
         .thenAnswer(new Answer<CompletableFuture<WebSocketResponseMessage>>() {
           @Override
-          public CompletableFuture<WebSocketResponseMessage> answer(InvocationOnMock invocationOnMock)
-              throws Throwable {
+          public CompletableFuture<WebSocketResponseMessage> answer(InvocationOnMock invocationOnMock) {
             CompletableFuture<WebSocketResponseMessage> future = new CompletableFuture<>();
             futures.add(future);
             return future;
@@ -824,7 +835,7 @@ public class WebSocketConnectionTest {
   }
 
   @Test
-  public void testRetrieveMessageException() {
+  void testRetrieveMessageException() {
     MessagesManager storedMessages = mock(MessagesManager.class);
 
     UUID accountUuid = UUID.randomUUID();
@@ -858,7 +869,7 @@ public class WebSocketConnectionTest {
   }
 
   @Test
-  public void testRetrieveMessageExceptionClientDisconnected() {
+  void testRetrieveMessageExceptionClientDisconnected() {
     MessagesManager storedMessages = mock(MessagesManager.class);
 
     UUID accountUuid = UUID.randomUUID();

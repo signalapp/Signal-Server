@@ -5,24 +5,23 @@
 
 package org.whispersystems.textsecuregcm.tests.auth;
 
-import org.junit.Test;
-import org.whispersystems.textsecuregcm.auth.Anonymous;
-import org.whispersystems.textsecuregcm.auth.OptionalAccess;
-import org.whispersystems.textsecuregcm.storage.Account;
-
-import javax.ws.rs.WebApplicationException;
-import java.util.Base64;
-import java.util.Optional;
-
-import static junit.framework.TestCase.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class OptionalAccessTest {
+import java.util.Base64;
+import java.util.Optional;
+import javax.ws.rs.WebApplicationException;
+import org.junit.jupiter.api.Test;
+import org.whispersystems.textsecuregcm.auth.Anonymous;
+import org.whispersystems.textsecuregcm.auth.OptionalAccess;
+import org.whispersystems.textsecuregcm.storage.Account;
+
+class OptionalAccessTest {
 
   @Test
-  public void testUnidentifiedMissingTarget() {
+  void testUnidentifiedMissingTarget() {
     try {
       OptionalAccess.verify(Optional.empty(), Optional.empty(), Optional.empty());
       throw new AssertionError("should fail");
@@ -32,7 +31,7 @@ public class OptionalAccessTest {
   }
 
   @Test
-  public void testUnidentifiedMissingTargetDevice() {
+  void testUnidentifiedMissingTargetDevice() {
     Account account = mock(Account.class);
     when(account.isEnabled()).thenReturn(true);
     when(account.getDevice(eq(10))).thenReturn(Optional.empty());
@@ -46,7 +45,7 @@ public class OptionalAccessTest {
   }
 
   @Test
-  public void testUnidentifiedBadTargetDevice() {
+  void testUnidentifiedBadTargetDevice() {
     Account account = mock(Account.class);
     when(account.isEnabled()).thenReturn(true);
     when(account.getDevice(eq(10))).thenReturn(Optional.empty());
@@ -61,7 +60,7 @@ public class OptionalAccessTest {
 
 
   @Test
-  public void testUnidentifiedBadCode() {
+  void testUnidentifiedBadCode() {
     Account account = mock(Account.class);
     when(account.isEnabled()).thenReturn(true);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of("1234".getBytes()));
@@ -75,7 +74,7 @@ public class OptionalAccessTest {
   }
 
   @Test
-  public void testIdentifiedMissingTarget() {
+  void testIdentifiedMissingTarget() {
     Account account =  mock(Account.class);
     when(account.isEnabled()).thenReturn(true);
 
@@ -88,7 +87,7 @@ public class OptionalAccessTest {
   }
 
   @Test
-  public void testUnsolicitedBadTarget() {
+  void testUnsolicitedBadTarget() {
     Account account = mock(Account.class);
     when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(false);
     when(account.isEnabled()).thenReturn(true);
@@ -102,7 +101,7 @@ public class OptionalAccessTest {
   }
 
   @Test
-  public void testUnsolicitedGoodTarget() {
+  void testUnsolicitedGoodTarget() {
     Account account = mock(Account.class);
     Anonymous random = mock(Anonymous.class);
     when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(true);
@@ -111,7 +110,7 @@ public class OptionalAccessTest {
   }
 
   @Test
-  public void testUnidentifiedGoodTarget() {
+  void testUnidentifiedGoodTarget() {
     Account account = mock(Account.class);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of("1234".getBytes()));
     when(account.isEnabled()).thenReturn(true);
@@ -119,7 +118,7 @@ public class OptionalAccessTest {
   }
 
   @Test
-  public void testUnidentifiedInactive() {
+  void testUnidentifiedInactive() {
     Account account = mock(Account.class);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of("1234".getBytes()));
     when(account.isEnabled()).thenReturn(false);
@@ -133,7 +132,7 @@ public class OptionalAccessTest {
   }
 
   @Test
-  public void testIdentifiedGoodTarget() {
+  void testIdentifiedGoodTarget() {
     Account source = mock(Account.class);
     Account target = mock(Account.class);
     when(target.isEnabled()).thenReturn(true);
