@@ -90,17 +90,26 @@ public class NonNormalizedAccountCrawlerListener extends AccountDatabaseCrawlerL
   @Override
   public void onCrawlEnd(final Optional<UUID> fromUuid) {
     final int normalizedNumbers = metricsCluster.withCluster(connection ->
-        Integer.parseInt(connection.sync().get(NORMALIZED_NUMBER_COUNT_KEY)));
+        NonNormalizedAccountCrawlerListener.parseInteger(connection.sync().get(NORMALIZED_NUMBER_COUNT_KEY), 0));
 
     final int nonNormalizedNumbers = metricsCluster.withCluster(connection ->
-        Integer.parseInt(connection.sync().get(NON_NORMALIZED_NUMBER_COUNT_KEY)));
+        NonNormalizedAccountCrawlerListener.parseInteger(connection.sync().get(NON_NORMALIZED_NUMBER_COUNT_KEY), 0));
 
     final int conflictingNumbers = metricsCluster.withCluster(connection ->
-        Integer.parseInt(connection.sync().get(CONFLICTING_NUMBER_COUNT_KEY)));
+        NonNormalizedAccountCrawlerListener.parseInteger(connection.sync().get(CONFLICTING_NUMBER_COUNT_KEY), 0));
 
     log.info("Crawl completed. Normalized numbers: {}; non-normalized numbers: {}; conflicting numbers: {}",
         normalizedNumbers, nonNormalizedNumbers, conflictingNumbers);
   }
+  
+  public static int parseInteger(String string, int defaultValue ) {
+  try {
+    return Integer.parseInt(string);
+  }
+  catch (NumberFormatException e ) {
+    return defaultValue;
+  }
+}
 
   @VisibleForTesting
   static boolean hasNumberNormalized(final Account account) {
