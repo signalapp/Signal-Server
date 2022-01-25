@@ -51,6 +51,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
@@ -855,7 +856,11 @@ public class SubscriptionController {
     try {
       return containerRequestContext.getAcceptableLanguages();
     } catch (final ProcessingException e) {
-      logger.warn("Could not get acceptable languages", e);
+      logger.warn("Could not get acceptable languages; Accept-Language: {}; User-Agent: {}",
+          containerRequestContext.getHeaderString(HttpHeaders.ACCEPT_LANGUAGE),
+          containerRequestContext.getHeaderString(HttpHeaders.USER_AGENT),
+          e);
+
       return List.of();
     }
   }
