@@ -32,6 +32,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Stream;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
@@ -176,6 +177,7 @@ class ProfileControllerTest {
     when(profileAccount.isChangeNumberSupported()).thenReturn(false);
     when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.empty());
     when(profileAccount.getUsername()).thenReturn(Optional.of("n00bkiller"));
+    when(profileAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of("1337".getBytes()));
 
     Account capabilitiesAccount = mock(Account.class);
 
@@ -224,6 +226,44 @@ class ProfileControllerTest {
 
     verify(accountsManager).getByAccountIdentifier(AuthHelper.VALID_UUID_TWO);
     verify(rateLimiter, times(1)).validate(AuthHelper.VALID_UUID);
+  }
+
+  @Test
+  void testProfileGetByUuidUnidentified() throws RateLimitExceededException {
+    BaseProfileResponse profile = resources.getJerseyTest()
+        .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO)
+        .request()
+        .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("1337".getBytes()))
+        .get(BaseProfileResponse.class);
+
+    assertThat(profile.getIdentityKey()).isEqualTo("bar");
+    assertThat(profile.getBadges()).hasSize(1).element(0).has(new Condition<>(
+        badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
+
+    verify(accountsManager).getByAccountIdentifier(AuthHelper.VALID_UUID_TWO);
+    verify(rateLimiter, never()).validate(AuthHelper.VALID_UUID);
+  }
+
+  @Test
+  void testProfileGetByUuidUnidentifiedBadKey() {
+    final Response response = resources.getJerseyTest()
+        .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO)
+        .request()
+        .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("incorrect".getBytes()))
+        .get();
+
+    assertThat(response.getStatus()).isEqualTo(401);
+  }
+
+  @Test
+  void testProfileGetByUuidUnidentifiedAccountNotFound() {
+    final Response response = resources.getJerseyTest()
+        .target("/v1/profile/" + UUID.randomUUID())
+        .request()
+        .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("1337".getBytes()))
+        .get();
+
+    assertThat(response.getStatus()).isEqualTo(401);
   }
 
   @Test
