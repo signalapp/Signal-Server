@@ -65,7 +65,7 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicSignupCaptc
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
-import org.whispersystems.textsecuregcm.entities.AccountCreationResult;
+import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ChangePhoneNumberRequest;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
@@ -1014,7 +1014,7 @@ class AccountControllerTest {
              .target(String.format("/v1/accounts/code/%s", "1234"))
              .request()
              .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER, "bar"))
-             .put(Entity.entity(new AccountAttributes(), MediaType.APPLICATION_JSON_TYPE), AccountCreationResult.class);
+             .put(Entity.entity(new AccountAttributes(), MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
     verify(accountsManager).create(eq(SENDER), eq("bar"), any(), any(), anyList());
 
@@ -1066,13 +1066,13 @@ class AccountControllerTest {
 
   @Test
   void testVerifyRegistrationLock() throws Exception {
-    AccountCreationResult result =
+    AccountIdentityResponse result =
         resources.getJerseyTest()
             .target(String.format("/v1/accounts/code/%s", "666666"))
             .request()
             .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER_REG_LOCK, "bar"))
             .put(Entity.entity(new AccountAttributes(false, 3333, null, Hex.toStringCondensed(registration_lock_key), true, null),
-                MediaType.APPLICATION_JSON_TYPE), AccountCreationResult.class);
+                MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
     assertThat(result.getUuid()).isNotNull();
 
@@ -1081,13 +1081,13 @@ class AccountControllerTest {
 
   @Test
   void testVerifyRegistrationLockSetsRegistrationLockOnNewAccount() throws Exception {
-    AccountCreationResult result =
+    AccountIdentityResponse result =
         resources.getJerseyTest()
             .target(String.format("/v1/accounts/code/%s", "666666"))
             .request()
             .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER_REG_LOCK, "bar"))
             .put(Entity.entity(new AccountAttributes(false, 3333, null, Hex.toStringCondensed(registration_lock_key), true, null),
-                MediaType.APPLICATION_JSON_TYPE), AccountCreationResult.class);
+                MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
     assertThat(result.getUuid()).isNotNull();
 
@@ -1105,13 +1105,13 @@ class AccountControllerTest {
     try {
       when(senderRegLockAccount.getRegistrationLock()).thenReturn(lock.forTime(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(7)));
 
-      AccountCreationResult result =
+      AccountIdentityResponse result =
           resources.getJerseyTest()
               .target(String.format("/v1/accounts/code/%s", "666666"))
               .request()
               .header("Authorization", AuthHelper.getProvisioningAuthHeader(SENDER_REG_LOCK, "bar"))
               .put(Entity.entity(new AccountAttributes(false, 3333, null, null, true, null),
-                  MediaType.APPLICATION_JSON_TYPE), AccountCreationResult.class);
+                  MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
       assertThat(result.getUuid()).isNotNull();
 
@@ -1539,12 +1539,12 @@ class AccountControllerTest {
   @ParameterizedTest
   @ValueSource(strings = {"/v1/accounts/whoami/", "/v1/accounts/me/"})
   public void testWhoAmI(final String path) {
-    AccountCreationResult response =
+    AccountIdentityResponse response =
         resources.getJerseyTest()
                  .target(path)
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 .get(AccountCreationResult.class);
+                 .get(AccountIdentityResponse.class);
 
     assertThat(response.getUuid()).isEqualTo(AuthHelper.VALID_UUID);
   }

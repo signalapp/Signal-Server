@@ -62,7 +62,7 @@ import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicSignupCaptchaConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
-import org.whispersystems.textsecuregcm.entities.AccountCreationResult;
+import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ChangePhoneNumberRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceName;
@@ -334,7 +334,7 @@ public class AccountController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/code/{verification_code}")
-  public AccountCreationResult verifyAccount(@PathParam("verification_code") String verificationCode,
+  public AccountIdentityResponse verifyAccount(@PathParam("verification_code") String verificationCode,
                                              @HeaderParam("Authorization") BasicAuthorizationHeader authorizationHeader,
                                              @HeaderParam("X-Signal-Agent") String signalAgent,
                                              @HeaderParam("User-Agent") String userAgent,
@@ -388,7 +388,7 @@ public class AccountController {
           .record(Instant.now().toEpochMilli() - storedVerificationCode.get().getTimestamp(), TimeUnit.MILLISECONDS);
     }
 
-    return new AccountCreationResult(account.getUuid(),
+    return new AccountIdentityResponse(account.getUuid(),
         account.getNumber(),
         account.getPhoneNumberIdentifier(),
         account.getUsername().orElse(null),
@@ -595,15 +595,15 @@ public class AccountController {
   @GET
   @Path("/me")
   @Produces(MediaType.APPLICATION_JSON)
-  public AccountCreationResult getMe(@Auth AuthenticatedAccount auth) {
+  public AccountIdentityResponse getMe(@Auth AuthenticatedAccount auth) {
     return whoAmI(auth);
   }
 
   @GET
   @Path("/whoami")
   @Produces(MediaType.APPLICATION_JSON)
-  public AccountCreationResult whoAmI(@Auth AuthenticatedAccount auth) {
-    return new AccountCreationResult(auth.getAccount().getUuid(),
+  public AccountIdentityResponse whoAmI(@Auth AuthenticatedAccount auth) {
+    return new AccountIdentityResponse(auth.getAccount().getUuid(),
         auth.getAccount().getNumber(),
         auth.getAccount().getPhoneNumberIdentifier(),
         auth.getAccount().getUsername().orElse(null),

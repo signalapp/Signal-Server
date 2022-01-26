@@ -11,7 +11,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.annotation.Nullable;
 import java.util.UUID;
 
-public class AccountCreationResult {
+public class AccountIdentityResponse {
 
   private final UUID uuid;
   private final String number;
@@ -23,7 +23,7 @@ public class AccountCreationResult {
   private final boolean storageCapable;
 
   @JsonCreator
-  public AccountCreationResult(
+  public AccountIdentityResponse(
       @JsonProperty("uuid") final UUID uuid,
       @JsonProperty("number") final String number,
       @JsonProperty("pni") final UUID pni,
