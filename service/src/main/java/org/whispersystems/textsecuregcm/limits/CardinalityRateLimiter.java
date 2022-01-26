@@ -50,7 +50,7 @@ public class CardinalityRateLimiter {
         connection.sync().expire(hllKey, ttl.toSeconds());
       }
 
-      return changed && cardinality > maxCardinality;
+      return cardinality > maxCardinality;
     });
 
     if (rateLimitExceeded) {
