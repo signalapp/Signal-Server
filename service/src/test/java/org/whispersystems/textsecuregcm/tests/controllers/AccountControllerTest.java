@@ -52,6 +52,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
+import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
@@ -242,6 +243,20 @@ class AccountControllerTest {
 
     when(accountsManager.setUsername(AuthHelper.VALID_ACCOUNT, "takenusername"))
         .thenThrow(new UsernameNotAvailableException());
+
+    when(accountsManager.changeNumber(any(), any())).thenAnswer((Answer<Account>) invocation -> {
+      final Account account = invocation.getArgument(0, Account.class);
+      final String number = invocation.getArgument(1, String.class);
+
+      final UUID uuid = account.getUuid();
+
+      final Account updatedAccount = mock(Account.class);
+      when(updatedAccount.getUuid()).thenReturn(uuid);
+      when(updatedAccount.getNumber()).thenReturn(number);
+      when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(UUID.randomUUID());
+
+      return updatedAccount;
+    });
 
     {
       DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
@@ -1214,16 +1229,19 @@ class AccountControllerTest {
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
         new StoredVerificationCode(code, System.currentTimeMillis(), "push", null)));
 
-    final Response response =
+    final AccountIdentityResponse accountIdentityResponse =
         resources.getJerseyTest()
             .target("/v1/accounts/number")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null),
-                MediaType.APPLICATION_JSON_TYPE));
+                MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
-    assertThat(response.getStatus()).isEqualTo(204);
     verify(accountsManager).changeNumber(AuthHelper.VALID_ACCOUNT, number);
+
+    assertThat(accountIdentityResponse.getUuid()).isEqualTo(AuthHelper.VALID_UUID);
+    assertThat(accountIdentityResponse.getNumber()).isEqualTo(number);
+    assertThat(accountIdentityResponse.getPni()).isNotEqualTo(AuthHelper.VALID_PNI);
   }
 
   @Test
@@ -1268,16 +1286,19 @@ class AccountControllerTest {
 
   @Test
   void testChangePhoneNumberSameNumber() throws InterruptedException {
-    final Response response =
+    final AccountIdentityResponse accountIdentityResponse =
         resources.getJerseyTest()
             .target("/v1/accounts/number")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .put(Entity.entity(new ChangePhoneNumberRequest(AuthHelper.VALID_NUMBER, "567890", null),
-                MediaType.APPLICATION_JSON_TYPE));
+                MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
-    assertThat(response.getStatus()).isEqualTo(204);
     verify(accountsManager, never()).changeNumber(eq(AuthHelper.VALID_ACCOUNT), any());
+
+    assertThat(accountIdentityResponse.getUuid()).isEqualTo(AuthHelper.VALID_UUID);
+    assertThat(accountIdentityResponse.getNumber()).isEqualTo(AuthHelper.VALID_NUMBER);
+    assertThat(accountIdentityResponse.getPni()).isEqualTo(AuthHelper.VALID_PNI);
   }
 
   @Test
@@ -1345,7 +1366,7 @@ class AccountControllerTest {
             .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null),
                 MediaType.APPLICATION_JSON_TYPE));
 
-    assertThat(response.getStatus()).isEqualTo(204);
+    assertThat(response.getStatus()).isEqualTo(200);
     verify(accountsManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), any());
   }
 
@@ -1439,7 +1460,7 @@ class AccountControllerTest {
             .put(Entity.entity(new ChangePhoneNumberRequest(number, code, reglock),
                 MediaType.APPLICATION_JSON_TYPE));
 
-    assertThat(response.getStatus()).isEqualTo(204);
+    assertThat(response.getStatus()).isEqualTo(200);
     verify(accountsManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), any());
   }
 

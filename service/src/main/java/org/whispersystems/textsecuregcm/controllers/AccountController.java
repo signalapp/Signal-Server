@@ -399,38 +399,47 @@ public class AccountController {
   @PUT
   @Path("/number")
   @Produces(MediaType.APPLICATION_JSON)
-  public void changeNumber(@Auth final AuthenticatedAccount authenticatedAccount, @Valid final ChangePhoneNumberRequest request)
+  public AccountIdentityResponse changeNumber(@Auth final AuthenticatedAccount authenticatedAccount, @Valid final ChangePhoneNumberRequest request)
       throws RateLimitExceededException, InterruptedException, ImpossiblePhoneNumberException, NonNormalizedPhoneNumberException {
+
+    final Account updatedAccount;
 
     if (request.getNumber().equals(authenticatedAccount.getAccount().getNumber())) {
       // This may be a request that got repeated due to poor network conditions or other client error; take no action,
       // but report success since the account is in the desired state
-      return;
+      updatedAccount = authenticatedAccount.getAccount();
+    } else {
+      Util.requireNormalizedNumber(request.getNumber());
+
+      rateLimiters.getVerifyLimiter().validate(request.getNumber());
+
+      final Optional<StoredVerificationCode> storedVerificationCode =
+          pendingAccounts.getCodeForNumber(request.getNumber());
+
+      if (storedVerificationCode.isEmpty() || !storedVerificationCode.get().isValid(request.getCode())) {
+        throw new WebApplicationException(Response.status(403).build());
+      }
+
+      storedVerificationCode.flatMap(StoredVerificationCode::getTwilioVerificationSid)
+          .ifPresent(smsSender::reportVerificationSucceeded);
+
+      final Optional<Account> existingAccount = accounts.getByE164(request.getNumber());
+
+      if (existingAccount.isPresent()) {
+        verifyRegistrationLock(existingAccount.get(), request.getRegistrationLock());
+      }
+
+      rateLimiters.getVerifyLimiter().clear(request.getNumber());
+
+      updatedAccount = accounts.changeNumber(authenticatedAccount.getAccount(), request.getNumber());
     }
 
-    Util.requireNormalizedNumber(request.getNumber());
-
-    rateLimiters.getVerifyLimiter().validate(request.getNumber());
-
-    final Optional<StoredVerificationCode> storedVerificationCode =
-        pendingAccounts.getCodeForNumber(request.getNumber());
-
-    if (storedVerificationCode.isEmpty() || !storedVerificationCode.get().isValid(request.getCode())) {
-      throw new WebApplicationException(Response.status(403).build());
-    }
-
-    storedVerificationCode.flatMap(StoredVerificationCode::getTwilioVerificationSid)
-        .ifPresent(smsSender::reportVerificationSucceeded);
-
-    final Optional<Account> existingAccount = accounts.getByE164(request.getNumber());
-
-    if (existingAccount.isPresent()) {
-      verifyRegistrationLock(existingAccount.get(), request.getRegistrationLock());
-    }
-
-    rateLimiters.getVerifyLimiter().clear(request.getNumber());
-
-    accounts.changeNumber(authenticatedAccount.getAccount(), request.getNumber());
+    return new AccountIdentityResponse(
+        updatedAccount.getUuid(),
+        updatedAccount.getNumber(),
+        updatedAccount.getPhoneNumberIdentifier(),
+        updatedAccount.getUsername().orElse(null),
+        updatedAccount.isStorageSupported());
   }
 
   @Timed
