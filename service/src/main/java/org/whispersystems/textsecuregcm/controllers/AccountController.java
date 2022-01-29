@@ -359,7 +359,7 @@ public class AccountController {
     storedVerificationCode.flatMap(StoredVerificationCode::getTwilioVerificationSid)
         .ifPresent(smsSender::reportVerificationSucceeded);
 
-      Optional<Account> existingAccount = accounts.getByE164(number);
+    Optional<Account> existingAccount = accounts.getByE164(number);
 
     if (existingAccount.isPresent()) {
       verifyRegistrationLock(existingAccount.get(), accountAttributes.getRegistrationLock());
@@ -571,11 +571,6 @@ public class AccountController {
     Account account = disabledPermittedAuth.getAccount();
     long deviceId = disabledPermittedAuth.getAuthenticatedDevice().getId();
 
-    // temporary: For deterministic updates during the DynamoDB migration, use a fully parameterized registration lock
-    @Nullable final AuthenticationCredentials registrationLockCredentials =
-        Util.isEmpty(attributes.getRegistrationLock()) ? null
-            : new AuthenticationCredentials(attributes.getRegistrationLock());
-
     accounts.update(account, a -> {
       a.getDevice(deviceId).ifPresent(d -> {
         d.setFetchesMessages(attributes.getFetchesMessages());
@@ -586,15 +581,7 @@ public class AccountController {
         d.setUserAgent(userAgent);
       });
 
-      // temporary: for deterministic updates during the DynamoDB migration, use a fully parameterized registration lock
-      // a.setRegistrationLockFromAttributes(attributes);
-      if (registrationLockCredentials != null) {
-        a.setRegistrationLock(registrationLockCredentials.getHashedAuthenticationToken(),
-            registrationLockCredentials.getSalt());
-      } else {
-        a.setRegistrationLock(null, null);
-      }
-
+      a.setRegistrationLockFromAttributes(attributes);
       a.setUnidentifiedAccessKey(attributes.getUnidentifiedAccessKey());
       a.setUnrestrictedUnidentifiedAccess(attributes.isUnrestrictedUnidentifiedAccess());
       a.setDiscoverableByPhoneNumber(attributes.isDiscoverableByPhoneNumber());
