@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013-2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.storage;
@@ -228,7 +228,7 @@ public class AccountsManager {
 
     final AtomicReference<Account> updatedAccount = new AtomicReference<>();
 
-    deletedAccountsManager.lockAndPut(account.getNumber(), number, () -> {
+    deletedAccountsManager.lockAndPut(account.getNumber(), number, (originalAci, deletedAci) -> {
       redisDelete(account);
 
       final Optional<Account> maybeExistingAccount = getByE164(number);
@@ -239,7 +239,7 @@ public class AccountsManager {
         directoryQueue.deleteAccount(maybeExistingAccount.get());
         displacedUuid = maybeExistingAccount.map(Account::getUuid);
       } else {
-        displacedUuid = Optional.empty();
+        displacedUuid = deletedAci;
       }
 
       final UUID uuid = account.getUuid();

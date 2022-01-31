@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -72,9 +73,9 @@ public class DeletedAccountsManager {
    * @throws InterruptedException if interrupted while waiting to acquire a lock on the given phone number
    */
   public void lockAndTake(final String e164, final Consumer<Optional<UUID>> consumer) throws InterruptedException {
-    withLock(List.of(e164), () -> {
+    withLock(List.of(e164), acis -> {
       try {
-        consumer.accept(deletedAccounts.findUuid(e164));
+        consumer.accept(acis.get(0));
         deletedAccounts.remove(e164);
       } catch (final Exception e) {
         log.warn("Consumer threw an exception while holding lock on a deleted account record", e);
@@ -95,7 +96,7 @@ public class DeletedAccountsManager {
    * @throws InterruptedException if interrupted while waiting to acquire a lock on the given phone number
    */
   public void lockAndPut(final String e164, final Supplier<UUID> supplier) throws InterruptedException {
-    withLock(List.of(e164), () -> {
+    withLock(List.of(e164), ignored -> {
       try {
         deletedAccounts.put(supplier.get(), e164, true);
       } catch (final Exception e) {
@@ -111,18 +112,18 @@ public class DeletedAccountsManager {
    * recently-deleted e164-to-UUID mappings.
    *
    * @param original the phone number of an existing account to lock and with which to perform an action
-   * @param target the phone number of an account that may or may not exist with which to perform an action
-   * @param supplier the action to take on the given phone numbers; the action may delete the account identified by the
-   * target number, in which case it must return the UUID of that account
-   *
+   * @param target   the phone number of an account that may or may not exist with which to perform an action
+   * @param function the action to take on the given phone numbers and ACIs, if known; the action may delete the account
+   *                 identified by the target number, in which case it must return the ACI of that account
    * @throws InterruptedException if interrupted while waiting to acquire a lock on the given phone numbers
    */
-  public void lockAndPut(final String original, final String target, final Supplier<Optional<UUID>> supplier)
+  public void lockAndPut(final String original, final String target,
+      final BiFunction<Optional<UUID>, Optional<UUID>, Optional<UUID>> function)
       throws InterruptedException {
 
-    withLock(List.of(original, target), () -> {
+    withLock(List.of(original, target), acis -> {
       try {
-        supplier.get().ifPresent(uuid -> deletedAccounts.put(uuid, original, true));
+        function.apply(acis.get(0), acis.get(1)).ifPresent(aci -> deletedAccounts.put(aci, original, true));
       } catch (final Exception e) {
         log.warn("Supplier threw an exception while holding lock on a deleted account record", e);
         throw new RuntimeException(e);
@@ -130,17 +131,20 @@ public class DeletedAccountsManager {
     });
   }
 
-  private void withLock(final List<String> e164s, final Runnable task) throws InterruptedException {
+  private void withLock(final List<String> e164s, final Consumer<List<Optional<UUID>>> task)
+      throws InterruptedException {
     final List<LockItem> lockItems = new ArrayList<>(e164s.size());
 
     try {
+      final List<Optional<UUID>> previouslyDeletedUuids = new ArrayList<>(e164s.size());
       for (final String e164 : e164s) {
         lockItems.add(lockClient.acquireLock(AcquireLockOptions.builder(e164)
             .withAcquireReleasedLocksConsistently(true)
             .build()));
+        previouslyDeletedUuids.add(deletedAccounts.findUuid(e164));
       }
 
-      task.run();
+      task.accept(previouslyDeletedUuids);
     } finally {
       for (final LockItem lockItem : lockItems) {
         lockClient.releaseLock(ReleaseLockOptions.builder(lockItem)

@@ -35,8 +35,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -640,7 +640,7 @@ class AccountsManagerTest {
 
   @Test
   void testChangePhoneNumber() throws InterruptedException {
-    doAnswer(invocation -> invocation.getArgument(2, Supplier.class).get())
+    doAnswer(invocation -> invocation.getArgument(2, BiFunction.class).apply(Optional.empty(), Optional.empty()))
         .when(deletedAccountsManager).lockAndPut(anyString(), anyString(), any());
 
     final String originalNumber = "+14152222222";
@@ -669,7 +669,7 @@ class AccountsManagerTest {
 
   @Test
   void testChangePhoneNumberExistingAccount() throws InterruptedException {
-    doAnswer(invocation -> invocation.getArgument(2, Supplier.class).get())
+    doAnswer(invocation -> invocation.getArgument(2, BiFunction.class).apply(Optional.empty(), Optional.empty()))
         .when(deletedAccountsManager).lockAndPut(anyString(), anyString(), any());
 
     final String originalNumber = "+14152222222";

@@ -269,6 +269,13 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     assertEquals(Optional.of(existingAccountUuid), deletedAccounts.findUuid(originalNumber));
     assertEquals(Optional.empty(), deletedAccounts.findUuid(secondNumber));
+
+    accountsManager.changeNumber(accountsManager.getByAccountIdentifier(originalUuid).orElseThrow(), originalNumber);
+
+    final Account existingAccount2 = accountsManager.create(secondNumber, "password", null, new AccountAttributes(),
+        new ArrayList<>());
+
+    assertEquals(existingAccountUuid, existingAccount2.getUuid());
   }
 
   @Test
