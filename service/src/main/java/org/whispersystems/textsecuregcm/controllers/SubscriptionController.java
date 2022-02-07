@@ -56,6 +56,8 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.zkgroup.InvalidInputException;
 import org.signal.zkgroup.VerificationFailedException;
@@ -78,6 +80,8 @@ import org.whispersystems.textsecuregcm.storage.SubscriptionManager.GetResult;
 import org.whispersystems.textsecuregcm.stripe.StripeManager;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 @Path("/v1/subscription")
 public class SubscriptionController {
 
@@ -92,6 +96,8 @@ public class SubscriptionController {
   private final IssuedReceiptsManager issuedReceiptsManager;
   private final BadgeTranslator badgeTranslator;
   private final LevelTranslator levelTranslator;
+
+  private static final Counter INVALID_ACCEPT_LANGUAGE_COUNTER = Metrics.counter(name(SubscriptionController.class, "invalidAcceptLanguageCounter"));
 
   public SubscriptionController(
       @Nonnull Clock clock,
@@ -859,7 +865,8 @@ public class SubscriptionController {
     try {
       return containerRequestContext.getAcceptableLanguages();
     } catch (final ProcessingException e) {
-      logger.warn("Could not get acceptable languages; Accept-Language: {}; User-Agent: {}",
+      INVALID_ACCEPT_LANGUAGE_COUNTER.increment();
+      logger.debug("Could not get acceptable languages; Accept-Language: {}; User-Agent: {}",
           containerRequestContext.getHeaderString(HttpHeaders.ACCEPT_LANGUAGE),
           containerRequestContext.getHeaderString(HttpHeaders.USER_AGENT),
           e);

@@ -116,6 +116,7 @@ public class ProfileController {
   private static final String PNI_CREDENTIAL_TYPE = "pni";
 
   private static final Counter VERSION_NOT_FOUND_COUNTER = Metrics.counter(name(ProfileController.class, "versionNotFound"));
+  private static final Counter INVALID_ACCEPT_LANGUAGE_COUNTER = Metrics.counter(name(ProfileController.class, "invalidAcceptLanguageCounter"));
 
   public ProfileController(
       Clock clock,
@@ -437,7 +438,8 @@ public class ProfileController {
     try {
       return containerRequestContext.getAcceptableLanguages();
     } catch (final ProcessingException e) {
-      logger.warn("Could not get acceptable languages; Accept-Language: {}; User-Agent: {}",
+      INVALID_ACCEPT_LANGUAGE_COUNTER.increment();
+      logger.debug("Could not get acceptable languages; Accept-Language: {}; User-Agent: {}",
           containerRequestContext.getHeaderString(HttpHeaders.ACCEPT_LANGUAGE),
           containerRequestContext.getHeaderString(HttpHeaders.USER_AGENT),
           e);
