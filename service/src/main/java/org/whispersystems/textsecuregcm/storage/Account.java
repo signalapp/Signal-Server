@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013-2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.storage;
@@ -17,13 +17,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.util.Util;
-import javax.annotation.Nullable;
 
 public class Account {
 
@@ -232,6 +232,14 @@ public class Account {
     return devices.stream()
         .filter(Device::isEnabled)
         .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isChangeNumber());
+  }
+
+  public boolean isPniSupported() {
+    requireNotStale();
+
+    return devices.stream()
+        .filter(Device::isEnabled)
+        .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isPni());
   }
 
   public boolean isEnabled() {

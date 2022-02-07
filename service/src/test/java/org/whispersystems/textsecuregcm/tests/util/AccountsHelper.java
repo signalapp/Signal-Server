@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013-2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -153,6 +153,10 @@ public class AccountsHelper {
             when(updatedAccount.isChangeNumberSupported()).thenAnswer(stubbing);
             break;
           }
+          case "isPniSupported": {
+            when(updatedAccount.isPniSupported()).thenAnswer(stubbing);
+            break;
+          }
           case "getEnabledDeviceCount": {
             when(updatedAccount.getEnabledDeviceCount()).thenAnswer(stubbing);
             break;
@@ -187,7 +191,6 @@ public class AccountsHelper {
       updatedAccount.setNumber(account.getNumber(), account.getPhoneNumberIdentifier());
       account.markStale();
     }
-
 
     return updatedAccount;
   }

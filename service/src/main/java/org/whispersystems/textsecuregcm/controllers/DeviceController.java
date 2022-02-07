@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013-2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.controllers;
@@ -63,17 +63,16 @@ public class DeviceController {
   private final Map<String, Integer>  maxDeviceConfiguration;
 
   public DeviceController(StoredVerificationCodeManager pendingDevices,
-                          AccountsManager accounts,
-                          MessagesManager messages,
-                          Keys keys,
-                          RateLimiters rateLimiters,
-                          Map<String, Integer> maxDeviceConfiguration)
-  {
-    this.pendingDevices         = pendingDevices;
-    this.accounts               = accounts;
-    this.messages               = messages;
-    this.keys                   = keys;
-    this.rateLimiters           = rateLimiters;
+      AccountsManager accounts,
+      MessagesManager messages,
+      Keys keys,
+      RateLimiters rateLimiters,
+      Map<String, Integer> maxDeviceConfiguration) {
+    this.pendingDevices = pendingDevices;
+    this.accounts = accounts;
+    this.messages = messages;
+    this.keys = keys;
+    this.rateLimiters = rateLimiters;
     this.maxDeviceConfiguration = maxDeviceConfiguration;
   }
 
@@ -151,12 +150,11 @@ public class DeviceController {
   @Path("/{verification_code}")
   @ChangesDeviceEnabledState
   public DeviceResponse verifyDeviceToken(@PathParam("verification_code") String verificationCode,
-                                          @HeaderParam("Authorization") BasicAuthorizationHeader authorizationHeader,
-                                          @HeaderParam("User-Agent") String userAgent,
-                                          @NotNull @Valid AccountAttributes accountAttributes,
-                                          @Context ContainerRequest containerRequest)
-      throws RateLimitExceededException, DeviceLimitExceededException
-  {
+      @HeaderParam("Authorization") BasicAuthorizationHeader authorizationHeader,
+      @HeaderParam("User-Agent") String userAgent,
+      @NotNull @Valid AccountAttributes accountAttributes,
+      @Context ContainerRequest containerRequest)
+      throws RateLimitExceededException, DeviceLimitExceededException {
 
     String number = authorizationHeader.getUsername();
     String password = authorizationHeader.getPassword();
@@ -241,6 +239,7 @@ public class DeviceController {
   private boolean isCapabilityDowngrade(Account account, DeviceCapabilities capabilities, String userAgent) {
     boolean isDowngrade = false;
 
+    isDowngrade |= account.isPniSupported() && !capabilities.isPni();
     isDowngrade |= account.isChangeNumberSupported() && !capabilities.isChangeNumber();
     isDowngrade |= account.isAnnouncementGroupSupported() && !capabilities.isAnnouncementGroup();
     isDowngrade |= account.isSenderKeySupported() && !capabilities.isSenderKey();

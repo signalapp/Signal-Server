@@ -1,17 +1,16 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm.storage;
 
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.util.Util;
-
-import javax.annotation.Nullable;
-import java.util.concurrent.TimeUnit;
 
 public class Device {
 
@@ -71,27 +70,26 @@ public class Device {
   public Device() {}
 
   public Device(long id, String name, String authToken, String salt,
-                String gcmId, String apnId,
-                String voipApnId, boolean fetchesMessages,
-                int registrationId, SignedPreKey signedPreKey,
-                long lastSeen, long created, String userAgent,
-                long uninstalledFeedback, DeviceCapabilities capabilities)
-  {
-    this.id                      = id;
-    this.name                    = name;
-    this.authToken               = authToken;
-    this.salt                    = salt;
-    this.gcmId                   = gcmId;
-    this.apnId                   = apnId;
-    this.voipApnId               = voipApnId;
-    this.fetchesMessages         = fetchesMessages;
-    this.registrationId          = registrationId;
-    this.signedPreKey            = signedPreKey;
-    this.lastSeen                = lastSeen;
-    this.created                 = created;
-    this.userAgent               = userAgent;
-    this.uninstalledFeedback     = uninstalledFeedback;
-    this.capabilities            = capabilities;
+      String gcmId, String apnId,
+      String voipApnId, boolean fetchesMessages,
+      int registrationId, SignedPreKey signedPreKey,
+      long lastSeen, long created, String userAgent,
+      long uninstalledFeedback, DeviceCapabilities capabilities) {
+    this.id = id;
+    this.name = name;
+    this.authToken = authToken;
+    this.salt = salt;
+    this.gcmId = gcmId;
+    this.apnId = apnId;
+    this.voipApnId = voipApnId;
+    this.fetchesMessages = fetchesMessages;
+    this.registrationId = registrationId;
+    this.signedPreKey = signedPreKey;
+    this.lastSeen = lastSeen;
+    this.created = created;
+    this.userAgent = userAgent;
+    this.uninstalledFeedback = uninstalledFeedback;
+    this.capabilities = capabilities;
   }
 
   public String getApnId() {
@@ -175,7 +173,8 @@ public class Device {
     return new AuthenticationCredentials(authToken, salt);
   }
 
-  public @Nullable DeviceCapabilities getCapabilities() {
+  @Nullable
+  public DeviceCapabilities getCapabilities() {
     return capabilities;
   }
 
@@ -293,10 +292,15 @@ public class Device {
     @JsonProperty
     private boolean changeNumber;
 
-    public DeviceCapabilities() {}
+    @JsonProperty
+    private boolean pni;
+
+    public DeviceCapabilities() {
+    }
 
     public DeviceCapabilities(boolean gv2, final boolean gv2_2, final boolean gv2_3, boolean storage, boolean transfer,
-        boolean gv1Migration, final boolean senderKey, final boolean announcementGroup, final boolean changeNumber) {
+        boolean gv1Migration, final boolean senderKey, final boolean announcementGroup, final boolean changeNumber,
+        final boolean pni) {
       this.gv2 = gv2;
       this.gv2_2 = gv2_2;
       this.gv2_3 = gv2_3;
@@ -306,6 +310,7 @@ public class Device {
       this.senderKey = senderKey;
       this.announcementGroup = announcementGroup;
       this.changeNumber = changeNumber;
+      this.pni = pni;
     }
 
     public boolean isGv2() {
@@ -342,6 +347,10 @@ public class Device {
 
     public boolean isChangeNumber() {
       return changeNumber;
+    }
+
+    public boolean isPni() {
+      return pni;
     }
   }
 }

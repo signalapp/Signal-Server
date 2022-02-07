@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013-2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -182,7 +182,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
                 random.nextBoolean(), random.nextInt(), signedPreKey, random.nextInt(), random.nextInt(),
                 "testUserAgent-" + random.nextInt(), 0,
                 new Device.DeviceCapabilities(random.nextBoolean(), random.nextBoolean(), random.nextBoolean(),
-                    random.nextBoolean(), random.nextBoolean(), random.nextBoolean(),
+                    random.nextBoolean(), random.nextBoolean(), random.nextBoolean(), random.nextBoolean(),
                     random.nextBoolean(), random.nextBoolean(), random.nextBoolean())));
           });
 
