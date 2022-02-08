@@ -106,12 +106,11 @@ public class AccountController {
   private final Meter          rateLimitedHostMeter   = metricRegistry.meter(name(AccountController.class, "rate_limited_host"  ));
   private final Meter          rateLimitedPrefixMeter = metricRegistry.meter(name(AccountController.class, "rate_limited_prefix"));
   private final Meter          captchaRequiredMeter   = metricRegistry.meter(name(AccountController.class, "captcha_required"   ));
-  private final Meter          captchaSuccessMeter    = metricRegistry.meter(name(AccountController.class, "captcha_success"    ));
-  private final Meter          captchaFailureMeter    = metricRegistry.meter(name(AccountController.class, "captcha_failure"    ));
 
   private static final String PUSH_CHALLENGE_COUNTER_NAME = name(AccountController.class, "pushChallenge");
   private static final String ACCOUNT_CREATE_COUNTER_NAME = name(AccountController.class, "create");
   private static final String ACCOUNT_VERIFY_COUNTER_NAME = name(AccountController.class, "verify");
+  private static final String CAPTCHA_ATTEMPT_COUNTER_NAME = name(AccountController.class, "captcha");
 
   private static final String TWILIO_VERIFY_ERROR_COUNTER_NAME = name(AccountController.class, "twilioVerifyError");
 
@@ -220,7 +219,8 @@ public class AccountController {
     String sourceHost = ForwardedIpUtil.getMostRecentProxy(forwardedFor).orElseThrow();
 
     Optional<StoredVerificationCode> storedChallenge = pendingAccounts.getCodeForNumber(number);
-    CaptchaRequirement               requirement     = requiresCaptcha(number, transport, forwardedFor, sourceHost, captcha, storedChallenge, pushChallenge);
+    CaptchaRequirement requirement = requiresCaptcha(number, transport, forwardedFor, sourceHost, captcha,
+        storedChallenge, pushChallenge, userAgent);
 
     if (requirement.isCaptchaRequired()) {
       captchaRequiredMeter.mark();
@@ -677,20 +677,26 @@ public class AccountController {
   }
 
   private CaptchaRequirement requiresCaptcha(String number, String transport, String forwardedFor,
-                                             String                           sourceHost,
-                                             Optional<String>                 captchaToken,
-                                             Optional<StoredVerificationCode> storedVerificationCode,
-                                             Optional<String>                 pushChallenge)
+      String sourceHost,
+      Optional<String> captchaToken,
+      Optional<StoredVerificationCode> storedVerificationCode,
+      Optional<String> pushChallenge,
+      String userAgent)
   {
 
     if (captchaToken.isPresent()) {
       boolean validToken = recaptchaClient.verify(captchaToken.get(), sourceHost);
 
+      {
+        final List<Tag> tags = new ArrayList<>();
+        tags.add(Tag.of("success", String.valueOf(validToken)));
+        tags.add(UserAgentTagUtil.getPlatformTag(userAgent));
+        Metrics.counter(CAPTCHA_ATTEMPT_COUNTER_NAME, tags).increment();
+      }
+
       if (validToken) {
-        captchaSuccessMeter.mark();
         return new CaptchaRequirement(false, false);
       } else {
-        captchaFailureMeter.mark();
         return new CaptchaRequirement(true, false);
       }
     }
