@@ -139,6 +139,7 @@ import org.whispersystems.textsecuregcm.metrics.NetworkSentGauge;
 import org.whispersystems.textsecuregcm.metrics.OperatingSystemMemoryGauge;
 import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
 import org.whispersystems.textsecuregcm.metrics.TrafficSource;
+import org.whispersystems.textsecuregcm.providers.MultiDeviceMessageListProvider;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
 import org.whispersystems.textsecuregcm.providers.RedisClientFactory;
 import org.whispersystems.textsecuregcm.providers.RedisClusterHealthCheck;
@@ -585,6 +586,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     environment.jersey().register(new ContentLengthFilter(TrafficSource.HTTP));
     environment.jersey().register(acceptNumericOnlineFlagRequestFilter);
+    environment.jersey().register(MultiDeviceMessageListProvider.class);
     environment.jersey().register(MultiRecipientMessageProvider.class);
     environment.jersey().register(new MetricsApplicationEventListener(TrafficSource.HTTP));
     environment.jersey()
@@ -607,6 +609,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
     webSocketEnvironment.jersey().register(new ContentLengthFilter(TrafficSource.WEBSOCKET));
     webSocketEnvironment.jersey().register(acceptNumericOnlineFlagRequestFilter);
+    webSocketEnvironment.jersey().register(MultiDeviceMessageListProvider.class);
     webSocketEnvironment.jersey().register(MultiRecipientMessageProvider.class);
     webSocketEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET));
     webSocketEnvironment.jersey().register(new KeepAliveController(clientPresenceManager));

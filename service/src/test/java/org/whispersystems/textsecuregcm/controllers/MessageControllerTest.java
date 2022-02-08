@@ -35,6 +35,7 @@ import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
+import java.io.ByteArrayOutputStream;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.HashSet;
@@ -72,6 +73,7 @@ import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
+import org.whispersystems.textsecuregcm.providers.MultiDeviceMessageListProvider;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -111,13 +113,14 @@ class MessageControllerTest {
   private static final ReportMessageManager reportMessageManager = mock(ReportMessageManager.class);
   private static final ExecutorService multiRecipientMessageExecutor = mock(ExecutorService.class);
 
-  private final ObjectMapper mapper = new ObjectMapper();
+  private static final ObjectMapper mapper = new ObjectMapper();
 
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
           ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
       .addProvider(RateLimitExceededExceptionMapper.class)
+      .addProvider(MultiDeviceMessageListProvider.class)
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new MessageController(rateLimiters, messageSender, receiptSender, accountsManager,
           messagesManager, apnFallbackManager, reportMessageManager, multiRecipientMessageExecutor))
@@ -174,28 +177,50 @@ class MessageControllerTest {
     );
   }
 
-  @Test
-  void testSendFromDisabledAccount() throws Exception {
+  private static Stream<Entity<?>> currentMessageSingleDevicePayloads() {
+    ByteArrayOutputStream messageStream = new ByteArrayOutputStream();
+    messageStream.write(1); // version
+    messageStream.write(1); // count
+    messageStream.write(1); // device ID
+    messageStream.writeBytes(new byte[] { (byte)0, (byte)111 }); // registration ID
+    messageStream.write(1); // message type
+    messageStream.write(3); // message length
+    messageStream.writeBytes(new byte[] { (byte)1, (byte)2, (byte)3 }); // message contents
+
+    try {
+      return Stream.of(
+        Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"),
+                                      IncomingMessageList.class),
+                      MediaType.APPLICATION_JSON_TYPE),
+        Entity.entity(messageStream.toByteArray(), MultiDeviceMessageListProvider.MEDIA_TYPE)
+      );
+    } catch (Exception e) {
+      throw new AssertionError(e);
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("currentMessageSingleDevicePayloads")
+  void testSendFromDisabledAccount(Entity<?> payload) throws Exception {
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
-                 .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
-                 .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
-                                    MediaType.APPLICATION_JSON_TYPE));
+            .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
+            .put(payload);
 
     assertThat("Unauthorized response", response.getStatus(), is(equalTo(401)));
   }
 
-  @Test
-  void testSingleDeviceCurrent() throws Exception {
+  @ParameterizedTest
+  @MethodSource("currentMessageSingleDevicePayloads")
+  void testSingleDeviceCurrent(Entity<?> payload) throws Exception {
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
-                 .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
-                                    MediaType.APPLICATION_JSON_TYPE));
+            .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(payload);
 
     assertThat("Good Response", response.getStatus(), is(equalTo(200)));
 
@@ -239,15 +264,15 @@ class MessageControllerTest {
     );
   }
 
-  @Test
-  void testSingleDeviceCurrentByPni() throws Exception {
+  @ParameterizedTest
+  @MethodSource("currentMessageSingleDevicePayloads")
+  void testSingleDeviceCurrentByPni(Entity<?> payload) throws Exception {
     Response response =
         resources.getJerseyTest()
             .target(String.format("/v1/messages/%s", SINGLE_DEVICE_PNI))
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
-                MediaType.APPLICATION_JSON_TYPE));
+            .put(payload);
 
     assertThat("Good Response", response.getStatus(), is(equalTo(200)));
 
@@ -271,15 +296,15 @@ class MessageControllerTest {
     assertThat("Bad request", response.getStatus(), is(equalTo(422)));
   }
 
-  @Test
-  void testSingleDeviceCurrentUnidentified() throws Exception {
+  @ParameterizedTest
+  @MethodSource("currentMessageSingleDevicePayloads")
+  void testSingleDeviceCurrentUnidentified(Entity<?> payload) throws Exception {
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
-                 .request()
-                 .header(OptionalAccess.UNIDENTIFIED, Base64.getEncoder().encodeToString("1234".getBytes()))
-                 .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
-                                    MediaType.APPLICATION_JSON_TYPE));
+            .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
+            .request()
+            .header(OptionalAccess.UNIDENTIFIED, Base64.getEncoder().encodeToString("1234".getBytes()))
+            .put(payload);
 
     assertThat("Good Response", response.getStatus(), is(equalTo(200)));
 
@@ -290,28 +315,27 @@ class MessageControllerTest {
     assertFalse(captor.getValue().hasSourceDevice());
   }
 
-
-  @Test
-  void testSendBadAuth() throws Exception {
+  @ParameterizedTest
+  @MethodSource("currentMessageSingleDevicePayloads")
+  void testSendBadAuth(Entity<?> payload) throws Exception {
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
-                 .request()
-                 .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
-                                    MediaType.APPLICATION_JSON_TYPE));
+            .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
+            .request()
+            .put(payload);
 
     assertThat("Good Response", response.getStatus(), is(equalTo(401)));
   }
 
-  @Test
-  void testMultiDeviceMissing() throws Exception {
+  @ParameterizedTest
+  @MethodSource("currentMessageSingleDevicePayloads")
+  void testMultiDeviceMissing(Entity<?> payload) throws Exception {
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/messages/%s", MULTI_DEVICE_UUID))
-                 .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"), IncomingMessageList.class),
-                                    MediaType.APPLICATION_JSON_TYPE));
+            .target(String.format("/v1/messages/%s", MULTI_DEVICE_UUID))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(payload);
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(409)));
 
@@ -322,15 +346,15 @@ class MessageControllerTest {
     verifyNoMoreInteractions(messageSender);
   }
 
-  @Test
-  void testMultiDeviceExtra() throws Exception {
+  @ParameterizedTest
+  @MethodSource
+  void testMultiDeviceExtra(Entity<?> payload) throws Exception {
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/messages/%s", MULTI_DEVICE_UUID))
-                 .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_extra_device.json"), IncomingMessageList.class),
-                                    MediaType.APPLICATION_JSON_TYPE));
+            .target(String.format("/v1/messages/%s", MULTI_DEVICE_UUID))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(payload);
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(409)));
 
@@ -341,29 +365,87 @@ class MessageControllerTest {
     verifyNoMoreInteractions(messageSender);
   }
 
-  @Test
-  void testMultiDevice() throws Exception {
+  private static Stream<Entity<?>> testMultiDeviceExtra() {
+    ByteArrayOutputStream messageStream = new ByteArrayOutputStream();
+    messageStream.write(1); // version
+    messageStream.write(2); // count
+
+    messageStream.write(1); // device ID
+    messageStream.writeBytes(new byte[] { (byte)0, (byte)111 }); // registration ID
+    messageStream.write(1); // message type
+    messageStream.write(3); // message length
+    messageStream.writeBytes(new byte[] { (byte)1, (byte)2, (byte)3 }); // message contents
+
+    messageStream.write(3); // device ID
+    messageStream.writeBytes(new byte[] { (byte)0, (byte)111 }); // registration ID
+    messageStream.write(1); // message type
+    messageStream.write(3); // message length
+    messageStream.writeBytes(new byte[] { (byte)1, (byte)2, (byte)3 }); // message contents
+
+    try {
+      return Stream.of(
+        Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_extra_device.json"),
+                                      IncomingMessageList.class),
+                      MediaType.APPLICATION_JSON_TYPE),
+        Entity.entity(messageStream.toByteArray(), MultiDeviceMessageListProvider.MEDIA_TYPE)
+      );
+    } catch (Exception e) {
+      throw new AssertionError(e);
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void testMultiDevice(Entity<?> payload) throws Exception {
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/messages/%s", MULTI_DEVICE_UUID))
-                 .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_multi_device.json"), IncomingMessageList.class),
-                                    MediaType.APPLICATION_JSON_TYPE));
+            .target(String.format("/v1/messages/%s", MULTI_DEVICE_UUID))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(payload);
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(200)));
 
     verify(messageSender, times(2)).sendMessage(any(Account.class), any(Device.class), any(Envelope.class), eq(false));
   }
 
-  @Test
-  void testRegistrationIdMismatch() throws Exception {
+  private static Stream<Entity<?>> testMultiDevice() {
+    ByteArrayOutputStream messageStream = new ByteArrayOutputStream();
+    messageStream.write(1); // version
+    messageStream.write(2); // count
+
+    messageStream.write(1); // device ID
+    messageStream.writeBytes(new byte[] { (byte)0, (byte)222 }); // registration ID
+    messageStream.write(1); // message type
+    messageStream.write(3); // message length
+    messageStream.writeBytes(new byte[] { (byte)1, (byte)2, (byte)3 }); // message contents
+
+    messageStream.write(2); // device ID
+    messageStream.writeBytes(new byte[] { (byte)1, (byte)77 }); // registration ID (333 = 1 * 256 + 77)
+    messageStream.write(1); // message type
+    messageStream.write(3); // message length
+    messageStream.writeBytes(new byte[] { (byte)1, (byte)2, (byte)3 }); // message contents
+
+    try {
+      return Stream.of(
+        Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_multi_device.json"),
+                                      IncomingMessageList.class),
+                      MediaType.APPLICATION_JSON_TYPE),
+        Entity.entity(messageStream.toByteArray(), MultiDeviceMessageListProvider.MEDIA_TYPE)
+      );
+    } catch (Exception e) {
+      throw new AssertionError(e);
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void testRegistrationIdMismatch(Entity<?> payload) throws Exception {
     Response response =
         resources.getJerseyTest().target(String.format("/v1/messages/%s", MULTI_DEVICE_UUID))
-                 .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_registration_id.json"), IncomingMessageList.class),
-                                    MediaType.APPLICATION_JSON_TYPE));
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(payload);
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(410)));
 
@@ -372,7 +454,35 @@ class MessageControllerTest {
                is(equalTo(jsonFixture("fixtures/mismatched_registration_id.json"))));
 
     verifyNoMoreInteractions(messageSender);
+  }
 
+  private static Stream<Entity<?>> testRegistrationIdMismatch() {
+    ByteArrayOutputStream messageStream = new ByteArrayOutputStream();
+    messageStream.write(1); // version
+    messageStream.write(2); // count
+
+    messageStream.write(1); // device ID
+    messageStream.writeBytes(new byte[] { (byte)0, (byte)222 }); // registration ID
+    messageStream.write(1); // message type
+    messageStream.write(3); // message length
+    messageStream.writeBytes(new byte[] { (byte)1, (byte)2, (byte)3 }); // message contents
+
+    messageStream.write(2); // device ID
+    messageStream.writeBytes(new byte[] { (byte)0, (byte)77 }); // wrong registration ID
+    messageStream.write(1); // message type
+    messageStream.write(3); // message length
+    messageStream.writeBytes(new byte[] { (byte)1, (byte)2, (byte)3 }); // message contents
+
+    try {
+      return Stream.of(
+        Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_registration_id.json"),
+                                      IncomingMessageList.class),
+                      MediaType.APPLICATION_JSON_TYPE),
+        Entity.entity(messageStream.toByteArray(), MultiDeviceMessageListProvider.MEDIA_TYPE)
+      );
+    } catch (Exception e) {
+      throw new AssertionError(e);
+    }
   }
 
   @Test
@@ -395,11 +505,10 @@ class MessageControllerTest {
 
     OutgoingMessageEntityList response =
         resources.getJerseyTest().target("/v1/messages/")
-                 .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 .accept(MediaType.APPLICATION_JSON_TYPE)
-                 .get(OutgoingMessageEntityList.class);
-
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .accept(MediaType.APPLICATION_JSON_TYPE)
+            .get(OutgoingMessageEntityList.class);
 
     assertEquals(response.getMessages().size(), 2);
 
@@ -429,10 +538,10 @@ class MessageControllerTest {
 
     Response response =
         resources.getJerseyTest().target("/v1/messages/")
-                 .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.INVALID_PASSWORD))
-                 .accept(MediaType.APPLICATION_JSON_TYPE)
-                 .get();
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.INVALID_PASSWORD))
+            .accept(MediaType.APPLICATION_JSON_TYPE)
+            .get();
 
     assertThat("Unauthorized response", response.getStatus(), is(equalTo(401)));
   }
@@ -453,33 +562,32 @@ class MessageControllerTest {
         uuid2, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE,
         null, System.currentTimeMillis(), "+14152222222", sourceUuid, 1, AuthHelper.VALID_UUID, null, null, 0)));
 
-
     UUID uuid3 = UUID.randomUUID();
     when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid3)).thenReturn(Optional.empty());
 
     Response response = resources.getJerseyTest()
-                                 .target(String.format("/v1/messages/uuid/%s", uuid1))
-                                 .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                                 .delete();
+        .target(String.format("/v1/messages/uuid/%s", uuid1))
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .delete();
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
     verify(receiptSender).sendReceipt(any(AuthenticatedAccount.class), eq(sourceUuid), eq(timestamp));
 
     response = resources.getJerseyTest()
-                        .target(String.format("/v1/messages/uuid/%s", uuid2))
-                        .request()
-                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                        .delete();
+        .target(String.format("/v1/messages/uuid/%s", uuid2))
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .delete();
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
     verifyNoMoreInteractions(receiptSender);
 
     response = resources.getJerseyTest()
-                        .target(String.format("/v1/messages/uuid/%s", uuid3))
-                        .request()
-                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                        .delete();
+        .target(String.format("/v1/messages/uuid/%s", uuid3))
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .delete();
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
     verifyNoMoreInteractions(receiptSender);
