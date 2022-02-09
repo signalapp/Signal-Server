@@ -47,6 +47,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.binary.Hex;
@@ -77,6 +78,7 @@ import org.whispersystems.textsecuregcm.entities.BaseProfileResponse;
 import org.whispersystems.textsecuregcm.entities.UserCapabilities;
 import org.whispersystems.textsecuregcm.entities.VersionedProfileResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -116,7 +118,7 @@ public class ProfileController {
   private static final String PNI_CREDENTIAL_TYPE = "pni";
 
   private static final Counter VERSION_NOT_FOUND_COUNTER = Metrics.counter(name(ProfileController.class, "versionNotFound"));
-  private static final Counter INVALID_ACCEPT_LANGUAGE_COUNTER = Metrics.counter(name(ProfileController.class, "invalidAcceptLanguageCounter"));
+  private static final String INVALID_ACCEPT_LANGUAGE_COUNTER_NAME = name(ProfileController.class, "invalidAcceptLanguage");
 
   public ProfileController(
       Clock clock,
@@ -438,10 +440,11 @@ public class ProfileController {
     try {
       return containerRequestContext.getAcceptableLanguages();
     } catch (final ProcessingException e) {
-      INVALID_ACCEPT_LANGUAGE_COUNTER.increment();
+      final String userAgent = containerRequestContext.getHeaderString(HttpHeaders.USER_AGENT);
+      Metrics.counter(INVALID_ACCEPT_LANGUAGE_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).increment();
       logger.debug("Could not get acceptable languages; Accept-Language: {}; User-Agent: {}",
           containerRequestContext.getHeaderString(HttpHeaders.ACCEPT_LANGUAGE),
-          containerRequestContext.getHeaderString(HttpHeaders.USER_AGENT),
+          userAgent,
           e);
 
       return List.of();
