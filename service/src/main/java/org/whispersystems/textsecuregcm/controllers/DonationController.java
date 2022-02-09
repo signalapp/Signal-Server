@@ -35,6 +35,7 @@ import java.util.concurrent.ForkJoinPool.ManagedBlocker;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.validation.Valid;
+import javax.validation.constraints.NotNull;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -124,7 +125,7 @@ public class DonationController {
   @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN})
   public CompletionStage<Response> redeemReceipt(
       @Auth final AuthenticatedAccount auth,
-      @Valid final RedeemReceiptRequest request) {
+      @NotNull @Valid final RedeemReceiptRequest request) {
     return CompletableFuture.supplyAsync(() -> {
       ReceiptCredentialPresentation receiptCredentialPresentation;
       try {
@@ -192,7 +193,7 @@ public class DonationController {
   @Path("/authorize-apple-pay")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> getApplePayAuthorization(@Auth AuthenticatedAccount auth, @Valid ApplePayAuthorizationRequest request) {
+  public CompletableFuture<Response> getApplePayAuthorization(@Auth AuthenticatedAccount auth, @NotNull @Valid ApplePayAuthorizationRequest request) {
     if (!supportedCurrencies.contains(request.getCurrency())) {
       return CompletableFuture.completedFuture(Response.status(422).build());
     }

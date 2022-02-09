@@ -35,6 +35,7 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.validation.Valid;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -512,7 +513,7 @@ public class SubscriptionController {
   @Path("/boost/create")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> createBoostPaymentIntent(CreateBoostRequest request) {
+  public CompletableFuture<Response> createBoostPaymentIntent(@NotNull @Valid CreateBoostRequest request) {
     return stripeManager.createPaymentIntent(request.getCurrency(), request.getAmount())
         .thenApply(paymentIntent -> Response.ok(new CreateBoostResponse(paymentIntent.getClientSecret())).build());
   }
@@ -530,10 +531,12 @@ public class SubscriptionController {
       this.receiptCredentialRequest = receiptCredentialRequest;
     }
 
+    @NotNull
     public String getPaymentIntentId() {
       return paymentIntentId;
     }
 
+    @NotNull
     public byte[] getReceiptCredentialRequest() {
       return receiptCredentialRequest;
     }
@@ -559,7 +562,7 @@ public class SubscriptionController {
   @Path("/boost/receipt_credentials")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> createBoostReceiptCredentials(CreateBoostReceiptCredentialsRequest request) {
+  public CompletableFuture<Response> createBoostReceiptCredentials(@NotNull @Valid CreateBoostReceiptCredentialsRequest request) {
     return stripeManager.getPaymentIntent(request.getPaymentIntentId())
         .thenCompose(paymentIntent -> {
           if (paymentIntent == null) {
@@ -745,7 +748,7 @@ public class SubscriptionController {
   public CompletableFuture<Response> createSubscriptionReceiptCredentials(
       @Auth Optional<AuthenticatedAccount> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
-      @Valid GetReceiptCredentialsRequest request) {
+      @NotNull @Valid GetReceiptCredentialsRequest request) {
     RequestData requestData = RequestData.process(authenticatedAccount, subscriberId, clock);
     return subscriptionManager.get(requestData.subscriberUser, requestData.hmac)
         .thenApply(this::requireRecordFromGetResult)

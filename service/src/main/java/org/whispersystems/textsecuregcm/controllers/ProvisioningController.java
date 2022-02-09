@@ -9,6 +9,7 @@ import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
 import java.util.Base64;
 import javax.validation.Valid;
+import javax.validation.constraints.NotNull;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
@@ -41,7 +42,7 @@ public class ProvisioningController {
   @Produces(MediaType.APPLICATION_JSON)
   public void sendProvisioningMessage(@Auth AuthenticatedAccount auth,
       @PathParam("destination") String destinationName,
-      @Valid ProvisioningMessage message)
+      @NotNull @Valid ProvisioningMessage message)
       throws RateLimitExceededException {
 
     rateLimiters.getMessagesLimiter().validate(auth.getAccount().getUuid());

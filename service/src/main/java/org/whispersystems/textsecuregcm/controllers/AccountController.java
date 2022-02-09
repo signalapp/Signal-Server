@@ -29,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
+import javax.validation.constraints.NotNull;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -339,7 +340,7 @@ public class AccountController {
                                              @HeaderParam("X-Signal-Agent") String signalAgent,
                                              @HeaderParam("User-Agent") String userAgent,
                                              @QueryParam("transfer") Optional<Boolean> availableForTransfer,
-                                             @Valid AccountAttributes accountAttributes)
+                                             @NotNull @Valid AccountAttributes accountAttributes)
       throws RateLimitExceededException, InterruptedException {
 
     String number = authorizationHeader.getUsername();
@@ -399,7 +400,7 @@ public class AccountController {
   @PUT
   @Path("/number")
   @Produces(MediaType.APPLICATION_JSON)
-  public AccountIdentityResponse changeNumber(@Auth final AuthenticatedAccount authenticatedAccount, @Valid final ChangePhoneNumberRequest request)
+  public AccountIdentityResponse changeNumber(@Auth final AuthenticatedAccount authenticatedAccount, @NotNull @Valid final ChangePhoneNumberRequest request)
       throws RateLimitExceededException, InterruptedException, ImpossiblePhoneNumberException, NonNormalizedPhoneNumberException {
 
     final Account updatedAccount;
@@ -457,7 +458,7 @@ public class AccountController {
   @Consumes(MediaType.APPLICATION_JSON)
   @ChangesDeviceEnabledState
   public void setGcmRegistrationId(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
-      @Valid GcmRegistrationId registrationId) {
+      @NotNull @Valid GcmRegistrationId registrationId) {
     Account account = disabledPermittedAuth.getAccount();
     Device device = disabledPermittedAuth.getAuthenticatedDevice();
 
@@ -495,7 +496,7 @@ public class AccountController {
   @Consumes(MediaType.APPLICATION_JSON)
   @ChangesDeviceEnabledState
   public void setApnRegistrationId(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
-      @Valid ApnRegistrationId registrationId) {
+      @NotNull @Valid ApnRegistrationId registrationId) {
     Account account = disabledPermittedAuth.getAccount();
     Device device = disabledPermittedAuth.getAuthenticatedDevice();
 
@@ -530,7 +531,7 @@ public class AccountController {
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/registration_lock")
-  public void setRegistrationLock(@Auth AuthenticatedAccount auth, @Valid RegistrationLock accountLock) {
+  public void setRegistrationLock(@Auth AuthenticatedAccount auth, @NotNull @Valid RegistrationLock accountLock) {
     AuthenticationCredentials credentials = new AuthenticationCredentials(accountLock.getRegistrationLock());
 
     accounts.update(auth.getAccount(),
@@ -547,7 +548,7 @@ public class AccountController {
   @Timed
   @PUT
   @Path("/name/")
-  public void setName(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth, @Valid DeviceName deviceName) {
+  public void setName(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth, @NotNull @Valid DeviceName deviceName) {
     Account account = disabledPermittedAuth.getAccount();
     Device device = disabledPermittedAuth.getAuthenticatedDevice();
     accounts.updateDevice(account, device.getId(), d -> d.setName(deviceName.getDeviceName()));
@@ -567,7 +568,7 @@ public class AccountController {
   @ChangesDeviceEnabledState
   public void setAccountAttributes(@Auth DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
       @HeaderParam("X-Signal-Agent") String userAgent,
-      @Valid AccountAttributes attributes) {
+      @NotNull @Valid AccountAttributes attributes) {
     Account account = disabledPermittedAuth.getAccount();
     long deviceId = disabledPermittedAuth.getAuthenticatedDevice().getId();
 

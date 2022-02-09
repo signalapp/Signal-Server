@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.validation.Valid;
+import javax.validation.constraints.NotNull;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DefaultValue;
@@ -148,7 +149,7 @@ public class ProfileController {
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
-  public Response setProfile(@Auth AuthenticatedAccount auth, @Valid CreateProfileRequest request) {
+  public Response setProfile(@Auth AuthenticatedAccount auth, @NotNull @Valid CreateProfileRequest request) {
     if (StringUtils.isNotBlank(request.getPaymentAddress())) {
       final boolean hasDisallowedPrefix =
           dynamicConfigurationManager.getConfiguration().getPaymentsConfiguration().getDisallowedPrefixes().stream()

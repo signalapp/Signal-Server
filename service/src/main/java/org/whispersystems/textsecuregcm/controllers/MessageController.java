@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.validation.Valid;
+import javax.validation.constraints.NotNull;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -167,7 +168,7 @@ public class MessageController {
       @HeaderParam("User-Agent") String userAgent,
       @HeaderParam("X-Forwarded-For") String forwardedFor,
       @PathParam("destination") UUID destinationUuid,
-      @Valid IncomingMessageList messages)
+      @NotNull @Valid IncomingMessageList messages)
       throws RateLimitExceededException, RateLimitChallengeException {
 
     if (source.isEmpty() && accessKey.isEmpty()) {
@@ -274,7 +275,7 @@ public class MessageController {
       @PathParam("destination") UUID destinationUuid,
       @QueryParam("online") boolean online,
       @QueryParam("ts") long timestamp,
-      @Valid IncomingDeviceMessage[] messages)
+      @NotNull @Valid IncomingDeviceMessage[] messages)
       throws RateLimitExceededException, RateLimitChallengeException {
 
     if (source.isEmpty() && accessKey.isEmpty()) {
@@ -374,7 +375,7 @@ public class MessageController {
       @HeaderParam("X-Forwarded-For") String forwardedFor,
       @QueryParam("online") boolean online,
       @QueryParam("ts") long timestamp,
-      @Valid MultiRecipientMessage multiRecipientMessage) {
+      @NotNull @Valid MultiRecipientMessage multiRecipientMessage) {
 
     Map<UUID, Account> uuidToAccountMap = Arrays.stream(multiRecipientMessage.getRecipients())
         .map(Recipient::getUuid)

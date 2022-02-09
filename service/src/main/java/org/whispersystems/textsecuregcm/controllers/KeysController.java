@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import javax.validation.Valid;
+import javax.validation.constraints.NotNull;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
@@ -85,7 +86,7 @@ public class KeysController {
   @Consumes(MediaType.APPLICATION_JSON)
   @ChangesDeviceEnabledState
   public void setKeys(@Auth final DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
-      @Valid final PreKeyState preKeys,
+      @NotNull @Valid final PreKeyState preKeys,
       @QueryParam("identity") final Optional<String> identityType) {
     Account account = disabledPermittedAuth.getAccount();
     Device device = disabledPermittedAuth.getAuthenticatedDevice();

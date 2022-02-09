@@ -34,6 +34,7 @@ import org.whispersystems.textsecuregcm.configuration.BoostConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionPriceConfiguration;
+import org.whispersystems.textsecuregcm.controllers.SubscriptionController.CreateBoostReceiptCredentialsRequest;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetLevelsResponse;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
@@ -42,6 +43,8 @@ import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.stripe.StripeManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.core.Response;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class SubscriptionControllerTest {
@@ -72,6 +75,23 @@ class SubscriptionControllerTest {
   void tearDown() {
     reset(CLOCK, SUBSCRIPTION_CONFIG, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER,
         BADGE_TRANSLATOR, LEVEL_TRANSLATOR);
+  }
+
+  @Test
+  void createBoostReceiptInvalid() {
+    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/receipt_credentials")
+        .request()
+        // invalid, request body should have receiptCredentialRequest
+        .post(Entity.json("{\"paymentIntentId\": \"foo\"}"));
+    assertThat(response.getStatus()).isEqualTo(422);
+  }
+
+  @Test
+  void createBoostReceiptNoRequest() {
+    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/receipt_credentials")
+        .request()
+        .post(Entity.json(""));
+    assertThat(response.getStatus()).isEqualTo(422);
   }
 
   @Test

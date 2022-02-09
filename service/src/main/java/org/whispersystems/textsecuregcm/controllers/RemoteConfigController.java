@@ -19,6 +19,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.validation.Valid;
+import javax.validation.constraints.NotNull;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -79,7 +80,7 @@ public class RemoteConfigController {
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public void set(@HeaderParam("Config-Token") String configToken, @Valid RemoteConfig config) {
+  public void set(@HeaderParam("Config-Token") String configToken, @NotNull @Valid RemoteConfig config) {
     if (!isAuthorized(configToken)) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
