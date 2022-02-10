@@ -67,9 +67,9 @@ public class RetryingApnsClient {
     this.apnsClient = apnsClient;
   }
 
-  ListenableFuture<ApnResult> send(final String apnId, final String topic, final String payload, final Instant expiration, final boolean isVoip) {
+  ListenableFuture<ApnResult> send(final String apnId, final String topic, final String payload, final Instant expiration, final boolean isVoip, final String collapseId) {
     SettableFuture<ApnResult>  result       = SettableFuture.create();
-    SimpleApnsPushNotification notification = new SimpleApnsPushNotification(apnId, topic, payload, expiration, DeliveryPriority.IMMEDIATE, isVoip ? PushType.VOIP : PushType.ALERT);
+    SimpleApnsPushNotification notification = new SimpleApnsPushNotification(apnId, topic, payload, expiration, DeliveryPriority.IMMEDIATE, isVoip ? PushType.VOIP : PushType.ALERT, collapseId);
         
     apnsClient.sendNotification(notification).whenComplete(new ResponseHandler(result));
 

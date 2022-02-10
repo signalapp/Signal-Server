@@ -66,6 +66,14 @@ public class ApnMessage {
     }
   }
 
+  @Nullable
+  public String getCollapseId() {
+    if (type == Type.NOTIFICATION && !isVoip) {
+      return "incoming-message";
+    }
+    return null;
+  }
+
   @VisibleForTesting
   public Optional<String> getChallengeData() {
     return challengeData;
