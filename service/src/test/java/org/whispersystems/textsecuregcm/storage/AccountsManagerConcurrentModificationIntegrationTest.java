@@ -233,7 +233,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
     return JsonHelpers.fromJson(redisSetArgumentCapture.getValue(), Account.class);
   }
 
-  private void verifyAccount(final String name, final Account account, final boolean discoverableByPhoneNumber, final String currentProfileVersion, final String identityKey, final byte[] unidentifiedAccessKey, final String pin, final String clientRegistrationLock, final boolean unrestrictedUnidentifiedAcces, final long lastSeen) {
+  private void verifyAccount(final String name, final Account account, final boolean discoverableByPhoneNumber, final String currentProfileVersion, final String identityKey, final byte[] unidentifiedAccessKey, final String pin, final String clientRegistrationLock, final boolean unrestrictedUnidentifiedAccess, final long lastSeen) {
 
     assertAll(name,
         () -> assertEquals(discoverableByPhoneNumber, account.isDiscoverableByPhoneNumber()),
@@ -241,7 +241,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
         () -> assertEquals(identityKey, account.getIdentityKey()),
         () -> assertArrayEquals(unidentifiedAccessKey, account.getUnidentifiedAccessKey().orElseThrow()),
         () -> assertTrue(account.getRegistrationLock().verify(clientRegistrationLock)),
-        () -> assertEquals(unrestrictedUnidentifiedAcces, account.isUnrestrictedUnidentifiedAccess())
+        () -> assertEquals(unrestrictedUnidentifiedAccess, account.isUnrestrictedUnidentifiedAccess())
     );
   }
 

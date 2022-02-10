@@ -94,7 +94,7 @@ class OptionalAccessTest {
 
     try {
       OptionalAccess.verify(Optional.empty(), Optional.empty(), Optional.of(account));
-      throw new AssertionError("shold fai");
+      throw new AssertionError("should fail");
     } catch (WebApplicationException e) {
       assertEquals(e.getResponse().getStatus(), 401);
     }
