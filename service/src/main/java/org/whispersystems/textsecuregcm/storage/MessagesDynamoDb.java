@@ -73,7 +73,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
 
   private void storeBatch(final List<MessageProtos.Envelope> messages, final UUID destinationAccountUuid, final long destinationDeviceId) {
     if (messages.size() > DYNAMO_DB_MAX_BATCH_SIZE) {
-      throw new IllegalArgumentException("Maximum batch size of " + DYNAMO_DB_MAX_BATCH_SIZE + " execeeded with " + messages.size() + " messages");
+      throw new IllegalArgumentException("Maximum batch size of " + DYNAMO_DB_MAX_BATCH_SIZE + " exceeded with " + messages.size() + " messages");
     }
 
     final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid);
