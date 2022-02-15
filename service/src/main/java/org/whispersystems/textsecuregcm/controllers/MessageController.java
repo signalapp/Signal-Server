@@ -222,7 +222,7 @@ public class MessageController {
       assert (destination.isPresent());
 
       if (source.isPresent() && !isSyncMessage) {
-        checkRateLimit(source.get(), destination.get());
+        checkRateLimit(source.get(), destination.get(), userAgent);
       }
 
       validateCompleteDeviceList(destination.get(), messages.getMessages(),
@@ -315,7 +315,7 @@ public class MessageController {
       assert (destination.isPresent());
 
       if (source.isPresent() && !isSyncMessage) {
-        checkRateLimit(source.get(), destination.get());
+        checkRateLimit(source.get(), destination.get(), userAgent);
       }
 
       final List<IncomingDeviceMessage> messagesAsList = Arrays.asList(messages);
@@ -335,7 +335,7 @@ public class MessageController {
 
         if (destinationDevice.isPresent()) {
           Metrics.counter(SENT_MESSAGE_COUNTER_NAME, tags).increment();
-          sendMessage(source, destination.get(), destinationDevice.get(), destinationUuid, timestamp, online, message, userAgent);
+          sendMessage(source, destination.get(), destinationDevice.get(), destinationUuid, timestamp, online, message);
         }
       }
 
@@ -633,7 +633,8 @@ public class MessageController {
     }
   }
 
-  private void sendMessage(Optional<AuthenticatedAccount> source, Account destinationAccount, Device destinationDevice, UUID destinationUuid, long timestamp, boolean online, IncomingDeviceMessage message, String userAgentString) throws NoSuchUserException {
+  private void sendMessage(Optional<AuthenticatedAccount> source, Account destinationAccount, Device destinationDevice,
+      UUID destinationUuid, long timestamp, boolean online, IncomingDeviceMessage message) throws NoSuchUserException {
     try {
       Envelope.Builder messageBuilder = Envelope.newBuilder();
       long serverTimestamp = System.currentTimeMillis();
@@ -693,15 +694,18 @@ public class MessageController {
     }
   }
 
-  private void checkRateLimit(AuthenticatedAccount source, Account destination) throws RateLimitExceededException {
+  private void checkRateLimit(AuthenticatedAccount source, Account destination, String userAgent)
+      throws RateLimitExceededException {
     final String senderCountryCode = Util.getCountryCode(source.getAccount().getNumber());
 
     try {
       rateLimiters.getMessagesLimiter().validate(source.getAccount().getUuid(), destination.getUuid());
     } catch (final RateLimitExceededException e) {
       Metrics.counter(RATE_LIMITED_MESSAGE_COUNTER_NAME,
-          SENDER_COUNTRY_TAG_NAME, senderCountryCode,
-          RATE_LIMIT_REASON_TAG_NAME, "singleDestinationRate").increment();
+          Tags.of(
+              UserAgentTagUtil.getPlatformTag(userAgent),
+              Tag.of(SENDER_COUNTRY_TAG_NAME, senderCountryCode),
+              Tag.of(RATE_LIMIT_REASON_TAG_NAME, "singleDestinationRate"))).increment();
 
       throw e;
     }
