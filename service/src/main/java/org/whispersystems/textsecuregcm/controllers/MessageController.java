@@ -126,11 +126,13 @@ public class MessageController {
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME = name(MessageController.class, "messageContentSize");
   private static final String OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME = name(MessageController.class, "outgoingMessageListSizeBytes");
   private static final String RATE_LIMITED_MESSAGE_COUNTER_NAME = name(MessageController.class, "rateLimitedMessage");
+  private static final String REJECT_INVALID_ENVELOPE_TYPE = name(MessageController.class, "rejectInvalidEnvelopeType");
 
   private static final String EPHEMERAL_TAG_NAME = "ephemeral";
   private static final String SENDER_TYPE_TAG_NAME = "senderType";
   private static final String SENDER_COUNTRY_TAG_NAME = "senderCountry";
   private static final String RATE_LIMIT_REASON_TAG_NAME = "rateLimitReason";
+  private static final String ENVELOPE_TYPE_TAG_NAME = "envelopeType";
 
   private static final String SENDER_TYPE_IDENTIFIED = "identified";
   private static final String SENDER_TYPE_UNIDENTIFIED = "unidentified";
@@ -188,6 +190,7 @@ public class MessageController {
     }
 
     for (final IncomingMessage message : messages.getMessages()) {
+
       int contentLength = 0;
 
       if (!Util.isEmpty(message.getContent())) {
@@ -198,12 +201,13 @@ public class MessageController {
         contentLength += message.getBody().length();
       }
 
-      Metrics.summary(CONTENT_SIZE_DISTRIBUTION_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).record(contentLength);
+      Optional<Response> maybeResponse = validateContentLength(contentLength, userAgent);
 
-      if (contentLength > MAX_MESSAGE_SIZE) {
-        Metrics.counter(REJECT_OVERSIZE_MESSAGE_COUNTER, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).increment();
-        return Response.status(Response.Status.REQUEST_ENTITY_TOO_LARGE).build();
+      if (maybeResponse.isPresent()) {
+        return maybeResponse.get();
       }
+
+      validateEnvelopeType(message.getType(), userAgent);
     }
 
     try {
@@ -276,7 +280,7 @@ public class MessageController {
       @QueryParam("online") boolean online,
       @QueryParam("ts") long timestamp,
       @NotNull @Valid IncomingDeviceMessage[] messages)
-      throws RateLimitExceededException, RateLimitChallengeException {
+      throws RateLimitExceededException {
 
     if (source.isEmpty() && accessKey.isEmpty()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
@@ -295,14 +299,8 @@ public class MessageController {
     }
 
     for (final IncomingDeviceMessage message : messages) {
-      int contentLength = message.getContent().length;
-
-      Metrics.summary(CONTENT_SIZE_DISTRIBUTION_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).record(contentLength);
-
-      if (contentLength > MAX_MESSAGE_SIZE) {
-        Metrics.counter(REJECT_OVERSIZE_MESSAGE_COUNTER, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).increment();
-        return Response.status(Response.Status.REQUEST_ENTITY_TOO_LARGE).build();
-      }
+      validateContentLength(message.getContent().length, userAgent);
+      validateEnvelopeType(message.getType(), userAgent);
     }
 
     try {
@@ -776,6 +774,28 @@ public class MessageController {
 
     if (!missingDeviceIds.isEmpty() || !extraDeviceIds.isEmpty()) {
       throw new MismatchedDevicesException(missingDeviceIds, extraDeviceIds);
+    }
+  }
+
+  private Optional<Response> validateContentLength(final int contentLength, final String userAgent) {
+    Metrics.summary(CONTENT_SIZE_DISTRIBUTION_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
+        .record(contentLength);
+
+    if (contentLength > MAX_MESSAGE_SIZE) {
+      Metrics.counter(REJECT_OVERSIZE_MESSAGE_COUNTER, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
+          .increment();
+      return Optional.of(Response.status(Status.REQUEST_ENTITY_TOO_LARGE).build());
+    }
+
+    return Optional.empty();
+  }
+
+  private void validateEnvelopeType(final int type, final String userAgent) {
+    if (type == Type.SERVER_DELIVERY_RECEIPT_VALUE) {
+      Metrics.counter(REJECT_INVALID_ENVELOPE_TYPE,
+              Tags.of(UserAgentTagUtil.getPlatformTag(userAgent), Tag.of(ENVELOPE_TYPE_TAG_NAME, String.valueOf(type))))
+          .increment();
+      throw new BadRequestException("reserved envelope type");
     }
   }
 

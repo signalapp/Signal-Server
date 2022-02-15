@@ -612,6 +612,36 @@ class MessageControllerTest {
     verify(reportMessageManager).report(senderNumber, messageGuid, AuthHelper.VALID_UUID);
   }
 
+  @ParameterizedTest
+  @MethodSource
+  void testValidateEnvelopeType(String payloadFilename, boolean expectOk) throws Exception {
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .header("User-Agent", "FIXME")
+            .put(Entity.entity(mapper.readValue(jsonFixture(payloadFilename), IncomingMessageList.class),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    if (expectOk) {
+      assertEquals(200, response.getStatus());
+
+      final ArgumentCaptor<Envelope> captor = ArgumentCaptor.forClass(Envelope.class);
+      verify(messageSender).sendMessage(any(Account.class), any(Device.class), captor.capture(), eq(false));
+    } else {
+      assertEquals(400, response.getStatus());
+      verify(messageSender, never()).sendMessage(any(), any(), any(), anyBoolean());
+    }
+  }
+
+  private static Stream<Arguments> testValidateEnvelopeType() {
+    return Stream.of(
+        Arguments.of("fixtures/current_message_single_device.json", true),
+        Arguments.of("fixtures/current_message_single_device_server_receipt_type.json", false)
+    );
+  }
+
   static Account mockAccountWithDeviceAndRegId(Object... deviceAndRegistrationIds) {
     Account account = mock(Account.class);
     if (deviceAndRegistrationIds.length % 2 != 0) {
