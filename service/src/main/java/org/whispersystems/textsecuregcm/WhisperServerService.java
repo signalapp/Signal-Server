@@ -727,7 +727,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     environment.healthChecks().register("cacheCluster", new RedisClusterHealthCheck(cacheCluster));
 
-    environment.lifecycle().manage(new ApplicationShutdownMonitor());
+    environment.lifecycle().manage(new ApplicationShutdownMonitor(Metrics.globalRegistry));
 
     environment.metrics().register(name(CpuUsageGauge.class, "cpu"), new CpuUsageGauge(3, TimeUnit.SECONDS));
     environment.metrics().register(name(FreeMemoryGauge.class, "free_memory"), new FreeMemoryGauge());

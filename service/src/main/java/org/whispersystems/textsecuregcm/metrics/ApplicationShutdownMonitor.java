@@ -5,11 +5,13 @@
 
 package org.whispersystems.textsecuregcm.metrics;
 
-import io.dropwizard.lifecycle.Managed;
-import io.micrometer.core.instrument.Metrics;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.codahale.metrics.MetricRegistry.name;
+
+import io.dropwizard.lifecycle.Managed;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * A managed monitor that reports whether the application is shutting down as a metric. That metric can then be used in
@@ -19,8 +21,12 @@ public class ApplicationShutdownMonitor implements Managed {
 
   private final AtomicBoolean shuttingDown = new AtomicBoolean(false);
 
-  public ApplicationShutdownMonitor() {
-    Metrics.gauge(name(getClass().getSimpleName(), "shuttingDown"), shuttingDown, b -> b.get() ? 1 : 0);
+  public ApplicationShutdownMonitor(final MeterRegistry meterRegistry) {
+    // without a strong reference to the gauge’s value supplier, shutdown garbage collection
+    // might prevent the final value from being reported
+    Gauge.builder(name(getClass().getSimpleName(), "shuttingDown"), () -> shuttingDown.get() ? 1 : 0)
+        .strongReference(true)
+        .register(meterRegistry);
   }
 
   @Override
