@@ -202,12 +202,7 @@ public class MessageController {
         contentLength += message.getBody().length();
       }
 
-      Optional<Response> maybeResponse = validateContentLength(contentLength, userAgent);
-
-      if (maybeResponse.isPresent()) {
-        return maybeResponse.get();
-      }
-
+      validateContentLength(contentLength, userAgent);
       validateEnvelopeType(message.getType(), userAgent);
     }
 
@@ -778,17 +773,16 @@ public class MessageController {
     }
   }
 
-  private Optional<Response> validateContentLength(final int contentLength, final String userAgent) {
+  private void validateContentLength(final int contentLength, final String userAgent) {
     Metrics.summary(CONTENT_SIZE_DISTRIBUTION_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
         .record(contentLength);
 
     if (contentLength > MAX_MESSAGE_SIZE) {
       Metrics.counter(REJECT_OVERSIZE_MESSAGE_COUNTER, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
           .increment();
-      return Optional.of(Response.status(Status.REQUEST_ENTITY_TOO_LARGE).build());
+      throw new WebApplicationException(Status.REQUEST_ENTITY_TOO_LARGE);
     }
 
-    return Optional.empty();
   }
 
   private void validateEnvelopeType(final int type, final String userAgent) {
