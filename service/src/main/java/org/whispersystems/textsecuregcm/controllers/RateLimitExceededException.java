@@ -5,10 +5,11 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 import java.time.Duration;
+import java.util.Optional;
 
 public class RateLimitExceededException extends Exception {
 
-  private final Duration retryDuration;
+  private final Optional<Duration> retryDuration;
 
   public RateLimitExceededException(final Duration retryDuration) {
     this(null, retryDuration);
@@ -16,8 +17,9 @@ public class RateLimitExceededException extends Exception {
 
   public RateLimitExceededException(final String message, final Duration retryDuration) {
     super(message, null, true, false);
-    this.retryDuration = retryDuration;
+    // we won't provide a backoff in the case the duration is negative
+    this.retryDuration = retryDuration.isNegative() ? Optional.empty() : Optional.of(retryDuration);
   }
 
-  public Duration getRetryDuration() { return retryDuration; }
+  public Optional<Duration> getRetryDuration() { return retryDuration; }
 }

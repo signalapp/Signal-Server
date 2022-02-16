@@ -51,7 +51,7 @@ public class ChallengeController {
   public Response handleChallengeResponse(@Auth final AuthenticatedAccount auth,
       @Valid final AnswerChallengeRequest answerRequest,
       @HeaderParam("X-Forwarded-For") final String forwardedFor,
-      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) throws RetryLaterException {
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) throws RateLimitExceededException {
 
     Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent));
 
@@ -76,8 +76,6 @@ public class ChallengeController {
       } else {
         tags = tags.and(CHALLENGE_TYPE_TAG, "unrecognized");
       }
-    } catch (final RateLimitExceededException e) {
-      throw new RetryLaterException(e);
     } finally {
       Metrics.counter(CHALLENGE_RESPONSE_COUNTER_NAME, tags).increment();
     }

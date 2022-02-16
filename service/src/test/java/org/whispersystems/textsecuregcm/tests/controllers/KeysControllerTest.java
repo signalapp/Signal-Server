@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.tests.controllers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
@@ -38,8 +39,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
@@ -50,11 +49,11 @@ import org.whispersystems.textsecuregcm.entities.PreKey;
 import org.whispersystems.textsecuregcm.entities.PreKeyCount;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponse;
 import org.whispersystems.textsecuregcm.entities.PreKeyState;
-import org.whispersystems.textsecuregcm.entities.RateLimitChallenge;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
-import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.mappers.RateLimitChallengeExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ServerRejectedExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -107,6 +106,7 @@ class KeysControllerTest {
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new ServerRejectedExceptionMapper())
       .addResource(new KeysController(rateLimiters, KEYS, accounts))
+      .addResource(new RateLimitExceededExceptionMapper())
       .build();
 
   @BeforeEach
@@ -314,6 +314,21 @@ class KeysControllerTest {
 
     verify(KEYS).take(EXISTS_PNI, 1);
     verifyNoMoreInteractions(KEYS);
+  }
+
+  @Test
+  void testGetKeysRateLimited() throws RateLimitExceededException {
+    Duration retryAfter = Duration.ofSeconds(31);
+    doThrow(new RateLimitExceededException(retryAfter)).when(rateLimiter).validate(anyString());
+
+    Response result = resources.getJerseyTest()
+        .target(String.format("/v2/keys/%s/*", EXISTS_PNI))
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get();
+
+    assertThat(result.getStatus()).isEqualTo(413);
+    assertThat(result.getHeaderString("Retry-After")).isEqualTo(String.valueOf(retryAfter.toSeconds()));
   }
 
   @Test

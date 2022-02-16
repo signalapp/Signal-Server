@@ -123,7 +123,6 @@ import org.whispersystems.textsecuregcm.mappers.InvalidWebsocketAddressException
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitChallengeExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
-import org.whispersystems.textsecuregcm.mappers.RetryLaterExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ServerRejectedExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.ApplicationShutdownMonitor;
 import org.whispersystems.textsecuregcm.metrics.BufferPoolGauges;
@@ -758,7 +757,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new RateLimitExceededExceptionMapper(),
         new InvalidWebsocketAddressExceptionMapper(),
         new DeviceLimitExceededExceptionMapper(),
-        new RetryLaterExceptionMapper(),
         new ServerRejectedExceptionMapper(),
         new ImpossiblePhoneNumberExceptionMapper(),
         new NonNormalizedPhoneNumberExceptionMapper()

@@ -1805,6 +1805,38 @@ class AccountControllerTest {
   }
 
   @Test
+  void testAccountExistsRateLimited() throws RateLimitExceededException {
+    final Account account = mock(Account.class);
+    final UUID accountIdentifier = UUID.randomUUID();
+    when(accountsManager.getByAccountIdentifier(accountIdentifier)).thenReturn(Optional.of(account));
+
+    final RateLimiter checkAccountLimiter = mock(RateLimiter.class);
+    when(rateLimiters.getCheckAccountExistenceLimiter()).thenReturn(checkAccountLimiter);
+    doThrow(new RateLimitExceededException(Duration.ofSeconds(13))).when(checkAccountLimiter).validate("127.0.0.1");
+
+    final Response response = resources.getJerseyTest()
+        .target(String.format("/v1/accounts/account/%s", accountIdentifier))
+        .request()
+        .header("X-Forwarded-For", "127.0.0.1")
+        .head();
+
+    assertThat(response.getStatus()).isEqualTo(413);
+    assertThat(response.getHeaderString("Retry-After")).isEqualTo(String.valueOf(Duration.ofSeconds(13).toSeconds()));
+  }
+
+  @Test
+  void testAccountExistsNoForwardedFor() throws RateLimitExceededException {
+    final Response response = resources.getJerseyTest()
+        .target(String.format("/v1/accounts/account/%s", UUID.randomUUID()))
+        .request()
+        .header("X-Forwarded-For", "")
+        .head();
+
+    assertThat(response.getStatus()).isEqualTo(413);
+    assertThat(response.getHeaderString("Retry-After")).isNull();
+  }
+
+  @Test
   void testAccountExistsAuthenticated() {
     assertThat(resources.getJerseyTest()
         .target(String.format("/v1/accounts/account/%s", UUID.randomUUID()))

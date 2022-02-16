@@ -12,8 +12,18 @@ import javax.ws.rs.ext.Provider;
 
 @Provider
 public class RateLimitExceededExceptionMapper implements ExceptionMapper<RateLimitExceededException> {
+
+  /**
+   * Convert a RateLimitExceededException to a 413 response with a
+   * Retry-After header.
+   *
+   * @param e A RateLimitExceededException potentially containing a reccomended retry duration
+   * @return the response
+   */
   @Override
   public Response toResponse(RateLimitExceededException e) {
-    return Response.status(413).build();
+    return e.getRetryDuration()
+        .map(d -> Response.status(413).header("Retry-After", d.toSeconds()))
+        .orElseGet(() -> Response.status(413)).build();
   }
 }

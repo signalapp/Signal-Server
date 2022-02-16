@@ -213,7 +213,7 @@ public class AccountController {
                                 @QueryParam("client")           Optional<String> client,
                                 @QueryParam("captcha")          Optional<String> captcha,
                                 @QueryParam("challenge")        Optional<String> pushChallenge)
-      throws RateLimitExceededException, RetryLaterException, ImpossiblePhoneNumberException, NonNormalizedPhoneNumberException {
+      throws RateLimitExceededException, ImpossiblePhoneNumberException, NonNormalizedPhoneNumberException {
 
     Util.requireNormalizedNumber(number);
 
@@ -234,24 +234,16 @@ public class AccountController {
       return Response.status(402).build();
     }
 
-    try {
-      switch (transport) {
-        case "sms":
-          rateLimiters.getSmsDestinationLimiter().validate(number);
-          break;
-        case "voice":
-          rateLimiters.getVoiceDestinationLimiter().validate(number);
-          rateLimiters.getVoiceDestinationDailyLimiter().validate(number);
-          break;
-        default:
-          throw new WebApplicationException(Response.status(422).build());
-      }
-    } catch (RateLimitExceededException e) {
-      if (!e.getRetryDuration().isNegative()) {
-        throw new RetryLaterException(e);
-      } else {
-        throw e;
-      }
+    switch (transport) {
+      case "sms":
+        rateLimiters.getSmsDestinationLimiter().validate(number);
+        break;
+      case "voice":
+        rateLimiters.getVoiceDestinationLimiter().validate(number);
+        rateLimiters.getVoiceDestinationDailyLimiter().validate(number);
+        break;
+      default:
+        throw new WebApplicationException(Response.status(422).build());
     }
 
     VerificationCode       verificationCode       = generateVerificationCode(number);
@@ -643,7 +635,9 @@ public class AccountController {
     }
 
     final String mostRecentProxy = ForwardedIpUtil.getMostRecentProxy(forwardedFor)
-        .orElseThrow(() -> new RateLimitExceededException(Duration.ofHours(1)));
+        // Missing/malformed Forwarded-For, cannot calculate a reasonable backoff
+        // duration
+        .orElseThrow(() -> new RateLimitExceededException(Duration.ofHours(-1)));
 
     rateLimiters.getCheckAccountExistenceLimiter().validate(mostRecentProxy);
 

@@ -10,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.ArgumentMatchers.refEq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -26,6 +27,7 @@ import io.dropwizard.testing.junit5.ResourceExtension;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Collections;
@@ -82,6 +84,7 @@ import org.whispersystems.textsecuregcm.entities.ProfileKeyCredentialProfileResp
 import org.whispersystems.textsecuregcm.entities.VersionedProfileResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -123,6 +126,7 @@ class ProfileControllerTest {
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
           ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
+      .addProvider(new RateLimitExceededExceptionMapper())
       .setMapper(SystemMapper.getMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(new ProfileController(
@@ -210,6 +214,7 @@ class ProfileControllerTest {
   @AfterEach
   void teardown() {
     reset(accountsManager);
+    reset(rateLimiter);
   }
 
   @Test
@@ -226,6 +231,20 @@ class ProfileControllerTest {
 
     verify(accountsManager).getByAccountIdentifier(AuthHelper.VALID_UUID_TWO);
     verify(rateLimiter, times(1)).validate(AuthHelper.VALID_UUID);
+  }
+
+  @Test
+  void testProfileGetByUuidRateLimited() throws RateLimitExceededException {
+    doThrow(new RateLimitExceededException(Duration.ofSeconds(13))).when(rateLimiter).validate(AuthHelper.VALID_UUID);
+
+    Response response= resources.getJerseyTest()
+        .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO)
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get();
+
+    assertThat(response.getStatus()).isEqualTo(413);
+    assertThat(response.getHeaderString("Retry-After")).isEqualTo(String.valueOf(Duration.ofSeconds(13).toSeconds()));
   }
 
   @Test
