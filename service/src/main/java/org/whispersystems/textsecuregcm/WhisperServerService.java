@@ -134,6 +134,7 @@ import org.whispersystems.textsecuregcm.metrics.GarbageCollectionGauges;
 import org.whispersystems.textsecuregcm.metrics.MaxFileDescriptorGauge;
 import org.whispersystems.textsecuregcm.metrics.MetricsApplicationEventListener;
 import org.whispersystems.textsecuregcm.metrics.MetricsRequestEventListener;
+import org.whispersystems.textsecuregcm.metrics.MicrometerRegistryManager;
 import org.whispersystems.textsecuregcm.metrics.NetworkReceivedGauge;
 import org.whispersystems.textsecuregcm.metrics.NetworkSentGauge;
 import org.whispersystems.textsecuregcm.metrics.OperatingSystemMemoryGauge;
@@ -295,6 +296,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
       Metrics.addRegistry(datadogMeterRegistry);
     }
+
+    environment.lifecycle().manage(new MicrometerRegistryManager(Metrics.globalRegistry));
 
     environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     environment.getObjectMapper().setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);
