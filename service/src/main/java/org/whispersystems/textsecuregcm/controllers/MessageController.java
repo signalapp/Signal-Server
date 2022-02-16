@@ -138,7 +138,8 @@ public class MessageController {
   private static final String SENDER_TYPE_UNIDENTIFIED = "unidentified";
   private static final String SENDER_TYPE_SELF = "self";
 
-  private static final long MAX_MESSAGE_SIZE = DataSize.kibibytes(256).toBytes();
+  @VisibleForTesting
+  static final long MAX_MESSAGE_SIZE = DataSize.kibibytes(256).toBytes();
 
   public MessageController(
       RateLimiters rateLimiters,

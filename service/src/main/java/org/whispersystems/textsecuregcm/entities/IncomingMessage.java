@@ -4,33 +4,63 @@
  */
 package org.whispersystems.textsecuregcm.entities;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class IncomingMessage {
 
   @JsonProperty
-  private int    type;
+  private int type;
 
   @JsonProperty
-  private String destination;
+  private final String destination;
 
   @JsonProperty
-  private long   destinationDeviceId = 1;
+  private long destinationDeviceId;
 
   @JsonProperty
   private int destinationRegistrationId;
 
   @JsonProperty
-  private String body;
+  private final String body;
 
   @JsonProperty
-  private String content;
+  private final String content;
 
   @JsonProperty
-  private String relay;
+  private final String relay;
 
   @JsonProperty
-  private long   timestamp; // deprecated
+  private long timestamp; // deprecated
+
+  @JsonCreator
+  public IncomingMessage(
+      @JsonProperty("id") final Integer type,
+      @JsonProperty("destination") final String destination,
+      @JsonProperty("destinationDeviceId") final Long destinationDeviceId,
+      @JsonProperty("destinationRegistrationId") final Integer destinationRegistrationId,
+      @JsonProperty("body") final String body,
+      @JsonProperty("content") final String content,
+      @JsonProperty("relay") final String relay,
+      @JsonProperty("timestamp") final Long timestamp) {
+    if (type != null) {
+      this.type = type;
+    }
+    this.destination = destination;
+
+    if (destinationDeviceId != null) {
+      this.destinationDeviceId = destinationDeviceId;
+    }
+    if (destinationRegistrationId != null) {
+      this.destinationRegistrationId = destinationRegistrationId;
+    }
+    this.body = body;
+    this.content = content;
+    this.relay = relay;
+    if (timestamp != null) {
+      this.timestamp = timestamp;
+    }
+  }
 
   public String getDestination() {
     return destination;

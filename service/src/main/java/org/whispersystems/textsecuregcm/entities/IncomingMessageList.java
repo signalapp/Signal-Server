@@ -4,6 +4,7 @@
  */
 package org.whispersystems.textsecuregcm.entities;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import javax.validation.Valid;
@@ -14,7 +15,7 @@ public class IncomingMessageList {
   @JsonProperty
   @NotNull
   @Valid
-  private List<@NotNull IncomingMessage> messages;
+  private final List<@NotNull IncomingMessage> messages;
 
   @JsonProperty
   private long timestamp;
@@ -22,7 +23,19 @@ public class IncomingMessageList {
   @JsonProperty
   private boolean online;
 
-  public IncomingMessageList() {}
+  @JsonCreator
+  public IncomingMessageList(
+      @JsonProperty("messages") final List<@NotNull IncomingMessage> messages,
+      @JsonProperty("online") final Boolean online,
+      @JsonProperty("timestamp") final Long timestamp) {
+    this.messages = messages;
+    if (timestamp != null) {
+      this.timestamp = timestamp;
+    }
+    if (online != null) {
+      this.online = online;
+    }
+  }
 
   public List<IncomingMessage> getMessages() {
     return messages;

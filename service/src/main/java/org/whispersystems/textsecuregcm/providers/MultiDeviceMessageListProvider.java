@@ -16,6 +16,7 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.NoContentException;
+import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.ext.MessageBodyReader;
 import javax.ws.rs.ext.Provider;
 import org.whispersystems.textsecuregcm.entities.IncomingDeviceMessage;
@@ -66,7 +67,7 @@ public class MultiDeviceMessageListProvider extends BinaryProviderBase implement
 
       long messageLength = readVarint(entityStream);
       if (messageLength > MAX_MESSAGE_SIZE) {
-        throw new BadRequestException("Message body too large");
+        throw new WebApplicationException("Message body too large", Status.REQUEST_ENTITY_TOO_LARGE);
       }
       byte[] contents = entityStream.readNBytes(Math.toIntExact(messageLength));
       if (contents.length != messageLength) {

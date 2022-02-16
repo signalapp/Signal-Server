@@ -36,6 +36,7 @@ import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.io.ByteArrayOutputStream;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.HashSet;
@@ -63,6 +64,7 @@ import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
+import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
@@ -610,6 +612,59 @@ class MessageControllerTest {
     assertThat(response.getStatus(), is(equalTo(202)));
 
     verify(reportMessageManager).report(senderNumber, messageGuid, AuthHelper.VALID_UUID);
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void testValidateContentLength(Entity<?> payload) throws Exception {
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
+            .request()
+            .header(OptionalAccess.UNIDENTIFIED, Base64.getEncoder().encodeToString("1234".getBytes()))
+            .put(payload);
+
+    assertThat("Bad response", response.getStatus(), is(equalTo(413)));
+
+    verify(messageSender, never()).sendMessage(any(Account.class), any(Device.class), any(Envelope.class),
+        anyBoolean());
+  }
+
+  private static Stream<Entity<?>> testValidateContentLength() {
+    final int contentLength = Math.toIntExact(MessageController.MAX_MESSAGE_SIZE + 1);
+    ByteArrayOutputStream messageStream = new ByteArrayOutputStream();
+    messageStream.write(1); // version
+    messageStream.write(1); // count
+    messageStream.write(1); // device ID
+    messageStream.writeBytes(new byte[]{(byte) 0, (byte) 111}); // registration ID
+    messageStream.write(1); // message type
+    writeVarint(contentLength, messageStream); // message length
+    final byte[] contentBytes = new byte[contentLength];
+    Arrays.fill(contentBytes, (byte) 1);
+    messageStream.writeBytes(contentBytes); // message contents
+
+    try {
+      return Stream.of(
+          Entity.entity(new IncomingMessageList(
+                  List.of(new IncomingMessage(1, null, 1L, null, new String(contentBytes), null, null, null)), null, null),
+              MediaType.APPLICATION_JSON_TYPE),
+          Entity.entity(messageStream.toByteArray(), MultiDeviceMessageListProvider.MEDIA_TYPE)
+      );
+    } catch (Exception e) {
+      throw new AssertionError(e);
+    }
+  }
+
+  private static void writeVarint(int value, ByteArrayOutputStream outputStream) {
+    while (true) {
+      int bits = value & 0x7f;
+      value >>>= 7;
+      if (value == 0) {
+        outputStream.write((byte) bits);
+        return;
+      }
+      outputStream.write((byte) (bits | 0x80));
+    }
   }
 
   @ParameterizedTest
