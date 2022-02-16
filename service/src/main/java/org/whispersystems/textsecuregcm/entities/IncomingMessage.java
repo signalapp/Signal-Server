@@ -10,16 +10,16 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class IncomingMessage {
 
   @JsonProperty
-  private int type;
+  private final int type;
 
   @JsonProperty
   private final String destination;
 
   @JsonProperty
-  private long destinationDeviceId;
+  private final long destinationDeviceId;
 
   @JsonProperty
-  private int destinationRegistrationId;
+  private final int destinationRegistrationId;
 
   @JsonProperty
   private final String body;
@@ -35,31 +35,20 @@ public class IncomingMessage {
 
   @JsonCreator
   public IncomingMessage(
-      @JsonProperty("id") final Integer type,
+      @JsonProperty("id") final int type,
       @JsonProperty("destination") final String destination,
-      @JsonProperty("destinationDeviceId") final Long destinationDeviceId,
-      @JsonProperty("destinationRegistrationId") final Integer destinationRegistrationId,
+      @JsonProperty("destinationDeviceId") final long destinationDeviceId,
+      @JsonProperty("destinationRegistrationId") final int destinationRegistrationId,
       @JsonProperty("body") final String body,
       @JsonProperty("content") final String content,
-      @JsonProperty("relay") final String relay,
-      @JsonProperty("timestamp") final Long timestamp) {
-    if (type != null) {
-      this.type = type;
-    }
+      @JsonProperty("relay") final String relay) {
+    this.type = type;
     this.destination = destination;
-
-    if (destinationDeviceId != null) {
-      this.destinationDeviceId = destinationDeviceId;
-    }
-    if (destinationRegistrationId != null) {
-      this.destinationRegistrationId = destinationRegistrationId;
-    }
+    this.destinationDeviceId = destinationDeviceId;
+    this.destinationRegistrationId = destinationRegistrationId;
     this.body = body;
     this.content = content;
     this.relay = relay;
-    if (timestamp != null) {
-      this.timestamp = timestamp;
-    }
   }
 
   public String getDestination() {

@@ -18,23 +18,19 @@ public class IncomingMessageList {
   private final List<@NotNull IncomingMessage> messages;
 
   @JsonProperty
-  private long timestamp;
+  private final long timestamp;
 
   @JsonProperty
-  private boolean online;
+  private final boolean online;
 
   @JsonCreator
   public IncomingMessageList(
       @JsonProperty("messages") final List<@NotNull IncomingMessage> messages,
-      @JsonProperty("online") final Boolean online,
-      @JsonProperty("timestamp") final Long timestamp) {
+      @JsonProperty("online") final boolean online,
+      @JsonProperty("timestamp") final long timestamp) {
     this.messages = messages;
-    if (timestamp != null) {
-      this.timestamp = timestamp;
-    }
-    if (online != null) {
-      this.online = online;
-    }
+    this.timestamp = timestamp;
+    this.online = online;
   }
 
   public List<IncomingMessage> getMessages() {

@@ -646,7 +646,8 @@ class MessageControllerTest {
     try {
       return Stream.of(
           Entity.entity(new IncomingMessageList(
-                  List.of(new IncomingMessage(1, null, 1L, null, new String(contentBytes), null, null, null)), null, null),
+                  List.of(new IncomingMessage(1, null, 1L, 1, new String(contentBytes), null, null)), false,
+                  System.currentTimeMillis()),
               MediaType.APPLICATION_JSON_TYPE),
           Entity.entity(messageStream.toByteArray(), MultiDeviceMessageListProvider.MEDIA_TYPE)
       );
