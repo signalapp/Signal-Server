@@ -61,7 +61,7 @@
     <netty.version>4.1.65.Final</netty.version>
     <netty.tcnative-boringssl-static.version>2.0.39.Final</netty.tcnative-boringssl-static.version>
     <opentest4j.version>1.2.0</opentest4j.version>
-    <postgresql.version>9.4-1201-jdbc41</postgresql.version>
+    <postgresql.version>42.3.3</postgresql.version>
     <protobuf.version>3.17.1</protobuf.version>
     <pushy.version>0.15.0</pushy.version>
     <resilience4j.version>1.5.0</resilience4j.version>
