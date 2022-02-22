@@ -635,9 +635,13 @@ public class AccountController {
     }
 
     final String mostRecentProxy = ForwardedIpUtil.getMostRecentProxy(forwardedFor)
-        // Missing/malformed Forwarded-For, cannot calculate a reasonable backoff
-        // duration
-        .orElseThrow(() -> new RateLimitExceededException(Duration.ofHours(-1)));
+        .orElseThrow(() -> {
+          // Missing/malformed Forwarded-For, so we cannot check for a rate-limit.
+          // This shouldn't happen, so conservatively assume we're over the rate-limit
+          // and indicate that the client should retry
+          logger.error("Missing/bad Forwarded-For, cannot check account {}", uuid.toString());
+          return new RateLimitExceededException(Duration.ofHours(1));
+        });
 
     rateLimiters.getCheckAccountExistenceLimiter().validate(mostRecentProxy);
 

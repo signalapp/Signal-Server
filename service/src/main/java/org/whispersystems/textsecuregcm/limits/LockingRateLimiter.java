@@ -31,7 +31,7 @@ public class LockingRateLimiter extends RateLimiter {
   public void validate(String key, int amount) throws RateLimitExceededException {
     if (!acquireLock(key)) {
       meter.mark();
-      throw new RateLimitExceededException("Locked", Duration.ZERO);
+      throw new RateLimitExceededException(Duration.ZERO);
     }
 
     try {

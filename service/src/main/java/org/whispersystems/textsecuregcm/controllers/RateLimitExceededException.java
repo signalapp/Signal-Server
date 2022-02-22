@@ -4,22 +4,26 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
+import javax.annotation.Nullable;
 import java.time.Duration;
 import java.util.Optional;
 
 public class RateLimitExceededException extends Exception {
 
-  private final Optional<Duration> retryDuration;
+  private final @Nullable
+  Duration retryDuration;
 
-  public RateLimitExceededException(final Duration retryDuration) {
-    this(null, retryDuration);
+  /**
+   * Constructs a new exception indicating when it may become safe to retry
+   *
+   * @param retryDuration A duration to wait before retrying, null if no duration can be indicated
+   */
+  public RateLimitExceededException(final @Nullable Duration retryDuration) {
+    super(null, null, true, false);
+    this.retryDuration = retryDuration;
   }
 
-  public RateLimitExceededException(final String message, final Duration retryDuration) {
-    super(message, null, true, false);
-    // we won't provide a backoff in the case the duration is negative
-    this.retryDuration = retryDuration.isNegative() ? Optional.empty() : Optional.of(retryDuration);
+  public Optional<Duration> getRetryDuration() {
+    return Optional.ofNullable(retryDuration);
   }
-
-  public Optional<Duration> getRetryDuration() { return retryDuration; }
 }

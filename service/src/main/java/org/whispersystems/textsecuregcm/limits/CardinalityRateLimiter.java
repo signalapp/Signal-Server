@@ -54,7 +54,8 @@ public class CardinalityRateLimiter {
     });
 
     if (rateLimitExceeded) {
-      throw new RateLimitExceededException(Duration.ofSeconds(getRemainingTtl(key)));
+      long remainingTtl = getRemainingTtl(key);
+      throw new RateLimitExceededException(remainingTtl >= 0 ? Duration.ofSeconds(remainingTtl) : null);
     }
   }
 
@@ -66,7 +67,14 @@ public class CardinalityRateLimiter {
     return ttl;
   }
 
+  /**
+   * Get the remaining ttl for the specified key
+   *
+   * @param key with timeout to check
+   * @return the ttl, or negative in the case of error
+   */
   public long getRemainingTtl(final String key) {
+    // ttl() returns -2 if key does not exist, -1 if key has no expiration
     return cacheCluster.withCluster(connection -> connection.sync().ttl(getHllKey(key)));
   }
 

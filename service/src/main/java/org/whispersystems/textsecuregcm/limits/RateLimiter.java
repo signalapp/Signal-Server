@@ -57,7 +57,7 @@ public class RateLimiter {
         setBucket(key, bucket);
       } else {
         meter.mark();
-        throw new RateLimitExceededException(key + " , " + amount, bucket.getTimeUntilSpaceAvailable(amount));
+        throw new RateLimitExceededException(bucket.getTimeUntilSpaceAvailable(amount));
       }
     }
   }
