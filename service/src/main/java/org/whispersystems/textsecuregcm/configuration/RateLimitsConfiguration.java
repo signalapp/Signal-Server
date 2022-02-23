@@ -164,28 +164,4 @@ public class RateLimitsConfiguration {
       return leakRatePerMinute;
     }
   }
-
-  public static class CardinalityRateLimitConfiguration {
-    @JsonProperty
-    private int maxCardinality;
-
-    @JsonProperty
-    private Duration ttl;
-
-    public CardinalityRateLimitConfiguration() {
-    }
-
-    public CardinalityRateLimitConfiguration(int maxCardinality, Duration ttl) {
-      this.maxCardinality = maxCardinality;
-      this.ttl = ttl;
-    }
-
-    public int getMaxCardinality() {
-      return maxCardinality;
-    }
-
-    public Duration getTtl() {
-      return ttl;
-    }
-  }
 }
