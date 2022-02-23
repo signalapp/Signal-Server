@@ -11,13 +11,14 @@ import com.google.cloud.recaptchaenterprise.v1.RecaptchaEnterpriseServiceClient;
 import com.google.cloud.recaptchaenterprise.v1.RecaptchaEnterpriseServiceSettings;
 import com.google.recaptchaenterprise.v1.Assessment;
 import com.google.recaptchaenterprise.v1.Event;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
-import javax.annotation.Nonnull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class EnterpriseRecaptchaClient implements RecaptchaClient {
   private static final Logger logger = LoggerFactory.getLogger(EnterpriseRecaptchaClient.class);
@@ -47,12 +48,20 @@ public class EnterpriseRecaptchaClient implements RecaptchaClient {
 
   @Override
   public boolean verify(final String token, final String ip) {
-    Event event = Event.newBuilder()
-        .setExpectedAction("challenge")
+    return verify(token, ip, null);
+  }
+
+  public boolean verify(final String token, final String ip, @Nullable final String expectedAction) {
+    Event.Builder eventBuilder = Event.newBuilder()
         .setSiteKey(siteKey)
         .setToken(token)
-        .setUserIpAddress(ip)
-        .build();
+        .setUserIpAddress(ip);
+
+    if (expectedAction != null) {
+      eventBuilder.setExpectedAction(expectedAction);
+    }
+
+    final Event event = eventBuilder.build();
     final Assessment assessment = client.createAssessment(projectPath, Assessment.newBuilder().setEvent(event).build());
 
     return assessment.getTokenProperties().getValid() && assessment.getRiskAnalysis().getScore() >= scoreFloor;
