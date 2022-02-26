@@ -141,7 +141,7 @@ class SenderTest {
     CompletableFuture<Result> future = sender.send(Message.newBuilder().withDestination("1").build());
 
     // up to three failures can happen, with 100ms exponential backoff
-    // if we end up using the fourth, and finally try, it would be after ~700 ms
+    // if we end up using the fourth, and final try, it would be after ~700 ms
     CompletableFuture.delayedExecutor(300, TimeUnit.MILLISECONDS).execute(() ->
         wireMock.stubFor(any(anyUrl())
             .willReturn(aResponse()
