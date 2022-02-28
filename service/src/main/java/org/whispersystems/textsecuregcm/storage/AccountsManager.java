@@ -194,6 +194,7 @@ public class AccountsManager {
         if (!originalUuid.equals(actualUuid)) {
           messagesManager.clear(actualUuid);
           keys.delete(actualUuid);
+          keys.delete(account.getPhoneNumberIdentifier());
           profilesManager.deleteAll(actualUuid);
         }
 
@@ -221,6 +222,7 @@ public class AccountsManager {
 
   public Account changeNumber(final Account account, final String number) throws InterruptedException {
     final String originalNumber = account.getNumber();
+    final UUID originalPhoneNumberIdentifier = account.getPhoneNumberIdentifier();
 
     if (originalNumber.equals(number)) {
       return account;
@@ -260,6 +262,9 @@ public class AccountsManager {
 
       updatedAccount.set(numberChangedAccount);
       directoryQueue.changePhoneNumber(numberChangedAccount, originalNumber, number);
+
+      keys.delete(phoneNumberIdentifier);
+      keys.delete(originalPhoneNumberIdentifier);
 
       return displacedUuid;
     });

@@ -65,6 +65,8 @@ class AccountsManagerTest {
   private ProfilesManager profilesManager;
   private ReservedUsernames reservedUsernames;
 
+  private Map<String, UUID> phoneNumberIdentifiersByE164;
+
   private RedisAdvancedClusterCommands<String, String> commands;
   private AccountsManager accountsManager;
 
@@ -112,7 +114,7 @@ class AccountsManagerTest {
     when(backupClient.deleteBackups(any())).thenReturn(CompletableFuture.completedFuture(null));
 
     final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
-    final Map<String, UUID> phoneNumberIdentifiersByE164 = new HashMap<>();
+    phoneNumberIdentifiersByE164 = new HashMap<>();
 
     when(phoneNumberIdentifiers.getPhoneNumberIdentifier(anyString())).thenAnswer((Answer<UUID>) invocation -> {
       final String number = invocation.getArgument(0, String.class);
@@ -532,9 +534,13 @@ class AccountsManagerTest {
     final AccountAttributes attributes = new AccountAttributes(false, 0, null, null, true, null);
     accountsManager.create(e164, "password", null, attributes, new ArrayList<>());
 
-    verify(accounts).create(
-        argThat(account -> e164.equals(account.getNumber()) && existingUuid.equals(account.getUuid())));
+    assertTrue(phoneNumberIdentifiersByE164.containsKey(e164));
+
+    verify(accounts)
+        .create(argThat(account -> e164.equals(account.getNumber()) && existingUuid.equals(account.getUuid())));
+
     verify(keys).delete(existingUuid);
+    verify(keys).delete(phoneNumberIdentifiersByE164.get(e164));
     verify(messagesManager).clear(existingUuid);
     verify(profilesManager).deleteAll(existingUuid);
   }
@@ -646,13 +652,18 @@ class AccountsManagerTest {
     final String originalNumber = "+14152222222";
     final String targetNumber = "+14153333333";
     final UUID uuid = UUID.randomUUID();
+    final UUID originalPni = UUID.randomUUID();
 
-    Account account = new Account(originalNumber, uuid, UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    Account account = new Account(originalNumber, uuid, originalPni, new HashSet<>(), new byte[16]);
     account = accountsManager.changeNumber(account, targetNumber);
 
     assertEquals(targetNumber, account.getNumber());
 
+    assertTrue(phoneNumberIdentifiersByE164.containsKey(targetNumber));
+
     verify(directoryQueue).changePhoneNumber(argThat(a -> a.getUuid().equals(uuid)), eq(originalNumber), eq(targetNumber));
+    verify(keys).delete(originalPni);
+    verify(keys).delete(phoneNumberIdentifiersByE164.get(targetNumber));
   }
 
   @Test
@@ -665,6 +676,7 @@ class AccountsManagerTest {
     assertEquals(number, account.getNumber());
     verify(deletedAccountsManager, never()).lockAndPut(anyString(), anyString(), any());
     verify(directoryQueue, never()).changePhoneNumber(any(), any(), any());
+    verify(keys, never()).delete(any());
   }
 
   @Test
@@ -676,17 +688,23 @@ class AccountsManagerTest {
     final String targetNumber = "+14153333333";
     final UUID existingAccountUuid = UUID.randomUUID();
     final UUID uuid = UUID.randomUUID();
+    final UUID originalPni = UUID.randomUUID();
+    final UUID targetPni = UUID.randomUUID();
 
-    final Account existingAccount = new Account(targetNumber, existingAccountUuid, UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    final Account existingAccount = new Account(targetNumber, existingAccountUuid, targetPni, new HashSet<>(), new byte[16]);
     when(accounts.getByE164(targetNumber)).thenReturn(Optional.of(existingAccount));
 
-    Account account = new Account(originalNumber, uuid, UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    Account account = new Account(originalNumber, uuid, originalPni, new HashSet<>(), new byte[16]);
     account = accountsManager.changeNumber(account, targetNumber);
 
     assertEquals(targetNumber, account.getNumber());
 
+    assertTrue(phoneNumberIdentifiersByE164.containsKey(targetNumber));
+
     verify(directoryQueue).changePhoneNumber(argThat(a -> a.getUuid().equals(uuid)), eq(originalNumber), eq(targetNumber));
     verify(directoryQueue).deleteAccount(existingAccount);
+    verify(keys).delete(originalPni);
+    verify(keys).delete(targetPni);
   }
 
   @Test
