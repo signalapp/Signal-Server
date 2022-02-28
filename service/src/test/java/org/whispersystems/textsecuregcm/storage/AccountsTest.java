@@ -769,66 +769,6 @@ class AccountsTest {
     assertThat(account.getUsername()).hasValueSatisfying(u -> assertThat(u).isEqualTo(username));
   }
 
-  // TODO Remove when PNI repair pass is complete
-  @Test
-  void testRepairMissingPni() throws JsonProcessingException {
-    final String number = "+18005551234";
-    final UUID accountIdentifier = UUID.randomUUID();
-    final UUID phoneNumberIdentifier = UUID.randomUUID();
-
-    {
-      final Account account = generateAccount(number, accountIdentifier, phoneNumberIdentifier);
-      accounts.create(account);
-
-      // Artificially inject data with a null PNI in the JSON blob into the backing table
-      account.setNumber(number, null);
-
-      dynamoDbExtension.getDynamoDbClient().updateItem(UpdateItemRequest.builder()
-          .tableName(ACCOUNTS_TABLE_NAME)
-          .key(Map.of(Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(accountIdentifier)))
-          .updateExpression("SET #data = :data")
-          .expressionAttributeNames(Map.of("#data", Accounts.ATTR_ACCOUNT_DATA))
-          .expressionAttributeValues(
-              Map.of(":data", AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account))))
-          .build());
-    }
-
-    {
-      final GetItemResponse response = dynamoDbExtension.getDynamoDbClient().getItem(GetItemRequest.builder()
-          .tableName(ACCOUNTS_TABLE_NAME)
-          .key(Map.of(Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(accountIdentifier)))
-          .consistentRead(true)
-          .build());
-
-      final String accountJson = new String(
-          AttributeValues.getByteArray(response.item(), Accounts.ATTR_ACCOUNT_DATA, null), StandardCharsets.UTF_8);
-
-      final Account accountFromJson = SystemMapper.getMapper().readValue(accountJson, Account.class);
-      assertThat(accountFromJson.getPhoneNumberIdentifier()).isNull();
-    }
-
-    {
-      // Loading the account should auto-repair the missing PNI
-      final Account account = accounts.getByAccountIdentifier(accountIdentifier).orElseThrow();
-      assertThat(account.getPhoneNumberIdentifier()).isEqualTo(phoneNumberIdentifier);
-      assertThat(account.isStale()).isFalse();
-    }
-
-    {
-      final GetItemResponse response = dynamoDbExtension.getDynamoDbClient().getItem(GetItemRequest.builder()
-          .tableName(ACCOUNTS_TABLE_NAME)
-          .key(Map.of(Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(accountIdentifier)))
-          .consistentRead(true)
-          .build());
-
-      final String accountJson = new String(
-          AttributeValues.getByteArray(response.item(), Accounts.ATTR_ACCOUNT_DATA, null), StandardCharsets.UTF_8);
-
-      final Account accountFromJson = SystemMapper.getMapper().readValue(accountJson, Account.class);
-      assertThat(accountFromJson.getPhoneNumberIdentifier()).isEqualTo(phoneNumberIdentifier);
-    }
-  }
-
   private Device generateDevice(long id) {
     Random random = new Random(System.currentTimeMillis());
     SignedPreKey signedPreKey = new SignedPreKey(random.nextInt(), "testPublicKey-" + random.nextInt(),
