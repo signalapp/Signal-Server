@@ -8,7 +8,7 @@ package org.whispersystems.textsecuregcm.recaptcha;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.whispersystems.textsecuregcm.recaptcha.TransitionalRecaptchaClient.SEPARATOR;
+import static org.whispersystems.textsecuregcm.recaptcha.EnterpriseRecaptchaClient.SEPARATOR;
 
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,8 +36,7 @@ class TransitionalRecaptchaClientTest {
 
   @ParameterizedTest
   @MethodSource
-  void testVerify(final String inputToken, final boolean expectLegacy, final String expectedToken,
-      final String expectedAction) {
+  void testVerify(final String inputToken, final boolean expectLegacy, final String expectedToken) {
 
     transitionalRecaptchaClient.verify(inputToken, IP_ADDRESS);
 
@@ -46,7 +45,7 @@ class TransitionalRecaptchaClientTest {
       verify(legacyRecaptchaClient).verify(expectedToken, IP_ADDRESS);
     } else {
       verifyNoInteractions(legacyRecaptchaClient);
-      verify(enterpriseRecaptchaClient).verify(expectedToken, IP_ADDRESS, expectedAction);
+      verify(enterpriseRecaptchaClient).verify(expectedToken, IP_ADDRESS);
     }
 
   }
@@ -56,23 +55,20 @@ class TransitionalRecaptchaClientTest {
         Arguments.of(
             TOKEN,
             true,
-            TOKEN,
-            null),
+            TOKEN),
         Arguments.of(
             String.join(SEPARATOR, PREFIX, TOKEN),
             false,
-            TOKEN,
-            null),
+            TOKEN),
         Arguments.of(
-            String.join(SEPARATOR, PREFIX, "an-action", TOKEN),
+            String.join(SEPARATOR, PREFIX, "site-key", "an-action", TOKEN),
             false,
-            TOKEN,
+            String.join(SEPARATOR, "site-key", "an-action", TOKEN),
             "an-action"),
         Arguments.of(
-            String.join(SEPARATOR, PREFIX, "an-action", TOKEN, "something-else"),
+            String.join(SEPARATOR, PREFIX, "site-key", "an-action", TOKEN, "something-else"),
             false,
-            TOKEN + SEPARATOR + "something-else",
-            "an-action")
+            "site-key" + SEPARATOR + "an-action" + SEPARATOR + TOKEN + SEPARATOR + "something-else")
     );
   }
 

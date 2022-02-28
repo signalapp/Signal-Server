@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013-2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 package org.whispersystems.textsecuregcm;
@@ -477,7 +477,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     LegacyRecaptchaClient legacyRecaptchaClient = new LegacyRecaptchaClient(config.getRecaptchaConfiguration().getSecret());
     EnterpriseRecaptchaClient enterpriseRecaptchaClient = new EnterpriseRecaptchaClient(
         config.getRecaptchaV2Configuration().getScoreFloor().doubleValue(),
-        config.getRecaptchaV2Configuration().getSiteKey(),
         config.getRecaptchaV2Configuration().getProjectPath(),
         config.getRecaptchaV2Configuration().getCredentialConfigurationJson());
     TransitionalRecaptchaClient transitionalRecaptchaClient = new TransitionalRecaptchaClient(legacyRecaptchaClient, enterpriseRecaptchaClient);

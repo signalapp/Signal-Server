@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Signal Messenger, LLC
+ * Copyright 2021-2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -15,7 +15,6 @@ public class RecaptchaV2Configuration {
 
   private BigDecimal scoreFloor;
   private String projectPath;
-  private String siteKey;
   private String credentialConfigurationJson;
 
   @DecimalMin("0")
@@ -28,11 +27,6 @@ public class RecaptchaV2Configuration {
   @NotEmpty
   public String getProjectPath() {
     return projectPath;
-  }
-
-  @NotEmpty
-  public String getSiteKey() {
-    return siteKey;
   }
 
   @NotEmpty

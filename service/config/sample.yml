@@ -246,7 +246,6 @@ recaptcha:
   secret: unset
 
 recaptchaV2:
-  siteKey: unset
   scoreFloor: 1.0
   projectPath: projects/example
   credentialConfigurationJson: "{ }" # service account configuration for backend authentication
