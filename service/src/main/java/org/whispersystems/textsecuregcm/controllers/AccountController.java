@@ -682,6 +682,7 @@ public class AccountController {
       Optional<String> pushChallenge,
       String userAgent)
   {
+    final String countryCode = Util.getCountryCode(number);
 
     if (captchaToken.isPresent()) {
       boolean validToken = recaptchaClient.verify(captchaToken.get(), sourceHost);
@@ -690,6 +691,7 @@ public class AccountController {
         final List<Tag> tags = new ArrayList<>();
         tags.add(Tag.of("success", String.valueOf(validToken)));
         tags.add(UserAgentTagUtil.getPlatformTag(userAgent));
+        tags.add(Tag.of(COUNTRY_CODE_TAG_NAME, countryCode));
         Metrics.counter(CAPTCHA_ATTEMPT_COUNTER_NAME, tags).increment();
       }
 
@@ -700,7 +702,6 @@ public class AccountController {
       }
     }
 
-    final String countryCode = Util.getCountryCode(number);
     {
       final List<Tag> tags = new ArrayList<>();
       tags.add(Tag.of(COUNTRY_CODE_TAG_NAME, countryCode));
