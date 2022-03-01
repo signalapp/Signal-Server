@@ -28,17 +28,22 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.jdbi.v3.core.transaction.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
@@ -767,6 +772,115 @@ class AccountsTest {
     assertThatExceptionOfType(ContestedOptimisticLockException.class).isThrownBy(() -> accounts.clearUsername(account));
 
     assertThat(account.getUsername()).hasValueSatisfying(u -> assertThat(u).isEqualTo(username));
+  }
+
+  @Test
+  void testAddUakMissingInJson() {
+      // If there's no uak in the json, we shouldn't add an attribute on crawl
+    final UUID accountIdentifier = UUID.randomUUID();
+
+    final Account account = generateAccount("+18005551234", accountIdentifier, UUID.randomUUID());
+    account.setUnidentifiedAccessKey(null);
+    accounts.create(account);
+
+    // there should be no top level uak
+    Map<String, AttributeValue> item = dynamoDbExtension.getDynamoDbClient()
+        .getItem(GetItemRequest.builder()
+            .tableName(ACCOUNTS_TABLE_NAME)
+            .key(Map.of(Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(accountIdentifier)))
+            .consistentRead(true)
+            .build()).item();
+    assertThat(item).doesNotContainKey(Accounts.ATTR_UAK);
+
+    // crawling should return 1 account
+    final AccountCrawlChunk allFromStart = accounts.getAllFromStart(1);
+    assertThat(allFromStart.getAccounts()).hasSize(1);
+    assertThat(allFromStart.getAccounts().get(0).getUuid()).isEqualTo(accountIdentifier);
+
+    // there should still be no top level uak
+    item = dynamoDbExtension.getDynamoDbClient()
+        .getItem(GetItemRequest.builder()
+            .tableName(ACCOUNTS_TABLE_NAME)
+            .key(Map.of(Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(accountIdentifier)))
+            .consistentRead(true)
+            .build()).item();
+    assertThat(item).doesNotContainKey(Accounts.ATTR_UAK);
+  }
+
+  @Test
+  void testAddMissingUakAttribute() {
+    final UUID accountIdentifier = UUID.randomUUID();
+
+    final Account account = generateAccount("+18005551234", accountIdentifier, UUID.randomUUID());
+    accounts.create(account);
+
+    // remove the top level uak (simulates old format)
+    dynamoDbExtension.getDynamoDbClient().updateItem(UpdateItemRequest.builder()
+        .tableName(ACCOUNTS_TABLE_NAME)
+        .key(Map.of(Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(accountIdentifier)))
+        .expressionAttributeNames(Map.of("#uak", Accounts.ATTR_UAK))
+        .updateExpression("REMOVE #uak").build());
+
+    // crawling should return 1 account, and fix the discrepancy between
+    // the json blob and the top level attributes
+    final AccountCrawlChunk allFromStart = accounts.getAllFromStart(1);
+    assertThat(allFromStart.getAccounts()).hasSize(1);
+    assertThat(allFromStart.getAccounts().get(0).getUuid()).isEqualTo(accountIdentifier);
+
+    // check that the attribute now exists at top level
+    final Map<String, AttributeValue> item = dynamoDbExtension.getDynamoDbClient()
+        .getItem(GetItemRequest.builder()
+            .tableName(ACCOUNTS_TABLE_NAME)
+            .key(Map.of(Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(accountIdentifier)))
+            .consistentRead(true)
+            .build()).item();
+    assertThat(item).containsEntry(Accounts.ATTR_UAK,
+        AttributeValues.fromByteArray(account.getUnidentifiedAccessKey().get()));
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {24, 25, 26, 101})
+  void testAddMissingUakAttributeBatched(int n) {
+    // generate N + 5 accounts
+    List<Account> allAccounts = IntStream.range(0, n + 5)
+        .mapToObj(i -> generateAccount(String.format("+1800555%04d", i), UUID.randomUUID(), UUID.randomUUID()))
+        .collect(Collectors.toList());
+    allAccounts.forEach(accounts::create);
+
+    // delete the UAK on n of them
+    Collections.shuffle(allAccounts);
+    allAccounts.stream().limit(n).forEach(account ->
+      dynamoDbExtension.getDynamoDbClient().updateItem(UpdateItemRequest.builder()
+          .tableName(ACCOUNTS_TABLE_NAME)
+          .key(Map.of(Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
+          .expressionAttributeNames(Map.of("#uak", Accounts.ATTR_UAK))
+          .updateExpression("REMOVE #uak")
+          .build()));
+
+    // crawling should fix the discrepancy between
+    // the json blob and the top level attributes
+    AccountCrawlChunk chunk = accounts.getAllFromStart(7);
+    long verifiedCount = 0;
+    while (true) {
+      for (Account account : chunk.getAccounts()) {
+        // check that the attribute now exists at top level
+        final Map<String, AttributeValue> item = dynamoDbExtension.getDynamoDbClient()
+            .getItem(GetItemRequest.builder()
+                .tableName(ACCOUNTS_TABLE_NAME)
+                .key(Map.of(Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
+                .consistentRead(true)
+                .build()).item();
+        assertThat(item).containsEntry(Accounts.ATTR_UAK,
+            AttributeValues.fromByteArray(account.getUnidentifiedAccessKey().get()));
+        verifiedCount++;
+      }
+      if (chunk.getLastUuid().isPresent()) {
+        chunk = accounts.getAllFrom(chunk.getLastUuid().get(), 7);
+      } else {
+        break;
+      }
+    }
+    assertThat(verifiedCount).isEqualTo(n + 5);
   }
 
   private Device generateDevice(long id) {
