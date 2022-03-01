@@ -60,6 +60,8 @@ public class Accounts extends AbstractDynamoDbStore {
   static final String ATTR_CANONICALLY_DISCOVERABLE = "C";
   // username; string
   static final String ATTR_USERNAME = "N";
+  // unidentified access key; byte[] or null
+  static final String ATTR_UAK = "UAK";
 
   private final DynamoDbClient client;
 
@@ -146,6 +148,11 @@ public class Accounts extends AbstractDynamoDbStore {
             ATTR_ACCOUNT_DATA, AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
             ATTR_VERSION, AttributeValues.fromInt(account.getVersion()),
             ATTR_CANONICALLY_DISCOVERABLE, AttributeValues.fromBool(account.shouldBeVisibleInDirectory())));
+
+        // Add the UAK if it's in the account
+        account.getUnidentifiedAccessKey()
+            .map(AttributeValues::fromByteArray)
+            .ifPresent(uak -> item.put(ATTR_UAK, uak));
 
         TransactWriteItem accountPut = TransactWriteItem.builder()
             .put(Put.builder()
@@ -453,21 +460,36 @@ public class Accounts extends AbstractDynamoDbStore {
       final UpdateItemRequest updateItemRequest;
 
       try {
+        // username, e164, and pni cannot be modified through this method
+        Map<String, String> attrNames = new HashMap<>(Map.of(
+            "#number", ATTR_ACCOUNT_E164,
+            "#data", ATTR_ACCOUNT_DATA,
+            "#cds", ATTR_CANONICALLY_DISCOVERABLE,
+            "#version", ATTR_VERSION));
+        Map<String, AttributeValue> attrValues = new HashMap<>(Map.of(
+            ":data", AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
+            ":cds", AttributeValues.fromBool(account.shouldBeVisibleInDirectory()),
+            ":version", AttributeValues.fromInt(account.getVersion()),
+            ":version_increment", AttributeValues.fromInt(1)));
+
+        final String updateExpression;
+        if (account.getUnidentifiedAccessKey().isPresent()) {
+          // if it's present in the account, also set the uak
+          attrNames.put("#uak", ATTR_UAK);
+          attrValues.put(":uak", AttributeValues.fromByteArray(account.getUnidentifiedAccessKey().get()));
+          updateExpression = "SET #data = :data, #cds = :cds, #uak = :uak ADD #version :version_increment";
+        } else {
+          updateExpression = "SET #data = :data, #cds = :cds ADD #version :version_increment";
+        }
+
         updateItemRequest = UpdateItemRequest.builder()
-                .tableName(accountsTableName)
-                .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
-                .updateExpression("SET #data = :data, #cds = :cds ADD #version :version_increment")
-                .conditionExpression("attribute_exists(#number) AND #version = :version")
-                .expressionAttributeNames(Map.of("#number", ATTR_ACCOUNT_E164,
-                    "#data", ATTR_ACCOUNT_DATA,
-                    "#cds", ATTR_CANONICALLY_DISCOVERABLE,
-                    "#version", ATTR_VERSION))
-                .expressionAttributeValues(Map.of(
-                    ":data", AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
-                    ":cds", AttributeValues.fromBool(account.shouldBeVisibleInDirectory()),
-                    ":version", AttributeValues.fromInt(account.getVersion()),
-                    ":version_increment", AttributeValues.fromInt(1)))
-                .build();
+            .tableName(accountsTableName)
+            .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
+            .updateExpression(updateExpression)
+            .conditionExpression("attribute_exists(#number) AND #version = :version")
+            .expressionAttributeNames(attrNames)
+            .expressionAttributeValues(attrValues)
+            .build();
       } catch (JsonProcessingException e) {
         throw new IllegalArgumentException(e);
       }

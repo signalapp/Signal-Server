@@ -917,6 +917,9 @@ class AccountsTest {
       assertThat(AttributeValues.getBool(get.item(), Accounts.ATTR_CANONICALLY_DISCOVERABLE,
           !canonicallyDiscoverable)).isEqualTo(canonicallyDiscoverable);
 
+      assertThat(AttributeValues.getByteArray(get.item(), Accounts.ATTR_UAK, null))
+          .isEqualTo(expecting.getUnidentifiedAccessKey().orElse(null));
+
       Account result = accounts.fromItem(get.item());
       verifyStoredState(number, uuid, pni, result, expecting);
     } else {
