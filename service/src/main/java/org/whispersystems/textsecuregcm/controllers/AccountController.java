@@ -46,6 +46,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
+import io.micrometer.core.instrument.Tags;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -112,6 +113,7 @@ public class AccountController {
   private static final String ACCOUNT_CREATE_COUNTER_NAME = name(AccountController.class, "create");
   private static final String ACCOUNT_VERIFY_COUNTER_NAME = name(AccountController.class, "verify");
   private static final String CAPTCHA_ATTEMPT_COUNTER_NAME = name(AccountController.class, "captcha");
+  private static final String CHALLENGE_ISSUED_COUNTER_NAME = name(AccountController.class, "challengeIssued");
 
   private static final String TWILIO_VERIFY_ERROR_COUNTER_NAME = name(AccountController.class, "twilioVerifyError");
 
@@ -225,6 +227,12 @@ public class AccountController {
 
     if (requirement.isCaptchaRequired()) {
       captchaRequiredMeter.mark();
+
+      final Tags tags = Tags.of(
+          UserAgentTagUtil.getPlatformTag(userAgent),
+          Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)));
+
+      Metrics.counter(CHALLENGE_ISSUED_COUNTER_NAME, tags).increment();
 
       if (requirement.isAutoBlock() && shouldAutoBlock(sourceHost)) {
         logger.info("Auto-block: {}", sourceHost);
