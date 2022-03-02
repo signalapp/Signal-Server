@@ -157,6 +157,10 @@ public class AccountsHelper {
             when(updatedAccount.isPniSupported()).thenAnswer(stubbing);
             break;
           }
+          case "isStoriesSupported": {
+            when(updatedAccount.isStoriesSupported()).thenAnswer(stubbing);
+            break;
+          }
           case "getEnabledDeviceCount": {
             when(updatedAccount.getEnabledDeviceCount()).thenAnswer(stubbing);
             break;

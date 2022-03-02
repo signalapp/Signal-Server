@@ -188,7 +188,7 @@ public class Device {
     return (id == MASTER_ID && hasChannel && signedPreKey != null) ||
            (id != MASTER_ID && hasChannel && signedPreKey != null && lastSeen > (System.currentTimeMillis() - TimeUnit.DAYS.toMillis(30)));
   }
-  
+
   public boolean getFetchesMessages() {
     return fetchesMessages;
   }
@@ -295,12 +295,15 @@ public class Device {
     @JsonProperty
     private boolean pni;
 
+    @JsonProperty
+    private boolean stories;
+
     public DeviceCapabilities() {
     }
 
     public DeviceCapabilities(boolean gv2, final boolean gv2_2, final boolean gv2_3, boolean storage, boolean transfer,
         boolean gv1Migration, final boolean senderKey, final boolean announcementGroup, final boolean changeNumber,
-        final boolean pni) {
+        final boolean pni, final boolean stories) {
       this.gv2 = gv2;
       this.gv2_2 = gv2_2;
       this.gv2_3 = gv2_3;
@@ -311,6 +314,7 @@ public class Device {
       this.announcementGroup = announcementGroup;
       this.changeNumber = changeNumber;
       this.pni = pni;
+      this.stories = stories;
     }
 
     public boolean isGv2() {
@@ -351,6 +355,10 @@ public class Device {
 
     public boolean isPni() {
       return pni;
+    }
+
+    public boolean isStories() {
+      return stories;
     }
   }
 }

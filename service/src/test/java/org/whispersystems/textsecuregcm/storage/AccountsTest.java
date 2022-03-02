@@ -840,7 +840,8 @@ class AccountsTest {
         "testUserAgent-" + random.nextInt(), 0,
         new Device.DeviceCapabilities(random.nextBoolean(), random.nextBoolean(), random.nextBoolean(),
             random.nextBoolean(), random.nextBoolean(), random.nextBoolean(),
-            random.nextBoolean(), random.nextBoolean(), random.nextBoolean(), random.nextBoolean()));
+            random.nextBoolean(), random.nextBoolean(), random.nextBoolean(), random.nextBoolean(),
+            random.nextBoolean()));
   }
 
   private Account generateAccount(String number, UUID uuid, final UUID pni) {

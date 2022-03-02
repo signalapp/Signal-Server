@@ -242,6 +242,16 @@ public class Account {
         .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isPni());
   }
 
+  public boolean isStoriesSupported() {
+    requireNotStale();
+
+    return devices.stream()
+        .filter(Device::isEnabled)
+        // TODO stories capability
+        // .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isStories());
+        .anyMatch(device -> device.getCapabilities() != null && device.getCapabilities().isStories());
+  }
+
   public boolean isEnabled() {
     requireNotStale();
 

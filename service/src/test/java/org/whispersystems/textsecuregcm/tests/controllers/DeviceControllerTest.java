@@ -305,7 +305,7 @@ class DeviceControllerTest {
   void deviceDowngradeCapabilitiesTest(final String userAgent, final boolean gv2, final boolean gv2_2,
       final boolean gv2_3, final int expectedStatus) {
     DeviceCapabilities deviceCapabilities = new DeviceCapabilities(gv2, gv2_2, gv2_3, true, false, true, true, true,
-        true, true);
+        true, true, true);
     AccountAttributes accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     Response response = resources.getJerseyTest()
         .target("/v1/devices/5678901")
@@ -346,7 +346,7 @@ class DeviceControllerTest {
   @Test
   void deviceDowngradeGv1MigrationTest() {
     DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, false, false, true, true,
-        true, true);
+        true, true, true);
     AccountAttributes accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     Response response = resources.getJerseyTest()
                                  .target("/v1/devices/5678901")
@@ -357,7 +357,7 @@ class DeviceControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(409);
 
-    deviceCapabilities = new DeviceCapabilities(true, true, true, true, false, true, true, true, true, true);
+    deviceCapabilities = new DeviceCapabilities(true, true, true, true, false, true, true, true, true, true, true);
     accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     response = resources.getJerseyTest()
                         .target("/v1/devices/5678901")
@@ -372,7 +372,7 @@ class DeviceControllerTest {
   @Test
   void deviceDowngradeSenderKeyTest() {
     DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, false, true,
-        true, true);
+        true, true, true);
     AccountAttributes accountAttributes =
         new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     Response response = resources
@@ -384,7 +384,7 @@ class DeviceControllerTest {
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(409);
 
-    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true, true);
+    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true, true, true);
     accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     response = resources
         .getJerseyTest()
@@ -399,7 +399,7 @@ class DeviceControllerTest {
   @Test
   void deviceDowngradeAnnouncementGroupTest() {
     DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, false,
-        true, true);
+        true, true, true);
     AccountAttributes accountAttributes =
         new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     Response response = resources
@@ -411,7 +411,7 @@ class DeviceControllerTest {
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(409);
 
-    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true, true);
+    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true, true, true);
     accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     response = resources
         .getJerseyTest()
@@ -425,7 +425,8 @@ class DeviceControllerTest {
 
   @Test
   void deviceDowngradeChangeNumberTest() {
-    DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, false, true);
+    DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true,
+        false, true, true);
     AccountAttributes accountAttributes =
         new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     Response response = resources
@@ -438,7 +439,7 @@ class DeviceControllerTest {
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(409);
 
-    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true, true);
+    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true, true, true);
     accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     response = resources
         .getJerseyTest()
@@ -454,7 +455,7 @@ class DeviceControllerTest {
   @Test
   void deviceDowngradePniTest() {
     DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true,
-        false);
+        false, true);
     AccountAttributes accountAttributes =
         new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     Response response = resources
@@ -466,13 +467,45 @@ class DeviceControllerTest {
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(409);
 
-    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true, true);
+    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true, true, true);
     accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
     response = resources
         .getJerseyTest()
         .target("/v1/devices/5678901")
         .request()
-        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+        .header("Authorization",
+            AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+        .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
+        .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
+    assertThat(response.getStatus()).isEqualTo(200);
+  }
+
+  @Test
+  void deviceDowngradeStoriesTest() {
+    DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true,
+        true, false);
+    AccountAttributes accountAttributes =
+        new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
+    Response response = resources
+        .getJerseyTest()
+        .target("/v1/devices/5678901")
+        .request()
+        .header("Authorization",
+            AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
+        .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
+        .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
+    assertThat(response.getStatus()).isEqualTo(200); // Downgrade is currently supported
+    // TODO stories capability
+    // assertThat(response.getStatus()).isEqualTo(409);
+
+    deviceCapabilities = new DeviceCapabilities(true, true, true, true, true, true, true, true, true, true, true);
+    accountAttributes = new AccountAttributes(false, 1234, null, null, true, deviceCapabilities);
+    response = resources
+        .getJerseyTest()
+        .target("/v1/devices/5678901")
+        .request()
+        .header("Authorization",
+            AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, AuthHelper.VALID_PASSWORD))
         .header("User-Agent", "Signal-Android/5.42.8675309 Android/30")
         .put(Entity.entity(accountAttributes, MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(200);

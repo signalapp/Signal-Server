@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -16,7 +16,8 @@ public class UserCapabilities {
         account.isGv1MigrationSupported(),
         account.isSenderKeySupported(),
         account.isAnnouncementGroupSupported(),
-        account.isChangeNumberSupported());
+        account.isChangeNumberSupported(),
+        account.isStoriesSupported());
   }
 
   @JsonProperty
@@ -34,19 +35,25 @@ public class UserCapabilities {
   @JsonProperty
   private boolean changeNumber;
 
-  public UserCapabilities() {}
+  @JsonProperty
+  private boolean stories;
+
+  public UserCapabilities() {
+  }
 
   public UserCapabilities(final boolean gv2,
       boolean gv1Migration,
       final boolean senderKey,
       final boolean announcementGroup,
-      final boolean changeNumber) {
+      final boolean changeNumber,
+      final boolean stories) {
 
-    this.gv2  = gv2;
+    this.gv2 = gv2;
     this.gv1Migration = gv1Migration;
     this.senderKey = senderKey;
     this.announcementGroup = announcementGroup;
     this.changeNumber = changeNumber;
+    this.stories = stories;
   }
 
   public boolean isGv2() {
@@ -67,5 +74,9 @@ public class UserCapabilities {
 
   public boolean isChangeNumber() {
     return changeNumber;
+  }
+
+  public boolean isStories() {
+    return stories;
   }
 }
