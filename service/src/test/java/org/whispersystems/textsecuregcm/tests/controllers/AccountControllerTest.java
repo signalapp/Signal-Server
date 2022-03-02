@@ -52,7 +52,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
-import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
@@ -61,8 +60,8 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicCaptchaConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicSignupCaptchaConfiguration;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -263,9 +262,9 @@ class AccountControllerTest {
       when(dynamicConfigurationManager.getConfiguration())
           .thenReturn(dynamicConfiguration);
 
-      DynamicSignupCaptchaConfiguration signupCaptchaConfig = new DynamicSignupCaptchaConfiguration();
+      DynamicCaptchaConfiguration signupCaptchaConfig = new DynamicCaptchaConfiguration();
 
-      when(dynamicConfiguration.getSignupCaptchaConfiguration()).thenReturn(signupCaptchaConfig);
+      when(dynamicConfiguration.getCaptchaConfiguration()).thenReturn(signupCaptchaConfig);
     }
     when(abusiveHostRules.getAbusiveHostRulesFor(eq(ABUSIVE_HOST))).thenReturn(Collections.singletonList(new AbusiveHostRule(ABUSIVE_HOST, true, Collections.emptyList())));
     when(abusiveHostRules.getAbusiveHostRulesFor(eq(RESTRICTED_HOST))).thenReturn(Collections.singletonList(new AbusiveHostRule(RESTRICTED_HOST, false, Collections.singletonList("+123"))));
@@ -1741,9 +1740,9 @@ class AccountControllerTest {
     when(dynamicConfigurationManager.getConfiguration())
         .thenReturn(dynamicConfiguration);
 
-    DynamicSignupCaptchaConfiguration signupCaptchaConfig = new DynamicSignupCaptchaConfiguration();
-    signupCaptchaConfig.setCountryCodes(countryCodes);
-    when(dynamicConfiguration.getSignupCaptchaConfiguration())
+    DynamicCaptchaConfiguration signupCaptchaConfig = new DynamicCaptchaConfiguration();
+    signupCaptchaConfig.setSignupCountryCodes(countryCodes);
+    when(dynamicConfiguration.getCaptchaConfiguration())
         .thenReturn(signupCaptchaConfig);
 
     Response response =

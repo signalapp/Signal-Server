@@ -61,8 +61,8 @@ import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicCaptchaConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicSignupCaptchaConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
@@ -770,8 +770,9 @@ public class AccountController {
       return new CaptchaRequirement(true, true);
     }
 
-    DynamicSignupCaptchaConfiguration signupCaptchaConfig = dynamicConfigurationManager.getConfiguration().getSignupCaptchaConfiguration();
-    if (signupCaptchaConfig.getCountryCodes().contains(countryCode)) {
+    DynamicCaptchaConfiguration captchaConfig = dynamicConfigurationManager.getConfiguration()
+        .getCaptchaConfiguration();
+    if (captchaConfig.getSignupCountryCodes().contains(countryCode)) {
       return new CaptchaRequirement(true, false);
     }
 

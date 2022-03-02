@@ -5,6 +5,8 @@
 
 package org.whispersystems.textsecuregcm.recaptcha;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.recaptchaenterprise.v1.RecaptchaEnterpriseServiceClient;
@@ -12,36 +14,38 @@ import com.google.cloud.recaptchaenterprise.v1.RecaptchaEnterpriseServiceSetting
 import com.google.common.annotations.VisibleForTesting;
 import com.google.recaptchaenterprise.v1.Assessment;
 import com.google.recaptchaenterprise.v1.Event;
+import io.micrometer.core.instrument.Metrics;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.ws.rs.BadRequestException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
 public class EnterpriseRecaptchaClient implements RecaptchaClient {
 
   @VisibleForTesting
   static final String SEPARATOR = ".";
-  private static final Logger logger = LoggerFactory.getLogger(EnterpriseRecaptchaClient.class);
+  private static final String SCORE_DISTRIBUTION_NAME = name(EnterpriseRecaptchaClient.class, "scoreDistribution");
 
-  private final double scoreFloor;
   private final String projectPath;
   private final RecaptchaEnterpriseServiceClient client;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   public EnterpriseRecaptchaClient(
-      final double scoreFloor,
       @Nonnull final String projectPath,
-      @Nonnull final String recaptchaCredentialConfigurationJson) {
+      @Nonnull final String recaptchaCredentialConfigurationJson,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     try {
-      this.scoreFloor = scoreFloor;
       this.projectPath = Objects.requireNonNull(projectPath);
       this.client = RecaptchaEnterpriseServiceClient.create(RecaptchaEnterpriseServiceSettings.newBuilder()
           .setCredentialsProvider(FixedCredentialsProvider.create(GoogleCredentials.fromStream(
               new ByteArrayInputStream(recaptchaCredentialConfigurationJson.getBytes(StandardCharsets.UTF_8)))))
           .build());
+
+      this.dynamicConfigurationManager = dynamicConfigurationManager;
     } catch (IOException e) {
       throw new AssertionError(e);
     }
@@ -89,6 +93,15 @@ public class EnterpriseRecaptchaClient implements RecaptchaClient {
     final Event event = eventBuilder.build();
     final Assessment assessment = client.createAssessment(projectPath, Assessment.newBuilder().setEvent(event).build());
 
-    return assessment.getTokenProperties().getValid() && assessment.getRiskAnalysis().getScore() >= scoreFloor;
+    if (assessment.getTokenProperties().getValid()) {
+      final float score = assessment.getRiskAnalysis().getScore();
+      Metrics.summary(SCORE_DISTRIBUTION_NAME).record(score);
+
+      return score >= dynamicConfigurationManager.getConfiguration().getCaptchaConfiguration().getScoreFloor()
+          .floatValue();
+
+    } else {
+      return false;
+    }
   }
 }

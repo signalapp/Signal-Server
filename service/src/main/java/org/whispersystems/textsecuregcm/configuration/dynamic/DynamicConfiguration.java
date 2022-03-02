@@ -38,7 +38,8 @@ public class DynamicConfiguration {
   private DynamicTwilioConfiguration twilio = new DynamicTwilioConfiguration();
 
   @JsonProperty
-  private DynamicSignupCaptchaConfiguration signupCaptcha = new DynamicSignupCaptchaConfiguration();
+  @Valid
+  private DynamicCaptchaConfiguration captcha = new DynamicCaptchaConfiguration();
 
   @JsonProperty
   @Valid
@@ -86,8 +87,8 @@ public class DynamicConfiguration {
     this.twilio = twilioConfiguration;
   }
 
-  public DynamicSignupCaptchaConfiguration getSignupCaptchaConfiguration() {
-    return signupCaptcha;
+  public DynamicCaptchaConfiguration getCaptchaConfiguration() {
+    return captcha;
   }
 
   public DynamicRateLimitChallengeConfiguration getRateLimitChallengeConfiguration() {

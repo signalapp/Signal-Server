@@ -476,11 +476,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     TurnTokenGenerator       turnTokenGenerator = new TurnTokenGenerator(config.getTurnConfiguration());
     LegacyRecaptchaClient legacyRecaptchaClient = new LegacyRecaptchaClient(config.getRecaptchaConfiguration().getSecret());
     EnterpriseRecaptchaClient enterpriseRecaptchaClient = new EnterpriseRecaptchaClient(
-        config.getRecaptchaV2Configuration().getScoreFloor().doubleValue(),
         config.getRecaptchaV2Configuration().getProjectPath(),
-        config.getRecaptchaV2Configuration().getCredentialConfigurationJson());
-    TransitionalRecaptchaClient transitionalRecaptchaClient = new TransitionalRecaptchaClient(legacyRecaptchaClient, enterpriseRecaptchaClient);
-    PushChallengeManager     pushChallengeManager = new PushChallengeManager(apnSender, gcmSender, pushChallengeDynamoDb);
+        config.getRecaptchaV2Configuration().getCredentialConfigurationJson(),
+        dynamicConfigurationManager);
+    TransitionalRecaptchaClient transitionalRecaptchaClient = new TransitionalRecaptchaClient(legacyRecaptchaClient,
+        enterpriseRecaptchaClient);
+    PushChallengeManager pushChallengeManager = new PushChallengeManager(apnSender, gcmSender, pushChallengeDynamoDb);
     RateLimitChallengeManager rateLimitChallengeManager = new RateLimitChallengeManager(pushChallengeManager,
         transitionalRecaptchaClient, dynamicRateLimiters);
     RateLimitChallengeOptionManager rateLimitChallengeOptionManager =

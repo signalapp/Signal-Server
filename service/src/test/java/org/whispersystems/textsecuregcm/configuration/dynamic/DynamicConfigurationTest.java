@@ -26,10 +26,15 @@ import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 class DynamicConfigurationTest {
 
+  private static final String REQUIRED_CONFIG = """
+      captcha:
+        scoreFloor: 1.0
+      """;
+
   @Test
   void testParseExperimentConfig() throws JsonProcessingException {
     {
-      final String emptyConfigYaml = "test: true";
+      final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
       final DynamicConfiguration emptyConfig =
           DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
@@ -37,7 +42,7 @@ class DynamicConfigurationTest {
     }
 
     {
-      final String experimentConfigYaml = """
+      final String experimentConfigYaml = REQUIRED_CONFIG.concat("""
           experiments:
             percentageOnly:
               enrollmentPercentage: 12
@@ -49,7 +54,7 @@ class DynamicConfigurationTest {
             uuidsOnly:
               enrolledUuids:
                 - 71618739-114c-4b1f-bb0d-6478a44eb600
-          """;
+          """);
 
       final DynamicConfiguration config =
           DynamicConfigurationManager.parseConfiguration(experimentConfigYaml, DynamicConfiguration.class).orElseThrow();
@@ -78,7 +83,7 @@ class DynamicConfigurationTest {
   @Test
   void testParsePreRegistrationExperiments() throws JsonProcessingException {
     {
-      final String emptyConfigYaml = "test: true";
+      final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
       final DynamicConfiguration emptyConfig =
           DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
@@ -86,7 +91,7 @@ class DynamicConfigurationTest {
     }
 
     {
-      final String experimentConfigYaml = """
+      final String experimentConfigYaml = REQUIRED_CONFIG.concat("""
           preRegistrationExperiments:
             percentageOnly:
               enrollmentPercentage: 17
@@ -107,7 +112,7 @@ class DynamicConfigurationTest {
                 - +120255551212
               excludedCountryCodes:
                 - 47
-          """;
+          """);
 
       final DynamicConfiguration config =
           DynamicConfigurationManager.parseConfiguration(experimentConfigYaml, DynamicConfiguration.class).orElseThrow();
@@ -160,7 +165,7 @@ class DynamicConfigurationTest {
   @Test
   void testParseRemoteDeprecationConfig() throws JsonProcessingException {
     {
-      final String emptyConfigYaml = "test: true";
+      final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
       final DynamicConfiguration emptyConfig =
           DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
@@ -168,7 +173,7 @@ class DynamicConfigurationTest {
     }
 
     {
-      final String remoteDeprecationConfig = """
+      final String remoteDeprecationConfig = REQUIRED_CONFIG.concat("""
           remoteDeprecation:
             minimumVersions:
               IOS: 1.2.3
@@ -178,7 +183,7 @@ class DynamicConfigurationTest {
             blockedVersions:
               DESKTOP:
                 - 1.4.0-beta.2
-          """;
+          """);
 
       final DynamicConfiguration config =
           DynamicConfigurationManager.parseConfiguration(remoteDeprecationConfig, DynamicConfiguration.class).orElseThrow();
@@ -199,7 +204,7 @@ class DynamicConfigurationTest {
   @Test
   void testParseFeatureFlags() throws JsonProcessingException {
     {
-      final String emptyConfigYaml = "test: true";
+      final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
       final DynamicConfiguration emptyConfig =
           DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
@@ -207,10 +212,10 @@ class DynamicConfigurationTest {
     }
 
     {
-      final String featureFlagYaml = """
+      final String featureFlagYaml = REQUIRED_CONFIG.concat("""
           featureFlags:
             - testFlag
-          """;
+          """);
 
       final DynamicConfiguration emptyConfig =
           DynamicConfigurationManager.parseConfiguration(featureFlagYaml, DynamicConfiguration.class).orElseThrow();
@@ -222,7 +227,7 @@ class DynamicConfigurationTest {
   @Test
   void testParseTwilioConfiguration() throws JsonProcessingException {
     {
-      final String emptyConfigYaml = "test: true";
+      final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
       final DynamicConfiguration emptyConfig =
           DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
@@ -230,12 +235,12 @@ class DynamicConfigurationTest {
     }
 
     {
-      final String twilioConfigYaml = """
+      final String twilioConfigYaml = REQUIRED_CONFIG.concat("""
           twilio:
             numbers:
               - 2135551212
               - 2135551313
-          """;
+          """);
 
       final DynamicTwilioConfiguration config =
           DynamicConfigurationManager.parseConfiguration(twilioConfigYaml, DynamicConfiguration.class).orElseThrow()
@@ -248,7 +253,7 @@ class DynamicConfigurationTest {
   @Test
   void testParsePaymentsConfiguration() throws JsonProcessingException {
     {
-      final String emptyConfigYaml = "test: true";
+      final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
       final DynamicConfiguration emptyConfig =
           DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
@@ -256,11 +261,11 @@ class DynamicConfigurationTest {
     }
 
     {
-      final String paymentsConfigYaml = """
+      final String paymentsConfigYaml = REQUIRED_CONFIG.concat("""
           payments:
             disallowedPrefixes:
               - +44
-          """;
+          """);
 
       final DynamicPaymentsConfiguration config =
           DynamicConfigurationManager.parseConfiguration(paymentsConfigYaml, DynamicConfiguration.class).orElseThrow()
@@ -271,34 +276,47 @@ class DynamicConfigurationTest {
   }
 
   @Test
-  void testParseSignupCaptchaConfiguration() throws JsonProcessingException {
+  void testParseCaptchaConfiguration() throws JsonProcessingException {
     {
       final String emptyConfigYaml = "test: true";
-      final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
-      assertTrue(emptyConfig.getSignupCaptchaConfiguration().getCountryCodes().isEmpty());
+      assertTrue(DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).isEmpty(),
+          "empty config should not validate");
     }
 
     {
-      final String signupCaptchaConfig = """
-          signupCaptcha:
-            countryCodes:
+      final String captchaConfig = """
+          captcha:
+            signupCountryCodes:
               - 1
+            scoreFloor: null
           """;
 
-      final DynamicSignupCaptchaConfiguration config =
-          DynamicConfigurationManager.parseConfiguration(signupCaptchaConfig, DynamicConfiguration.class).orElseThrow()
-              .getSignupCaptchaConfiguration();
+      assertTrue(DynamicConfigurationManager.parseConfiguration(captchaConfig, DynamicConfiguration.class).isEmpty(),
+          "score floor must not be null");
+    }
 
-      assertEquals(Set.of("1"), config.getCountryCodes());
+    {
+      final String captchaConfig = """
+          captcha:
+            signupCountryCodes:
+              - 1
+            scoreFloor: 0.9
+          """;
+
+      final DynamicCaptchaConfiguration config =
+          DynamicConfigurationManager.parseConfiguration(captchaConfig, DynamicConfiguration.class).orElseThrow()
+              .getCaptchaConfiguration();
+
+      assertEquals(Set.of("1"), config.getSignupCountryCodes());
+      assertEquals(0.9f, config.getScoreFloor().floatValue());
     }
   }
 
   @Test
   void testParseLimits() throws JsonProcessingException {
     {
-      final String emptyConfigYaml = "test: true";
+      final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
       final DynamicConfiguration emptyConfig =
           DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
@@ -307,12 +325,12 @@ class DynamicConfigurationTest {
     }
 
     {
-      final String limitsConfig = """
+      final String limitsConfig = REQUIRED_CONFIG.concat("""
           limits:
             rateLimitReset:
               bucketSize: 17
               leakRatePerMinute: 44
-          """;
+          """);
 
       final RateLimitConfiguration resetRateLimitConfiguration =
           DynamicConfigurationManager.parseConfiguration(limitsConfig, DynamicConfiguration.class).orElseThrow()
@@ -326,7 +344,7 @@ class DynamicConfigurationTest {
   @Test
   void testParseRateLimitReset() throws JsonProcessingException {
     {
-      final String emptyConfigYaml = "test: true";
+      final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
       final DynamicConfiguration emptyConfig =
           DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
@@ -334,13 +352,13 @@ class DynamicConfigurationTest {
     }
 
     {
-      final String rateLimitChallengeConfig = """
+      final String rateLimitChallengeConfig = REQUIRED_CONFIG.concat("""
           rateLimitChallenge:
             clientSupportedVersions:
               IOS: 5.1.0
               ANDROID: 5.2.0
               DESKTOP: 5.0.0
-          """;
+          """);
 
       DynamicRateLimitChallengeConfiguration rateLimitChallengeConfiguration =
           DynamicConfigurationManager.parseConfiguration(rateLimitChallengeConfig, DynamicConfiguration.class).orElseThrow()
@@ -357,7 +375,7 @@ class DynamicConfigurationTest {
   @Test
   void testParseDirectoryReconciler() throws JsonProcessingException {
     {
-      final String emptyConfigYaml = "test: true";
+      final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
       final DynamicConfiguration emptyConfig =
           DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
@@ -365,10 +383,10 @@ class DynamicConfigurationTest {
     }
 
     {
-      final String directoryReconcilerConfig = """
+      final String directoryReconcilerConfig = REQUIRED_CONFIG.concat("""
           directoryReconciler:
             enabled: false
-          """;
+          """);
 
       DynamicDirectoryReconcilerConfiguration directoryReconcilerConfiguration =
           DynamicConfigurationManager.parseConfiguration(directoryReconcilerConfig, DynamicConfiguration.class).orElseThrow()

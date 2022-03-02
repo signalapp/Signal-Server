@@ -1,12 +1,13 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.appconfigdata.AppConfigDataClient;
@@ -14,9 +15,14 @@ import software.amazon.awssdk.services.appconfigdata.model.GetLatestConfiguratio
 import software.amazon.awssdk.services.appconfigdata.model.GetLatestConfigurationResponse;
 import software.amazon.awssdk.services.appconfigdata.model.StartConfigurationSessionRequest;
 import software.amazon.awssdk.services.appconfigdata.model.StartConfigurationSessionResponse;
-import java.util.concurrent.TimeUnit;
 
 class DynamicConfigurationManagerTest {
+
+  private static final SdkBytes VALID_CONFIG = SdkBytes.fromUtf8String("""
+      test: true
+      captcha:
+        scoreFloor: 1.0
+      """);
 
   private DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private AppConfigDataClient appConfig;
@@ -35,7 +41,7 @@ class DynamicConfigurationManagerTest {
   }
 
   @Test
-  void testGetInitalConfig() {
+  void testGetInitialConfig() {
     when(appConfig.startConfigurationSession(startConfigurationSession))
         .thenReturn(StartConfigurationSessionResponse.builder()
             .initialConfigurationToken("initial")
@@ -45,7 +51,7 @@ class DynamicConfigurationManagerTest {
     when(appConfig.getLatestConfiguration(GetLatestConfigurationRequest.builder()
         .configurationToken("initial").build()))
         .thenReturn(GetLatestConfigurationResponse.builder()
-            .configuration(SdkBytes.fromUtf8String("test: true"))
+            .configuration(VALID_CONFIG)
             .nextPollConfigurationToken("next").build());
 
     // subsequent config calls will return empty (no update)
@@ -55,8 +61,10 @@ class DynamicConfigurationManagerTest {
             .configuration(SdkBytes.fromUtf8String(""))
             .nextPollConfigurationToken("next").build());
 
-    dynamicConfigurationManager.start();
-    assertThat(dynamicConfigurationManager.getConfiguration()).isNotNull();
+    assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+      dynamicConfigurationManager.start();
+      assertThat(dynamicConfigurationManager.getConfiguration()).isNotNull();
+    });
   }
 
   @Test
@@ -77,7 +85,7 @@ class DynamicConfigurationManagerTest {
     when(appConfig.getLatestConfiguration(GetLatestConfigurationRequest.builder().
         configurationToken("goodconfig").build()))
         .thenReturn(GetLatestConfigurationResponse.builder()
-            .configuration(SdkBytes.fromUtf8String("test: true"))
+            .configuration(VALID_CONFIG)
             .nextPollConfigurationToken("next").build());
 
     // all subsequent config calls will return an empty config (no update)
@@ -86,13 +94,15 @@ class DynamicConfigurationManagerTest {
         .thenReturn(GetLatestConfigurationResponse.builder()
             .configuration(SdkBytes.fromUtf8String(""))
             .nextPollConfigurationToken("next").build());
-    dynamicConfigurationManager.start();
-    assertThat(dynamicConfigurationManager.getConfiguration()).isNotNull();
+
+    assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+      dynamicConfigurationManager.start();
+      assertThat(dynamicConfigurationManager.getConfiguration()).isNotNull();
+    });
   }
 
   @Test
-  @Timeout(value=5, unit= TimeUnit.SECONDS)
-  void testGetConfigMultiple() throws InterruptedException {
+  void testGetConfigMultiple() {
     when(appConfig.startConfigurationSession(startConfigurationSession))
         .thenReturn(StartConfigurationSessionResponse.builder()
             .initialConfigurationToken("0")
@@ -102,7 +112,7 @@ class DynamicConfigurationManagerTest {
     when(appConfig.getLatestConfiguration(GetLatestConfigurationRequest.builder().
         configurationToken("0").build()))
         .thenReturn(GetLatestConfigurationResponse.builder()
-            .configuration(SdkBytes.fromUtf8String("test: true"))
+            .configuration(VALID_CONFIG)
             .nextPollConfigurationToken("1").build());
 
     // config update with a real config
@@ -112,6 +122,8 @@ class DynamicConfigurationManagerTest {
             .configuration(SdkBytes.fromUtf8String("""
                 featureFlags:
                   - testFlag
+                captcha:
+                  scoreFloor: 1.0
                 """))
             .nextPollConfigurationToken("2").build());
 
@@ -122,11 +134,16 @@ class DynamicConfigurationManagerTest {
             .configuration(SdkBytes.fromUtf8String(""))
             .nextPollConfigurationToken("2").build());
 
-    // we should eventually get the updated config (or the test will timeout)
-    dynamicConfigurationManager.start();
-    while (dynamicConfigurationManager.getConfiguration().getActiveFeatureFlags().isEmpty()) {
-      Thread.sleep(100);
-    }
-    assertThat(dynamicConfigurationManager.getConfiguration().getActiveFeatureFlags()).containsExactly("testFlag");
+    // the internal waiting done by dynamic configuration manager catches the InterruptedException used
+    // by JUnit’s @Timeout, so we use assertTimeoutPreemptively
+    assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+      // we should eventually get the updated config (or the test will timeout)
+      dynamicConfigurationManager.start();
+      while (dynamicConfigurationManager.getConfiguration().getActiveFeatureFlags().isEmpty()) {
+        Thread.sleep(100);
+      }
+      assertThat(dynamicConfigurationManager.getConfiguration().getActiveFeatureFlags()).containsExactly("testFlag");
+    });
+
   }
 }
