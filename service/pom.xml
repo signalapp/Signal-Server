@@ -327,12 +327,6 @@
     </dependency>
 
     <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-tcnative-boringssl-static</artifactId>
-      <scope>runtime</scope>
-    </dependency>
-
-    <dependency>
       <groupId>com.vdurmont</groupId>
       <artifactId>semver4j</artifactId>
     </dependency>
