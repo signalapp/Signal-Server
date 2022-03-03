@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013-2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -55,7 +55,6 @@ public class RemoteConfigController {
 
   @Timed
   @GET
-  @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public UserRemoteConfigList getAll(@Auth AuthenticatedAccount auth) {
     try {
