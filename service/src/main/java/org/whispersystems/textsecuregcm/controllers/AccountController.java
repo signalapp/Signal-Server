@@ -120,7 +120,7 @@ public class AccountController {
   private static final String CHALLENGE_PRESENT_TAG_NAME = "present";
   private static final String CHALLENGE_MATCH_TAG_NAME = "matches";
   private static final String COUNTRY_CODE_TAG_NAME = "countryCode";
-  private static final String VERFICATION_TRANSPORT_TAG_NAME = "transport";
+  private static final String VERIFICATION_TRANSPORT_TAG_NAME = "transport";
 
   private static final String VERIFY_EXPERIMENT_TAG_NAME = "twilioVerify";
 
@@ -320,7 +320,7 @@ public class AccountController {
     {
       final List<Tag> tags = new ArrayList<>();
       tags.add(Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)));
-      tags.add(Tag.of(VERFICATION_TRANSPORT_TAG_NAME, transport));
+      tags.add(Tag.of(VERIFICATION_TRANSPORT_TAG_NAME, transport));
       tags.add(UserAgentTagUtil.getPlatformTag(userAgent));
       tags.add(Tag.of(VERIFY_EXPERIMENT_TAG_NAME, String.valueOf(enrolledInVerifyExperiment)));
 
