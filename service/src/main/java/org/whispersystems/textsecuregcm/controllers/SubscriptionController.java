@@ -1,9 +1,11 @@
 /*
- * Copyright 2021 Signal Messenger, LLC
+ * Copyright 2021-2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 package org.whispersystems.textsecuregcm.controllers;
+
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.codahale.metrics.annotation.Timed;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -13,6 +15,8 @@ import com.stripe.model.Invoice;
 import com.stripe.model.InvoiceLineItem;
 import com.stripe.model.Subscription;
 import io.dropwizard.auth.Auth;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import java.math.BigDecimal;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -56,9 +60,6 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tags;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.zkgroup.InvalidInputException;
 import org.signal.zkgroup.VerificationFailedException;
@@ -81,8 +82,6 @@ import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager.GetResult;
 import org.whispersystems.textsecuregcm.stripe.StripeManager;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
-
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 @Path("/v1/subscription")
 public class SubscriptionController {
@@ -125,7 +124,6 @@ public class SubscriptionController {
   @Timed
   @DELETE
   @Path("/{subscriberId}")
-  @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> deleteSubscriber(
       @Auth Optional<AuthenticatedAccount> authenticatedAccount,
@@ -404,7 +402,6 @@ public class SubscriptionController {
   @Timed
   @GET
   @Path("/levels")
-  @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> getLevels(@Context ContainerRequestContext containerRequestContext) {
     return CompletableFuture.supplyAsync(() -> {
@@ -452,7 +449,6 @@ public class SubscriptionController {
   @Timed
   @GET
   @Path("/boost/badges")
-  @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> getBoostBadges(@Context ContainerRequestContext containerRequestContext) {
     return CompletableFuture.supplyAsync(() -> {
@@ -468,7 +464,6 @@ public class SubscriptionController {
   @Timed
   @GET
   @Path("/boost/amounts")
-  @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> getBoostAmounts() {
     return CompletableFuture.supplyAsync(() -> Response.ok(
@@ -688,7 +683,6 @@ public class SubscriptionController {
   @Timed
   @GET
   @Path("/{subscriberId}")
-  @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> getSubscriptionInformation(
       @Auth Optional<AuthenticatedAccount> authenticatedAccount,
