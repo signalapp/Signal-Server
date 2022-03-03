@@ -37,7 +37,7 @@ public class RateLimitsConfiguration {
   private RateLimitConfiguration attachments = new RateLimitConfiguration(50, 50);
 
   @JsonProperty
-  private RateLimitConfiguration prekeys = new RateLimitConfiguration(3, 1.0 / 10.0);
+  private RateLimitConfiguration prekeys = new RateLimitConfiguration(6, 1.0 / 10.0);
 
   @JsonProperty
   private RateLimitConfiguration messages = new RateLimitConfiguration(60, 60);
@@ -46,7 +46,7 @@ public class RateLimitsConfiguration {
   private RateLimitConfiguration allocateDevice = new RateLimitConfiguration(2, 1.0 / 2.0);
 
   @JsonProperty
-  private RateLimitConfiguration verifyDevice = new RateLimitConfiguration(2, 2);
+  private RateLimitConfiguration verifyDevice = new RateLimitConfiguration(6, 1.0 / 10.0);
 
   @JsonProperty
   private RateLimitConfiguration turnAllocations = new RateLimitConfiguration(60, 60);
