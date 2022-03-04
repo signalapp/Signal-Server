@@ -105,8 +105,9 @@ public class EnterpriseRecaptchaClient implements RecaptchaClient {
 
       final DistributionSummary.Builder distributionSummaryBuilder = DistributionSummary.builder(
               SCORE_DISTRIBUTION_NAME)
-          .minimumExpectedValue(0.0d)
-          .maximumExpectedValue(1.0d)
+          // score is 0.0…1.0, which doesn’t play well with distribution summary bucketing, so scale to 0…100
+          .scale(100)
+          .maximumExpectedValue(100.0d)
           .tags("action", String.valueOf(expectedAction));
 
       distributionSummaryBuilder.register(Metrics.globalRegistry).record(score);
