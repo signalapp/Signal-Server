@@ -7,7 +7,7 @@ package org.whispersystems.textsecuregcm.recaptcha;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.whispersystems.textsecuregcm.recaptcha.EnterpriseRecaptchaClient.SEPARATOR;
+import static org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient.SEPARATOR;
 
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -17,10 +17,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-class EnterpriseRecaptchaClientTest {
+class RecaptchaClientTest {
 
-  private static final String PREFIX = EnterpriseRecaptchaClient.V2_PREFIX.substring(0,
-      EnterpriseRecaptchaClient.V2_PREFIX.lastIndexOf(SEPARATOR));
+  private static final String PREFIX = RecaptchaClient.V2_PREFIX.substring(0,
+      RecaptchaClient.V2_PREFIX.lastIndexOf(SEPARATOR));
   private static final String SITE_KEY = "site-key";
   private static final String TOKEN = "some-token";
 
@@ -29,7 +29,7 @@ class EnterpriseRecaptchaClientTest {
   void parseInputToken(final String input, final String expectedToken, final String siteKey,
       @Nullable final String expectedAction) {
 
-    final String[] parts = EnterpriseRecaptchaClient.parseInputToken(input);
+    final String[] parts = RecaptchaClient.parseInputToken(input);
 
     assertEquals(siteKey, parts[0]);
     assertEquals(expectedAction, parts[1]);
@@ -39,7 +39,7 @@ class EnterpriseRecaptchaClientTest {
   @Test
   void parseInputTokenBadRequest() {
     assertThrows(BadRequestException.class, () -> {
-      EnterpriseRecaptchaClient.parseInputToken(TOKEN);
+      RecaptchaClient.parseInputToken(TOKEN);
     });
   }
 

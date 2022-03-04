@@ -150,7 +150,7 @@ import org.whispersystems.textsecuregcm.push.GCMSender;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.ProvisioningManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
-import org.whispersystems.textsecuregcm.recaptcha.EnterpriseRecaptchaClient;
+import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.redis.ConnectionEventLogger;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
@@ -472,13 +472,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     MessageSender            messageSender      = new MessageSender(apnFallbackManager, clientPresenceManager, messagesManager, gcmSender, apnSender, pushLatencyManager);
     ReceiptSender            receiptSender      = new ReceiptSender(accountsManager, messageSender);
     TurnTokenGenerator       turnTokenGenerator = new TurnTokenGenerator(config.getTurnConfiguration());
-    EnterpriseRecaptchaClient enterpriseRecaptchaClient = new EnterpriseRecaptchaClient(
-        config.getRecaptchaV2Configuration().getProjectPath(),
-        config.getRecaptchaV2Configuration().getCredentialConfigurationJson(),
+    RecaptchaClient recaptchaClient = new RecaptchaClient(
+        config.getRecaptchaConfiguration().getProjectPath(),
+        config.getRecaptchaConfiguration().getCredentialConfigurationJson(),
         dynamicConfigurationManager);
     PushChallengeManager pushChallengeManager = new PushChallengeManager(apnSender, gcmSender, pushChallengeDynamoDb);
     RateLimitChallengeManager rateLimitChallengeManager = new RateLimitChallengeManager(pushChallengeManager,
-        enterpriseRecaptchaClient, dynamicRateLimiters);
+        recaptchaClient, dynamicRateLimiters);
     RateLimitChallengeOptionManager rateLimitChallengeOptionManager =
         new RateLimitChallengeOptionManager(dynamicRateLimiters, dynamicConfigurationManager);
 
@@ -615,7 +615,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(
         new AccountController(pendingAccountsManager, accountsManager, abusiveHostRules, rateLimiters,
             smsSender, dynamicConfigurationManager, turnTokenGenerator, config.getTestDevices(),
-            enterpriseRecaptchaClient, gcmSender, apnSender, backupCredentialsGenerator,
+            recaptchaClient, gcmSender, apnSender, backupCredentialsGenerator,
             verifyExperimentEnrollmentManager));
     environment.jersey().register(new KeysController(rateLimiters, keys, accountsManager));
 
