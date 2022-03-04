@@ -22,6 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.ws.rs.BadRequestException;
+import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
@@ -29,6 +30,8 @@ public class EnterpriseRecaptchaClient implements RecaptchaClient {
 
   @VisibleForTesting
   static final String SEPARATOR = ".";
+  @VisibleForTesting
+  static final String V2_PREFIX = "signal-recaptcha-v2" + EnterpriseRecaptchaClient.SEPARATOR;
   private static final String ASSESSMENTS_COUNTER_NAME = name(EnterpriseRecaptchaClient.class, "assessments");
   private static final String SCORE_DISTRIBUTION_NAME = name(EnterpriseRecaptchaClient.class, "scoreDistribution");
 
@@ -61,7 +64,7 @@ public class EnterpriseRecaptchaClient implements RecaptchaClient {
    * don’t need to be strict.
    */
   static String[] parseInputToken(final String input) {
-    String[] keyActionAndToken = input.split("\\" + SEPARATOR, 3);
+    String[] keyActionAndToken = StringUtils.removeStart(input, V2_PREFIX).split("\\" + SEPARATOR, 3);
 
     if (keyActionAndToken.length == 1) {
       throw new BadRequestException("too few parts");

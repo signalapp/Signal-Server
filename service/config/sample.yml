@@ -242,9 +242,6 @@ voiceVerification:
   locales:
     - en
 
-recaptcha:
-  secret: unset
-
 recaptchaV2:
   projectPath: projects/example
   credentialConfigurationJson: "{ }" # service account configuration for backend authentication

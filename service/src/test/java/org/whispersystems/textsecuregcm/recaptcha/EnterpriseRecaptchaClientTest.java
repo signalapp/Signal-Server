@@ -19,6 +19,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 class EnterpriseRecaptchaClientTest {
 
+  private static final String PREFIX = EnterpriseRecaptchaClient.V2_PREFIX.substring(0,
+      EnterpriseRecaptchaClient.V2_PREFIX.lastIndexOf(SEPARATOR));
   private static final String SITE_KEY = "site-key";
   private static final String TOKEN = "some-token";
 
@@ -55,6 +57,21 @@ class EnterpriseRecaptchaClientTest {
             "an-action"),
         Arguments.of(
             String.join(SEPARATOR, SITE_KEY, "an-action", TOKEN, "something-else"),
+            TOKEN + SEPARATOR + "something-else",
+            SITE_KEY,
+            "an-action"),
+        Arguments.of(
+            String.join(SEPARATOR, PREFIX, SITE_KEY, TOKEN),
+            TOKEN,
+            SITE_KEY,
+            null),
+        Arguments.of(
+            String.join(SEPARATOR, PREFIX, SITE_KEY, "an-action", TOKEN),
+            TOKEN,
+            SITE_KEY,
+            "an-action"),
+        Arguments.of(
+            String.join(SEPARATOR, PREFIX, SITE_KEY, "an-action", TOKEN, "something-else"),
             TOKEN + SEPARATOR + "something-else",
             SITE_KEY,
             "an-action")
