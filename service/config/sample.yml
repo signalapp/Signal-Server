@@ -78,9 +78,6 @@ twilio: # Twilio gateway configuration
   androidAppHash: example # Hash appended to Android
   verifyServiceFriendlyName: example # Service name used in template. Requires Twilio account rep to enable
 
-push:
-  queueSize: 1000 # Size of push pending queue
-
 turn: # TURN server configuration
   secret: example # TURN server secret
   uris:

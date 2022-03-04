@@ -6,7 +6,6 @@ package org.whispersystems.textsecuregcm;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.dropwizard.Configuration;
-import io.dropwizard.client.JerseyClientConfiguration;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -33,7 +32,6 @@ import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguratio
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PaymentsServiceConfiguration;
-import org.whispersystems.textsecuregcm.configuration.PushConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RateLimitsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RecaptchaConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisClusterConfiguration;
@@ -74,11 +72,6 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private TwilioConfiguration twilio;
-
-  @NotNull
-  @Valid
-  @JsonProperty
-  private PushConfiguration push;
 
   @NotNull
   @Valid
@@ -169,11 +162,6 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private RateLimitsConfiguration limits = new RateLimitsConfiguration();
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private JerseyClientConfiguration httpClient = new JerseyClientConfiguration();
 
   @Valid
   @NotNull
@@ -269,8 +257,6 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private AbusiveMessageFilterConfiguration abusiveMessageFilter;
 
-  private Map<String, String> transparentDataIndex = new HashMap<>();
-
   public StripeConfiguration getStripe() {
     return stripe;
   }
@@ -297,14 +283,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public TwilioConfiguration getTwilioConfiguration() {
     return twilio;
-  }
-
-  public PushConfiguration getPushConfiguration() {
-    return push;
-  }
-
-  public JerseyClientConfiguration getJerseyClientConfiguration() {
-    return httpClient;
   }
 
   public AwsAttachmentsConfiguration getAwsAttachmentsConfiguration() {
@@ -411,10 +389,6 @@ public class WhisperServerConfiguration extends Configuration {
     }
 
     return results;
-  }
-
-  public Map<String, String> getTransparentDataIndex() {
-    return transparentDataIndex;
   }
 
   public SecureBackupServiceConfiguration getSecureBackupServiceConfiguration() {
