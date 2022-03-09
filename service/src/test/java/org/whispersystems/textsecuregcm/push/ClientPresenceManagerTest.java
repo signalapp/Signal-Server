@@ -39,7 +39,7 @@ class ClientPresenceManagerTest {
   private ScheduledExecutorService presenceRenewalExecutorService;
   private ClientPresenceManager clientPresenceManager;
 
-  private static final DisplacedPresenceListener NO_OP = () -> {
+  private static final DisplacedPresenceListener NO_OP = connectedElsewhere -> {
   };
 
   @BeforeEach
@@ -94,7 +94,7 @@ class ClientPresenceManagerTest {
     final long deviceId = 1;
 
     final AtomicInteger displacementCounter = new AtomicInteger(0);
-    final DisplacedPresenceListener displacementListener = displacementCounter::incrementAndGet;
+    final DisplacedPresenceListener displacementListener = connectedElsewhere -> displacementCounter.incrementAndGet();
 
     clientPresenceManager.setPresent(accountUuid, deviceId, displacementListener);
 
@@ -114,7 +114,7 @@ class ClientPresenceManagerTest {
 
     clientPresenceManager.start();
 
-    clientPresenceManager.setPresent(accountUuid, deviceId, () -> displaced.complete(null));
+    clientPresenceManager.setPresent(accountUuid, deviceId, connectedElsewhere -> displaced.complete(null));
 
     REDIS_CLUSTER_EXTENSION.getRedisCluster().useCluster(
         connection -> connection.sync().set(ClientPresenceManager.getPresenceKey(accountUuid, deviceId),
@@ -132,7 +132,7 @@ class ClientPresenceManagerTest {
 
     clientPresenceManager.start();
 
-    clientPresenceManager.setPresent(accountUuid, deviceId, () -> displaced.complete(null));
+    clientPresenceManager.setPresent(accountUuid, deviceId, connectedElsewhere -> displaced.complete(null));
 
     clientPresenceManager.getPubSubConnection()
         .usePubSubConnection(connection -> connection.getResources().eventBus()
@@ -336,11 +336,10 @@ class ClientPresenceManagerTest {
       final long deviceId = 1L;
 
       final CompletableFuture<?> displaced = new CompletableFuture<>();
-      final DisplacedPresenceListener listener1 = () -> displaced.complete(null);
+      final DisplacedPresenceListener listener1 = connectedElsewhere -> displaced.complete(null);
       server1.setPresent(uuid1, deviceId, listener1);
 
-      server2.setPresent(uuid1, deviceId, () -> {
-      });
+      server2.setPresent(uuid1, deviceId, connectedElsewhere -> {});
 
       assertTimeoutPreemptively(Duration.ofSeconds(10), displaced::join);
     }
@@ -351,7 +350,7 @@ class ClientPresenceManagerTest {
       final long deviceId = 1L;
 
       final CompletableFuture<?> displaced = new CompletableFuture<>();
-      final DisplacedPresenceListener listener1 = () -> displaced.complete(null);
+      final DisplacedPresenceListener listener1 = connectedElsewhere -> displaced.complete(null);
       server1.setPresent(uuid1, deviceId, listener1);
 
       server1.disconnectPresence(uuid1, deviceId);
@@ -365,7 +364,7 @@ class ClientPresenceManagerTest {
       final long deviceId = 1L;
 
       final CompletableFuture<?> displaced = new CompletableFuture<>();
-      final DisplacedPresenceListener listener1 = () -> displaced.complete(null);
+      final DisplacedPresenceListener listener1 = connectedElsewhere -> displaced.complete(null);
       server1.setPresent(uuid1, deviceId, listener1);
 
       server2.disconnectPresence(uuid1, deviceId);

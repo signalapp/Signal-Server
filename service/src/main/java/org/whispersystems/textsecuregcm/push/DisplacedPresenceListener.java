@@ -12,5 +12,5 @@ package org.whispersystems.textsecuregcm.push;
 @FunctionalInterface
 public interface DisplacedPresenceListener {
 
-    void handleDisplacement();
+    void handleDisplacement(boolean connectedElsewhere);
 }

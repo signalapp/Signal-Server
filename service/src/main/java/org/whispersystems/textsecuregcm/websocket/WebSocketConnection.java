@@ -382,7 +382,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   }
 
   @Override
-  public void handleDisplacement() {
+  public void handleDisplacement(final boolean connectedElsewhere) {
     Metrics.counter(DISPLACEMENT_COUNTER_NAME, List.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()))).increment();
 
     try {
