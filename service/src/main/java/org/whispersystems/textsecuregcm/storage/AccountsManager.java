@@ -513,6 +513,14 @@ public class AccountsManager {
     }
   }
 
+  public Optional<String> getNumberForPhoneNumberIdentifier(UUID pni) {
+    return phoneNumberIdentifiers.getPhoneNumber(pni);
+  }
+
+  public UUID getPhoneNumberIdentifier(String e164) {
+    return phoneNumberIdentifiers.getPhoneNumberIdentifier(e164);
+  }
+
   public AccountCrawlChunk getAllFromDynamo(int length) {
     return accounts.getAllFromStart(length);
   }

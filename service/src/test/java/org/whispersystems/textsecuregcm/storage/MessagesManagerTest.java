@@ -24,16 +24,17 @@ class MessagesManagerTest {
   @Test
   void insert() {
     final String sourceNumber = "+12025551212";
+    final UUID sourceAci = UUID.randomUUID();
     final Envelope message = Envelope.newBuilder()
         .setSource(sourceNumber)
-        .setSourceUuid(UUID.randomUUID().toString())
+        .setSourceUuid(sourceAci.toString())
         .build();
 
     final UUID destinationUuid = UUID.randomUUID();
 
     messagesManager.insert(destinationUuid, 1L, message);
 
-    verify(reportMessageManager).store(eq(sourceNumber), any(UUID.class));
+    verify(reportMessageManager).store(eq(sourceNumber), eq(sourceAci.toString()), any(UUID.class));
 
     final Envelope syncMessage = Envelope.newBuilder(message)
         .setSourceUuid(destinationUuid.toString())

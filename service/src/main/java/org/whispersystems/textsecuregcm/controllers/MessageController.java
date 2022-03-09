@@ -88,6 +88,7 @@ import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.DeletedAccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
@@ -105,14 +106,15 @@ public class MessageController {
 
   private static final Logger logger = LoggerFactory.getLogger(MessageController.class);
 
-  private final RateLimiters                rateLimiters;
-  private final MessageSender               messageSender;
-  private final ReceiptSender               receiptSender;
-  private final AccountsManager             accountsManager;
-  private final MessagesManager             messagesManager;
-  private final ApnFallbackManager          apnFallbackManager;
-  private final ReportMessageManager        reportMessageManager;
-  private final ExecutorService             multiRecipientMessageExecutor;
+  private final RateLimiters rateLimiters;
+  private final MessageSender messageSender;
+  private final ReceiptSender receiptSender;
+  private final AccountsManager accountsManager;
+  private final DeletedAccountsManager deletedAccountsManager;
+  private final MessagesManager messagesManager;
+  private final ApnFallbackManager apnFallbackManager;
+  private final ReportMessageManager reportMessageManager;
+  private final ExecutorService multiRecipientMessageExecutor;
 
   @VisibleForTesting
   static final Semver FIRST_IOS_VERSION_WITH_INCORRECT_ENVELOPE_TYPE = new Semver("5.22.0");
@@ -146,6 +148,7 @@ public class MessageController {
       MessageSender messageSender,
       ReceiptSender receiptSender,
       AccountsManager accountsManager,
+      DeletedAccountsManager deletedAccountsManager,
       MessagesManager messagesManager,
       ApnFallbackManager apnFallbackManager,
       ReportMessageManager reportMessageManager,
@@ -154,6 +157,7 @@ public class MessageController {
     this.messageSender = messageSender;
     this.receiptSender = receiptSender;
     this.accountsManager = accountsManager;
+    this.deletedAccountsManager = deletedAccountsManager;
     this.messagesManager = messagesManager;
     this.apnFallbackManager = apnFallbackManager;
     this.reportMessageManager = reportMessageManager;
@@ -556,11 +560,39 @@ public class MessageController {
 
   @Timed
   @POST
-  @Path("/report/{sourceNumber}/{messageGuid}")
-  public Response reportMessage(@Auth AuthenticatedAccount auth, @PathParam("sourceNumber") String sourceNumber,
+  @Path("/report/{source}/{messageGuid}")
+  public Response reportMessage(@Auth AuthenticatedAccount auth, @PathParam("source") String source,
       @PathParam("messageGuid") UUID messageGuid) {
 
-    reportMessageManager.report(sourceNumber, messageGuid, auth.getAccount().getUuid());
+    final Optional<String> sourceNumber;
+    final Optional<UUID> sourceAci;
+    final Optional<UUID> sourcePni;
+    if (source.startsWith("+")) {
+      sourceNumber = Optional.of(source);
+      final Optional<Account> maybeAccount = accountsManager.getByE164(source);
+      if (maybeAccount.isPresent()) {
+        sourceAci = maybeAccount.map(Account::getUuid);
+        sourcePni = maybeAccount.map(Account::getPhoneNumberIdentifier);
+      } else {
+        sourceAci = deletedAccountsManager.findDeletedAccountAci(source);
+        sourcePni = Optional.ofNullable(accountsManager.getPhoneNumberIdentifier(source));
+      }
+    } else {
+      sourceAci = Optional.of(UUID.fromString(source));
+
+      final Optional<Account> sourceAccount = accountsManager.getByAccountIdentifier(sourceAci.get());
+
+      if (sourceAccount.isEmpty()) {
+        logger.warn("Could not find source: {}", sourceAci.get());
+        sourceNumber = deletedAccountsManager.findDeletedAccountE164(sourceAci.get());
+        sourcePni = sourceNumber.map(accountsManager::getPhoneNumberIdentifier);
+      } else {
+        sourceNumber = sourceAccount.map(Account::getNumber);
+        sourcePni = sourceAccount.map(Account::getPhoneNumberIdentifier);
+      }
+    }
+
+    reportMessageManager.report(sourceNumber, sourceAci, sourcePni, messageGuid, auth.getAccount().getUuid());
 
     return Response.status(Status.ACCEPTED)
         .build();

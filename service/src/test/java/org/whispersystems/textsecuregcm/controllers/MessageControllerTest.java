@@ -80,6 +80,7 @@ import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.DeletedAccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
@@ -94,24 +95,25 @@ class MessageControllerTest {
   private static final UUID   SINGLE_DEVICE_UUID      = UUID.randomUUID();
   private static final UUID   SINGLE_DEVICE_PNI       = UUID.randomUUID();
 
-  private static final String MULTI_DEVICE_RECIPIENT  = "+14152222222";
-  private static final UUID   MULTI_DEVICE_UUID       = UUID.randomUUID();
+  private static final String MULTI_DEVICE_RECIPIENT = "+14152222222";
+  private static final UUID MULTI_DEVICE_UUID = UUID.randomUUID();
 
   private static final String INTERNATIONAL_RECIPIENT = "+61123456789";
-  private static final UUID   INTERNATIONAL_UUID      = UUID.randomUUID();
+  private static final UUID INTERNATIONAL_UUID = UUID.randomUUID();
 
   private Account internationalAccount;
 
   @SuppressWarnings("unchecked")
   private static final RedisAdvancedClusterCommands<String, String> redisCommands  = mock(RedisAdvancedClusterCommands.class);
 
-  private static final MessageSender               messageSender               = mock(MessageSender.class);
-  private static final ReceiptSender               receiptSender               = mock(ReceiptSender.class);
-  private static final AccountsManager             accountsManager             = mock(AccountsManager.class);
-  private static final MessagesManager             messagesManager             = mock(MessagesManager.class);
-  private static final RateLimiters                rateLimiters                = mock(RateLimiters.class);
-  private static final RateLimiter                 rateLimiter                 = mock(RateLimiter.class);
-  private static final ApnFallbackManager          apnFallbackManager          = mock(ApnFallbackManager.class);
+  private static final MessageSender messageSender = mock(MessageSender.class);
+  private static final ReceiptSender receiptSender = mock(ReceiptSender.class);
+  private static final AccountsManager accountsManager = mock(AccountsManager.class);
+  private static final DeletedAccountsManager deletedAccountsManager = mock(DeletedAccountsManager.class);
+  private static final MessagesManager messagesManager = mock(MessagesManager.class);
+  private static final RateLimiters rateLimiters = mock(RateLimiters.class);
+  private static final RateLimiter rateLimiter = mock(RateLimiter.class);
+  private static final ApnFallbackManager apnFallbackManager = mock(ApnFallbackManager.class);
   private static final ReportMessageManager reportMessageManager = mock(ReportMessageManager.class);
   private static final ExecutorService multiRecipientMessageExecutor = mock(ExecutorService.class);
 
@@ -122,8 +124,9 @@ class MessageControllerTest {
       .addProvider(RateLimitExceededExceptionMapper.class)
       .addProvider(MultiDeviceMessageListProvider.class)
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-      .addResource(new MessageController(rateLimiters, messageSender, receiptSender, accountsManager,
-          messagesManager, apnFallbackManager, reportMessageManager, multiRecipientMessageExecutor))
+      .addResource(
+          new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, deletedAccountsManager,
+              messagesManager, apnFallbackManager, reportMessageManager, multiRecipientMessageExecutor))
       .build();
 
   @BeforeEach
@@ -486,13 +489,13 @@ class MessageControllerTest {
   }
 
   @Test
-  void testGetMessages() throws Exception {
+  void testGetMessages() {
 
     final long timestampOne = 313377;
     final long timestampTwo = 313388;
 
     final UUID messageGuidOne = UUID.randomUUID();
-    final UUID sourceUuid     = UUID.randomUUID();
+    final UUID sourceUuid = UUID.randomUUID();
 
     List<OutgoingMessageEntity> messages = new LinkedList<>() {{
       add(new OutgoingMessageEntity(messageGuidOne, Envelope.Type.CIPHERTEXT_VALUE, timestampOne, "+14152222222", sourceUuid, 2, AuthHelper.VALID_UUID, "hi there".getBytes(), 0));
@@ -595,12 +598,23 @@ class MessageControllerTest {
   }
 
   @Test
-  void testReportMessage() {
+  void testReportMessageByE164() {
 
     final String senderNumber = "+12125550001";
-    final UUID messageGuid = UUID.randomUUID();
+    final UUID senderAci = UUID.randomUUID();
+    final UUID senderPni = UUID.randomUUID();
+    UUID messageGuid = UUID.randomUUID();
 
-    final Response response =
+    final Account account = mock(Account.class);
+    when(account.getUuid()).thenReturn(senderAci);
+    when(account.getNumber()).thenReturn(senderNumber);
+    when(account.getPhoneNumberIdentifier()).thenReturn(senderPni);
+
+    when(accountsManager.getByE164(senderNumber)).thenReturn(Optional.of(account));
+    when(deletedAccountsManager.findDeletedAccountAci(senderNumber)).thenReturn(Optional.of(senderAci));
+    when(accountsManager.getPhoneNumberIdentifier(senderNumber)).thenReturn(senderPni);
+
+    Response response =
         resources.getJerseyTest()
             .target(String.format("/v1/messages/report/%s/%s", senderNumber, messageGuid))
             .request()
@@ -609,7 +623,73 @@ class MessageControllerTest {
 
     assertThat(response.getStatus(), is(equalTo(202)));
 
-    verify(reportMessageManager).report(senderNumber, messageGuid, AuthHelper.VALID_UUID);
+    verify(reportMessageManager).report(Optional.of(senderNumber), Optional.of(senderAci), Optional.of(senderPni),
+        messageGuid, AuthHelper.VALID_UUID);
+    verify(deletedAccountsManager, never()).findDeletedAccountE164(any(UUID.class));
+    verify(accountsManager, never()).getPhoneNumberIdentifier(anyString());
+
+    when(accountsManager.getByE164(senderNumber)).thenReturn(Optional.empty());
+    messageGuid = UUID.randomUUID();
+
+    response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/messages/report/%s/%s", senderNumber, messageGuid))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .post(null);
+
+    assertThat(response.getStatus(), is(equalTo(202)));
+
+    verify(reportMessageManager).report(Optional.of(senderNumber), Optional.of(senderAci), Optional.of(senderPni),
+        messageGuid, AuthHelper.VALID_UUID);
+  }
+
+  @Test
+  void testReportMessageByAci() {
+
+    final String senderNumber = "+12125550001";
+    final UUID senderAci = UUID.randomUUID();
+    final UUID senderPni = UUID.randomUUID();
+    UUID messageGuid = UUID.randomUUID();
+
+    final Account account = mock(Account.class);
+    when(account.getUuid()).thenReturn(senderAci);
+    when(account.getNumber()).thenReturn(senderNumber);
+    when(account.getPhoneNumberIdentifier()).thenReturn(senderPni);
+
+    when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.of(account));
+    when(deletedAccountsManager.findDeletedAccountE164(senderAci)).thenReturn(Optional.of(senderNumber));
+    when(accountsManager.getPhoneNumberIdentifier(senderNumber)).thenReturn(senderPni);
+
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/messages/report/%s/%s", senderAci, messageGuid))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .post(null);
+
+    assertThat(response.getStatus(), is(equalTo(202)));
+
+    verify(reportMessageManager).report(Optional.of(senderNumber), Optional.of(senderAci), Optional.of(senderPni),
+        messageGuid, AuthHelper.VALID_UUID);
+    verify(deletedAccountsManager, never()).findDeletedAccountE164(any(UUID.class));
+    verify(accountsManager, never()).getPhoneNumberIdentifier(anyString());
+
+    when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.empty());
+
+    messageGuid = UUID.randomUUID();
+
+    response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/messages/report/%s/%s", senderAci, messageGuid))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .post(null);
+
+    assertThat(response.getStatus(), is(equalTo(202)));
+
+    verify(reportMessageManager).report(Optional.of(senderNumber), Optional.of(senderAci), Optional.of(senderPni),
+        messageGuid, AuthHelper.VALID_UUID);
   }
 
   @ParameterizedTest

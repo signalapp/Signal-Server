@@ -5,6 +5,16 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import java.lang.Thread.State;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -17,16 +27,6 @@ import software.amazon.awssdk.services.dynamodb.model.Projection;
 import software.amazon.awssdk.services.dynamodb.model.ProjectionType;
 import software.amazon.awssdk.services.dynamodb.model.ProvisionedThroughput;
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
-import java.lang.Thread.State;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class DeletedAccountsManagerTest {
 
@@ -43,11 +43,26 @@ class DeletedAccountsManagerTest {
           .attributeName(DeletedAccounts.ATTR_NEEDS_CDS_RECONCILIATION)
           .attributeType(ScalarAttributeType.N)
           .build())
+      .attributeDefinition(AttributeDefinition.builder()
+          .attributeName(DeletedAccounts.ATTR_ACCOUNT_UUID)
+          .attributeType(ScalarAttributeType.B)
+          .build())
       .globalSecondaryIndex(GlobalSecondaryIndex.builder()
           .indexName(NEEDS_RECONCILIATION_INDEX_NAME)
-          .keySchema(KeySchemaElement.builder().attributeName(DeletedAccounts.KEY_ACCOUNT_E164).keyType(KeyType.HASH).build(),
-              KeySchemaElement.builder().attributeName(DeletedAccounts.ATTR_NEEDS_CDS_RECONCILIATION).keyType(KeyType.RANGE).build())
-          .projection(Projection.builder().projectionType(ProjectionType.INCLUDE).nonKeyAttributes(DeletedAccounts.ATTR_ACCOUNT_UUID).build())
+          .keySchema(
+              KeySchemaElement.builder().attributeName(DeletedAccounts.KEY_ACCOUNT_E164).keyType(KeyType.HASH).build(),
+              KeySchemaElement.builder().attributeName(DeletedAccounts.ATTR_NEEDS_CDS_RECONCILIATION)
+                  .keyType(KeyType.RANGE).build())
+          .projection(Projection.builder().projectionType(ProjectionType.INCLUDE)
+              .nonKeyAttributes(DeletedAccounts.ATTR_ACCOUNT_UUID).build())
+          .provisionedThroughput(ProvisionedThroughput.builder().readCapacityUnits(10L).writeCapacityUnits(10L).build())
+          .build())
+      .globalSecondaryIndex(GlobalSecondaryIndex.builder()
+          .indexName(DeletedAccounts.UUID_TO_E164_INDEX_NAME)
+          .keySchema(
+              KeySchemaElement.builder().attributeName(DeletedAccounts.ATTR_ACCOUNT_UUID).keyType(KeyType.HASH).build()
+          )
+          .projection(Projection.builder().projectionType(ProjectionType.KEYS_ONLY).build())
           .provisionedThroughput(ProvisionedThroughput.builder().readCapacityUnits(10L).writeCapacityUnits(10L).build())
           .build())
       .build();
@@ -167,4 +182,5 @@ class DeletedAccountsManagerTest {
       return List.of(deletedAccounts.get(0).second());
     });
   }
+
 }

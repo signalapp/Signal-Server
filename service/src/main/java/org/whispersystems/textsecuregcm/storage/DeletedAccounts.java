@@ -21,14 +21,16 @@ import java.util.stream.Collectors;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.Pair;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.BatchGetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.BatchGetItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.KeysAndAttributes;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
@@ -39,6 +41,8 @@ public class DeletedAccounts extends AbstractDynamoDbStore {
   static final String ATTR_ACCOUNT_UUID = "U";
   static final String ATTR_EXPIRES = "E";
   static final String ATTR_NEEDS_CDS_RECONCILIATION = "R";
+
+  static final String UUID_TO_E164_INDEX_NAME = "u_to_p";
 
   static final Duration TIME_TO_LIVE = Duration.ofDays(30);
 
@@ -74,6 +78,28 @@ public class DeletedAccounts extends AbstractDynamoDbStore {
         .build());
 
     return Optional.ofNullable(AttributeValues.getUUID(response.item(), ATTR_ACCOUNT_UUID, null));
+  }
+
+  Optional<String> findE164(final UUID uuid) {
+    final QueryResponse response = db().query(QueryRequest.builder()
+        .tableName(tableName)
+        .indexName(UUID_TO_E164_INDEX_NAME)
+        .keyConditionExpression("#uuid = :uuid")
+        .projectionExpression("#e164")
+        .expressionAttributeNames(Map.of("#uuid", ATTR_ACCOUNT_UUID,
+            "#e164", KEY_ACCOUNT_E164))
+        .expressionAttributeValues(Map.of(":uuid", AttributeValues.fromUUID(uuid))).build());
+
+    if (response.count() == 0) {
+      return Optional.empty();
+    }
+
+    if (response.count() > 1) {
+      throw new RuntimeException(
+          "Impossible result: more than one phone number returned for UUID: " + uuid);
+    }
+
+    return Optional.ofNullable(response.items().get(0).get(KEY_ACCOUNT_E164).s());
   }
 
   void remove(final String e164) {

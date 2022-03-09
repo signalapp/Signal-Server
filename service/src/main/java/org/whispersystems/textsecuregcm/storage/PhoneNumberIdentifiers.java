@@ -5,20 +5,23 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
-import java.util.Map;
-import java.util.UUID;
-
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 /**
  * Manages a global, persistent mapping of phone numbers to phone number identifiers regardless of whether those
@@ -31,7 +34,10 @@ public class PhoneNumberIdentifiers {
 
   @VisibleForTesting
   static final String KEY_E164 = "P";
-  private static final String ATTR_PHONE_NUMBER_IDENTIFIER = "PNI";
+  @VisibleForTesting
+  static final String INDEX_NAME = "pni_to_p";
+  @VisibleForTesting
+  static final String ATTR_PHONE_NUMBER_IDENTIFIER = "PNI";
 
   private static final Timer GET_PNI_TIMER = Metrics.timer(name(PhoneNumberIdentifiers.class, "get"));
   private static final Timer SET_PNI_TIMER = Metrics.timer(name(PhoneNumberIdentifiers.class, "set"));
@@ -68,6 +74,34 @@ public class PhoneNumberIdentifiers {
 
     return phoneNumberIdentifier;
   }
+
+  public Optional<String> getPhoneNumber(final UUID phoneNumberIdentifier) {
+    final QueryResponse response = dynamoDbClient.query(QueryRequest.builder()
+        .tableName(tableName)
+        .indexName(INDEX_NAME)
+        .keyConditionExpression("#pni = :pni")
+        .projectionExpression("#phone_number")
+        .expressionAttributeNames(Map.of(
+            "#phone_number", KEY_E164,
+            "#pni", ATTR_PHONE_NUMBER_IDENTIFIER
+        ))
+        .expressionAttributeValues(Map.of(
+            ":pni", AttributeValues.fromUUID(phoneNumberIdentifier)
+        ))
+        .build());
+
+    if (response.count() == 0) {
+      return Optional.empty();
+    }
+
+    if (response.count() > 1) {
+      throw new RuntimeException(
+          "Impossible result: more than one phone number returned for PNI: " + phoneNumberIdentifier);
+    }
+
+    return Optional.ofNullable(response.items().get(0).get(KEY_E164).s());
+  }
+
 
   @VisibleForTesting
   UUID generatePhoneNumberIdentifierIfNotExists(final String phoneNumber) {

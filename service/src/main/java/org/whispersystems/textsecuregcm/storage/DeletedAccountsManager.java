@@ -173,8 +173,7 @@ public class DeletedAccountsManager {
           }
 
           return lockAcquired;
-        })
-        .collect(Collectors.toList());
+        }).toList();
 
     assert lockItems.size() == reconciliationCandidates.size();
 
@@ -192,7 +191,16 @@ public class DeletedAccountsManager {
     try {
       deletedAccounts.markReconciled(consumer.reconcile(accountsToReconcile));
     } finally {
-      lockItems.forEach(lockItem -> lockClient.releaseLock(ReleaseLockOptions.builder(lockItem).withBestEffort(true).build()));
+      lockItems.forEach(
+          lockItem -> lockClient.releaseLock(ReleaseLockOptions.builder(lockItem).withBestEffort(true).build()));
     }
+  }
+
+  public Optional<UUID> findDeletedAccountAci(final String e164) {
+    return deletedAccounts.findUuid(e164);
+  }
+
+  public Optional<String> findDeletedAccountE164(final UUID uuid) {
+    return deletedAccounts.findE164(uuid);
   }
 }

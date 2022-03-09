@@ -41,11 +41,26 @@ class DeletedAccountsTest {
           .attributeName(DeletedAccounts.ATTR_NEEDS_CDS_RECONCILIATION)
           .attributeType(ScalarAttributeType.N)
           .build())
+      .attributeDefinition(AttributeDefinition.builder()
+          .attributeName(DeletedAccounts.ATTR_ACCOUNT_UUID)
+          .attributeType(ScalarAttributeType.B)
+          .build())
       .globalSecondaryIndex(GlobalSecondaryIndex.builder()
           .indexName(NEEDS_RECONCILIATION_INDEX_NAME)
-          .keySchema(KeySchemaElement.builder().attributeName(DeletedAccounts.KEY_ACCOUNT_E164).keyType(KeyType.HASH).build(),
-              KeySchemaElement.builder().attributeName(DeletedAccounts.ATTR_NEEDS_CDS_RECONCILIATION).keyType(KeyType.RANGE).build())
-          .projection(Projection.builder().projectionType(ProjectionType.INCLUDE).nonKeyAttributes(DeletedAccounts.ATTR_ACCOUNT_UUID).build())
+          .keySchema(
+              KeySchemaElement.builder().attributeName(DeletedAccounts.KEY_ACCOUNT_E164).keyType(KeyType.HASH).build(),
+              KeySchemaElement.builder().attributeName(DeletedAccounts.ATTR_NEEDS_CDS_RECONCILIATION)
+                  .keyType(KeyType.RANGE).build())
+          .projection(Projection.builder().projectionType(ProjectionType.INCLUDE)
+              .nonKeyAttributes(DeletedAccounts.ATTR_ACCOUNT_UUID).build())
+          .provisionedThroughput(ProvisionedThroughput.builder().readCapacityUnits(10L).writeCapacityUnits(10L).build())
+          .build())
+      .globalSecondaryIndex(GlobalSecondaryIndex.builder()
+          .indexName(DeletedAccounts.UUID_TO_E164_INDEX_NAME)
+          .keySchema(
+              KeySchemaElement.builder().attributeName(DeletedAccounts.ATTR_ACCOUNT_UUID).keyType(KeyType.HASH).build()
+          )
+          .projection(Projection.builder().projectionType(ProjectionType.KEYS_ONLY).build())
           .provisionedThroughput(ProvisionedThroughput.builder().readCapacityUnits(10L).writeCapacityUnits(10L).build())
           .build())
       .build();
@@ -155,5 +170,31 @@ class DeletedAccountsTest {
         deletedAccounts.getAccountsNeedingReconciliation(expectedAccountsNeedingReconciliation);
 
     assertEquals(expectedAccountsNeedingReconciliation, accountsNeedingReconciliation);
+  }
+
+
+  @Test
+  void testFindE164() {
+    assertEquals(Optional.empty(), deletedAccounts.findE164(UUID.randomUUID()));
+
+    final UUID uuid = UUID.randomUUID();
+    final String e164 = "+18005551234";
+
+    deletedAccounts.put(uuid, e164, true);
+
+    assertEquals(Optional.of(e164), deletedAccounts.findE164(uuid));
+  }
+
+  @Test
+  void testFindUUID() {
+    final String e164 = "+18005551234";
+
+    assertEquals(Optional.empty(), deletedAccounts.findUuid(e164));
+
+    final UUID uuid = UUID.randomUUID();
+
+    deletedAccounts.put(uuid, e164, true);
+
+    assertEquals(Optional.of(uuid), deletedAccounts.findUuid(e164));
   }
 }
