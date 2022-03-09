@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import javax.ws.rs.WebApplicationException;
+import io.micrometer.core.instrument.Tags;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -383,10 +384,25 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
   @Override
   public void handleDisplacement(final boolean connectedElsewhere) {
-    Metrics.counter(DISPLACEMENT_COUNTER_NAME, List.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()))).increment();
+    final Tags tags = Tags.of(
+        UserAgentTagUtil.getPlatformTag(client.getUserAgent()),
+        Tag.of("connectedElsewhere", String.valueOf(connectedElsewhere)));
+
+    Metrics.counter(DISPLACEMENT_COUNTER_NAME, tags);
+
+    final int code;
+    final String message;
+
+    if (connectedElsewhere) {
+      code = 4409;
+      message = "Connected elsewhere";
+    } else {
+      code = 1000;
+      message = "OK";
+    }
 
     try {
-      client.close(1000, "OK");
+      client.close(code, message);
     } catch (final Exception e) {
       logger.warn("Orderly close failed", e);
 
