@@ -165,11 +165,6 @@ public class AccountsHelper {
             when(updatedAccount.getEnabledDeviceCount()).thenAnswer(stubbing);
             break;
           }
-          case "getRelay": {
-            // TODO unused
-            when(updatedAccount.getRelay()).thenAnswer(stubbing);
-            break;
-          }
           case "getRegistrationLock": {
             when(updatedAccount.getRegistrationLock()).thenAnswer(stubbing);
             break;

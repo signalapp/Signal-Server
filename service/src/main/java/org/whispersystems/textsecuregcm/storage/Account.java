@@ -282,12 +282,6 @@ public class Account {
     return count;
   }
 
-  public boolean isRateLimited() {
-    requireNotStale();
-
-    return true;
-  }
-
   public boolean isCanonicallyDiscoverable() {
     requireNotStale();
 
@@ -298,12 +292,6 @@ public class Account {
     requireNotStale();
 
     this.canonicallyDiscoverable = canonicallyDiscoverable;
-  }
-
-  public Optional<String> getRelay() {
-    requireNotStale();
-
-    return Optional.empty();
   }
 
   public void setIdentityKey(String identityKey) {

@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.controllers;
 import com.amazonaws.HttpMethod;
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
-import java.io.IOException;
 import java.net.URL;
 import java.util.stream.Stream;
 import javax.ws.rs.GET;
@@ -43,18 +42,15 @@ public class AttachmentControllerV1 extends AttachmentControllerBase {
   @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  public AttachmentDescriptorV1 allocateAttachment(@Auth AuthenticatedAccount auth)
-      throws RateLimitExceededException {
-    if (auth.getAccount().isRateLimited()) {
-      rateLimiters.getAttachmentLimiter().validate(auth.getAccount().getUuid());
-    }
+  public AttachmentDescriptorV1 allocateAttachment(@Auth AuthenticatedAccount auth) throws RateLimitExceededException {
+
+    rateLimiters.getAttachmentLimiter().validate(auth.getAccount().getUuid());
 
     long attachmentId = generateAttachmentId();
     URL url = urlSigner.getPreSignedUrl(attachmentId, HttpMethod.PUT,
         Stream.of(UNACCELERATED_REGIONS).anyMatch(region -> auth.getAccount().getNumber().startsWith(region)));
 
     return new AttachmentDescriptorV1(attachmentId, url.toExternalForm());
-
   }
 
   @Timed
@@ -62,8 +58,7 @@ public class AttachmentControllerV1 extends AttachmentControllerBase {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{attachmentId}")
   public AttachmentUri redirectToAttachment(@Auth AuthenticatedAccount auth,
-      @PathParam("attachmentId") long attachmentId)
-      throws IOException {
+      @PathParam("attachmentId") long attachmentId) {
     return new AttachmentUri(urlSigner.getPreSignedUrl(attachmentId, HttpMethod.GET,
         Stream.of(UNACCELERATED_REGIONS).anyMatch(region -> auth.getAccount().getNumber().startsWith(region))));
   }

@@ -44,7 +44,6 @@ public class AuthHelper {
   public static final UUID   VALID_UUID_TWO    = UUID.randomUUID();
   public static final String VALID_PASSWORD_TWO = "baz";
 
-  public static final String INVALID_NUMBER  = "+14151111111";
   public static final UUID   INVALID_UUID     = UUID.randomUUID();
   public static final String INVALID_PASSWORD = "bar";
 
@@ -120,10 +119,6 @@ public class AuthHelper {
     when(DISABLED_ACCOUNT.getUuid()).thenReturn(DISABLED_UUID);
     when(UNDISCOVERABLE_ACCOUNT.getNumber()).thenReturn(UNDISCOVERABLE_NUMBER);
     when(UNDISCOVERABLE_ACCOUNT.getUuid()).thenReturn(UNDISCOVERABLE_UUID);
-
-    when(VALID_ACCOUNT.getRelay()).thenReturn(Optional.empty());
-    when(VALID_ACCOUNT_TWO.getRelay()).thenReturn(Optional.empty());
-    when(UNDISCOVERABLE_ACCOUNT.getRelay()).thenReturn(Optional.empty());
 
     when(VALID_ACCOUNT.isEnabled()).thenReturn(true);
     when(VALID_ACCOUNT_TWO.isEnabled()).thenReturn(true);
@@ -221,7 +216,6 @@ public class AuthHelper {
       when(account.getMasterDevice()).thenReturn(Optional.of(device));
       when(account.getNumber()).thenReturn(number);
       when(account.getUuid()).thenReturn(uuid);
-      when(account.getRelay()).thenReturn(Optional.empty());
       when(account.isEnabled()).thenReturn(true);
       when(accountsManager.getByE164(number)).thenReturn(Optional.of(account));
       when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));

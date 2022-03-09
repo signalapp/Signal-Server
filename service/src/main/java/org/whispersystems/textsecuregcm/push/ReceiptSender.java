@@ -45,10 +45,6 @@ public class ReceiptSender {
         .setTimestamp(messageId)
         .setType(Envelope.Type.SERVER_DELIVERY_RECEIPT);
 
-    if (sourceAccount.getRelay().isPresent()) {
-      message.setRelay(sourceAccount.getRelay().get());
-    }
-
     for (final Device destinationDevice : destinationAccount.getDevices()) {
       try {
         messageSender.sendMessage(destinationAccount, destinationDevice, message.build(), false);
