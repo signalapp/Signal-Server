@@ -38,6 +38,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -79,6 +80,7 @@ class AccountsTest {
           .build())
       .build();
 
+  private DynamicConfigurationManager<DynamicConfiguration> mockDynamicConfigManager;
   private Accounts accounts;
 
   @BeforeEach
@@ -128,7 +130,14 @@ class AccountsTest {
 
     dynamoDbExtension.getDynamoDbClient().createTable(createUsernamesTableRequest);
 
+    @SuppressWarnings("unchecked") DynamicConfigurationManager<DynamicConfiguration> m = mock(DynamicConfigurationManager.class);
+    mockDynamicConfigManager = m;
+
+    when(mockDynamicConfigManager.getConfiguration())
+        .thenReturn(new DynamicConfiguration());
+
     this.accounts = new Accounts(
+        mockDynamicConfigManager,
         dynamoDbExtension.getDynamoDbClient(),
         dynamoDbExtension.getTableName(),
         NUMBER_CONSTRAINT_TABLE_NAME,
@@ -372,7 +381,7 @@ class AccountsTest {
   void testUpdateWithMockTransactionConflictException() {
 
     final DynamoDbClient dynamoDbClient = mock(DynamoDbClient.class);
-    accounts = new Accounts(dynamoDbClient,
+    accounts = new Accounts(mockDynamicConfigManager, dynamoDbClient,
         dynamoDbExtension.getTableName(), NUMBER_CONSTRAINT_TABLE_NAME, PNI_CONSTRAINT_TABLE_NAME, USERNAME_CONSTRAINT_TABLE_NAME, SCAN_PAGE_SIZE);
 
     when(dynamoDbClient.updateItem(any(UpdateItemRequest.class)))
@@ -510,7 +519,7 @@ class AccountsTest {
     when(client.updateItem(any(UpdateItemRequest.class)))
         .thenThrow(RuntimeException.class);
 
-    Accounts accounts = new Accounts(client, ACCOUNTS_TABLE_NAME, NUMBER_CONSTRAINT_TABLE_NAME,
+    Accounts accounts = new Accounts(mockDynamicConfigManager, client, ACCOUNTS_TABLE_NAME, NUMBER_CONSTRAINT_TABLE_NAME,
         PNI_CONSTRAINT_TABLE_NAME, USERNAME_CONSTRAINT_TABLE_NAME, SCAN_PAGE_SIZE);
     Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID());
 
@@ -807,9 +816,20 @@ class AccountsTest {
     assertThat(item).doesNotContainKey(Accounts.ATTR_UAK);
   }
 
-  @Test
-  void testAddMissingUakAttribute() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testAddMissingUakAttribute(boolean normalizeDisabled) throws JsonProcessingException {
     final UUID accountIdentifier = UUID.randomUUID();
+
+    if (normalizeDisabled) {
+      final DynamicConfiguration config = DynamicConfigurationManager.parseConfiguration("""
+          captcha:
+            scoreFloor: 1.0
+          uakMigrationConfiguration:
+            enabled: false
+          """, DynamicConfiguration.class).orElseThrow();
+      when(mockDynamicConfigManager.getConfiguration()).thenReturn(config);
+    }
 
     final Account account = generateAccount("+18005551234", accountIdentifier, UUID.randomUUID());
     accounts.create(account);
@@ -822,20 +842,24 @@ class AccountsTest {
         .updateExpression("REMOVE #uak").build());
 
     // crawling should return 1 account, and fix the discrepancy between
-    // the json blob and the top level attributes
+    // the json blob and the top level attributes if normalization is enabled
     final AccountCrawlChunk allFromStart = accounts.getAllFromStart(1);
     assertThat(allFromStart.getAccounts()).hasSize(1);
     assertThat(allFromStart.getAccounts().get(0).getUuid()).isEqualTo(accountIdentifier);
 
-    // check that the attribute now exists at top level
+    // check whether normalization happened
     final Map<String, AttributeValue> item = dynamoDbExtension.getDynamoDbClient()
         .getItem(GetItemRequest.builder()
             .tableName(ACCOUNTS_TABLE_NAME)
             .key(Map.of(Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(accountIdentifier)))
             .consistentRead(true)
             .build()).item();
-    assertThat(item).containsEntry(Accounts.ATTR_UAK,
-        AttributeValues.fromByteArray(account.getUnidentifiedAccessKey().get()));
+    if (normalizeDisabled) {
+      assertThat(item).doesNotContainKey(Accounts.ATTR_UAK);
+    } else {
+      assertThat(item).containsEntry(Accounts.ATTR_UAK,
+          AttributeValues.fromByteArray(account.getUnidentifiedAccessKey().get()));
+    }
   }
 
   @ParameterizedTest
@@ -975,7 +999,7 @@ class AccountsTest {
       assertThat(AttributeValues.getByteArray(get.item(), Accounts.ATTR_UAK, null))
           .isEqualTo(expecting.getUnidentifiedAccessKey().orElse(null));
 
-      Account result = accounts.fromItem(get.item());
+      Account result = Accounts.fromItem(get.item());
       verifyStoredState(number, uuid, pni, result, expecting);
     } else {
       throw new AssertionError("No data");

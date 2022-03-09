@@ -52,6 +52,10 @@ public class DynamicConfiguration {
   @Valid
   private DynamicPushLatencyConfiguration pushLatency = new DynamicPushLatencyConfiguration(Collections.emptyMap());
 
+  @JsonProperty
+  @Valid
+  private DynamicUakMigrationConfiguration uakMigrationConfiguration = new DynamicUakMigrationConfiguration();
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -102,5 +106,7 @@ public class DynamicConfiguration {
   public DynamicPushLatencyConfiguration getPushLatencyConfiguration() {
     return pushLatency;
   }
+
+  public DynamicUakMigrationConfiguration getUakMigrationConfiguration() { return uakMigrationConfiguration; }
 
 }

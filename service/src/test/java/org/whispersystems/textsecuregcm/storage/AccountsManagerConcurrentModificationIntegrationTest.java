@@ -39,6 +39,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
@@ -118,7 +119,12 @@ class AccountsManagerConcurrentModificationIntegrationTest {
       dynamoDbExtension.getDynamoDbClient().createTable(createPhoneNumberIdentifierTableRequest);
     }
 
+    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
+        mock(DynamicConfigurationManager.class);
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
+
     accounts = new Accounts(
+        dynamicConfigurationManager,
         dynamoDbExtension.getDynamoDbClient(),
         dynamoDbExtension.getTableName(),
         NUMBERS_TABLE_NAME,

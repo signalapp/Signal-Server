@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
@@ -70,6 +71,7 @@ public class Accounts extends AbstractDynamoDbStore {
   // unidentified access key; byte[] or null
   static final String ATTR_UAK = "UAK";
 
+  private DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final DynamoDbClient client;
 
   private final String phoneNumberConstraintTableName;
@@ -98,12 +100,13 @@ public class Accounts extends AbstractDynamoDbStore {
 
   private static final Logger log = LoggerFactory.getLogger(Accounts.class);
 
-  public Accounts(DynamoDbClient client, String accountsTableName, String phoneNumberConstraintTableName,
+  public Accounts(final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
+      DynamoDbClient client, String accountsTableName, String phoneNumberConstraintTableName,
       String phoneNumberIdentifierConstraintTableName, final String usernamesConstraintTableName,
       final int scanPageSize) {
 
     super(client);
-
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.client = client;
     this.phoneNumberConstraintTableName = phoneNumberConstraintTableName;
     this.phoneNumberIdentifierConstraintTableName = phoneNumberIdentifierConstraintTableName;
@@ -654,6 +657,11 @@ public class Accounts extends AbstractDynamoDbStore {
         // the top level uak attribute doesn't exist, but there's a uak in the account
         accountsToNormalize.add(account);
       }
+    }
+
+    if (!this.dynamicConfigurationManager.getConfiguration().getUakMigrationConfiguration().isEnabled()) {
+      log.debug("Account normalization is disabled, skipping normalization for {} accounts", accountsToNormalize.size());
+      return allAccounts;
     }
 
     final int BATCH_SIZE = 25; // dynamodb max batch size
