@@ -28,6 +28,8 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.jdbi.v3.core.transaction.TransactionException;
@@ -42,6 +44,7 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -139,6 +142,7 @@ class AccountsTest {
     this.accounts = new Accounts(
         mockDynamicConfigManager,
         dynamoDbExtension.getDynamoDbClient(),
+        dynamoDbExtension.getDynamoDbAsyncClient(),
         dynamoDbExtension.getTableName(),
         NUMBER_CONSTRAINT_TABLE_NAME,
         PNI_CONSTRAINT_TABLE_NAME,
@@ -377,15 +381,20 @@ class AccountsTest {
     verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), account, true);
   }
 
-  @Test
-  void testUpdateWithMockTransactionConflictException() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testUpdateWithMockTransactionConflictException(boolean wrapException) {
 
-    final DynamoDbClient dynamoDbClient = mock(DynamoDbClient.class);
-    accounts = new Accounts(mockDynamicConfigManager, dynamoDbClient,
-        dynamoDbExtension.getTableName(), NUMBER_CONSTRAINT_TABLE_NAME, PNI_CONSTRAINT_TABLE_NAME, USERNAME_CONSTRAINT_TABLE_NAME, SCAN_PAGE_SIZE);
+    final DynamoDbAsyncClient dynamoDbAsyncClient = mock(DynamoDbAsyncClient.class);
+    accounts = new Accounts(mockDynamicConfigManager, mock(DynamoDbClient.class),
+        dynamoDbAsyncClient, dynamoDbExtension.getTableName(),
+        NUMBER_CONSTRAINT_TABLE_NAME, PNI_CONSTRAINT_TABLE_NAME, USERNAME_CONSTRAINT_TABLE_NAME, SCAN_PAGE_SIZE);
 
-    when(dynamoDbClient.updateItem(any(UpdateItemRequest.class)))
-        .thenThrow(TransactionConflictException.class);
+    Exception e = TransactionConflictException.builder().build();
+    e = wrapException ? new CompletionException(e) : e;
+
+    when(dynamoDbAsyncClient.updateItem(any(UpdateItemRequest.class)))
+        .thenReturn(CompletableFuture.failedFuture(e));
 
     Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID());
 
@@ -512,14 +521,15 @@ class AccountsTest {
     configuration.setFailureRateThreshold(50);
 
     final DynamoDbClient client = mock(DynamoDbClient.class);
+    final DynamoDbAsyncClient asyncClient = mock(DynamoDbAsyncClient.class);
 
     when(client.transactWriteItems(any(TransactWriteItemsRequest.class)))
         .thenThrow(RuntimeException.class);
 
-    when(client.updateItem(any(UpdateItemRequest.class)))
-        .thenThrow(RuntimeException.class);
+    when(asyncClient.updateItem(any(UpdateItemRequest.class)))
+        .thenReturn(CompletableFuture.failedFuture(new RuntimeException()));
 
-    Accounts accounts = new Accounts(mockDynamicConfigManager, client, ACCOUNTS_TABLE_NAME, NUMBER_CONSTRAINT_TABLE_NAME,
+    Accounts accounts = new Accounts(mockDynamicConfigManager, client, asyncClient, ACCOUNTS_TABLE_NAME, NUMBER_CONSTRAINT_TABLE_NAME,
         PNI_CONSTRAINT_TABLE_NAME, USERNAME_CONSTRAINT_TABLE_NAME, SCAN_PAGE_SIZE);
     Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID());
 
@@ -814,6 +824,40 @@ class AccountsTest {
             .consistentRead(true)
             .build()).item();
     assertThat(item).doesNotContainKey(Accounts.ATTR_UAK);
+  }
+
+  @Test
+  void testUakMismatch() {
+    // If there's a UAK mismatch, we should correct it
+    final UUID accountIdentifier = UUID.randomUUID();
+
+    final Account account = generateAccount("+18005551234", accountIdentifier, UUID.randomUUID());
+    accounts.create(account);
+
+    // set the uak to garbage in the attributes
+    dynamoDbExtension.getDynamoDbClient().updateItem(UpdateItemRequest.builder()
+        .tableName(ACCOUNTS_TABLE_NAME)
+        .key(Map.of(Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(accountIdentifier)))
+        .expressionAttributeNames(Map.of("#uak", Accounts.ATTR_UAK))
+        .expressionAttributeValues(Map.of(":uak", AttributeValues.fromByteArray("bad-uak".getBytes())))
+        .updateExpression("SET #uak = :uak").build());
+
+    // crawling should return 1 account and fix the uak mismatch
+    final AccountCrawlChunk allFromStart = accounts.getAllFromStart(1);
+    assertThat(allFromStart.getAccounts()).hasSize(1);
+    assertThat(allFromStart.getAccounts().get(0).getUuid()).isEqualTo(accountIdentifier);
+    assertThat(allFromStart.getAccounts().get(0).getUnidentifiedAccessKey().get()).isEqualTo(account.getUnidentifiedAccessKey().get());
+
+    // the top level uak should be the original
+    final Map<String, AttributeValue> item = dynamoDbExtension.getDynamoDbClient()
+        .getItem(GetItemRequest.builder()
+            .tableName(ACCOUNTS_TABLE_NAME)
+            .key(Map.of(Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(accountIdentifier)))
+            .consistentRead(true)
+            .build()).item();
+    assertThat(item).containsEntry(
+        Accounts.ATTR_UAK,
+        AttributeValues.fromByteArray(account.getUnidentifiedAccessKey().get()));
   }
 
   @ParameterizedTest

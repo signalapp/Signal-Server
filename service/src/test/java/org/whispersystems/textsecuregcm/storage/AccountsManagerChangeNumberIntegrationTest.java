@@ -154,6 +154,7 @@ class AccountsManagerChangeNumberIntegrationTest {
       final Accounts accounts = new Accounts(
           dynamicConfigurationManager,
           ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbClient(),
+          ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbAsyncClient(),
           ACCOUNTS_DYNAMO_EXTENSION.getTableName(),
           NUMBERS_TABLE_NAME,
           PNI_ASSIGNMENT_TABLE_NAME,

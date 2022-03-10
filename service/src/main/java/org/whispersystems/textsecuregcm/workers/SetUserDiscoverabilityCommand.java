@@ -141,7 +141,9 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
       VerificationCodeStore pendingAccounts = new VerificationCodeStore(dynamoDbClient,
           configuration.getDynamoDbTables().getPendingAccounts().getTableName());
 
-      Accounts accounts = new Accounts(dynamicConfigurationManager, dynamoDbClient,
+      Accounts accounts = new Accounts(dynamicConfigurationManager,
+          dynamoDbClient,
+          dynamoDbAsyncClient,
           configuration.getDynamoDbTables().getAccounts().getTableName(),
           configuration.getDynamoDbTables().getAccounts().getPhoneNumberTableName(),
           configuration.getDynamoDbTables().getAccounts().getPhoneNumberIdentifierTableName(),

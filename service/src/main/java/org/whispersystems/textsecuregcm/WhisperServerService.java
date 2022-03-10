@@ -339,7 +339,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getAppConfig().getConfigurationName(),
             DynamicConfiguration.class);
 
-    Accounts accounts = new Accounts(dynamicConfigurationManager, dynamoDbClient,
+    Accounts accounts = new Accounts(dynamicConfigurationManager,
+        dynamoDbClient,
+        dynamoDbAsyncClient,
         config.getDynamoDbTables().getAccounts().getTableName(),
         config.getDynamoDbTables().getAccounts().getPhoneNumberTableName(),
         config.getDynamoDbTables().getAccounts().getPhoneNumberIdentifierTableName(),

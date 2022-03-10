@@ -126,6 +126,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
     accounts = new Accounts(
         dynamicConfigurationManager,
         dynamoDbExtension.getDynamoDbClient(),
+        dynamoDbExtension.getDynamoDbAsyncClient(),
         dynamoDbExtension.getTableName(),
         NUMBERS_TABLE_NAME,
         PNI_TABLE_NAME,

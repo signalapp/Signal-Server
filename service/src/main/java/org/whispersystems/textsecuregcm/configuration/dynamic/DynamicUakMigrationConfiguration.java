@@ -6,7 +6,14 @@ public class DynamicUakMigrationConfiguration {
   @JsonProperty
   private boolean enabled = true;
 
+  @JsonProperty
+  private int maxOutstandingNormalizes = 25;
+
   public boolean isEnabled() {
     return enabled;
+  }
+
+  public int getMaxOutstandingNormalizes() {
+    return maxOutstandingNormalizes;
   }
 }
