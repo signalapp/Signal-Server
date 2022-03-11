@@ -399,6 +399,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         minThreads(availableProcessors).  // mostly this is IO bound so tying to number of processors is tenuous at best
         allowCoreThreadTimeOut(true).
         build();
+    ExecutorService receiptSenderExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "receiptSender-%d")).maxThreads(16).minThreads(16).build();
 
     StripeManager stripeManager = new StripeManager(config.getStripe().getApiKey(), stripeExecutor,
         config.getStripe().getIdempotencyKeyGenerator(), config.getStripe().getBoostDescription());
@@ -468,7 +470,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     TwilioSmsSender          twilioSmsSender    = new TwilioSmsSender(config.getTwilioConfiguration(), dynamicConfigurationManager);
     SmsSender                smsSender          = new SmsSender(twilioSmsSender);
     MessageSender            messageSender      = new MessageSender(apnFallbackManager, clientPresenceManager, messagesManager, gcmSender, apnSender, pushLatencyManager);
-    ReceiptSender            receiptSender      = new ReceiptSender(accountsManager, messageSender);
+    ReceiptSender            receiptSender      = new ReceiptSender(accountsManager, messageSender, receiptSenderExecutor);
     TurnTokenGenerator       turnTokenGenerator = new TurnTokenGenerator(config.getTurnConfiguration());
     RecaptchaClient recaptchaClient = new RecaptchaClient(
         config.getRecaptchaConfiguration().getProjectPath(),
