@@ -5,6 +5,8 @@
 
 package org.whispersystems.textsecuregcm.push;
 
+import com.codahale.metrics.InstrumentedExecutorService;
+import com.codahale.metrics.SharedMetricRegistries;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -13,9 +15,11 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.controllers.NoSuchUserException;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.util.Constants;
 
 public class ReceiptSender {
 
@@ -29,7 +33,9 @@ public class ReceiptSender {
       final ExecutorService executor) {
     this.accountManager = accountManager;
     this.messageSender = messageSender;
-    this.executor = executor;
+    this.executor = new InstrumentedExecutorService(executor,
+        SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME),
+        MetricsUtil.name(ReceiptSender.class, "executor"));
   }
 
   public CompletableFuture<Void> sendReceipt(AuthenticatedAccount source, UUID destinationUuid, long messageId) throws NoSuchUserException {
