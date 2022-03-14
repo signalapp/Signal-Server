@@ -48,6 +48,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import javax.servlet.DispatcherType;
 import javax.servlet.FilterRegistration;
@@ -385,6 +386,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     BlockingQueue<Runnable> keyspaceNotificationDispatchQueue = new ArrayBlockingQueue<>(10_000);
     Metrics.gaugeCollectionSize(name(getClass(), "keyspaceNotificationDispatchQueueSize"), Collections.emptyList(), keyspaceNotificationDispatchQueue);
+    final ArrayBlockingQueue<Runnable> receiptSenderQueue = new ArrayBlockingQueue<>(10_000);
+    Metrics.gaugeCollectionSize(name(getClass(), "receiptSenderQueue"), Collections.emptyList(), receiptSenderQueue);
 
     ScheduledExecutorService recurringJobExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "recurringJob-%d")).threads(6).build();
@@ -402,7 +405,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         allowCoreThreadTimeOut(true).
         build();
     ExecutorService receiptSenderExecutor = environment.lifecycle()
-        .executorService(name(getClass(), "receiptSender-%d")).maxThreads(16).minThreads(16).build();
+        .executorService(name(getClass(), "receiptSender-%d"))
+        .maxThreads(2)
+        .minThreads(2)
+        .workQueue(receiptSenderQueue)
+        .rejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy())
+        .build();
 
     StripeManager stripeManager = new StripeManager(config.getStripe().getApiKey(), stripeExecutor,
         config.getStripe().getIdempotencyKeyGenerator(), config.getStripe().getBoostDescription());
