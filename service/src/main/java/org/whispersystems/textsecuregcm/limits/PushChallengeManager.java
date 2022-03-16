@@ -23,6 +23,7 @@ import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.PushChallengeDynamoDb;
+import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 public class PushChallengeManager {
@@ -42,6 +43,7 @@ public class PushChallengeManager {
   private static final String PLATFORM_TAG_NAME = "platform";
   private static final String SENT_TAG_NAME = "sent";
   private static final String SUCCESS_TAG_NAME = "success";
+  private static final String SOURCE_COUNTRY_TAG_NAME = "sourceCountry";
 
   public PushChallengeManager(final APNSender apnSender, final GCMSender gcmSender,
       final PushChallengeDynamoDb pushChallengeDynamoDb) {
@@ -108,6 +110,7 @@ public class PushChallengeManager {
 
     Metrics.counter(CHALLENGE_ANSWERED_COUNTER_NAME,
         PLATFORM_TAG_NAME, platform,
+        SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account.getNumber()),
         SUCCESS_TAG_NAME, String.valueOf(success)).increment();
 
     return success;
