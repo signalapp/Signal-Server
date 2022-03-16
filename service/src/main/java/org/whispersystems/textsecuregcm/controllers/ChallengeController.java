@@ -68,7 +68,7 @@ public class ChallengeController {
           final String mostRecentProxy = ForwardedIpUtil.getMostRecentProxy(forwardedFor).orElseThrow();
 
           rateLimitChallengeManager.answerRecaptchaChallenge(auth.getAccount(), recaptchaChallengeRequest.getCaptcha(),
-              mostRecentProxy);
+              mostRecentProxy, userAgent);
 
         } catch (final NoSuchElementException e) {
           return Response.status(400).build();

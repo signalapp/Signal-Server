@@ -75,7 +75,7 @@ class RateLimitChallengeManagerTest {
     when(rateLimiters.getRecaptchaChallengeSuccessLimiter()).thenReturn(mock(RateLimiter.class));
     when(rateLimiters.getRateLimitResetLimiter()).thenReturn(mock(RateLimiter.class));
 
-    rateLimitChallengeManager.answerRecaptchaChallenge(account, "captcha", "10.0.0.1");
+    rateLimitChallengeManager.answerRecaptchaChallenge(account, "captcha", "10.0.0.1", "Test User-Agent");
 
     if (successfulChallenge) {
       verify(rateLimitChallengeListener).handleRateLimitChallengeAnswered(account);

@@ -6,12 +6,16 @@ import io.micrometer.core.instrument.Metrics;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import org.whispersystems.textsecuregcm.abuse.RateLimitChallengeListener;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.Util;
+import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 public class RateLimitChallengeManager {
 
@@ -54,16 +58,20 @@ public class RateLimitChallengeManager {
     }
   }
 
-  public void answerRecaptchaChallenge(final Account account, final String captcha, final String mostRecentProxyIp)
+  public void answerRecaptchaChallenge(final Account account, final String captcha, final String mostRecentProxyIp, final String userAgent)
       throws RateLimitExceededException {
 
     rateLimiters.getRecaptchaChallengeAttemptLimiter().validate(account.getUuid());
 
     final boolean challengeSuccess = recaptchaClient.verify(captcha, mostRecentProxyIp);
 
-    Metrics.counter(RECAPTCHA_ATTEMPT_COUNTER_NAME,
-        SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account.getNumber()),
-        SUCCESS_TAG_NAME, String.valueOf(challengeSuccess)).increment();
+    final Tags tags = Tags.of(
+        Tag.of(SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account.getNumber())),
+        Tag.of(SUCCESS_TAG_NAME, String.valueOf(challengeSuccess)),
+        UserAgentTagUtil.getPlatformTag(userAgent)
+    );
+
+    Metrics.counter(RECAPTCHA_ATTEMPT_COUNTER_NAME, tags).increment();
 
     if (challengeSuccess) {
       rateLimiters.getRecaptchaChallengeSuccessLimiter().validate(account.getUuid());
