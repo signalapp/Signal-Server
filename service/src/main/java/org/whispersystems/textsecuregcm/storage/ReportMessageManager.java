@@ -1,46 +1,42 @@
 package org.whispersystems.textsecuregcm.storage;
 
-import static com.codahale.metrics.MetricRegistry.name;
-
-import com.google.common.annotations.VisibleForTesting;
 import io.lettuce.core.RedisException;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
-import org.whispersystems.textsecuregcm.util.Util;
 
 public class ReportMessageManager {
 
-  @VisibleForTesting
-  static final String REPORT_COUNTER_NAME = name(ReportMessageManager.class, "reported");
-
   private final ReportMessageDynamoDb reportMessageDynamoDb;
   private final FaultTolerantRedisCluster rateLimitCluster;
-  private final MeterRegistry meterRegistry;
 
   private final Duration counterTtl;
+
+  private final List<ReportedMessageListener> reportedMessageListeners = new ArrayList<>();
 
   private static final Logger logger = LoggerFactory.getLogger(ReportMessageManager.class);
 
   public ReportMessageManager(final ReportMessageDynamoDb reportMessageDynamoDb,
       final FaultTolerantRedisCluster rateLimitCluster,
-      final MeterRegistry meterRegistry,
       final Duration counterTtl) {
 
     this.reportMessageDynamoDb = reportMessageDynamoDb;
     this.rateLimitCluster = rateLimitCluster;
-    this.meterRegistry = meterRegistry;
 
     this.counterTtl = counterTtl;
+  }
+
+  public void addListener(final ReportedMessageListener listener) {
+    this.reportedMessageListeners.add(listener);
   }
 
   public void store(String sourceNumber, UUID messageGuid) {
@@ -66,10 +62,13 @@ public class ReportMessageManager {
         connection.sync().expire(reportedSenderKey, counterTtl.toSeconds());
       });
 
-      Counter.builder(REPORT_COUNTER_NAME)
-          .tag("countryCode", Util.getCountryCode(sourceNumber))
-          .register(meterRegistry)
-          .increment();
+      reportedMessageListeners.forEach(listener -> {
+        try {
+          listener.handleMessageReported(sourceNumber, messageGuid, reporterUuid);
+        } catch (final Exception e) {
+          logger.error("Failed to notify listener of reported message", e);
+        }
+      });
     }
   }
 

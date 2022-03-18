@@ -23,8 +23,6 @@ import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 class ReportMessageManagerTest {
 
   private ReportMessageDynamoDb reportMessageDynamoDb;
-  private MeterRegistry meterRegistry;
-
   private ReportMessageManager reportMessageManager;
 
   @RegisterExtension
@@ -33,10 +31,9 @@ class ReportMessageManagerTest {
   @BeforeEach
   void setUp() {
     reportMessageDynamoDb = mock(ReportMessageDynamoDb.class);
-    meterRegistry = new SimpleMeterRegistry();
 
     reportMessageManager = new ReportMessageManager(reportMessageDynamoDb,
-        RATE_LIMIT_CLUSTER_EXTENSION.getRedisCluster(), meterRegistry, Duration.ofDays(1));
+        RATE_LIMIT_CLUSTER_EXTENSION.getRedisCluster(), Duration.ofDays(1));
   }
 
   @Test
@@ -65,24 +62,19 @@ class ReportMessageManagerTest {
     final UUID messageGuid = UUID.randomUUID();
     final UUID reporterUuid = UUID.randomUUID();
 
+    final ReportedMessageListener listener = mock(ReportedMessageListener.class);
+    reportMessageManager.addListener(listener);
+
     when(reportMessageDynamoDb.remove(any())).thenReturn(false);
     reportMessageManager.report(sourceNumber, messageGuid, reporterUuid);
 
-    assertEquals(0, getCounterTotal(ReportMessageManager.REPORT_COUNTER_NAME));
     assertEquals(0, reportMessageManager.getRecentReportCount(sourceNumber));
 
     when(reportMessageDynamoDb.remove(any())).thenReturn(true);
     reportMessageManager.report(sourceNumber, messageGuid, reporterUuid);
 
-    assertEquals(1, getCounterTotal(ReportMessageManager.REPORT_COUNTER_NAME));
     assertEquals(1, reportMessageManager.getRecentReportCount(sourceNumber));
-  }
-
-  private double getCounterTotal(final String counterName) {
-    return meterRegistry.find(counterName).counters().stream()
-        .map(Counter::count)
-        .reduce(Double::sum)
-        .orElse(0.0);
+    verify(listener).handleMessageReported(sourceNumber, messageGuid, reporterUuid);
   }
 
   @Test

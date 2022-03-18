@@ -16,7 +16,6 @@ import io.dropwizard.Application;
 import io.dropwizard.cli.EnvironmentCommand;
 import io.dropwizard.setup.Environment;
 import io.lettuce.core.resource.ClientResources;
-import io.micrometer.core.instrument.Metrics;
 import java.time.Clock;
 import java.util.Optional;
 import java.util.UUID;
@@ -184,7 +183,7 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
           configuration.getDynamoDbTables().getReportMessage().getTableName(),
           configuration.getReportMessageConfiguration().getReportTtl());
       ReportMessageManager reportMessageManager = new ReportMessageManager(reportMessageDynamoDb, rateLimitersCluster,
-          Metrics.globalRegistry, configuration.getReportMessageConfiguration().getCounterTtl());
+              configuration.getReportMessageConfiguration().getCounterTtl());
       MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, pushLatencyManager,
           reportMessageManager);
       DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
