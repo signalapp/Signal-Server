@@ -474,7 +474,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     SubscriptionManager subscriptionManager = new SubscriptionManager(
         config.getDynamoDbTables().getSubscriptions().getTableName(), dynamoDbAsyncClient);
 
-    ReportedMessageMetricsListener reportedMessageMetricsListener = new ReportedMessageMetricsListener();
+    ReportedMessageMetricsListener reportedMessageMetricsListener = new ReportedMessageMetricsListener(accountsManager);
     reportMessageManager.addListener(reportedMessageMetricsListener);
 
     AccountAuthenticator                  accountAuthenticator                  = new AccountAuthenticator(accountsManager);
