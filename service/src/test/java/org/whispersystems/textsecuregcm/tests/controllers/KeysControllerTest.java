@@ -570,10 +570,10 @@ class KeysControllerTest {
 
     Response response =
         resources.getJerseyTest()
-                 .target("/v2/keys")
-                 .request()
-                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
-                 .put(Entity.entity(preKeyState, MediaType.APPLICATION_JSON_TYPE));
+            .target("/v2/keys")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
+            .put(Entity.entity(preKeyState, MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(204);
 
@@ -588,5 +588,25 @@ class KeysControllerTest {
     verify(AuthHelper.DISABLED_ACCOUNT).setIdentityKey(eq("barbar"));
     verify(AuthHelper.DISABLED_DEVICE).setSignedPreKey(eq(signedPreKey));
     verify(accounts).update(eq(AuthHelper.DISABLED_ACCOUNT), any());
+  }
+
+  @Test
+  void putIdentityKeyNonPrimary() {
+    final PreKey       preKey       = new PreKey(31337, "foobar");
+    final SignedPreKey signedPreKey = new SignedPreKey(31338, "foobaz", "myvalidsig");
+    final String       identityKey  = "barbar";
+
+    List<PreKey> preKeys = List.of(preKey);
+
+    PreKeyState preKeyState = new PreKeyState(identityKey, signedPreKey, preKeys);
+
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v2/keys")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, 2L, AuthHelper.VALID_PASSWORD_3_LINKED))
+                 .put(Entity.entity(preKeyState, MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(403);
   }
 }

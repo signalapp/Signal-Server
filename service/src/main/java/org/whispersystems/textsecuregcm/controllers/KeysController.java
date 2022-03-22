@@ -20,6 +20,7 @@ import java.util.UUID;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.Consumes;
+import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.PUT;
@@ -92,15 +93,18 @@ public class KeysController {
     Device device = disabledPermittedAuth.getAuthenticatedDevice();
     boolean updateAccount = false;
 
-    if (!preKeys.getSignedPreKey().equals(device.getSignedPreKey())) {
-      updateAccount = true;
-    }
-
-    if (!preKeys.getIdentityKey().equals(account.getIdentityKey())) {
-      updateAccount = true;
-    }
-
     final boolean usePhoneNumberIdentity = usePhoneNumberIdentity(identityType);
+
+    if (!preKeys.getSignedPreKey().equals(usePhoneNumberIdentity ? device.getPhoneNumberIdentitySignedPreKey() : device.getSignedPreKey())) {
+      updateAccount = true;
+    }
+
+    if (!preKeys.getIdentityKey().equals(usePhoneNumberIdentity ? account.getPhoneNumberIdentityKey() : account.getIdentityKey())) {
+      updateAccount = true;
+      if (!device.isMaster()) {
+        throw new ForbiddenException();
+      }
+    }
 
     if (updateAccount) {
       account = accounts.update(account, a -> {
