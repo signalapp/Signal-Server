@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.auth;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 
 import java.util.List;
 
@@ -24,5 +25,10 @@ public class TurnToken {
     this.username = username;
     this.password = password;
     this.urls     = urls;
+  }
+
+  @VisibleForTesting
+  List<String> getUrls() {
+    return urls;
   }
 }

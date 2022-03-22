@@ -395,4 +395,46 @@ class DynamicConfigurationTest {
       assertThat(directoryReconcilerConfiguration.isEnabled()).isFalse();
     }
   }
+
+  @Test
+  void testParseTurnConfig() throws JsonProcessingException {
+    {
+      final String config = REQUIRED_CONFIG.concat("""
+          turn:
+            secret: bloop
+            uriConfigs:
+                - uris:
+                    - turn:test.org
+                  weight: -1
+           """);
+      assertThat(DynamicConfigurationManager.parseConfiguration(config, DynamicConfiguration.class)).isEmpty();
+    }
+    {
+      final String config = REQUIRED_CONFIG.concat("""
+          turn:
+            secret: bloop
+            uriConfigs:
+                - uris:
+                    - turn:test0.org
+                    - turn:test1.org
+                - uris:
+                    - turn:test2.org
+                  weight: 2
+                  enrolledNumbers:
+                    - +15555555555
+           """);
+      DynamicTurnConfiguration turnConfiguration = DynamicConfigurationManager
+          .parseConfiguration(config, DynamicConfiguration.class)
+          .orElseThrow()
+          .getTurnConfiguration();
+      assertThat(turnConfiguration.getSecret()).isEqualTo("bloop");
+      assertThat(turnConfiguration.getUriConfigs().get(0).getUris()).hasSize(2);
+      assertThat(turnConfiguration.getUriConfigs().get(1).getUris()).hasSize(1);
+      assertThat(turnConfiguration.getUriConfigs().get(0).getWeight()).isEqualTo(1);
+      assertThat(turnConfiguration.getUriConfigs().get(1).getWeight()).isEqualTo(2);
+      assertThat(turnConfiguration.getUriConfigs().get(1).getEnrolledNumbers()).containsExactly("+15555555555");
+
+    }
+
+  }
 }

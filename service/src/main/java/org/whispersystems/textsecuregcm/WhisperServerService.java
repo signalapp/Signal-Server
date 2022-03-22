@@ -484,7 +484,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     SmsSender                smsSender          = new SmsSender(twilioSmsSender);
     MessageSender            messageSender      = new MessageSender(apnFallbackManager, clientPresenceManager, messagesManager, gcmSender, apnSender, pushLatencyManager);
     ReceiptSender            receiptSender      = new ReceiptSender(accountsManager, messageSender, receiptSenderExecutor);
-    TurnTokenGenerator       turnTokenGenerator = new TurnTokenGenerator(config.getTurnConfiguration());
+    TurnTokenGenerator       turnTokenGenerator = new TurnTokenGenerator(dynamicConfigurationManager);
     RecaptchaClient recaptchaClient = new RecaptchaClient(
         config.getRecaptchaConfiguration().getProjectPath(),
         config.getRecaptchaConfiguration().getCredentialConfigurationJson(),

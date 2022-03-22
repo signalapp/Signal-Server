@@ -56,6 +56,10 @@ public class DynamicConfiguration {
   @Valid
   private DynamicUakMigrationConfiguration uakMigrationConfiguration = new DynamicUakMigrationConfiguration();
 
+  @JsonProperty
+  @Valid
+  private DynamicTurnConfiguration turn = new DynamicTurnConfiguration();
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -108,5 +112,9 @@ public class DynamicConfiguration {
   }
 
   public DynamicUakMigrationConfiguration getUakMigrationConfiguration() { return uakMigrationConfiguration; }
+
+  public DynamicTurnConfiguration getTurnConfiguration() {
+    return turn;
+  }
 
 }

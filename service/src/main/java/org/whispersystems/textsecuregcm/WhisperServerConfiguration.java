@@ -43,7 +43,6 @@ import org.whispersystems.textsecuregcm.configuration.SecureStorageServiceConfig
 import org.whispersystems.textsecuregcm.configuration.StripeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TestDeviceConfiguration;
-import org.whispersystems.textsecuregcm.configuration.TurnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
 import org.whispersystems.textsecuregcm.configuration.UnidentifiedDeliveryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.VoiceVerificationConfiguration;
@@ -167,11 +166,6 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private WebSocketConfiguration webSocket = new WebSocketConfiguration();
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private TurnConfiguration turn;
 
   @Valid
   @NotNull
@@ -343,10 +337,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public RateLimitsConfiguration getLimitsConfiguration() {
     return limits;
-  }
-
-  public TurnConfiguration getTurnConfiguration() {
-    return turn;
   }
 
   public GcmConfiguration getGcmConfiguration() {
