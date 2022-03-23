@@ -28,7 +28,6 @@ import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.asJson;
 import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixture;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.vdurmont.semver4j.Semver;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
@@ -86,6 +85,7 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class MessageControllerTest {
@@ -114,8 +114,6 @@ class MessageControllerTest {
   private static final ApnFallbackManager          apnFallbackManager          = mock(ApnFallbackManager.class);
   private static final ReportMessageManager reportMessageManager = mock(ReportMessageManager.class);
   private static final ExecutorService multiRecipientMessageExecutor = mock(ExecutorService.class);
-
-  private static final ObjectMapper mapper = new ObjectMapper();
 
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())
@@ -191,7 +189,7 @@ class MessageControllerTest {
 
     try {
       return Stream.of(
-        Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device.json"),
+        Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_single_device.json"),
                                       IncomingMessageList.class),
                       MediaType.APPLICATION_JSON_TYPE),
         Entity.entity(messageStream.toByteArray(), MultiDeviceMessageListProvider.MEDIA_TYPE)
@@ -242,7 +240,7 @@ class MessageControllerTest {
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .header("User-Agent", userAgentString)
-            .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_single_device_bad_type.json"), IncomingMessageList.class),
+            .put(Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_single_device_bad_type.json"), IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
 
     if (expectAcceptMessage) {
@@ -292,7 +290,7 @@ class MessageControllerTest {
             .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_null_message_in_list.json"), IncomingMessageList.class),
+            .put(Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_null_message_in_list.json"), IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
 
     assertThat("Bad request", response.getStatus(), is(equalTo(422)));
@@ -386,7 +384,7 @@ class MessageControllerTest {
 
     try {
       return Stream.of(
-        Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_extra_device.json"),
+        Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_extra_device.json"),
                                       IncomingMessageList.class),
                       MediaType.APPLICATION_JSON_TYPE),
         Entity.entity(messageStream.toByteArray(), MultiDeviceMessageListProvider.MEDIA_TYPE)
@@ -430,7 +428,7 @@ class MessageControllerTest {
 
     try {
       return Stream.of(
-        Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_multi_device.json"),
+        Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_multi_device.json"),
                                       IncomingMessageList.class),
                       MediaType.APPLICATION_JSON_TYPE),
         Entity.entity(messageStream.toByteArray(), MultiDeviceMessageListProvider.MEDIA_TYPE)
@@ -477,7 +475,7 @@ class MessageControllerTest {
 
     try {
       return Stream.of(
-        Entity.entity(mapper.readValue(jsonFixture("fixtures/current_message_registration_id.json"),
+        Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_registration_id.json"),
                                       IncomingMessageList.class),
                       MediaType.APPLICATION_JSON_TYPE),
         Entity.entity(messageStream.toByteArray(), MultiDeviceMessageListProvider.MEDIA_TYPE)
@@ -677,7 +675,7 @@ class MessageControllerTest {
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .header("User-Agent", "FIXME")
-            .put(Entity.entity(mapper.readValue(jsonFixture(payloadFilename), IncomingMessageList.class),
+            .put(Entity.entity(SystemMapper.getMapper().readValue(jsonFixture(payloadFilename), IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE));
 
     if (expectOk) {

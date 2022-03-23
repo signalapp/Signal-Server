@@ -24,9 +24,6 @@ public class IncomingMessage {
   @JsonProperty
   private final String content;
 
-  @JsonProperty
-  private long timestamp; // deprecated
-
   @JsonCreator
   public IncomingMessage(
       @JsonProperty("id") final int type,
