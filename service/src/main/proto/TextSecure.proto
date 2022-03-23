@@ -33,14 +33,14 @@ message Envelope {
 
   optional Type   type = 1;
   optional string source = 2;
-  optional string sourceUuid = 11;
-  optional uint32 sourceDevice = 7;
+  optional string source_uuid = 11;
+  optional uint32 source_device = 7;
   optional uint64 timestamp = 5;
   optional bytes  content = 8; // Contains an encrypted Content
-  optional string serverGuid = 9;
+  optional string server_guid = 9;
   optional uint64 server_timestamp = 10;
   optional bool ephemeral = 12; // indicates that the message should not be persisted if the recipient is offline
-  optional string destinationUuid = 13;
+  optional string destination_uuid = 13;
 }
 
 message ProvisioningUuid {
@@ -60,10 +60,10 @@ message ServerCertificate {
 message SenderCertificate {
     message Certificate {
         optional string            sender        = 1;
-        optional string            senderUuid    = 6;
-        optional uint32            senderDevice  = 2;
+        optional string            sender_uuid   = 6;
+        optional uint32            sender_device = 2;
         optional fixed64           expires       = 3;
-        optional bytes             identityKey   = 4;
+        optional bytes             identity_key  = 4;
         optional ServerCertificate signer        = 5;
     }
 
