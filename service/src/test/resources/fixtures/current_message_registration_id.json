@@ -3,14 +3,14 @@
         "type" : 1,
         "destinationDeviceId" : 1,
         "destinationRegistrationId" : 222,
-        "body" : "Zm9vYmFyego",
+        "content" : "Zm9vYmFyego",
         "timestamp" : 1234
     },
     {
         "type" : 1,
         "destinationDeviceId" : 2,
         "destinationRegistrationId" : 999,
-        "body" : "Zm9vYmFyego",
+        "content" : "Zm9vYmFyego",
         "timestamp" : 1234
     }]
 }

@@ -41,13 +41,11 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   private static final String LOCAL_INDEX_MESSAGE_UUID_KEY_SORT = "U";
 
   private static final String KEY_TYPE = "T";
-  private static final String KEY_RELAY = "R";
   private static final String KEY_TIMESTAMP = "TS";
   private static final String KEY_SOURCE = "SN";
   private static final String KEY_SOURCE_UUID = "SU";
   private static final String KEY_SOURCE_DEVICE = "SD";
   private static final String KEY_DESTINATION_UUID = "DU";
-  private static final String KEY_MESSAGE = "M";
   private static final String KEY_CONTENT = "C";
   private static final String KEY_TTL = "E";
 
@@ -90,9 +88,6 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
 
       item.put(KEY_DESTINATION_UUID, AttributeValues.fromUUID(UUID.fromString(message.getDestinationUuid())));
 
-      if (message.hasRelay() && message.getRelay().length() > 0) {
-        item.put(KEY_RELAY, AttributeValues.fromString(message.getRelay()));
-      }
       if (message.hasSource()) {
         item.put(KEY_SOURCE, AttributeValues.fromString(message.getSource()));
       }
@@ -101,9 +96,6 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
       }
       if (message.hasSourceDevice()) {
         item.put(KEY_SOURCE_DEVICE, AttributeValues.fromInt(message.getSourceDevice()));
-      }
-      if (message.hasLegacyMessage()) {
-        item.put(KEY_MESSAGE, AttributeValues.fromByteArray(message.getLegacyMessage().toByteArray()));
       }
       if (message.hasContent()) {
         item.put(KEY_CONTENT, AttributeValues.fromByteArray(message.getContent().toByteArray()));
@@ -223,15 +215,13 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     final SortKey sortKey = convertSortKey(message.get(KEY_SORT).b().asByteArray());
     final UUID messageUuid = convertLocalIndexMessageUuidSortKey(message.get(LOCAL_INDEX_MESSAGE_UUID_KEY_SORT).b().asByteArray());
     final int type = AttributeValues.getInt(message, KEY_TYPE, 0);
-    final String relay = AttributeValues.getString(message, KEY_RELAY, null);
     final long timestamp = AttributeValues.getLong(message, KEY_TIMESTAMP, 0L);
     final String source = AttributeValues.getString(message, KEY_SOURCE, null);
     final UUID sourceUuid = AttributeValues.getUUID(message, KEY_SOURCE_UUID, null);
     final int sourceDevice = AttributeValues.getInt(message, KEY_SOURCE_DEVICE, 0);
     final UUID destinationUuid = AttributeValues.getUUID(message, KEY_DESTINATION_UUID, null);
-    final byte[] messageBytes = AttributeValues.getByteArray(message, KEY_MESSAGE, null);
     final byte[] content = AttributeValues.getByteArray(message, KEY_CONTENT, null);
-    return new OutgoingMessageEntity(messageUuid, type, relay, timestamp, source, sourceUuid, sourceDevice, destinationUuid, messageBytes, content, sortKey.getServerTimestamp());
+    return new OutgoingMessageEntity(messageUuid, type, timestamp, source, sourceUuid, sourceDevice, destinationUuid, content, sortKey.getServerTimestamp());
   }
 
   private void deleteRowsMatchingQuery(AttributeValue partitionKey, QueryRequest querySpec) {

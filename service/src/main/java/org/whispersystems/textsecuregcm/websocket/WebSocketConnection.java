@@ -326,16 +326,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
           }
         }
 
-        if (message.getMessage() != null) {
-          builder.setLegacyMessage(ByteString.copyFrom(message.getMessage()));
-        }
-
         if (message.getContent() != null) {
           builder.setContent(ByteString.copyFrom(message.getContent()));
-        }
-
-        if (message.getRelay() != null && !message.getRelay().isEmpty()) {
-          builder.setRelay(message.getRelay());
         }
 
         builder.setDestinationUuid(message.getDestinationUuid().toString());

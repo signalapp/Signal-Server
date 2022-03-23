@@ -172,10 +172,8 @@ class MessagesDynamoDbTest {
     assertThat(retrieved.getSource()).isEqualTo(inserted.hasSource() ? inserted.getSource() : null);
     assertThat(retrieved.getSourceUuid()).isEqualTo(inserted.hasSourceUuid() ? UUID.fromString(inserted.getSourceUuid()) : null);
     assertThat(retrieved.getSourceDevice()).isEqualTo(inserted.getSourceDevice());
-    assertThat(retrieved.getRelay()).isEqualTo(inserted.hasRelay() ? inserted.getRelay() : null);
     assertThat(retrieved.getType()).isEqualTo(inserted.getType().getNumber());
     assertThat(retrieved.getContent()).isEqualTo(inserted.hasContent() ? inserted.getContent().toByteArray() : null);
-    assertThat(retrieved.getMessage()).isEqualTo(inserted.hasLegacyMessage() ? inserted.getLegacyMessage().toByteArray() : null);
     assertThat(retrieved.getServerTimestamp()).isEqualTo(inserted.getServerTimestamp());
     assertThat(retrieved.getGuid()).isEqualTo(UUID.fromString(inserted.getServerGuid()));
     assertThat(retrieved.getDestinationUuid()).isEqualTo(UUID.fromString(inserted.getDestinationUuid()));

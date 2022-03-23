@@ -198,10 +198,6 @@ public class MessageController {
         contentLength += message.getContent().length();
       }
 
-      if (!Util.isEmpty(message.getBody())) {
-        contentLength += message.getBody().length();
-      }
-
       validateContentLength(contentLength, userAgent);
       validateEnvelopeType(message.getType(), userAgent);
     }
@@ -529,9 +525,7 @@ public class MessageController {
 
     for (final OutgoingMessageEntity message : messageList.getMessages()) {
       size += message.getContent() == null      ? 0 : message.getContent().length;
-      size += message.getMessage() == null      ? 0 : message.getMessage().length;
       size += Util.isEmpty(message.getSource()) ? 0 : message.getSource().length();
-      size += Util.isEmpty(message.getRelay())  ? 0 : message.getRelay().length();
     }
 
     return size;
@@ -582,7 +576,6 @@ public class MessageController {
       String userAgentString)
       throws NoSuchUserException {
     try {
-      Optional<byte[]> messageBody = getMessageBody(incomingMessage);
       Optional<byte[]> messageContent = getMessageContent(incomingMessage);
       Envelope.Builder messageBuilder = Envelope.newBuilder();
 
@@ -618,11 +611,6 @@ public class MessageController {
           messageBuilder.setSource(authenticatedAccount.getAccount().getNumber())
               .setSourceUuid(authenticatedAccount.getAccount().getUuid().toString())
               .setSourceDevice((int) authenticatedAccount.getAuthenticatedDevice().getId()));
-
-      messageBody.ifPresent(bytes -> {
-        Metrics.counter(LEGACY_MESSAGE_SENT_COUNTER).increment();
-        messageBuilder.setLegacyMessage(ByteString.copyFrom(messageBody.get()));
-      });
 
       messageContent.ifPresent(bytes -> messageBuilder.setContent(ByteString.copyFrom(bytes)));
 
@@ -795,17 +783,6 @@ public class MessageController {
               Tags.of(UserAgentTagUtil.getPlatformTag(userAgent), Tag.of(ENVELOPE_TYPE_TAG_NAME, String.valueOf(type))))
           .increment();
       throw new BadRequestException("reserved envelope type");
-    }
-  }
-
-  private Optional<byte[]> getMessageBody(IncomingMessage message) {
-    if (Util.isEmpty(message.getBody())) return Optional.empty();
-
-    try {
-      return Optional.of(Base64.getDecoder().decode(message.getBody()));
-    } catch (IllegalArgumentException e) {
-      logger.debug("Bad B64", e);
-      return Optional.empty();
     }
   }
 

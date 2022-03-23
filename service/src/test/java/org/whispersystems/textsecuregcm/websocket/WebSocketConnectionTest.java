@@ -287,7 +287,6 @@ class WebSocketConnectionTest {
     final UUID senderTwoUuid = UUID.randomUUID();
 
     final Envelope firstMessage = Envelope.newBuilder()
-                                    .setLegacyMessage(ByteString.copyFrom("first".getBytes()))
                                     .setSource("sender1")
                                     .setSourceUuid(UUID.randomUUID().toString())
                                     .setDestinationUuid(UUID.randomUUID().toString())
@@ -297,7 +296,6 @@ class WebSocketConnectionTest {
                                     .build();
 
     final Envelope secondMessage = Envelope.newBuilder()
-                                     .setLegacyMessage(ByteString.copyFrom("second".getBytes()))
                                      .setSource("sender2")
                                      .setSourceUuid(senderTwoUuid.toString())
                                      .setDestinationUuid(UUID.randomUUID().toString())
@@ -307,13 +305,13 @@ class WebSocketConnectionTest {
                                      .build();
 
     List<OutgoingMessageEntity> pendingMessages     = new LinkedList<OutgoingMessageEntity>() {{
-      add(new OutgoingMessageEntity(UUID.randomUUID(), firstMessage.getType().getNumber(), firstMessage.getRelay(),
+      add(new OutgoingMessageEntity(UUID.randomUUID(), firstMessage.getType().getNumber(),
                                     firstMessage.getTimestamp(), firstMessage.getSource(), UUID.fromString(firstMessage.getSourceUuid()),
-                                    firstMessage.getSourceDevice(), UUID.fromString(firstMessage.getDestinationUuid()), firstMessage.getLegacyMessage().toByteArray(),
+                                    firstMessage.getSourceDevice(), UUID.fromString(firstMessage.getDestinationUuid()),
                                     firstMessage.getContent().toByteArray(), 0));
-      add(new OutgoingMessageEntity(UUID.randomUUID(), secondMessage.getType().getNumber(), secondMessage.getRelay(),
+      add(new OutgoingMessageEntity(UUID.randomUUID(), secondMessage.getType().getNumber(),
                                     secondMessage.getTimestamp(), secondMessage.getSource(), UUID.fromString(secondMessage.getSourceUuid()),
-                                    secondMessage.getSourceDevice(), UUID.fromString(secondMessage.getDestinationUuid()), secondMessage.getLegacyMessage().toByteArray(),
+                                    secondMessage.getSourceDevice(), UUID.fromString(secondMessage.getDestinationUuid()),
                                     secondMessage.getContent().toByteArray(), 0));
     }};
 
@@ -897,7 +895,7 @@ class WebSocketConnectionTest {
 
   private OutgoingMessageEntity createMessage(String sender, UUID senderUuid, UUID destinationUuid, long timestamp, boolean receipt, String content) {
     return new OutgoingMessageEntity(UUID.randomUUID(), receipt ? Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE : Envelope.Type.CIPHERTEXT_VALUE,
-                                     null, timestamp, sender, senderUuid, 1, destinationUuid, content.getBytes(), null, 0);
+                                     timestamp, sender, senderUuid, 1, destinationUuid, content.getBytes(), 0);
   }
 
 }

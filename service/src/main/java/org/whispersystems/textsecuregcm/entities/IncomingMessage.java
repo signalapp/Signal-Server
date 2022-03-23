@@ -22,13 +22,7 @@ public class IncomingMessage {
   private final int destinationRegistrationId;
 
   @JsonProperty
-  private final String body;
-
-  @JsonProperty
   private final String content;
-
-  @JsonProperty
-  private final String relay;
 
   @JsonProperty
   private long timestamp; // deprecated
@@ -39,32 +33,20 @@ public class IncomingMessage {
       @JsonProperty("destination") final String destination,
       @JsonProperty("destinationDeviceId") final long destinationDeviceId,
       @JsonProperty("destinationRegistrationId") final int destinationRegistrationId,
-      @JsonProperty("body") final String body,
-      @JsonProperty("content") final String content,
-      @JsonProperty("relay") final String relay) {
+      @JsonProperty("content") final String content) {
     this.type = type;
     this.destination = destination;
     this.destinationDeviceId = destinationDeviceId;
     this.destinationRegistrationId = destinationRegistrationId;
-    this.body = body;
     this.content = content;
-    this.relay = relay;
   }
 
   public String getDestination() {
     return destination;
   }
 
-  public String getBody() {
-    return body;
-  }
-
   public int getType() {
     return type;
-  }
-
-  public String getRelay() {
-    return relay;
   }
 
   public long getDestinationDeviceId() {
