@@ -25,7 +25,7 @@ import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
+import org.signal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;

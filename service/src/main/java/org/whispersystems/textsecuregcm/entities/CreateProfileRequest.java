@@ -14,7 +14,7 @@ import javax.annotation.Nullable;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import org.apache.commons.lang3.StringUtils;
-import org.signal.libsignal.zkgroup.profiles.ProfileKeyCommitment;
+import org.signal.zkgroup.profiles.ProfileKeyCommitment;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 public class CreateProfileRequest {
