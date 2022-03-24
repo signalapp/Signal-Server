@@ -14,7 +14,7 @@ import java.security.InvalidKeyException;
 import java.util.Base64;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
-import org.signal.libsignal.protocol.ecc.Curve;
+import org.whispersystems.textsecuregcm.crypto.Curve;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 

@@ -44,6 +44,11 @@
       <artifactId>libsignal-server</artifactId>
       <version>0.15.0</version>
     </dependency>
+    <dependency>
+      <groupId>org.whispersystems</groupId>
+      <artifactId>curve25519-java</artifactId>
+      <version>0.5.0</version>
+    </dependency>
 
     <dependency>
       <groupId>io.dropwizard</groupId>
