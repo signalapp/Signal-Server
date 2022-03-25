@@ -61,11 +61,11 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import org.apache.commons.lang3.StringUtils;
-import org.signal.zkgroup.InvalidInputException;
-import org.signal.zkgroup.VerificationFailedException;
-import org.signal.zkgroup.receipts.ReceiptCredentialRequest;
-import org.signal.zkgroup.receipts.ReceiptCredentialResponse;
-import org.signal.zkgroup.receipts.ServerZkReceiptOperations;
+import org.signal.libsignal.zkgroup.InvalidInputException;
+import org.signal.libsignal.zkgroup.VerificationFailedException;
+import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
+import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
+import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
@@ -720,7 +720,7 @@ public class SubscriptionController {
       this.receiptCredentialRequest = receiptCredentialRequest;
     }
 
-    @ExactlySize(ReceiptCredentialRequest.SIZE)
+    @NotEmpty
     public byte[] getReceiptCredentialRequest() {
       return receiptCredentialRequest;
     }
@@ -736,7 +736,7 @@ public class SubscriptionController {
       this.receiptCredentialResponse = receiptCredentialResponse;
     }
 
-    @ExactlySize(ReceiptCredentialResponse.SIZE)
+    @NotEmpty
     public byte[] getReceiptCredentialResponse() {
       return receiptCredentialResponse;
     }

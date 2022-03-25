@@ -9,7 +9,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import javax.annotation.Nullable;
-import org.signal.zkgroup.profiles.PniCredentialResponse;
+import org.signal.libsignal.zkgroup.profiles.PniCredentialResponse;
 
 public class PniCredentialProfileResponse extends CredentialProfileResponse {
 

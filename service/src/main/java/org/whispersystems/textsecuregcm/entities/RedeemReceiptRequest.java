@@ -8,7 +8,7 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.validation.constraints.NotEmpty;
-import org.signal.zkgroup.receipts.ReceiptCredentialPresentation;
+import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 public class RedeemReceiptRequest {
@@ -28,7 +28,6 @@ public class RedeemReceiptRequest {
   }
 
   @NotEmpty
-  @ExactlySize({ReceiptCredentialPresentation.SIZE})
   public byte[] getReceiptCredentialPresentation() {
     return receiptCredentialPresentation;
   }

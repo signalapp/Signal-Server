@@ -7,8 +7,8 @@ package org.whispersystems.textsecuregcm.workers;
 
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
-import org.signal.zkgroup.ServerPublicParams;
-import org.signal.zkgroup.ServerSecretParams;
+import org.signal.libsignal.zkgroup.ServerPublicParams;
+import org.signal.libsignal.zkgroup.ServerSecretParams;
 
 import io.dropwizard.cli.Command;
 import io.dropwizard.setup.Bootstrap;

@@ -18,7 +18,7 @@ import org.assertj.core.api.Condition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.signal.zkgroup.receipts.ReceiptCredentialRequest;
+import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
@@ -56,7 +56,7 @@ class IssuedReceiptsManagerTest {
   @Test
   void testRecordIssuance() {
     Instant now = Instant.ofEpochSecond(NOW_EPOCH_SECONDS);
-    byte[] request1 = new byte[ReceiptCredentialRequest.SIZE];
+    byte[] request1 = new byte[20];
     SECURE_RANDOM.nextBytes(request1);
     when(receiptCredentialRequest.serialize()).thenReturn(request1);
     CompletableFuture<Void> future = issuedReceiptsManager.recordIssuance("item-1", receiptCredentialRequest, now);
@@ -67,7 +67,7 @@ class IssuedReceiptsManagerTest {
     assertThat(future).succeedsWithin(Duration.ofSeconds(3));
 
     // same item with new request should fail
-    byte[] request2 = new byte[ReceiptCredentialRequest.SIZE];
+    byte[] request2 = new byte[20];
     SECURE_RANDOM.nextBytes(request2);
     when(receiptCredentialRequest.serialize()).thenReturn(request2);
     future = issuedReceiptsManager.recordIssuance("item-1", receiptCredentialRequest, now);
