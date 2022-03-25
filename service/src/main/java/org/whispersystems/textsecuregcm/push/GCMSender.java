@@ -135,7 +135,7 @@ public class GCMSender {
   }
 
   private void handleGenericError(GcmMessage message, Result result) {
-    logger.warn("Unrecoverable Error ::: (error={}}), (gcm_id={}}), (destination={}}), (device_id={}})",
+    logger.debug("Unrecoverable Error ::: (error={}}), (gcm_id={}}), (destination={}}), (device_id={}})",
         result.getError(), message.getGcmId(), message.getUuid(), message.getDeviceId());
 
     Metrics.counter(DOWNSTREAM_ERROR_COUNTER_NAME, "code", result.getError()).increment();
