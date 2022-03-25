@@ -17,6 +17,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.gcm.server.Message;
@@ -39,6 +40,8 @@ public class GCMSender {
   private final Meter          failure        = metricRegistry.meter(name(getClass(), "sent", "failure"));
   private final Meter          unregistered   = metricRegistry.meter(name(getClass(), "sent", "unregistered"));
   private final Meter          canonical      = metricRegistry.meter(name(getClass(), "sent", "canonical"));
+
+  private final String DOWNSTREAM_ERROR_COUNTER_NAME = name(GCMSender.class, "downstreamError");
 
   private final Map<String, Meter> outboundMeters = new HashMap<>() {{
     put("receipt", metricRegistry.meter(name(getClass(), "outbound", "receipt")));
@@ -135,6 +138,7 @@ public class GCMSender {
     logger.warn("Unrecoverable Error ::: (error={}}), (gcm_id={}}), (destination={}}), (device_id={}})",
         result.getError(), message.getGcmId(), message.getUuid(), message.getDeviceId());
 
+    Metrics.counter(DOWNSTREAM_ERROR_COUNTER_NAME, "code", result.getError()).increment();
     failure.mark();
   }
 
