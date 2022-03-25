@@ -43,7 +43,7 @@ public class KeepAliveController {
       @WebSocketSession WebSocketSessionContext context) {
     if (auth != null) {
       if (!clientPresenceManager.isLocallyPresent(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId())) {
-        logger.warn("***** No local subscription found for {}::{}; age = {}ms, User-Agent = {}",
+        logger.debug("***** No local subscription found for {}::{}; age = {}ms, User-Agent = {}",
             auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId(),
             System.currentTimeMillis() - context.getClient().getCreatedTimestamp(),
             context.getClient().getUserAgent());
