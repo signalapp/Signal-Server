@@ -266,6 +266,11 @@
         <scope>test</scope>
       </dependency>
       <dependency>
+        <groupId>org.signal</groupId>
+        <artifactId>libsignal-server</artifactId>
+        <version>0.15.1</version>
+      </dependency>
+      <dependency>
         <groupId>io.zonky.test.postgres</groupId>
         <artifactId>embedded-postgres-binaries-bom</artifactId>
         <version>11.13.0</version>

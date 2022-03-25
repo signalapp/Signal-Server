@@ -42,7 +42,6 @@
     <dependency>
       <groupId>org.signal</groupId>
       <artifactId>libsignal-server</artifactId>
-      <version>0.15.0</version>
     </dependency>
 
     <dependency>
