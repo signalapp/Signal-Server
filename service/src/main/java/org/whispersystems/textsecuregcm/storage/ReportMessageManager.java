@@ -1,9 +1,11 @@
+/*
+ * Copyright 2021-2022 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.storage;
 
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
-
 import io.lettuce.core.RedisException;
-import io.micrometer.core.instrument.Metrics;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -19,8 +21,6 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 public class ReportMessageManager {
-
-  private static final String MIGRATION_COUNTER_NAME = name(ReportMessageManager.class, "migration");
 
   private final ReportMessageDynamoDb reportMessageDynamoDb;
   private final FaultTolerantRedisCluster rateLimitCluster;
@@ -59,21 +59,11 @@ public class ReportMessageManager {
   public void report(Optional<String> sourceNumber, Optional<UUID> sourceAci, Optional<UUID> sourcePni,
       UUID messageGuid, UUID reporterUuid) {
 
-    // TODO sourceNumber can be removed after 2022-04-15
-    final boolean foundByNumber = sourceNumber.map(number -> reportMessageDynamoDb.remove(hash(messageGuid, number)))
+    final boolean found = sourceAci.map(uuid -> reportMessageDynamoDb.remove(hash(messageGuid, uuid.toString())))
         .orElse(false);
 
-    final boolean foundByAci = sourceAci.map(uuid -> reportMessageDynamoDb.remove(hash(messageGuid, uuid.toString()))).
-        orElse(false);
-
-    if (foundByNumber || foundByAci) {
+    if (found) {
       rateLimitCluster.useCluster(connection -> {
-        sourceNumber.ifPresent(number -> {
-          final String reportedSenderKey = getReportedSenderKey(number);
-          connection.sync().pfadd(reportedSenderKey, reporterUuid.toString());
-          connection.sync().expire(reportedSenderKey, counterTtl.toSeconds());
-        });
-
         sourcePni.ifPresent(pni -> {
           final String reportedSenderKey = getReportedSenderPniKey(pni);
           connection.sync().pfadd(reportedSenderKey, reporterUuid.toString());
@@ -96,15 +86,6 @@ public class ReportMessageManager {
             }
           }));
     }
-
-    Metrics.counter(
-        MIGRATION_COUNTER_NAME,
-        "foundByNumber", String.valueOf(foundByNumber),
-        "foundByAci", String.valueOf(foundByAci),
-        "sourceAciPresent", String.valueOf(sourceAci.isPresent()),
-        "sourcePniPresent", String.valueOf(sourcePni.isPresent()),
-        "sourceNumberPresent", String.valueOf(sourceNumber.isPresent())
-    ).increment();
   }
 
   /**
@@ -120,11 +101,7 @@ public class ReportMessageManager {
       return rateLimitCluster.withCluster(
           connection ->
               Math.max(
-                  Math.max(
-                      // TODO number can be removed after 2022-04-15
-                      connection.sync().pfcount(getReportedSenderKey(account.getNumber())).intValue(),
-                      connection.sync().pfcount(getReportedSenderPniKey(account.getPhoneNumberIdentifier()))
-                          .intValue()),
+                  connection.sync().pfcount(getReportedSenderPniKey(account.getPhoneNumberIdentifier())).intValue(),
                   connection.sync().pfcount(getReportedSenderAciKey(account.getUuid())).intValue()));
     } catch (final RedisException e) {
       return 0;
@@ -143,10 +120,6 @@ public class ReportMessageManager {
     sha256.update(otherId.getBytes(StandardCharsets.UTF_8));
 
     return sha256.digest();
-  }
-
-  private static String getReportedSenderKey(final String senderNumber) {
-    return "reported_number::" + senderNumber;
   }
 
   private static String getReportedSenderAciKey(final UUID aci) {

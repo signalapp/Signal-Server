@@ -126,7 +126,7 @@ class ReportMessageManagerTest {
     assertEquals(0, reportMessageManager.getRecentReportCount(sourceAccount));
 
     for (int i = 0; i < 100; i++) {
-      reportMessageManager.report(Optional.of(sourceNumber), Optional.empty(), Optional.of(sourcePni),
+      reportMessageManager.report(Optional.empty(), Optional.of(sourceAci), Optional.of(sourcePni),
           messageGuid, UUID.randomUUID());
     }
 
