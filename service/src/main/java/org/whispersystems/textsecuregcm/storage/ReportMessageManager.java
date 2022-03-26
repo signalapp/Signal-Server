@@ -45,14 +45,11 @@ public class ReportMessageManager {
     this.reportedMessageListeners.add(listener);
   }
 
-  // TODO sourceNumber can be removed after 2022-04-01
-  public void store(String sourceNumber, String sourceAci, UUID messageGuid) {
+  public void store(String sourceAci, UUID messageGuid) {
 
     try {
-      Objects.requireNonNull(sourceNumber);
       Objects.requireNonNull(sourceAci);
 
-      reportMessageDynamoDb.store(hash(messageGuid, sourceNumber));
       reportMessageDynamoDb.store(hash(messageGuid, sourceAci));
     } catch (final Exception e) {
       logger.warn("Failed to store hash", e);
@@ -93,7 +90,6 @@ public class ReportMessageManager {
       sourceNumber.ifPresent(number ->
           reportedMessageListeners.forEach(listener -> {
             try {
-              // TODO should listener take the source Aci?
               listener.handleMessageReported(number, messageGuid, reporterUuid);
             } catch (final Exception e) {
               logger.error("Failed to notify listener of reported message", e);

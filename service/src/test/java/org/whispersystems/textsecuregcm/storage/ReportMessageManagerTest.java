@@ -1,3 +1,8 @@
+/*
+ * Copyright 2021-2022 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -6,7 +11,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -56,18 +60,18 @@ class ReportMessageManagerTest {
 
   @Test
   void testStore() {
-    assertDoesNotThrow(() -> reportMessageManager.store(null, null, messageGuid));
+    assertDoesNotThrow(() -> reportMessageManager.store(null, messageGuid));
 
     verifyNoInteractions(reportMessageDynamoDb);
 
-    reportMessageManager.store(sourceNumber, sourceAci.toString(), messageGuid);
+    reportMessageManager.store(sourceAci.toString(), messageGuid);
 
-    verify(reportMessageDynamoDb, times(2)).store(any());
+    verify(reportMessageDynamoDb).store(any());
 
     doThrow(RuntimeException.class)
         .when(reportMessageDynamoDb).store(any());
 
-    assertDoesNotThrow(() -> reportMessageManager.store(sourceNumber, sourceAci.toString(), messageGuid));
+    assertDoesNotThrow(() -> reportMessageManager.store(sourceAci.toString(), messageGuid));
   }
 
   @Test

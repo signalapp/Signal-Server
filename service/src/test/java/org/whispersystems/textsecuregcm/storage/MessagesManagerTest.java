@@ -1,3 +1,8 @@
+/*
+ * Copyright 2021-2022 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -34,7 +39,7 @@ class MessagesManagerTest {
 
     messagesManager.insert(destinationUuid, 1L, message);
 
-    verify(reportMessageManager).store(eq(sourceNumber), eq(sourceAci.toString()), any(UUID.class));
+    verify(reportMessageManager).store(eq(sourceAci.toString()), any(UUID.class));
 
     final Envelope syncMessage = Envelope.newBuilder(message)
         .setSourceUuid(destinationUuid.toString())

@@ -56,12 +56,8 @@ public class MessagesManager {
 
     messagesCache.insert(messageGuid, destinationUuid, destinationDevice, message);
 
-    if (message.hasSource() && !destinationUuid.toString().equals(message.getSourceUuid())) {
-      if (message.hasSourceUuid()) {
-        reportMessageManager.store(message.getSource(), message.getSourceUuid(), messageGuid);
-      } else {
-        logger.warn("Message missing source UUID");
-      }
+    if (message.hasSourceUuid() && !destinationUuid.toString().equals(message.getSourceUuid())) {
+      reportMessageManager.store(message.getSourceUuid(), messageGuid);
     }
   }
 
