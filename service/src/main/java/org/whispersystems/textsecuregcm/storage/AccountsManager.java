@@ -80,8 +80,9 @@ public class AccountsManager {
   private final SecureStorageClient secureStorageClient;
   private final SecureBackupClient secureBackupClient;
   private final ClientPresenceManager clientPresenceManager;
-  private final ObjectMapper mapper;
   private final Clock clock;
+
+  private static final ObjectMapper mapper = SystemMapper.getMapper();
 
   // An account that's used at least daily will get reset in the cache at least once per day when its "last seen"
   // timestamp updates; expiring entries after two days will help clear out "zombie" cache entries that are read
@@ -133,7 +134,6 @@ public class AccountsManager {
     this.secureBackupClient  = secureBackupClient;
     this.clientPresenceManager = clientPresenceManager;
     this.reservedUsernames = reservedUsernames;
-    this.mapper              = SystemMapper.getMapper();
     this.clock = Objects.requireNonNull(clock);
   }
 
@@ -254,7 +254,8 @@ public class AccountsManager {
             account,
             a -> true,
             a -> accounts.changeNumber(a, number, phoneNumberIdentifier),
-            () -> accounts.getByAccountIdentifier(uuid).orElseThrow());
+            () -> accounts.getByAccountIdentifier(uuid).orElseThrow(),
+            AccountChangeValidator.NUMBER_CHANGE_VALIDATOR);
       } catch (UsernameNotAvailableException e) {
         // This should never happen when changing numbers
         throw new RuntimeException(e);
@@ -289,7 +290,8 @@ public class AccountsManager {
         account,
         a -> true,
         a -> accounts.setUsername(a, canonicalUsername),
-        () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow());
+        () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
+        AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
   }
 
   public Account clearUsername(final Account account) {
@@ -300,7 +302,8 @@ public class AccountsManager {
           account,
           a -> true,
           accounts::clearUsername,
-          () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow());
+          () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
+          AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
     } catch (UsernameNotAvailableException e) {
       // This should never happen
       throw new RuntimeException(e);
@@ -364,35 +367,12 @@ public class AccountsManager {
       redisDelete(account);
 
       final UUID uuid = account.getUuid();
-      final String originalNumber = account.getNumber();
-      final UUID originalPhoneNumberIdentifier = account.getPhoneNumberIdentifier();
-      final Optional<String> originalUsername = account.getUsername();
 
       updatedAccount = updateWithRetries(account,
           updater,
           accounts::update,
-          () -> accounts.getByAccountIdentifier(uuid).orElseThrow());
-
-      assert updatedAccount.getNumber().equals(originalNumber);
-
-      if (!updatedAccount.getNumber().equals(originalNumber)) {
-        logger.error("Account number changed via \"normal\" update; numbers must be changed via changeNumber method",
-            new RuntimeException());
-      }
-
-      assert updatedAccount.getPhoneNumberIdentifier().equals(originalPhoneNumberIdentifier);
-
-      if (!updatedAccount.getPhoneNumberIdentifier().equals(originalPhoneNumberIdentifier)) {
-        logger.error("Phone number identifier changed via \"normal\" update; PNIs must be changed via changeNumber method",
-            new RuntimeException());
-      }
-
-      assert updatedAccount.getUsername().equals(originalUsername);
-
-      if (!updatedAccount.getUsername().equals(originalUsername)) {
-        logger.error("Username changed via \"normal\" update; usernames must be changed via setUsername method",
-            new RuntimeException());
-      }
+          () -> accounts.getByAccountIdentifier(uuid).orElseThrow(),
+          AccountChangeValidator.GENERAL_CHANGE_VALIDATOR);
 
       redisSet(updatedAccount);
     }
@@ -406,8 +386,13 @@ public class AccountsManager {
     return updatedAccount;
   }
 
-  private Account updateWithRetries(Account account, Function<Account, Boolean> updater, AccountPersister persister,
-      Supplier<Account> retriever) throws UsernameNotAvailableException {
+  private Account updateWithRetries(Account account,
+      final Function<Account, Boolean> updater,
+      final AccountPersister persister,
+      final Supplier<Account> retriever,
+      final AccountChangeValidator changeValidator) throws UsernameNotAvailableException {
+
+    Account originalAccount = cloneAccount(account);
 
     if (!updater.apply(account)) {
       return account;
@@ -421,21 +406,17 @@ public class AccountsManager {
       try {
         persister.persistAccount(account);
 
-        final Account updatedAccount;
-        try {
-          updatedAccount = mapper.readValue(mapper.writeValueAsBytes(account), Account.class);
-          updatedAccount.setUuid(account.getUuid());
-        } catch (final IOException e) {
-          // this should really, truly, never happen
-          throw new IllegalArgumentException(e);
-        }
-
+        final Account updatedAccount = cloneAccount(account);
         account.markStale();
+
+        changeValidator.validateChange(originalAccount, updatedAccount);
 
         return updatedAccount;
       } catch (final ContestedOptimisticLockException e) {
         tries++;
+
         account = retriever.get();
+        originalAccount = cloneAccount(account);
 
         if (!updater.apply(account)) {
           return account;
@@ -444,6 +425,18 @@ public class AccountsManager {
     }
 
     throw new OptimisticLockRetryLimitExceededException();
+  }
+
+  private static Account cloneAccount(final Account account) {
+    try {
+      final Account clone = mapper.readValue(mapper.writeValueAsBytes(account), Account.class);
+      clone.setUuid(account.getUuid());
+
+      return clone;
+    } catch (final IOException e) {
+      // this should really, truly, never happen
+      throw new IllegalArgumentException(e);
+    }
   }
 
   public Account updateDevice(Account account, long deviceId, Consumer<Device> deviceUpdater) {
