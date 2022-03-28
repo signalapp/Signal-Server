@@ -30,7 +30,7 @@ public class AccountCleaner extends AccountDatabaseCrawlerListener {
   private static final Histogram      deletableAccountHistogram = metricRegistry.histogram(name(AccountCleaner.class, "deletableAccountsPerChunk"));
 
   @VisibleForTesting
-  public static final int MAX_ACCOUNT_UPDATES_PER_CHUNK = 40;
+  static final int MAX_ACCOUNT_UPDATES_PER_CHUNK = 40;
 
   private final AccountsManager accountsManager;
 
