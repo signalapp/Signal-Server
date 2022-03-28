@@ -26,7 +26,7 @@ public class AccountCleaner extends AccountDatabaseCrawlerListener {
   private static final String DELETION_REASON_TAG_NAME = "reason";
 
   @VisibleForTesting
-  static final int MAX_ACCOUNT_DELETIONS_PER_CHUNK = 40;
+  static final int MAX_ACCOUNT_DELETIONS_PER_CHUNK = 256;
 
   private final AccountsManager accountsManager;
 
