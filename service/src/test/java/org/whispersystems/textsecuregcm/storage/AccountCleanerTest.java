@@ -21,11 +21,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
-import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.AccountCleaner;
-import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerRestartException;
-import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.AccountsManager.DeletionReason;
 
 class AccountCleanerTest {
 
@@ -77,8 +73,8 @@ class AccountCleanerTest {
     accountCleaner.timeAndProcessCrawlChunk(Optional.empty(), Arrays.asList(deletedDisabledAccount, undeletedDisabledAccount, undeletedEnabledAccount));
     accountCleaner.onCrawlEnd(Optional.empty());
 
-    verify(accountsManager, never()).delete(eq(deletedDisabledAccount), any());
-    verify(accountsManager).delete(undeletedDisabledAccount, AccountsManager.DeletionReason.EXPIRED);
+    verify(accountsManager).delete(deletedDisabledAccount, DeletionReason.EXPIRED);
+    verify(accountsManager).delete(undeletedDisabledAccount, DeletionReason.EXPIRED);
     verify(accountsManager, never()).delete(eq(undeletedEnabledAccount), any());
 
     verifyNoMoreInteractions(accountsManager);
@@ -89,7 +85,7 @@ class AccountCleanerTest {
     List<Account> accounts = new LinkedList<>();
     accounts.add(undeletedEnabledAccount);
 
-    int activeExpiredAccountCount = AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK + 1;
+    int activeExpiredAccountCount = AccountCleaner.MAX_ACCOUNT_DELETIONS_PER_CHUNK + 1;
     for (int addedAccountCount = 0; addedAccountCount < activeExpiredAccountCount; addedAccountCount++) {
       accounts.add(undeletedDisabledAccount);
     }
@@ -101,7 +97,7 @@ class AccountCleanerTest {
     accountCleaner.timeAndProcessCrawlChunk(Optional.empty(), accounts);
     accountCleaner.onCrawlEnd(Optional.empty());
 
-    verify(accountsManager, times(AccountCleaner.MAX_ACCOUNT_UPDATES_PER_CHUNK)).delete(undeletedDisabledAccount, AccountsManager.DeletionReason.EXPIRED);
+    verify(accountsManager, times(AccountCleaner.MAX_ACCOUNT_DELETIONS_PER_CHUNK)).delete(undeletedDisabledAccount, AccountsManager.DeletionReason.EXPIRED);
     verifyNoMoreInteractions(accountsManager);
   }
 
