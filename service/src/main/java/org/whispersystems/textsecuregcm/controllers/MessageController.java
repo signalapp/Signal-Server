@@ -9,7 +9,6 @@ import static com.codahale.metrics.MetricRegistry.name;
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
-import com.vdurmont.semver4j.Semver;
 import io.dropwizard.auth.Auth;
 import io.dropwizard.util.DataSize;
 import io.micrometer.core.instrument.Counter;
@@ -93,9 +92,7 @@ import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.util.MessageValidation;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
-import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
-import org.whispersystems.textsecuregcm.util.ua.UserAgent;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
 
@@ -114,12 +111,6 @@ public class MessageController {
   private final ApnFallbackManager apnFallbackManager;
   private final ReportMessageManager reportMessageManager;
   private final ExecutorService multiRecipientMessageExecutor;
-
-  @VisibleForTesting
-  static final Semver FIRST_IOS_VERSION_WITH_INCORRECT_ENVELOPE_TYPE = new Semver("5.22.0");
-
-  @VisibleForTesting
-  static final Semver IOS_VERSION_WITH_FIXED_ENVELOPE_TYPE = new Semver("5.25.0");
 
   private static final String REJECT_OVERSIZE_MESSAGE_COUNTER = name(MessageController.class, "rejectOversizeMessage");
   private static final String SENT_MESSAGE_COUNTER_NAME = name(MessageController.class, "sentMessages");
@@ -610,23 +601,7 @@ public class MessageController {
       Optional<byte[]> messageContent = getMessageContent(incomingMessage);
       Envelope.Builder messageBuilder = Envelope.newBuilder();
 
-      int envelopeTypeNumber = incomingMessage.getType();
-
-      // Some versions of the iOS app incorrectly use the reserved envelope type 7 for PLAINTEXT_CONTENT instead of type
-      // 8. This check can be removed safely after 2022-03-01.
-      if (envelopeTypeNumber == 7) {
-        try {
-          final UserAgent userAgent = UserAgentUtil.parseUserAgentString(userAgentString);
-          if (userAgent.getPlatform() == ClientPlatform.IOS &&
-              FIRST_IOS_VERSION_WITH_INCORRECT_ENVELOPE_TYPE.isLowerThanOrEqualTo(userAgent.getVersion()) &&
-              userAgent.getVersion().isLowerThan(IOS_VERSION_WITH_FIXED_ENVELOPE_TYPE)) {
-            envelopeTypeNumber = Type.PLAINTEXT_CONTENT.getNumber();
-          }
-        } catch (final UnrecognizedUserAgentException ignored2) {
-        }
-      }
-
-      final Envelope.Type envelopeType = Envelope.Type.forNumber(envelopeTypeNumber);
+      final Envelope.Type envelopeType = Envelope.Type.forNumber(incomingMessage.getType());
 
       if (envelopeType == null) {
         logger.warn("Received bad envelope type {} from {}", incomingMessage.getType(), userAgentString);

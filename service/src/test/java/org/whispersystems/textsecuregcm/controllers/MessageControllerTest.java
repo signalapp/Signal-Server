@@ -230,39 +230,6 @@ class MessageControllerTest {
   }
 
   @ParameterizedTest
-  @MethodSource
-  void testSingleDeviceCurrentBadType(final String userAgentString, final boolean expectAcceptMessage) throws Exception {
-    Response response =
-        resources.getJerseyTest()
-            .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
-            .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .header("User-Agent", userAgentString)
-            .put(Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_single_device_bad_type.json"), IncomingMessageList.class),
-                MediaType.APPLICATION_JSON_TYPE));
-
-    if (expectAcceptMessage) {
-      assertEquals(200, response.getStatus());
-
-      final ArgumentCaptor<Envelope> captor = ArgumentCaptor.forClass(Envelope.class);
-      verify(messageSender).sendMessage(any(Account.class), any(Device.class), captor.capture(), eq(false));
-    } else {
-      assertEquals(400, response.getStatus());
-      verify(messageSender, never()).sendMessage(any(), any(), any(), anyBoolean());
-    }
-  }
-
-  private static Stream<Arguments> testSingleDeviceCurrentBadType() {
-    return Stream.of(
-        Arguments.of(String.format("Signal-iOS/%s iOS/14.2", MessageController.FIRST_IOS_VERSION_WITH_INCORRECT_ENVELOPE_TYPE), true),
-        Arguments.of(String.format("Signal-iOS/%s iOS/14.2", MessageController.FIRST_IOS_VERSION_WITH_INCORRECT_ENVELOPE_TYPE.nextPatch()), true),
-        Arguments.of(String.format("Signal-iOS/%s iOS/14.2", new Semver("5.22.0.38")), true),
-        Arguments.of(String.format("Signal-iOS/%s iOS/14.2", MessageController.IOS_VERSION_WITH_FIXED_ENVELOPE_TYPE.withIncMinor(-1)), true),
-        Arguments.of(String.format("Signal-iOS/%s iOS/14.2", MessageController.IOS_VERSION_WITH_FIXED_ENVELOPE_TYPE), false)
-    );
-  }
-
-  @ParameterizedTest
   @MethodSource("currentMessageSingleDevicePayloads")
   void testSingleDeviceCurrentByPni(Entity<?> payload) throws Exception {
     Response response =
