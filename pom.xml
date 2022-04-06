@@ -268,7 +268,7 @@
       <dependency>
         <groupId>org.signal</groupId>
         <artifactId>libsignal-server</artifactId>
-        <version>0.15.1</version>
+        <version>0.16.0</version>
       </dependency>
       <dependency>
         <groupId>io.zonky.test.postgres</groupId>
