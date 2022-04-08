@@ -677,17 +677,20 @@ public class SubscriptionController {
       private final String message;
       private final String outcomeNetworkStatus;
       private final String outcomeReason;
+      private final String outcomeType;
 
       @JsonCreator
       public ChargeFailure(
           @JsonProperty("code") String code,
           @JsonProperty("message") String message,
           @JsonProperty("outcomeNetworkStatus") String outcomeNetworkStatus,
-          @JsonProperty("outcomeReason") String outcomeReason) {
+          @JsonProperty("outcomeReason") String outcomeReason,
+          @JsonProperty("outcomeType") String outcomeType) {
         this.code = code;
         this.message = message;
         this.outcomeNetworkStatus = outcomeNetworkStatus;
         this.outcomeReason = outcomeReason;
+        this.outcomeType = outcomeType;
       }
 
       public String getCode() {
@@ -704,6 +707,10 @@ public class SubscriptionController {
 
       public String getOutcomeReason() {
         return outcomeReason;
+      }
+
+      public String getOutcomeType() {
+        return outcomeType;
       }
     }
 
@@ -754,7 +761,8 @@ public class SubscriptionController {
                           charge.getFailureCode(),
                           charge.getFailureMessage(),
                           outcome != null ? outcome.getNetworkStatus() : null,
-                          outcome != null ? outcome.getReason() : null);
+                          outcome != null ? outcome.getReason() : null,
+                          outcome != null ? outcome.getType() : null);
                     }
                     return Response.ok(
                         new GetSubscriptionInformationResponse(
