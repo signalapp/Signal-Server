@@ -13,6 +13,8 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Strings;
+import com.stripe.model.Charge;
+import com.stripe.model.Charge.Outcome;
 import com.stripe.model.Invoice;
 import com.stripe.model.InvoiceLineItem;
 import com.stripe.model.Subscription;
@@ -673,13 +675,19 @@ public class SubscriptionController {
     public static class ChargeFailure {
       private final String code;
       private final String message;
+      private final String outcomeNetworkStatus;
+      private final String outcomeReason;
 
       @JsonCreator
       public ChargeFailure(
           @JsonProperty("code") String code,
-          @JsonProperty("message") String message) {
+          @JsonProperty("message") String message,
+          @JsonProperty("outcomeNetworkStatus") String outcomeNetworkStatus,
+          @JsonProperty("outcomeReason") String outcomeReason) {
         this.code = code;
         this.message = message;
+        this.outcomeNetworkStatus = outcomeNetworkStatus;
+        this.outcomeReason = outcomeReason;
       }
 
       public String getCode() {
@@ -688,6 +696,14 @@ public class SubscriptionController {
 
       public String getMessage() {
         return message;
+      }
+
+      public String getOutcomeNetworkStatus() {
+        return outcomeNetworkStatus;
+      }
+
+      public String getOutcomeReason() {
+        return outcomeReason;
       }
     }
 
@@ -732,9 +748,13 @@ public class SubscriptionController {
                     GetSubscriptionInformationResponse.ChargeFailure chargeFailure = null;
                     if (subscription.getLatestInvoiceObject() != null && subscription.getLatestInvoiceObject().getChargeObject() != null &&
                         (subscription.getLatestInvoiceObject().getChargeObject().getFailureCode() != null || subscription.getLatestInvoiceObject().getChargeObject().getFailureMessage() != null)) {
+                      Charge charge = subscription.getLatestInvoiceObject().getChargeObject();
+                      Outcome outcome = charge.getOutcome();
                       chargeFailure = new GetSubscriptionInformationResponse.ChargeFailure(
-                          subscription.getLatestInvoiceObject().getChargeObject().getFailureCode(),
-                          subscription.getLatestInvoiceObject().getChargeObject().getFailureMessage());
+                          charge.getFailureCode(),
+                          charge.getFailureMessage(),
+                          outcome != null ? outcome.getNetworkStatus() : null,
+                          outcome != null ? outcome.getReason() : null);
                     }
                     return Response.ok(
                         new GetSubscriptionInformationResponse(
