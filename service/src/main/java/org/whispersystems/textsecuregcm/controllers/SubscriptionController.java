@@ -9,6 +9,8 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.codahale.metrics.annotation.Timed;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Strings;
 import com.stripe.model.Invoice;
@@ -615,6 +617,7 @@ public class SubscriptionController {
       private final BigDecimal amount;
       private final String status;
 
+      @JsonCreator
       public Subscription(
           @JsonProperty("level") long level,
           @JsonProperty("billingCycleAnchor") Instant billingCycleAnchor,
@@ -667,16 +670,45 @@ public class SubscriptionController {
       }
     }
 
+    public static class ChargeFailure {
+      private final String code;
+      private final String message;
+
+      @JsonCreator
+      public ChargeFailure(
+          @JsonProperty("code") String code,
+          @JsonProperty("message") String message) {
+        this.code = code;
+        this.message = message;
+      }
+
+      public String getCode() {
+        return code;
+      }
+
+      public String getMessage() {
+        return message;
+      }
+    }
+
     private final Subscription subscription;
+    private final ChargeFailure chargeFailure;
 
     @JsonCreator
     public GetSubscriptionInformationResponse(
-        @JsonProperty("subscription") Subscription subscription) {
+        @JsonProperty("subscription") Subscription subscription,
+        @JsonProperty("chargeFailure") ChargeFailure chargeFailure) {
       this.subscription = subscription;
+      this.chargeFailure = chargeFailure;
     }
 
     public Subscription getSubscription() {
       return subscription;
+    }
+
+    @JsonInclude(Include.NON_NULL)
+    public ChargeFailure getChargeFailure() {
+      return chargeFailure;
     }
   }
 
@@ -692,21 +724,32 @@ public class SubscriptionController {
         .thenApply(this::requireRecordFromGetResult)
         .thenCompose(record -> {
           if (record.subscriptionId == null) {
-            return CompletableFuture.completedFuture(Response.ok(new GetSubscriptionInformationResponse(null)).build());
+            return CompletableFuture.completedFuture(Response.ok(new GetSubscriptionInformationResponse(null, null)).build());
           }
           return stripeManager.getSubscription(record.subscriptionId).thenCompose(subscription ->
               stripeManager.getPriceForSubscription(subscription).thenCompose(price ->
-                  stripeManager.getLevelForPrice(price).thenApply(level -> Response.ok(
-                      new GetSubscriptionInformationResponse(new GetSubscriptionInformationResponse.Subscription(
-                          level,
-                          Instant.ofEpochSecond(subscription.getBillingCycleAnchor()),
-                          Instant.ofEpochSecond(subscription.getCurrentPeriodEnd()),
-                          Objects.equals(subscription.getStatus(), "active"),
-                          subscription.getCancelAtPeriodEnd(),
-                          price.getCurrency().toUpperCase(Locale.ROOT),
-                          price.getUnitAmountDecimal(),
-                          subscription.getStatus()
-                      ))).build())));
+                  stripeManager.getLevelForPrice(price).thenApply(level -> {
+                    GetSubscriptionInformationResponse.ChargeFailure chargeFailure = null;
+                    if (subscription.getLatestInvoiceObject() != null && subscription.getLatestInvoiceObject().getChargeObject() != null &&
+                        (subscription.getLatestInvoiceObject().getChargeObject().getFailureCode() != null || subscription.getLatestInvoiceObject().getChargeObject().getFailureMessage() != null)) {
+                      chargeFailure = new GetSubscriptionInformationResponse.ChargeFailure(
+                          subscription.getLatestInvoiceObject().getChargeObject().getFailureCode(),
+                          subscription.getLatestInvoiceObject().getChargeObject().getFailureMessage());
+                    }
+                    return Response.ok(
+                        new GetSubscriptionInformationResponse(
+                            new GetSubscriptionInformationResponse.Subscription(
+                                level,
+                                Instant.ofEpochSecond(subscription.getBillingCycleAnchor()),
+                                Instant.ofEpochSecond(subscription.getCurrentPeriodEnd()),
+                                Objects.equals(subscription.getStatus(), "active"),
+                                subscription.getCancelAtPeriodEnd(),
+                                price.getCurrency().toUpperCase(Locale.ROOT),
+                                price.getUnitAmountDecimal(),
+                                subscription.getStatus()),
+                            chargeFailure
+                        )).build();
+                  })));
         });
   }
 

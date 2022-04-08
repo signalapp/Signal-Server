@@ -245,8 +245,12 @@ public class StripeManager {
 
   public CompletableFuture<Subscription> getSubscription(String subscriptionId) {
     return CompletableFuture.supplyAsync(() -> {
+      SubscriptionRetrieveParams params = SubscriptionRetrieveParams.builder()
+          .addExpand("latest_invoice")
+          .addExpand("latest_invoice.charge")
+          .build();
       try {
-        return Subscription.retrieve(subscriptionId, commonOptions());
+        return Subscription.retrieve(subscriptionId, params, commonOptions());
       } catch (StripeException e) {
         throw new CompletionException(e);
       }
