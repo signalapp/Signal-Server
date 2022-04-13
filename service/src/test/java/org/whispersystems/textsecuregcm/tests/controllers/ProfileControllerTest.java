@@ -172,7 +172,9 @@ class ProfileControllerTest {
     profileAccount = mock(Account.class);
 
     when(profileAccount.getIdentityKey()).thenReturn("bar");
+    when(profileAccount.getPhoneNumberIdentityKey()).thenReturn("baz");
     when(profileAccount.getUuid()).thenReturn(AuthHelper.VALID_UUID_TWO);
+    when(profileAccount.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI_TWO);
     when(profileAccount.isEnabled()).thenReturn(true);
     when(profileAccount.isGroupsV2Supported()).thenReturn(false);
     when(profileAccount.isGv1MigrationSupported()).thenReturn(false);
@@ -195,6 +197,7 @@ class ProfileControllerTest {
 
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(profileAccount));
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID_TWO)).thenReturn(Optional.of(profileAccount));
+    when(accountsManager.getByPhoneNumberIdentifier(AuthHelper.VALID_PNI_TWO)).thenReturn(Optional.of(profileAccount));
     when(accountsManager.getByUsername("n00bkiller")).thenReturn(Optional.of(profileAccount));
 
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(capabilitiesAccount));
@@ -218,7 +221,7 @@ class ProfileControllerTest {
   }
 
   @Test
-  void testProfileGetByUuid() throws RateLimitExceededException {
+  void testProfileGetByAci() throws RateLimitExceededException {
     BaseProfileResponse profile = resources.getJerseyTest()
                               .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO)
                               .request()
@@ -234,7 +237,7 @@ class ProfileControllerTest {
   }
 
   @Test
-  void testProfileGetByUuidRateLimited() throws RateLimitExceededException {
+  void testProfileGetByAciRateLimited() throws RateLimitExceededException {
     doThrow(new RateLimitExceededException(Duration.ofSeconds(13))).when(rateLimiter).validate(AuthHelper.VALID_UUID);
 
     Response response= resources.getJerseyTest()
@@ -248,7 +251,7 @@ class ProfileControllerTest {
   }
 
   @Test
-  void testProfileGetByUuidUnidentified() throws RateLimitExceededException {
+  void testProfileGetByAciUnidentified() throws RateLimitExceededException {
     BaseProfileResponse profile = resources.getJerseyTest()
         .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO)
         .request()
@@ -264,7 +267,7 @@ class ProfileControllerTest {
   }
 
   @Test
-  void testProfileGetByUuidUnidentifiedBadKey() {
+  void testProfileGetByAciUnidentifiedBadKey() {
     final Response response = resources.getJerseyTest()
         .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO)
         .request()
@@ -275,11 +278,69 @@ class ProfileControllerTest {
   }
 
   @Test
-  void testProfileGetByUuidUnidentifiedAccountNotFound() {
+  void testProfileGetByAciUnidentifiedAccountNotFound() {
     final Response response = resources.getJerseyTest()
         .target("/v1/profile/" + UUID.randomUUID())
         .request()
         .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("1337".getBytes()))
+        .get();
+
+    assertThat(response.getStatus()).isEqualTo(401);
+  }
+
+  @Test
+  void testProfileGetByPni() throws RateLimitExceededException {
+    BaseProfileResponse profile = resources.getJerseyTest()
+        .target("/v1/profile/" + AuthHelper.VALID_PNI_TWO)
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(BaseProfileResponse.class);
+
+    assertThat(profile.getIdentityKey()).isEqualTo("baz");
+    assertThat(profile.getBadges()).isEmpty();
+    assertThat(profile.getUuid()).isEqualTo(AuthHelper.VALID_PNI_TWO);
+    assertThat(profile.getCapabilities()).isNotNull();
+    assertThat(profile.isUnrestrictedUnidentifiedAccess()).isFalse();
+    assertThat(profile.getUnidentifiedAccess()).isNull();
+
+    verify(accountsManager).getByPhoneNumberIdentifier(AuthHelper.VALID_PNI_TWO);
+    verify(rateLimiter, times(1)).validate(AuthHelper.VALID_UUID);
+  }
+
+  @Test
+  void testProfileGetByPniRateLimited() throws RateLimitExceededException {
+    doThrow(new RateLimitExceededException(Duration.ofSeconds(13))).when(rateLimiter).validate(AuthHelper.VALID_UUID);
+
+    Response response= resources.getJerseyTest()
+        .target("/v1/profile/" + AuthHelper.VALID_PNI_TWO)
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get();
+
+    assertThat(response.getStatus()).isEqualTo(413);
+    assertThat(response.getHeaderString("Retry-After")).isEqualTo(String.valueOf(Duration.ofSeconds(13).toSeconds()));
+  }
+
+  @Test
+  void testProfileGetByPniUnidentified() throws RateLimitExceededException {
+    final Response response = resources.getJerseyTest()
+        .target("/v1/profile/" + AuthHelper.VALID_PNI_TWO)
+        .request()
+        .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("1337".getBytes()))
+        .get();
+
+    assertThat(response.getStatus()).isEqualTo(401);
+
+    verify(accountsManager).getByPhoneNumberIdentifier(AuthHelper.VALID_PNI_TWO);
+    verify(rateLimiter, never()).validate(AuthHelper.VALID_UUID);
+  }
+
+  @Test
+  void testProfileGetByPniUnidentifiedBadKey() {
+    final Response response = resources.getJerseyTest()
+        .target("/v1/profile/" + AuthHelper.VALID_PNI_TWO)
+        .request()
+        .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("incorrect".getBytes()))
         .get();
 
     assertThat(response.getStatus()).isEqualTo(401);

@@ -13,6 +13,7 @@ import java.time.Duration;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -228,7 +229,7 @@ public class ProfileController {
       throws RateLimitExceededException {
 
     final Optional<Account> maybeRequester = auth.map(AuthenticatedAccount::getAccount);
-    final Account targetAccount = verifyPermissionToReceiveProfile(maybeRequester, accessKey, uuid);
+    final Account targetAccount = verifyPermissionToReceiveAccountIdentityProfile(maybeRequester, accessKey, uuid);
 
     return buildVersionedProfileResponse(targetAccount,
         version,
@@ -251,7 +252,7 @@ public class ProfileController {
       throws RateLimitExceededException {
 
     final Optional<Account> maybeRequester = auth.map(AuthenticatedAccount::getAccount);
-    final Account targetAccount = verifyPermissionToReceiveProfile(maybeRequester, accessKey, uuid);
+    final Account targetAccount = verifyPermissionToReceiveAccountIdentityProfile(maybeRequester, accessKey, uuid);
     final boolean isSelf = isSelfProfileRequest(maybeRequester, uuid);
 
     switch (credentialType) {
@@ -293,12 +294,30 @@ public class ProfileController {
       @QueryParam("ca") boolean useCaCertificate)
       throws RateLimitExceededException {
 
+    final Optional<Account> maybeAccountByPni = accountsManager.getByPhoneNumberIdentifier(identifier);
     final Optional<Account> maybeRequester = auth.map(AuthenticatedAccount::getAccount);
-    final Account targetAccount = verifyPermissionToReceiveProfile(maybeRequester, accessKey, identifier);
 
-    return buildBaseProfileResponse(targetAccount,
-        isSelfProfileRequest(maybeRequester, identifier),
-        containerRequestContext);
+    final BaseProfileResponse profileResponse;
+
+    if (maybeAccountByPni.isPresent()) {
+      if (maybeRequester.isEmpty()) {
+        throw new WebApplicationException(Response.Status.UNAUTHORIZED);
+      } else {
+        rateLimiters.getProfileLimiter().validate(maybeRequester.get().getUuid());
+      }
+
+      OptionalAccess.verify(maybeRequester, Optional.empty(), maybeAccountByPni);
+
+      profileResponse = buildBaseProfileResponseForPhoneNumberIdentity(maybeAccountByPni.get());
+    } else {
+      final Account targetAccount = verifyPermissionToReceiveAccountIdentityProfile(maybeRequester, accessKey, identifier);
+
+      profileResponse = buildBaseProfileResponseForAccountIdentity(targetAccount,
+          isSelfProfileRequest(maybeRequester, identifier),
+          containerRequestContext);
+    }
+
+    return profileResponse;
   }
 
   private ProfileKeyCredentialProfileResponse buildProfileKeyCredentialProfileResponse(final Account account,
@@ -354,11 +373,12 @@ public class ProfileController {
         .map(VersionedProfile::getPaymentAddress)
         .orElse(null);
 
-    return new VersionedProfileResponse(buildBaseProfileResponse(account, isSelf, containerRequestContext),
+    return new VersionedProfileResponse(
+        buildBaseProfileResponseForAccountIdentity(account, isSelf, containerRequestContext),
         name, about, aboutEmoji, avatar, paymentAddress);
   }
 
-  private BaseProfileResponse buildBaseProfileResponse(final Account account,
+  private BaseProfileResponse buildBaseProfileResponseForAccountIdentity(final Account account,
       final boolean isSelf,
       final ContainerRequestContext containerRequestContext) {
 
@@ -371,6 +391,15 @@ public class ProfileController {
             account.getBadges(),
             isSelf),
         account.getUuid());
+  }
+
+  private BaseProfileResponse buildBaseProfileResponseForPhoneNumberIdentity(final Account account) {
+    return new BaseProfileResponse(account.getPhoneNumberIdentityKey(),
+        null,
+        false,
+        UserCapabilities.createForAccount(account),
+        Collections.emptyList(),
+        account.getPhoneNumberIdentifier());
   }
 
   @Timed
@@ -388,7 +417,7 @@ public class ProfileController {
     final Account targetAccount = accountsManager.getByUsername(username).orElseThrow(NotFoundException::new);
     final boolean isSelf = auth.getAccount().getUuid().equals(targetAccount.getUuid());
 
-    return buildBaseProfileResponse(targetAccount, isSelf, containerRequestContext);
+    return buildBaseProfileResponseForAccountIdentity(targetAccount, isSelf, containerRequestContext);
   }
 
   private ProfileKeyCredentialResponse getProfileCredential(final String encodedProfileCredentialRequest,
@@ -507,7 +536,7 @@ public class ProfileController {
    * @throws NotAuthorizedException if the requester is not authorized to receive the target account's profile or if the
    * requester was not authenticated and did not present an anonymous access key
    */
-  private Account verifyPermissionToReceiveProfile(final Optional<Account> maybeRequester,
+  private Account verifyPermissionToReceiveAccountIdentityProfile(final Optional<Account> maybeRequester,
       final Optional<Anonymous> maybeAccessKey,
       final UUID targetUuid) throws RateLimitExceededException {
 

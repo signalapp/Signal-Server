@@ -42,6 +42,7 @@ public class AuthHelper {
 
   public static final String VALID_NUMBER_TWO = "+201511111110";
   public static final UUID   VALID_UUID_TWO    = UUID.randomUUID();
+  public static final UUID   VALID_PNI_TWO     = UUID.randomUUID();
   public static final String VALID_PASSWORD_TWO = "baz";
 
   public static final String VALID_NUMBER_3           = "+14445556666";
@@ -139,6 +140,7 @@ public class AuthHelper {
     when(VALID_ACCOUNT.getPhoneNumberIdentifier()).thenReturn(VALID_PNI);
     when(VALID_ACCOUNT_TWO.getNumber()).thenReturn(VALID_NUMBER_TWO);
     when(VALID_ACCOUNT_TWO.getUuid()).thenReturn(VALID_UUID_TWO);
+    when(VALID_ACCOUNT_TWO.getPhoneNumberIdentifier()).thenReturn(VALID_PNI_TWO);
     when(DISABLED_ACCOUNT.getNumber()).thenReturn(DISABLED_NUMBER);
     when(DISABLED_ACCOUNT.getUuid()).thenReturn(DISABLED_UUID);
     when(UNDISCOVERABLE_ACCOUNT.getNumber()).thenReturn(UNDISCOVERABLE_NUMBER);
@@ -169,6 +171,7 @@ public class AuthHelper {
 
     when(ACCOUNTS_MANAGER.getByE164(VALID_NUMBER_TWO)).thenReturn(Optional.of(VALID_ACCOUNT_TWO));
     when(ACCOUNTS_MANAGER.getByAccountIdentifier(VALID_UUID_TWO)).thenReturn(Optional.of(VALID_ACCOUNT_TWO));
+    when(ACCOUNTS_MANAGER.getByPhoneNumberIdentifier(VALID_PNI_TWO)).thenReturn(Optional.of(VALID_ACCOUNT_TWO));
 
     when(ACCOUNTS_MANAGER.getByE164(DISABLED_NUMBER)).thenReturn(Optional.of(DISABLED_ACCOUNT));
     when(ACCOUNTS_MANAGER.getByAccountIdentifier(DISABLED_UUID)).thenReturn(Optional.of(DISABLED_ACCOUNT));
