@@ -169,6 +169,7 @@ import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerCache;
 import org.whispersystems.textsecuregcm.storage.AccountDatabaseCrawlerListener;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 import org.whispersystems.textsecuregcm.storage.ContactDiscoveryWriter;
 import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
 import org.whispersystems.textsecuregcm.storage.DeletedAccountsDirectoryReconciler;
@@ -496,6 +497,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new RateLimitChallengeOptionManager(dynamicRateLimiters, dynamicConfigurationManager);
 
     MessagePersister messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager, dynamicConfigurationManager, Duration.ofMinutes(config.getMessageCacheConfiguration().getPersistDelayMinutes()));
+    ChangeNumberManager changeNumberManager = new ChangeNumberManager(messageSender, accountsManager);
 
     final List<AccountDatabaseCrawlerListener> directoryReconciliationAccountDatabaseCrawlerListeners = new ArrayList<>();
     final List<DeletedAccountsDirectoryReconciler> deletedAccountsDirectoryReconcilers = new ArrayList<>();
@@ -622,8 +624,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(
         new AccountController(pendingAccountsManager, accountsManager, abusiveHostRules, rateLimiters,
             smsSender, dynamicConfigurationManager, turnTokenGenerator, config.getTestDevices(),
-            recaptchaClient, gcmSender, apnSender, backupCredentialsGenerator,
-            verifyExperimentEnrollmentManager));
+            recaptchaClient, gcmSender, apnSender, verifyExperimentEnrollmentManager,
+            changeNumberManager, backupCredentialsGenerator));
     environment.jersey().register(new KeysController(rateLimiters, keys, accountsManager));
 
     final List<Object> commonControllers = Lists.newArrayList(

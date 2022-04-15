@@ -92,6 +92,7 @@ import org.whispersystems.textsecuregcm.storage.DeletedAccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
+import org.whispersystems.textsecuregcm.util.MessageValidation;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
@@ -225,10 +226,10 @@ public class MessageController {
         checkRateLimit(source.get(), destination.get(), userAgent);
       }
 
-      validateCompleteDeviceList(destination.get(), messages.getMessages(),
+      MessageValidation.validateCompleteDeviceList(destination.get(), messages.getMessages(),
           IncomingMessage::getDestinationDeviceId, isSyncMessage,
           source.map(AuthenticatedAccount::getAuthenticatedDevice).map(Device::getId));
-      validateRegistrationIds(destination.get(), messages.getMessages(),
+      MessageValidation.validateRegistrationIds(destination.get(), messages.getMessages(),
           IncomingMessage::getDestinationDeviceId, IncomingMessage::getDestinationRegistrationId);
 
       final List<Tag> tags = List.of(UserAgentTagUtil.getPlatformTag(userAgent),
@@ -319,10 +320,10 @@ public class MessageController {
       }
 
       final List<IncomingDeviceMessage> messagesAsList = Arrays.asList(messages);
-      validateCompleteDeviceList(destination.get(), messagesAsList,
+      MessageValidation.validateCompleteDeviceList(destination.get(), messagesAsList,
           IncomingDeviceMessage::getDeviceId, isSyncMessage,
           source.map(AuthenticatedAccount::getAuthenticatedDevice).map(Device::getId));
-      validateRegistrationIds(destination.get(), messagesAsList,
+      MessageValidation.validateRegistrationIds(destination.get(), messagesAsList,
           IncomingDeviceMessage::getDeviceId,
           IncomingDeviceMessage::getRegistrationId);
 
@@ -402,8 +403,8 @@ public class MessageController {
       final Set<Pair<Long, Integer>> deviceIdAndRegistrationIdSet = accountToDeviceIdAndRegistrationIdMap.get(account);
       final Set<Long> deviceIds = deviceIdAndRegistrationIdSet.stream().map(Pair::first).collect(Collectors.toSet());
       try {
-        validateCompleteDeviceList(account, deviceIds, false, Optional.empty());
-        validateRegistrationIds(account, deviceIdAndRegistrationIdSet.stream());
+        MessageValidation.validateCompleteDeviceList(account, deviceIds, false, Optional.empty());
+        MessageValidation.validateRegistrationIds(account, deviceIdAndRegistrationIdSet.stream());
       } catch (MismatchedDevicesException e) {
         accountMismatchedDevices.add(new AccountMismatchedDevices(account.getUuid(),
             new MismatchedDevices(e.getMissingDevices(), e.getExtraDevices())));
@@ -731,72 +732,6 @@ public class MessageController {
     }
   }
 
-  @VisibleForTesting
-  public static <T> void validateRegistrationIds(Account account, List<T> messages, Function<T, Long> getDeviceId, Function<T, Integer> getRegistrationId)
-      throws StaleDevicesException {
-    final Stream<Pair<Long, Integer>> deviceIdAndRegistrationIdStream = messages
-        .stream()
-        .map(message -> new Pair<>(getDeviceId.apply(message), getRegistrationId.apply(message)));
-    validateRegistrationIds(account, deviceIdAndRegistrationIdStream);
-  }
-
-  @VisibleForTesting
-  public static void validateRegistrationIds(Account account, Stream<Pair<Long, Integer>> deviceIdAndRegistrationIdStream)
-      throws StaleDevicesException {
-    final List<Long> staleDevices = deviceIdAndRegistrationIdStream
-        .filter(deviceIdAndRegistrationId -> deviceIdAndRegistrationId.second() > 0)
-        .filter(deviceIdAndRegistrationId -> {
-          Optional<Device> device = account.getDevice(deviceIdAndRegistrationId.first());
-          return device.isPresent() && deviceIdAndRegistrationId.second() != device.get().getRegistrationId();
-        })
-        .map(Pair::first)
-        .collect(Collectors.toList());
-
-    if (!staleDevices.isEmpty()) {
-      throw new StaleDevicesException(staleDevices);
-    }
-  }
-
-  @VisibleForTesting
-  public static <T> void validateCompleteDeviceList(Account account, List<T> messages, Function<T, Long> getDeviceId, boolean isSyncMessage,
-      Optional<Long> authenticatedDeviceId)
-      throws MismatchedDevicesException {
-    Set<Long> messageDeviceIds = messages.stream().map(getDeviceId)
-        .collect(Collectors.toSet());
-    validateCompleteDeviceList(account, messageDeviceIds, isSyncMessage, authenticatedDeviceId);
-  }
-
-  @VisibleForTesting
-  public static void validateCompleteDeviceList(Account account, Set<Long> messageDeviceIds, boolean isSyncMessage,
-      Optional<Long> authenticatedDeviceId)
-      throws MismatchedDevicesException {
-    Set<Long> accountDeviceIds = new HashSet<>();
-
-    List<Long> missingDeviceIds = new LinkedList<>();
-    List<Long> extraDeviceIds = new LinkedList<>();
-
-    for (Device device : account.getDevices()) {
-      if (device.isEnabled() &&
-          !(isSyncMessage && device.getId() == authenticatedDeviceId.get())) {
-        accountDeviceIds.add(device.getId());
-
-        if (!messageDeviceIds.contains(device.getId())) {
-          missingDeviceIds.add(device.getId());
-        }
-      }
-    }
-
-    for (Long deviceId : messageDeviceIds) {
-      if (!accountDeviceIds.contains(deviceId)) {
-        extraDeviceIds.add(deviceId);
-      }
-    }
-
-    if (!missingDeviceIds.isEmpty() || !extraDeviceIds.isEmpty()) {
-      throw new MismatchedDevicesException(missingDeviceIds, extraDeviceIds);
-    }
-  }
-
   private void validateContentLength(final int contentLength, final String userAgent) {
     Metrics.summary(CONTENT_SIZE_DISTRIBUTION_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
         .record(contentLength);
@@ -818,7 +753,7 @@ public class MessageController {
     }
   }
 
-  private Optional<byte[]> getMessageContent(IncomingMessage message) {
+  public static Optional<byte[]> getMessageContent(IncomingMessage message) {
     if (Util.isEmpty(message.getContent())) return Optional.empty();
 
     try {

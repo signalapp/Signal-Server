@@ -33,6 +33,7 @@ import javax.validation.constraints.NotNull;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
+import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.GET;
 import javax.ws.rs.HEAD;
 import javax.ws.rs.HeaderParam;
@@ -69,8 +70,11 @@ import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ChangePhoneNumberRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceName;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
+import org.whispersystems.textsecuregcm.entities.IncomingMessage;
+import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
+import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.APNSender;
@@ -84,6 +88,7 @@ import org.whispersystems.textsecuregcm.storage.AbusiveHostRule;
 import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
@@ -92,6 +97,7 @@ import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.ForwardedIpUtil;
 import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.ImpossiblePhoneNumberException;
+import org.whispersystems.textsecuregcm.util.MessageValidation;
 import org.whispersystems.textsecuregcm.util.NonNormalizedPhoneNumberException;
 import org.whispersystems.textsecuregcm.util.Username;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -138,6 +144,7 @@ public class AccountController {
   private final ExternalServiceCredentialGenerator backupServiceCredentialGenerator;
 
   private final TwilioVerifyExperimentEnrollmentManager verifyExperimentEnrollmentManager;
+  private final ChangeNumberManager changeNumberManager;
 
   public AccountController(StoredVerificationCodeManager pendingAccounts,
                            AccountsManager accounts,
@@ -150,8 +157,9 @@ public class AccountController {
                            RecaptchaClient recaptchaClient,
                            GCMSender gcmSender,
                            APNSender apnSender,
-                           ExternalServiceCredentialGenerator backupServiceCredentialGenerator,
-                           TwilioVerifyExperimentEnrollmentManager verifyExperimentEnrollmentManager)
+                           TwilioVerifyExperimentEnrollmentManager verifyExperimentEnrollmentManager,
+                           ChangeNumberManager changeNumberManager,
+                           ExternalServiceCredentialGenerator backupServiceCredentialGenerator)
   {
     this.pendingAccounts                   = pendingAccounts;
     this.accounts                          = accounts;
@@ -164,8 +172,9 @@ public class AccountController {
     this.recaptchaClient = recaptchaClient;
     this.gcmSender                         = gcmSender;
     this.apnSender                         = apnSender;
-    this.backupServiceCredentialGenerator  = backupServiceCredentialGenerator;
     this.verifyExperimentEnrollmentManager = verifyExperimentEnrollmentManager;
+    this.backupServiceCredentialGenerator = backupServiceCredentialGenerator;
+    this.changeNumberManager = changeNumberManager;
   }
 
   @Timed
@@ -403,37 +412,74 @@ public class AccountController {
   public AccountIdentityResponse changeNumber(@Auth final AuthenticatedAccount authenticatedAccount, @NotNull @Valid final ChangePhoneNumberRequest request)
       throws RateLimitExceededException, InterruptedException, ImpossiblePhoneNumberException, NonNormalizedPhoneNumberException {
 
-    final Account updatedAccount;
+    if (!authenticatedAccount.getAuthenticatedDevice().isMaster()) {
+      throw new ForbiddenException();
+    }
 
-    if (request.getNumber().equals(authenticatedAccount.getAccount().getNumber())) {
-      // This may be a request that got repeated due to poor network conditions or other client error; take no action,
-      // but report success since the account is in the desired state
-      updatedAccount = authenticatedAccount.getAccount();
-    } else {
-      Util.requireNormalizedNumber(request.getNumber());
+    if (request.getDeviceSignedPrekeys() != null && !request.getDeviceSignedPrekeys().isEmpty()) {
+      if (request.getDeviceMessages() == null || request.getDeviceMessages().size() != request.getDeviceSignedPrekeys().size() - 1) {
+        // device_messages should exist and be one shorter than device_signed_prekeys, since it doesn't have the primary's key.
+        throw new WebApplicationException(Response.status(400).build());
+      }
+      try {
+        // Checks that all except master ID are in device messages
+        MessageValidation.validateCompleteDeviceList(
+            authenticatedAccount.getAccount(), request.getDeviceMessages(),
+            IncomingMessage::getDestinationDeviceId, true, Optional.of(Device.MASTER_ID));
+        MessageValidation.validateRegistrationIds(
+            authenticatedAccount.getAccount(), request.getDeviceMessages(),
+            IncomingMessage::getDestinationDeviceId, IncomingMessage::getDestinationRegistrationId);
+        // Checks that all including master ID are in signed prekeys
+        MessageValidation.validateCompleteDeviceList(
+            authenticatedAccount.getAccount(), request.getDeviceSignedPrekeys().entrySet(),
+            e -> e.getKey(), false, Optional.empty());
+      } catch (MismatchedDevicesException e) {
+        throw new WebApplicationException(Response.status(409)
+            .type(MediaType.APPLICATION_JSON_TYPE)
+            .entity(new MismatchedDevices(e.getMissingDevices(),
+                e.getExtraDevices()))
+            .build());
+      } catch (StaleDevicesException e) {
+        throw new WebApplicationException(Response.status(410)
+            .type(MediaType.APPLICATION_JSON)
+            .entity(new StaleDevices(e.getStaleDevices()))
+            .build());
+      }
+    } else if (request.getDeviceMessages() != null && !request.getDeviceMessages().isEmpty()) {
+      // device_messages shouldn't exist without device_signed_prekeys.
+      throw new WebApplicationException(Response.status(400).build());
+    }
 
-      rateLimiters.getVerifyLimiter().validate(request.getNumber());
+    final String number = request.getNumber();
+    if (!authenticatedAccount.getAccount().getNumber().equals(number)) {
+      Util.requireNormalizedNumber(number);
+
+      rateLimiters.getVerifyLimiter().validate(number);
 
       final Optional<StoredVerificationCode> storedVerificationCode =
-          pendingAccounts.getCodeForNumber(request.getNumber());
+          pendingAccounts.getCodeForNumber(number);
 
       if (storedVerificationCode.isEmpty() || !storedVerificationCode.get().isValid(request.getCode())) {
-        throw new WebApplicationException(Response.status(403).build());
+        throw new ForbiddenException();
       }
 
       storedVerificationCode.flatMap(StoredVerificationCode::getTwilioVerificationSid)
           .ifPresent(smsSender::reportVerificationSucceeded);
 
-      final Optional<Account> existingAccount = accounts.getByE164(request.getNumber());
+      final Optional<Account> existingAccount = accounts.getByE164(number);
 
       if (existingAccount.isPresent()) {
         verifyRegistrationLock(existingAccount.get(), request.getRegistrationLock());
       }
 
-      rateLimiters.getVerifyLimiter().clear(request.getNumber());
-
-      updatedAccount = accounts.changeNumber(authenticatedAccount.getAccount(), request.getNumber());
+      rateLimiters.getVerifyLimiter().clear(number);
     }
+
+    final Account updatedAccount = changeNumberManager.changeNumber(
+        authenticatedAccount.getAccount(),
+        request.getNumber(),
+        Optional.ofNullable(request.getDeviceSignedPrekeys()).orElse(Collections.emptyMap()),
+        Optional.ofNullable(request.getDeviceMessages()).orElse(Collections.emptyList()));
 
     return new AccountIdentityResponse(
         updatedAccount.getUuid(),
