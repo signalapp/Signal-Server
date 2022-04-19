@@ -14,6 +14,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
@@ -47,7 +48,6 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
-import io.micrometer.core.instrument.Tags;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -252,15 +252,12 @@ public class AccountController {
     }
 
     switch (transport) {
-      case "sms":
-        rateLimiters.getSmsDestinationLimiter().validate(number);
-        break;
-      case "voice":
+      case "sms" -> rateLimiters.getSmsDestinationLimiter().validate(number);
+      case "voice" -> {
         rateLimiters.getVoiceDestinationLimiter().validate(number);
         rateLimiters.getVoiceDestinationDailyLimiter().validate(number);
-        break;
-      default:
-        throw new WebApplicationException(Response.status(422).build());
+      }
+      default -> throw new WebApplicationException(Response.status(422).build());
     }
 
     VerificationCode       verificationCode       = generateVerificationCode(number);

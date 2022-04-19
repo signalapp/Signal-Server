@@ -5,8 +5,13 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
@@ -46,9 +51,6 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tags;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.binary.Hex;
@@ -70,12 +72,12 @@ import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.entities.BaseProfileResponse;
 import org.whispersystems.textsecuregcm.entities.CreateProfileRequest;
 import org.whispersystems.textsecuregcm.entities.CredentialProfileResponse;
 import org.whispersystems.textsecuregcm.entities.PniCredentialProfileResponse;
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
 import org.whispersystems.textsecuregcm.entities.ProfileKeyCredentialProfileResponse;
-import org.whispersystems.textsecuregcm.entities.BaseProfileResponse;
 import org.whispersystems.textsecuregcm.entities.UserCapabilities;
 import org.whispersystems.textsecuregcm.entities.VersionedProfileResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -91,8 +93,6 @@ import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.util.Pair;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/profile")
@@ -171,17 +171,11 @@ public class ProfileController {
       currentAvatar = Optional.of(currentProfile.get().getAvatar());
     }
 
-    String avatar = null;
-    switch (request.getAvatarChange()) {
-      case UNCHANGED:
-        avatar = currentAvatar.orElse(null);
-        break;
-      case CLEAR:
-        break;
-      case UPDATE:
-        avatar = generateAvatarObjectName();
-        break;
-    }
+    String avatar = switch (request.getAvatarChange()) {
+      case UNCHANGED -> currentAvatar.orElse(null);
+      case CLEAR -> null;
+      case UPDATE -> generateAvatarObjectName();
+    };
 
     profilesManager.set(auth.getAccount().getUuid(),
         new VersionedProfile(
