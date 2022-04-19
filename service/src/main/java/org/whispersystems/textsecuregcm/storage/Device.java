@@ -253,10 +253,7 @@ public class Device {
 
   @Override
   public boolean equals(Object other) {
-    if (other == null || !(other instanceof Device)) return false;
-
-    Device that = (Device)other;
-    return this.id == that.id;
+    return (other instanceof Device that) && this.id == that.id;
   }
 
   @Override
