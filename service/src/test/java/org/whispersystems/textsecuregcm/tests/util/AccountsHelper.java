@@ -91,100 +91,29 @@ public class AccountsHelper {
 
       for (Stubbing stubbing : mockingDetails.getStubbings()) {
         switch (stubbing.getInvocation().getMethod().getName()) {
-          case "getUuid": {
-            when(updatedAccount.getUuid()).thenAnswer(stubbing);
-            break;
-          }
-          case "getPhoneNumberIdentifier": {
-            when(updatedAccount.getPhoneNumberIdentifier()).thenAnswer(stubbing);
-            break;
-          }
-          case "getNumber": {
-            when(updatedAccount.getNumber()).thenAnswer(stubbing);
-            break;
-          }
-          case "getUsername": {
-            when(updatedAccount.getUsername()).thenAnswer(stubbing);
-            break;
-          }
-          case "getDevices": {
-            when(updatedAccount.getDevices())
-                .thenAnswer(stubbing);
-            break;
-          }
-          case "getDevice": {
-            when(updatedAccount.getDevice(stubbing.getInvocation().getArgument(0)))
-                .thenAnswer(stubbing);
-            break;
-          }
-          case "getMasterDevice": {
-            when(updatedAccount.getMasterDevice()).thenAnswer(stubbing);
-            break;
-          }
-          case "isEnabled": {
-            when(updatedAccount.isEnabled()).thenAnswer(stubbing);
-            break;
-          }
-          case "isDiscoverableByPhoneNumber": {
-            when(updatedAccount.isDiscoverableByPhoneNumber()).thenAnswer(stubbing);
-            break;
-          }
-          case "getNextDeviceId": {
-            when(updatedAccount.getNextDeviceId()).thenAnswer(stubbing);
-            break;
-          }
-          case "isGroupsV2Supported": {
-            when(updatedAccount.isGroupsV2Supported()).thenAnswer(stubbing);
-            break;
-          }
-          case "isGv1MigrationSupported": {
-            when(updatedAccount.isGv1MigrationSupported()).thenAnswer(stubbing);
-            break;
-          }
-          case "isSenderKeySupported": {
-            when(updatedAccount.isSenderKeySupported()).thenAnswer(stubbing);
-            break;
-          }
-          case "isAnnouncementGroupSupported": {
-            when(updatedAccount.isAnnouncementGroupSupported()).thenAnswer(stubbing);
-            break;
-          }
-          case "isChangeNumberSupported": {
-            when(updatedAccount.isChangeNumberSupported()).thenAnswer(stubbing);
-            break;
-          }
-          case "isPniSupported": {
-            when(updatedAccount.isPniSupported()).thenAnswer(stubbing);
-            break;
-          }
-          case "isStoriesSupported": {
-            when(updatedAccount.isStoriesSupported()).thenAnswer(stubbing);
-            break;
-          }
-          case "isGiftBadgesSupported": {
-            when(updatedAccount.isGiftBadgesSupported()).thenAnswer(stubbing);
-            break;
-          }
-          case "getEnabledDeviceCount": {
-            when(updatedAccount.getEnabledDeviceCount()).thenAnswer(stubbing);
-            break;
-          }
-          case "getRegistrationLock": {
-            when(updatedAccount.getRegistrationLock()).thenAnswer(stubbing);
-            break;
-          }
-          case "getIdentityKey": {
-            when(updatedAccount.getIdentityKey()).thenAnswer(stubbing);
-            break;
-          }
-          case "getBadges": {
-            when(updatedAccount.getBadges()).thenAnswer(stubbing);
-            break;
-          }
-          default: {
-            throw new IllegalArgumentException(
-                "unsupported method: Account#" + stubbing.getInvocation().getMethod().getName());
-          }
+          case "getUuid" -> when(updatedAccount.getUuid()).thenAnswer(stubbing);
+          case "getPhoneNumberIdentifier" -> when(updatedAccount.getPhoneNumberIdentifier()).thenAnswer(stubbing);
+          case "getNumber" -> when(updatedAccount.getNumber()).thenAnswer(stubbing);
+          case "getUsername" -> when(updatedAccount.getUsername()).thenAnswer(stubbing);
+          case "getDevices" -> when(updatedAccount.getDevices()).thenAnswer(stubbing);
+          case "getDevice" -> when(updatedAccount.getDevice(stubbing.getInvocation().getArgument(0))).thenAnswer(stubbing);
+          case "getMasterDevice" -> when(updatedAccount.getMasterDevice()).thenAnswer(stubbing);
+          case "isEnabled" -> when(updatedAccount.isEnabled()).thenAnswer(stubbing);
+          case "isDiscoverableByPhoneNumber" -> when(updatedAccount.isDiscoverableByPhoneNumber()).thenAnswer(stubbing);
+          case "getNextDeviceId" -> when(updatedAccount.getNextDeviceId()).thenAnswer(stubbing);
+          case "isGroupsV2Supported" -> when(updatedAccount.isGroupsV2Supported()).thenAnswer(stubbing);
+          case "isGv1MigrationSupported" -> when(updatedAccount.isGv1MigrationSupported()).thenAnswer(stubbing);
+          case "isSenderKeySupported" -> when(updatedAccount.isSenderKeySupported()).thenAnswer(stubbing);
+          case "isAnnouncementGroupSupported" -> when(updatedAccount.isAnnouncementGroupSupported()).thenAnswer(stubbing);
+          case "isChangeNumberSupported" -> when(updatedAccount.isChangeNumberSupported()).thenAnswer(stubbing);
+          case "isPniSupported" -> when(updatedAccount.isPniSupported()).thenAnswer(stubbing);
+          case "isStoriesSupported" -> when(updatedAccount.isStoriesSupported()).thenAnswer(stubbing);
+          case "isGiftBadgesSupported" -> when(updatedAccount.isGiftBadgesSupported()).thenAnswer(stubbing);
+          case "getEnabledDeviceCount" -> when(updatedAccount.getEnabledDeviceCount()).thenAnswer(stubbing);
+          case "getRegistrationLock" -> when(updatedAccount.getRegistrationLock()).thenAnswer(stubbing);
+          case "getIdentityKey" -> when(updatedAccount.getIdentityKey()).thenAnswer(stubbing);
+          case "getBadges" -> when(updatedAccount.getBadges()).thenAnswer(stubbing);
+          default -> throw new IllegalArgumentException("unsupported method: Account#" + stubbing.getInvocation().getMethod().getName());
         }
       }
 
