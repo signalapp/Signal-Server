@@ -17,12 +17,14 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
+import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.util.Util;
 
 public class Account {
@@ -203,43 +205,23 @@ public class Account {
   }
 
   public boolean isGv1MigrationSupported() {
-    requireNotStale();
-
-    return devices.stream()
-                  .filter(Device::isEnabled)
-                  .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isGv1Migration());
+    return allEnabledDevicesHaveCapability(DeviceCapabilities::isGv1Migration);
   }
 
   public boolean isSenderKeySupported() {
-    requireNotStale();
-
-    return devices.stream()
-        .filter(Device::isEnabled)
-        .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isSenderKey());
+    return allEnabledDevicesHaveCapability(DeviceCapabilities::isSenderKey);
   }
 
   public boolean isAnnouncementGroupSupported() {
-    requireNotStale();
-
-    return devices.stream()
-        .filter(Device::isEnabled)
-        .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isAnnouncementGroup());
+    return allEnabledDevicesHaveCapability(DeviceCapabilities::isAnnouncementGroup);
   }
 
   public boolean isChangeNumberSupported() {
-    requireNotStale();
-
-    return devices.stream()
-        .filter(Device::isEnabled)
-        .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isChangeNumber());
+    return allEnabledDevicesHaveCapability(DeviceCapabilities::isChangeNumber);
   }
 
   public boolean isPniSupported() {
-    requireNotStale();
-
-    return devices.stream()
-        .filter(Device::isEnabled)
-        .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isPni());
+    return allEnabledDevicesHaveCapability(DeviceCapabilities::isPni);
   }
 
   public boolean isStoriesSupported() {
@@ -253,11 +235,15 @@ public class Account {
   }
 
   public boolean isGiftBadgesSupported() {
+    return allEnabledDevicesHaveCapability(DeviceCapabilities::isGiftBadges);
+  }
+
+  private boolean allEnabledDevicesHaveCapability(Predicate<DeviceCapabilities> predicate) {
     requireNotStale();
 
     return devices.stream()
         .filter(Device::isEnabled)
-        .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isGiftBadges());
+        .allMatch(device -> device.getCapabilities() != null && predicate.test(device.getCapabilities()));
   }
 
   public boolean isEnabled() {
