@@ -66,6 +66,10 @@ class AccountTest {
   private final Device storiesIncapableDevice = mock(Device.class);
   private final Device storiesIncapableExpiredDevice = mock(Device.class);
 
+  private final Device giftBadgesCapableDevice = mock(Device.class);
+  private final Device giftBadgesIncapableDevice = mock(Device.class);
+  private final Device giftBadgesIncapableExpiredDevice = mock(Device.class);
+
   @BeforeEach
   void setup() {
     when(oldMasterDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(366));
@@ -101,76 +105,86 @@ class AccountTest {
     when(gv2IncapableExpiredDevice.isEnabled()).thenReturn(false);
 
     when(gv1MigrationCapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, false, false, false, false, false));
+        new DeviceCapabilities(true, true, true, true, true, true, false, false, false, false, false, false));
     when(gv1MigrationCapableDevice.isEnabled()).thenReturn(true);
 
     when(gv1MigrationIncapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, false, false, false, false, false, false));
+        new DeviceCapabilities(true, true, true, true, true, false, false, false, false, false, false, false));
     when(gv1MigrationIncapableDevice.isEnabled()).thenReturn(true);
 
     when(gv1MigrationIncapableExpiredDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, false, false, false, false, false, false));
+        new DeviceCapabilities(true, true, true, true, true, false, false, false, false, false, false, false));
     when(gv1MigrationIncapableExpiredDevice.isEnabled()).thenReturn(false);
 
     when(senderKeyCapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, false, false));
+        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, false, false, false));
     when(senderKeyCapableDevice.isEnabled()).thenReturn(true);
 
     when(senderKeyIncapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, false, false, false, false, false));
+        new DeviceCapabilities(true, true, true, true, true, true, false, false, false, false, false, false));
     when(senderKeyIncapableDevice.isEnabled()).thenReturn(true);
 
     when(senderKeyIncapableExpiredDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, false, false, false, false, false));
+        new DeviceCapabilities(true, true, true, true, true, true, false, false, false, false, false, false));
     when(senderKeyIncapableExpiredDevice.isEnabled()).thenReturn(false);
 
     when(announcementGroupCapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, true, true, false, false, false));
+        new DeviceCapabilities(true, true, true, true, true, true, true, true, false, false, false, false));
     when(announcementGroupCapableDevice.isEnabled()).thenReturn(true);
 
     when(announcementGroupIncapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, false, false));
+        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, false, false, false));
     when(announcementGroupIncapableDevice.isEnabled()).thenReturn(true);
 
     when(announcementGroupIncapableExpiredDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, false, false));
+        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, false, false, false));
     when(announcementGroupIncapableExpiredDevice.isEnabled()).thenReturn(false);
 
     when(changeNumberCapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, true, false, true, false, false));
+        new DeviceCapabilities(true, true, true, true, true, true, true, false, true, false, false, false));
     when(changeNumberCapableDevice.isEnabled()).thenReturn(true);
 
     when(changeNumberIncapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, false, false));
+        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, false, false, false));
     when(changeNumberIncapableDevice.isEnabled()).thenReturn(true);
 
     when(changeNumberIncapableExpiredDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, false, false));
+        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, false, false, false));
     when(changeNumberIncapableExpiredDevice.isEnabled()).thenReturn(false);
 
     when(pniCapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, true, false));
+        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, true, false, false));
     when(pniCapableDevice.isEnabled()).thenReturn(true);
 
     when(pniIncapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, false, false));
+        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, false, false, false));
     when(pniIncapableDevice.isEnabled()).thenReturn(true);
 
     when(pniIncapableExpiredDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, false, false));
+        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, false, false, false));
     when(pniIncapableExpiredDevice.isEnabled()).thenReturn(false);
 
     when(storiesCapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, false, true));
+        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, false, true, false));
     when(storiesCapableDevice.isEnabled()).thenReturn(true);
 
     when(storiesIncapableDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, false, false));
+        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, false, false, false));
     when(storiesIncapableDevice.isEnabled()).thenReturn(true);
 
     when(storiesIncapableExpiredDevice.getCapabilities()).thenReturn(
-        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, false, false));
+        new DeviceCapabilities(true, true, true, true, true, true, true, false, false, false, false, false));
     when(storiesIncapableExpiredDevice.isEnabled()).thenReturn(false);
+
+    when(giftBadgesCapableDevice.getCapabilities()).thenReturn(
+        new DeviceCapabilities(true, true, true, true, true, true, true, true, true, true, true, true));
+    when(giftBadgesCapableDevice.isEnabled()).thenReturn(true);
+    when(giftBadgesIncapableDevice.getCapabilities()).thenReturn(
+        new DeviceCapabilities(true, true, true, true, true, true, true, true, true, true, true, false));
+    when(giftBadgesIncapableDevice.isEnabled()).thenReturn(true);
+    when(giftBadgesIncapableExpiredDevice.getCapabilities()).thenReturn(
+        new DeviceCapabilities(true, true, true, true, true, true, true, true, true, true, true, false));
+    when(giftBadgesIncapableExpiredDevice.isEnabled()).thenReturn(false);
   }
 
   @Test
@@ -375,6 +389,19 @@ class AccountTest {
     assertThat(new Account("+18005551234", UUID.randomUUID(),
         UUID.randomUUID(), Set.of(storiesCapableDevice, storiesIncapableExpiredDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isStoriesSupported()).isTrue();
+  }
+
+  @Test
+  void isGiftBadgesSupported() {
+    assertThat(new Account("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
+        Set.of(giftBadgesCapableDevice),
+        "1234".getBytes(StandardCharsets.UTF_8)).isGiftBadgesSupported()).isTrue();
+    assertThat(new Account("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
+        Set.of(giftBadgesCapableDevice, giftBadgesIncapableDevice),
+        "1234".getBytes(StandardCharsets.UTF_8)).isGiftBadgesSupported()).isFalse();
+    assertThat(new Account("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
+        Set.of(giftBadgesCapableDevice, giftBadgesIncapableExpiredDevice),
+        "1234".getBytes(StandardCharsets.UTF_8)).isGiftBadgesSupported()).isTrue();
   }
 
   @Test

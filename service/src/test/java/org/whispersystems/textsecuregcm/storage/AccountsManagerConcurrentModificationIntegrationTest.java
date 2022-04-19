@@ -190,7 +190,8 @@ class AccountsManagerConcurrentModificationIntegrationTest {
                 "testUserAgent-" + random.nextInt(), 0,
                 new Device.DeviceCapabilities(random.nextBoolean(), random.nextBoolean(), random.nextBoolean(),
                     random.nextBoolean(), random.nextBoolean(), random.nextBoolean(), random.nextBoolean(),
-                    random.nextBoolean(), random.nextBoolean(), random.nextBoolean(), random.nextBoolean())));
+                    random.nextBoolean(), random.nextBoolean(), random.nextBoolean(), random.nextBoolean(),
+                    random.nextBoolean())));
           });
 
       uuid = account.getUuid();

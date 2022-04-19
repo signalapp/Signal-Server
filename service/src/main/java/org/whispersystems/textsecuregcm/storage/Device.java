@@ -295,12 +295,15 @@ public class Device {
     @JsonProperty
     private boolean stories;
 
+    @JsonProperty
+    private boolean giftBadges;
+
     public DeviceCapabilities() {
     }
 
     public DeviceCapabilities(boolean gv2, final boolean gv2_2, final boolean gv2_3, boolean storage, boolean transfer,
         boolean gv1Migration, final boolean senderKey, final boolean announcementGroup, final boolean changeNumber,
-        final boolean pni, final boolean stories) {
+        final boolean pni, final boolean stories, final boolean giftBadges) {
       this.gv2 = gv2;
       this.gv2_2 = gv2_2;
       this.gv2_3 = gv2_3;
@@ -312,6 +315,7 @@ public class Device {
       this.changeNumber = changeNumber;
       this.pni = pni;
       this.stories = stories;
+      this.giftBadges = giftBadges;
     }
 
     public boolean isGv2() {
@@ -356,6 +360,10 @@ public class Device {
 
     public boolean isStories() {
       return stories;
+    }
+
+    public boolean isGiftBadges() {
+      return giftBadges;
     }
   }
 }

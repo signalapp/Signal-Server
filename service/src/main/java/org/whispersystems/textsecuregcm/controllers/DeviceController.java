@@ -246,6 +246,7 @@ public class DeviceController {
     isDowngrade |= account.isAnnouncementGroupSupported() && !capabilities.isAnnouncementGroup();
     isDowngrade |= account.isSenderKeySupported() && !capabilities.isSenderKey();
     isDowngrade |= account.isGv1MigrationSupported() && !capabilities.isGv1Migration();
+    isDowngrade |= account.isGiftBadgesSupported() && !capabilities.isGiftBadges();
 
     if (account.isGroupsV2Supported()) {
       try {

@@ -252,6 +252,14 @@ public class Account {
         .anyMatch(device -> device.getCapabilities() != null && device.getCapabilities().isStories());
   }
 
+  public boolean isGiftBadgesSupported() {
+    requireNotStale();
+
+    return devices.stream()
+        .filter(Device::isEnabled)
+        .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isGiftBadges());
+  }
+
   public boolean isEnabled() {
     requireNotStale();
 

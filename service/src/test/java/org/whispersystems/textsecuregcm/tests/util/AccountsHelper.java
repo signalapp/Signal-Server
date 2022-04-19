@@ -161,6 +161,10 @@ public class AccountsHelper {
             when(updatedAccount.isStoriesSupported()).thenAnswer(stubbing);
             break;
           }
+          case "isGiftBadgesSupported": {
+            when(updatedAccount.isGiftBadgesSupported()).thenAnswer(stubbing);
+            break;
+          }
           case "getEnabledDeviceCount": {
             when(updatedAccount.getEnabledDeviceCount()).thenAnswer(stubbing);
             break;

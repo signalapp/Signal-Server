@@ -11,9 +11,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.anyBoolean;
@@ -37,7 +35,6 @@ import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.io.ByteArrayOutputStream;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -50,7 +47,6 @@ import java.util.stream.Stream;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import org.assertj.core.api.Assertions;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -85,8 +81,6 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
-import org.whispersystems.textsecuregcm.util.MessageValidation;
-import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
@@ -136,22 +130,22 @@ class MessageControllerTest {
       add(new Device(1, null, "foo", "bar",
           "isgcm", null, null, false, 111, new SignedPreKey(333, "baz", "boop"), System.currentTimeMillis(),
           System.currentTimeMillis(), "Test", 0, new Device.DeviceCapabilities(true, false, false, true, true, false,
-          false, false, false, false, false)));
+          false, false, false, false, false, false)));
     }};
 
     Set<Device> multiDeviceList = new HashSet<>() {{
       add(new Device(1, null, "foo", "bar",
           "isgcm", null, null, false, 222, new SignedPreKey(111, "foo", "bar"), System.currentTimeMillis(),
           System.currentTimeMillis(), "Test", 0, new Device.DeviceCapabilities(true, false, false, true, false, false,
-          false, false, false, false, false)));
+          false, false, false, false, false, false)));
       add(new Device(2, null, "foo", "bar",
           "isgcm", null, null, false, 333, new SignedPreKey(222, "oof", "rab"), System.currentTimeMillis(),
           System.currentTimeMillis(), "Test", 0, new Device.DeviceCapabilities(true, false, false, true, false, false,
-          false, false, false, false, false)));
+          false, false, false, false, false, false)));
       add(new Device(3, null, "foo", "bar",
           "isgcm", null, null, false, 444, null, System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31),
           System.currentTimeMillis(), "Test", 0, new Device.DeviceCapabilities(false, false, false, false, false, false,
-          false, false, false, false, false)));
+          false, false, false, false, false, false)));
     }};
 
     Account singleDeviceAccount  = new Account(SINGLE_DEVICE_RECIPIENT, SINGLE_DEVICE_UUID, SINGLE_DEVICE_PNI, singleDeviceList, "1234".getBytes());
