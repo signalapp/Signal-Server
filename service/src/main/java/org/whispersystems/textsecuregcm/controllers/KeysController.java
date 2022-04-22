@@ -31,6 +31,7 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ChangesDeviceEnabledState;
@@ -43,6 +44,7 @@ import org.whispersystems.textsecuregcm.entities.PreKeyResponseItem;
 import org.whispersystems.textsecuregcm.entities.PreKeyState;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -58,9 +60,12 @@ public class KeysController {
   private final AccountsManager             accounts;
 
   private static final String PREKEY_REQUEST_COUNTER_NAME = name(KeysController.class, "preKeyGet");
+  private static final String IDENTITY_KEY_CHANGE_FORBIDDEN_COUNTER_NAME = name(KeysController.class, "identityKeyChangeForbidden");
 
   private static final String SOURCE_COUNTRY_TAG_NAME = "sourceCountry";
   private static final String INTERNATIONAL_TAG_NAME = "international";
+  private static final String IDENTITY_TYPE_TAG_NAME = "identityType";
+  private static final String HAS_IDENTITY_KEY_TAG_NAME = "hasIdentityKey";
 
   public KeysController(RateLimiters rateLimiters, Keys keys, AccountsManager accounts) {
     this.rateLimiters = rateLimiters;
@@ -88,7 +93,8 @@ public class KeysController {
   @ChangesDeviceEnabledState
   public void setKeys(@Auth final DisabledPermittedAuthenticatedAccount disabledPermittedAuth,
       @NotNull @Valid final PreKeyState preKeys,
-      @QueryParam("identity") final Optional<String> identityType) {
+      @QueryParam("identity") final Optional<String> identityType,
+      @HeaderParam("User-Agent") String userAgent) {
     Account account = disabledPermittedAuth.getAccount();
     Device device = disabledPermittedAuth.getAuthenticatedDevice();
     boolean updateAccount = false;
@@ -102,6 +108,16 @@ public class KeysController {
     if (!preKeys.getIdentityKey().equals(usePhoneNumberIdentity ? account.getPhoneNumberIdentityKey() : account.getIdentityKey())) {
       updateAccount = true;
       if (!device.isMaster()) {
+        final boolean hasIdentityKey = usePhoneNumberIdentity ?
+            StringUtils.isNotBlank(account.getPhoneNumberIdentityKey()) :
+            StringUtils.isNotBlank(account.getIdentityKey());
+
+        final Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))
+            .and(HAS_IDENTITY_KEY_TAG_NAME, String.valueOf(hasIdentityKey))
+            .and(IDENTITY_TYPE_TAG_NAME, usePhoneNumberIdentity ? "pni" : "aci");
+
+        Metrics.counter(IDENTITY_KEY_CHANGE_FORBIDDEN_COUNTER_NAME, tags).increment();
+
         throw new ForbiddenException();
       }
     }
