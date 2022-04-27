@@ -29,6 +29,7 @@ import org.whispersystems.textsecuregcm.configuration.DynamoDbClientConfiguratio
 import org.whispersystems.textsecuregcm.configuration.DynamoDbTables;
 import org.whispersystems.textsecuregcm.configuration.GcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguration;
+import org.whispersystems.textsecuregcm.configuration.GiftConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PaymentsServiceConfiguration;
@@ -243,6 +244,11 @@ public class WhisperServerConfiguration extends Configuration {
   private BoostConfiguration boost;
 
   @Valid
+  @JsonProperty
+  @NotNull
+  private GiftConfiguration gift;
+
+  @Valid
   @NotNull
   @JsonProperty
   private ReportMessageConfiguration reportMessage = new ReportMessageConfiguration();
@@ -415,6 +421,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public BoostConfiguration getBoost() {
     return boost;
+  }
+
+  public GiftConfiguration getGift() {
+    return gift;
   }
 
   public ReportMessageConfiguration getReportMessageConfiguration() {
