@@ -364,3 +364,11 @@ boost:
       - '8'
       - '20'
       - '40'
+
+gift:
+  level: 10
+  expiration: P90D
+  badge: EXAMPLE
+  currencies:
+    # ISO 4217 currency codes and amounts in those currencies
+    xts: '2'
