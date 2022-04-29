@@ -527,7 +527,7 @@ public class SubscriptionController {
       }
       if (request.level == giftConfiguration.level()) {
         BigDecimal amountConfigured = giftConfiguration.currencies().get(request.currency.toLowerCase(Locale.ROOT));
-        if (amountConfigured == null || !stripeManager.convertConfiguredAmountToStripeAmount(request.currency, amountConfigured).equals(BigDecimal.valueOf(request.amount))) {
+        if (amountConfigured == null || stripeManager.convertConfiguredAmountToStripeAmount(request.currency, amountConfigured).compareTo(BigDecimal.valueOf(request.amount)) != 0) {
           throw new WebApplicationException(Response.status(Status.CONFLICT).entity(Map.of("error", "level_amount_mismatch")).build());
         }
       }
