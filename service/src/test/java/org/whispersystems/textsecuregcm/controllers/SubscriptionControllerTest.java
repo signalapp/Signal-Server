@@ -20,6 +20,8 @@ import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.core.Response;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
@@ -31,10 +33,10 @@ import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccou
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
 import org.whispersystems.textsecuregcm.badges.LevelTranslator;
 import org.whispersystems.textsecuregcm.configuration.BoostConfiguration;
+import org.whispersystems.textsecuregcm.configuration.GiftConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionPriceConfiguration;
-import org.whispersystems.textsecuregcm.controllers.SubscriptionController.CreateBoostReceiptCredentialsRequest;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetLevelsResponse;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
@@ -43,8 +45,6 @@ import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.stripe.StripeManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
-import javax.ws.rs.client.Entity;
-import javax.ws.rs.core.Response;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class SubscriptionControllerTest {
@@ -52,6 +52,7 @@ class SubscriptionControllerTest {
   private static final Clock CLOCK = mock(Clock.class);
   private static final SubscriptionConfiguration SUBSCRIPTION_CONFIG = mock(SubscriptionConfiguration.class);
   private static final BoostConfiguration BOOST_CONFIG = mock(BoostConfiguration.class);
+  private static final GiftConfiguration GIFT_CONFIG = mock(GiftConfiguration.class);
   private static final SubscriptionManager SUBSCRIPTION_MANAGER = mock(SubscriptionManager.class);
   private static final StripeManager STRIPE_MANAGER = mock(StripeManager.class);
   private static final ServerZkReceiptOperations ZK_OPS = mock(ServerZkReceiptOperations.class);
@@ -59,7 +60,7 @@ class SubscriptionControllerTest {
   private static final BadgeTranslator BADGE_TRANSLATOR = mock(BadgeTranslator.class);
   private static final LevelTranslator LEVEL_TRANSLATOR = mock(LevelTranslator.class);
   private static final SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(
-      CLOCK, SUBSCRIPTION_CONFIG, BOOST_CONFIG, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, ZK_OPS,
+      CLOCK, SUBSCRIPTION_CONFIG, BOOST_CONFIG, GIFT_CONFIG, SUBSCRIPTION_MANAGER, STRIPE_MANAGER, ZK_OPS,
       ISSUED_RECEIPTS_MANAGER, BADGE_TRANSLATOR, LEVEL_TRANSLATOR);
   private static final ResourceExtension RESOURCE_EXTENSION = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)

@@ -138,6 +138,7 @@ import org.whispersystems.textsecuregcm.metrics.NetworkReceivedGauge;
 import org.whispersystems.textsecuregcm.metrics.NetworkSentGauge;
 import org.whispersystems.textsecuregcm.metrics.OperatingSystemMemoryGauge;
 import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
+import org.whispersystems.textsecuregcm.metrics.ReportedMessageMetricsListener;
 import org.whispersystems.textsecuregcm.metrics.TrafficSource;
 import org.whispersystems.textsecuregcm.providers.MultiDeviceMessageListProvider;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
@@ -197,7 +198,6 @@ import org.whispersystems.textsecuregcm.storage.RemoteConfigs;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
-import org.whispersystems.textsecuregcm.metrics.ReportedMessageMetricsListener;
 import org.whispersystems.textsecuregcm.storage.ReservedUsernames;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
@@ -653,8 +653,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     );
     if (config.getSubscription() != null && config.getBoost() != null) {
       commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getBoost(),
-          subscriptionManager, stripeManager, zkReceiptOperations, issuedReceiptsManager, profileBadgeConverter,
-          resourceBundleLevelTranslator));
+          config.getGift(), subscriptionManager, stripeManager, zkReceiptOperations, issuedReceiptsManager,
+          profileBadgeConverter, resourceBundleLevelTranslator));
     }
 
     for (Object controller : commonControllers) {

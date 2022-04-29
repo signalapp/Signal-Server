@@ -76,6 +76,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
 import org.whispersystems.textsecuregcm.badges.LevelTranslator;
 import org.whispersystems.textsecuregcm.configuration.BoostConfiguration;
+import org.whispersystems.textsecuregcm.configuration.GiftConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionPriceConfiguration;
@@ -95,6 +96,7 @@ public class SubscriptionController {
   private final Clock clock;
   private final SubscriptionConfiguration subscriptionConfiguration;
   private final BoostConfiguration boostConfiguration;
+  private final GiftConfiguration giftConfiguration;
   private final SubscriptionManager subscriptionManager;
   private final StripeManager stripeManager;
   private final ServerZkReceiptOperations zkReceiptOperations;
@@ -108,6 +110,7 @@ public class SubscriptionController {
       @Nonnull Clock clock,
       @Nonnull SubscriptionConfiguration subscriptionConfiguration,
       @Nonnull BoostConfiguration boostConfiguration,
+      @Nonnull GiftConfiguration giftConfiguration,
       @Nonnull SubscriptionManager subscriptionManager,
       @Nonnull StripeManager stripeManager,
       @Nonnull ServerZkReceiptOperations zkReceiptOperations,
@@ -117,6 +120,7 @@ public class SubscriptionController {
     this.clock = Objects.requireNonNull(clock);
     this.subscriptionConfiguration = Objects.requireNonNull(subscriptionConfiguration);
     this.boostConfiguration = Objects.requireNonNull(boostConfiguration);
+    this.giftConfiguration = Objects.requireNonNull(giftConfiguration);
     this.subscriptionManager = Objects.requireNonNull(subscriptionManager);
     this.stripeManager = Objects.requireNonNull(stripeManager);
     this.zkReceiptOperations = Objects.requireNonNull(zkReceiptOperations);
@@ -472,6 +476,16 @@ public class SubscriptionController {
   public CompletableFuture<Response> getBoostAmounts() {
     return CompletableFuture.supplyAsync(() -> Response.ok(
         boostConfiguration.getCurrencies().entrySet().stream().collect(
+            Collectors.toMap(entry -> entry.getKey().toUpperCase(Locale.ROOT), Entry::getValue))).build());
+  }
+
+  @Timed
+  @GET
+  @Path("/boost/amounts/gift")
+  @Produces(MediaType.APPLICATION_JSON)
+  public CompletableFuture<Response> getGiftAmounts() {
+    return CompletableFuture.supplyAsync(() -> Response.ok(
+        giftConfiguration.currencies().entrySet().stream().collect(
             Collectors.toMap(entry -> entry.getKey().toUpperCase(Locale.ROOT), Entry::getValue))).build());
   }
 
