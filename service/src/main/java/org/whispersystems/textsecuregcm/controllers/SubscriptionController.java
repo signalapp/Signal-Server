@@ -81,6 +81,7 @@ import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionPriceConfiguration;
 import org.whispersystems.textsecuregcm.entities.Badge;
+import org.whispersystems.textsecuregcm.entities.PurchasableBadge;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
@@ -428,15 +429,15 @@ public class SubscriptionController {
 
   public static class GetBoostBadgesResponse {
     public static class Level {
-      private final Badge badge;
+      private final PurchasableBadge badge;
 
       @JsonCreator
       public Level(
-          @JsonProperty("badge") Badge badge) {
+          @JsonProperty("badge") PurchasableBadge badge) {
         this.badge = badge;
       }
 
-      public Badge getBadge() {
+      public PurchasableBadge getBadge() {
         return badge;
       }
     }
@@ -466,8 +467,8 @@ public class SubscriptionController {
       String giftBadge = giftConfiguration.badge();
       List<Locale> acceptableLanguages = getAcceptableLanguagesForRequest(containerRequestContext);
       GetBoostBadgesResponse getBoostBadgesResponse = new GetBoostBadgesResponse(Map.of(
-          boostLevel, new GetBoostBadgesResponse.Level(badgeTranslator.translate(acceptableLanguages, boostBadge)),
-          giftLevel, new GetBoostBadgesResponse.Level(badgeTranslator.translate(acceptableLanguages, giftBadge))));
+          boostLevel, new GetBoostBadgesResponse.Level(new PurchasableBadge(badgeTranslator.translate(acceptableLanguages, boostBadge), boostConfiguration.getExpiration())),
+          giftLevel, new GetBoostBadgesResponse.Level(new PurchasableBadge(badgeTranslator.translate(acceptableLanguages, giftBadge), giftConfiguration.expiration()))));
       return Response.ok(getBoostBadgesResponse).build();
     });
   }
