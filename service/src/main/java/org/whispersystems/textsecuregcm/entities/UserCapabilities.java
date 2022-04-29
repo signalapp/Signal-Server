@@ -17,7 +17,8 @@ public class UserCapabilities {
         account.isSenderKeySupported(),
         account.isAnnouncementGroupSupported(),
         account.isChangeNumberSupported(),
-        account.isStoriesSupported());
+        account.isStoriesSupported(),
+        account.isGiftBadgesSupported());
   }
 
   @JsonProperty
@@ -38,6 +39,9 @@ public class UserCapabilities {
   @JsonProperty
   private boolean stories;
 
+  @JsonProperty
+  private boolean giftBadges;
+
   public UserCapabilities() {
   }
 
@@ -46,7 +50,8 @@ public class UserCapabilities {
       final boolean senderKey,
       final boolean announcementGroup,
       final boolean changeNumber,
-      final boolean stories) {
+      final boolean stories,
+      final boolean giftBadges) {
 
     this.gv2 = gv2;
     this.gv1Migration = gv1Migration;
@@ -54,6 +59,7 @@ public class UserCapabilities {
     this.announcementGroup = announcementGroup;
     this.changeNumber = changeNumber;
     this.stories = stories;
+    this.giftBadges = giftBadges;
   }
 
   public boolean isGv2() {
@@ -78,5 +84,9 @@ public class UserCapabilities {
 
   public boolean isStories() {
     return stories;
+  }
+
+  public boolean isGiftBadges() {
+    return giftBadges;
   }
 }
