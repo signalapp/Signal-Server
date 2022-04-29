@@ -33,6 +33,7 @@ import com.stripe.param.SubscriptionRetrieveParams;
 import com.stripe.param.SubscriptionUpdateParams;
 import com.stripe.param.SubscriptionUpdateParams.BillingCycleAnchor;
 import com.stripe.param.SubscriptionUpdateParams.ProrationBehavior;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -381,6 +382,19 @@ public class StripeManager {
   public CompletableFuture<Collection<InvoiceLineItem>> getInvoiceLineItemsForInvoice(Invoice invoice) {
     return CompletableFuture.supplyAsync(
         () -> Lists.newArrayList(invoice.getLines().autoPagingIterable(null, commonOptions())), executor);
+  }
+
+  /**
+   * Takes an amount as configured; for instance USD 4.99 and turns it into an amount as Stripe expects to see it.
+   * Stripe appears to only support 0 and 2 decimal currencies, but also has some backwards compatibility issues with 0
+   * decimal currencies so this is not to any ISO standard but rather directly from Stripe's API doc page.
+   */
+  public BigDecimal convertConfiguredAmountToStripeAmount(String currency, BigDecimal configuredAmount) {
+    return switch (currency.toLowerCase(Locale.ROOT)) {
+      // Yuck, but this list was taken from https://stripe.com/docs/currencies?presentment-currency=US
+      case "bif", "clp", "djf", "gnf", "jpy", "kmf", "krw", "mga", "pyg", "rwf", "vnd", "vuv", "xaf", "xof", "xpf" -> configuredAmount;
+      default -> configuredAmount.scaleByPowerOfTen(2);
+    };
   }
 
   /**
