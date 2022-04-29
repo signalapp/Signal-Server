@@ -6,6 +6,8 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonFormat.Shape;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Duration;
 import java.util.List;
@@ -40,6 +42,7 @@ public class PurchasableBadge extends Badge {
     this.duration = duration;
   }
 
+  @JsonFormat(shape = Shape.NUMBER_INT)
   public Duration getDuration() {
     return duration;
   }
