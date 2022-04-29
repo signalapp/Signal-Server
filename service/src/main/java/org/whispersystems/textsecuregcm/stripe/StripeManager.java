@@ -154,12 +154,13 @@ public class StripeManager {
   /**
    * Creates a payment intent. May throw a 400 WebApplicationException if the amount is too small.
    */
-  public CompletableFuture<PaymentIntent> createPaymentIntent(String currency, long amount) {
+  public CompletableFuture<PaymentIntent> createPaymentIntent(String currency, long amount, long level) {
     return CompletableFuture.supplyAsync(() -> {
       PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
           .setAmount(amount)
           .setCurrency(currency.toLowerCase(Locale.ROOT))
           .setDescription(boostDescription)
+          .putMetadata("level", Long.toString(level))
           .build();
       try {
         return PaymentIntent.create(params, commonOptions());

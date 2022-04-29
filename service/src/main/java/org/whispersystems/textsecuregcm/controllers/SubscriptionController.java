@@ -25,6 +25,7 @@ import java.math.BigDecimal;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
@@ -494,28 +495,9 @@ public class SubscriptionController {
   }
 
   public static class CreateBoostRequest {
-
-    private final String currency;
-    private final long amount;
-
-    @JsonCreator
-    public CreateBoostRequest(
-        @JsonProperty("currency") String currency,
-        @JsonProperty("amount") long amount) {
-      this.currency = currency;
-      this.amount = amount;
-    }
-
-    @NotEmpty
-    @ExactlySize(3)
-    public String getCurrency() {
-      return currency;
-    }
-
-    @Min(1)
-    public long getAmount() {
-      return amount;
-    }
+    @NotEmpty @ExactlySize(3) public String currency;
+    @Min(1) public long amount;
+    public Long level;
   }
 
   public static class CreateBoostResponse {
@@ -539,32 +521,24 @@ public class SubscriptionController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> createBoostPaymentIntent(@NotNull @Valid CreateBoostRequest request) {
-    return stripeManager.createPaymentIntent(request.getCurrency(), request.getAmount())
+    return CompletableFuture.runAsync(() -> {
+      if (request.level == null) {
+        request.level = boostConfiguration.getLevel();
+      }
+      if (request.level == giftConfiguration.level()) {
+        BigDecimal amountConfigured = giftConfiguration.currencies().get(request.currency.toLowerCase(Locale.ROOT));
+        if (amountConfigured == null || !amountConfigured.equals(BigDecimal.valueOf(request.amount))) {
+          throw new WebApplicationException(Response.status(Status.CONFLICT).entity(Map.of("error", "level_amount_mismatch")).build());
+        }
+      }
+    })
+        .thenCompose(unused -> stripeManager.createPaymentIntent(request.currency, request.amount, request.level))
         .thenApply(paymentIntent -> Response.ok(new CreateBoostResponse(paymentIntent.getClientSecret())).build());
   }
 
   public static class CreateBoostReceiptCredentialsRequest {
-
-    private final String paymentIntentId;
-    private final byte[] receiptCredentialRequest;
-
-    @JsonCreator
-    public CreateBoostReceiptCredentialsRequest(
-        @JsonProperty("paymentIntentId") String paymentIntentId,
-        @JsonProperty("receiptCredentialRequest") byte[] receiptCredentialRequest) {
-      this.paymentIntentId = paymentIntentId;
-      this.receiptCredentialRequest = receiptCredentialRequest;
-    }
-
-    @NotNull
-    public String getPaymentIntentId() {
-      return paymentIntentId;
-    }
-
-    @NotNull
-    public byte[] getReceiptCredentialRequest() {
-      return receiptCredentialRequest;
-    }
+    @NotNull public String paymentIntentId;
+    @NotNull public byte[] receiptCredentialRequest;
   }
 
   public static class CreateBoostReceiptCredentialsResponse {
@@ -588,7 +562,7 @@ public class SubscriptionController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> createBoostReceiptCredentials(@NotNull @Valid CreateBoostReceiptCredentialsRequest request) {
-    return stripeManager.getPaymentIntent(request.getPaymentIntentId())
+    return stripeManager.getPaymentIntent(request.paymentIntentId)
         .thenCompose(paymentIntent -> {
           if (paymentIntent == null) {
             throw new WebApplicationException(Status.NOT_FOUND);
@@ -599,22 +573,42 @@ public class SubscriptionController {
           if (!StringUtils.equalsIgnoreCase("succeeded", paymentIntent.getStatus())) {
             throw new WebApplicationException(Status.PAYMENT_REQUIRED);
           }
+          long level = boostConfiguration.getLevel();
+          if (paymentIntent.getMetadata() != null) {
+            String levelMetadata = paymentIntent.getMetadata().getOrDefault("level", Long.toString(boostConfiguration.getLevel()));
+            try {
+              level = Long.parseLong(levelMetadata);
+            } catch (NumberFormatException e) {
+              logger.error("failed to parse level metadata ({}) on payment intent {}", levelMetadata, paymentIntent.getId(), e);
+              throw new WebApplicationException(Status.INTERNAL_SERVER_ERROR);
+            }
+          }
+          Duration levelExpiration;
+          if (boostConfiguration.getLevel() == level) {
+            levelExpiration = boostConfiguration.getExpiration();
+          } else if (giftConfiguration.level() == level) {
+            levelExpiration = giftConfiguration.expiration();
+          } else {
+            logger.error("level ({}) returned from payment intent that is unknown to the server", level);
+            throw new WebApplicationException(Status.INTERNAL_SERVER_ERROR);
+          }
           ReceiptCredentialRequest receiptCredentialRequest;
           try {
-            receiptCredentialRequest = new ReceiptCredentialRequest(request.getReceiptCredentialRequest());
+            receiptCredentialRequest = new ReceiptCredentialRequest(request.receiptCredentialRequest);
           } catch (InvalidInputException e) {
             throw new BadRequestException("invalid receipt credential request", e);
           }
+          final long finalLevel = level;
           return issuedReceiptsManager.recordIssuance(paymentIntent.getId(), receiptCredentialRequest, clock.instant())
               .thenApply(unused -> {
                 Instant expiration = Instant.ofEpochSecond(paymentIntent.getCreated())
-                    .plus(boostConfiguration.getExpiration())
+                    .plus(levelExpiration)
                     .truncatedTo(ChronoUnit.DAYS)
                     .plus(1, ChronoUnit.DAYS);
                 ReceiptCredentialResponse receiptCredentialResponse;
                 try {
                   receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(
-                      receiptCredentialRequest, expiration.getEpochSecond(), boostConfiguration.getLevel());
+                      receiptCredentialRequest, expiration.getEpochSecond(), finalLevel);
                 } catch (VerificationFailedException e) {
                   throw new BadRequestException("receipt credential request failed verification", e);
                 }
