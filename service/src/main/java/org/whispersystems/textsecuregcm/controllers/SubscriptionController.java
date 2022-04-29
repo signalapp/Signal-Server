@@ -462,9 +462,12 @@ public class SubscriptionController {
     return CompletableFuture.supplyAsync(() -> {
       long boostLevel = boostConfiguration.getLevel();
       String boostBadge = boostConfiguration.getBadge();
+      long giftLevel = giftConfiguration.level();
+      String giftBadge = giftConfiguration.badge();
       List<Locale> acceptableLanguages = getAcceptableLanguagesForRequest(containerRequestContext);
-      GetBoostBadgesResponse getBoostBadgesResponse = new GetBoostBadgesResponse(Map.of(boostLevel,
-          new GetBoostBadgesResponse.Level(badgeTranslator.translate(acceptableLanguages, boostBadge))));
+      GetBoostBadgesResponse getBoostBadgesResponse = new GetBoostBadgesResponse(Map.of(
+          boostLevel, new GetBoostBadgesResponse.Level(badgeTranslator.translate(acceptableLanguages, boostBadge)),
+          giftLevel, new GetBoostBadgesResponse.Level(badgeTranslator.translate(acceptableLanguages, giftBadge))));
       return Response.ok(getBoostBadgesResponse).build();
     });
   }
