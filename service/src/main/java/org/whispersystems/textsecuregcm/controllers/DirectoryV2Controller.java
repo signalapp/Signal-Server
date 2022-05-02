@@ -34,16 +34,8 @@ public class DirectoryV2Controller {
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)
   public Response getAuthToken(@Auth AuthenticatedAccount auth) {
-
     final UUID uuid = auth.getAccount().getUuid();
-    final String e164 = auth.getAccount().getNumber();
-    final long e164AsLong = Long.parseLong(e164, e164.indexOf('+'), e164.length() - 1, 10);
-
-    final byte[] uuidAndNumber = ByteUtil.combine(UUIDUtil.toBytes(uuid), Util.longToByteArray(e164AsLong));
-    final String username = Base64.getEncoder().encodeToString(uuidAndNumber);
-
-    final ExternalServiceCredentials credentials = directoryServiceTokenGenerator.generateFor(username);
-
+    final ExternalServiceCredentials credentials = directoryServiceTokenGenerator.generateFor(uuid.toString());
     return Response.ok().entity(credentials).build();
   }
 }

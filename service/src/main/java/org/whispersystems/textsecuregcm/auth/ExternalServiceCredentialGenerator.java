@@ -35,7 +35,7 @@ public class ExternalServiceCredentialGenerator {
     this(key, userIdKey, usernameDerivation, true);
   }
 
-  private ExternalServiceCredentialGenerator(byte[] key, byte[] userIdKey, boolean usernameDerivation,
+  public ExternalServiceCredentialGenerator(byte[] key, byte[] userIdKey, boolean usernameDerivation,
       boolean prependUsername) {
     this(key, userIdKey, usernameDerivation, prependUsername, Clock.systemUTC());
   }

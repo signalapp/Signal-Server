@@ -420,8 +420,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDirectoryConfiguration().getDirectoryClientConfiguration().getUserAuthenticationTokenSharedSecret(),
         config.getDirectoryConfiguration().getDirectoryClientConfiguration().getUserAuthenticationTokenUserIdSecret());
     ExternalServiceCredentialGenerator directoryV2CredentialsGenerator = new ExternalServiceCredentialGenerator(
-        config.getDirectoryV2Configuration().getDirectoryV2ClientConfiguration()
-            .getUserAuthenticationTokenSharedSecret(), false);
+        config.getDirectoryV2Configuration().getDirectoryV2ClientConfiguration().getUserAuthenticationTokenSharedSecret(),
+        config.getDirectoryV2Configuration().getDirectoryV2ClientConfiguration().getUserIdTokenSharedSecret(),
+        true, false);
 
     dynamicConfigurationManager.start();
 

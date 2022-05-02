@@ -27,7 +27,7 @@ class DirectoryControllerV2Test {
   @Test
   void testAuthToken() {
     final ExternalServiceCredentialGenerator credentialGenerator = new ExternalServiceCredentialGenerator(
-        new byte[]{0x1}, new byte[0], false, false,
+        new byte[]{0x1}, new byte[]{0x2}, true, false,
         Clock.fixed(Instant.ofEpochSecond(1633738643L), ZoneId.of("Etc/UTC")));
 
     final DirectoryV2Controller controller = new DirectoryV2Controller(credentialGenerator);
@@ -35,15 +35,12 @@ class DirectoryControllerV2Test {
     final Account account = mock(Account.class);
     final UUID uuid = UUID.fromString("11111111-1111-1111-1111-111111111111");
     when(account.getUuid()).thenReturn(uuid);
-    when(account.getNumber()).thenReturn("+15055551111");
 
     final ExternalServiceCredentials credentials = (ExternalServiceCredentials) controller.getAuthToken(
         new AuthenticatedAccount(() -> new Pair<>(account, mock(Device.class)))).getEntity();
 
-    assertEquals(credentials.getUsername(), "EREREREREREREREREREREQAAAABZvPKn");
-    assertEquals(credentials.getPassword(), "1633738643:ff03669c64f3f938a279");
-    assertEquals(32, credentials.getUsername().length());
-    assertEquals(31, credentials.getPassword().length());
+    assertEquals(credentials.getUsername(), "d369bc712e2e0dd36258");
+    assertEquals(credentials.getPassword(), "1633738643:4433b0fab41f25f79dd4");
   }
 
 }
