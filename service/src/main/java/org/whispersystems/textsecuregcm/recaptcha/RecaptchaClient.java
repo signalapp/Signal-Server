@@ -14,7 +14,6 @@ import com.google.cloud.recaptchaenterprise.v1.RecaptchaEnterpriseServiceSetting
 import com.google.common.annotations.VisibleForTesting;
 import com.google.recaptchaenterprise.v1.Assessment;
 import com.google.recaptchaenterprise.v1.Event;
-import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -33,7 +32,6 @@ public class RecaptchaClient {
   @VisibleForTesting
   static final String V2_PREFIX = "signal-recaptcha-v2" + RecaptchaClient.SEPARATOR;
   private static final String ASSESSMENTS_COUNTER_NAME = name(RecaptchaClient.class, "assessments");
-  private static final String SCORE_DISTRIBUTION_NAME = name(RecaptchaClient.class, "scoreDistribution");
 
   private final String projectPath;
   private final RecaptchaEnterpriseServiceClient client;
@@ -104,19 +102,8 @@ public class RecaptchaClient {
         .increment();
 
     if (assessment.getTokenProperties().getValid()) {
-      final float score = assessment.getRiskAnalysis().getScore();
-
-      final DistributionSummary.Builder distributionSummaryBuilder = DistributionSummary.builder(
-              SCORE_DISTRIBUTION_NAME)
-          // score is 0.0…1.0, which doesn’t play well with distribution summary bucketing, so scale to 0…100
-          .scale(100)
-          .maximumExpectedValue(100.0d)
-          .tags("action", String.valueOf(expectedAction));
-
-      distributionSummaryBuilder.register(Metrics.globalRegistry).record(score);
-
-      return score >= dynamicConfigurationManager.getConfiguration().getCaptchaConfiguration().getScoreFloor()
-          .floatValue();
+      return assessment.getRiskAnalysis().getScore() >=
+          dynamicConfigurationManager.getConfiguration().getCaptchaConfiguration().getScoreFloor().floatValue();
 
     } else {
       return false;

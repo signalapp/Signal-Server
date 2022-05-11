@@ -17,7 +17,6 @@ import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import java.security.SecureRandom;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -26,7 +25,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
@@ -390,9 +388,6 @@ public class AccountController {
       tags.add(Tag.of(VERIFY_EXPERIMENT_TAG_NAME, String.valueOf(storedVerificationCode.get().getTwilioVerificationSid().isPresent())));
 
       Metrics.counter(ACCOUNT_VERIFY_COUNTER_NAME, tags).increment();
-
-      Metrics.timer(name(AccountController.class, "verifyDuration"), tags)
-          .record(Instant.now().toEpochMilli() - storedVerificationCode.get().getTimestamp(), TimeUnit.MILLISECONDS);
     }
 
     return new AccountIdentityResponse(account.getUuid(),
