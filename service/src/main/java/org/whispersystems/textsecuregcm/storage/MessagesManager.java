@@ -91,11 +91,15 @@ public class MessagesManager {
     messagesDynamoDb.deleteAllMessagesForDevice(destinationUuid, deviceId);
   }
 
-  public Optional<OutgoingMessageEntity> delete(UUID destinationUuid, long destinationDeviceId, UUID guid) {
+  public Optional<OutgoingMessageEntity> delete(UUID destinationUuid, long destinationDeviceId, UUID guid, Long serverTimestamp) {
     Optional<OutgoingMessageEntity> removed = messagesCache.remove(destinationUuid, destinationDeviceId, guid);
 
     if (removed.isEmpty()) {
-      removed = messagesDynamoDb.deleteMessageByDestinationAndGuid(destinationUuid, guid);
+      if (serverTimestamp == null) {
+        removed = messagesDynamoDb.deleteMessageByDestinationAndGuid(destinationUuid, guid);
+      } else {
+        removed = messagesDynamoDb.deleteMessage(destinationUuid, destinationDeviceId, guid, serverTimestamp);
+      }
       cacheMissByGuidMeter.mark();
     } else {
       cacheHitByGuidMeter.mark();

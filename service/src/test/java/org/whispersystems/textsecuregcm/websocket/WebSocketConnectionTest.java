@@ -212,7 +212,7 @@ class WebSocketConnectionTest {
     futures.get(0).completeExceptionally(new IOException());
     futures.get(2).completeExceptionally(new IOException());
 
-    verify(storedMessages, times(1)).delete(eq(accountUuid), eq(2L), eq(outgoingMessages.get(1).getGuid()));
+    verify(storedMessages, times(1)).delete(eq(accountUuid), eq(2L), eq(outgoingMessages.get(1).getGuid()), eq(outgoingMessages.get(1).getServerTimestamp()));
     verify(receiptSender, times(1)).sendReceipt(eq(auth), eq(senderOneUuid), eq(2222L));
 
     connection.stop();
@@ -752,7 +752,7 @@ class WebSocketConnectionTest {
 
     // We should delete all three messages even though we only sent two; one got discarded because it was too big for
     // desktop clients.
-    verify(storedMessages, times(3)).delete(eq(accountUuid), eq(2L), any(UUID.class));
+    verify(storedMessages, times(3)).delete(eq(accountUuid), eq(2L), any(UUID.class), any(Long.class));
 
     connection.stop();
     verify(client).close(anyInt(), anyString());
@@ -826,7 +826,7 @@ class WebSocketConnectionTest {
     futures.get(1).complete(response);
     futures.get(2).complete(response);
 
-    verify(storedMessages, times(3)).delete(eq(accountUuid), eq(2L), any(UUID.class));
+    verify(storedMessages, times(3)).delete(eq(accountUuid), eq(2L), any(UUID.class), any(Long.class));
 
     connection.stop();
     verify(client).close(anyInt(), anyString());

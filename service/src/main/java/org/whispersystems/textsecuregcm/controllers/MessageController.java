@@ -544,7 +544,8 @@ public class MessageController {
       Optional<OutgoingMessageEntity> message = messagesManager.delete(
           auth.getAccount().getUuid(),
           auth.getAuthenticatedDevice().getId(),
-          uuid);
+          uuid,
+          null);
 
       if (message.isPresent()) {
         WebSocketConnection.recordMessageDeliveryDuration(message.get().getTimestamp(), auth.getAuthenticatedDevice());

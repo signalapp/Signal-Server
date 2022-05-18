@@ -194,7 +194,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
           if (throwable == null) {
             if (isSuccessResponse(response)) {
               if (storedMessageInfo.isPresent()) {
-                messagesManager.delete(auth.getAccount().getUuid(), device.getId(), storedMessageInfo.get().getGuid());
+                messagesManager.delete(auth.getAccount().getUuid(), device.getId(), storedMessageInfo.get().getGuid(), storedMessageInfo.get().getServerTimestamp());
               }
 
               if (message.getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT) {
@@ -337,12 +337,12 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
         final Envelope envelope = builder.build();
 
         if (envelope.getSerializedSize() > MAX_DESKTOP_MESSAGE_SIZE && isDesktopClient) {
-          messagesManager.delete(auth.getAccount().getUuid(), device.getId(), message.getGuid());
+          messagesManager.delete(auth.getAccount().getUuid(), device.getId(), message.getGuid(), message.getServerTimestamp());
           discardedMessagesMeter.mark();
 
           sendFutures[i] = CompletableFuture.completedFuture(null);
         } else {
-          sendFutures[i] = sendMessage(builder.build(), Optional.of(new StoredMessageInfo(message.getGuid())));
+          sendFutures[i] = sendMessage(builder.build(), Optional.of(new StoredMessageInfo(message.getGuid(), message.getServerTimestamp())));
         }
       }
 
@@ -396,13 +396,19 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
   private static class StoredMessageInfo {
     private final UUID guid;
+    private final long serverTimestamp;
 
-    public StoredMessageInfo(UUID guid) {
+    public StoredMessageInfo(UUID guid, long serverTimestamp) {
       this.guid = guid;
+      this.serverTimestamp = serverTimestamp;
     }
 
     public UUID getGuid() {
       return guid;
+    }
+
+    public long getServerTimestamp() {
+      return serverTimestamp;
     }
   }
 }

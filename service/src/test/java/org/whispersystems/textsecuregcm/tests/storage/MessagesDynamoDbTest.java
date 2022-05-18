@@ -167,6 +167,32 @@ class MessagesDynamoDbTest {
         .isEmpty();
   }
 
+  @Test
+  void testDeleteSingleMessage() {
+    final UUID destinationUuid = UUID.randomUUID();
+    final UUID secondDestinationUuid = UUID.randomUUID();
+    messagesDynamoDb.store(List.of(MESSAGE1), destinationUuid, 1);
+    messagesDynamoDb.store(List.of(MESSAGE2), secondDestinationUuid, 1);
+    messagesDynamoDb.store(List.of(MESSAGE3), destinationUuid, 2);
+
+    assertThat(messagesDynamoDb.load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+        .element(0).satisfies(verify(MESSAGE1));
+    assertThat(messagesDynamoDb.load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+        .element(0).satisfies(verify(MESSAGE3));
+    assertThat(messagesDynamoDb.load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+        .hasSize(1).element(0).satisfies(verify(MESSAGE2));
+
+    messagesDynamoDb.deleteMessage(secondDestinationUuid, 1,
+        UUID.fromString(MESSAGE2.getServerGuid()), MESSAGE2.getServerTimestamp());
+
+    assertThat(messagesDynamoDb.load(destinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+        .element(0).satisfies(verify(MESSAGE1));
+    assertThat(messagesDynamoDb.load(destinationUuid, 2, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
+        .element(0).satisfies(verify(MESSAGE3));
+    assertThat(messagesDynamoDb.load(secondDestinationUuid, 1, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull()
+        .isEmpty();
+  }
+
   private static void verify(OutgoingMessageEntity retrieved, MessageProtos.Envelope inserted) {
     assertThat(retrieved.getTimestamp()).isEqualTo(inserted.getTimestamp());
     assertThat(retrieved.getSource()).isEqualTo(inserted.hasSource() ? inserted.getSource() : null);

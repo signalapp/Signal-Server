@@ -52,6 +52,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   private final Timer storeTimer = timer(name(getClass(), "store"));
   private final Timer loadTimer = timer(name(getClass(), "load"));
   private final Timer deleteByGuid = timer(name(getClass(), "delete", "guid"));
+  private final Timer deleteByKey = timer(name(getClass(), "delete", "key"));
   private final Timer deleteByAccount = timer(name(getClass(), "delete", "account"));
   private final Timer deleteByDevice = timer(name(getClass(), "delete", "device"));
 
@@ -155,6 +156,24 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
               ":uuid", convertLocalIndexMessageUuidSortKey(messageUuid)))
           .build();
       return deleteItemsMatchingQueryAndReturnFirstOneActuallyDeleted(partitionKey, queryRequest);
+    });
+  }
+
+  public Optional<OutgoingMessageEntity> deleteMessage(final UUID destinationAccountUuid,
+      final long destinationDeviceId, final UUID messageUuid, final long serverTimestamp) {
+    return deleteByKey.record(() -> {
+      final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid);
+      final AttributeValue sortKey = convertSortKey(destinationDeviceId, serverTimestamp, messageUuid);
+      DeleteItemRequest.Builder deleteItemRequest = DeleteItemRequest.builder()
+          .tableName(tableName)
+          .key(Map.of(KEY_PARTITION, partitionKey, KEY_SORT, sortKey))
+          .returnValues(ReturnValue.ALL_OLD);
+      final DeleteItemResponse deleteItemResponse = db().deleteItem(deleteItemRequest.build());
+      if (deleteItemResponse.attributes() != null && deleteItemResponse.attributes().containsKey(KEY_PARTITION)) {
+        return Optional.of(convertItemToOutgoingMessageEntity(deleteItemResponse.attributes()));
+      }
+
+      return Optional.empty();
     });
   }
 
