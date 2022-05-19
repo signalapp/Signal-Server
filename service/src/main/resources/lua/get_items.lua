@@ -8,4 +8,12 @@ if locked then
     return {}
 end
 
-return redis.call("ZRANGE", queueKey, 0, limit, "WITHSCORES")
+-- The range is inclusive
+local min = 0
+local max = limit - 1
+
+if max < 0 then
+    return {}
+end
+
+return redis.call("ZRANGE", queueKey, min, max, "WITHSCORES")
