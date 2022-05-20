@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.auth;
 
 import java.util.List;
 import java.util.UUID;
-import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.whispersystems.textsecuregcm.util.Pair;
 

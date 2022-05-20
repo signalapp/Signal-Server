@@ -5,7 +5,6 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.time.Duration;
 
 public class RateLimitsConfiguration {
 

@@ -3,11 +3,11 @@ package org.whispersystems.textsecuregcm.limits;
 import static com.codahale.metrics.MetricRegistry.name;
 
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import io.micrometer.core.instrument.Tag;
-import io.micrometer.core.instrument.Tags;
 import org.whispersystems.textsecuregcm.abuse.RateLimitChallengeListener;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -15,7 +15,6 @@ import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.Util;
-import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 public class RateLimitChallengeManager {
 

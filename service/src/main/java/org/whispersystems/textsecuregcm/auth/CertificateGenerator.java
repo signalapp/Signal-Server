@@ -7,17 +7,15 @@ package org.whispersystems.textsecuregcm.auth;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import java.security.InvalidKeyException;
+import java.util.Base64;
+import java.util.concurrent.TimeUnit;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECPrivateKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.SenderCertificate;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.ServerCertificate;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
-
-import java.io.IOException;
-import java.security.InvalidKeyException;
-import java.util.Base64;
-import java.util.concurrent.TimeUnit;
 
 public class CertificateGenerator {
 

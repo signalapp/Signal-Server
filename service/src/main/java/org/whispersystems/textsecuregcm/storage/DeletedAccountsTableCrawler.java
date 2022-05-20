@@ -10,7 +10,6 @@ import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 import org.whispersystems.textsecuregcm.entities.DirectoryReconciliationRequest.User;

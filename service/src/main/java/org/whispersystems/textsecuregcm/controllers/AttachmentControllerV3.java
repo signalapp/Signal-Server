@@ -14,7 +14,6 @@ import java.security.spec.InvalidKeySpecException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Base64;
-import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.ws.rs.GET;

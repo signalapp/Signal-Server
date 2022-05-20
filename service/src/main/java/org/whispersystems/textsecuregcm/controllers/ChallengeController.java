@@ -5,8 +5,12 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import java.util.NoSuchElementException;
 import javax.validation.Valid;
 import javax.ws.rs.Consumes;
@@ -18,9 +22,6 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tag;
-import io.micrometer.core.instrument.Tags;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.entities.AnswerChallengeRequest;
 import org.whispersystems.textsecuregcm.entities.AnswerPushChallengeRequest;
@@ -29,8 +30,6 @@ import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.util.ForwardedIpUtil;
-
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 @Path("/v1/challenge")
 public class ChallengeController {

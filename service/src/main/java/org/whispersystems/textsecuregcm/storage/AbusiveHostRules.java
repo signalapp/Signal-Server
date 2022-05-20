@@ -11,14 +11,10 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.storage.mappers.AbusiveHostRuleRowMapper;
 import org.whispersystems.textsecuregcm.util.Constants;
 
 public class AbusiveHostRules {
-
-  private static final Logger logger = LoggerFactory.getLogger(AbusiveHostRules.class);
 
   public static final String ID = "id";
   public static final String HOST = "host";

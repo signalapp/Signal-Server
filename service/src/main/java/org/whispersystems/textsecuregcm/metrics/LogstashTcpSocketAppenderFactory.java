@@ -20,8 +20,6 @@ import io.dropwizard.logging.AbstractAppenderFactory;
 import io.dropwizard.logging.async.AsyncAppenderFactory;
 import io.dropwizard.logging.filter.LevelFilterFactory;
 import io.dropwizard.logging.layout.LayoutFactory;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.time.Duration;
 import javax.validation.constraints.NotEmpty;
 import net.logstash.logback.appender.LogstashTcpSocketAppender;

@@ -7,12 +7,9 @@ package org.whispersystems.gcm.server;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
-import io.github.resilience4j.retry.IntervalFunction;
+import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
-import org.whispersystems.gcm.server.internal.GcmResponseEntity;
-import org.whispersystems.gcm.server.internal.GcmResponseListEntity;
-
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -26,6 +23,8 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
+import org.whispersystems.gcm.server.internal.GcmResponseEntity;
+import org.whispersystems.gcm.server.internal.GcmResponseListEntity;
 
 /**
  * The main interface to sending GCM messages.  Thread safe.

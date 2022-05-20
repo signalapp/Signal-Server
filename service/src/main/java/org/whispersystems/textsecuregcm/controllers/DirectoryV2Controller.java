@@ -6,7 +6,6 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
-import java.util.Base64;
 import java.util.UUID;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -16,9 +15,6 @@ import javax.ws.rs.core.Response;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
-import org.whispersystems.textsecuregcm.util.ByteUtil;
-import org.whispersystems.textsecuregcm.util.UUIDUtil;
-import org.whispersystems.textsecuregcm.util.Util;
 
 @Path("/v2/directory")
 public class DirectoryV2Controller {

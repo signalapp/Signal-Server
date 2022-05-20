@@ -115,7 +115,7 @@ public class PubSubConnection {
     byte[]            channelName       = inputStream.readFully(channelNameHeader.getStringLength());
     inputStream.readLine();
 
-    IntReply subscriptionCount = new IntReply(inputStream.readLine());
+    new IntReply(inputStream.readLine());
 
     return new String(channelName);
   }

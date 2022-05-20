@@ -5,12 +5,8 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
-import javax.annotation.Nullable;
-import java.util.List;
-import java.util.UUID;
 
 public class VersionedProfileResponse {
 

@@ -5,9 +5,7 @@
 package org.whispersystems.textsecuregcm.auth;
 
 import java.util.Base64;
-import java.util.UUID;
 import org.apache.commons.lang3.StringUtils;
-import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Pair;
 
 public class BasicAuthorizationHeader {

@@ -14,8 +14,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
@@ -24,8 +22,6 @@ import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.util.Constants;
 
 public class MessagesManager {
-
-  private static final Logger logger = LoggerFactory.getLogger(MessagesManager.class);
 
   private static final int RESULT_SET_CHUNK_SIZE = 100;
 

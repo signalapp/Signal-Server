@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.Pair;
