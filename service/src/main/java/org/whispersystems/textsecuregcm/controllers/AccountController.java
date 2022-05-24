@@ -105,13 +105,16 @@ import org.whispersystems.textsecuregcm.util.VerificationCode;
 @Path("/v1/accounts")
 public class AccountController {
 
-  private final Logger         logger                 = LoggerFactory.getLogger(AccountController.class);
-  private final MetricRegistry metricRegistry         = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private final Meter          blockedHostMeter       = metricRegistry.meter(name(AccountController.class, "blocked_host"       ));
-  private final Meter          filteredHostMeter      = metricRegistry.meter(name(AccountController.class, "filtered_host"      ));
-  private final Meter          rateLimitedHostMeter   = metricRegistry.meter(name(AccountController.class, "rate_limited_host"  ));
-  private final Meter          rateLimitedPrefixMeter = metricRegistry.meter(name(AccountController.class, "rate_limited_prefix"));
-  private final Meter          captchaRequiredMeter   = metricRegistry.meter(name(AccountController.class, "captcha_required"   ));
+  private final Logger         logger                   = LoggerFactory.getLogger(AccountController.class);
+  private final MetricRegistry metricRegistry           = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  private final Meter          blockedHostMeter         = metricRegistry.meter(name(AccountController.class, "blocked_host"             ));
+  private final Meter          blockedPrefixMeter       = metricRegistry.meter(name(AccountController.class, "blocked_prefix"           ));
+  private final Meter          countryFilterApplicable  = metricRegistry.meter(name(AccountController.class, "country_filter_applicable"));
+  private final Meter          filteredHostMeter        = metricRegistry.meter(name(AccountController.class, "filtered_host"            ));
+  private final Meter          countryFilteredHostMeter = metricRegistry.meter(name(AccountController.class, "country_limited_host"     ));
+  private final Meter          rateLimitedHostMeter     = metricRegistry.meter(name(AccountController.class, "rate_limited_host"        ));
+  private final Meter          rateLimitedPrefixMeter   = metricRegistry.meter(name(AccountController.class, "rate_limited_prefix"      ));
+  private final Meter          captchaRequiredMeter     = metricRegistry.meter(name(AccountController.class, "captcha_required"         ));
 
   private static final String PUSH_CHALLENGE_COUNTER_NAME = name(AccountController.class, "pushChallenge");
   private static final String ACCOUNT_CREATE_COUNTER_NAME = name(AccountController.class, "create");
@@ -774,22 +777,16 @@ public class AccountController {
       }
     }
 
-    List<AbusiveHostRule> abuseRules = abusiveHostRules.getAbusiveHostRulesFor(sourceHost);
-
-    for (AbusiveHostRule abuseRule : abuseRules) {
-      if (abuseRule.blocked()) {
-        logger.info("Blocked host: {}, {}, {} ({})", transport, number, sourceHost, forwardedFor);
-        blockedHostMeter.mark();
-        return new CaptchaRequirement(true, false);
+    DynamicCaptchaConfiguration captchaConfig = dynamicConfigurationManager.getConfiguration()
+        .getCaptchaConfiguration();
+    boolean countryFiltered = captchaConfig.getSignupCountryCodes().contains(countryCode);
+    if (shouldBlock(transport, forwardedFor, sourceHost, number)) {
+      if (countryFiltered) {
+        // this host was caught in the abusiveHostRules filter, but
+        // would be caught by country filter as well
+        countryFilterApplicable.mark();
       }
-
-      if (!abuseRule.regions().isEmpty()) {
-        if (abuseRule.regions().stream().noneMatch(number::startsWith)) {
-          logger.info("Restricted host: {}, {}, {} ({})", transport, number, sourceHost, forwardedFor);
-          filteredHostMeter.mark();
-          return new CaptchaRequirement(true, false);
-        }
-      }
+      return new CaptchaRequirement(true, false);
     }
 
     try {
@@ -808,13 +805,39 @@ public class AccountController {
       return new CaptchaRequirement(true, true);
     }
 
-    DynamicCaptchaConfiguration captchaConfig = dynamicConfigurationManager.getConfiguration()
-        .getCaptchaConfiguration();
-    if (captchaConfig.getSignupCountryCodes().contains(countryCode)) {
+    if (countryFiltered) {
+      countryFilteredHostMeter.mark();
       return new CaptchaRequirement(true, false);
     }
 
     return new CaptchaRequirement(false, false);
+  }
+
+  private boolean shouldBlock(final String transport, final String forwardedFor, final String sourceHost, final String number) {
+    List<AbusiveHostRule> abuseRules = abusiveHostRules.getAbusiveHostRulesFor(sourceHost);
+
+    for (AbusiveHostRule abuseRule : abuseRules) {
+      if (abuseRule.blocked()) {
+        logger.info("Blocked host: {}, {}, {} ({}) matched rule: {}", transport, number, sourceHost, forwardedFor, abuseRule.host());
+
+        // did we match based on an ip block or an exact match
+        if (abuseRule.cidrPrefix().filter(i -> i < 32).isPresent()) {
+          blockedPrefixMeter.mark();
+        } else {
+          blockedHostMeter.mark();
+        }
+        return true;
+      }
+
+      if (!abuseRule.regions().isEmpty()) {
+        if (abuseRule.regions().stream().noneMatch(number::startsWith)) {
+          logger.info("Restricted host: {}, {}, {} ({}) matched rule: {}/{}", transport, number, sourceHost, forwardedFor, abuseRule.host(), abuseRule.regions());
+          filteredHostMeter.mark();
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   @Timed
