@@ -5,16 +5,13 @@
 
 package org.whispersystems.textsecuregcm.tests.util;
 
-import com.fasterxml.jackson.core.JsonParseException;
+import static io.dropwizard.testing.FixtureHelpers.fixture;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import org.whispersystems.textsecuregcm.util.SystemMapper;
-
 import java.io.IOException;
-
-import static io.dropwizard.testing.FixtureHelpers.fixture;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 public class JsonHelpers {
 

@@ -1,6 +1,10 @@
 package org.whispersystems.textsecuregcm.currency;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixture;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -9,13 +13,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandler;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixture;
+import org.junit.jupiter.api.Test;
 
 public class FixerClientTest {
 
