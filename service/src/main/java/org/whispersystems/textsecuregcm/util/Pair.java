@@ -15,18 +15,18 @@ public class Pair<T1, T2> {
     this.v2 = v2;
   }
 
-  public T1 first(){
+  public T1 first() {
     return v1;
   }
 
-  public T2 second(){
+  public T2 second() {
     return v2;
   }
 
   public boolean equals(Object o) {
     return o instanceof Pair &&
-        equal(((Pair) o).first(), first()) &&
-        equal(((Pair) o).second(), second());
+        equal(((Pair<?, ?>) o).first(), first()) &&
+        equal(((Pair<?, ?>) o).second(), second());
   }
 
   public int hashCode() {
