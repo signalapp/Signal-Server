@@ -527,15 +527,21 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getAccountDatabaseCrawlerConfiguration().getChunkIntervalMs()
     );
 
+    AccountDatabaseCrawlerCache accountCleanerAccountDatabaseCrawlerCache =
+        new AccountDatabaseCrawlerCache(cacheCluster, AccountDatabaseCrawlerCache.ACCOUNT_CLEANER_PREFIX);
+    AccountDatabaseCrawler accountCleanerAccountDatabaseCrawler = new AccountDatabaseCrawler("Account cleaner crawler",
+        accountsManager,
+        accountCleanerAccountDatabaseCrawlerCache, List.of(new AccountCleaner(accountsManager)),
+        config.getAccountDatabaseCrawlerConfiguration().getChunkSize(),
+        config.getAccountDatabaseCrawlerConfiguration().getChunkIntervalMs()
+    );
+
     // TODO listeners must be ordered so that ones that directly update accounts come last, so that read-only ones are not working with stale data
     final List<AccountDatabaseCrawlerListener> accountDatabaseCrawlerListeners = List.of(
         new NonNormalizedAccountCrawlerListener(accountsManager, metricsCluster),
         new ContactDiscoveryWriter(accountsManager),
         // PushFeedbackProcessor may update device properties
-        new PushFeedbackProcessor(accountsManager),
-        // delete accounts last
-        new AccountCleaner(accountsManager)
-    );
+        new PushFeedbackProcessor(accountsManager));
 
     AccountDatabaseCrawlerCache accountDatabaseCrawlerCache = new AccountDatabaseCrawlerCache(cacheCluster,
         AccountDatabaseCrawlerCache.GENERAL_PURPOSE_PREFIX);
@@ -559,6 +565,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(messageSender);
     environment.lifecycle().manage(accountDatabaseCrawler);
     environment.lifecycle().manage(directoryReconciliationAccountDatabaseCrawler);
+    environment.lifecycle().manage(accountCleanerAccountDatabaseCrawler);
     environment.lifecycle().manage(deletedAccountsTableCrawler);
     environment.lifecycle().manage(messagesCache);
     environment.lifecycle().manage(messagePersister);

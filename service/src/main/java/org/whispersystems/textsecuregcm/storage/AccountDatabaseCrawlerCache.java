@@ -18,6 +18,7 @@ public class AccountDatabaseCrawlerCache {
 
   public static final String GENERAL_PURPOSE_PREFIX = "";
   public static final String DIRECTORY_RECONCILER_PREFIX = "directory-reconciler";
+  public static final String ACCOUNT_CLEANER_PREFIX = "account-cleaner";
 
   private static final String ACTIVE_WORKER_KEY = "account_database_crawler_cache_active_worker";
   private static final String LAST_UUID_KEY = "account_database_crawler_cache_last_uuid";
