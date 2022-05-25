@@ -146,11 +146,6 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private DatabaseConfiguration abuseDatabase;
-
-  @Valid
-  @NotNull
-  @JsonProperty
   private List<TestDeviceConfiguration> testDevices = new LinkedList<>();
 
   @Valid
@@ -335,10 +330,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public RedisClusterConfiguration getRateLimitersCluster() {
     return rateLimitersCluster;
-  }
-
-  public DatabaseConfiguration getAbuseDatabaseConfiguration() {
-    return abuseDatabase;
   }
 
   public RateLimitsConfiguration getLimitsConfiguration() {

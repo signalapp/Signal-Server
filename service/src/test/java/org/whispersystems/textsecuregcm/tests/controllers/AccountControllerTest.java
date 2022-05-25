@@ -87,7 +87,6 @@ import org.whispersystems.textsecuregcm.push.GcmMessage;
 import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sms.TwilioVerifyExperimentEnrollmentManager;
-import org.whispersystems.textsecuregcm.storage.AbusiveHostRule;
 import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -113,12 +112,13 @@ class AccountControllerTest {
   private static final String SENDER_REG_LOCK    = "+14158888888";
   private static final String SENDER_HAS_STORAGE = "+14159999999";
   private static final String SENDER_TRANSFER    = "+14151111112";
+  private static final String RESTRICTED_COUNTRY = "800";
+  private static final String RESTRICTED_NUMBER  = "+" + RESTRICTED_COUNTRY + "11111111";
 
   private static final UUID   SENDER_REG_LOCK_UUID = UUID.randomUUID();
   private static final UUID   SENDER_TRANSFER_UUID = UUID.randomUUID();
 
   private static final String ABUSIVE_HOST             = "192.168.1.1";
-  private static final String RESTRICTED_HOST          = "192.168.1.2";
   private static final String NICE_HOST                = "127.0.0.1";
   private static final String RATE_LIMITED_IP_HOST     = "10.0.0.1";
   private static final String RATE_LIMITED_PREFIX_HOST = "10.0.0.2";
@@ -276,12 +276,12 @@ class AccountControllerTest {
           .thenReturn(dynamicConfiguration);
 
       DynamicCaptchaConfiguration signupCaptchaConfig = new DynamicCaptchaConfiguration();
+      signupCaptchaConfig.setSignupCountryCodes(Set.of(RESTRICTED_COUNTRY));
 
       when(dynamicConfiguration.getCaptchaConfiguration()).thenReturn(signupCaptchaConfig);
     }
-    when(abusiveHostRules.getAbusiveHostRulesFor(eq(ABUSIVE_HOST))).thenReturn(Collections.singletonList(new AbusiveHostRule(ABUSIVE_HOST, true, Collections.emptyList())));
-    when(abusiveHostRules.getAbusiveHostRulesFor(eq(RESTRICTED_HOST))).thenReturn(Collections.singletonList(new AbusiveHostRule(RESTRICTED_HOST, false, Collections.singletonList("+123"))));
-    when(abusiveHostRules.getAbusiveHostRulesFor(eq(NICE_HOST))).thenReturn(Collections.emptyList());
+    when(abusiveHostRules.isBlocked(eq(ABUSIVE_HOST))).thenReturn(true);
+    when(abusiveHostRules.isBlocked(eq(NICE_HOST))).thenReturn(false);
 
     when(recaptchaClient.verify(eq(INVALID_CAPTCHA_TOKEN), anyString())).thenReturn(false);
     when(recaptchaClient.verify(eq(VALID_CAPTCHA_TOKEN), anyString())).thenReturn(true);
@@ -496,7 +496,7 @@ class AccountControllerTest {
       verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.empty()), anyString());
     }
     verifyNoMoreInteractions(smsSender);
-    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
+    verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
   }
 
   @Test
@@ -563,7 +563,7 @@ class AccountControllerTest {
     } else {
       verify(smsSender).deliverVoxVerification(eq(SENDER), anyString(), eq(Collections.emptyList()));
     }
-    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
+    verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
   }
 
   @ParameterizedTest
@@ -595,7 +595,7 @@ class AccountControllerTest {
     } else {
       verify(smsSender).deliverVoxVerification(eq(SENDER), anyString(), eq(Locale.LanguageRange.parse("pt-BR")));
     }
-    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
+    verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
   }
 
   @ParameterizedTest
@@ -628,7 +628,7 @@ class AccountControllerTest {
       verify(smsSender).deliverVoxVerification(eq(SENDER), anyString(), eq(Locale.LanguageRange
           .parse("en-US;q=1, ar-US;q=0.9, fa-US;q=0.8, zh-Hans-US;q=0.7, ru-RU;q=0.6, zh-Hant-US;q=0.5")));
     }
-    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
+    verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
   }
 
   @Test
@@ -646,7 +646,7 @@ class AccountControllerTest {
 
     verify(smsSender, never()).deliverVoxVerification(eq(SENDER), anyString(), any());
     verify(smsSender, never()).deliverVoxVerificationWithTwilioVerify(eq(SENDER), anyString(), any());
-    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
+    verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
   }
 
   @ParameterizedTest
@@ -677,7 +677,7 @@ class AccountControllerTest {
     } else {
       verify(smsSender).deliverSmsVerification(eq(SENDER_PREAUTH), eq(Optional.empty()), anyString());
     }
-    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(NICE_HOST));
+    verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
   }
 
   @Test
@@ -796,7 +796,7 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(402);
 
-    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(ABUSIVE_HOST));
+    verify(abusiveHostRules).isBlocked(eq(ABUSIVE_HOST));
     verifyNoMoreInteractions(smsSender);
   }
 
@@ -880,8 +880,8 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(402);
 
-    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(RATE_LIMITED_IP_HOST));
-    verify(abusiveHostRules).setBlockedHost(eq(RATE_LIMITED_IP_HOST), eq("Auto-Block"));
+    verify(abusiveHostRules).isBlocked(eq(RATE_LIMITED_IP_HOST));
+    verify(abusiveHostRules).setBlockedHost(eq(RATE_LIMITED_IP_HOST));
     verifyNoMoreInteractions(abusiveHostRules);
 
     verifyNoMoreInteractions(recaptchaClient);
@@ -910,8 +910,8 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(402);
 
-    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(RATE_LIMITED_PREFIX_HOST));
-    verify(abusiveHostRules).setBlockedHost(eq(RATE_LIMITED_PREFIX_HOST), eq("Auto-Block"));
+    verify(abusiveHostRules).isBlocked(eq(RATE_LIMITED_PREFIX_HOST));
+    verify(abusiveHostRules).setBlockedHost(eq(RATE_LIMITED_PREFIX_HOST));
     verifyNoMoreInteractions(abusiveHostRules);
 
     verifyNoMoreInteractions(recaptchaClient);
@@ -940,7 +940,7 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(402);
 
-    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(RATE_LIMITED_HOST2));
+    verify(abusiveHostRules).isBlocked(eq(RATE_LIMITED_HOST2));
     verifyNoMoreInteractions(abusiveHostRules);
 
     verifyNoMoreInteractions(recaptchaClient);
@@ -965,7 +965,7 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(402);
 
-    verify(abusiveHostRules, times(1)).getAbusiveHostRulesFor(eq(ABUSIVE_HOST));
+    verify(abusiveHostRules, times(1)).isBlocked(eq(ABUSIVE_HOST));
 
     verifyNoMoreInteractions(abusiveHostRules);
     verifyNoMoreInteractions(smsSender);
@@ -979,17 +979,20 @@ class AccountControllerTest {
     when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
         .thenReturn(enrolledInVerifyExperiment);
 
+    final String challenge = "challenge";
+    when(pendingAccountsManager.getCodeForNumber(RESTRICTED_NUMBER)).thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null)));
+
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
-                 .queryParam("challenge", "1234-push")
+                 .target(String.format("/v1/accounts/sms/code/%s", RESTRICTED_NUMBER))
+                 .queryParam("challenge", challenge)
                  .request()
-                 .header("X-Forwarded-For", RESTRICTED_HOST)
+                 .header("X-Forwarded-For", NICE_HOST)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(402);
 
-    verify(abusiveHostRules).getAbusiveHostRulesFor(eq(RESTRICTED_HOST));
+    verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
     verifyNoMoreInteractions(smsSender);
   }
 
@@ -1004,27 +1007,25 @@ class AccountControllerTest {
       when(smsSender.deliverSmsVerificationWithTwilioVerify(anyString(), any(), anyString(), anyList()))
           .thenReturn(CompletableFuture.completedFuture(Optional.of("VerificationSid")));
     }
-
-    final String number = "+12345678901";
     final String challenge = "challenge";
 
-    when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null)));
+    when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null)));
 
     Response response =
         resources.getJerseyTest()
-                 .target(String.format("/v1/accounts/sms/code/%s", number))
+                 .target(String.format("/v1/accounts/sms/code/%s", SENDER))
                  .queryParam("challenge", challenge)
                  .request()
-                 .header("X-Forwarded-For", RESTRICTED_HOST)
+                 .header("X-Forwarded-For", NICE_HOST)
                  .get();
 
     assertThat(response.getStatus()).isEqualTo(200);
 
     if (enrolledInVerifyExperiment) {
-      verify(smsSender).deliverSmsVerificationWithTwilioVerify(eq(number), eq(Optional.empty()), anyString(),
+      verify(smsSender).deliverSmsVerificationWithTwilioVerify(eq(SENDER), eq(Optional.empty()), anyString(),
           eq(Collections.emptyList()));
     } else {
-      verify(smsSender).deliverSmsVerification(eq(number), eq(Optional.empty()), anyString());
+      verify(smsSender).deliverSmsVerification(eq(SENDER), eq(Optional.empty()), anyString());
     }
 
     verifyNoMoreInteractions(smsSender);
@@ -1035,7 +1036,7 @@ class AccountControllerTest {
   void testVerifyCode(final boolean enrolledInVerifyExperiment) throws Exception {
     if (enrolledInVerifyExperiment) {
       when(pendingAccountsManager.getCodeForNumber(SENDER)).thenReturn(
-          Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), "1234-push", "VerificationSid")));;
+          Optional.of(new StoredVerificationCode("1234", System.currentTimeMillis(), "1234-push", "VerificationSid")));
     }
 
     resources.getJerseyTest()

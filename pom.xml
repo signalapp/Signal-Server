@@ -61,7 +61,6 @@
     <mockito.version>4.3.1</mockito.version>
     <netty.version>4.1.65.Final</netty.version>
     <opentest4j.version>1.2.0</opentest4j.version>
-    <postgresql.version>42.3.3</postgresql.version>
     <protobuf.version>3.19.4</protobuf.version>
     <pushy.version>0.15.1</pushy.version>
     <resilience4j.version>1.5.0</resilience4j.version>
@@ -225,12 +224,6 @@
         <scope>test</scope>
       </dependency>
       <dependency>
-        <groupId>org.postgresql</groupId>
-        <artifactId>postgresql</artifactId>
-        <version>${postgresql.version}</version>
-        <scope>runtime</scope>
-      </dependency>
-      <dependency>
         <groupId>org.slf4j</groupId>
         <artifactId>slf4j-api</artifactId>
         <version>${slf4j.version}</version>
@@ -277,13 +270,6 @@
         <groupId>org.signal</groupId>
         <artifactId>libsignal-server</artifactId>
         <version>0.16.0</version>
-      </dependency>
-      <dependency>
-        <groupId>io.zonky.test.postgres</groupId>
-        <artifactId>embedded-postgres-binaries-bom</artifactId>
-        <version>11.13.0</version>
-        <type>pom</type>
-        <scope>import</scope>
       </dependency>
       <dependency>
         <groupId>org.apache.logging.log4j</groupId>

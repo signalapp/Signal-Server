@@ -60,6 +60,10 @@ public class DynamicConfiguration {
   @Valid
   private DynamicTurnConfiguration turn = new DynamicTurnConfiguration();
 
+  @JsonProperty
+  @Valid
+  DynamicAbusiveHostRulesConfiguration abusiveHostRules = new DynamicAbusiveHostRulesConfiguration();
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -117,4 +121,7 @@ public class DynamicConfiguration {
     return turn;
   }
 
+  public DynamicAbusiveHostRulesConfiguration getAbusiveHostRules() {
+    return abusiveHostRules;
+  }
 }
