@@ -50,10 +50,10 @@ public class AccountCleaner extends AccountDatabaseCrawlerListener {
       if (isExpired(account) || needsExplicitRemoval(account)) {
         final Tag deletionReason;
 
-        if (isExpired(account)) {
-          deletionReason = Tag.of(DELETION_REASON_TAG_NAME, "previouslyExpired");
-        } else {
+        if (needsExplicitRemoval(account)) {
           deletionReason = Tag.of(DELETION_REASON_TAG_NAME, "newlyExpired");
+        } else {
+          deletionReason = Tag.of(DELETION_REASON_TAG_NAME, "previouslyExpired");
         }
 
         if (accountUpdateCount < MAX_ACCOUNT_DELETIONS_PER_CHUNK) {
