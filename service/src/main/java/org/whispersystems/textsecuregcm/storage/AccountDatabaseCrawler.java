@@ -26,8 +26,6 @@ public class AccountDatabaseCrawler implements Managed, Runnable {
   private static final Logger logger = LoggerFactory.getLogger(AccountDatabaseCrawler.class);
   private static final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
   private static final Timer readChunkTimer = metricRegistry.timer(name(AccountDatabaseCrawler.class, "readChunk"));
-  private static final Timer preReadChunkTimer = metricRegistry.timer(
-      name(AccountDatabaseCrawler.class, "preReadChunk"));
   private static final Timer processChunkTimer = metricRegistry.timer(
       name(AccountDatabaseCrawler.class, "processChunk"));
 
