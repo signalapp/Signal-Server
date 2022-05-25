@@ -152,7 +152,7 @@ class AuthEnablementRefreshRequirementProviderTest {
           devices.add(device);
         });
 
-    final Map<Long, Boolean> devicesEnabled = provider.buildDevicesEnabledMap(account);
+    final Map<Long, Boolean> devicesEnabled = AuthEnablementRefreshRequirementProvider.buildDevicesEnabledMap(account);
 
     assertEquals(4, devicesEnabled.size());
 
