@@ -20,26 +20,27 @@ public class FtxClient {
   }
 
   public BigDecimal getSpotPrice(String currency, String base) throws FtxException{
-    try {
-      URI uri = URI.create("https://ftx.com/api/markets/" + currency + "/" + base);
+    // try {
+    //   URI uri = URI.create("https://ftx.com/api/markets/" + currency + "/" + base);
 
-      HttpResponse<String> response =  client.send(HttpRequest.newBuilder()
-                                                              .GET()
-                                                              .uri(uri)
-                                                              .build(),
-                                                   HttpResponse.BodyHandlers.ofString());
+    //   HttpResponse<String> response =  client.send(HttpRequest.newBuilder()
+    //                                                           .GET()
+    //                                                           .uri(uri)
+    //                                                           .build(),
+    //                                                HttpResponse.BodyHandlers.ofString());
 
-      if (response.statusCode() < 200 || response.statusCode() >= 300) {
-        throw new FtxException("Bad response: " + response.statusCode() + " " + response.toString());
-      }
+    //   if (response.statusCode() < 200 || response.statusCode() >= 300) {
+    //     throw new FtxException("Bad response: " + response.statusCode() + " " + response.toString());
+    //   }
 
-      FtxResponse parsedResponse = SystemMapper.getMapper().readValue(response.body(), FtxResponse.class);
+    //   FtxResponse parsedResponse = SystemMapper.getMapper().readValue(response.body(), FtxResponse.class);
 
-      return parsedResponse.result.price;
+    //   return parsedResponse.result.price;
 
-    } catch (IOException | InterruptedException e) {
-      throw new FtxException(e);
-    }
+    // } catch (IOException | InterruptedException e) {
+    //   throw new FtxException(e);
+    // }
+    return BigDecimal.valueOf(1);
   }
 
   private static class FtxResponse {

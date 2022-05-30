@@ -1,0 +1,410 @@
+# Example, relatively minimal, configuration that passes validation (see `io.dropwizard.cli.CheckCommand`)
+#
+# `unset` values will need to be set to work properly.
+# Most other values are technically valid for a local/demonstration environment, but are probably not production-ready.
+
+stripe:
+  apiKey: pk_test_51KLNTWKqhtdxn8DxwckkEZig3f7xE6odLUomkVj5IGH6liaCn4P2sRu9HYM8uPdjsLs39k5jX5Alok7aUTVq2M1d00bbyzD1Op
+  idempotencyKeyGenerator: abcdefg12345678= # base64 for creating request idempotency hash
+  boostDescription: >
+    Example
+
+dynamoDbClientConfiguration:
+  region: ap-southeast-1 # AWS Region
+
+dynamoDbTables:
+  accounts:
+    tableName: Accounts
+    phoneNumberTableName: Accounts_PhoneNumbers
+    phoneNumberIdentifierTableName: PhoneNumberIdentifiers
+    usernamesTableName: Accounts_Usernames
+    scanPageSize: 100
+  deletedAccounts:
+    tableName: DeletedAccounts
+    needsReconciliationIndexName: NeedsReconciliation
+  deletedAccountsLock:
+    tableName: DeletedAccountsLock
+  issuedReceipts:
+    tableName: IssuedReceipts
+    expiration: P30D # Duration of time until rows expire
+    generator: abcdefg12345678= # random base64-encoded binary sequence
+  keys:
+    tableName: Keys
+  messages:
+    tableName: Messages
+    expiration: P30D # Duration of time until rows expire
+  pendingAccounts:
+    tableName: PendingAccounts
+  pendingDevices:
+    tableName: PendingDevices
+  phoneNumberIdentifiers:
+    tableName: PhoneNumberIdentifiers
+  profiles:
+    tableName: Profiles
+  pushChallenge:
+    tableName: PushChallenge
+  redeemedReceipts:
+    tableName: RedeemedReceipts
+    expiration: P30D # Duration of time until rows expire
+  remoteConfig:
+    tableName: RemoteConfig
+  reportMessage:
+    tableName: ReportMessage
+  reservedUsernames:
+    tableName: ReservedUsernames
+  subscriptions:
+    tableName: Subscriptions
+
+twilio: # Twilio gateway configuration
+  accountId: AC6bb30572f99618039bccf8227eacd75f
+  accountToken: b982a728fb58f2df98c59614af1dc915
+  nanpaMessagingServiceSid: IMCMES # Twilio SID for the messaging service to use for NANPA.
+  messagingServiceSid: MG6ead6566939e42435e065441044adf25 # Twilio SID for the message service to use for non-NANPA.
+  verifyServiceSid: VA3b8ce04fa7f5c83fd78d12d33ae26733 # Twilio SID for a Verify service
+  localDomain: chat.vigoglobal.net # Domain Twilio can connect back to for calls. Should be domain of your service.
+  defaultClientVerificationTexts:
+    ios: example %1$s # Text to use for the verification message on iOS. Will be passed to String.format with the verification code as argument 1.
+    androidNg: example %1$s # Text to use for the verification message on android-ng client types. Will be passed to String.format with the verification code as argument 1.
+    android202001: example %1$s # Text to use for the verification message on android-2020-01 client types. Will be passed to String.format with the verification code as argument 1.
+    android202103: example %1$s # Text to use for the verification message on android-2021-03 client types. Will be passed to String.format with the verification code as argument 1.
+    generic: example %1$s # Text to use when the client type is unrecognized. Will be passed to String.format with the verification code as argument 1.
+  regionalClientVerificationTexts: # Map of country codes to custom texts
+    84: # example country code
+      ios: example %1$s # all keys from defaultClientVerificationTexts are required
+      androidNg: example %1$s
+      android202001: example %1$s
+      android202103: example %1$s
+      generic: example %1$s
+  androidAppHash: example # Hash appended to Android
+  verifyServiceFriendlyName: example # Service name used in template. Requires Twilio account rep to enable
+
+cacheCluster: # Redis server configuration for cache cluster
+  configurationUri: redis://127.0.0.1:7000/
+
+clientPresenceCluster: # Redis server configuration for client presence cluster
+  configurationUri: redis://127.0.0.1:7000/
+
+pubsub: # Redis server configuration for pubsub cluster
+  url: redis://127.0.0.1:7000/
+  replicaUrls:
+    - redis://127.0.0.1:7000/
+
+pushSchedulerCluster: # Redis server configuration for push scheduler cluster
+  configurationUri: redis://127.0.0.1:7000/
+
+rateLimitersCluster: # Redis server configuration for rate limiters cluster
+  configurationUri: redis://127.0.0.1:7000/
+
+directory:
+  client: # Configuration for interfacing with Contact Discovery Service cluster
+    userAuthenticationTokenSharedSecret: 628bfa2b0cdafef54c65f58b817b0022 # hex-encoded secret shared with CDS used to generate auth tokens for Signal users
+    userAuthenticationTokenUserIdSecret: 3576482a9ff50ac06c4d772cffd45bc2 # hex-encoded secret shared among Signal-Servers to obscure user phone numbers from CDS
+  sqs:
+    accessKey: AKIA5AJJCNFKZFHORBNQ     # AWS SQS accessKey
+    accessSecret: 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  # AWS SQS accessSecret
+    queueUrls: # AWS SQS queue urls
+      - https://sqs.ap-southeast-1.amazonaws.com/893976209749/CDSQueue.fifo
+  server: # One or more CDS servers
+    - replicationName: cds           # CDS replication name
+      replicationUrl: https://cds.vigoglobal.net   # CDS replication endpoint base url
+      replicationPassword: "thisisanauthtoken"       # CDS replication endpoint password
+      replicationCaCertificate: |        # CDS replication endpoint TLS certificate trust root
+       -----BEGIN CERTIFICATE-----
+       MIIFJzCCBA+gAwIBAgISA0MnDgpHI1WG568D+clwPY1dMA0GCSqGSIb3DQEBCwUA
+       MDIxCzAJBgNVBAYTAlVTMRYwFAYDVQQKEw1MZXQncyBFbmNyeXB0MQswCQYDVQQD
+       EwJSMzAeFw0yMjAzMTkxMjM1MTBaFw0yMjA2MTcxMjM1MDlaMB0xGzAZBgNVBAMT
+       EmNkcy52aWdvZ2xvYmFsLm5ldDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoC
+       ggEBALOOMTIZaucX2z9QhITcmL2VB0jMXCdiy+c3uk/9oLwAQMlcLj9yawTOJVj0
+       V9gMRVKMVsyiqpQMuLET16N3VCkJsZajO18b6+WxowdW1tS6vww4ov6prP0XDdHD
+       7JQlIG+Zs6nfeNArfLfT64ykRUSTtrhnICxvJpKkqO9qqRzQvAsk4FcpDuc1S+v4
+       OQfJh/8ITtmQoqU347tREcwlNAkL17IhDjAJawrJnVBZVsXbscz2d5NrULM8sznd
+       jXJIduiBn3roJsyJoRiFry6tMn76yf2NE8nEt6ZtMHKMhViMHdjo/Zr+IAWmBWEz
+       ORZ8s9wc9mfNyMpUnfIeutUtu1kCAwEAAaOCAkowggJGMA4GA1UdDwEB/wQEAwIF
+       oDAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDAYDVR0TAQH/BAIwADAd
+       BgNVHQ4EFgQU7/RukaLLHcY15hoDN4SgU53uyp0wHwYDVR0jBBgwFoAUFC6zF7dY
+       VsuuUAlA5h+vnYsUwsYwVQYIKwYBBQUHAQEESTBHMCEGCCsGAQUFBzABhhVodHRw
+       Oi8vcjMuby5sZW5jci5vcmcwIgYIKwYBBQUHMAKGFmh0dHA6Ly9yMy5pLmxlbmNy
+       Lm9yZy8wHQYDVR0RBBYwFIISY2RzLnZpZ29nbG9iYWwubmV0MEwGA1UdIARFMEMw
+       CAYGZ4EMAQIBMDcGCysGAQQBgt8TAQEBMCgwJgYIKwYBBQUHAgEWGmh0dHA6Ly9j
+       cHMubGV0c2VuY3J5cHQub3JnMIIBAQYKKwYBBAHWeQIEAgSB8gSB7wDtAHQAb1N2
+       rDHwMRnYmQCkURX/dxUcEdkCwQApBo2yCJo32RMAAAF/omOaIgAABAMARTBDAiAG
+       lD2wyA9JYUi1zr58NeNhr78+qSll/CxxTkf6/ttlRgIfAmn4ddBEzdWrg9e7UyuE
+       Typtfan61I/83EHc6obZwgB1AEalVet1+pEgMLWiiWn0830RLEF0vv1JuIWr8vxw
+       /m1HAAABf6JjmiIAAAQDAEYwRAIgceBEpzbYF5svevXikbY+xP0J8Wh1jkJa8pX9
+       Or0lxKACICjQpI/+IOPq6OIDRRfdeCCh6u2kNJSdtq1Hmw3eew8PMA0GCSqGSIb3
+       DQEBCwUAA4IBAQCWhpwxPdvdE5zy32YPFhR2u91gNuFQkrjUu48IFd8/zT4mnw2L
+       2s04jwUx7J5zR2dzWwns2of5FUaHPRXxRtZ9Sj43cPvdGyNMMsa+deqmeH2yoRAK
+       zuJYe4I4FufkqweSsg6wKOzvmm5Uft4khgWRb4U4a88rkWiJXZ5RpLHEv4IoeSgG
+       T2xc8CZmXpVpt2vLRRFT0Akpo3UmEBgDXVSIO4jclhWdhPhOeRUD6wVohfEOYK+A
+       yTcjemO9OhQhMz/9l+Z85EtaCfFuMMyLLSJZsu7RLmN8IVmczrbDBh7kiuJDrd+e
+       3n3O33IBVwB/87oHgE31aIn4Z81aNFRhYwJ7
+       -----END CERTIFICATE-----
+
+directoryV2:
+  client: # Configuration for interfacing with Contact Discovery Service v2 cluster
+    userAuthenticationTokenSharedSecret: abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG= # base64-encoded secret shared with CDS to generate auth tokens for Signal users
+    userIdTokenSharedSecret: bbcdefghijklmnopqrstuvwxyz0123456789ABCDEFG= # base64-encoded secret shared with CDS to generate auth identity tokens for Signal users
+
+messageCache: # Redis server configuration for message store cache
+  persistDelayMinutes: 1
+  cluster:
+    configurationUri: redis://127.0.0.1:7000/
+
+metricsCluster:
+  configurationUri: redis://127.0.0.1:7000/
+
+awsAttachments: # AWS S3 configuration
+  accessKey: AKIA5AJJCNFKZFHORBNQ
+  accessSecret: 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
+  bucket: signalapp
+  region: ap-southeast-1
+
+gcpAttachments: # GCP Storage configuration
+  domain: chat.vigoglobal.net
+  email: cuong48d@gmail.com
+  maxSizeInBytes: 1024
+  pathPrefix:
+  rsaSigningKey: |
+    -----BEGIN PRIVATE KEY-----
+    MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC1ok40xdmUcIpQ
+    rfwK7begGtI2spGoAtpZgWyJeGwfgptRZFCs7/dglqJjOd7MxQJ7yxbvJzyiJra/
+    klZ/X+gpc11enrC0SoRIQdpQGKRHs7MJ95Lx/yUWlutjfVs/UqZNPMq10K4NIzek
+    jDb9G6FK9YMTNFKx0yGE/LIBKxUHWEiaCSVxbQYnc7hTgodNaYs40H27xVSQ03X/
+    SJ4S9ljmh1Ft5qWFlZOAcIPpWc9FfZfo1VCzqw2o+WGWFbRHr4xgPlik9664NZHd
+    ah2OSf4FIJf5m86Y7ceXBXqDvqpimWzhpOshl+GIagXUonscqmuw8AyNOVYCMNqv
+    I+T5N0/nAgMBAAECggEADHgG7GKErEcJh75Z5hopl+kfczfQ/fqsKKbU358PtR4P
+    MYg0bZrPnabZoPwxClef8wWfHm3QIMWNmBsgqv/XfTj5OOyl7sqKyDcVGJiIdo+k
+    g9OmF8zPK/zSTfMmF3PCDN1WgSLBQA+h2z7w63FBIlc2V1QpNSHsVCfQxHnDqMxO
+    Ajn+CpLZb5k0G8e9nva/V9i9LJxlISz3FA8QyS8fMOFar/50BbwEZeqnrVqk0kWK
+    BaXk+lqPqMgPUsNl+AAefBolv2FlcL+duWz344MzfZBwSvFaRGT4NjS2BSEf+dTR
+    rfa0ueVwoj91pEFcc0uD5p8a2Usiom+k2cNqWBFViQKBgQDqT/ydYmUER5LSYSXQ
+    fj7W9YyXv0ptzaAHVQ+e+Vxt/nAxQUh0wlCtgC9x8ERE/XamH82KF7IGqk9QXa3M
+    PBZEz1trGjRx9+kYl+lVfUNWs3+Fyv3g8I1rh3HJqnGoZQNpndkFwrAQQen6EDHP
+    zKkOis1kOAbxccRSW5bRupKRowKBgQDGchuJylt7OFLyEVM+4Kvo+gc9exxJ91/N
+    EC6Xo4kqzpFCzrju6sGtC9vsIgj0duS63VlWRYI3V3Jazdhb7lirMB4rwyTVaOUO
+    hZd3oyTePgCPWAEnFfSNudSo1bUwQQamEo4BN9yT5XpOIXlVwI77Cv42vBNitfaP
+    MDM4tx9U7QKBgCPe5OxvMMnL70U3zCM0AIjGBKUCivFuZk5ZDlAnGqhYKHLR7La7
+    PMCi/CB0SO9K4kwiWEQIxp9QmV3TSZUXqc0U9Yja9SZxboTuVLFawOFYD3C7F8zE
+    5tGMZbYa2tWNyUz09lF0caG7hYdbzVRjn4nzY+gwz5dM9GIrVVZ8Oo4DAoGAJOMV
+    B1ncA12G3YQm6yssCVRggCcgLQeUgTOe1YUKfDCFg9uVOKPeeGIZ8RyqeXaYMbvv
+    XT/yYoMYuJRGwV/ej4OUOCI/+INVAIwIia6DrePsiribDj7ghG+kffWrhlqv97K/
+    Pq65i6w+PcOvICd47GUwt8/h8plMSXV2L/aqFkkCgYB+wJr2UIWD+qfG37l8MMt+
+    0uMnDX94wAWlSopnmhemutjVf+Jdpm6x99OZYDhWtmDQ3AyY3gQ6YoZKCfZxAm0u
+    nmeMfYnNmGn6lqX9dkcc7advJBLvYmU+c9QA5ZQthtwoE0mIJkGq85AihFx0EVr1
+    AboEGunHEnqvJiCxNv+ZNQ==
+    -----END PRIVATE KEY-----
+
+abuseDatabase: # Postgresql database configuration
+  driverClass: org.postgresql.Driver
+  user: postgres
+  password: postgres
+  url: jdbc:postgresql://127.0.0.1:5432/signal_abuses
+
+accountDatabaseCrawler:
+  chunkSize: 10           # accounts per run
+  chunkIntervalMs: 60000  # time per run
+
+apn: # Apple Push Notifications configuration
+  sandbox: true
+  bundleId: chat.vigoglobal.net
+  keyId: 6MKYU22889
+  teamId: TJ9G73599F
+  signingKey: |
+    -----BEGIN PRIVATE KEY-----
+    MIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQgnh1Om4hZmNNDlipm
+    qXVDk2ip52AB/TB5D1DZdhGocWegCgYIKoZIzj0DAQehRANCAATZqwmrgSSILEHw
+    GSVspOPnyjaXp9iwiTORytVzv345gBM8f6X6AIRc/1w+xA0TugSBAD+Yihq92E34
+    4RqrS9WV
+    -----END PRIVATE KEY-----
+
+gcm: # GCM Configuration
+  senderId: 623846796520
+  apiKey: AAAAkUAqrOg:APA91bEfdflY-R_-gGassf86fwKEeAlDJ8aQ3c4nIFT_BcH-eS04YCPpnnQjnRZ2bgVizrE8eSu9RZYmQ-6NaIWhQ8lRa5nYfhPv5OB0kLntuFsybIbFS56m8ariyiN6HgraFEtCCHjE
+
+cdn:
+  accessKey: AKIA5AJJCNFKZFHORBNQ    # AWS Access Key ID
+  accessSecret: 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 # AWS Access Secret
+  bucket: signalapp        # S3 Bucket name
+  region: ap-southeast-1  # AWS region
+
+datadog:
+  apiKey: cb95e594320c24d324e12d874f675be6
+  environment: dev
+
+unidentifiedDelivery:
+  certificate: CiYIzToSIQVsCnAFJyCGNg6vDXHGPuBroo+n1XS8suoAHxMdJSYERBJANznujUbefzW6dZtkx5LUXx+KWLDxYUWOhzqtnnaF1/KaRVW0sUzmTxNfcVFwjkj9pmNWg2/cyMDz6JPOFcGwDA==
+  privateKey: aKJe8ucVQnIRS7JvNLIkDBpJ5RiI9r+K222AhaeBnXQ=
+  expiresDays: 7
+
+voiceVerification:
+  url: https://cdn-ca.signal.org/verification/
+  locales:
+    - en
+
+recaptcha:
+  projectPath: projects/signal-app-340806
+  credentialConfigurationJson: '{ 
+  "type": "service_account",
+  "project_id": "signal-app-340806",
+  "private_key_id": "08dc31513bfea8a0d5a680a7c3cb6e6454f5ab59",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC0TwMhOSZ0BwyW\ntj1p5aQh624/vJ2uyMEPBrE+qBeSND+6+PLdp2z79zHUWc37ZSf0ehPNGuAHEE0Z\nNX4jrTpptpNxrpWK83QidRAx6K49ETlh7YOD4CDIEwqEYonG/23CMDz9wyRdeb6F\nCuMM7jIBnrPT17/m0SnN5gMATnwQuXeptIBNLnufsivx3bYHmwZNYnthFP2hPT1p\nI6jj/smzD+e5qSO59vffnVygbyOEHDkQjedMORIh2Qasenb6Qs9C8dd+1bnffo3H\nywUCO5PGbB4ic/3XnL+pela/qLAsq3RijczZQebG5x3/OCciFS7T8NsvWzjeLT23\nAnXaPwbJAgMBAAECggEAIQqHlst7vfBawLV1jJXN3X9gjSJ5vMFCC4hc64/u/dZA\nRXmAO9kF8ihKw9CPG/3d9AF45nGB0xmMH037pvsEBMI1w7PL6JITWoscJCEw6LTi\n0IyvOHfWWgOPPlI2UDaXfOnNC216mPyJyqSDleeCV2SnLG9RVbFHmVkIfMJlHsUn\nHETBdm28a4oudzP9gL9LCQ0cKUaxbPa99BRjA8Lnzd8N95lxXmSqMk5rtdzIy6yw\n5zbF5izCfRiFLJxnmF3V7+KKzwcG3itGJtghdB1IidmyoepaRBHdYMIs6IIuWMrv\nAt+85n4tuEWe8GKH0wBnJTcqE6DDiww/xniBNvvpfwKBgQDeXIdCE0XlIuNCffSJ\nBX6IvRk8lJmD/BQxIf/zW+NCuZibn3SUnrfNLGrHh95zA+mOtXE4nOyOMYgyX0hZ\n41cdNcMvm/58gSGFKL+iO+iJnHeqQxO8+B/9yumFul7+1bmVJCbZxcY3Axip0NT6\n0+YNE1YlPgxp142bBlXRThQNPwKBgQDPlePYd9mVk2FVpZxxXXTntlU4exlk04fd\nhieDGAGHygzxN2OzdxPL6r7rQERnt3NRDXlHVUE5jttRCuvUMS8c7XFGuWT5nugY\nbMY1JEATUQMj2SFuEMdjKGIpb/mOfN8Yr1/CkMpOzB+O9xfYzuNWikBdhsAR7nyz\nnFfaQ+cB9wKBgQDQ8GbUCqIZrc+XshzuB7CfMfiduRALOfmLNWR4urXwA89HI+z6\nna0d6IepV50Ju/phc1KhHKsW7aoJkwi8FefMdbEjclQNj5T8t45iFiLp85Fp9j98\nyDXfVyRY2QfcMt2AK4kqBjG7jXhGUQlfa272iF3g/s3RQo83xRssYk5rJwKBgCG5\nUS2+ssuZCOwYHqVQMIjgV1H4tbRqpRz5CXxDryP3UEjz3a+vPbkYJvIjG7nZ1NMr\nJDPRhuop6jltU8jCQMwrSwbZYa0oAr7NFRpXDE3XEHKHeOXftfTG/8OJnHpokPn6\nq8z5JtTMVqgsPmSLn+VUSoanOJbxLrMjSCZ+d44bAoGBAN4eLKdW+DO7dujTYA46\nrMe8mMdv6bcRRVKIlHShGisxRjk42NZinu/XIyu30suE4OdJJUu6Dx6pbuEzCRy3\ntADp4mK0wSAJz3MpQWgy+1yJPAqngCc0WoA3RRqy0vTx+e2stI0DgGSc7QwJBNBc\nPmBY/J1/rqgTVU5id0rhmEpk\n-----END PRIVATE KEY-----\n",
+  "client_email": "recapcha@signal-app-340806.iam.gserviceaccount.com",
+  "client_id": "100588059895082541100",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/recapcha%40signal-app-340806.iam.gserviceaccount.com"
+  }' # service account configuration for backend authentication
+
+storageService:
+  uri: storage.example.com
+  userAuthenticationTokenSharedSecret: 00000f
+  storageCaCertificate: |
+    -----BEGIN CERTIFICATE-----
+    MIID/TCCAuWgAwIBAgIUZFZeJdU6tJiGiz9xw1wmiiPI9zowDQYJKoZIhvcNAQEL
+    BQAwgY0xCzAJBgNVBAYTAlZOMQ4wDAYDVQQIDAVIYW5vaTENMAsGA1UEBwwEY2l0
+    eTEcMBoGA1UECgwTVmlnbyBHbG9iYWwgQ28uLEx0ZDELMAkGA1UECwwCSVQxDjAM
+    BgNVBAMMBUN1b25nMSQwIgYJKoZIhvcNAQkBFhVjdW9uZ0B2aWdvLWdsb2JhbC5j
+    b20wHhcNMjIwMjExMDgzMzIxWhcNMjcwMjEwMDgzMzIxWjCBjTELMAkGA1UEBhMC
+    Vk4xDjAMBgNVBAgMBUhhbm9pMQ0wCwYDVQQHDARjaXR5MRwwGgYDVQQKDBNWaWdv
+    IEdsb2JhbCBDby4sTHRkMQswCQYDVQQLDAJJVDEOMAwGA1UEAwwFQ3VvbmcxJDAi
+    BgkqhkiG9w0BCQEWFWN1b25nQHZpZ28tZ2xvYmFsLmNvbTCCASIwDQYJKoZIhvcN
+    AQEBBQADggEPADCCAQoCggEBALk7OW8IgMkY4myr8NBITos3O4vitfoOqZ47XoaS
+    ZUwc5C2/CsUA+x4TOWMdW2Idjfu26frJO6j0T62UWENfYr4I6xRi55hp5IM0PI/n
+    0oMqiuU/vBbEcp8N/2NZut/SLHE9cbomAo43+c1NR+ffgJEQfzEZ4V4E4ypRAz/t
+    BWJLlRvpdMXPdpmLjBnMjZJ4QwJ+MUeckTTKVCvMoI5u0Qb5FDDfMc6YEHTLfrgR
+    qbHMwzHiFGsGAkAQ949pK/k5wq/wXjCeL5rsjpuIcKSVHam0iKoRBUQz5uDiadx8
+    GTbjm1xWgxUY3Hy2gfXroZsF/yZVEZGBoFb4/C4lXk+CY8sCAwEAAaNTMFEwHQYD
+    VR0OBBYEFCqKcMnrNqhs2VVOpqKFyEr4CJS2MB8GA1UdIwQYMBaAFCqKcMnrNqhs
+    2VVOpqKFyEr4CJS2MA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQELBQADggEB
+    AG/kKriUdT7diJdex7GuElNL1g124tDiwRi9RDGGESGh+6GaF7XZbvDMVLy73r6l
+    1gZPtko/yV/1fR451OmyY+79x2fBlONxq/NjSDII/HdDXb+W2UkjFvaWukr5zXcS
+    z6FHf7l7Ii7dE057bfsW4PgrG6L78tbmen/sTEs4at5Yt0IjMpL0KC6nyf5ByACO
+    S5LEpgiLYg54eExfIvb35Hfrrsi3kTqq4eNSF9unGhb+twTLqUv99gVVsdpVZLC+
+    TzbnyYp6bzkUxlkh0wpgR8d9hSBoRIlhchMR4KTrW6JDspLPSMG/fm2/Voz2dt6A
+    PI8Pv8Vlc/5gFndhWax1Tao=
+    -----END CERTIFICATE-----
+
+backupService:
+  uri: backup.example.com
+  userAuthenticationTokenSharedSecret: 00000f
+  backupCaCertificate: |
+    -----BEGIN CERTIFICATE-----
+    MIID/TCCAuWgAwIBAgIUZFZeJdU6tJiGiz9xw1wmiiPI9zowDQYJKoZIhvcNAQEL
+    BQAwgY0xCzAJBgNVBAYTAlZOMQ4wDAYDVQQIDAVIYW5vaTENMAsGA1UEBwwEY2l0
+    eTEcMBoGA1UECgwTVmlnbyBHbG9iYWwgQ28uLEx0ZDELMAkGA1UECwwCSVQxDjAM
+    BgNVBAMMBUN1b25nMSQwIgYJKoZIhvcNAQkBFhVjdW9uZ0B2aWdvLWdsb2JhbC5j
+    b20wHhcNMjIwMjExMDgzMzIxWhcNMjcwMjEwMDgzMzIxWjCBjTELMAkGA1UEBhMC
+    Vk4xDjAMBgNVBAgMBUhhbm9pMQ0wCwYDVQQHDARjaXR5MRwwGgYDVQQKDBNWaWdv
+    IEdsb2JhbCBDby4sTHRkMQswCQYDVQQLDAJJVDEOMAwGA1UEAwwFQ3VvbmcxJDAi
+    BgkqhkiG9w0BCQEWFWN1b25nQHZpZ28tZ2xvYmFsLmNvbTCCASIwDQYJKoZIhvcN
+    AQEBBQADggEPADCCAQoCggEBALk7OW8IgMkY4myr8NBITos3O4vitfoOqZ47XoaS
+    ZUwc5C2/CsUA+x4TOWMdW2Idjfu26frJO6j0T62UWENfYr4I6xRi55hp5IM0PI/n
+    0oMqiuU/vBbEcp8N/2NZut/SLHE9cbomAo43+c1NR+ffgJEQfzEZ4V4E4ypRAz/t
+    BWJLlRvpdMXPdpmLjBnMjZJ4QwJ+MUeckTTKVCvMoI5u0Qb5FDDfMc6YEHTLfrgR
+    qbHMwzHiFGsGAkAQ949pK/k5wq/wXjCeL5rsjpuIcKSVHam0iKoRBUQz5uDiadx8
+    GTbjm1xWgxUY3Hy2gfXroZsF/yZVEZGBoFb4/C4lXk+CY8sCAwEAAaNTMFEwHQYD
+    VR0OBBYEFCqKcMnrNqhs2VVOpqKFyEr4CJS2MB8GA1UdIwQYMBaAFCqKcMnrNqhs
+    2VVOpqKFyEr4CJS2MA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQELBQADggEB
+    AG/kKriUdT7diJdex7GuElNL1g124tDiwRi9RDGGESGh+6GaF7XZbvDMVLy73r6l
+    1gZPtko/yV/1fR451OmyY+79x2fBlONxq/NjSDII/HdDXb+W2UkjFvaWukr5zXcS
+    z6FHf7l7Ii7dE057bfsW4PgrG6L78tbmen/sTEs4at5Yt0IjMpL0KC6nyf5ByACO
+    S5LEpgiLYg54eExfIvb35Hfrrsi3kTqq4eNSF9unGhb+twTLqUv99gVVsdpVZLC+
+    TzbnyYp6bzkUxlkh0wpgR8d9hSBoRIlhchMR4KTrW6JDspLPSMG/fm2/Voz2dt6A
+    PI8Pv8Vlc/5gFndhWax1Tao=
+    -----END CERTIFICATE-----
+
+zkConfig:
+  serverPublic: AOhNa4s1Kq2y+mEp+ugIpN9u++ntZzfe0Hz2HTzc229hXBdO0uk3c6uGAManRT5UV9ww+Zi3q0ZLr8ltf+oNph3UbTqI0LjXnzJqhU204ZkXFTKvnXUKnhwxZGz7sczQZjzRlDdid11m7zEzFdcxJBZoJh5jJ+eTuQ2fGqU9cCwl5iGk71ZoxAq6F1eTZ0GbZfm0VnsGd8Jh7N7gFej9FW1mJLrV5Gwx08IiefiJXRixnxTWCtDIW2MvwDbVflEGKIIB3DrkKo4Vm8kffsAoQFZ8KVzrTnlo/IiD3RqZNww/bIX0Oewn6QXPmkgJIqaYsU8SyuL6pB+VAXo3NIiPo0osxxYpqt8zYcfOM3CPyjOVRHaZ/EoOWZO6BCDFqG63QA
+  serverSecret: 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
+
+appConfig:
+  application: SignalAppConfig
+  environment: Production
+  configuration: ProductionConfig
+
+remoteConfig:
+  authorizedTokens:
+    - qwertyuio123456789 # 1st authorized token
+    - # 2nd authorized token
+    - # ...
+    - # Nth authorized token
+  globalConfig: # keys and values that are given to clients on GET /v1/config
+    EXAMPLE_KEY: VALUE
+
+paymentsService:
+  userAuthenticationTokenSharedSecret: cf081da92dc57ce6b8790019eb482d7c # hex-encoded 32-byte secret shared with MobileCoin services used to generate auth tokens for Signal users
+  fixerApiKey: ebcdc67a40e56d1d8a6fb868387c5f37
+  paymentCurrencies:
+    # list of symbols for supported currencies
+    - USD
+    - VND
+
+donation:
+  uri: donation.vigoglobal.net # value
+  supportedCurrencies:
+    - USD # 1st supported currency
+    - VND # 2nd supported currency
+    - # ...
+    - # Nth supported currency
+
+badges:
+  badges:
+    - id: TEST
+      category: other
+      sprites: # exactly 6
+        - sprite-1.png
+        - sprite-2.png
+        - sprite-3.png
+        - sprite-4.png
+        - sprite-5.png
+        - sprite-6.png
+      svg: example.svg
+      svgs:
+        - light: example-light.svg
+          dark: example-dark.svg
+  badgeIdsEnabledForAll:
+    - TEST
+  receiptLevels:
+    '1': TEST
+
+subscription: # configuration for Stripe subscriptions
+  badgeGracePeriod: P15D
+  levels:
+    500:
+      badge: EXAMPLE
+      prices:
+        # list of ISO 4217 currency codes and amounts for the given badge level
+        xts:
+          amount: '10'
+          id: price_example # stripe ID
+
+boost:
+  level: 1
+  expiration: P90D
+  badge: EXAMPLE
+  currencies:
+    # ISO 4217 currency codes and amounts in those currencies
+    xts:
+      - '1'
+      - '2'
+      - '4'
+      - '8'
+      - '20'
+      - '40'
+    usd:
+      - '10'
+      - '20'
+      - '40'
+      - '80'
+      - '200'
+      - '400'
+
+gift:
+  level: 10
+  expiration: P90D
+  badge: EXAMPLE
+  currencies:
+    # ISO 4217 currency codes and amounts in those currencies
+    xts: '2'
+    usd: '20'
