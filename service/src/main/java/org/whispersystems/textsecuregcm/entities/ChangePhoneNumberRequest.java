@@ -9,7 +9,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotBlank;
-import java.util.List;
 import java.util.Map;
 
 public class ChangePhoneNumberRequest {
@@ -26,26 +25,48 @@ public class ChangePhoneNumberRequest {
   @Nullable
   final String registrationLock;
 
-  @JsonProperty("device_messages")
+  @JsonProperty("deviceUpdates")
   @Nullable
-  final List<IncomingMessage> deviceMessages;
+  final Map<Long, DeviceUpdate> deviceUpdates;
 
-  @JsonProperty("device_signed_prekeys")
-  @Nullable
-  final Map<Long, SignedPreKey> deviceSignedPrekeys;
+  public static class DeviceUpdate {
+
+    private final IncomingMessage message;
+    private final SignedPreKey signedPhoneNumberIdentityPreKey;
+    private final Integer registrationID;
+
+    @JsonCreator
+    public DeviceUpdate(
+        @JsonProperty("message") final IncomingMessage message,
+        @JsonProperty("signedPhoneNumberIdentityPrekey") final SignedPreKey signedPhoneNumberIdentityPreKey,
+        @JsonProperty("registratonId") final Integer registrationID) {
+      this.message = message;
+      this.signedPhoneNumberIdentityPreKey = signedPhoneNumberIdentityPreKey;
+      this.registrationID = registrationID;
+    }
+
+    public IncomingMessage getMessage() {
+      return message;
+    }
+
+    public SignedPreKey getSignedPhoneNumberIdentityPreKey() {
+      return signedPhoneNumberIdentityPreKey;
+    }
+
+    public Integer getRegistrationID() {
+      return registrationID;
+    }
+  }
 
   @JsonCreator
   public ChangePhoneNumberRequest(@JsonProperty("number") final String number,
       @JsonProperty("code") final String code,
       @JsonProperty("reglock") @Nullable final String registrationLock,
-      @JsonProperty("device_messages") @Nullable final List<IncomingMessage> deviceMessages,
-      @JsonProperty("device_signed_prekeys") @Nullable final Map<Long, SignedPreKey> deviceSignedPrekeys) {
-
+      @JsonProperty("deviceUpdates") @Nullable final Map<Long, DeviceUpdate> deviceUpdates) {
     this.number = number;
     this.code = code;
     this.registrationLock = registrationLock;
-    this.deviceMessages = deviceMessages;
-    this.deviceSignedPrekeys = deviceSignedPrekeys;
+    this.deviceUpdates = deviceUpdates;
   }
 
   public String getNumber() {
@@ -62,12 +83,5 @@ public class ChangePhoneNumberRequest {
   }
 
   @Nullable
-  public List<IncomingMessage> getDeviceMessages() {
-    return deviceMessages;
-  }
-
-  @Nullable
-  public Map<Long, SignedPreKey> getDeviceSignedPrekeys() {
-    return deviceSignedPrekeys;
-  }
+  public Map<Long, DeviceUpdate> getDeviceUpdates() { return deviceUpdates; }
 }

@@ -69,6 +69,7 @@ import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ChangePhoneNumberRequest;
+import org.whispersystems.textsecuregcm.entities.ChangePhoneNumberRequest.DeviceUpdate;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
@@ -250,7 +251,7 @@ class AccountControllerTest {
     when(accountsManager.setUsername(AuthHelper.VALID_ACCOUNT, "takenusername"))
         .thenThrow(new UsernameNotAvailableException());
 
-    when(changeNumberManager.changeNumber(any(), any(), any(), any())).thenAnswer((Answer<Account>) invocation -> {
+    when(changeNumberManager.changeNumber(any(), any(), any())).thenAnswer((Answer<Account>) invocation -> {
       final Account account = invocation.getArgument(0, Account.class);
       final String number = invocation.getArgument(1, String.class);
 
@@ -1248,10 +1249,10 @@ class AccountControllerTest {
             .target("/v1/accounts/number")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null, null, null),
+            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null, null),
                 MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
-    verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(number), any(), any());
+    verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(number), any());
 
     assertThat(accountIdentityResponse.getUuid()).isEqualTo(AuthHelper.VALID_UUID);
     assertThat(accountIdentityResponse.getNumber()).isEqualTo(number);
@@ -1268,12 +1269,12 @@ class AccountControllerTest {
             .target("/v1/accounts/number")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null, null, null),
+            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null, null),
                 MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(400);
     assertThat(response.readEntity(String.class)).isBlank();
-    verify(changeNumberManager, never()).changeNumber(any(), any(), any(), any());
+    verify(changeNumberManager, never()).changeNumber(any(), any(), any());
   }
 
   @Test
@@ -1286,7 +1287,7 @@ class AccountControllerTest {
             .target("/v1/accounts/number")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null, null, null),
+            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null, null),
                 MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(400);
@@ -1295,7 +1296,7 @@ class AccountControllerTest {
     assertThat(responseEntity.getOriginalNumber()).isEqualTo(number);
     assertThat(responseEntity.getNormalizedNumber()).isEqualTo("+447700900111");
 
-    verify(changeNumberManager, never()).changeNumber(any(), any(), any(), any());
+    verify(changeNumberManager, never()).changeNumber(any(), any(), any());
   }
 
   @Test
@@ -1305,10 +1306,10 @@ class AccountControllerTest {
             .target("/v1/accounts/number")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(new ChangePhoneNumberRequest(AuthHelper.VALID_NUMBER, "567890", null, null, null),
+            .put(Entity.entity(new ChangePhoneNumberRequest(AuthHelper.VALID_NUMBER, "567890", null, null),
                 MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
-    verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), any(), any(), any());
+    verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), any(), any());
   }
 
   @Test
@@ -1323,11 +1324,11 @@ class AccountControllerTest {
             .target("/v1/accounts/number")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null, null, null),
+            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null, null),
                 MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(403);
-    verify(changeNumberManager, never()).changeNumber(any(), any(), any(), any());
+    verify(changeNumberManager, never()).changeNumber(any(), any(), any());
   }
 
   @Test
@@ -1343,11 +1344,11 @@ class AccountControllerTest {
             .target("/v1/accounts/number")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(new ChangePhoneNumberRequest(number, code + "-incorrect", null, null, null),
+            .put(Entity.entity(new ChangePhoneNumberRequest(number, code + "-incorrect", null, null),
                 MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(403);
-    verify(changeNumberManager, never()).changeNumber(any(), any(), any(), any());
+    verify(changeNumberManager, never()).changeNumber(any(), any(), any());
   }
 
   @Test
@@ -1373,11 +1374,11 @@ class AccountControllerTest {
             .target("/v1/accounts/number")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null, null, null),
+            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null, null),
                 MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(200);
-    verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), any(), any(), any());
+    verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), any(), any());
   }
 
   @Test
@@ -1403,11 +1404,11 @@ class AccountControllerTest {
             .target("/v1/accounts/number")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null, null, null),
+            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null, null),
                 MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(423);
-    verify(changeNumberManager, never()).changeNumber(any(), any(), any(), any());
+    verify(changeNumberManager, never()).changeNumber(any(), any(), any());
   }
 
   @Test
@@ -1435,11 +1436,11 @@ class AccountControllerTest {
             .target("/v1/accounts/number")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, reglock, null, null),
+            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, reglock, null),
                 MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(423);
-    verify(changeNumberManager, never()).changeNumber(any(), any(), any(), any());
+    verify(changeNumberManager, never()).changeNumber(any(), any(), any());
   }
 
   @Test
@@ -1467,11 +1468,11 @@ class AccountControllerTest {
             .target("/v1/accounts/number")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, reglock, null, null),
+            .put(Entity.entity(new ChangePhoneNumberRequest(number, code, reglock, null),
                 MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(200);
-    verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), any(), any(), any());
+    verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), any(), any());
   }
 
   @Test
@@ -1488,11 +1489,14 @@ class AccountControllerTest {
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .put(Entity.entity(new ChangePhoneNumberRequest(number, code, null,
-                    List.of(new IncomingMessage(1, null, 1, 1, "foo")), null),
+                    Map.of(1L, new DeviceUpdate(
+                        new IncomingMessage(1, null, 1, 1, "foo"),
+                        null,
+                        null))),
                 MediaType.APPLICATION_JSON_TYPE));
 
-    assertThat(response.getStatus()).isEqualTo(400);
-    verify(changeNumberManager, never()).changeNumber(any(), any(), any(), any());
+    assertThat(response.getStatus()).isEqualTo(409);
+    verify(changeNumberManager, never()).changeNumber(any(), any(), any());
   }
 
   @Test
@@ -1517,14 +1521,19 @@ class AccountControllerTest {
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .put(Entity.entity(new ChangePhoneNumberRequest(
                     number, code, null,
-                    List.of(
-                        new IncomingMessage(1, null, 2, 1, "foo"),
-                        new IncomingMessage(1, null, 4, 1, "foo")),
-                    Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey(), 3L, new SignedPreKey())),
+                    Map.of(
+                        2L, new DeviceUpdate(
+                            new IncomingMessage(1, null, 2, 1, "foo"),
+                            null,
+                            null),
+                        4L, new DeviceUpdate(
+                            new IncomingMessage(1, null, 4, 1, "foo"),
+                            null,
+                            null))),
                 MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(409);
-    verify(changeNumberManager, never()).changeNumber(any(), any(), any(), any());
+    verify(changeNumberManager, never()).changeNumber(any(), any(), any());
   }
 
   @Test
@@ -1546,10 +1555,19 @@ class AccountControllerTest {
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
         new StoredVerificationCode(code, System.currentTimeMillis(), "push", null)));
 
-    var deviceMessages = List.of(
+    Map<Long, DeviceUpdate> perDevice = Map.of(
+        1L, new DeviceUpdate(
+            null,
+            new SignedPreKey(),
+            null),
+        2L, new DeviceUpdate(
             new IncomingMessage(1, null, 2, 2, "content2"),
-            new IncomingMessage(1, null, 3, 3, "content3"));
-    var deviceKeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey(), 3L, new SignedPreKey());
+            new SignedPreKey(),
+            null),
+        3L, new DeviceUpdate(
+            new IncomingMessage(1, null, 3, 3, "content3"),
+            new SignedPreKey(),
+            null));
 
     final AccountIdentityResponse accountIdentityResponse =
         resources.getJerseyTest()
@@ -1557,12 +1575,10 @@ class AccountControllerTest {
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .put(Entity.entity(new ChangePhoneNumberRequest(
-                    number, code, null,
-                    deviceMessages,
-                    deviceKeys),
+                    number, code, null, perDevice),
                 MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
-    verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(number), any(), any());
+    verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(number), any());
 
     assertThat(accountIdentityResponse.getUuid()).isEqualTo(AuthHelper.VALID_UUID);
     assertThat(accountIdentityResponse.getNumber()).isEqualTo(number);
@@ -1588,17 +1604,27 @@ class AccountControllerTest {
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
         new StoredVerificationCode(code, System.currentTimeMillis(), "push", null)));
 
+    Map<Long, DeviceUpdate> perDevice = Map.of(
+        1L, new DeviceUpdate(
+            null,
+            new SignedPreKey(),
+            null),
+        2L, new DeviceUpdate(
+            new IncomingMessage(1, null, 2, 1, "foo"),
+            new SignedPreKey(),
+            null),
+        3L, new DeviceUpdate(
+            new IncomingMessage(1, null, 3, 1, "foo"),
+            new SignedPreKey(),
+            null));
+
     final Response response =
         resources.getJerseyTest()
             .target("/v1/accounts/number")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
             .put(Entity.entity(new ChangePhoneNumberRequest(
-                    number, code, null,
-                    List.of(
-                        new IncomingMessage(1, null, 2, 1, "foo"),
-                        new IncomingMessage(1, null, 3, 1, "foo")),
-                    Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey(), 3L, new SignedPreKey())),
+                    number, code, null, perDevice),
                 MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(410);

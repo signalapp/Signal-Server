@@ -30,7 +30,7 @@ class DeviceTest {
 
   private static Stream<Arguments> testIsEnabled() {
     return Stream.of(
-        //             master fetchesMessages apnId     gcmId     signedPreKey              lastSeen             expectEnabled
+        //             master fetchesMessages apnId     gcmId     signedPhoneNumberIdentityPreKey              lastSeen             expectEnabled
         Arguments.of(true, false, null, null, null, Duration.ofDays(60), false),
         Arguments.of(true, false, null, null, null, Duration.ofDays(1), false),
         Arguments.of(true, false, null, null, mock(SignedPreKey.class), Duration.ofDays(60), false),
