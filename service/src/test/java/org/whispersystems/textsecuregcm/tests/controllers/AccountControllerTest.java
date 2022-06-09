@@ -19,6 +19,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
@@ -127,6 +128,9 @@ class AccountControllerTest {
   private static final String VALID_CAPTCHA_TOKEN   = "valid_token";
   private static final String INVALID_CAPTCHA_TOKEN = "invalid_token";
 
+  private static final String  TEST_NUMBER            = "+14151111113";
+  private static final Integer TEST_VERIFICATION_CODE = 123456;
+
   private static StoredVerificationCodeManager pendingAccountsManager = mock(StoredVerificationCodeManager.class);
   private static AccountsManager        accountsManager        = mock(AccountsManager.class);
   private static AbusiveHostRules       abusiveHostRules       = mock(AbusiveHostRules.class);
@@ -174,7 +178,7 @@ class AccountControllerTest {
           smsSender,
           dynamicConfigurationManager,
           turnTokenGenerator,
-          new HashMap<>(),
+          Map.of(TEST_NUMBER, TEST_VERIFICATION_CODE),
           recaptchaClient,
           gcmSender,
           apnSender,
@@ -498,6 +502,7 @@ class AccountControllerTest {
     verifyNoMoreInteractions(smsSender);
     verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
   }
+
 
   @Test
   void testSendCodeImpossibleNumber() {
@@ -1031,6 +1036,22 @@ class AccountControllerTest {
     verifyNoMoreInteractions(smsSender);
   }
 
+  @Test
+  void testSendCodeTestDeviceNumber() throws Exception {
+    // no push code and a blocked host, but should evade captchas and skip smsSender
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/accounts/sms/code/%s", TEST_NUMBER))
+            .request()
+            .header("X-Forwarded-For", ABUSIVE_HOST)
+            .get();
+    ArgumentCaptor<StoredVerificationCode> captor = ArgumentCaptor.forClass(StoredVerificationCode.class);
+    verify(pendingAccountsManager).store(eq(TEST_NUMBER), captor.capture());
+    assertThat(captor.getValue().getCode()).isEqualTo(Integer.toString(TEST_VERIFICATION_CODE));
+    assertThat(response.getStatus()).isEqualTo(200);
+    verifyNoInteractions(smsSender);
+  }
+
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
   void testVerifyCode(final boolean enrolledInVerifyExperiment) throws Exception {
@@ -1233,6 +1254,24 @@ class AccountControllerTest {
                 MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(200);
+  }
+
+  @Test
+  void testVerifyTestDeviceNumber() throws Exception {
+
+    when(pendingAccountsManager.getCodeForNumber(TEST_NUMBER)).thenReturn(Optional.of(
+        new StoredVerificationCode(Integer.toString(TEST_VERIFICATION_CODE), System.currentTimeMillis(), "push", null)));
+
+
+    final Response response = resources.getJerseyTest()
+        .target(String.format("/v1/accounts/code/%s", TEST_VERIFICATION_CODE))
+        .request()
+        .header("Authorization", AuthHelper.getProvisioningAuthHeader(TEST_NUMBER, "bar"))
+        .put(Entity.entity(new AccountAttributes(), MediaType.APPLICATION_JSON_TYPE));
+
+    verify(accountsManager).create(eq(TEST_NUMBER), eq("bar"), any(), any(), anyList());
+    assertThat(response.getStatus()).isEqualTo(200);
+
   }
 
   @Test

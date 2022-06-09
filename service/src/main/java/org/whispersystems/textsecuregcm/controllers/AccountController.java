@@ -728,8 +728,11 @@ public class AccountController {
       Optional<String> pushChallenge,
       String userAgent)
   {
-    final String countryCode = Util.getCountryCode(number);
+    if (testDevices.containsKey(number)) {
+      return new CaptchaRequirement(false, false);
+    }
 
+    final String countryCode = Util.getCountryCode(number);
     if (captchaToken.isPresent()) {
       boolean validToken = recaptchaClient.verify(captchaToken.get(), sourceHost);
 
