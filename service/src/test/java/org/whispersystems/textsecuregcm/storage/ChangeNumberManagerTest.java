@@ -12,9 +12,9 @@ import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.push.MessageSender;
-import org.whispersystems.textsecuregcm.storage.ChangeNumberManager.DeviceUpdate;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -60,7 +60,7 @@ public class ChangeNumberManagerTest {
   void changeNumberNoMessages() throws Exception {
     Account account = mock(Account.class);
     when(account.getNumber()).thenReturn("+18005551234");
-    changeNumberManager.changeNumber(account, "+18025551234", Collections.EMPTY_MAP);
+    changeNumberManager.changeNumber(account, "+18025551234", Collections.EMPTY_MAP, Collections.EMPTY_LIST);
     verify(accountsManager).changeNumber(account, "+18025551234");
     verify(accountsManager, never()).updateDevice(any(), eq(1L), any());
     verify(messageSender, never()).sendMessage(eq(account), any(), any(), eq(false));
@@ -70,8 +70,8 @@ public class ChangeNumberManagerTest {
   void changeNumberSetPrimaryDevicePrekey() throws Exception {
     Account account = mock(Account.class);
     when(account.getNumber()).thenReturn("+18005551234");
-    var devices = Map.of(1L, new DeviceUpdate(new SignedPreKey(), null, null));
-    changeNumberManager.changeNumber(account, "+18025551234", devices);
+    var prekeys = Map.of(1L, new SignedPreKey());
+    changeNumberManager.changeNumber(account, "+18025551234", prekeys, Collections.EMPTY_LIST);
     verify(accountsManager).changeNumber(account, "+18025551234");
     verify(accountsManager).updateDevice(any(), eq(1L), any());
     verify(messageSender, never()).sendMessage(eq(account), any(), any(), eq(false));
@@ -84,13 +84,11 @@ public class ChangeNumberManagerTest {
     when(account.getUuid()).thenReturn(UUID.randomUUID());
     Device d2 = mock(Device.class);
     when(account.getDevice(2L)).thenReturn(Optional.of(d2));
+    var prekeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey());
     IncomingMessage msg = mock(IncomingMessage.class);
     when(msg.getDestinationDeviceId()).thenReturn(2L);
     when(msg.getContent()).thenReturn(Base64.encodeBase64String(new byte[]{1}));
-    var devices = Map.of(
-        1L, new DeviceUpdate(new SignedPreKey(), null, null),
-        2L, new DeviceUpdate(new SignedPreKey(), msg, null));
-    changeNumberManager.changeNumber(account, "+18025551234", devices);
+    changeNumberManager.changeNumber(account, "+18025551234", prekeys, List.of(msg));
     verify(accountsManager).changeNumber(account, "+18025551234");
     verify(accountsManager).updateDevice(any(), eq(1L), any());
     verify(accountsManager).updateDevice(any(), eq(2L), any());

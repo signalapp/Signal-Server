@@ -16,6 +16,7 @@ import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import javax.validation.constraints.NotNull;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -31,13 +32,11 @@ public class ChangeNumberManager {
     this.accountsManager = accountsManager;
   }
 
-  public record DeviceUpdate(SignedPreKey signedPhoneNumberIdentityPreKey, IncomingMessage message, Integer registrationID) {
-  }
-
   public Account changeNumber(
       @NotNull Account account,
       @NotNull final String number,
-      @NotNull final Map<Long, DeviceUpdate> deviceUpdates) throws InterruptedException {
+      @NotNull final Map<Long, SignedPreKey> deviceSignedPrekeys,
+      @NotNull final List<IncomingMessage> deviceMessages) throws InterruptedException {
 
     final Account updatedAccount;
     if (number.equals(account.getNumber())) {
@@ -52,17 +51,14 @@ public class ChangeNumberManager {
     // This makes it so the client can resend a request they didn't get a response for (timeout, etc)
     // to make sure their messages sent and prekeys were updated, even if the first time around the
     // server crashed at/above this point.
-    if (deviceUpdates != null && !deviceUpdates.isEmpty()) {
-      for (Map.Entry<Long, DeviceUpdate> entry : deviceUpdates.entrySet()) {
-        DeviceUpdate deviceUpdate = entry.getValue();
+    if (deviceSignedPrekeys != null && !deviceSignedPrekeys.isEmpty()) {
+      for (Map.Entry<Long, SignedPreKey> entry : deviceSignedPrekeys.entrySet()) {
         accountsManager.updateDevice(updatedAccount, entry.getKey(),
-            device -> {
-              if (deviceUpdate.signedPhoneNumberIdentityPreKey() != null) device.setPhoneNumberIdentitySignedPreKey(deviceUpdate.signedPhoneNumberIdentityPreKey());
-              if (deviceUpdate.registrationID() != null) device.setRegistrationId(deviceUpdate.registrationID());
-            });
-        if (deviceUpdate.message() != null) {
-          sendMessageToSelf(updatedAccount, updatedAccount.getDevice(entry.getKey()), deviceUpdate.message());
-        }
+            d -> d.setPhoneNumberIdentitySignedPreKey(entry.getValue()));
+      }
+
+      for (IncomingMessage message : deviceMessages) {
+        sendMessageToSelf(updatedAccount, updatedAccount.getDevice(message.getDestinationDeviceId()), message);
       }
     }
     return updatedAccount;

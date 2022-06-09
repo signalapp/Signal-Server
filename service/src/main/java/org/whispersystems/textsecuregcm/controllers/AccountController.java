@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
@@ -87,7 +86,6 @@ import org.whispersystems.textsecuregcm.storage.AbusiveHostRules;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
-import org.whispersystems.textsecuregcm.storage.ChangeNumberManager.DeviceUpdate;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
@@ -410,27 +408,22 @@ public class AccountController {
       throw new ForbiddenException();
     }
 
-    Map<Long, DeviceUpdate> devices = Collections.emptyMap();
-    if (request.getDeviceUpdates() != null && !request.getDeviceUpdates().isEmpty()) {
-      devices = request.getDeviceUpdates().entrySet().stream()
-          .collect(Collectors.toMap(
-              e -> e.getKey(),
-              e -> new DeviceUpdate(e.getValue().getSignedPhoneNumberIdentityPreKey(), e.getValue().getMessage(), e.getValue().getRegistrationID())));
+    if (request.getDeviceSignedPrekeys() != null && !request.getDeviceSignedPrekeys().isEmpty()) {
+      if (request.getDeviceMessages() == null || request.getDeviceMessages().size() != request.getDeviceSignedPrekeys().size() - 1) {
+        // device_messages should exist and be one shorter than device_signed_prekeys, since it doesn't have the primary's key.
+        throw new WebApplicationException(Response.status(400).build());
+      }
       try {
         // Checks that all except master ID are in device messages
-        List<IncomingMessage> deviceMessages = devices.entrySet().stream()
-            .map(e -> e.getValue().message())
-            .filter(e -> e != null)
-            .collect(Collectors.toList());
         MessageValidation.validateCompleteDeviceList(
-            authenticatedAccount.getAccount(), deviceMessages,
+            authenticatedAccount.getAccount(), request.getDeviceMessages(),
             IncomingMessage::getDestinationDeviceId, true, Optional.of(Device.MASTER_ID));
         MessageValidation.validateRegistrationIds(
-            authenticatedAccount.getAccount(), deviceMessages,
+            authenticatedAccount.getAccount(), request.getDeviceMessages(),
             IncomingMessage::getDestinationDeviceId, IncomingMessage::getDestinationRegistrationId);
         // Checks that all including master ID are in signed prekeys
         MessageValidation.validateCompleteDeviceList(
-            authenticatedAccount.getAccount(), devices.entrySet(),
+            authenticatedAccount.getAccount(), request.getDeviceSignedPrekeys().entrySet(),
             e -> e.getKey(), false, Optional.empty());
       } catch (MismatchedDevicesException e) {
         throw new WebApplicationException(Response.status(409)
@@ -444,6 +437,9 @@ public class AccountController {
             .entity(new StaleDevices(e.getStaleDevices()))
             .build());
       }
+    } else if (request.getDeviceMessages() != null && !request.getDeviceMessages().isEmpty()) {
+      // device_messages shouldn't exist without device_signed_prekeys.
+      throw new WebApplicationException(Response.status(400).build());
     }
 
     final String number = request.getNumber();
@@ -474,7 +470,8 @@ public class AccountController {
     final Account updatedAccount = changeNumberManager.changeNumber(
         authenticatedAccount.getAccount(),
         request.getNumber(),
-        devices);
+        Optional.ofNullable(request.getDeviceSignedPrekeys()).orElse(Collections.emptyMap()),
+        Optional.ofNullable(request.getDeviceMessages()).orElse(Collections.emptyList()));
 
     return new AccountIdentityResponse(
         updatedAccount.getUuid(),
