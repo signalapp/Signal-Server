@@ -55,7 +55,7 @@
     <jaxb.version>2.3.1</jaxb.version>
     <jedis.version>2.9.0</jedis.version>
     <lettuce.version>6.0.4.RELEASE</lettuce.version>
-    <libphonenumber.version>8.12.48</libphonenumber.version>
+    <libphonenumber.version>8.12.50</libphonenumber.version>
     <logstash.logback.version>7.0.1</logstash.logback.version>
     <micrometer.version>1.5.3</micrometer.version>
     <mockito.version>4.3.1</mockito.version>
