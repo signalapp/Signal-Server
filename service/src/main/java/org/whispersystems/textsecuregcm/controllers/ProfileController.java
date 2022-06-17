@@ -12,12 +12,17 @@ import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,6 +31,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.validation.Valid;
@@ -52,7 +58,6 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.zkgroup.InvalidInputException;
@@ -73,6 +78,8 @@ import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.BaseProfileResponse;
+import org.whispersystems.textsecuregcm.entities.BatchIdentityCheckRequest;
+import org.whispersystems.textsecuregcm.entities.BatchIdentityCheckResponse;
 import org.whispersystems.textsecuregcm.entities.CreateProfileRequest;
 import org.whispersystems.textsecuregcm.entities.CredentialProfileResponse;
 import org.whispersystems.textsecuregcm.entities.PniCredentialProfileResponse;
@@ -91,6 +98,7 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.textsecuregcm.util.Util;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 
@@ -314,6 +322,69 @@ public class ProfileController {
     return profileResponse;
   }
 
+  @Timed
+  @GET
+  @Produces(MediaType.APPLICATION_JSON)
+  @Path("/identity_check/batch")
+  public CompletableFuture<BatchIdentityCheckResponse> runBatchIdentityCheck(BatchIdentityCheckRequest request) {
+    return CompletableFuture.supplyAsync(() -> {
+      List<BatchIdentityCheckResponse.Element> responseElements = Collections.synchronizedList(new ArrayList<>());
+      BatchIdentityCheckResponse response = new BatchIdentityCheckResponse(responseElements);
+
+      // for small requests only run one batch
+      if (request.elements().size() <= 30) {
+        MessageDigest sha256;
+        try {
+          sha256 = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+          throw new AssertionError(e);
+        }
+        for (final BatchIdentityCheckRequest.Element element : request.elements()) {
+          checkFingerprintAndAdd(element, responseElements, sha256);
+        }
+      } else {
+        final int batchCount = 10;
+        final int batchSize = request.elements().size() / batchCount;
+        @SuppressWarnings("rawtypes") CompletableFuture[] futures = new CompletableFuture[batchCount];
+
+        for (int i = 0; i < batchCount; i++) {
+          List<BatchIdentityCheckRequest.Element> batch = request.elements()
+              .subList(i * batchSize, Math.min((i + 1) * batchSize, request.elements().size()));
+          futures[i] = CompletableFuture.runAsync(() -> {
+            MessageDigest sha256;
+            try {
+              sha256 = MessageDigest.getInstance("SHA-256");
+            } catch (NoSuchAlgorithmException e) {
+              throw new AssertionError(e);
+            }
+            for (final BatchIdentityCheckRequest.Element element : batch) {
+              checkFingerprintAndAdd(element, responseElements, sha256);
+            }
+          });
+        }
+
+        CompletableFuture.allOf(futures).join();
+      }
+      return response;
+    });
+  }
+
+  private void checkFingerprintAndAdd(BatchIdentityCheckRequest.Element element, Collection<BatchIdentityCheckResponse.Element> responseElements, MessageDigest md) {
+    accountsManager.getByAccountIdentifier(element.aci()).ifPresent(account -> {
+      try {
+        byte[] identityKeyBytes = Base64.getDecoder().decode(account.getIdentityKey());
+        md.reset();
+        byte[] digest = md.digest(identityKeyBytes);
+        byte[] fingerprint = Util.truncate(digest, 4);
+
+        if (!Arrays.equals(fingerprint, element.fingerprint())) {
+          responseElements.add(new BatchIdentityCheckResponse.Element(element.aci(), identityKeyBytes));
+        }
+      } catch (IllegalArgumentException ignored) {
+      }
+    });
+  }
+
   private ProfileKeyCredentialProfileResponse buildProfileKeyCredentialProfileResponse(final Account account,
       final String version,
       final String encodedCredentialRequest,
@@ -456,7 +527,7 @@ public class ProfileController {
     byte[] object = new byte[16];
     new SecureRandom().nextBytes(object);
 
-    return "profiles/" + Base64.encodeBase64URLSafeString(object);
+    return "profiles/" + Base64.getUrlEncoder().encodeToString(object);
   }
 
   private List<Locale> getAcceptableLanguagesForRequest(ContainerRequestContext containerRequestContext) {
