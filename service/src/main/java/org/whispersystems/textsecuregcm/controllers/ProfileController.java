@@ -328,7 +328,7 @@ public class ProfileController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/identity_check/batch")
-  public CompletableFuture<BatchIdentityCheckResponse> runBatchIdentityCheck(BatchIdentityCheckRequest request) {
+  public CompletableFuture<BatchIdentityCheckResponse> runBatchIdentityCheck(@NotNull @Valid BatchIdentityCheckRequest request) {
     return CompletableFuture.supplyAsync(() -> {
       List<BatchIdentityCheckResponse.Element> responseElements = Collections.synchronizedList(new ArrayList<>());
       BatchIdentityCheckResponse response = new BatchIdentityCheckResponse(responseElements);
