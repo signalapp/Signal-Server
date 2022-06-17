@@ -44,6 +44,7 @@ import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
+import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -323,7 +324,8 @@ public class ProfileController {
   }
 
   @Timed
-  @GET
+  @POST
+  @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/identity_check/batch")
   public CompletableFuture<BatchIdentityCheckResponse> runBatchIdentityCheck(BatchIdentityCheckRequest request) {
