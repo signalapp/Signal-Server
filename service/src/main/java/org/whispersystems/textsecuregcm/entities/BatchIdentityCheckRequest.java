@@ -12,7 +12,7 @@ import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 
-public record BatchIdentityCheckRequest(@Valid @Size(max = 1000) List<Element> elements) {
+public record BatchIdentityCheckRequest(@Valid @NotNull @Size(max = 1000) List<Element> elements) {
 
   /**
    * @param aci         account id
