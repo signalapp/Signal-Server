@@ -357,7 +357,7 @@ public class ProfileController {
               } catch (NoSuchAlgorithmException e) {
                 throw new AssertionError(e);
               }
-              for (final BatchIdentityCheckRequest.Element element : request.elements()) {
+              for (final BatchIdentityCheckRequest.Element element : batch) {
                 checkFingerprintAndAdd(element, responseElements, sha256);
               }
             }, batchIdentityCheckExecutor);

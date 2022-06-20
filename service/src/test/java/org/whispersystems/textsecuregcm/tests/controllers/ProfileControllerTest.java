@@ -31,6 +31,7 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
@@ -1208,6 +1209,16 @@ class ProfileControllerTest {
       assertThat(identityCheckResponse.elements()).isNotNull().isEmpty();
     }
 
+      Condition<BatchIdentityCheckResponse.Element> isEitherUuid1orUuid2 = new Condition<>(element -> {
+        if (AuthHelper.VALID_UUID.equals(element.aci())) {
+          return Arrays.equals(Base64.getDecoder().decode("barz"), element.identityKey());
+        } else if (AuthHelper.VALID_UUID_TWO.equals(element.aci())) {
+          return Arrays.equals(Base64.getDecoder().decode("bar"), element.identityKey());
+        } else {
+          return false;
+        }
+      }, "is either UUID 1 or UUID 2 with the correct identity key");
+
     try (Response response = resources.getJerseyTest().target("/v1/profile/identity_check/batch").request()
         .post(Entity.json(new BatchIdentityCheckRequest(List.of(
             new BatchIdentityCheckRequest.Element(AuthHelper.VALID_UUID, convertStringToFingerprint("else1234")),
@@ -1219,15 +1230,24 @@ class ProfileControllerTest {
       BatchIdentityCheckResponse identityCheckResponse = response.readEntity(BatchIdentityCheckResponse.class);
       assertThat(identityCheckResponse).isNotNull();
       assertThat(identityCheckResponse.elements()).isNotNull().hasSize(2);
-      Condition<BatchIdentityCheckResponse.Element> isEitherUuid1orUuid2 = new Condition<>(element -> {
-        if (AuthHelper.VALID_UUID.equals(element.aci())) {
-          return Arrays.equals(Base64.getDecoder().decode("barz"), element.identityKey());
-        } else if (AuthHelper.VALID_UUID_TWO.equals(element.aci())) {
-          return Arrays.equals(Base64.getDecoder().decode("bar"), element.identityKey());
-        } else {
-          return false;
-        }
-      }, "is either UUID 1 or UUID 2 with the correct identity key");
+      assertThat(identityCheckResponse.elements()).element(0).isNotNull().is(isEitherUuid1orUuid2);
+      assertThat(identityCheckResponse.elements()).element(1).isNotNull().is(isEitherUuid1orUuid2);
+    }
+
+    List<BatchIdentityCheckRequest.Element> largeElementList = new ArrayList<>(List.of(
+        new BatchIdentityCheckRequest.Element(AuthHelper.VALID_UUID, convertStringToFingerprint("else1234")),
+        new BatchIdentityCheckRequest.Element(AuthHelper.VALID_UUID_TWO, convertStringToFingerprint("another1")),
+        new BatchIdentityCheckRequest.Element(AuthHelper.INVALID_UUID, convertStringToFingerprint("456"))));
+    for (int i = 0; i < 900; i++) {
+      largeElementList.add(new BatchIdentityCheckRequest.Element(UUID.randomUUID(), convertStringToFingerprint("abcd")));
+    }
+    try (Response response = resources.getJerseyTest().target("/v1/profile/identity_check/batch").request()
+        .post(Entity.json(new BatchIdentityCheckRequest(largeElementList)))) {
+      assertThat(response).isNotNull();
+      assertThat(response.getStatus()).isEqualTo(200);
+      BatchIdentityCheckResponse identityCheckResponse = response.readEntity(BatchIdentityCheckResponse.class);
+      assertThat(identityCheckResponse).isNotNull();
+      assertThat(identityCheckResponse.elements()).isNotNull().hasSize(2);
       assertThat(identityCheckResponse.elements()).element(0).isNotNull().is(isEitherUuid1orUuid2);
       assertThat(identityCheckResponse.elements()).element(1).isNotNull().is(isEitherUuid1orUuid2);
     }
