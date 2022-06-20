@@ -373,6 +373,10 @@
       <artifactId>reactor-core</artifactId>
       <version>3.3.16.RELEASE</version>
     </dependency>
+    <dependency>
+      <groupId>io.vavr</groupId>
+      <artifactId>vavr</artifactId>
+    </dependency>
 
     <dependency>
       <groupId>org.junit.jupiter</groupId>
