@@ -67,6 +67,7 @@
     <semver4j.version>3.1.0</semver4j.version>
     <slf4j.version>1.7.30</slf4j.version>
     <stripe.version>20.79.0</stripe.version>
+    <vavr.version>0.10.4</vavr.version>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
@@ -178,6 +179,11 @@
         <groupId>io.lettuce</groupId>
         <artifactId>lettuce-core</artifactId>
         <version>${lettuce.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.vavr</groupId>
+        <artifactId>vavr</artifactId>
+        <version>${vavr.version}</version>
       </dependency>
       <dependency>
         <groupId>javax.xml.bind</groupId>
