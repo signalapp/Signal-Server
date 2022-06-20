@@ -25,10 +25,13 @@ import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
@@ -45,6 +48,7 @@ import javax.ws.rs.core.Response;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.assertj.core.api.Condition;
+import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -78,6 +82,8 @@ import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.entities.BaseProfileResponse;
+import org.whispersystems.textsecuregcm.entities.BatchIdentityCheckRequest;
+import org.whispersystems.textsecuregcm.entities.BatchIdentityCheckResponse;
 import org.whispersystems.textsecuregcm.entities.CreateProfileRequest;
 import org.whispersystems.textsecuregcm.entities.PniCredentialProfileResponse;
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
@@ -97,6 +103,7 @@ import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.Util;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 
@@ -124,6 +131,7 @@ class ProfileControllerTest {
   private Account profileAccount;
 
   private static final ResourceExtension resources = ResourceExtension.builder()
+      .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(new PolymorphicAuthValueFactoryProvider.Binder<>(
           ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
@@ -208,6 +216,8 @@ class ProfileControllerTest {
     when(profilesManager.get(eq(AuthHelper.VALID_UUID), eq("someversion"))).thenReturn(Optional.empty());
     when(profilesManager.get(eq(AuthHelper.VALID_UUID_TWO), eq("validversion"))).thenReturn(Optional.of(new VersionedProfile(
         "validversion", "validname", "profiles/validavatar", "emoji", "about", null, "validcommitmnet".getBytes())));
+
+    when(accountsManager.getByAccountIdentifier(AuthHelper.INVALID_UUID)).thenReturn(Optional.empty());
 
     clearInvocations(rateLimiter);
     clearInvocations(accountsManager);
@@ -1181,5 +1191,55 @@ class ProfileControllerTest {
     assertThat(response.hasEntity()).isFalse();
 
     verify(AuthHelper.VALID_ACCOUNT_TWO).setBadges(refEq(clock), eq(List.of(new AccountBadge("TEST", Instant.ofEpochSecond(42 + 86400), true))));
+  }
+
+  @Test
+  void testBatchIdentityCheck() {
+    try (Response response = resources.getJerseyTest().target("/v1/profile/identity_check/batch").request()
+        .post(Entity.json(new BatchIdentityCheckRequest(List.of(
+            new BatchIdentityCheckRequest.Element(AuthHelper.VALID_UUID, convertStringToFingerprint("barz")),
+            new BatchIdentityCheckRequest.Element(AuthHelper.VALID_UUID_TWO, convertStringToFingerprint("bar")),
+            new BatchIdentityCheckRequest.Element(AuthHelper.INVALID_UUID, convertStringToFingerprint("baz"))
+        ))))) {
+      assertThat(response).isNotNull();
+      assertThat(response.getStatus()).isEqualTo(200);
+      BatchIdentityCheckResponse identityCheckResponse = response.readEntity(BatchIdentityCheckResponse.class);
+      assertThat(identityCheckResponse).isNotNull();
+      assertThat(identityCheckResponse.elements()).isNotNull().isEmpty();
+    }
+
+    try (Response response = resources.getJerseyTest().target("/v1/profile/identity_check/batch").request()
+        .post(Entity.json(new BatchIdentityCheckRequest(List.of(
+            new BatchIdentityCheckRequest.Element(AuthHelper.VALID_UUID, convertStringToFingerprint("else1234")),
+            new BatchIdentityCheckRequest.Element(AuthHelper.VALID_UUID_TWO, convertStringToFingerprint("another1")),
+            new BatchIdentityCheckRequest.Element(AuthHelper.INVALID_UUID, convertStringToFingerprint("456"))
+        ))))) {
+      assertThat(response).isNotNull();
+      assertThat(response.getStatus()).isEqualTo(200);
+      BatchIdentityCheckResponse identityCheckResponse = response.readEntity(BatchIdentityCheckResponse.class);
+      assertThat(identityCheckResponse).isNotNull();
+      assertThat(identityCheckResponse.elements()).isNotNull().hasSize(2);
+      Condition<BatchIdentityCheckResponse.Element> isEitherUuid1orUuid2 = new Condition<>(element -> {
+        if (AuthHelper.VALID_UUID.equals(element.aci())) {
+          return Arrays.equals(Base64.getDecoder().decode("barz"), element.identityKey());
+        } else if (AuthHelper.VALID_UUID_TWO.equals(element.aci())) {
+          return Arrays.equals(Base64.getDecoder().decode("bar"), element.identityKey());
+        } else {
+          return false;
+        }
+      }, "is either UUID 1 or UUID 2 with the correct identity key");
+      assertThat(identityCheckResponse.elements()).element(0).isNotNull().is(isEitherUuid1orUuid2);
+      assertThat(identityCheckResponse.elements()).element(1).isNotNull().is(isEitherUuid1orUuid2);
+    }
+  }
+
+  private byte[] convertStringToFingerprint(String base64) {
+    MessageDigest sha256;
+    try {
+      sha256 = MessageDigest.getInstance("SHA-256");
+    } catch (NoSuchAlgorithmException e) {
+      throw new AssertionError(e);
+    }
+    return Util.truncate(sha256.digest(Base64.getDecoder().decode(base64)), 4);
   }
 }
