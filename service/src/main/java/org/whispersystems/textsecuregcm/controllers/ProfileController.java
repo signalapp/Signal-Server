@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.controllers;
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.codahale.metrics.annotation.Timed;
+import com.google.common.base.Preconditions;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
@@ -33,6 +34,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.validation.Valid;
@@ -125,6 +127,8 @@ public class ProfileController {
   private final S3Client            s3client;
   private final String              bucket;
 
+  private final Executor batchIdentityCheckExecutor;
+
   private static final String PROFILE_KEY_CREDENTIAL_TYPE = "profileKey";
   private static final String PNI_CREDENTIAL_TYPE = "pni";
 
@@ -143,7 +147,8 @@ public class ProfileController {
       PostPolicyGenerator policyGenerator,
       PolicySigner policySigner,
       String bucket,
-      ServerZkProfileOperations zkProfileOperations) {
+      ServerZkProfileOperations zkProfileOperations,
+      Executor batchIdentityCheckExecutor) {
     this.clock = clock;
     this.rateLimiters        = rateLimiters;
     this.accountsManager     = accountsManager;
@@ -157,6 +162,7 @@ public class ProfileController {
     this.s3client            = s3client;
     this.policyGenerator     = policyGenerator;
     this.policySigner        = policySigner;
+    this.batchIdentityCheckExecutor = Preconditions.checkNotNull(batchIdentityCheckExecutor);
   }
 
   @Timed
@@ -354,11 +360,11 @@ public class ProfileController {
               for (final BatchIdentityCheckRequest.Element element : request.elements()) {
                 checkFingerprintAndAdd(element, responseElements, sha256);
               }
-            });
+            }, batchIdentityCheckExecutor);
           }
 
           return Tuple.of(futures, responseElements);
-        }).thenComposeAsync(tuple2 -> CompletableFuture.allOf(tuple2._1).thenApply((ignored) -> new BatchIdentityCheckResponse(tuple2._2)));
+        }).thenCompose(tuple2 -> CompletableFuture.allOf(tuple2._1).thenApply((ignored) -> new BatchIdentityCheckResponse(tuple2._2)));
   }
 
   private void checkFingerprintAndAdd(BatchIdentityCheckRequest.Element element,
