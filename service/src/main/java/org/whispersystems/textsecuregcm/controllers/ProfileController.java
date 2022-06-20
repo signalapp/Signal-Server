@@ -371,18 +371,21 @@ public class ProfileController {
     });
   }
 
-  private void checkFingerprintAndAdd(BatchIdentityCheckRequest.Element element, Collection<BatchIdentityCheckResponse.Element> responseElements, MessageDigest md) {
+  private void checkFingerprintAndAdd(BatchIdentityCheckRequest.Element element,
+      Collection<BatchIdentityCheckResponse.Element> responseElements, MessageDigest md) {
     accountsManager.getByAccountIdentifier(element.aci()).ifPresent(account -> {
+      byte[] identityKeyBytes;
       try {
-        byte[] identityKeyBytes = Base64.getDecoder().decode(account.getIdentityKey());
-        md.reset();
-        byte[] digest = md.digest(identityKeyBytes);
-        byte[] fingerprint = Util.truncate(digest, 4);
-
-        if (!Arrays.equals(fingerprint, element.fingerprint())) {
-          responseElements.add(new BatchIdentityCheckResponse.Element(element.aci(), identityKeyBytes));
-        }
+        identityKeyBytes = Base64.getDecoder().decode(account.getIdentityKey());
       } catch (IllegalArgumentException ignored) {
+        return;
+      }
+      md.reset();
+      byte[] digest = md.digest(identityKeyBytes);
+      byte[] fingerprint = Util.truncate(digest, 4);
+
+      if (!Arrays.equals(fingerprint, element.fingerprint())) {
+        responseElements.add(new BatchIdentityCheckResponse.Element(element.aci(), identityKeyBytes));
       }
     });
   }
