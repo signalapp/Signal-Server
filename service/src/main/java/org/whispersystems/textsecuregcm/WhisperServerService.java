@@ -86,6 +86,7 @@ import org.whispersystems.textsecuregcm.controllers.DeviceController;
 import org.whispersystems.textsecuregcm.controllers.DirectoryController;
 import org.whispersystems.textsecuregcm.controllers.DirectoryV2Controller;
 import org.whispersystems.textsecuregcm.controllers.DonationController;
+import org.whispersystems.textsecuregcm.controllers.GroupController;
 import org.whispersystems.textsecuregcm.controllers.KeepAliveController;
 import org.whispersystems.textsecuregcm.controllers.KeysController;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
@@ -631,6 +632,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
             ReceiptCredentialPresentation::new, stripeExecutor, config.getDonationConfiguration(), config.getStripe()),
+        new GroupController(zkAuthOperations),
         new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, deletedAccountsManager,
             messagesManager, apnFallbackManager, reportMessageManager, multiRecipientMessageExecutor),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),
