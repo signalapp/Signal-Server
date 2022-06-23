@@ -1,9 +1,9 @@
 /*
- * Copyright 2013-2021 Signal Messenger, LLC
+ * Copyright 2013-2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-package org.whispersystems.textsecuregcm.tests.controllers;
+package org.whispersystems.textsecuregcm.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
@@ -31,6 +31,7 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -64,6 +65,7 @@ import org.signal.libsignal.zkgroup.ServerPublicParams;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.profiles.ClientZkProfileOperations;
+import org.signal.libsignal.zkgroup.profiles.ExpiringProfileKeyCredentialResponse;
 import org.signal.libsignal.zkgroup.profiles.PniCredentialResponse;
 import org.signal.libsignal.zkgroup.profiles.ProfileKey;
 import org.signal.libsignal.zkgroup.profiles.ProfileKeyCommitment;
@@ -86,6 +88,7 @@ import org.whispersystems.textsecuregcm.entities.BaseProfileResponse;
 import org.whispersystems.textsecuregcm.entities.BatchIdentityCheckRequest;
 import org.whispersystems.textsecuregcm.entities.BatchIdentityCheckResponse;
 import org.whispersystems.textsecuregcm.entities.CreateProfileRequest;
+import org.whispersystems.textsecuregcm.entities.ExpiringProfileKeyCredentialProfileResponse;
 import org.whispersystems.textsecuregcm.entities.PniCredentialProfileResponse;
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
 import org.whispersystems.textsecuregcm.entities.ProfileKeyCredentialProfileResponse;
@@ -1129,6 +1132,76 @@ class ProfileControllerTest {
 
     verify(zkProfileOperations, never()).issueProfileKeyCredential(any(), any(), any());
     verify(zkProfileOperations, never()).issuePniCredential(any(), any(), any(), any());
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void testGetProfileWithExpiringProfileKeyCredential(final MultivaluedMap<String, Object> authHeaders)
+      throws VerificationFailedException, InvalidInputException {
+    final String version = "version";
+    final byte[] unidentifiedAccessKey = "test-uak".getBytes(StandardCharsets.UTF_8);
+
+    final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
+    final ServerPublicParams serverPublicParams = serverSecretParams.getPublicParams();
+
+    final ServerZkProfileOperations serverZkProfile = new ServerZkProfileOperations(serverSecretParams);
+    final ClientZkProfileOperations clientZkProfile = new ClientZkProfileOperations(serverPublicParams);
+
+    final byte[] profileKeyBytes = new byte[32];
+    new SecureRandom().nextBytes(profileKeyBytes);
+
+    final ProfileKey profileKey = new ProfileKey(profileKeyBytes);
+    final ProfileKeyCommitment profileKeyCommitment = profileKey.getCommitment(AuthHelper.VALID_UUID);
+
+    final VersionedProfile versionedProfile = mock(VersionedProfile.class);
+    when(versionedProfile.getCommitment()).thenReturn(profileKeyCommitment.serialize());
+
+    final ProfileKeyCredentialRequestContext profileKeyCredentialRequestContext =
+        clientZkProfile.createProfileKeyCredentialRequestContext(AuthHelper.VALID_UUID, profileKey);
+
+    final ProfileKeyCredentialRequest credentialRequest = profileKeyCredentialRequestContext.getRequest();
+
+    final Account account = mock(Account.class);
+    when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
+    when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
+    when(account.isEnabled()).thenReturn(true);
+    when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
+
+    final Instant expiration = Instant.now().plus(ProfileController.EXPIRING_PROFILE_KEY_CREDENTIAL_EXPIRATION)
+        .truncatedTo(ChronoUnit.DAYS);
+
+    final ExpiringProfileKeyCredentialResponse credentialResponse =
+        serverZkProfile.issueExpiringProfileKeyCredential(credentialRequest, AuthHelper.VALID_UUID, profileKeyCommitment, expiration);
+
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
+    when(profilesManager.get(AuthHelper.VALID_UUID, version)).thenReturn(Optional.of(versionedProfile));
+    when(zkProfileOperations.issueExpiringProfileKeyCredential(credentialRequest, AuthHelper.VALID_UUID, profileKeyCommitment, expiration))
+        .thenReturn(credentialResponse);
+
+    final ExpiringProfileKeyCredentialProfileResponse profile = resources.getJerseyTest()
+        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, version, Hex.encodeHexString(credentialRequest.serialize())))
+        .queryParam("credentialType", "expiringProfileKey")
+        .request()
+        .headers(authHeaders)
+        .get(ExpiringProfileKeyCredentialProfileResponse.class);
+
+    assertThat(profile.getVersionedProfileResponse().getBaseProfileResponse().getUuid()).isEqualTo(AuthHelper.VALID_UUID);
+    assertThat(profile.getCredential()).isEqualTo(credentialResponse);
+
+    verify(zkProfileOperations).issueExpiringProfileKeyCredential(credentialRequest, AuthHelper.VALID_UUID, profileKeyCommitment, expiration);
+    verify(zkProfileOperations, never()).issuePniCredential(any(), any(), any(), any());
+
+    final ClientZkProfileOperations clientZkProfileCipher = new ClientZkProfileOperations(serverPublicParams);
+    assertThatNoException().isThrownBy(() ->
+        clientZkProfileCipher.receiveExpiringProfileKeyCredential(profileKeyCredentialRequestContext, profile.getCredential()));
+  }
+
+  private static Stream<Arguments> testGetProfileWithExpiringProfileKeyCredential() {
+    return Stream.of(
+        Arguments.of(new MultivaluedHashMap<>(Map.of(OptionalAccess.UNIDENTIFIED, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_KEY)))),
+        Arguments.of(new MultivaluedHashMap<>(Map.of("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD)))),
+        Arguments.of(new MultivaluedHashMap<>(Map.of("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))))
+    );
   }
 
   @Test

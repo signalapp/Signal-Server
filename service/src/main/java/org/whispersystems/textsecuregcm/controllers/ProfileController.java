@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.controllers;
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.codahale.metrics.annotation.Timed;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Counter;
@@ -19,8 +20,10 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -66,6 +69,7 @@ import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
+import org.signal.libsignal.zkgroup.profiles.ExpiringProfileKeyCredentialResponse;
 import org.signal.libsignal.zkgroup.profiles.PniCredentialResponse;
 import org.signal.libsignal.zkgroup.profiles.ProfileKeyCommitment;
 import org.signal.libsignal.zkgroup.profiles.ProfileKeyCredentialRequest;
@@ -86,6 +90,7 @@ import org.whispersystems.textsecuregcm.entities.BatchIdentityCheckRequest;
 import org.whispersystems.textsecuregcm.entities.BatchIdentityCheckResponse;
 import org.whispersystems.textsecuregcm.entities.CreateProfileRequest;
 import org.whispersystems.textsecuregcm.entities.CredentialProfileResponse;
+import org.whispersystems.textsecuregcm.entities.ExpiringProfileKeyCredentialProfileResponse;
 import org.whispersystems.textsecuregcm.entities.PniCredentialProfileResponse;
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
 import org.whispersystems.textsecuregcm.entities.ProfileKeyCredentialProfileResponse;
@@ -129,8 +134,12 @@ public class ProfileController {
 
   private final Executor batchIdentityCheckExecutor;
 
+  @VisibleForTesting
+  static final Duration EXPIRING_PROFILE_KEY_CREDENTIAL_EXPIRATION = Duration.ofDays(7);
+
   private static final String PROFILE_KEY_CREDENTIAL_TYPE = "profileKey";
   private static final String PNI_CREDENTIAL_TYPE = "pni";
+  private static final String EXPIRING_PROFILE_KEY_CREDENTIAL_TYPE = "expiringProfileKey";
 
   private static final Counter VERSION_NOT_FOUND_COUNTER = Metrics.counter(name(ProfileController.class, "versionNotFound"));
   private static final String INVALID_ACCEPT_LANGUAGE_COUNTER_NAME = name(ProfileController.class, "invalidAcceptLanguage");
@@ -285,6 +294,15 @@ public class ProfileController {
             containerRequestContext);
       }
 
+      case EXPIRING_PROFILE_KEY_CREDENTIAL_TYPE -> {
+        return buildExpiringProfileKeyCredentialProfileResponse(targetAccount,
+            version,
+            credentialRequest,
+            isSelf,
+            Instant.now().plus(EXPIRING_PROFILE_KEY_CREDENTIAL_EXPIRATION).truncatedTo(ChronoUnit.DAYS),
+            containerRequestContext);
+      }
+
       default -> throw new BadRequestException();
     }
   }
@@ -415,6 +433,23 @@ public class ProfileController {
         pniCredentialResponse);
   }
 
+  private ExpiringProfileKeyCredentialProfileResponse buildExpiringProfileKeyCredentialProfileResponse(
+      final Account account,
+      final String version,
+      final String encodedCredentialRequest,
+      final boolean isSelf,
+      final Instant expiration,
+      final ContainerRequestContext containerRequestContext) {
+
+    final ExpiringProfileKeyCredentialResponse expiringProfileKeyCredentialResponse = profilesManager.get(account.getUuid(), version)
+        .map(profile -> getExpiringProfileKeyCredentialResponse(encodedCredentialRequest, profile, account.getUuid(), expiration))
+        .orElse(null);
+
+    return new ExpiringProfileKeyCredentialProfileResponse(
+        buildVersionedProfileResponse(account, version, isSelf, containerRequestContext),
+        expiringProfileKeyCredentialResponse);
+  }
+
   private VersionedProfileResponse buildVersionedProfileResponse(final Account account,
       final String version,
       final boolean isSelf,
@@ -509,6 +544,22 @@ public class ProfileController {
       final ProfileKeyCredentialRequest request = new ProfileKeyCredentialRequest(Hex.decodeHex(encodedCredentialRequest));
 
       return zkProfileOperations.issuePniCredential(request, accountIdentifier, phoneNumberIdentifier, commitment);
+    } catch (DecoderException | VerificationFailedException | InvalidInputException e) {
+      throw new WebApplicationException(e, Response.status(Response.Status.BAD_REQUEST).build());
+    }
+  }
+
+  private ExpiringProfileKeyCredentialResponse getExpiringProfileKeyCredentialResponse(
+      final String encodedCredentialRequest,
+      final VersionedProfile profile,
+      final UUID accountIdentifier,
+      final Instant expiration) {
+
+    try {
+      final ProfileKeyCommitment commitment = new ProfileKeyCommitment(profile.getCommitment());
+      final ProfileKeyCredentialRequest request = new ProfileKeyCredentialRequest(Hex.decodeHex(encodedCredentialRequest));
+
+      return zkProfileOperations.issueExpiringProfileKeyCredential(request, accountIdentifier, commitment, expiration);
     } catch (DecoderException | VerificationFailedException | InvalidInputException e) {
       throw new WebApplicationException(e, Response.status(Response.Status.BAD_REQUEST).build());
     }
