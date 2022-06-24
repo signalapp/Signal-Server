@@ -11,7 +11,6 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
@@ -19,7 +18,6 @@ import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.io.IOException;
 import java.util.Base64;
-import java.util.UUID;
 import javax.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
@@ -219,8 +217,6 @@ class CertificateControllerTest {
 
   @Test
   void testGetSingleAuthCredentialByPni() {
-    when(AuthHelper.VALID_ACCOUNT.getPhoneNumberIdentifier()).thenReturn(UUID.randomUUID());
-
     GroupCredentials credentials = resources.getJerseyTest()
         .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + Util.currentDaysSinceEpoch())
         .queryParam("identity", "pni")
