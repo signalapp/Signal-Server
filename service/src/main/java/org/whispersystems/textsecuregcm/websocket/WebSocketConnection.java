@@ -101,7 +101,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
   private final int sendFuturesTimeoutMillis;
 
-  private final ScheduledExecutorService retrySchedulingExecutor;
+  private final ScheduledExecutorService scheduledExecutorService;
 
   private final boolean isDesktopClient;
 
@@ -127,7 +127,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       AuthenticatedAccount auth,
       Device device,
       WebSocketClient client,
-      ScheduledExecutorService retrySchedulingExecutor) {
+      ScheduledExecutorService scheduledExecutorService) {
 
     this(receiptSender,
         messagesManager,
@@ -135,7 +135,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
         device,
         client,
         DEFAULT_SEND_FUTURES_TIMEOUT_MILLIS,
-        retrySchedulingExecutor);
+        scheduledExecutorService);
   }
 
   @VisibleForTesting
@@ -145,7 +145,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       Device device,
       WebSocketClient client,
       int sendFuturesTimeoutMillis,
-      ScheduledExecutorService retrySchedulingExecutor) {
+      ScheduledExecutorService scheduledExecutorService) {
 
     this.receiptSender = receiptSender;
     this.messagesManager = messagesManager;
@@ -153,7 +153,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     this.device = device;
     this.client = client;
     this.sendFuturesTimeoutMillis = sendFuturesTimeoutMillis;
-    this.retrySchedulingExecutor = retrySchedulingExecutor;
+    this.scheduledExecutorService = scheduledExecutorService;
 
     Optional<ClientPlatform> maybePlatform;
 
@@ -294,7 +294,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
               final long delay = RETRY_DELAY_MILLIS + random.nextInt(RETRY_DELAY_JITTER_MILLIS);
               retryFuture
-                  .set(retrySchedulingExecutor.schedule(this::processStoredMessages, delay, TimeUnit.MILLISECONDS));
+                  .set(scheduledExecutorService.schedule(this::processStoredMessages, delay, TimeUnit.MILLISECONDS));
             }
           } else {
             logger.debug("Client disconnected before queue cleared");
