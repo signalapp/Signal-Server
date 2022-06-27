@@ -55,6 +55,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
   private final FaultTolerantPubSubConnection<String, String> pubSubConnection;
 
   private final ClusterLuaScript clearPresenceScript;
+  private final ClusterLuaScript renewPresenceScript;
 
   private final ExecutorService keyspaceNotificationExecutorService;
   private final ScheduledExecutorService scheduledExecutorService;
@@ -71,6 +72,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
   private final Meter pubSubMessageMeter;
 
   private static final int PRUNE_PEERS_INTERVAL_SECONDS = (int) Duration.ofSeconds(30).toSeconds();
+  private static final int PRESENCE_EXPIRATION_SECONDS = (int) Duration.ofMinutes(11).toSeconds();
 
   static final String MANAGER_SET_KEY = "presence::managers";
 
@@ -81,8 +83,8 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
       final ExecutorService keyspaceNotificationExecutorService) throws IOException {
     this.presenceCluster = presenceCluster;
     this.pubSubConnection = this.presenceCluster.createPubSubConnection();
-    this.clearPresenceScript = ClusterLuaScript.fromResource(presenceCluster, "lua/clear_presence.lua",
-        ScriptOutputType.INTEGER);
+    this.clearPresenceScript = ClusterLuaScript.fromResource(presenceCluster, "lua/clear_presence.lua", ScriptOutputType.INTEGER);
+    this.renewPresenceScript = ClusterLuaScript.fromResource(presenceCluster, "lua/renew_presence.lua", ScriptOutputType.VALUE);
     this.scheduledExecutorService = scheduledExecutorService;
     this.keyspaceNotificationExecutorService = keyspaceNotificationExecutorService;
 
@@ -151,8 +153,8 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
         connection -> connection.sync().upstream().commands().unsubscribe(getManagerPresenceChannel(managerId)));
   }
 
-  public void setPresent(final UUID accountUuid, final long deviceId,
-      final DisplacedPresenceListener displacementListener) {
+  public void setPresent(final UUID accountUuid, final long deviceId, final DisplacedPresenceListener displacementListener) {
+
     try (final Timer.Context ignored = setPresenceTimer.time()) {
       final String presenceKey = getPresenceKey(accountUuid, deviceId);
 
@@ -164,11 +166,16 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
         final RedisAdvancedClusterCommands<String, String> commands = connection.sync();
 
         commands.sadd(connectedClientSetKey, presenceKey);
-        commands.set(presenceKey, managerId);
+        commands.setex(presenceKey, PRESENCE_EXPIRATION_SECONDS, managerId);
       });
 
       subscribeForRemotePresenceChanges(presenceKey);
     }
+  }
+
+  public void renewPresence(final UUID accountUuid, final long deviceId) {
+    renewPresenceScript.execute(List.of(getPresenceKey(accountUuid, deviceId)),
+        List.of(managerId, String.valueOf(PRESENCE_EXPIRATION_SECONDS)));
   }
 
   public void disconnectPresence(final UUID accountUuid, final long deviceId) {
@@ -293,6 +300,11 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
         });
       }
     }
+  }
+
+  @VisibleForTesting
+  String getManagerId() {
+    return managerId;
   }
 
   @VisibleForTesting

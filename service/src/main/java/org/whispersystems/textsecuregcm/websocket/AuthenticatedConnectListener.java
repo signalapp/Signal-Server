@@ -12,6 +12,9 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
@@ -32,6 +35,8 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private static final Timer          durationTimer                = metricRegistry.timer(name(WebSocketConnection.class, "connected_duration"                 ));
   private static final Timer          unauthenticatedDurationTimer = metricRegistry.timer(name(WebSocketConnection.class, "unauthenticated_connection_duration"));
   private static final Counter        openWebsocketCounter         = metricRegistry.counter(name(WebSocketConnection.class, "open_websockets"));
+
+  private static final long RENEW_PRESENCE_INTERVAL_MINUTES = 5;
 
   private static final Logger log = LoggerFactory.getLogger(AuthenticatedConnectListener.class);
 
@@ -70,11 +75,19 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       openWebsocketCounter.inc();
       RedisOperation.unchecked(() -> apnFallbackManager.cancel(auth.getAccount(), device));
 
+      final AtomicReference<ScheduledFuture<?>> renewPresenceFutureReference = new AtomicReference<>();
+
       context.addListener(new WebSocketSessionContext.WebSocketEventListener() {
         @Override
         public void onWebSocketClose(WebSocketSessionContext context, int statusCode, String reason) {
           openWebsocketCounter.dec();
           timer.stop();
+
+          final ScheduledFuture<?> renewPresenceFuture = renewPresenceFutureReference.get();
+
+          if (renewPresenceFuture != null) {
+            renewPresenceFuture.cancel(false);
+          }
 
           connection.stop();
 
@@ -94,6 +107,12 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
         connection.start();
         clientPresenceManager.setPresent(auth.getAccount().getUuid(), device.getId(), connection);
         messagesManager.addMessageAvailabilityListener(auth.getAccount().getUuid(), device.getId(), connection);
+
+        renewPresenceFutureReference.set(scheduledExecutorService.scheduleAtFixedRate(() -> RedisOperation.unchecked(() ->
+                clientPresenceManager.renewPresence(auth.getAccount().getUuid(), device.getId())),
+            RENEW_PRESENCE_INTERVAL_MINUTES,
+            RENEW_PRESENCE_INTERVAL_MINUTES,
+            TimeUnit.MINUTES));
       } catch (final Exception e) {
         log.warn("Failed to initialize websocket", e);
         context.getClient().close(1011, "Unexpected error initializing connection");

@@ -196,6 +196,64 @@ class ClientPresenceManagerTest {
             .sismember(ClientPresenceManager.MANAGER_SET_KEY, missingPeerId)));
   }
 
+  @Test
+  void testInitialPresenceExpiration() {
+    final UUID accountUuid = UUID.randomUUID();
+    final long deviceId = 1;
+
+    clientPresenceManager.setPresent(accountUuid, deviceId, NO_OP);
+
+    {
+      final int ttl = REDIS_CLUSTER_EXTENSION.getRedisCluster().withCluster(connection ->
+          connection.sync().ttl(ClientPresenceManager.getPresenceKey(accountUuid, deviceId)).intValue());
+
+      assertTrue(ttl > 0);
+    }
+  }
+
+  @Test
+  void testRenewPresence() {
+    final UUID accountUuid = UUID.randomUUID();
+    final long deviceId = 1;
+
+    final String presenceKey = ClientPresenceManager.getPresenceKey(accountUuid, deviceId);
+
+    REDIS_CLUSTER_EXTENSION.getRedisCluster().useCluster(connection ->
+        connection.sync().set(presenceKey, clientPresenceManager.getManagerId()));
+
+    {
+      final int ttl = REDIS_CLUSTER_EXTENSION.getRedisCluster().withCluster(connection ->
+          connection.sync().ttl(presenceKey).intValue());
+
+      assertEquals(-1, ttl);
+    }
+
+    clientPresenceManager.renewPresence(accountUuid, deviceId);
+
+    {
+      final int ttl = REDIS_CLUSTER_EXTENSION.getRedisCluster().withCluster(connection ->
+          connection.sync().ttl(presenceKey).intValue());
+
+      assertTrue(ttl > 0);
+    }
+  }
+
+  @Test
+  void testExpiredPresence() {
+    final UUID accountUuid = UUID.randomUUID();
+    final long deviceId = 1;
+
+    clientPresenceManager.setPresent(accountUuid, deviceId, NO_OP);
+
+    assertTrue(clientPresenceManager.isPresent(accountUuid, deviceId));
+
+    // Hackily set this key to expire immediately
+    REDIS_CLUSTER_EXTENSION.getRedisCluster().useCluster(connection ->
+        connection.sync().expire(ClientPresenceManager.getPresenceKey(accountUuid, deviceId), 0));
+
+    assertFalse(clientPresenceManager.isPresent(accountUuid, deviceId));
+  }
+
   private void addClientPresence(final String managerId) {
     final String clientPresenceKey = ClientPresenceManager.getPresenceKey(UUID.randomUUID(), 7);
 
