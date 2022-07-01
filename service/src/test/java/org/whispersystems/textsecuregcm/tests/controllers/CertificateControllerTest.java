@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -17,16 +18,26 @@ import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.io.IOException;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.Base64;
+import java.util.stream.Stream;
 import javax.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.auth.AuthCredentialResponse;
+import org.signal.libsignal.zkgroup.auth.AuthCredentialWithPniResponse;
 import org.signal.libsignal.zkgroup.auth.ClientZkAuthOperations;
 import org.signal.libsignal.zkgroup.auth.ServerZkAuthOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
@@ -56,6 +67,7 @@ class CertificateControllerTest {
   private static final ServerSecretParams     serverSecretParams = ServerSecretParams.generate();
   private static final CertificateGenerator   certificateGenerator;
   private static final ServerZkAuthOperations serverZkAuthOperations;
+  private static final Clock clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
 
   static {
     try {
@@ -73,7 +85,7 @@ class CertificateControllerTest {
           ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
       .setMapper(SystemMapper.getMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-      .addResource(new CertificateController(certificateGenerator, serverZkAuthOperations))
+      .addResource(new CertificateController(certificateGenerator, serverZkAuthOperations, clock))
       .build();
 
   @Test
@@ -288,5 +300,98 @@ class CertificateControllerTest {
                                  .get();
 
     assertThat(response.getStatus()).isEqualTo(401);
+  }
+
+  @Test
+  void testGetSingleGroupCredential() {
+    final Instant startOfDay = clock.instant().truncatedTo(ChronoUnit.DAYS);
+
+    final GroupCredentials credentials = resources.getJerseyTest()
+        .target("/v1/certificate/auth/group")
+        .queryParam("redemptionStartSeconds", startOfDay.getEpochSecond())
+        .queryParam("redemptionEndSeconds", startOfDay.getEpochSecond())
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(GroupCredentials.class);
+
+    assertEquals(1, credentials.getCredentials().size());
+    assertEquals(startOfDay.getEpochSecond(), credentials.getCredentials().get(0).getRedemptionTime());
+
+    final ClientZkAuthOperations clientZkAuthOperations =
+        new ClientZkAuthOperations(serverSecretParams.getPublicParams());
+
+    assertDoesNotThrow(() -> {
+      clientZkAuthOperations.receiveAuthCredentialWithPni(
+          AuthHelper.VALID_UUID,
+          AuthHelper.VALID_PNI,
+          (int) startOfDay.getEpochSecond(),
+          new AuthCredentialWithPniResponse(credentials.getCredentials().get(0).getCredential()));
+    });
+  }
+
+  @Test
+  void testGetWeekLongGroupCredentials() {
+    final Instant startOfDay = clock.instant().truncatedTo(ChronoUnit.DAYS);
+
+    final GroupCredentials credentials = resources.getJerseyTest()
+        .target("/v1/certificate/auth/group")
+        .queryParam("redemptionStartSeconds", startOfDay.getEpochSecond())
+        .queryParam("redemptionEndSeconds", startOfDay.plus(Duration.ofDays(7)).getEpochSecond())
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(GroupCredentials.class);
+
+    assertEquals(8, credentials.getCredentials().size());
+
+    final ClientZkAuthOperations clientZkAuthOperations =
+        new ClientZkAuthOperations(serverSecretParams.getPublicParams());
+
+    for (int i = 0; i < 8; i++) {
+      final Instant redemptionTime = startOfDay.plus(Duration.ofDays(i));
+      assertEquals(redemptionTime.getEpochSecond(), credentials.getCredentials().get(i).getRedemptionTime());
+
+      final int index = i;
+
+      assertDoesNotThrow(() -> {
+        clientZkAuthOperations.receiveAuthCredentialWithPni(
+            AuthHelper.VALID_UUID,
+            AuthHelper.VALID_PNI,
+            redemptionTime.getEpochSecond(),
+            new AuthCredentialWithPniResponse(credentials.getCredentials().get(index).getCredential()));
+      });
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void testBadRedemptionTimes(final Instant redemptionStart, final Instant redemptionEnd) {
+    final Response response = resources.getJerseyTest()
+        .target("/v1/certificate/auth/group")
+        .queryParam("redemptionStartSeconds", redemptionStart.getEpochSecond())
+        .queryParam("redemptionEndSeconds", redemptionEnd.getEpochSecond())
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get();
+
+    assertEquals(400, response.getStatus());
+  }
+
+  private static Stream<Arguments> testBadRedemptionTimes() {
+    return Stream.of(
+        // Start is after end
+        Arguments.of(clock.instant().plus(Duration.ofDays(1)), clock.instant()),
+
+        // Start is in the past
+        Arguments.of(clock.instant().minus(Duration.ofDays(1)), clock.instant()),
+
+        // End is too far in the future
+        Arguments.of(clock.instant(), clock.instant().plus(CertificateController.MAX_REDEMPTION_DURATION).plus(Duration.ofDays(1))),
+
+        // Start is not at a day boundary
+        Arguments.of(clock.instant().plusSeconds(17), clock.instant().plus(Duration.ofDays(1))),
+
+        // End is not at a day boundary
+        Arguments.of(clock.instant(), clock.instant().plusSeconds(17))
+    );
   }
 }

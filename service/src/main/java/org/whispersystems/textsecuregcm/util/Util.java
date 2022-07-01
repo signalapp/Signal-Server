@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.Nonnull;
 
 public class Util {
 
@@ -166,8 +167,18 @@ public class Util {
     return (int) value;
   }
 
+  public static int currentDaysSinceEpoch(@Nonnull Clock clock) {
+    return toIntExact(clock.millis() / 1000 / 60/ 60 / 24);
+  }
+
+  /**
+   * Returns the current number of days since the epoch.
+   *
+   * @deprecated use {@link #currentDaysSinceEpoch(Clock)} instead
+   */
+  @Deprecated
   public static int currentDaysSinceEpoch() {
-    return Util.toIntExact(System.currentTimeMillis() / 1000 / 60 / 60 / 24);
+    return currentDaysSinceEpoch(Clock.systemUTC());
   }
 
   public static void sleep(long i) {
