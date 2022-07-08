@@ -74,6 +74,7 @@ import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.ApnMessage;
@@ -120,6 +121,8 @@ public class AccountController {
   private static final String CHALLENGE_ISSUED_COUNTER_NAME = name(AccountController.class, "challengeIssued");
 
   private static final String TWILIO_VERIFY_ERROR_COUNTER_NAME = name(AccountController.class, "twilioVerifyError");
+
+  private static final String INVALID_ACCEPT_LANGUAGE_COUNTER_NAME = name(AccountController.class, "invalidAcceptLanguage");
 
   private static final String CHALLENGE_PRESENT_TAG_NAME = "present";
   private static final String CHALLENGE_MATCH_TAG_NAME = "matches";
@@ -266,12 +269,17 @@ public class AccountController {
 
     pendingAccounts.store(number, storedVerificationCode);
 
-    final List<Locale.LanguageRange> languageRanges;
-
+    List<Locale.LanguageRange> languageRanges;
     try {
       languageRanges = acceptLanguage.map(Locale.LanguageRange::parse).orElse(Collections.emptyList());
     } catch (final IllegalArgumentException e) {
-      return Response.status(400).build();
+      logger.debug("Could not get acceptable languages; Accept-Language: {}; User-Agent: {}",
+          acceptLanguage.orElse(""),
+          userAgent,
+          e);
+
+      Metrics.counter(INVALID_ACCEPT_LANGUAGE_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).increment();
+      languageRanges = Collections.emptyList();
     }
 
     final boolean enrolledInVerifyExperiment = verifyExperimentEnrollmentManager.isEnrolled(client, number, languageRanges, transport);

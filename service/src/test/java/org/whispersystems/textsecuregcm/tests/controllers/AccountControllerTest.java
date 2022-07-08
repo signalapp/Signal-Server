@@ -636,8 +636,17 @@ class AccountControllerTest {
     verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
   }
 
-  @Test
-  void testSendCodeVoiceInvalidLocale() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testSendCodeVoiceInvalidLocale(boolean enrolledInVerifyExperiment) throws Exception {
+    when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
+        .thenReturn(enrolledInVerifyExperiment);
+
+    if (enrolledInVerifyExperiment) {
+      when(smsSender.deliverVoxVerificationWithTwilioVerify(anyString(), anyString(), anyList()))
+          .thenReturn(CompletableFuture.completedFuture(Optional.of("VerificationSid")));
+    }
+
     Response response =
         resources.getJerseyTest()
             .target(String.format("/v1/accounts/voice/code/%s", SENDER))
@@ -647,11 +656,14 @@ class AccountControllerTest {
             .header("X-Forwarded-For", NICE_HOST)
             .get();
 
-    assertThat(response.getStatus()).isEqualTo(400);
+    // Should still send a code, just with no accept language
+    assertThat(response.getStatus()).isEqualTo(200);
 
-    verify(smsSender, never()).deliverVoxVerification(eq(SENDER), anyString(), any());
-    verify(smsSender, never()).deliverVoxVerificationWithTwilioVerify(eq(SENDER), anyString(), any());
-    verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
+    if (enrolledInVerifyExperiment) {
+      verify(smsSender).deliverVoxVerificationWithTwilioVerify(eq(SENDER), anyString(), eq(Collections.emptyList()));
+    } else {
+      verify(smsSender).deliverVoxVerification(eq(SENDER), anyString(), eq(Collections.emptyList()));
+    }
   }
 
   @ParameterizedTest
