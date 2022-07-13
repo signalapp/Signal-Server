@@ -8,7 +8,11 @@ package org.whispersystems.textsecuregcm.metrics;
 import static com.codahale.metrics.MetricRegistry.name;
 
 import io.micrometer.core.instrument.Metrics;
+import java.util.Map;
 import java.util.UUID;
+import net.logstash.logback.marker.Markers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.ReportedMessageListener;
@@ -24,15 +28,27 @@ public class ReportedMessageMetricsListener implements ReportedMessageListener {
 
   private static final String COUNTRY_CODE_TAG_NAME = "countryCode";
 
+  private static final Logger logger = LoggerFactory.getLogger(ReportedMessageMetricsListener.class);
+
   public ReportedMessageMetricsListener(final AccountsManager accountsManager) {
     this.accountsManager = accountsManager;
   }
 
   @Override
   public void handleMessageReported(final String sourceNumber, final UUID messageGuid, final UUID reporterUuid) {
-    Metrics.counter(REPORTED_COUNTER_NAME, COUNTRY_CODE_TAG_NAME, Util.getCountryCode(sourceNumber)).increment();
+    final String sourceCountryCode = Util.getCountryCode(sourceNumber);
 
-    accountsManager.getByAccountIdentifier(reporterUuid).ifPresent(reporter ->
-        Metrics.counter(REPORTER_COUNTER_NAME, COUNTRY_CODE_TAG_NAME, Util.getCountryCode(reporter.getNumber())).increment());
+    Metrics.counter(REPORTED_COUNTER_NAME, COUNTRY_CODE_TAG_NAME, sourceCountryCode).increment();
+
+    accountsManager.getByAccountIdentifier(reporterUuid).ifPresent(reporter -> {
+      final String destinationCountryCode = Util.getCountryCode(reporter.getNumber());
+
+      logger.info(Markers.appendEntries(Map.of(
+              "sourceCountry", sourceCountryCode,
+              "destinationCountry", destinationCountryCode)),
+          "Message reported");
+
+      Metrics.counter(REPORTER_COUNTER_NAME, COUNTRY_CODE_TAG_NAME, destinationCountryCode).increment();
+    });
   }
 }
