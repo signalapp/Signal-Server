@@ -5,6 +5,20 @@
 
 package org.whispersystems.textsecuregcm.auth;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import javax.annotation.Nullable;
+import javax.ws.rs.core.SecurityContext;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,22 +26,6 @@ import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Pair;
-
-import javax.annotation.Nullable;
-import javax.ws.rs.core.SecurityContext;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 class PhoneNumberChangeRefreshRequirementProviderTest {
 
@@ -50,7 +48,7 @@ class PhoneNumberChangeRefreshRequirementProviderTest {
 
     when(account.getUuid()).thenReturn(ACCOUNT_UUID);
     when(account.getNumber()).thenReturn(NUMBER);
-    when(account.getDevices()).thenReturn(Set.of(device));
+    when(account.getDevices()).thenReturn(List.of(device));
     when(device.getId()).thenReturn(Device.MASTER_ID);
 
     request = mock(ContainerRequest.class);

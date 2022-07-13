@@ -7,15 +7,12 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.annotations.VisibleForTesting;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -46,7 +43,7 @@ public class Account {
   private String username;
 
   @JsonProperty
-  private Set<Device> devices = new HashSet<>();
+  private List<Device> devices = new ArrayList<>();
 
   @JsonProperty
   private String identityKey;
@@ -83,17 +80,6 @@ public class Account {
 
   @JsonIgnore
   private boolean canonicallyDiscoverable;
-
-  public Account() {}
-
-  @VisibleForTesting
-  public Account(String number, UUID uuid, final UUID phoneNumberIdentifier, Set<Device> devices, byte[] unidentifiedAccessKey) {
-    this.number                = number;
-    this.uuid                  = uuid;
-    this.phoneNumberIdentifier = phoneNumberIdentifier;
-    this.devices               = devices;
-    this.unidentifiedAccessKey = unidentifiedAccessKey;
-  }
 
   public UUID getUuid() {
     // this is the one method that may be called on a stale account
@@ -150,17 +136,17 @@ public class Account {
   public void addDevice(Device device) {
     requireNotStale();
 
-    this.devices.remove(device);
+    removeDevice(device.getId());
     this.devices.add(device);
   }
 
   public void removeDevice(long deviceId) {
     requireNotStale();
 
-    this.devices.remove(new Device(deviceId, null, null, null, null, null, null, false, 0, null, 0, 0, "NA", 0, null));
+    this.devices.removeIf(device -> device.getId() == deviceId);
   }
 
-  public Set<Device> getDevices() {
+  public List<Device> getDevices() {
     requireNotStale();
 
     return devices;
@@ -175,13 +161,7 @@ public class Account {
   public Optional<Device> getDevice(long deviceId) {
     requireNotStale();
 
-    for (Device device : devices) {
-      if (device.getId() == deviceId) {
-        return Optional.of(device);
-      }
-    }
-
-    return Optional.empty();
+    return devices.stream().filter(device -> device.getId() == deviceId).findFirst();
   }
 
   public boolean isGroupsV2Supported() {

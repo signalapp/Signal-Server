@@ -21,12 +21,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -41,7 +39,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
+import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
@@ -153,7 +152,7 @@ class AccountsTest {
   @Test
   void testStore() {
     Device device = generateDevice(1);
-    Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), Collections.singleton(device));
+    Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), List.of(device));
 
     boolean freshUser = accounts.create(account);
 
@@ -173,11 +172,8 @@ class AccountsTest {
 
   @Test
   void testStoreMulti() {
-    Set<Device> devices = new HashSet<>();
-    devices.add(generateDevice(1));
-    devices.add(generateDevice(2));
-
-    Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), devices);
+    final List<Device> devices = List.of(generateDevice(1), generateDevice(2));
+    final Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), devices);
 
     accounts.create(account);
 
@@ -189,17 +185,13 @@ class AccountsTest {
 
   @Test
   void testRetrieve() {
-    Set<Device> devicesFirst = new HashSet<>();
-    devicesFirst.add(generateDevice(1));
-    devicesFirst.add(generateDevice(2));
+    final List<Device> devicesFirst = List.of(generateDevice(1), generateDevice(2));
 
     UUID uuidFirst = UUID.randomUUID();
     UUID pniFirst = UUID.randomUUID();
     Account accountFirst = generateAccount("+14151112222", uuidFirst, pniFirst, devicesFirst);
 
-    Set<Device> devicesSecond = new HashSet<>();
-    devicesSecond.add(generateDevice(1));
-    devicesSecond.add(generateDevice(2));
+    final List<Device> devicesSecond = List.of(generateDevice(1), generateDevice(2));
 
     UUID uuidSecond = UUID.randomUUID();
     UUID pniSecond = UUID.randomUUID();
@@ -238,12 +230,8 @@ class AccountsTest {
 
   @Test
   void testRetrieveNoPni() throws JsonProcessingException {
-    final Set<Device> devices = new HashSet<>();
-    devices.add(generateDevice(1));
-    devices.add(generateDevice(2));
-
+    final List<Device> devices = List.of(generateDevice(1), generateDevice(2));
     final UUID uuid = UUID.randomUUID();
-
     final Account account = generateAccount("+14151112222", uuid, null, devices);
 
     // Accounts#create enforces that newly-created accounts have a PNI, so we need to make a bit of an end-run around it
@@ -303,7 +291,7 @@ class AccountsTest {
     Device device = generateDevice(1);
     UUID firstUuid = UUID.randomUUID();
     UUID firstPni = UUID.randomUUID();
-    Account account = generateAccount("+14151112222", firstUuid, firstPni, Collections.singleton(device));
+    Account account = generateAccount("+14151112222", firstUuid, firstPni, List.of(device));
 
     accounts.create(account);
 
@@ -317,7 +305,7 @@ class AccountsTest {
     UUID secondUuid = UUID.randomUUID();
 
     device = generateDevice(1);
-    account = generateAccount("+14151112222", secondUuid, UUID.randomUUID(), Collections.singleton(device));
+    account = generateAccount("+14151112222", secondUuid, UUID.randomUUID(), List.of(device));
 
     final boolean freshUser = accounts.create(account);
     assertThat(freshUser).isFalse();
@@ -327,7 +315,7 @@ class AccountsTest {
     assertPhoneNumberIdentifierConstraintExists(firstPni, firstUuid);
 
     device = generateDevice(1);
-    Account invalidAccount = generateAccount("+14151113333", firstUuid, UUID.randomUUID(), Collections.singleton(device));
+    Account invalidAccount = generateAccount("+14151113333", firstUuid, UUID.randomUUID(), List.of(device));
 
     assertThatThrownBy(() -> accounts.create(invalidAccount));
   }
@@ -335,7 +323,7 @@ class AccountsTest {
   @Test
   void testUpdate() {
     Device  device  = generateDevice (1                                            );
-    Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), Collections.singleton(device));
+    Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), List.of(device));
 
     accounts.create(account);
 
@@ -360,7 +348,7 @@ class AccountsTest {
     verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), account, true);
 
     device = generateDevice(1);
-    Account unknownAccount = generateAccount("+14151113333", UUID.randomUUID(), UUID.randomUUID(), Collections.singleton(device));
+    Account unknownAccount = generateAccount("+14151113333", UUID.randomUUID(), UUID.randomUUID(), List.of(device));
 
     assertThatThrownBy(() -> accounts.update(unknownAccount)).isInstanceOfAny(ConditionalCheckFailedException.class);
 
@@ -454,10 +442,10 @@ class AccountsTest {
   void testDelete() {
     final Device deletedDevice = generateDevice(1);
     final Account deletedAccount = generateAccount("+14151112222", UUID.randomUUID(),
-        UUID.randomUUID(), Collections.singleton(deletedDevice));
+        UUID.randomUUID(), List.of(deletedDevice));
     final Device retainedDevice = generateDevice(1);
     final Account retainedAccount = generateAccount("+14151112345", UUID.randomUUID(),
-        UUID.randomUUID(), Collections.singleton(retainedDevice));
+        UUID.randomUUID(), List.of(retainedDevice));
 
     accounts.create(deletedAccount);
     accounts.create(retainedAccount);
@@ -482,7 +470,7 @@ class AccountsTest {
 
     {
       final Account recreatedAccount = generateAccount(deletedAccount.getNumber(), UUID.randomUUID(),
-          UUID.randomUUID(), Collections.singleton(generateDevice(1)));
+          UUID.randomUUID(), List.of(generateDevice(1)));
 
       final boolean freshUser = accounts.create(recreatedAccount);
 
@@ -499,7 +487,7 @@ class AccountsTest {
   @Test
   void testMissing() {
     Device  device  = generateDevice (1                                            );
-    Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), Collections.singleton(device));
+    Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), List.of(device));
 
     accounts.create(account);
 
@@ -567,7 +555,7 @@ class AccountsTest {
   @Test
   void testCanonicallyDiscoverableSet() {
     Device device = generateDevice(1);
-    Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), Collections.singleton(device));
+    Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), List.of(device));
     account.setDiscoverableByPhoneNumber(false);
     accounts.create(account);
     verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), account, false);
@@ -588,7 +576,7 @@ class AccountsTest {
     final UUID targetPni = UUID.randomUUID();
 
     final Device device = generateDevice(1);
-    final Account account = generateAccount(originalNumber, UUID.randomUUID(), originalPni, Collections.singleton(device));
+    final Account account = generateAccount(originalNumber, UUID.randomUUID(), originalPni, List.of(device));
 
     accounts.create(account);
 
@@ -634,10 +622,10 @@ class AccountsTest {
     final UUID targetPni = UUID.randomUUID();
 
     final Device existingDevice = generateDevice(1);
-    final Account existingAccount = generateAccount(targetNumber, UUID.randomUUID(), targetPni, Collections.singleton(existingDevice));
+    final Account existingAccount = generateAccount(targetNumber, UUID.randomUUID(), targetPni, List.of(existingDevice));
 
     final Device device = generateDevice(1);
-    final Account account = generateAccount(originalNumber, UUID.randomUUID(), originalPni, Collections.singleton(device));
+    final Account account = generateAccount(originalNumber, UUID.randomUUID(), originalPni, List.of(device));
 
     accounts.create(account);
     accounts.create(existingAccount);
@@ -656,7 +644,7 @@ class AccountsTest {
     final String targetNumber = "+14151113333";
 
     final Device device = generateDevice(1);
-    final Account account = generateAccount(originalNumber, UUID.randomUUID(), UUID.randomUUID(), Collections.singleton(device));
+    final Account account = generateAccount(originalNumber, UUID.randomUUID(), UUID.randomUUID(), List.of(device));
 
     accounts.create(account);
 
@@ -952,31 +940,20 @@ class AccountsTest {
   }
 
   private Device generateDevice(long id) {
-    Random random = new Random(System.currentTimeMillis());
-    SignedPreKey signedPreKey = new SignedPreKey(random.nextInt(), "testPublicKey-" + random.nextInt(),
-        "testSignature-" + random.nextInt());
-    return new Device(id, "testName-" + random.nextInt(), "testAuthToken-" + random.nextInt(),
-        "testSalt-" + random.nextInt(),
-        "testGcmId-" + random.nextInt(), "testApnId-" + random.nextInt(), "testVoipApnId-" + random.nextInt(),
-        random.nextBoolean(), random.nextInt(), signedPreKey, random.nextInt(), random.nextInt(),
-        "testUserAgent-" + random.nextInt(), 0,
-        new Device.DeviceCapabilities(random.nextBoolean(), random.nextBoolean(), random.nextBoolean(),
-            random.nextBoolean(), random.nextBoolean(), random.nextBoolean(),
-            random.nextBoolean(), random.nextBoolean(), random.nextBoolean(), random.nextBoolean(),
-            random.nextBoolean(), random.nextBoolean()));
+    return DevicesHelper.createDevice(id);
   }
 
   private Account generateAccount(String number, UUID uuid, final UUID pni) {
     Device device = generateDevice(1);
-    return generateAccount(number, uuid, pni, Collections.singleton(device));
+    return generateAccount(number, uuid, pni, List.of(device));
   }
 
-  private Account generateAccount(String number, UUID uuid, final UUID pni, Set<Device> devices) {
+  private Account generateAccount(String number, UUID uuid, final UUID pni, List<Device> devices) {
     byte[]       unidentifiedAccessKey = new byte[16];
     Random random = new Random(System.currentTimeMillis());
     Arrays.fill(unidentifiedAccessKey, (byte)random.nextInt(255));
 
-    return new Account(number, uuid, pni, devices, unidentifiedAccessKey);
+    return AccountsHelper.generateTestAccount(number, uuid, pni, devices, unidentifiedAccessKey);
   }
 
   private void assertPhoneNumberConstraintExists(final String number, final UUID uuid) {

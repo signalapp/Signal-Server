@@ -4,6 +4,18 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import org.apache.commons.codec.binary.Base64;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,20 +24,6 @@ import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.push.MessageSender;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 public class ChangeNumberManagerTest {
   private static AccountsManager accountsManager = mock(AccountsManager.class);
@@ -40,7 +38,7 @@ public class ChangeNumberManagerTest {
       final String number = invocation.getArgument(1, String.class);
 
       final UUID uuid = account.getUuid();
-      final Set<Device> devices = account.getDevices();
+      final List<Device> devices = account.getDevices();
 
       final Account updatedAccount = mock(Account.class);
       when(updatedAccount.getUuid()).thenReturn(uuid);

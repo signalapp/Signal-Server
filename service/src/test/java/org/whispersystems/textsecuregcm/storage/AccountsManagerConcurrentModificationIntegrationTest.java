@@ -46,6 +46,7 @@ import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
+import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.textsecuregcm.tests.util.JsonHelpers;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 import org.whispersystems.textsecuregcm.util.Pair;
@@ -183,15 +184,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
                 "testSignature-" + random.nextInt());
 
             a.removeDevice(1);
-            a.addDevice(new Device(1, "testName-" + random.nextInt(), "testAuthToken-" + random.nextInt(),
-                "testSalt-" + random.nextInt(),
-                "testGcmId-" + random.nextInt(), "testApnId-" + random.nextInt(), "testVoipApnId-" + random.nextInt(),
-                random.nextBoolean(), random.nextInt(), signedPreKey, random.nextInt(), random.nextInt(),
-                "testUserAgent-" + random.nextInt(), 0,
-                new Device.DeviceCapabilities(random.nextBoolean(), random.nextBoolean(), random.nextBoolean(),
-                    random.nextBoolean(), random.nextBoolean(), random.nextBoolean(), random.nextBoolean(),
-                    random.nextBoolean(), random.nextBoolean(), random.nextBoolean(), random.nextBoolean(),
-                    random.nextBoolean())));
+            a.addDevice(DevicesHelper.createDevice(1));
           });
 
       uuid = account.getUuid();

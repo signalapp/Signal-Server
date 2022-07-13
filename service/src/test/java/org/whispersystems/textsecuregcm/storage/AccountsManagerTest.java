@@ -30,7 +30,6 @@ import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -53,6 +52,7 @@ import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
+import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 
 class AccountsManagerTest {
@@ -231,7 +231,7 @@ class AccountsManagerTest {
   void testGetAccountByNumberNotInCache() {
     UUID uuid = UUID.randomUUID();
     UUID pni = UUID.randomUUID();
-    Account account = new Account("+14152222222", uuid, pni, new HashSet<>(), new byte[16]);
+    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[16]);
 
     when(commands.get(eq("AccountMap::+14152222222"))).thenReturn(null);
     when(accounts.getByE164(eq("+14152222222"))).thenReturn(Optional.of(account));
@@ -255,7 +255,7 @@ class AccountsManagerTest {
   void testGetAccountByUuidNotInCache() {
     UUID uuid = UUID.randomUUID();
     UUID pni = UUID.randomUUID();
-    Account account = new Account("+14152222222", uuid, pni, new HashSet<>(), new byte[16]);
+    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[16]);
 
     when(commands.get(eq("Account3::" + uuid))).thenReturn(null);
     when(accounts.getByAccountIdentifier(eq(uuid))).thenReturn(Optional.of(account));
@@ -280,7 +280,7 @@ class AccountsManagerTest {
     UUID uuid = UUID.randomUUID();
     UUID pni = UUID.randomUUID();
 
-    Account account = new Account("+14152222222", uuid, pni, new HashSet<>(), new byte[16]);
+    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[16]);
 
     when(commands.get(eq("AccountMap::" + pni))).thenReturn(null);
     when(accounts.getByPhoneNumberIdentifier(pni)).thenReturn(Optional.of(account));
@@ -305,7 +305,7 @@ class AccountsManagerTest {
     UUID uuid = UUID.randomUUID();
     String username = "test";
 
-    Account account = new Account("+14152222222", uuid, UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, UUID.randomUUID(), new ArrayList<>(), new byte[16]);
     account.setUsername(username);
 
     when(commands.get(eq("AccountMap::" + username))).thenReturn(null);
@@ -331,7 +331,7 @@ class AccountsManagerTest {
   void testGetAccountByNumberBrokenCache() {
     UUID uuid = UUID.randomUUID();
     UUID pni = UUID.randomUUID();
-    Account account = new Account("+14152222222", uuid, pni, new HashSet<>(), new byte[16]);
+    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[16]);
 
     when(commands.get(eq("AccountMap::+14152222222"))).thenThrow(new RedisException("Connection lost!"));
     when(accounts.getByE164(eq("+14152222222"))).thenReturn(Optional.of(account));
@@ -355,7 +355,7 @@ class AccountsManagerTest {
   void testGetAccountByUuidBrokenCache() {
     UUID uuid = UUID.randomUUID();
     UUID pni = UUID.randomUUID();
-    Account account = new Account("+14152222222", uuid, pni, new HashSet<>(), new byte[16]);
+    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[16]);
 
     when(commands.get(eq("Account3::" + uuid))).thenThrow(new RedisException("Connection lost!"));
     when(accounts.getByAccountIdentifier(eq(uuid))).thenReturn(Optional.of(account));
@@ -380,7 +380,7 @@ class AccountsManagerTest {
     UUID uuid = UUID.randomUUID();
     UUID pni = UUID.randomUUID();
 
-    Account account = new Account("+14152222222", uuid, pni, new HashSet<>(), new byte[16]);
+    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[16]);
 
     when(commands.get(eq("AccountMap::" + pni))).thenThrow(new RedisException("OH NO"));
     when(accounts.getByPhoneNumberIdentifier(pni)).thenReturn(Optional.of(account));
@@ -405,7 +405,7 @@ class AccountsManagerTest {
     UUID uuid = UUID.randomUUID();
     String username = "test";
 
-    Account account = new Account("+14152222222", uuid, UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, UUID.randomUUID(), new ArrayList<>(), new byte[16]);
     account.setUsername(username);
 
     when(commands.get(eq("AccountMap::" + username))).thenThrow(new RedisException("OH NO"));
@@ -431,18 +431,18 @@ class AccountsManagerTest {
   void testUpdate_optimisticLockingFailure() {
     UUID uuid = UUID.randomUUID();
     UUID pni = UUID.randomUUID();
-    Account account = new Account("+14152222222", uuid, pni, new HashSet<>(), new byte[16]);
+    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[16]);
 
     when(commands.get(eq("Account3::" + uuid))).thenReturn(null);
 
     when(accounts.getByAccountIdentifier(uuid)).thenReturn(
-        Optional.of(new Account("+14152222222", uuid, pni, new HashSet<>(), new byte[16])));
+        Optional.of(AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[16])));
     doThrow(ContestedOptimisticLockException.class)
         .doAnswer(ACCOUNT_UPDATE_ANSWER)
         .when(accounts).update(any());
 
     when(accounts.getByAccountIdentifier(uuid)).thenReturn(
-        Optional.of(new Account("+14152222222", uuid, pni, new HashSet<>(), new byte[16])));
+        Optional.of(AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[16])));
     doThrow(ContestedOptimisticLockException.class)
         .doAnswer(ACCOUNT_UPDATE_ANSWER)
         .when(accounts).update(any());
@@ -460,7 +460,7 @@ class AccountsManagerTest {
   @Test
   void testUpdate_dynamoOptimisticLockingFailureDuringCreate() {
     UUID uuid = UUID.randomUUID();
-    Account account = new Account("+14152222222", uuid, UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, UUID.randomUUID(), new ArrayList<>(), new byte[16]);
 
     when(commands.get(eq("Account3::" + uuid))).thenReturn(null);
     when(accounts.getByAccountIdentifier(uuid)).thenReturn(Optional.empty())
@@ -477,10 +477,10 @@ class AccountsManagerTest {
   @Test
   void testUpdateDevice() {
     final UUID uuid = UUID.randomUUID();
-    Account account = new Account("+14152222222", uuid, UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, UUID.randomUUID(), new ArrayList<>(), new byte[16]);
 
     when(accounts.getByAccountIdentifier(uuid)).thenReturn(
-        Optional.of(new Account("+14152222222", uuid, UUID.randomUUID(), new HashSet<>(), new byte[16])));
+        Optional.of(AccountsHelper.generateTestAccount("+14152222222", uuid, UUID.randomUUID(), new ArrayList<>(), new byte[16])));
 
     assertTrue(account.getDevices().isEmpty());
 
@@ -596,12 +596,10 @@ class AccountsManagerTest {
   @MethodSource
   void testUpdateDirectoryQueue(final boolean visibleBeforeUpdate, final boolean visibleAfterUpdate,
       final boolean expectRefresh) {
-    final Account account = new Account("+14152222222", UUID.randomUUID(), UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    final Account account = AccountsHelper.generateTestAccount("+14152222222", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
 
     // this sets up the appropriate result for Account#shouldBeVisibleInDirectory
-    final Device device = new Device(Device.MASTER_ID, "device", "token", "salt", null, null, null, true, 1,
-        new SignedPreKey(1, "key", "sig"), 0, 0,
-        "OWT", 0, new DeviceCapabilities());
+    final Device device = generateTestDevice(0);
     account.addDevice(device);
     account.setDiscoverableByPhoneNumber(visibleBeforeUpdate);
 
@@ -623,10 +621,8 @@ class AccountsManagerTest {
   @ParameterizedTest
   @MethodSource
   void testUpdateDeviceLastSeen(final boolean expectUpdate, final long initialLastSeen, final long updatedLastSeen) {
-    final Account account = new Account("+14152222222", UUID.randomUUID(), UUID.randomUUID(), new HashSet<>(), new byte[16]);
-    final Device device = new Device(Device.MASTER_ID, "device", "token", "salt", null, null, null, true, 1,
-        new SignedPreKey(1, "key", "sig"), initialLastSeen, 0,
-        "OWT", 0, new DeviceCapabilities());
+    final Account account = AccountsHelper.generateTestAccount("+14152222222", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
+    final Device device = generateTestDevice(initialLastSeen);
     account.addDevice(device);
 
     accountsManager.updateDeviceLastSeen(account, device, updatedLastSeen);
@@ -654,7 +650,7 @@ class AccountsManagerTest {
     final UUID uuid = UUID.randomUUID();
     final UUID originalPni = UUID.randomUUID();
 
-    Account account = new Account(originalNumber, uuid, originalPni, new HashSet<>(), new byte[16]);
+    Account account = AccountsHelper.generateTestAccount(originalNumber, uuid, originalPni, new ArrayList<>(), new byte[16]);
     account = accountsManager.changeNumber(account, targetNumber);
 
     assertEquals(targetNumber, account.getNumber());
@@ -670,7 +666,7 @@ class AccountsManagerTest {
   void testChangePhoneNumberSameNumber() throws InterruptedException {
     final String number = "+14152222222";
 
-    Account account = new Account(number, UUID.randomUUID(), UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
     account = accountsManager.changeNumber(account, number);
 
     assertEquals(number, account.getNumber());
@@ -691,10 +687,10 @@ class AccountsManagerTest {
     final UUID originalPni = UUID.randomUUID();
     final UUID targetPni = UUID.randomUUID();
 
-    final Account existingAccount = new Account(targetNumber, existingAccountUuid, targetPni, new HashSet<>(), new byte[16]);
+    final Account existingAccount = AccountsHelper.generateTestAccount(targetNumber, existingAccountUuid, targetPni, new ArrayList<>(), new byte[16]);
     when(accounts.getByE164(targetNumber)).thenReturn(Optional.of(existingAccount));
 
-    Account account = new Account(originalNumber, uuid, originalPni, new HashSet<>(), new byte[16]);
+    Account account = AccountsHelper.generateTestAccount(originalNumber, uuid, originalPni, new ArrayList<>(), new byte[16]);
     account = accountsManager.changeNumber(account, targetNumber);
 
     assertEquals(targetNumber, account.getNumber());
@@ -713,14 +709,14 @@ class AccountsManagerTest {
     final String targetNumber = "+14153333333";
     final UUID uuid = UUID.randomUUID();
 
-    final Account account = new Account(originalNumber, uuid, UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    final Account account = AccountsHelper.generateTestAccount(originalNumber, uuid, UUID.randomUUID(), new ArrayList<>(), new byte[16]);
 
     assertThrows(AssertionError.class, () -> accountsManager.update(account, a -> a.setNumber(targetNumber, UUID.randomUUID())));
   }
 
   @Test
   void testSetUsername() throws UsernameNotAvailableException {
-    final Account account = new Account("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
     final String username = "test";
 
     assertDoesNotThrow(() -> accountsManager.setUsername(account, username));
@@ -729,7 +725,7 @@ class AccountsManagerTest {
 
   @Test
   void testSetUsernameSameUsername() throws UsernameNotAvailableException {
-    final Account account = new Account("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
     final String username = "test";
     account.setUsername(username);
 
@@ -739,7 +735,7 @@ class AccountsManagerTest {
 
   @Test
   void testSetUsernameNotAvailable() throws UsernameNotAvailableException {
-    final Account account = new Account("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
     final String username = "test";
 
     doThrow(new UsernameNotAvailableException()).when(accounts).setUsername(account, username);
@@ -755,7 +751,7 @@ class AccountsManagerTest {
     final String username = "reserved";
     when(reservedUsernames.isReserved(eq(username), any())).thenReturn(true);
 
-    final Account account = new Account("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
 
     assertThrows(UsernameNotAvailableException.class, () -> accountsManager.setUsername(account, username));
     assertTrue(account.getUsername().isEmpty());
@@ -763,8 +759,18 @@ class AccountsManagerTest {
 
   @Test
   void testSetUsernameViaUpdate() {
-    final Account account = new Account("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new HashSet<>(), new byte[16]);
+    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
 
     assertThrows(AssertionError.class, () -> accountsManager.update(account, a -> a.setUsername("test")));
+  }
+
+  private static Device generateTestDevice(final long lastSeen) {
+    final Device device = new Device();
+    device.setId(Device.MASTER_ID);
+    device.setFetchesMessages(true);
+    device.setSignedPreKey(new SignedPreKey(1, "key", "sig"));
+    device.setLastSeen(lastSeen);
+
+    return device;
   }
 }

@@ -17,14 +17,13 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.dropwizard.auth.basic.BasicCredentials;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
-import java.util.Random;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
-import io.dropwizard.auth.basic.BasicCredentials;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -35,12 +34,10 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
-import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.Pair;
 
 class BaseAccountAuthenticatorTest {
 
-  private final Random             random       = new Random(867_5309L);
   private final long               today        = 1590451200000L;
   private final long               yesterday    = today - 86_400_000L;
   private final long               oldTime      = yesterday - 86_400_000L;
@@ -59,17 +56,20 @@ class BaseAccountAuthenticatorTest {
     clock = mock(Clock.class);
     baseAccountAuthenticator = new BaseAccountAuthenticator(accountsManager, clock);
 
-    acct1 = new Account("+14088675309", AuthHelper.getRandomUUID(random), UUID.randomUUID(),
-        Set.of(new Device(1, null, null, null,
-        null, null, null, false, 0, null, yesterday, 0, null, 0, null)), null);
-    acct2 = new Account("+14098675309", AuthHelper.getRandomUUID(random), UUID.randomUUID(),
-        Set.of(new Device(1, null, null, null,
-        null, null, null, false, 0, null, yesterday, 0, null, 0, null)), null);
-    oldAccount = new Account("+14108675309", AuthHelper.getRandomUUID(random), UUID.randomUUID(),
-        Set.of(new Device(1, null, null, null,
-        null, null, null, false, 0, null, oldTime, 0, null, 0, null)), null);
+    // We use static UUIDs here because the UUID affects the "date last seen" offset
+    acct1 = AccountsHelper.generateTestAccount("+14088675309", UUID.fromString("c139cb3e-f70c-4460-b221-815e8bdf778f"), UUID.randomUUID(), List.of(generateTestDevice(yesterday)), null);
+    acct2 = AccountsHelper.generateTestAccount("+14088675310", UUID.fromString("30018a41-2764-4bc7-a935-775dfef84ad1"), UUID.randomUUID(), List.of(generateTestDevice(yesterday)), null);
+    oldAccount = AccountsHelper.generateTestAccount("+14088675311", UUID.fromString("adfce52b-9299-4c25-9c51-412fb420c6a6"), UUID.randomUUID(), List.of(generateTestDevice(oldTime)), null);
 
     AccountsHelper.setupMockUpdate(accountsManager);
+  }
+
+  private static Device generateTestDevice(final long lastSeen) {
+    final Device device = new Device();
+    device.setId(Device.MASTER_ID);
+    device.setLastSeen(lastSeen);
+
+    return device;
   }
 
   @Test

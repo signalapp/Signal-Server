@@ -31,7 +31,6 @@ import java.io.IOException;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -259,7 +258,7 @@ class AccountControllerTest {
       final String number = invocation.getArgument(1, String.class);
 
       final UUID uuid = account.getUuid();
-      final Set<Device> devices = account.getDevices();
+      final List<Device> devices = account.getDevices();
 
       final Account updatedAccount = mock(Account.class);
       when(updatedAccount.getUuid()).thenReturn(uuid);
@@ -1557,7 +1556,7 @@ class AccountControllerTest {
     Device device3 = mock(Device.class);
     when(device3.getId()).thenReturn(3L);
     when(device3.isEnabled()).thenReturn(true);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(Set.of(AuthHelper.VALID_DEVICE, device2, device3));
+    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(AuthHelper.VALID_DEVICE, device2, device3));
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
         new StoredVerificationCode(code, System.currentTimeMillis(), "push", null)));
 
@@ -1591,7 +1590,7 @@ class AccountControllerTest {
     when(device3.getId()).thenReturn(3L);
     when(device3.isEnabled()).thenReturn(true);
     when(device3.getRegistrationId()).thenReturn(3);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(Set.of(AuthHelper.VALID_DEVICE, device2, device3));
+    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(AuthHelper.VALID_DEVICE, device2, device3));
     when(AuthHelper.VALID_ACCOUNT.getDevice(2L)).thenReturn(Optional.of(device2));
     when(AuthHelper.VALID_ACCOUNT.getDevice(3L)).thenReturn(Optional.of(device3));
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(
@@ -1633,7 +1632,7 @@ class AccountControllerTest {
     when(device3.getId()).thenReturn(3L);
     when(device3.isEnabled()).thenReturn(true);
     when(device3.getRegistrationId()).thenReturn(3);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(Set.of(AuthHelper.VALID_DEVICE, device2, device3));
+    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(AuthHelper.VALID_DEVICE, device2, device3));
     when(AuthHelper.VALID_ACCOUNT.getDevice(2L)).thenReturn(Optional.of(device2));
     when(AuthHelper.VALID_ACCOUNT.getDevice(3L)).thenReturn(Optional.of(device3));
     when(pendingAccountsManager.getCodeForNumber(number)).thenReturn(Optional.of(

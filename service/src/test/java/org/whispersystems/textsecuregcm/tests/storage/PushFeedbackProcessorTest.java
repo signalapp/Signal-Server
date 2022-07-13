@@ -78,11 +78,11 @@ class PushFeedbackProcessorTest {
     when(stillActiveDevice.getLastSeen()).thenReturn(Util.todayInMillis());
     when(stillActiveDevice.isEnabled()).thenReturn(true);
 
-    when(uninstalledAccount.getDevices()).thenReturn(Set.of(uninstalledDevice));
-    when(mixedAccount.getDevices()).thenReturn(Set.of(installedDevice, uninstalledDeviceTwo));
-    when(freshAccount.getDevices()).thenReturn(Set.of(recentUninstalledDevice));
-    when(cleanAccount.getDevices()).thenReturn(Set.of(installedDeviceTwo));
-    when(stillActiveAccount.getDevices()).thenReturn(Set.of(stillActiveDevice));
+    when(uninstalledAccount.getDevices()).thenReturn(List.of(uninstalledDevice));
+    when(mixedAccount.getDevices()).thenReturn(List.of(installedDevice, uninstalledDeviceTwo));
+    when(freshAccount.getDevices()).thenReturn(List.of(recentUninstalledDevice));
+    when(cleanAccount.getDevices()).thenReturn(List.of(installedDeviceTwo));
+    when(stillActiveAccount.getDevices()).thenReturn(List.of(stillActiveDevice));
 
     when(mixedAccount.getUuid()).thenReturn(UUID.randomUUID());
     when(freshAccount.getUuid()).thenReturn(UUID.randomUUID());

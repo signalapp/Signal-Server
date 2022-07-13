@@ -21,9 +21,9 @@ import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Stream;
 import javax.ws.rs.Path;
 import javax.ws.rs.client.Entity;
@@ -162,7 +162,7 @@ class DeviceControllerTest {
 
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(Set.of(existingDevice));
+    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
 
     VerificationCode deviceCode = resources.getJerseyTest()
         .target("/v1/devices/provisioning/code")
@@ -194,7 +194,7 @@ class DeviceControllerTest {
 
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.MASTER_ID);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(Set.of(existingDevice));
+    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
 
     VerificationCode deviceCode = resources.getJerseyTest()
         .target("/v1/devices/provisioning/code")

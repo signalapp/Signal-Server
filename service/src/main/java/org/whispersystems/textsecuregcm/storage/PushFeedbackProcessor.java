@@ -12,7 +12,6 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -41,8 +40,7 @@ public class PushFeedbackProcessor extends AccountDatabaseCrawlerListener {
     for (Account account : chunkAccounts) {
       boolean update = false;
 
-      final Set<Device> devices = account.getDevices();
-      for (Device device : devices) {
+      for (Device device : account.getDevices()) {
         if (deviceNeedsUpdate(device)) {
           if (deviceExpired(device)) {
             if (device.isEnabled()) {

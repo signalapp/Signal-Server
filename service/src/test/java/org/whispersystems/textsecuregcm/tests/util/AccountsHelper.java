@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -25,6 +26,20 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 public class AccountsHelper {
+
+  public static Account generateTestAccount(String number, List<Device> devices) {
+    return generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), devices, null);
+  }
+
+  public static Account generateTestAccount(String number, UUID uuid, final UUID phoneNumberIdentifier, List<Device> devices, byte[] unidentifiedAccessKey) {
+    final Account account = new Account();
+    account.setNumber(number, phoneNumberIdentifier);
+    account.setUuid(uuid);
+    devices.forEach(account::addDevice);
+    account.setUnidentifiedAccessKey(unidentifiedAccessKey);
+
+    return account;
+  }
 
   public static void setupMockUpdate(final AccountsManager mockAccountsManager) {
     setupMockUpdate(mockAccountsManager, true);

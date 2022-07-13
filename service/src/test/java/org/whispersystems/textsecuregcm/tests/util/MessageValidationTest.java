@@ -11,8 +11,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -120,7 +122,7 @@ class MessageValidationTest {
     if (deviceIdAndEnabled.length % 2 != 0) {
       throw new IllegalArgumentException("invalid number of arguments specified; must be even");
     }
-    final Set<Device> devices = new HashSet<>(deviceIdAndEnabled.length / 2);
+    final List<Device> devices = new ArrayList<>(deviceIdAndEnabled.length / 2);
     for (int i = 0; i < deviceIdAndEnabled.length; i+=2) {
       if (!(deviceIdAndEnabled[i] instanceof Long)) {
         throw new IllegalArgumentException("device id is not instance of long at index " + i);

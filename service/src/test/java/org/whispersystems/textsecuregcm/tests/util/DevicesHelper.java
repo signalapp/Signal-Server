@@ -15,8 +15,14 @@ public class DevicesHelper {
   private static final Random RANDOM = new Random();
 
   public static Device createDevice(final long deviceId) {
-    final Device device = new Device(deviceId, null, null, null, null, null, null, false, 0, null, 0, 0, "OWT", 0,
-        null);
+    return createDevice(deviceId, 0);
+  }
+
+  public static Device createDevice(final long deviceId, final long lastSeen) {
+    final Device device = new Device();
+    device.setId(deviceId);
+    device.setLastSeen(lastSeen);
+    device.setUserAgent("OWT");
 
     setEnabled(device, true);
 

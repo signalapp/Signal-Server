@@ -32,9 +32,9 @@ import io.dropwizard.testing.junit5.ResourceExtension;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.Principal;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -141,7 +141,7 @@ class AuthEnablementRefreshRequirementProviderTest {
 
     final Account account = mock(Account.class);
 
-    final Set<Device> devices = new HashSet<>();
+    final List<Device> devices = new ArrayList<>();
     when(account.getDevices()).thenReturn(devices);
 
     LongStream.range(1, 5)

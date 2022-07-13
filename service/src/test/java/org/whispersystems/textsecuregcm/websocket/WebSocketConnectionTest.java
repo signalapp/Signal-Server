@@ -30,11 +30,9 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -166,9 +164,7 @@ class WebSocketConnectionTest {
 
     final Device sender1device = mock(Device.class);
 
-    Set<Device> sender1devices = new HashSet<>() {{
-      add(sender1device);
-    }};
+    List<Device> sender1devices = List.of(sender1device);
 
     Account sender1 = mock(Account.class);
     when(sender1.getDevices()).thenReturn(sender1devices);
@@ -323,9 +319,7 @@ class WebSocketConnectionTest {
 
     final Device sender1device = mock(Device.class);
 
-    Set<Device> sender1devices = new HashSet<Device>() {{
-      add(sender1device);
-    }};
+    List<Device> sender1devices = List.of(sender1device);
 
     Account sender1 = mock(Account.class);
     when(sender1.getDevices()).thenReturn(sender1devices);
@@ -705,9 +699,7 @@ class WebSocketConnectionTest {
 
     final Device sender1device = mock(Device.class);
 
-    Set<Device> sender1devices = new HashSet<>() {{
-      add(sender1device);
-    }};
+    List<Device> sender1devices = List.of(sender1device);
 
     Account sender1 = mock(Account.class);
     when(sender1.getDevices()).thenReturn(sender1devices);
@@ -780,9 +772,7 @@ class WebSocketConnectionTest {
 
     final Device sender1device = mock(Device.class);
 
-    Set<Device> sender1devices = new HashSet<>() {{
-      add(sender1device);
-    }};
+    List<Device> sender1devices = List.of(sender1device);
 
     Account sender1 = mock(Account.class);
     when(sender1.getDevices()).thenReturn(sender1devices);

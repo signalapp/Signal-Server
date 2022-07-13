@@ -67,31 +67,6 @@ public class Device {
   @JsonProperty
   private DeviceCapabilities capabilities;
 
-  public Device() {}
-
-  public Device(long id, String name, String authToken, String salt,
-      String gcmId, String apnId,
-      String voipApnId, boolean fetchesMessages,
-      int registrationId, SignedPreKey signedPreKey,
-      long lastSeen, long created, String userAgent,
-      long uninstalledFeedback, DeviceCapabilities capabilities) {
-    this.id = id;
-    this.name = name;
-    this.authToken = authToken;
-    this.salt = salt;
-    this.gcmId = gcmId;
-    this.apnId = apnId;
-    this.voipApnId = voipApnId;
-    this.fetchesMessages = fetchesMessages;
-    this.registrationId = registrationId;
-    this.signedPreKey = signedPreKey;
-    this.lastSeen = lastSeen;
-    this.created = created;
-    this.userAgent = userAgent;
-    this.uninstalledFeedback = uninstalledFeedback;
-    this.capabilities = capabilities;
-  }
-
   public String getApnId() {
     return apnId;
   }
@@ -249,16 +224,6 @@ public class Device {
     }
 
     return groupsV2Supported;
-  }
-
-  @Override
-  public boolean equals(Object other) {
-    return (other instanceof Device that) && this.id == that.id;
-  }
-
-  @Override
-  public int hashCode() {
-    return (int)this.id;
   }
 
   public static class DeviceCapabilities {

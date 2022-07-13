@@ -25,11 +25,9 @@ import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.time.Duration;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
@@ -115,12 +113,7 @@ class KeysControllerTest {
     final Device sampleDevice3 = mock(Device.class);
     final Device sampleDevice4 = mock(Device.class);
 
-    Set<Device> allDevices = new HashSet<>() {{
-      add(sampleDevice);
-      add(sampleDevice2);
-      add(sampleDevice3);
-      add(sampleDevice4);
-    }};
+    final List<Device> allDevices = List.of(sampleDevice, sampleDevice2, sampleDevice3, sampleDevice4);
 
     AccountsHelper.setupMockUpdate(accounts);
 
@@ -351,7 +344,7 @@ class KeysControllerTest {
   @Test
   void testNoDevices() {
 
-    when(existsAccount.getDevices()).thenReturn(Collections.emptySet());
+    when(existsAccount.getDevices()).thenReturn(Collections.emptyList());
 
     Response result = resources.getJerseyTest()
         .target(String.format("/v2/keys/%s/*", EXISTS_UUID))

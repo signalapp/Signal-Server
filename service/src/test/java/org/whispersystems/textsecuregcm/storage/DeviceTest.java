@@ -21,9 +21,17 @@ class DeviceTest {
   @MethodSource
   void testIsEnabled(final boolean master, final boolean fetchesMessages, final String apnId, final String gcmId,
       final SignedPreKey signedPreKey, final Duration timeSinceLastSeen, final boolean expectEnabled) {
+
     final long lastSeen = System.currentTimeMillis() - timeSinceLastSeen.toMillis();
-    final Device device = new Device(master ? 1 : 2, "test", "auth-token", "salt", gcmId, apnId, null, fetchesMessages,
-        1, signedPreKey, lastSeen, lastSeen, "user-agent", 0, null);
+
+    final Device device = new Device();
+    device.setId(master ? Device.MASTER_ID : Device.MASTER_ID + 1);
+    device.setFetchesMessages(fetchesMessages);
+    device.setApnId(apnId);
+    device.setGcmId(gcmId);
+    device.setSignedPreKey(signedPreKey);
+    device.setCreated(lastSeen);
+    device.setLastSeen(lastSeen);
 
     assertEquals(expectEnabled, device.isEnabled());
   }
@@ -73,8 +81,11 @@ class DeviceTest {
     final Device.DeviceCapabilities capabilities = new Device.DeviceCapabilities(gv2Capability, gv2_2Capability,
         gv2_3Capability, false, false, false,
         false, false, false, false, false, false);
-    final Device device = new Device(master ? 1 : 2, "test", "auth-token", "salt",
-        null, apnId, null, false, 1, null, 0, 0, "user-agent", 0, capabilities);
+
+    final Device device = new Device();
+    device.setId(master ? Device.MASTER_ID : Device.MASTER_ID + 1);
+    device.setApnId(apnId);
+    device.setCapabilities(capabilities);
 
     assertEquals(expectGv2Supported, device.isGroupsV2Supported());
   }

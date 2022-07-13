@@ -28,7 +28,6 @@ import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
-import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
 import software.amazon.awssdk.services.dynamodb.model.GlobalSecondaryIndex;
@@ -255,8 +254,6 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     final Account existingAccount = accountsManager.create(secondNumber, "password", null, new AccountAttributes(), new ArrayList<>());
     final UUID existingAccountUuid = existingAccount.getUuid();
-
-    accountsManager.update(existingAccount, a -> a.addDevice(new Device(Device.MASTER_ID, "test", "token", "salt", null, null, null, true, 1, null, 0, 0, null, 0, new DeviceCapabilities())));
 
     accountsManager.changeNumber(account, secondNumber);
 
