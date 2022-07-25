@@ -217,13 +217,13 @@ class CertificateControllerTest {
                                             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                             .get(GroupCredentials.class);
 
-    assertThat(credentials.getCredentials().size()).isEqualTo(1);
-    assertThat(credentials.getCredentials().get(0).getRedemptionTime()).isEqualTo(Util.currentDaysSinceEpoch());
+    assertThat(credentials.credentials().size()).isEqualTo(1);
+    assertThat(credentials.credentials().get(0).redemptionTime()).isEqualTo(Util.currentDaysSinceEpoch());
 
     ClientZkAuthOperations clientZkAuthOperations = new ClientZkAuthOperations(serverSecretParams.getPublicParams());
 
     assertThatCode(() ->
-        clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, Util.currentDaysSinceEpoch(), new AuthCredentialResponse(credentials.getCredentials().get(0).getCredential())))
+        clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, Util.currentDaysSinceEpoch(), new AuthCredentialResponse(credentials.credentials().get(0).credential())))
         .doesNotThrowAnyException();
   }
 
@@ -236,14 +236,14 @@ class CertificateControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(GroupCredentials.class);
 
-    assertThat(credentials.getCredentials().size()).isEqualTo(1);
-    assertThat(credentials.getCredentials().get(0).getRedemptionTime()).isEqualTo(Util.currentDaysSinceEpoch());
+    assertThat(credentials.credentials().size()).isEqualTo(1);
+    assertThat(credentials.credentials().get(0).redemptionTime()).isEqualTo(Util.currentDaysSinceEpoch());
 
     ClientZkAuthOperations clientZkAuthOperations = new ClientZkAuthOperations(serverSecretParams.getPublicParams());
 
     assertThatExceptionOfType(VerificationFailedException.class)
         .isThrownBy(() ->
-            clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, Util.currentDaysSinceEpoch(), new AuthCredentialResponse(credentials.getCredentials().get(0).getCredential())));
+            clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, Util.currentDaysSinceEpoch(), new AuthCredentialResponse(credentials.credentials().get(0).credential())));
   }
 
   @Test
@@ -254,17 +254,17 @@ class CertificateControllerTest {
                                             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                                             .get(GroupCredentials.class);
 
-    assertThat(credentials.getCredentials().size()).isEqualTo(8);
+    assertThat(credentials.credentials().size()).isEqualTo(8);
 
     for (int i=0;i<=7;i++) {
-      assertThat(credentials.getCredentials().get(i).getRedemptionTime()).isEqualTo(Util.currentDaysSinceEpoch() + i);
+      assertThat(credentials.credentials().get(i).redemptionTime()).isEqualTo(Util.currentDaysSinceEpoch() + i);
 
       ClientZkAuthOperations clientZkAuthOperations = new ClientZkAuthOperations(serverSecretParams.getPublicParams());
 
       final int time = i;
 
       assertThatCode(() ->
-          clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, Util.currentDaysSinceEpoch() + time , new AuthCredentialResponse(credentials.getCredentials().get(time).getCredential())))
+          clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, Util.currentDaysSinceEpoch() + time , new AuthCredentialResponse(credentials.credentials().get(time).credential())))
           .doesNotThrowAnyException();
     }
   }
@@ -314,8 +314,9 @@ class CertificateControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(GroupCredentials.class);
 
-    assertEquals(1, credentials.getCredentials().size());
-    assertEquals(startOfDay.getEpochSecond(), credentials.getCredentials().get(0).getRedemptionTime());
+    assertEquals(1, credentials.credentials().size());
+    assertEquals(AuthHelper.VALID_PNI, credentials.pni());
+    assertEquals(startOfDay.getEpochSecond(), credentials.credentials().get(0).redemptionTime());
 
     final ClientZkAuthOperations clientZkAuthOperations =
         new ClientZkAuthOperations(serverSecretParams.getPublicParams());
@@ -325,7 +326,7 @@ class CertificateControllerTest {
           AuthHelper.VALID_UUID,
           AuthHelper.VALID_PNI,
           (int) startOfDay.getEpochSecond(),
-          new AuthCredentialWithPniResponse(credentials.getCredentials().get(0).getCredential()));
+          new AuthCredentialWithPniResponse(credentials.credentials().get(0).credential()));
     });
   }
 
@@ -341,14 +342,15 @@ class CertificateControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(GroupCredentials.class);
 
-    assertEquals(8, credentials.getCredentials().size());
+    assertEquals(AuthHelper.VALID_PNI, credentials.pni());
+    assertEquals(8, credentials.credentials().size());
 
     final ClientZkAuthOperations clientZkAuthOperations =
         new ClientZkAuthOperations(serverSecretParams.getPublicParams());
 
     for (int i = 0; i < 8; i++) {
       final Instant redemptionTime = startOfDay.plus(Duration.ofDays(i));
-      assertEquals(redemptionTime.getEpochSecond(), credentials.getCredentials().get(i).getRedemptionTime());
+      assertEquals(redemptionTime.getEpochSecond(), credentials.credentials().get(i).redemptionTime());
 
       final int index = i;
 
@@ -357,7 +359,7 @@ class CertificateControllerTest {
             AuthHelper.VALID_UUID,
             AuthHelper.VALID_PNI,
             redemptionTime.getEpochSecond(),
-            new AuthCredentialWithPniResponse(credentials.getCredentials().get(index).getCredential()));
+            new AuthCredentialWithPniResponse(credentials.credentials().get(index).credential()));
       });
     }
   }

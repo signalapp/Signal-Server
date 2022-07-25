@@ -114,7 +114,7 @@ public class CertificateController {
           i));
     }
 
-    return new GroupCredentials(credentials);
+    return new GroupCredentials(credentials, null);
   }
 
   @Timed
@@ -153,6 +153,6 @@ public class CertificateController {
       redemption = redemption.plus(Duration.ofDays(1));
     }
 
-    return new GroupCredentials(credentials);
+    return new GroupCredentials(credentials, pni);
   }
 }

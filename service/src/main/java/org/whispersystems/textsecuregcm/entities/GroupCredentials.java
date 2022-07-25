@@ -5,43 +5,12 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
+import java.util.UUID;
+import javax.annotation.Nullable;
 
-public class GroupCredentials {
+public record GroupCredentials(List<GroupCredential> credentials, @Nullable UUID pni) {
 
-  private final List<GroupCredential> credentials;
-
-  @JsonCreator
-  public GroupCredentials(
-      @JsonProperty("credentials") List<GroupCredential> credentials) {
-    this.credentials = credentials;
-  }
-
-  public List<GroupCredential> getCredentials() {
-    return credentials;
-  }
-
-  public static class GroupCredential {
-
-    private final byte[] credential;
-    private final int redemptionTime;
-
-    @JsonCreator
-    public GroupCredential(
-        @JsonProperty("credential") byte[] credential,
-        @JsonProperty("redemptionTime") int redemptionTime) {
-      this.credential = credential;
-      this.redemptionTime = redemptionTime;
-    }
-
-    public byte[] getCredential() {
-      return credential;
-    }
-
-    public int getRedemptionTime() {
-      return redemptionTime;
-    }
+  public record GroupCredential(byte[] credential, int redemptionTime) {
   }
 }
