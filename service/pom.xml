@@ -371,7 +371,7 @@
     <dependency>
       <groupId>io.projectreactor</groupId>
       <artifactId>reactor-core</artifactId>
-      <version>3.3.16.RELEASE</version>
+      <version>3.3.22.RELEASE</version>
     </dependency>
     <dependency>
       <groupId>io.vavr</groupId>
