@@ -85,6 +85,8 @@ public class CertificateController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/group/{startRedemptionTime}/{endRedemptionTime}")
+  @Deprecated(forRemoval = true) // Clients should now use getGroupAuthenticationCredentials instead
+  // TODO Assess readiness for removal on or after 2022-11-01
   public GroupCredentials getAuthenticationCredentials(@Auth AuthenticatedAccount auth,
       @PathParam("startRedemptionTime") int startRedemptionTime,
       @PathParam("endRedemptionTime") int endRedemptionTime,
