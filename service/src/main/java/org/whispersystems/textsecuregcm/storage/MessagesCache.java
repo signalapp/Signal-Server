@@ -330,9 +330,12 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   }
 
   private void unsubscribeFromKeyspaceNotifications(final String queueName) {
-    pubSubConnection.usePubSubConnection(connection -> connection.sync().upstream()
-        .commands()
-        .unsubscribe(getKeyspaceChannels(queueName)));
+    final int slot = SlotHash.getSlot(queueName);
+
+    pubSubConnection.usePubSubConnection(
+        connection -> connection.sync().nodes(node -> node.is(RedisClusterNode.NodeFlag.UPSTREAM) && node.hasSlot(slot))
+            .commands()
+            .unsubscribe(getKeyspaceChannels(queueName)));
   }
 
   private static String[] getKeyspaceChannels(final String queueName) {
