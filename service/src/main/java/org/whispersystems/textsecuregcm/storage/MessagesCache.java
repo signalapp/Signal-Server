@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
@@ -309,12 +310,12 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   }
 
   public void removeMessageAvailabilityListener(final MessageAvailabilityListener listener) {
-    final String queueName = queueNamesByMessageListener.remove(listener);
+    @Nullable final String queueName = queueNamesByMessageListener.remove(listener);
 
-    unsubscribeFromKeyspaceNotifications(queueName);
+    if (queueName != null) {
+      unsubscribeFromKeyspaceNotifications(queueName);
 
-    synchronized (messageListenersByQueueName) {
-      if (queueName != null) {
+      synchronized (messageListenersByQueueName) {
         messageListenersByQueueName.remove(queueName);
       }
     }
