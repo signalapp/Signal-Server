@@ -6,19 +6,25 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+import javax.annotation.Nullable;
+import org.apache.commons.lang3.ObjectUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
+import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
+import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
+import org.whispersystems.textsecuregcm.controllers.StaleDevicesException;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
-import javax.validation.constraints.NotNull;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 public class ChangeNumberManager {
   private static final Logger logger = LoggerFactory.getLogger(AccountController.class);
@@ -32,35 +38,54 @@ public class ChangeNumberManager {
     this.accountsManager = accountsManager;
   }
 
-  public Account changeNumber(
-      @NotNull Account account,
-      @NotNull final String number,
-      @NotNull final Map<Long, SignedPreKey> deviceSignedPrekeys,
-      @NotNull final List<IncomingMessage> deviceMessages) throws InterruptedException {
+  public Account changeNumber(final Account account, final String number,
+      @Nullable final String pniIdentityKey,
+      @Nullable final Map<Long, SignedPreKey> deviceSignedPreKeys,
+      @Nullable final List<IncomingMessage> deviceMessages,
+      @Nullable final Map<Long, Integer> pniRegistrationIds)
+      throws InterruptedException, MismatchedDevicesException, StaleDevicesException {
+
+    if (ObjectUtils.allNotNull(pniIdentityKey, deviceSignedPreKeys, deviceMessages, pniRegistrationIds)) {
+      assert pniIdentityKey != null;
+      assert deviceSignedPreKeys != null;
+      assert deviceMessages != null;
+      assert pniRegistrationIds != null;
+
+      // Check that all except master ID are in device messages
+      DestinationDeviceValidator.validateCompleteDeviceList(
+          account,
+          deviceMessages.stream().map(IncomingMessage::getDestinationDeviceId).collect(Collectors.toSet()),
+          Set.of(Device.MASTER_ID));
+
+      DestinationDeviceValidator.validateRegistrationIds(
+          account,
+          deviceMessages.stream()
+              .collect(Collectors.toMap(
+                  IncomingMessage::getDestinationDeviceId,
+                  IncomingMessage::getDestinationRegistrationId)),
+          false);
+    } else if (!ObjectUtils.allNull(deviceSignedPreKeys, deviceMessages, pniRegistrationIds)) {
+      throw new IllegalArgumentException("Signed pre-keys, device messages, and registration IDs must be all null or all non-null");
+    }
 
     final Account updatedAccount;
+
     if (number.equals(account.getNumber())) {
       // This may be a request that got repeated due to poor network conditions or other client error; take no action,
       // but report success since the account is in the desired state
       updatedAccount = account;
     } else {
-      updatedAccount = accountsManager.changeNumber(account, number);
+      updatedAccount = accountsManager.changeNumber(account, number, pniIdentityKey, deviceSignedPreKeys, pniRegistrationIds);
     }
 
-    // Whether the account already has this number or not, we reset signed prekeys and resend messages.
-    // This makes it so the client can resend a request they didn't get a response for (timeout, etc)
-    // to make sure their messages sent and prekeys were updated, even if the first time around the
-    // server crashed at/above this point.
-    if (deviceSignedPrekeys != null && !deviceSignedPrekeys.isEmpty()) {
-      for (Map.Entry<Long, SignedPreKey> entry : deviceSignedPrekeys.entrySet()) {
-        accountsManager.updateDevice(updatedAccount, entry.getKey(),
-            d -> d.setPhoneNumberIdentitySignedPreKey(entry.getValue()));
-      }
-
-      for (IncomingMessage message : deviceMessages) {
-        sendMessageToSelf(updatedAccount, updatedAccount.getDevice(message.getDestinationDeviceId()), message);
-      }
+    // Whether the account already has this number or not, we resend messages. This makes it so the client can resend a
+    // request they didn't get a response for (timeout, etc) to make sure their messages sent even if the first time
+    // around the server crashed at/above this point.
+    if (deviceMessages != null) {
+      deviceMessages.forEach(message ->
+          sendMessageToSelf(updatedAccount, updatedAccount.getDevice(message.getDestinationDeviceId()), message));
     }
+
     return updatedAccount;
   }
 
@@ -86,6 +111,7 @@ public class ChangeNumberManager {
           .setSource(sourceAndDestinationAccount.getNumber())
           .setSourceUuid(sourceAndDestinationAccount.getUuid().toString())
           .setSourceDevice((int) Device.MASTER_ID)
+          .setUpdatedPni(sourceAndDestinationAccount.getPhoneNumberIdentifier().toString())
           .build();
       messageSender.sendMessage(sourceAndDestinationAccount, destinationDevice.get(), envelope, false);
     } catch (NotPushRegisteredException e) {

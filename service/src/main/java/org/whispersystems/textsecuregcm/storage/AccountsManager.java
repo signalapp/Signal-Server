@@ -19,7 +19,9 @@ import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,10 +30,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
+import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
+import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
@@ -39,6 +44,7 @@ import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UsernameValidator;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -152,6 +158,7 @@ public class AccountsManager {
         device.setAuthenticationCredentials(new AuthenticationCredentials(password));
         device.setFetchesMessages(accountAttributes.getFetchesMessages());
         device.setRegistrationId(accountAttributes.getRegistrationId());
+        accountAttributes.getPhoneNumberIdentityRegistrationId().ifPresent(device::setPhoneNumberIdentityRegistrationId);
         device.setName(accountAttributes.getName());
         device.setCapabilities(accountAttributes.getCapabilities());
         device.setCreated(System.currentTimeMillis());
@@ -220,12 +227,32 @@ public class AccountsManager {
     }
   }
 
-  public Account changeNumber(final Account account, final String number) throws InterruptedException {
+  public Account changeNumber(final Account account, final String number,
+      @Nullable final String pniIdentityKey,
+      @Nullable final Map<Long, SignedPreKey> pniSignedPreKeys,
+      @Nullable final Map<Long, Integer> pniRegistrationIds) throws InterruptedException, MismatchedDevicesException {
+
     final String originalNumber = account.getNumber();
     final UUID originalPhoneNumberIdentifier = account.getPhoneNumberIdentifier();
 
     if (originalNumber.equals(number)) {
       return account;
+    }
+
+    if (pniSignedPreKeys != null && pniRegistrationIds != null) {
+      // Check that all including master ID are in signed pre-keys
+      DestinationDeviceValidator.validateCompleteDeviceList(
+          account,
+          pniSignedPreKeys.keySet(),
+          Collections.emptySet());
+
+      // Check that all devices are accounted for in the map of new PNI registration IDs
+      DestinationDeviceValidator.validateCompleteDeviceList(
+          account,
+          pniRegistrationIds.keySet(),
+          Collections.emptySet());
+    } else if (pniSignedPreKeys != null || pniRegistrationIds != null) {
+      throw new IllegalArgumentException("Signed pre-keys and registration IDs must both be null or both be non-null");
     }
 
     final AtomicReference<Account> updatedAccount = new AtomicReference<>();
@@ -252,7 +279,22 @@ public class AccountsManager {
       try {
         numberChangedAccount = updateWithRetries(
             account,
-            a -> true,
+            a -> {
+              //noinspection ConstantConditions
+              if (pniSignedPreKeys != null && pniRegistrationIds != null) {
+                pniSignedPreKeys.forEach((deviceId, signedPreKey) ->
+                    a.getDevice(deviceId).ifPresent(device -> device.setPhoneNumberIdentitySignedPreKey(signedPreKey)));
+
+                pniRegistrationIds.forEach((deviceId, registrationId) ->
+                    a.getDevice(deviceId).ifPresent(device -> device.setPhoneNumberIdentityRegistrationId(registrationId)));
+              }
+
+              if (pniIdentityKey != null) {
+                a.setPhoneNumberIdentityKey(pniIdentityKey);
+              }
+
+              return true;
+            },
             a -> accounts.changeNumber(a, number, phoneNumberIdentifier),
             () -> accounts.getByAccountIdentifier(uuid).orElseThrow(),
             AccountChangeValidator.NUMBER_CHANGE_VALIDATOR);

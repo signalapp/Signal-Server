@@ -198,6 +198,7 @@ public class DeviceController {
     device.setAuthenticationCredentials(new AuthenticationCredentials(password));
     device.setFetchesMessages(accountAttributes.getFetchesMessages());
     device.setRegistrationId(accountAttributes.getRegistrationId());
+    accountAttributes.getPhoneNumberIdentityRegistrationId().ifPresent(device::setPhoneNumberIdentityRegistrationId);
     device.setLastSeen(Util.todayInMillis());
     device.setCreated(System.currentTimeMillis());
     device.setCapabilities(accountAttributes.getCapabilities());

@@ -68,13 +68,11 @@ import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ChangePhoneNumberRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceName;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
-import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.ApnMessage;
@@ -95,7 +93,6 @@ import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.ForwardedIpUtil;
 import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.ImpossiblePhoneNumberException;
-import org.whispersystems.textsecuregcm.util.MessageValidation;
 import org.whispersystems.textsecuregcm.util.NonNormalizedPhoneNumberException;
 import org.whispersystems.textsecuregcm.util.Username;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -416,41 +413,9 @@ public class AccountController {
       throw new ForbiddenException();
     }
 
-    if (request.getDeviceSignedPrekeys() != null && !request.getDeviceSignedPrekeys().isEmpty()) {
-      if (request.getDeviceMessages() == null || request.getDeviceMessages().size() != request.getDeviceSignedPrekeys().size() - 1) {
-        // device_messages should exist and be one shorter than device_signed_prekeys, since it doesn't have the primary's key.
-        throw new WebApplicationException(Response.status(400).build());
-      }
-      try {
-        // Checks that all except master ID are in device messages
-        MessageValidation.validateCompleteDeviceList(
-            authenticatedAccount.getAccount(), request.getDeviceMessages(),
-            IncomingMessage::getDestinationDeviceId, true, Optional.of(Device.MASTER_ID));
-        MessageValidation.validateRegistrationIds(
-            authenticatedAccount.getAccount(), request.getDeviceMessages(),
-            IncomingMessage::getDestinationDeviceId, IncomingMessage::getDestinationRegistrationId);
-        // Checks that all including master ID are in signed prekeys
-        MessageValidation.validateCompleteDeviceList(
-            authenticatedAccount.getAccount(), request.getDeviceSignedPrekeys().entrySet(),
-            e -> e.getKey(), false, Optional.empty());
-      } catch (MismatchedDevicesException e) {
-        throw new WebApplicationException(Response.status(409)
-            .type(MediaType.APPLICATION_JSON_TYPE)
-            .entity(new MismatchedDevices(e.getMissingDevices(),
-                e.getExtraDevices()))
-            .build());
-      } catch (StaleDevicesException e) {
-        throw new WebApplicationException(Response.status(410)
-            .type(MediaType.APPLICATION_JSON)
-            .entity(new StaleDevices(e.getStaleDevices()))
-            .build());
-      }
-    } else if (request.getDeviceMessages() != null && !request.getDeviceMessages().isEmpty()) {
-      // device_messages shouldn't exist without device_signed_prekeys.
-      throw new WebApplicationException(Response.status(400).build());
-    }
+    final String number = request.number();
 
-    final String number = request.getNumber();
+    // Only "bill" for rate limiting if we think there's a change to be made...
     if (!authenticatedAccount.getAccount().getNumber().equals(number)) {
       Util.requireNormalizedNumber(number);
 
@@ -459,7 +424,7 @@ public class AccountController {
       final Optional<StoredVerificationCode> storedVerificationCode =
           pendingAccounts.getCodeForNumber(number);
 
-      if (storedVerificationCode.isEmpty() || !storedVerificationCode.get().isValid(request.getCode())) {
+      if (storedVerificationCode.isEmpty() || !storedVerificationCode.get().isValid(request.code())) {
         throw new ForbiddenException();
       }
 
@@ -469,24 +434,42 @@ public class AccountController {
       final Optional<Account> existingAccount = accounts.getByE164(number);
 
       if (existingAccount.isPresent()) {
-        verifyRegistrationLock(existingAccount.get(), request.getRegistrationLock());
+        verifyRegistrationLock(existingAccount.get(), request.registrationLock());
       }
 
       rateLimiters.getVerifyLimiter().clear(number);
     }
 
-    final Account updatedAccount = changeNumberManager.changeNumber(
-        authenticatedAccount.getAccount(),
-        request.getNumber(),
-        Optional.ofNullable(request.getDeviceSignedPrekeys()).orElse(Collections.emptyMap()),
-        Optional.ofNullable(request.getDeviceMessages()).orElse(Collections.emptyList()));
+    // ...but always attempt to make the change in case a client retries and needs to re-send messages
+    try {
+      final Account updatedAccount = changeNumberManager.changeNumber(
+          authenticatedAccount.getAccount(),
+          request.number(),
+          request.pniIdentityKey(),
+          Optional.ofNullable(request.devicePniSignedPrekeys()).orElse(Collections.emptyMap()),
+          Optional.ofNullable(request.deviceMessages()).orElse(Collections.emptyList()),
+          Optional.ofNullable(request.pniRegistrationIds()).orElse(Collections.emptyMap()));
 
-    return new AccountIdentityResponse(
-        updatedAccount.getUuid(),
-        updatedAccount.getNumber(),
-        updatedAccount.getPhoneNumberIdentifier(),
-        updatedAccount.getUsername().orElse(null),
-        updatedAccount.isStorageSupported());
+      return new AccountIdentityResponse(
+          updatedAccount.getUuid(),
+          updatedAccount.getNumber(),
+          updatedAccount.getPhoneNumberIdentifier(),
+          updatedAccount.getUsername().orElse(null),
+          updatedAccount.isStorageSupported());
+    } catch (MismatchedDevicesException e) {
+      throw new WebApplicationException(Response.status(409)
+          .type(MediaType.APPLICATION_JSON_TYPE)
+          .entity(new MismatchedDevices(e.getMissingDevices(),
+              e.getExtraDevices()))
+          .build());
+    } catch (StaleDevicesException e) {
+      throw new WebApplicationException(Response.status(410)
+          .type(MediaType.APPLICATION_JSON)
+          .entity(new StaleDevices(e.getStaleDevices()))
+          .build());
+    } catch (IllegalArgumentException e) {
+      throw new BadRequestException(e);
+    }
   }
 
   @Timed
@@ -625,6 +608,7 @@ public class AccountController {
         d.setLastSeen(Util.todayInMillis());
         d.setCapabilities(attributes.getCapabilities());
         d.setRegistrationId(attributes.getRegistrationId());
+        attributes.getPhoneNumberIdentityRegistrationId().ifPresent(d::setPhoneNumberIdentityRegistrationId);
         d.setUserAgent(userAgent);
       });
 

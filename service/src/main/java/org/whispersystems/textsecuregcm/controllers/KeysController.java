@@ -197,7 +197,11 @@ public class KeysController {
         PreKey       preKey       = preKeysByDeviceId.get(device.getId());
 
         if (signedPreKey != null || preKey != null) {
-          responseItems.add(new PreKeyResponseItem(device.getId(), device.getRegistrationId(), signedPreKey, preKey));
+          final int registrationId = usePhoneNumberIdentity ?
+              device.getPhoneNumberIdentityRegistrationId().orElse(device.getRegistrationId()) :
+              device.getRegistrationId();
+
+          responseItems.add(new PreKeyResponseItem(device.getId(), registrationId, signedPreKey, preKey));
         }
       }
     }

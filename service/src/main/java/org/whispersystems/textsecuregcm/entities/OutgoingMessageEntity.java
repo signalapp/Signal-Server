@@ -20,6 +20,7 @@ public class OutgoingMessageEntity {
   private final UUID sourceUuid;
   private final int sourceDevice;
   private final UUID destinationUuid;
+  private final UUID updatedPni;
   private final byte[] content;
   private final long serverTimestamp;
 
@@ -31,6 +32,7 @@ public class OutgoingMessageEntity {
       @JsonProperty("sourceUuid") final UUID sourceUuid,
       @JsonProperty("sourceDevice") final int sourceDevice,
       @JsonProperty("destinationUuid") final UUID destinationUuid,
+      @JsonProperty("updatedPni") final UUID updatedPni,
       @JsonProperty("content") final byte[] content,
       @JsonProperty("serverTimestamp") final long serverTimestamp)
   {
@@ -41,6 +43,7 @@ public class OutgoingMessageEntity {
     this.sourceUuid      = sourceUuid;
     this.sourceDevice    = sourceDevice;
     this.destinationUuid = destinationUuid;
+    this.updatedPni      = updatedPni;
     this.content         = content;
     this.serverTimestamp = serverTimestamp;
   }
@@ -73,6 +76,10 @@ public class OutgoingMessageEntity {
     return destinationUuid;
   }
 
+  public UUID getUpdatedPni() {
+    return updatedPni;
+  }
+
   public byte[] getContent() {
     return content;
   }
@@ -83,23 +90,21 @@ public class OutgoingMessageEntity {
 
   @Override
   public boolean equals(final Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-    final OutgoingMessageEntity that = (OutgoingMessageEntity)o;
-    return type == that.type &&
-            timestamp == that.timestamp &&
-            sourceDevice == that.sourceDevice &&
-            serverTimestamp == that.serverTimestamp &&
-            guid.equals(that.guid) &&
-            Objects.equals(source, that.source) &&
-            Objects.equals(sourceUuid, that.sourceUuid) &&
-            destinationUuid.equals(that.destinationUuid) &&
-            Arrays.equals(content, that.content);
+    if (this == o)
+      return true;
+    if (o == null || getClass() != o.getClass())
+      return false;
+    final OutgoingMessageEntity that = (OutgoingMessageEntity) o;
+    return type == that.type && timestamp == that.timestamp && sourceDevice == that.sourceDevice
+        && serverTimestamp == that.serverTimestamp && guid.equals(that.guid) && Objects.equals(source, that.source)
+        && Objects.equals(sourceUuid, that.sourceUuid) && destinationUuid.equals(that.destinationUuid)
+        && Objects.equals(updatedPni, that.updatedPni) && Arrays.equals(content, that.content);
   }
 
   @Override
   public int hashCode() {
-    int result = Objects.hash(guid, type, timestamp, source, sourceUuid, sourceDevice, destinationUuid, serverTimestamp);
+    int result = Objects.hash(guid, type, timestamp, source, sourceUuid, sourceDevice, destinationUuid, updatedPni,
+        serverTimestamp);
     result = 31 * result + Arrays.hashCode(content);
     return result;
   }

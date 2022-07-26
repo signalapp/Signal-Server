@@ -333,7 +333,12 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
         builder.setDestinationUuid(message.getDestinationUuid().toString());
 
+        if (message.getUpdatedPni() != null) {
+          builder.setUpdatedPni(message.getUpdatedPni().toString());
+        }
+
         builder.setServerGuid(message.getGuid().toString());
+
 
         final Envelope envelope = builder.build();
 

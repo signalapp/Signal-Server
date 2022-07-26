@@ -45,6 +45,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
@@ -641,7 +642,7 @@ class AccountsManagerTest {
   }
 
   @Test
-  void testChangePhoneNumber() throws InterruptedException {
+  void testChangePhoneNumber() throws InterruptedException, MismatchedDevicesException {
     doAnswer(invocation -> invocation.getArgument(2, BiFunction.class).apply(Optional.empty(), Optional.empty()))
         .when(deletedAccountsManager).lockAndPut(anyString(), anyString(), any());
 
@@ -651,7 +652,7 @@ class AccountsManagerTest {
     final UUID originalPni = UUID.randomUUID();
 
     Account account = AccountsHelper.generateTestAccount(originalNumber, uuid, originalPni, new ArrayList<>(), new byte[16]);
-    account = accountsManager.changeNumber(account, targetNumber);
+    account = accountsManager.changeNumber(account, targetNumber, null, null, null);
 
     assertEquals(targetNumber, account.getNumber());
 
@@ -663,11 +664,11 @@ class AccountsManagerTest {
   }
 
   @Test
-  void testChangePhoneNumberSameNumber() throws InterruptedException {
+  void testChangePhoneNumberSameNumber() throws InterruptedException, MismatchedDevicesException {
     final String number = "+14152222222";
 
     Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
-    account = accountsManager.changeNumber(account, number);
+    account = accountsManager.changeNumber(account, number, null, null, null);
 
     assertEquals(number, account.getNumber());
     verify(deletedAccountsManager, never()).lockAndPut(anyString(), anyString(), any());
@@ -676,7 +677,7 @@ class AccountsManagerTest {
   }
 
   @Test
-  void testChangePhoneNumberExistingAccount() throws InterruptedException {
+  void testChangePhoneNumberExistingAccount() throws InterruptedException, MismatchedDevicesException {
     doAnswer(invocation -> invocation.getArgument(2, BiFunction.class).apply(Optional.empty(), Optional.empty()))
         .when(deletedAccountsManager).lockAndPut(anyString(), anyString(), any());
 
@@ -691,7 +692,7 @@ class AccountsManagerTest {
     when(accounts.getByE164(targetNumber)).thenReturn(Optional.of(existingAccount));
 
     Account account = AccountsHelper.generateTestAccount(originalNumber, uuid, originalPni, new ArrayList<>(), new byte[16]);
-    account = accountsManager.changeNumber(account, targetNumber);
+    account = accountsManager.changeNumber(account, targetNumber, null, null, null);
 
     assertEquals(targetNumber, account.getNumber());
 

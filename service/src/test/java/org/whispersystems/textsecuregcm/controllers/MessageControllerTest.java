@@ -27,7 +27,6 @@ import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.asJson;
 import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixture;
 
 import com.google.common.collect.ImmutableSet;
-import com.vdurmont.semver4j.Semver;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
@@ -38,7 +37,6 @@ import java.util.Base64;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -92,6 +90,7 @@ class MessageControllerTest {
 
   private static final String MULTI_DEVICE_RECIPIENT = "+14152222222";
   private static final UUID MULTI_DEVICE_UUID = UUID.randomUUID();
+  private static final UUID MULTI_DEVICE_PNI = UUID.randomUUID();
 
   private static final String INTERNATIONAL_RECIPIENT = "+61123456789";
   private static final UUID INTERNATIONAL_UUID = UUID.randomUUID();
@@ -127,31 +126,33 @@ class MessageControllerTest {
   @BeforeEach
   void setup() {
     final List<Device> singleDeviceList = List.of(
-        generateTestDevice(1, 111, new SignedPreKey(333, "baz", "boop"), System.currentTimeMillis(), System.currentTimeMillis())
+        generateTestDevice(1, 111, 1111, new SignedPreKey(333, "baz", "boop"), System.currentTimeMillis(), System.currentTimeMillis())
     );
 
     final List<Device> multiDeviceList = List.of(
-        generateTestDevice(1, 222, new SignedPreKey(111, "foo", "bar"), System.currentTimeMillis(), System.currentTimeMillis()),
-        generateTestDevice(2, 333, new SignedPreKey(222, "oof", "rab"), System.currentTimeMillis(), System.currentTimeMillis()),
-        generateTestDevice(3, 444, null, System.currentTimeMillis(), System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31))
+        generateTestDevice(1, 222, 2222, new SignedPreKey(111, "foo", "bar"), System.currentTimeMillis(), System.currentTimeMillis()),
+        generateTestDevice(2, 333, 3333, new SignedPreKey(222, "oof", "rab"), System.currentTimeMillis(), System.currentTimeMillis()),
+        generateTestDevice(3, 444, 4444, null, System.currentTimeMillis(), System.currentTimeMillis() - TimeUnit.DAYS.toMillis(31))
     );
 
     Account singleDeviceAccount  = AccountsHelper.generateTestAccount(SINGLE_DEVICE_RECIPIENT, SINGLE_DEVICE_UUID, SINGLE_DEVICE_PNI, singleDeviceList, "1234".getBytes());
-    Account multiDeviceAccount   = AccountsHelper.generateTestAccount(MULTI_DEVICE_RECIPIENT, MULTI_DEVICE_UUID, UUID.randomUUID(), multiDeviceList, "1234".getBytes());
+    Account multiDeviceAccount   = AccountsHelper.generateTestAccount(MULTI_DEVICE_RECIPIENT, MULTI_DEVICE_UUID, MULTI_DEVICE_PNI, multiDeviceList, "1234".getBytes());
     internationalAccount         = AccountsHelper.generateTestAccount(INTERNATIONAL_RECIPIENT, INTERNATIONAL_UUID, UUID.randomUUID(), singleDeviceList, "1234".getBytes());
 
     when(accountsManager.getByAccountIdentifier(eq(SINGLE_DEVICE_UUID))).thenReturn(Optional.of(singleDeviceAccount));
     when(accountsManager.getByPhoneNumberIdentifier(SINGLE_DEVICE_PNI)).thenReturn(Optional.of(singleDeviceAccount));
     when(accountsManager.getByAccountIdentifier(eq(MULTI_DEVICE_UUID))).thenReturn(Optional.of(multiDeviceAccount));
+    when(accountsManager.getByPhoneNumberIdentifier(MULTI_DEVICE_PNI)).thenReturn(Optional.of(multiDeviceAccount));
     when(accountsManager.getByAccountIdentifier(INTERNATIONAL_UUID)).thenReturn(Optional.of(internationalAccount));
 
     when(rateLimiters.getMessagesLimiter()).thenReturn(rateLimiter);
   }
 
-  private static Device generateTestDevice(final long id, final int registrationId, final SignedPreKey signedPreKey, final long createdAt, final long lastSeen) {
+  private static Device generateTestDevice(final long id, final int registrationId, final int pniRegistrationId, final SignedPreKey signedPreKey, final long createdAt, final long lastSeen) {
     final Device device = new Device();
     device.setId(id);
     device.setRegistrationId(registrationId);
+    device.setPhoneNumberIdentityRegistrationId(pniRegistrationId);
     device.setSignedPreKey(signedPreKey);
     device.setCreated(createdAt);
     device.setLastSeen(lastSeen);
@@ -197,6 +198,28 @@ class MessageControllerTest {
     }
   }
 
+  private static Stream<Entity<?>> currentMessageSingleDevicePayloadsPni() {
+    ByteArrayOutputStream messageStream = new ByteArrayOutputStream();
+    messageStream.write(1); // version
+    messageStream.write(1); // count
+    messageStream.write(1); // device ID
+    messageStream.writeBytes(new byte[] { (byte)0x04, (byte)0x57 }); // registration ID
+    messageStream.write(1); // message type
+    messageStream.write(3); // message length
+    messageStream.writeBytes(new byte[] { (byte)1, (byte)2, (byte)3 }); // message contents
+
+    try {
+      return Stream.of(
+          Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_single_device.json"),
+                  IncomingMessageList.class),
+              MediaType.APPLICATION_JSON_TYPE),
+          Entity.entity(messageStream.toByteArray(), MultiDeviceMessageListProvider.MEDIA_TYPE)
+      );
+    } catch (Exception e) {
+      throw new AssertionError(e);
+    }
+  }
+
   @ParameterizedTest
   @MethodSource("currentMessageSingleDevicePayloads")
   void testSendFromDisabledAccount(Entity<?> payload) throws Exception {
@@ -230,7 +253,7 @@ class MessageControllerTest {
   }
 
   @ParameterizedTest
-  @MethodSource("currentMessageSingleDevicePayloads")
+  @MethodSource("currentMessageSingleDevicePayloadsPni")
   void testSingleDeviceCurrentByPni(Entity<?> payload) throws Exception {
     Response response =
         resources.getJerseyTest()
@@ -405,6 +428,50 @@ class MessageControllerTest {
 
   @ParameterizedTest
   @MethodSource
+  void testMultiDeviceByPni(Entity<?> payload) throws Exception {
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/messages/%s", MULTI_DEVICE_PNI))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(payload);
+
+    assertThat("Good Response Code", response.getStatus(), is(equalTo(200)));
+
+    verify(messageSender, times(2)).sendMessage(any(Account.class), any(Device.class), any(Envelope.class), eq(false));
+  }
+
+  private static Stream<Entity<?>> testMultiDeviceByPni() {
+    ByteArrayOutputStream messageStream = new ByteArrayOutputStream();
+    messageStream.write(1); // version
+    messageStream.write(2); // count
+
+    messageStream.write(1); // device ID
+    messageStream.writeBytes(new byte[] { (byte)0x08, (byte)0xae }); // registration ID
+    messageStream.write(1); // message type
+    messageStream.write(3); // message length
+    messageStream.writeBytes(new byte[] { (byte)1, (byte)2, (byte)3 }); // message contents
+
+    messageStream.write(2); // device ID
+    messageStream.writeBytes(new byte[] { (byte)0x0d, (byte)0x05 }); // registration ID
+    messageStream.write(1); // message type
+    messageStream.write(3); // message length
+    messageStream.writeBytes(new byte[] { (byte)1, (byte)2, (byte)3 }); // message contents
+
+    try {
+      return Stream.of(
+          Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_multi_device_pni.json"),
+                  IncomingMessageList.class),
+              MediaType.APPLICATION_JSON_TYPE),
+          Entity.entity(messageStream.toByteArray(), MultiDeviceMessageListProvider.MEDIA_TYPE)
+      );
+    } catch (Exception e) {
+      throw new AssertionError(e);
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource
   void testRegistrationIdMismatch(Entity<?> payload) throws Exception {
     Response response =
         resources.getJerseyTest().target(String.format("/v1/messages/%s", MULTI_DEVICE_UUID))
@@ -459,9 +526,11 @@ class MessageControllerTest {
     final UUID messageGuidOne = UUID.randomUUID();
     final UUID sourceUuid = UUID.randomUUID();
 
+    final UUID updatedPniOne = UUID.randomUUID();
+
     List<OutgoingMessageEntity> messages = new LinkedList<>() {{
-      add(new OutgoingMessageEntity(messageGuidOne, Envelope.Type.CIPHERTEXT_VALUE, timestampOne, "+14152222222", sourceUuid, 2, AuthHelper.VALID_UUID, "hi there".getBytes(), 0));
-      add(new OutgoingMessageEntity(null, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, timestampTwo, "+14152222222", sourceUuid, 2, AuthHelper.VALID_UUID, null, 0));
+      add(new OutgoingMessageEntity(messageGuidOne, Envelope.Type.CIPHERTEXT_VALUE, timestampOne, "+14152222222", sourceUuid, 2, AuthHelper.VALID_UUID, updatedPniOne, "hi there".getBytes(), 0));
+      add(new OutgoingMessageEntity(null, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, timestampTwo, "+14152222222", sourceUuid, 2, AuthHelper.VALID_UUID, null, null, 0));
     }};
 
     OutgoingMessageEntityList messagesList = new OutgoingMessageEntityList(messages, false);
@@ -485,16 +554,19 @@ class MessageControllerTest {
 
     assertEquals(response.getMessages().get(0).getSourceUuid(), sourceUuid);
     assertEquals(response.getMessages().get(1).getSourceUuid(), sourceUuid);
+
+    assertEquals(updatedPniOne, response.getMessages().get(0).getUpdatedPni());
+    assertNull(response.getMessages().get(1).getUpdatedPni());
   }
 
   @Test
-  void testGetMessagesBadAuth() throws Exception {
+  void testGetMessagesBadAuth() {
     final long timestampOne = 313377;
     final long timestampTwo = 313388;
 
-    List<OutgoingMessageEntity> messages = new LinkedList<OutgoingMessageEntity>() {{
-      add(new OutgoingMessageEntity(UUID.randomUUID(), Envelope.Type.CIPHERTEXT_VALUE, timestampOne, "+14152222222", UUID.randomUUID(), 2, AuthHelper.VALID_UUID, "hi there".getBytes(), 0));
-      add(new OutgoingMessageEntity(UUID.randomUUID(), Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, timestampTwo, "+14152222222", UUID.randomUUID(), 2, AuthHelper.VALID_UUID, null, 0));
+    List<OutgoingMessageEntity> messages = new LinkedList<>() {{
+      add(new OutgoingMessageEntity(UUID.randomUUID(), Envelope.Type.CIPHERTEXT_VALUE, timestampOne, "+14152222222", UUID.randomUUID(), 2, AuthHelper.VALID_UUID, null, "hi there".getBytes(), 0));
+      add(new OutgoingMessageEntity(UUID.randomUUID(), Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, timestampTwo, "+14152222222", UUID.randomUUID(), 2, AuthHelper.VALID_UUID, null, null, 0));
     }};
 
     OutgoingMessageEntityList messagesList = new OutgoingMessageEntityList(messages, false);
@@ -520,12 +592,12 @@ class MessageControllerTest {
     UUID uuid1 = UUID.randomUUID();
     when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid1, null)).thenReturn(Optional.of(new OutgoingMessageEntity(
         uuid1, Envelope.Type.CIPHERTEXT_VALUE,
-        timestamp, "+14152222222", sourceUuid, 1, AuthHelper.VALID_UUID, "hi".getBytes(), 0)));
+        timestamp, "+14152222222", sourceUuid, 1, AuthHelper.VALID_UUID, null, "hi".getBytes(), 0)));
 
     UUID uuid2 = UUID.randomUUID();
     when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid2, null)).thenReturn(Optional.of(new OutgoingMessageEntity(
         uuid2, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE,
-        System.currentTimeMillis(), "+14152222222", sourceUuid, 1, AuthHelper.VALID_UUID, null, 0)));
+        System.currentTimeMillis(), "+14152222222", sourceUuid, 1, AuthHelper.VALID_UUID, null, null, 0)));
 
     UUID uuid3 = UUID.randomUUID();
     when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid3, null)).thenReturn(Optional.empty());

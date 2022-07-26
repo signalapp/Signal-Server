@@ -64,6 +64,7 @@ import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator.AuthenticationResult;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
+import javax.annotation.Nullable;
 
 class WebSocketConnectionTest {
 
@@ -285,6 +286,7 @@ class WebSocketConnectionTest {
                                     .setSource("sender1")
                                     .setSourceUuid(UUID.randomUUID().toString())
                                     .setDestinationUuid(UUID.randomUUID().toString())
+                                    .setUpdatedPni(UUID.randomUUID().toString())
                                     .setTimestamp(System.currentTimeMillis())
                                     .setSourceDevice(1)
                                     .setType(Envelope.Type.CIPHERTEXT)
@@ -302,12 +304,12 @@ class WebSocketConnectionTest {
     List<OutgoingMessageEntity> pendingMessages     = new LinkedList<OutgoingMessageEntity>() {{
       add(new OutgoingMessageEntity(UUID.randomUUID(), firstMessage.getType().getNumber(),
                                     firstMessage.getTimestamp(), firstMessage.getSource(), UUID.fromString(firstMessage.getSourceUuid()),
-                                    firstMessage.getSourceDevice(), UUID.fromString(firstMessage.getDestinationUuid()),
-                                    firstMessage.getContent().toByteArray(), 0));
+                                    firstMessage.getSourceDevice(), UUID.fromString(firstMessage.getDestinationUuid()), UUID.fromString(firstMessage.getUpdatedPni()),
+              firstMessage.getContent().toByteArray(), 0));
       add(new OutgoingMessageEntity(UUID.randomUUID(), secondMessage.getType().getNumber(),
                                     secondMessage.getTimestamp(), secondMessage.getSource(), UUID.fromString(secondMessage.getSourceUuid()),
-                                    secondMessage.getSourceDevice(), UUID.fromString(secondMessage.getDestinationUuid()),
-                                    secondMessage.getContent().toByteArray(), 0));
+                                    secondMessage.getSourceDevice(), UUID.fromString(secondMessage.getDestinationUuid()), null,
+              secondMessage.getContent().toByteArray(), 0));
     }};
 
     OutgoingMessageEntityList   pendingMessagesList = new OutgoingMessageEntityList(pendingMessages, false);
@@ -884,7 +886,7 @@ class WebSocketConnectionTest {
 
   private OutgoingMessageEntity createMessage(String sender, UUID senderUuid, UUID destinationUuid, long timestamp, boolean receipt, String content) {
     return new OutgoingMessageEntity(UUID.randomUUID(), receipt ? Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE : Envelope.Type.CIPHERTEXT_VALUE,
-                                     timestamp, sender, senderUuid, 1, destinationUuid, content.getBytes(), 0);
+                                     timestamp, sender, senderUuid, 1, destinationUuid, null, content.getBytes(), 0);
   }
 
 }

@@ -46,6 +46,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   private static final String KEY_SOURCE_UUID = "SU";
   private static final String KEY_SOURCE_DEVICE = "SD";
   private static final String KEY_DESTINATION_UUID = "DU";
+  private static final String KEY_UPDATED_PNI = "UP";
   private static final String KEY_CONTENT = "C";
   private static final String KEY_TTL = "E";
 
@@ -85,10 +86,12 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
           .put(LOCAL_INDEX_MESSAGE_UUID_KEY_SORT, convertLocalIndexMessageUuidSortKey(messageUuid))
           .put(KEY_TYPE, AttributeValues.fromInt(message.getType().getNumber()))
           .put(KEY_TIMESTAMP, AttributeValues.fromLong(message.getTimestamp()))
-          .put(KEY_TTL, AttributeValues.fromLong(getTtlForMessage(message)));
+          .put(KEY_TTL, AttributeValues.fromLong(getTtlForMessage(message)))
+          .put(KEY_DESTINATION_UUID, AttributeValues.fromUUID(UUID.fromString(message.getDestinationUuid())));
 
-      item.put(KEY_DESTINATION_UUID, AttributeValues.fromUUID(UUID.fromString(message.getDestinationUuid())));
-
+      if (message.hasUpdatedPni()) {
+        item.put(KEY_UPDATED_PNI, AttributeValues.fromUUID(UUID.fromString(message.getUpdatedPni())));
+      }
       if (message.hasSource()) {
         item.put(KEY_SOURCE, AttributeValues.fromString(message.getSource()));
       }
@@ -240,7 +243,9 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     final int sourceDevice = AttributeValues.getInt(message, KEY_SOURCE_DEVICE, 0);
     final UUID destinationUuid = AttributeValues.getUUID(message, KEY_DESTINATION_UUID, null);
     final byte[] content = AttributeValues.getByteArray(message, KEY_CONTENT, null);
-    return new OutgoingMessageEntity(messageUuid, type, timestamp, source, sourceUuid, sourceDevice, destinationUuid, content, sortKey.getServerTimestamp());
+    final UUID updatedPni = AttributeValues.getUUID(message, KEY_UPDATED_PNI, null);
+    return new OutgoingMessageEntity(messageUuid, type, timestamp, source, sourceUuid, sourceDevice, destinationUuid,
+        updatedPni, content, sortKey.getServerTimestamp());
   }
 
   private void deleteRowsMatchingQuery(AttributeValue partitionKey, QueryRequest querySpec) {

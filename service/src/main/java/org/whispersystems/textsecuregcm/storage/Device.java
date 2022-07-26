@@ -6,6 +6,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
@@ -48,6 +49,10 @@ public class Device {
 
   @JsonProperty
   private int registrationId;
+
+  @Nullable
+  @JsonProperty("pniRegistrationId")
+  private Integer phoneNumberIdentityRegistrationId;
 
   @JsonProperty
   private SignedPreKey signedPreKey;
@@ -182,6 +187,14 @@ public class Device {
 
   public void setRegistrationId(int registrationId) {
     this.registrationId = registrationId;
+  }
+
+  public OptionalInt getPhoneNumberIdentityRegistrationId() {
+    return phoneNumberIdentityRegistrationId != null ? OptionalInt.of(phoneNumberIdentityRegistrationId) : OptionalInt.empty();
+  }
+
+  public void setPhoneNumberIdentityRegistrationId(final int phoneNumberIdentityRegistrationId) {
+    this.phoneNumberIdentityRegistrationId = phoneNumberIdentityRegistrationId;
   }
 
   public SignedPreKey getSignedPreKey() {

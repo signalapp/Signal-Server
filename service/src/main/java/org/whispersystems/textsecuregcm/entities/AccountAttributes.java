@@ -6,9 +6,11 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
+import javax.annotation.Nullable;
 import javax.validation.constraints.Size;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
+import java.util.OptionalInt;
 
 public class AccountAttributes {
 
@@ -17,6 +19,10 @@ public class AccountAttributes {
 
   @JsonProperty
   private int registrationId;
+
+  @Nullable
+  @JsonProperty("pniRegistrationId")
+  private Integer phoneNumberIdentityRegistrationId;
 
   @JsonProperty
   @Size(max = 204, message = "This field must be less than 50 characters")
@@ -57,6 +63,10 @@ public class AccountAttributes {
 
   public int getRegistrationId() {
     return registrationId;
+  }
+
+  public OptionalInt getPhoneNumberIdentityRegistrationId() {
+    return phoneNumberIdentityRegistrationId != null ? OptionalInt.of(phoneNumberIdentityRegistrationId) : OptionalInt.empty();
   }
 
   public String getName() {

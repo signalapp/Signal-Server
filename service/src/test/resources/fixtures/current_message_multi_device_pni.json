@@ -1,0 +1,16 @@
+{
+    "messages" : [{
+        "type" : 1,
+        "destinationDeviceId" : 1,
+        "destinationRegistrationId" : 2222,
+        "content" : "Zm9vYmFyego",
+        "timestamp" : 1234
+    },
+    {
+        "type" : 1,
+        "destinationDeviceId" : 2,
+        "destinationRegistrationId" : 3333,
+        "content" : "Zm9vYmFyego",
+        "timestamp" : 1234
+    }]
+}

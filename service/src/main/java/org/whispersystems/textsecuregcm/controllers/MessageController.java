@@ -21,7 +21,7 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -89,8 +89,7 @@ import org.whispersystems.textsecuregcm.storage.DeletedAccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
-import org.whispersystems.textsecuregcm.util.MessageValidation;
-import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
@@ -214,11 +213,23 @@ public class MessageController {
         checkRateLimit(source.get(), destination.get(), userAgent);
       }
 
-      MessageValidation.validateCompleteDeviceList(destination.get(), messages.getMessages(),
-          IncomingMessage::getDestinationDeviceId, isSyncMessage,
-          source.map(AuthenticatedAccount::getAuthenticatedDevice).map(Device::getId));
-      MessageValidation.validateRegistrationIds(destination.get(), messages.getMessages(),
-          IncomingMessage::getDestinationDeviceId, IncomingMessage::getDestinationRegistrationId);
+      final Set<Long> excludedDeviceIds;
+
+      if (isSyncMessage) {
+        excludedDeviceIds = Set.of(source.get().getAuthenticatedDevice().getId());
+      } else {
+        excludedDeviceIds = Collections.emptySet();
+      }
+
+      DestinationDeviceValidator.validateCompleteDeviceList(destination.get(),
+          messages.getMessages().stream().map(IncomingMessage::getDestinationDeviceId).collect(Collectors.toSet()),
+          excludedDeviceIds);
+
+      DestinationDeviceValidator.validateRegistrationIds(destination.get(),
+          messages.getMessages().stream().collect(Collectors.toMap(
+              IncomingMessage::getDestinationDeviceId,
+              IncomingMessage::getDestinationRegistrationId)),
+          destination.get().getPhoneNumberIdentifier().equals(destinationUuid));
 
       final List<Tag> tags = List.of(UserAgentTagUtil.getPlatformTag(userAgent),
           Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(messages.isOnline())),
@@ -307,13 +318,25 @@ public class MessageController {
         checkRateLimit(source.get(), destination.get(), userAgent);
       }
 
-      final List<IncomingDeviceMessage> messagesAsList = Arrays.asList(messages);
-      MessageValidation.validateCompleteDeviceList(destination.get(), messagesAsList,
-          IncomingDeviceMessage::getDeviceId, isSyncMessage,
-          source.map(AuthenticatedAccount::getAuthenticatedDevice).map(Device::getId));
-      MessageValidation.validateRegistrationIds(destination.get(), messagesAsList,
-          IncomingDeviceMessage::getDeviceId,
-          IncomingDeviceMessage::getRegistrationId);
+      final Set<Long> excludedDeviceIds;
+
+      if (isSyncMessage) {
+        excludedDeviceIds = Set.of(source.get().getAuthenticatedDevice().getId());
+      } else {
+        excludedDeviceIds = Collections.emptySet();
+      }
+
+      DestinationDeviceValidator.validateCompleteDeviceList(
+          destination.get(),
+          Arrays.stream(messages).map(IncomingDeviceMessage::getDeviceId).collect(Collectors.toSet()),
+          excludedDeviceIds);
+
+      DestinationDeviceValidator.validateRegistrationIds(
+          destination.get(),
+          Arrays.stream(messages).collect(Collectors.toMap(
+              IncomingDeviceMessage::getDeviceId,
+              IncomingDeviceMessage::getRegistrationId)),
+          destination.get().getPhoneNumberIdentifier().equals(destinationUuid));
 
       final List<Tag> tags = List.of(UserAgentTagUtil.getPlatformTag(userAgent),
           Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(online)),
@@ -372,27 +395,29 @@ public class MessageController {
         }));
     checkAccessKeys(accessKeys, uuidToAccountMap);
 
-    final Map<Account, HashSet<Pair<Long, Integer>>> accountToDeviceIdAndRegistrationIdMap =
-        Arrays
-            .stream(multiRecipientMessage.getRecipients())
-            .collect(Collectors.toMap(
-                recipient -> uuidToAccountMap.get(recipient.getUuid()),
-                recipient -> new HashSet<>(
-                    Collections.singletonList(new Pair<>(recipient.getDeviceId(), recipient.getRegistrationId()))),
-                (a, b) -> {
-                  a.addAll(b);
-                  return a;
-                }
-            ));
+    final Map<Account, Map<Long, Integer>> accountToDeviceIdAndRegistrationIdMap = Arrays.stream(multiRecipientMessage.getRecipients())
+        .collect(Collectors.toMap(
+            recipient -> uuidToAccountMap.get(recipient.getUuid()),
+            recipient -> Map.of(recipient.getDeviceId(), recipient.getRegistrationId()),
+            (a, b) -> {
+              final Map<Long, Integer> combined = new HashMap<>();
+              combined.putAll(a);
+              combined.putAll(b);
+
+              return combined;
+            }
+        ));
 
     Collection<AccountMismatchedDevices> accountMismatchedDevices = new ArrayList<>();
     Collection<AccountStaleDevices> accountStaleDevices = new ArrayList<>();
     uuidToAccountMap.values().forEach(account -> {
-      final Set<Pair<Long, Integer>> deviceIdAndRegistrationIdSet = accountToDeviceIdAndRegistrationIdMap.get(account);
-      final Set<Long> deviceIds = deviceIdAndRegistrationIdSet.stream().map(Pair::first).collect(Collectors.toSet());
+      final Set<Long> deviceIds = accountToDeviceIdAndRegistrationIdMap.get(account).keySet();
       try {
-        MessageValidation.validateCompleteDeviceList(account, deviceIds, false, Optional.empty());
-        MessageValidation.validateRegistrationIds(account, deviceIdAndRegistrationIdSet.stream());
+        DestinationDeviceValidator.validateCompleteDeviceList(account, deviceIds, Collections.emptySet());
+
+        // Multi-recipient messages are always sealed-sender messages, and so can never be sent to a phone number
+        // identity
+        DestinationDeviceValidator.validateRegistrationIds(account, accountToDeviceIdAndRegistrationIdMap.get(account), false);
       } catch (MismatchedDevicesException e) {
         accountMismatchedDevices.add(new AccountMismatchedDevices(account.getUuid(),
             new MismatchedDevices(e.getMissingDevices(), e.getExtraDevices())));

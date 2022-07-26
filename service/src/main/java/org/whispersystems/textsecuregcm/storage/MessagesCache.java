@@ -389,6 +389,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         envelope.hasSourceUuid() ? UUID.fromString(envelope.getSourceUuid()) : null,
         envelope.getSourceDevice(),
         envelope.hasDestinationUuid() ? UUID.fromString(envelope.getDestinationUuid()) : null,
+        envelope.hasUpdatedPni() ? UUID.fromString(envelope.getUpdatedPni()) : null,
         envelope.hasContent() ? envelope.getContent().toByteArray() : null,
         envelope.hasServerTimestamp() ? envelope.getServerTimestamp() : 0);
   }

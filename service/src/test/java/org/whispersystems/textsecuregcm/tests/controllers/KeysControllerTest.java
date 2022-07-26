@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.UUID;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
@@ -73,6 +74,8 @@ class KeysControllerTest {
   private static final int SAMPLE_REGISTRATION_ID2 = 1002;
   private static final int SAMPLE_REGISTRATION_ID4 = 1555;
 
+  private static final int SAMPLE_PNI_REGISTRATION_ID = 1717;
+
   private final PreKey SAMPLE_KEY    = new PreKey(1234, "test1");
   private final PreKey SAMPLE_KEY2   = new PreKey(5667, "test3");
   private final PreKey SAMPLE_KEY3   = new PreKey(334, "test5");
@@ -106,9 +109,11 @@ class KeysControllerTest {
       .addResource(new RateLimitExceededExceptionMapper())
       .build();
 
+  private Device sampleDevice;
+
   @BeforeEach
   void setup() {
-    final Device sampleDevice  = mock(Device.class);
+    sampleDevice               = mock(Device.class);
     final Device sampleDevice2 = mock(Device.class);
     final Device sampleDevice3 = mock(Device.class);
     final Device sampleDevice4 = mock(Device.class);
@@ -121,6 +126,7 @@ class KeysControllerTest {
     when(sampleDevice2.getRegistrationId()).thenReturn(SAMPLE_REGISTRATION_ID2);
     when(sampleDevice3.getRegistrationId()).thenReturn(SAMPLE_REGISTRATION_ID2);
     when(sampleDevice4.getRegistrationId()).thenReturn(SAMPLE_REGISTRATION_ID4);
+    when(sampleDevice.getPhoneNumberIdentityRegistrationId()).thenReturn(OptionalInt.of(SAMPLE_PNI_REGISTRATION_ID));
     when(sampleDevice.isEnabled()).thenReturn(true);
     when(sampleDevice2.isEnabled()).thenReturn(true);
     when(sampleDevice3.isEnabled()).thenReturn(false);
@@ -284,6 +290,7 @@ class KeysControllerTest {
     assertThat(result.getDevicesCount()).isEqualTo(1);
     assertThat(result.getDevice(1).getPreKey().getKeyId()).isEqualTo(SAMPLE_KEY.getKeyId());
     assertThat(result.getDevice(1).getPreKey().getPublicKey()).isEqualTo(SAMPLE_KEY.getPublicKey());
+    assertThat(result.getDevice(1).getRegistrationId()).isEqualTo(SAMPLE_REGISTRATION_ID);
     assertThat(result.getDevice(1).getSignedPreKey()).isEqualTo(existsAccount.getDevice(1).get().getSignedPreKey());
 
     verify(KEYS).take(EXISTS_UUID, 1);
@@ -302,6 +309,28 @@ class KeysControllerTest {
     assertThat(result.getDevicesCount()).isEqualTo(1);
     assertThat(result.getDevice(1).getPreKey().getKeyId()).isEqualTo(SAMPLE_KEY_PNI.getKeyId());
     assertThat(result.getDevice(1).getPreKey().getPublicKey()).isEqualTo(SAMPLE_KEY_PNI.getPublicKey());
+    assertThat(result.getDevice(1).getRegistrationId()).isEqualTo(SAMPLE_PNI_REGISTRATION_ID);
+    assertThat(result.getDevice(1).getSignedPreKey()).isEqualTo(existsAccount.getDevice(1).get().getPhoneNumberIdentitySignedPreKey());
+
+    verify(KEYS).take(EXISTS_PNI, 1);
+    verifyNoMoreInteractions(KEYS);
+  }
+
+  @Test
+  void validSingleRequestByPhoneNumberIdentifierNoPniRegistrationIdTestV2() {
+    when(sampleDevice.getPhoneNumberIdentityRegistrationId()).thenReturn(OptionalInt.empty());
+
+    PreKeyResponse result = resources.getJerseyTest()
+        .target(String.format("/v2/keys/%s/1", EXISTS_PNI))
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(PreKeyResponse.class);
+
+    assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getPhoneNumberIdentityKey());
+    assertThat(result.getDevicesCount()).isEqualTo(1);
+    assertThat(result.getDevice(1).getPreKey().getKeyId()).isEqualTo(SAMPLE_KEY_PNI.getKeyId());
+    assertThat(result.getDevice(1).getPreKey().getPublicKey()).isEqualTo(SAMPLE_KEY_PNI.getPublicKey());
+    assertThat(result.getDevice(1).getRegistrationId()).isEqualTo(SAMPLE_REGISTRATION_ID);
     assertThat(result.getDevice(1).getSignedPreKey()).isEqualTo(existsAccount.getDevice(1).get().getPhoneNumberIdentitySignedPreKey());
 
     verify(KEYS).take(EXISTS_PNI, 1);
