@@ -63,10 +63,12 @@ class MessagePersisterIntegrationTest {
       connection.sync().upstream().commands().configSet("notify-keyspace-events", "K$glz");
     });
 
+    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
+        mock(DynamicConfigurationManager.class);
+
     final MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbExtension.getDynamoDbClient(),
-        MessagesDynamoDbExtension.TABLE_NAME, Duration.ofDays(14));
+        MessagesDynamoDbExtension.TABLE_NAME, Duration.ofDays(14), dynamicConfigurationManager);
     final AccountsManager accountsManager = mock(AccountsManager.class);
-    final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
 
     notificationExecutorService = Executors.newSingleThreadExecutor();
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
@@ -83,6 +85,7 @@ class MessagePersisterIntegrationTest {
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(accountUuid);
     when(accountsManager.getByAccountIdentifier(accountUuid)).thenReturn(Optional.of(account));
+
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
 
     messagesCache.start();

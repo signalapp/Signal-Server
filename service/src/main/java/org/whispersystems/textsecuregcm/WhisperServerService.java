@@ -342,7 +342,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     Keys keys = new Keys(dynamoDbClient, config.getDynamoDbTables().getKeys().getTableName());
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient,
         config.getDynamoDbTables().getMessages().getTableName(),
-        config.getDynamoDbTables().getMessages().getExpiration());
+        config.getDynamoDbTables().getMessages().getExpiration(), dynamicConfigurationManager);
     RemoteConfigs remoteConfigs = new RemoteConfigs(dynamoDbClient,
         config.getDynamoDbTables().getRemoteConfig().getTableName());
     PushChallengeDynamoDb pushChallengeDynamoDb = new PushChallengeDynamoDb(dynamoDbClient,

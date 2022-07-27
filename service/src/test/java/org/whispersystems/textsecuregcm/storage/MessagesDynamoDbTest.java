@@ -6,21 +6,23 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessageTableConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.tests.util.MessagesDynamoDbExtension;
-import software.amazon.awssdk.core.SdkBytes;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 
 class MessagesDynamoDbTest {
 
@@ -65,6 +67,7 @@ class MessagesDynamoDbTest {
     MESSAGE3 = builder.build();
   }
 
+  private DynamicMessageTableConfiguration dynamicMessageTableConfiguration;
   private MessagesDynamoDb messagesDynamoDb;
 
 
@@ -73,12 +76,24 @@ class MessagesDynamoDbTest {
 
   @BeforeEach
   void setup() {
+    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
+        mock(DynamicConfigurationManager.class);
+
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+    dynamicMessageTableConfiguration = mock(DynamicMessageTableConfiguration.class);
+
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+    when(dynamicConfiguration.getMessageTableConfiguration()).thenReturn(dynamicMessageTableConfiguration);
+
     messagesDynamoDb = new MessagesDynamoDb(dynamoDbExtension.getDynamoDbClient(), MessagesDynamoDbExtension.TABLE_NAME,
-        Duration.ofDays(14));
+        Duration.ofDays(14), dynamicConfigurationManager);
   }
 
-  @Test
-  void testSimpleFetchAfterInsert() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testSimpleFetchAfterInsert(final boolean writeEnvelopes) {
+    when(dynamicMessageTableConfiguration.isWriteEnvelopes()).thenReturn(writeEnvelopes);
+
     final UUID destinationUuid = UUID.randomUUID();
     final int destinationDeviceId = random.nextInt(255) + 1;
     messagesDynamoDb.store(List.of(MESSAGE1, MESSAGE2, MESSAGE3), destinationUuid, destinationDeviceId);
@@ -92,31 +107,6 @@ class MessagesDynamoDbTest {
     assertThat(messagesStored).element(0).isEqualTo(firstMessage);
     assertThat(messagesStored).element(1).isEqualTo(secondMessage);
     assertThat(messagesStored).element(2).isEqualTo(MESSAGE2);
-  }
-
-  @Test
-  void testFetchBareEnvelope() {
-    final UUID destinationUuid = UUID.randomUUID();
-    final long destinationDeviceId = Device.MASTER_ID;
-    final long serverTimestamp = System.currentTimeMillis();
-    final UUID messageGuid = UUID.randomUUID();
-
-    final MessageProtos.Envelope envelope = MessageProtos.Envelope.newBuilder()
-        .setServerGuid(messageGuid.toString())
-        .setDestinationUuid(destinationUuid.toString())
-        .setServerTimestamp(serverTimestamp)
-        .build();
-
-    dynamoDbExtension.getDynamoDbClient().putItem(PutItemRequest.builder()
-            .tableName(dynamoDbExtension.getTableName())
-            .item(Map.of(
-                MessagesDynamoDb.KEY_PARTITION, MessagesDynamoDb.convertPartitionKey(destinationUuid),
-                MessagesDynamoDb.KEY_SORT, MessagesDynamoDb.convertSortKey(destinationDeviceId, serverTimestamp, messageGuid),
-                MessagesDynamoDb.KEY_ENVELOPE_BYTES, AttributeValue.builder().b(SdkBytes.fromByteArray(envelope.toByteArray())).build()))
-        .build());
-
-    assertThat(messagesDynamoDb.load(destinationUuid, destinationDeviceId, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE))
-        .isEqualTo(List.of(envelope));
   }
 
   @Test
