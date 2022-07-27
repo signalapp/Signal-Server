@@ -104,7 +104,10 @@ public class MessagesManager {
     return removed;
   }
 
-  public void persistMessages(
+  /**
+   * @return the number of messages successfully removed from the cache.
+   */
+  public int persistMessages(
       final UUID destinationUuid,
       final long destinationDeviceId,
       final List<Envelope> messages) {
@@ -114,10 +117,14 @@ public class MessagesManager {
         .collect(Collectors.toList());
 
     messagesDynamoDb.store(nonEphemeralMessages, destinationUuid, destinationDeviceId);
-    messagesCache.remove(destinationUuid, destinationDeviceId,
-        messages.stream().map(message -> UUID.fromString(message.getServerGuid())).collect(Collectors.toList()));
+
+    final List<UUID> messageGuids = messages.stream().map(message -> UUID.fromString(message.getServerGuid()))
+        .collect(Collectors.toList());
+    int messagesRemovedFromCache = messagesCache.remove(destinationUuid, destinationDeviceId, messageGuids).size();
 
     persistMessageMeter.mark(nonEphemeralMessages.size());
+
+    return messagesRemovedFromCache;
   }
 
   public void addMessageAvailabilityListener(

@@ -6,7 +6,10 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
@@ -48,6 +51,7 @@ class MessagePersisterTest {
   private MessagesDynamoDb messagesDynamoDb;
   private MessagePersister messagePersister;
   private AccountsManager accountsManager;
+  private MessagesManager messagesManager;
 
   private static final UUID DESTINATION_ACCOUNT_UUID = UUID.randomUUID();
   private static final String DESTINATION_ACCOUNT_NUMBER = "+18005551234";
@@ -58,7 +62,7 @@ class MessagePersisterTest {
   @BeforeEach
   void setUp() throws Exception {
 
-    final MessagesManager messagesManager = mock(MessagesManager.class);
+    messagesManager = mock(MessagesManager.class);
     final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
 
     messagesDynamoDb = mock(MessagesDynamoDb.class);
@@ -188,6 +192,24 @@ class MessagePersisterTest {
     assertEquals(List.of(queueName),
         messagesCache.getQueuesToPersist(SlotHash.getSlot(queueName),
             Instant.now().plus(messagePersister.getPersistDelay()), 1));
+  }
+
+  @Test
+  void testPersistQueueRetryLoop() {
+    final String queueName = new String(
+        MessagesCache.getMessageQueueKey(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID), StandardCharsets.UTF_8);
+    final int messageCount = (MessagePersister.MESSAGE_BATCH_LIMIT * 3) + 7;
+    final Instant now = Instant.now();
+
+    insertMessages(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID, messageCount, now);
+    setNextSlotToPersist(SlotHash.getSlot(queueName));
+
+    // returning `0` indicates something not working correctly
+    when(messagesManager.persistMessages(any(UUID.class), anyLong(), anyList())).thenReturn(0);
+
+    assertTimeoutPreemptively(Duration.ofSeconds(1), () ->
+        assertThrows(MessagePersistenceException.class,
+            () -> messagePersister.persistQueue(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID)));
   }
 
   @SuppressWarnings("SameParameterValue")

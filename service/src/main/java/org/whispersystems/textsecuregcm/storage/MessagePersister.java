@@ -53,6 +53,8 @@ public class MessagePersister implements Managed {
   private static final String DISABLE_PERSISTER_FEATURE_FLAG = "DISABLE_MESSAGE_PERSISTER";
   private static final int WORKER_THREAD_COUNT = 4;
 
+  private static final int CONSECUTIVE_EMPTY_CACHE_REMOVAL_LIMIT = 3;
+
   private static final Logger logger = LoggerFactory.getLogger(MessagePersister.class);
 
   public MessagePersister(final MessagesCache messagesCache, final MessagesManager messagesManager,
@@ -150,7 +152,7 @@ public class MessagePersister implements Managed {
   }
 
   @VisibleForTesting
-  void persistQueue(final UUID accountUuid, final long deviceId) {
+  void persistQueue(final UUID accountUuid, final long deviceId) throws MessagePersistenceException {
     final Optional<Account> maybeAccount = accountsManager.getByAccountIdentifier(accountUuid);
 
     if (maybeAccount.isEmpty()) {
@@ -165,12 +167,23 @@ public class MessagePersister implements Managed {
         int messageCount = 0;
         List<MessageProtos.Envelope> messages;
 
+        int consecutiveEmptyCacheRemovals = 0;
+
         do {
           messages = messagesCache.getMessagesToPersist(accountUuid, deviceId, MESSAGE_BATCH_LIMIT);
 
-          messagesManager.persistMessages(accountUuid, deviceId, messages);
+          int messagesRemovedFromCache = messagesManager.persistMessages(accountUuid, deviceId, messages);
           messageCount += messages.size();
 
+          if (messagesRemovedFromCache == 0) {
+            consecutiveEmptyCacheRemovals += 1;
+          } else {
+            consecutiveEmptyCacheRemovals = 0;
+          }
+
+          if (consecutiveEmptyCacheRemovals > CONSECUTIVE_EMPTY_CACHE_REMOVAL_LIMIT) {
+            throw new MessagePersistenceException("persistence failure loop detected");
+          }
 
         } while (!messages.isEmpty());
 
