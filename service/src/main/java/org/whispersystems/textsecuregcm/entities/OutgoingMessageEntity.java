@@ -7,13 +7,14 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.google.protobuf.ByteString;
 import org.apache.commons.lang3.StringUtils;
+import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.UUID;
 
-public record OutgoingMessageEntity(UUID guid, int type, long timestamp, String source, UUID sourceUuid,
-                                    int sourceDevice, UUID destinationUuid, UUID updatedPni, byte[] content,
-                                    long serverTimestamp) {
+public record OutgoingMessageEntity(UUID guid, int type, long timestamp, @Nullable String source,
+                                    @Nullable UUID sourceUuid, int sourceDevice, UUID destinationUuid,
+                                    @Nullable UUID updatedPni, byte[] content, long serverTimestamp) {
 
   public MessageProtos.Envelope toEnvelope() {
     final MessageProtos.Envelope.Builder builder = MessageProtos.Envelope.newBuilder()
@@ -41,6 +42,20 @@ public record OutgoingMessageEntity(UUID guid, int type, long timestamp, String 
     }
 
     return builder.build();
+  }
+
+  public static OutgoingMessageEntity fromEnvelope(final MessageProtos.Envelope envelope) {
+    return new OutgoingMessageEntity(
+        UUID.fromString(envelope.getServerGuid()),
+        envelope.getType().getNumber(),
+        envelope.getTimestamp(),
+        envelope.getSource(),
+        envelope.hasSourceUuid() ? UUID.fromString(envelope.getSourceUuid()) : null,
+        envelope.getSourceDevice(),
+        envelope.hasDestinationUuid() ? UUID.fromString(envelope.getDestinationUuid()) : null,
+        envelope.hasUpdatedPni() ? UUID.fromString(envelope.getUpdatedPni()) : null,
+        envelope.getContent().toByteArray(),
+        envelope.getServerTimestamp());
   }
 
   @Override
