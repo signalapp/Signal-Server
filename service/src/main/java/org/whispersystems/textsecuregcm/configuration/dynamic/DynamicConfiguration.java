@@ -5,7 +5,6 @@ import com.google.common.annotations.VisibleForTesting;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import javax.validation.Valid;
 
 public class DynamicConfiguration {
@@ -29,9 +28,6 @@ public class DynamicConfiguration {
   @JsonProperty
   @Valid
   private DynamicPaymentsConfiguration payments = new DynamicPaymentsConfiguration();
-
-  @JsonProperty
-  private Set<String> featureFlags = Collections.emptySet();
 
   @JsonProperty
   @Valid
@@ -64,6 +60,10 @@ public class DynamicConfiguration {
   @Valid
   DynamicAbusiveHostRulesConfiguration abusiveHostRules = new DynamicAbusiveHostRulesConfiguration();
 
+  @JsonProperty
+  @Valid
+  DynamicMessagePersisterConfiguration messagePersister = new DynamicMessagePersisterConfiguration();
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -84,10 +84,6 @@ public class DynamicConfiguration {
 
   public DynamicPaymentsConfiguration getPaymentsConfiguration() {
     return payments;
-  }
-
-  public Set<String> getActiveFeatureFlags() {
-    return featureFlags;
   }
 
   public DynamicTwilioConfiguration getTwilioConfiguration() {
@@ -115,7 +111,9 @@ public class DynamicConfiguration {
     return pushLatency;
   }
 
-  public DynamicUakMigrationConfiguration getUakMigrationConfiguration() { return uakMigrationConfiguration; }
+  public DynamicUakMigrationConfiguration getUakMigrationConfiguration() {
+    return uakMigrationConfiguration;
+  }
 
   public DynamicTurnConfiguration getTurnConfiguration() {
     return turn;
@@ -123,5 +121,9 @@ public class DynamicConfiguration {
 
   public DynamicAbusiveHostRulesConfiguration getAbusiveHostRules() {
     return abusiveHostRules;
+  }
+
+  public DynamicMessagePersisterConfiguration getMessagePersisterConfiguration() {
+    return messagePersister;
   }
 }

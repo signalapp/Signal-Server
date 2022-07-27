@@ -202,29 +202,6 @@ class DynamicConfigurationTest {
   }
 
   @Test
-  void testParseFeatureFlags() throws JsonProcessingException {
-    {
-      final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
-      final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
-
-      assertTrue(emptyConfig.getActiveFeatureFlags().isEmpty());
-    }
-
-    {
-      final String featureFlagYaml = REQUIRED_CONFIG.concat("""
-          featureFlags:
-            - testFlag
-          """);
-
-      final DynamicConfiguration emptyConfig =
-          DynamicConfigurationManager.parseConfiguration(featureFlagYaml, DynamicConfiguration.class).orElseThrow();
-
-      assertTrue(emptyConfig.getActiveFeatureFlags().contains("testFlag"));
-    }
-  }
-
-  @Test
   void testParseTwilioConfiguration() throws JsonProcessingException {
     {
       final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
@@ -435,6 +412,43 @@ class DynamicConfigurationTest {
       assertThat(turnConfiguration.getUriConfigs().get(1).getEnrolledNumbers()).containsExactly("+15555555555");
 
     }
-
   }
+
+  @Test
+  void testMessagePersister() throws JsonProcessingException {
+    {
+      final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
+      final DynamicConfiguration emptyConfig =
+          DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
+
+      assertTrue(emptyConfig.getMessagePersisterConfiguration().isPersistenceEnabled());
+    }
+
+    {
+      final String messagePersisterEnabledYaml = REQUIRED_CONFIG.concat("""
+          messagePersister:
+            persistenceEnabled: true
+          """);
+
+      final DynamicConfiguration config =
+          DynamicConfigurationManager.parseConfiguration(messagePersisterEnabledYaml, DynamicConfiguration.class)
+              .orElseThrow();
+
+      assertTrue(config.getMessagePersisterConfiguration().isPersistenceEnabled());
+    }
+
+    {
+      final String messagePersisterDisabledYaml = REQUIRED_CONFIG.concat("""
+          messagePersister:
+            persistenceEnabled: false
+          """);
+
+      final DynamicConfiguration config =
+          DynamicConfigurationManager.parseConfiguration(messagePersisterDisabledYaml, DynamicConfiguration.class)
+              .orElseThrow();
+
+      assertFalse(config.getMessagePersisterConfiguration().isPersistenceEnabled());
+    }
+  }
+
 }

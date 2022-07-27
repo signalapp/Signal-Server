@@ -120,8 +120,9 @@ class DynamicConfigurationManagerTest {
         configurationToken("1").build()))
         .thenReturn(GetLatestConfigurationResponse.builder()
             .configuration(SdkBytes.fromUtf8String("""
-                featureFlags:
-                  - testFlag
+                experiments:
+                  test:
+                    enrollmentPercentage: 50
                 captcha:
                   scoreFloor: 1.0
                 """))
@@ -139,10 +140,12 @@ class DynamicConfigurationManagerTest {
     assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
       // we should eventually get the updated config (or the test will timeout)
       dynamicConfigurationManager.start();
-      while (dynamicConfigurationManager.getConfiguration().getActiveFeatureFlags().isEmpty()) {
+      while (dynamicConfigurationManager.getConfiguration().getExperimentEnrollmentConfiguration("test").isEmpty()) {
         Thread.sleep(100);
       }
-      assertThat(dynamicConfigurationManager.getConfiguration().getActiveFeatureFlags()).containsExactly("testFlag");
+      assertThat(
+          dynamicConfigurationManager.getConfiguration().getExperimentEnrollmentConfiguration("test").get()
+              .getEnrollmentPercentage()).isEqualTo(50);
     });
 
   }

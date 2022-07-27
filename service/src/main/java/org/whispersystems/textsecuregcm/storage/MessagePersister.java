@@ -50,7 +50,6 @@ public class MessagePersister implements Managed {
 
   private static final long EXCEPTION_PAUSE_MILLIS = Duration.ofSeconds(3).toMillis();
 
-  private static final String DISABLE_PERSISTER_FEATURE_FLAG = "DISABLE_MESSAGE_PERSISTER";
   private static final int WORKER_THREAD_COUNT = 4;
 
   private static final int CONSECUTIVE_EMPTY_CACHE_REMOVAL_LIMIT = 3;
@@ -69,10 +68,8 @@ public class MessagePersister implements Managed {
     for (int i = 0; i < workerThreads.length; i++) {
       workerThreads[i] = new Thread(() -> {
         while (running) {
-          if (dynamicConfigurationManager.getConfiguration().getActiveFeatureFlags()
-              .contains(DISABLE_PERSISTER_FEATURE_FLAG)) {
-            Util.sleep(1000);
-          } else {
+          if (dynamicConfigurationManager.getConfiguration().getMessagePersisterConfiguration()
+              .isPersistenceEnabled()) {
             try {
               final int queuesPersisted = persistNextQueues(Instant.now());
               queueCountHistogram.update(queuesPersisted);
@@ -84,6 +81,8 @@ public class MessagePersister implements Managed {
               logger.warn("Failed to persist queues", t);
               Util.sleep(EXCEPTION_PAUSE_MILLIS);
             }
+          } else {
+            Util.sleep(1000);
           }
         }
       }, "MessagePersisterWorker-" + i);
