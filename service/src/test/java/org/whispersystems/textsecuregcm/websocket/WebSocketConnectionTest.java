@@ -23,15 +23,17 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 
+import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.auth.basic.BasicCredentials;
 import io.lettuce.core.RedisException;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -49,7 +51,6 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
@@ -111,14 +112,10 @@ class WebSocketConnectionTest {
     when(accountAuthenticator.authenticate(eq(new BasicCredentials(INVALID_USER, INVALID_PASSWORD))))
         .thenReturn(Optional.empty());
 
-    when(upgradeRequest.getParameterMap()).thenReturn(new HashMap<>() {{
-      put("login", new LinkedList<>() {{
-        add(VALID_USER);
-      }});
-      put("password", new LinkedList<>() {{
-        add(VALID_PASSWORD);
-      }});
-    }});
+
+    when(upgradeRequest.getParameterMap()).thenReturn(Map.of(
+        "login", List.of(VALID_USER),
+        "password", List.of(VALID_PASSWORD)));
 
     AuthenticationResult<AuthenticatedAccount> account = webSocketAuthenticator.authenticate(upgradeRequest);
     when(sessionContext.getAuthenticated(AuthenticatedAccount.class)).thenReturn(account.getUser().orElse(null));
@@ -127,14 +124,10 @@ class WebSocketConnectionTest {
 
     verify(sessionContext).addListener(any(WebSocketSessionContext.WebSocketEventListener.class));
 
-    when(upgradeRequest.getParameterMap()).thenReturn(new HashMap<String, List<String>>() {{
-      put("login", new LinkedList<String>() {{
-        add(INVALID_USER);
-      }});
-      put("password", new LinkedList<String>() {{
-        add(INVALID_PASSWORD);
-      }});
-    }});
+    when(upgradeRequest.getParameterMap()).thenReturn(Map.of(
+        "login", List.of(INVALID_USER),
+        "password", List.of(INVALID_PASSWORD)
+    ));
 
     account = webSocketAuthenticator.authenticate(upgradeRequest);
     assertFalse(account.getUser().isPresent());
@@ -149,13 +142,9 @@ class WebSocketConnectionTest {
     UUID senderOneUuid = UUID.randomUUID();
     UUID senderTwoUuid = UUID.randomUUID();
 
-    List<OutgoingMessageEntity> outgoingMessages = new LinkedList<OutgoingMessageEntity> () {{
-      add(createMessage("sender1", senderOneUuid, UUID.randomUUID(), 1111, false, "first"));
-      add(createMessage("sender1", senderOneUuid, UUID.randomUUID(), 2222, false, "second"));
-      add(createMessage("sender2", senderTwoUuid, UUID.randomUUID(), 3333, false, "third"));
-    }};
-
-    OutgoingMessageEntityList outgoingMessagesList = new OutgoingMessageEntityList(outgoingMessages, false);
+    List<Envelope> outgoingMessages = List.of(createMessage("sender1", senderOneUuid, UUID.randomUUID(), 1111, "first"),
+        createMessage("sender1", senderOneUuid, UUID.randomUUID(), 2222, "second"),
+        createMessage("sender2", senderTwoUuid, UUID.randomUUID(), 3333, "third"));
 
     when(device.getId()).thenReturn(2L);
 
@@ -175,7 +164,7 @@ class WebSocketConnectionTest {
     String userAgent = "user-agent";
 
     when(storedMessages.getMessagesForDevice(account.getUuid(), device.getId(), userAgent, false))
-        .thenReturn(outgoingMessagesList);
+        .thenReturn(new Pair<>(outgoingMessages, false));
 
     final List<CompletableFuture<WebSocketResponseMessage>> futures = new LinkedList<>();
     final WebSocketClient                                   client  = mock(WebSocketClient.class);
@@ -207,7 +196,7 @@ class WebSocketConnectionTest {
     futures.get(0).completeExceptionally(new IOException());
     futures.get(2).completeExceptionally(new IOException());
 
-    verify(storedMessages, times(1)).delete(eq(accountUuid), eq(2L), eq(outgoingMessages.get(1).guid()), eq(outgoingMessages.get(1).serverTimestamp()));
+    verify(storedMessages, times(1)).delete(eq(accountUuid), eq(2L), eq(UUID.fromString(outgoingMessages.get(1).getServerGuid())), eq(outgoingMessages.get(1).getServerTimestamp()));
     verify(receiptSender, times(1)).sendReceipt(eq(auth), eq(senderOneUuid), eq(2222L));
 
     connection.stop();
@@ -229,9 +218,9 @@ class WebSocketConnectionTest {
     when(client.getUserAgent()).thenReturn("Test-UA");
 
     when(messagesManager.getMessagesForDevice(eq(accountUuid), eq(1L), eq("Test-UA"), anyBoolean()))
-        .thenReturn(new OutgoingMessageEntityList(Collections.emptyList(), false))
-            .thenReturn(new OutgoingMessageEntityList(List.of(createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 1111, false, "first")), false))
-            .thenReturn(new OutgoingMessageEntityList(List.of(createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 2222, false, "second")), false));
+        .thenReturn(new Pair<>(Collections.emptyList(), false))
+        .thenReturn(new Pair<>(List.of(createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 1111, "first")), false))
+        .thenReturn(new Pair<>(List.of(createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 2222, "second")), false));
 
     final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
     when(successResponse.getStatus()).thenReturn(200);
@@ -282,36 +271,27 @@ class WebSocketConnectionTest {
     final UUID senderTwoUuid = UUID.randomUUID();
 
     final Envelope firstMessage = Envelope.newBuilder()
-                                    .setSource("sender1")
-                                    .setSourceUuid(UUID.randomUUID().toString())
-                                    .setDestinationUuid(UUID.randomUUID().toString())
-                                    .setUpdatedPni(UUID.randomUUID().toString())
-                                    .setTimestamp(System.currentTimeMillis())
-                                    .setSourceDevice(1)
-                                    .setType(Envelope.Type.CIPHERTEXT)
-                                    .build();
+        .setServerGuid(UUID.randomUUID().toString())
+        .setSource("sender1")
+        .setSourceUuid(UUID.randomUUID().toString())
+        .setDestinationUuid(UUID.randomUUID().toString())
+        .setUpdatedPni(UUID.randomUUID().toString())
+        .setTimestamp(System.currentTimeMillis())
+        .setSourceDevice(1)
+        .setType(Envelope.Type.CIPHERTEXT)
+        .build();
 
     final Envelope secondMessage = Envelope.newBuilder()
-                                     .setSource("sender2")
-                                     .setSourceUuid(senderTwoUuid.toString())
-                                     .setDestinationUuid(UUID.randomUUID().toString())
-                                     .setTimestamp(System.currentTimeMillis())
-                                     .setSourceDevice(2)
-                                     .setType(Envelope.Type.CIPHERTEXT)
-                                     .build();
+        .setServerGuid(UUID.randomUUID().toString())
+        .setSource("sender2")
+        .setSourceUuid(senderTwoUuid.toString())
+        .setDestinationUuid(UUID.randomUUID().toString())
+        .setTimestamp(System.currentTimeMillis())
+        .setSourceDevice(2)
+        .setType(Envelope.Type.CIPHERTEXT)
+        .build();
 
-    List<OutgoingMessageEntity> pendingMessages     = new LinkedList<OutgoingMessageEntity>() {{
-      add(new OutgoingMessageEntity(UUID.randomUUID(), firstMessage.getType().getNumber(),
-                                    firstMessage.getTimestamp(), firstMessage.getSource(), UUID.fromString(firstMessage.getSourceUuid()),
-                                    firstMessage.getSourceDevice(), UUID.fromString(firstMessage.getDestinationUuid()), UUID.fromString(firstMessage.getUpdatedPni()),
-              firstMessage.getContent().toByteArray(), 0));
-      add(new OutgoingMessageEntity(UUID.randomUUID(), secondMessage.getType().getNumber(),
-                                    secondMessage.getTimestamp(), secondMessage.getSource(), UUID.fromString(secondMessage.getSourceUuid()),
-                                    secondMessage.getSourceDevice(), UUID.fromString(secondMessage.getDestinationUuid()), null,
-              secondMessage.getContent().toByteArray(), 0));
-    }};
-
-    OutgoingMessageEntityList   pendingMessagesList = new OutgoingMessageEntityList(pendingMessages, false);
+    final List<Envelope> pendingMessages = List.of(firstMessage, secondMessage);
 
     when(device.getId()).thenReturn(2L);
 
@@ -331,20 +311,17 @@ class WebSocketConnectionTest {
     String userAgent = "user-agent";
 
     when(storedMessages.getMessagesForDevice(account.getUuid(), device.getId(), userAgent, false))
-        .thenReturn(pendingMessagesList);
+        .thenReturn(new Pair<>(pendingMessages, false));
 
     final List<CompletableFuture<WebSocketResponseMessage>> futures = new LinkedList<>();
     final WebSocketClient                                   client  = mock(WebSocketClient.class);
 
     when(client.getUserAgent()).thenReturn(userAgent);
-    when(client.sendRequest(eq("PUT"), eq("/api/v1/message"), ArgumentMatchers.nullable(List.class), ArgumentMatchers.<Optional<byte[]>>any()))
-        .thenAnswer(new Answer<CompletableFuture<WebSocketResponseMessage>>() {
-          @Override
-          public CompletableFuture<WebSocketResponseMessage> answer(InvocationOnMock invocationOnMock) {
-            CompletableFuture<WebSocketResponseMessage> future = new CompletableFuture<>();
-            futures.add(future);
-            return future;
-          }
+    when(client.sendRequest(eq("PUT"), eq("/api/v1/message"), any(), any()))
+        .thenAnswer((Answer<CompletableFuture<WebSocketResponseMessage>>) invocationOnMock -> {
+          CompletableFuture<WebSocketResponseMessage> future = new CompletableFuture<>();
+          futures.add(future);
+          return future;
         });
 
     WebSocketConnection connection = new WebSocketConnection(receiptSender, storedMessages,
@@ -352,8 +329,7 @@ class WebSocketConnectionTest {
 
     connection.start();
 
-    verify(client, times(2)).sendRequest(eq("PUT"), eq("/api/v1/message"), any(List.class),
-        ArgumentMatchers.<Optional<byte[]>>any());
+    verify(client, times(2)).sendRequest(eq("PUT"), eq("/api/v1/message"), any(), any());
 
     assertEquals(futures.size(), 2);
 
@@ -446,19 +422,16 @@ class WebSocketConnectionTest {
     when(device.getId()).thenReturn(1L);
     when(client.getUserAgent()).thenReturn("Test-UA");
 
-    final List<OutgoingMessageEntity> firstPageMessages =
-        List.of(createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 1111, false, "first"),
-            createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 2222, false, "second"));
+    final List<Envelope> firstPageMessages =
+        List.of(createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 1111, "first"),
+            createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 2222, "second"));
 
-    final List<OutgoingMessageEntity> secondPageMessages =
-            List.of(createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 3333, false, "third"));
-
-    final OutgoingMessageEntityList firstPage  = new OutgoingMessageEntityList(firstPageMessages, true);
-    final OutgoingMessageEntityList secondPage = new OutgoingMessageEntityList(secondPageMessages, false);
+    final List<Envelope> secondPageMessages =
+            List.of(createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 3333, "third"));
 
     when(messagesManager.getMessagesForDevice(account.getUuid(), 1L, client.getUserAgent(), false))
-            .thenReturn(firstPage)
-            .thenReturn(secondPage);
+            .thenReturn(new Pair<>(firstPageMessages, true))
+            .thenReturn(new Pair<>(secondPageMessages, false));
 
     final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
     when(successResponse.getStatus()).thenReturn(200);
@@ -493,11 +466,11 @@ class WebSocketConnectionTest {
     when(client.getUserAgent()).thenReturn("Test-UA");
 
     final UUID senderUuid = UUID.randomUUID();
-    final List<OutgoingMessageEntity> messages = List.of(
-        createMessage("senderE164", senderUuid, UUID.randomUUID(), 1111L, false, "message the first"));
-    final OutgoingMessageEntityList firstPage = new OutgoingMessageEntityList(messages, false);
+    final List<Envelope> messages = List.of(
+        createMessage("senderE164", senderUuid, UUID.randomUUID(), 1111L, "message the first"));
 
-    when(messagesManager.getMessagesForDevice(account.getUuid(), 1L, client.getUserAgent(), false)).thenReturn(firstPage);
+    when(messagesManager.getMessagesForDevice(account.getUuid(), 1L, client.getUserAgent(), false))
+        .thenReturn(new Pair<>(messages, false));
 
     final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
     when(successResponse.getStatus()).thenReturn(200);
@@ -549,7 +522,7 @@ class WebSocketConnectionTest {
     when(client.getUserAgent()).thenReturn("Test-UA");
 
     when(messagesManager.getMessagesForDevice(eq(accountUuid), eq(1L), eq("Test-UA"), anyBoolean()))
-        .thenReturn(new OutgoingMessageEntityList(Collections.emptyList(), false));
+        .thenReturn(new Pair<>(Collections.emptyList(), false));
 
     final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
     when(successResponse.getStatus()).thenReturn(200);
@@ -577,20 +550,17 @@ class WebSocketConnectionTest {
     when(device.getId()).thenReturn(1L);
     when(client.getUserAgent()).thenReturn("Test-UA");
 
-    final List<OutgoingMessageEntity> firstPageMessages =
-        List.of(createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 1111, false, "first"),
-            createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 2222, false, "second"));
+    final List<Envelope> firstPageMessages =
+        List.of(createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 1111, "first"),
+            createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 2222, "second"));
 
-    final List<OutgoingMessageEntity> secondPageMessages =
-            List.of(createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 3333, false, "third"));
-
-    final OutgoingMessageEntityList firstPage  = new OutgoingMessageEntityList(firstPageMessages, false);
-    final OutgoingMessageEntityList secondPage = new OutgoingMessageEntityList(secondPageMessages, false);
+    final List<Envelope> secondPageMessages =
+            List.of(createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 3333, "third"));
 
     when(messagesManager.getMessagesForDevice(eq(accountUuid), eq(1L), eq("Test-UA"), anyBoolean()))
-            .thenReturn(firstPage)
-            .thenReturn(secondPage)
-            .thenReturn(new OutgoingMessageEntityList(Collections.emptyList(), false));
+            .thenReturn(new Pair<>(firstPageMessages, false))
+            .thenReturn(new Pair<>(secondPageMessages, false))
+            .thenReturn(new Pair<>(Collections.emptyList(), false));
 
     final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
     when(successResponse.getStatus()).thenReturn(200);
@@ -629,7 +599,7 @@ class WebSocketConnectionTest {
     when(client.getUserAgent()).thenReturn("Test-UA");
 
     when(messagesManager.getMessagesForDevice(eq(accountUuid), eq(1L), eq("Test-UA"), anyBoolean()))
-        .thenReturn(new OutgoingMessageEntityList(Collections.emptyList(), false));
+        .thenReturn(new Pair<>(Collections.emptyList(), false));
 
     final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
     when(successResponse.getStatus()).thenReturn(200);
@@ -662,7 +632,7 @@ class WebSocketConnectionTest {
     when(client.getUserAgent()).thenReturn("Test-UA");
 
     when(messagesManager.getMessagesForDevice(eq(accountUuid), eq(1L), eq("Test-UA"), anyBoolean()))
-        .thenReturn(new OutgoingMessageEntityList(Collections.emptyList(), false));
+        .thenReturn(new Pair<>(Collections.emptyList(), false));
 
     final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
     when(successResponse.getStatus()).thenReturn(200);
@@ -685,13 +655,11 @@ class WebSocketConnectionTest {
     UUID senderOneUuid = UUID.randomUUID();
     UUID senderTwoUuid = UUID.randomUUID();
 
-    List<OutgoingMessageEntity> outgoingMessages = new LinkedList<OutgoingMessageEntity> () {{
-      add(createMessage("sender1", senderOneUuid, UUID.randomUUID(), 1111, false, "first"));
-      add(createMessage("sender1", senderOneUuid, UUID.randomUUID(), 2222, false, RandomStringUtils.randomAlphanumeric(WebSocketConnection.MAX_DESKTOP_MESSAGE_SIZE + 1)));
-      add(createMessage("sender2", senderTwoUuid, UUID.randomUUID(), 3333, false, "third"));
-    }};
-
-    OutgoingMessageEntityList outgoingMessagesList = new OutgoingMessageEntityList(outgoingMessages, false);
+    List<Envelope> outgoingMessages = List.of(
+        createMessage("sender1", senderOneUuid, UUID.randomUUID(), 1111, "first"),
+        createMessage("sender1", senderOneUuid, UUID.randomUUID(), 2222,
+            RandomStringUtils.randomAlphanumeric(WebSocketConnection.MAX_DESKTOP_MESSAGE_SIZE + 1)),
+        createMessage("sender2", senderTwoUuid, UUID.randomUUID(), 3333, "third"));
 
     when(device.getId()).thenReturn(2L);
 
@@ -711,7 +679,7 @@ class WebSocketConnectionTest {
     String userAgent = "Signal-Desktop/1.2.3";
 
     when(storedMessages.getMessagesForDevice(account.getUuid(), device.getId(), userAgent, false))
-            .thenReturn(outgoingMessagesList);
+            .thenReturn(new Pair<>(outgoingMessages, false));
 
     final List<CompletableFuture<WebSocketResponseMessage>> futures = new LinkedList<>();
     final WebSocketClient                                   client  = mock(WebSocketClient.class);
@@ -758,13 +726,10 @@ class WebSocketConnectionTest {
     UUID senderOneUuid = UUID.randomUUID();
     UUID senderTwoUuid = UUID.randomUUID();
 
-    List<OutgoingMessageEntity> outgoingMessages = new LinkedList<OutgoingMessageEntity> () {{
-      add(createMessage("sender1", senderOneUuid, UUID.randomUUID(), 1111, false, "first"));
-      add(createMessage("sender1", senderOneUuid, UUID.randomUUID(), 2222, false, RandomStringUtils.randomAlphanumeric(WebSocketConnection.MAX_DESKTOP_MESSAGE_SIZE + 1)));
-      add(createMessage("sender2", senderTwoUuid, UUID.randomUUID(), 3333, false, "third"));
-    }};
-
-    OutgoingMessageEntityList outgoingMessagesList = new OutgoingMessageEntityList(outgoingMessages, false);
+    List<Envelope> outgoingMessages = List.of(createMessage("sender1", senderOneUuid, UUID.randomUUID(), 1111, "first"),
+        createMessage("sender1", senderOneUuid, UUID.randomUUID(), 2222,
+            RandomStringUtils.randomAlphanumeric(WebSocketConnection.MAX_DESKTOP_MESSAGE_SIZE + 1)),
+        createMessage("sender2", senderTwoUuid, UUID.randomUUID(), 3333, "third"));
 
     when(device.getId()).thenReturn(2L);
 
@@ -784,7 +749,7 @@ class WebSocketConnectionTest {
     String userAgent = "Signal-Android/4.68.3";
 
     when(storedMessages.getMessagesForDevice(account.getUuid(), device.getId(), userAgent, false))
-            .thenReturn(outgoingMessagesList);
+            .thenReturn(new Pair<>(outgoingMessages, false));
 
     final List<CompletableFuture<WebSocketResponseMessage>> futures = new LinkedList<>();
     final WebSocketClient                                   client  = mock(WebSocketClient.class);
@@ -883,9 +848,18 @@ class WebSocketConnectionTest {
     verify(client, never()).close(anyInt(), anyString());
   }
 
-  private OutgoingMessageEntity createMessage(String sender, UUID senderUuid, UUID destinationUuid, long timestamp, boolean receipt, String content) {
-    return new OutgoingMessageEntity(UUID.randomUUID(), receipt ? Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE : Envelope.Type.CIPHERTEXT_VALUE,
-                                     timestamp, sender, senderUuid, 1, destinationUuid, null, content.getBytes(), 0);
+  private Envelope createMessage(String sender, UUID senderUuid, UUID destinationUuid, long timestamp, String content) {
+    return Envelope.newBuilder()
+        .setServerGuid(UUID.randomUUID().toString())
+        .setType(Envelope.Type.CIPHERTEXT)
+        .setTimestamp(timestamp)
+        .setServerTimestamp(0)
+        .setSource(sender)
+        .setSourceUuid(senderUuid.toString())
+        .setSourceDevice(1)
+        .setDestinationUuid(destinationUuid.toString())
+        .setContent(ByteString.copyFrom(content.getBytes(StandardCharsets.UTF_8)))
+        .build();
   }
 
 }

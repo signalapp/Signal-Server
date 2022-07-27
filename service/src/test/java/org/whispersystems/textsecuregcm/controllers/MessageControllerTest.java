@@ -27,6 +27,7 @@ import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.asJson;
 import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixture;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.ByteString;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
@@ -43,6 +44,7 @@ import java.util.stream.Stream;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,6 +59,7 @@ import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccou
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
+import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
@@ -77,6 +80,7 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
@@ -371,18 +375,22 @@ class MessageControllerTest {
     final long timestampTwo = 313388;
 
     final UUID messageGuidOne = UUID.randomUUID();
+    final UUID messageGuidTwo = UUID.randomUUID();
     final UUID sourceUuid = UUID.randomUUID();
 
     final UUID updatedPniOne = UUID.randomUUID();
 
-    List<OutgoingMessageEntity> messages = new LinkedList<>() {{
-      add(new OutgoingMessageEntity(messageGuidOne, Envelope.Type.CIPHERTEXT_VALUE, timestampOne, "+14152222222", sourceUuid, 2, AuthHelper.VALID_UUID, updatedPniOne, "hi there".getBytes(), 0));
-      add(new OutgoingMessageEntity(null, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, timestampTwo, "+14152222222", sourceUuid, 2, AuthHelper.VALID_UUID, null, null, 0));
-    }};
+    List<Envelope> messages = List.of(
+        generateEnvelope(messageGuidOne, Envelope.Type.CIPHERTEXT_VALUE, timestampOne, "+14152222222", sourceUuid, 2, AuthHelper.VALID_UUID, updatedPniOne, "hi there".getBytes(), 0),
+        generateEnvelope(messageGuidTwo, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, timestampTwo, "+14152222222", sourceUuid, 2, AuthHelper.VALID_UUID, null, null, 0)
+    );
 
-    OutgoingMessageEntityList messagesList = new OutgoingMessageEntityList(messages, false);
+    OutgoingMessageEntityList messagesList = new OutgoingMessageEntityList(messages.stream()
+        .map(OutgoingMessageEntity::fromEnvelope)
+        .toList(), false);
 
-    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq(1L), anyString(), anyBoolean())).thenReturn(messagesList);
+    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq(1L), anyString(), anyBoolean()))
+        .thenReturn(new Pair<>(messages, false));
 
     OutgoingMessageEntityList response =
         resources.getJerseyTest().target("/v1/messages/")
@@ -397,7 +405,7 @@ class MessageControllerTest {
     assertEquals(response.messages().get(1).timestamp(), timestampTwo);
 
     assertEquals(response.messages().get(0).guid(), messageGuidOne);
-    assertNull(response.messages().get(1).guid());
+    assertEquals(response.messages().get(1).guid(), messageGuidTwo);
 
     assertEquals(response.messages().get(0).sourceUuid(), sourceUuid);
     assertEquals(response.messages().get(1).sourceUuid(), sourceUuid);
@@ -411,14 +419,13 @@ class MessageControllerTest {
     final long timestampOne = 313377;
     final long timestampTwo = 313388;
 
-    List<OutgoingMessageEntity> messages = new LinkedList<>() {{
-      add(new OutgoingMessageEntity(UUID.randomUUID(), Envelope.Type.CIPHERTEXT_VALUE, timestampOne, "+14152222222", UUID.randomUUID(), 2, AuthHelper.VALID_UUID, null, "hi there".getBytes(), 0));
-      add(new OutgoingMessageEntity(UUID.randomUUID(), Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, timestampTwo, "+14152222222", UUID.randomUUID(), 2, AuthHelper.VALID_UUID, null, null, 0));
-    }};
+    final List<Envelope> messages = List.of(
+        generateEnvelope(UUID.randomUUID(), Envelope.Type.CIPHERTEXT_VALUE, timestampOne, "+14152222222", UUID.randomUUID(), 2, AuthHelper.VALID_UUID, null, "hi there".getBytes(), 0),
+        generateEnvelope(UUID.randomUUID(), Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, timestampTwo, "+14152222222", UUID.randomUUID(), 2, AuthHelper.VALID_UUID, null, null, 0)
+    );
 
-    OutgoingMessageEntityList messagesList = new OutgoingMessageEntityList(messages, false);
-
-    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq(1L), anyString(), anyBoolean())).thenReturn(messagesList);
+    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq(1L), anyString(), anyBoolean()))
+        .thenReturn(new Pair<>(messages, false));
 
     Response response =
         resources.getJerseyTest().target("/v1/messages/")
@@ -437,12 +444,12 @@ class MessageControllerTest {
     UUID sourceUuid = UUID.randomUUID();
 
     UUID uuid1 = UUID.randomUUID();
-    when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid1, null)).thenReturn(Optional.of(new OutgoingMessageEntity(
+    when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid1, null)).thenReturn(Optional.of(generateEnvelope(
         uuid1, Envelope.Type.CIPHERTEXT_VALUE,
         timestamp, "+14152222222", sourceUuid, 1, AuthHelper.VALID_UUID, null, "hi".getBytes(), 0)));
 
     UUID uuid2 = UUID.randomUUID();
-    when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid2, null)).thenReturn(Optional.of(new OutgoingMessageEntity(
+    when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid2, null)).thenReturn(Optional.of(generateEnvelope(
         uuid2, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE,
         System.currentTimeMillis(), "+14152222222", sourceUuid, 1, AuthHelper.VALID_UUID, null, null, 0)));
 
@@ -623,5 +630,35 @@ class MessageControllerTest {
         Arguments.of("fixtures/current_message_single_device.json", true),
         Arguments.of("fixtures/current_message_single_device_server_receipt_type.json", false)
     );
+  }
+  
+  private static Envelope generateEnvelope(UUID guid, int type, long timestamp, String source, UUID sourceUuid,
+      int sourceDevice, UUID destinationUuid, UUID updatedPni, byte[] content, long serverTimestamp) {
+
+    final MessageProtos.Envelope.Builder builder = MessageProtos.Envelope.newBuilder()
+        .setType(MessageProtos.Envelope.Type.forNumber(type))
+        .setTimestamp(timestamp)
+        .setServerTimestamp(serverTimestamp)
+        .setDestinationUuid(destinationUuid.toString())
+        .setServerGuid(guid.toString());
+
+    if (StringUtils.isNotEmpty(source)) {
+      builder.setSource(source)
+          .setSourceDevice(sourceDevice);
+
+      if (sourceUuid != null) {
+        builder.setSourceUuid(sourceUuid.toString());
+      }
+    }
+
+    if (content != null) {
+      builder.setContent(ByteString.copyFrom(content));
+    }
+
+    if (updatedPni != null) {
+      builder.setUpdatedPni(updatedPni.toString());
+    }
+
+    return builder.build();
   }
 }

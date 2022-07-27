@@ -34,7 +34,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 
 class MessagesCacheTest {
@@ -103,11 +102,10 @@ class MessagesCacheTest {
     final MessageProtos.Envelope message = generateRandomMessage(messageGuid, sealedSender);
 
     messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
-    final Optional<OutgoingMessageEntity> maybeRemovedMessage = messagesCache.remove(DESTINATION_UUID,
+    final Optional<MessageProtos.Envelope> maybeRemovedMessage = messagesCache.remove(DESTINATION_UUID,
         DESTINATION_DEVICE_ID, messageGuid);
 
-    assertTrue(maybeRemovedMessage.isPresent());
-    assertEquals(MessagesCache.constructEntityFromEnvelope(message), maybeRemovedMessage.get());
+    assertEquals(Optional.of(message), maybeRemovedMessage);
   }
 
   @ParameterizedTest
@@ -135,14 +133,11 @@ class MessagesCacheTest {
       messagesCache.insert(UUID.fromString(message.getServerGuid()), DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
     }
 
-    final List<OutgoingMessageEntity> removedMessages = messagesCache.remove(DESTINATION_UUID, DESTINATION_DEVICE_ID,
+    final List<MessageProtos.Envelope> removedMessages = messagesCache.remove(DESTINATION_UUID, DESTINATION_DEVICE_ID,
         messagesToRemove.stream().map(message -> UUID.fromString(message.getServerGuid()))
             .collect(Collectors.toList()));
 
-    assertEquals(messagesToRemove.stream().map(MessagesCache::constructEntityFromEnvelope)
-            .collect(Collectors.toList()),
-        removedMessages);
-
+    assertEquals(messagesToRemove, removedMessages);
     assertEquals(messagesToPreserve,
         messagesCache.getMessagesToPersist(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount));
   }
@@ -163,14 +158,14 @@ class MessagesCacheTest {
   void testGetMessages(final boolean sealedSender) {
     final int messageCount = 100;
 
-    final List<OutgoingMessageEntity> expectedMessages = new ArrayList<>(messageCount);
+    final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(messageCount);
 
     for (int i = 0; i < messageCount; i++) {
       final UUID messageGuid = UUID.randomUUID();
       final MessageProtos.Envelope message = generateRandomMessage(messageGuid, sealedSender);
-      final long messageId = messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
+      messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
 
-      expectedMessages.add(MessagesCache.constructEntityFromEnvelope(message));
+      expectedMessages.add(message);
     }
 
     assertEquals(expectedMessages, messagesCache.get(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount));

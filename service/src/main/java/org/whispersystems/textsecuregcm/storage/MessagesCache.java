@@ -40,7 +40,6 @@ import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
@@ -148,13 +147,13 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
                 guid.toString().getBytes(StandardCharsets.UTF_8))));
   }
 
-  public Optional<OutgoingMessageEntity> remove(final UUID destinationUuid, final long destinationDevice,
+  public Optional<MessageProtos.Envelope> remove(final UUID destinationUuid, final long destinationDevice,
       final UUID messageGuid) {
     return remove(destinationUuid, destinationDevice, List.of(messageGuid)).stream().findFirst();
   }
 
   @SuppressWarnings("unchecked")
-  public List<OutgoingMessageEntity> remove(final UUID destinationUuid, final long destinationDevice,
+  public List<MessageProtos.Envelope> remove(final UUID destinationUuid, final long destinationDevice,
       final List<UUID> messageGuids) {
     final List<byte[]> serialized = (List<byte[]>) Metrics.timer(REMOVE_TIMER_NAME, REMOVE_METHOD_TAG,
         REMOVE_METHOD_UUID).record(() ->
@@ -164,11 +163,11 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
             messageGuids.stream().map(guid -> guid.toString().getBytes(StandardCharsets.UTF_8))
                 .collect(Collectors.toList())));
 
-    final List<OutgoingMessageEntity> removedMessages = new ArrayList<>(serialized.size());
+    final List<MessageProtos.Envelope> removedMessages = new ArrayList<>(serialized.size());
 
     for (final byte[] bytes : serialized) {
       try {
-        removedMessages.add(constructEntityFromEnvelope(MessageProtos.Envelope.parseFrom(bytes)));
+        removedMessages.add(MessageProtos.Envelope.parseFrom(bytes));
       } catch (final InvalidProtocolBufferException e) {
         logger.warn("Failed to parse envelope", e);
       }
@@ -183,7 +182,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   }
 
   @SuppressWarnings("unchecked")
-  public List<OutgoingMessageEntity> get(final UUID destinationUuid, final long destinationDevice, final int limit) {
+  public List<MessageProtos.Envelope> get(final UUID destinationUuid, final long destinationDevice, final int limit) {
     return getMessagesTimer.record(() -> {
       final List<byte[]> queueItems = (List<byte[]>) getItemsScript.executeBinary(
           List.of(getMessageQueueKey(destinationUuid, destinationDevice),
@@ -193,7 +192,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
       final long earliestAllowableEphemeralTimestamp =
           System.currentTimeMillis() - MAX_EPHEMERAL_MESSAGE_DELAY.toMillis();
 
-      final List<OutgoingMessageEntity> messageEntities;
+      final List<MessageProtos.Envelope> messageEntities;
       final List<UUID> staleEphemeralMessageGuids = new ArrayList<>();
 
       if (queueItems.size() % 2 == 0) {
@@ -207,9 +206,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
               continue;
             }
 
-            final long id = Long.parseLong(new String(queueItems.get(i + 1), StandardCharsets.UTF_8));
-
-            messageEntities.add(constructEntityFromEnvelope(message));
+            messageEntities.add(message);
           } catch (InvalidProtocolBufferException e) {
             logger.warn("Failed to parse envelope", e);
           }
@@ -377,21 +374,6 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     synchronized (messageListenersByQueueName) {
       return Optional.ofNullable(messageListenersByQueueName.get(queueName));
     }
-  }
-
-  @VisibleForTesting
-  static OutgoingMessageEntity constructEntityFromEnvelope(MessageProtos.Envelope envelope) {
-    return new OutgoingMessageEntity(
-        envelope.hasServerGuid() ? UUID.fromString(envelope.getServerGuid()) : null,
-        envelope.getType().getNumber(),
-        envelope.getTimestamp(),
-        envelope.getSource(),
-        envelope.hasSourceUuid() ? UUID.fromString(envelope.getSourceUuid()) : null,
-        envelope.getSourceDevice(),
-        envelope.hasDestinationUuid() ? UUID.fromString(envelope.getDestinationUuid()) : null,
-        envelope.hasUpdatedPni() ? UUID.fromString(envelope.getUpdatedPni()) : null,
-        envelope.hasContent() ? envelope.getContent().toByteArray() : null,
-        envelope.hasServerTimestamp() ? envelope.getServerTimestamp() : 0);
   }
 
   @VisibleForTesting

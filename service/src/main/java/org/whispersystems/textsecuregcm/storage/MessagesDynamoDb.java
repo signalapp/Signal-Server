@@ -112,7 +112,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     executeTableWriteItemsUntilComplete(Map.of(tableName, writeItems));
   }
 
-  public List<OutgoingMessageEntity> load(final UUID destinationAccountUuid, final long destinationDeviceId, final int requestedNumberOfMessagesToFetch) {
+  public List<MessageProtos.Envelope> load(final UUID destinationAccountUuid, final long destinationDeviceId, final int requestedNumberOfMessagesToFetch) {
     return loadTimer.record(() -> {
       final int numberOfMessagesToFetch = Math.min(requestedNumberOfMessagesToFetch, RESULT_SET_CHUNK_SIZE);
       final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid);
@@ -128,9 +128,9 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
               ":sortprefix", convertDestinationDeviceIdToSortKeyPrefix(destinationDeviceId)))
           .limit(numberOfMessagesToFetch)
           .build();
-      List<OutgoingMessageEntity> messageEntities = new ArrayList<>(numberOfMessagesToFetch);
+      List<MessageProtos.Envelope> messageEntities = new ArrayList<>(numberOfMessagesToFetch);
       for (Map<String, AttributeValue> message : db().queryPaginator(queryRequest).items()) {
-        messageEntities.add(convertItemToOutgoingMessageEntity(message));
+        messageEntities.add(convertItemToEnvelope(message));
         if (messageEntities.size() == numberOfMessagesToFetch) {
           // queryPaginator() uses limit() as the page size, not as an absolute limit
           // …but a page might be smaller than limit, because a page is capped at 1 MB
@@ -141,7 +141,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     });
   }
 
-  public Optional<OutgoingMessageEntity> deleteMessageByDestinationAndGuid(final UUID destinationAccountUuid,
+  public Optional<MessageProtos.Envelope> deleteMessageByDestinationAndGuid(final UUID destinationAccountUuid,
       final UUID messageUuid) {
     return deleteByGuid.record(() -> {
       final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid);
@@ -162,7 +162,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     });
   }
 
-  public Optional<OutgoingMessageEntity> deleteMessage(final UUID destinationAccountUuid,
+  public Optional<MessageProtos.Envelope> deleteMessage(final UUID destinationAccountUuid,
       final long destinationDeviceId, final UUID messageUuid, final long serverTimestamp) {
     return deleteByKey.record(() -> {
       final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid);
@@ -173,7 +173,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
           .returnValues(ReturnValue.ALL_OLD);
       final DeleteItemResponse deleteItemResponse = db().deleteItem(deleteItemRequest.build());
       if (deleteItemResponse.attributes() != null && deleteItemResponse.attributes().containsKey(KEY_PARTITION)) {
-        return Optional.of(convertItemToOutgoingMessageEntity(deleteItemResponse.attributes()));
+        return Optional.of(convertItemToEnvelope(deleteItemResponse.attributes()));
       }
 
       return Optional.empty();
@@ -181,8 +181,8 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   }
 
   @Nonnull
-  private Optional<OutgoingMessageEntity> deleteItemsMatchingQueryAndReturnFirstOneActuallyDeleted(AttributeValue partitionKey, QueryRequest queryRequest) {
-    Optional<OutgoingMessageEntity> result = Optional.empty();
+  private Optional<MessageProtos.Envelope> deleteItemsMatchingQueryAndReturnFirstOneActuallyDeleted(AttributeValue partitionKey, QueryRequest queryRequest) {
+    Optional<MessageProtos.Envelope> result = Optional.empty();
     for (Map<String, AttributeValue> item : db().queryPaginator(queryRequest).items()) {
       final byte[] rangeKeyValue = item.get(KEY_SORT).b().asByteArray();
       DeleteItemRequest.Builder deleteItemRequest = DeleteItemRequest.builder()
@@ -193,7 +193,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
       }
       final DeleteItemResponse deleteItemResponse = db().deleteItem(deleteItemRequest.build());
       if (deleteItemResponse.attributes() != null && deleteItemResponse.attributes().containsKey(KEY_PARTITION)) {
-        result = Optional.of(convertItemToOutgoingMessageEntity(deleteItemResponse.attributes()));
+        result = Optional.of(convertItemToEnvelope(deleteItemResponse.attributes()));
       }
     }
     return result;
@@ -233,19 +233,20 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     });
   }
 
-  private OutgoingMessageEntity convertItemToOutgoingMessageEntity(Map<String, AttributeValue> message) {
-    final SortKey sortKey = convertSortKey(message.get(KEY_SORT).b().asByteArray());
-    final UUID messageUuid = convertLocalIndexMessageUuidSortKey(message.get(LOCAL_INDEX_MESSAGE_UUID_KEY_SORT).b().asByteArray());
-    final int type = AttributeValues.getInt(message, KEY_TYPE, 0);
-    final long timestamp = AttributeValues.getLong(message, KEY_TIMESTAMP, 0L);
-    final String source = AttributeValues.getString(message, KEY_SOURCE, null);
-    final UUID sourceUuid = AttributeValues.getUUID(message, KEY_SOURCE_UUID, null);
-    final int sourceDevice = AttributeValues.getInt(message, KEY_SOURCE_DEVICE, 0);
-    final UUID destinationUuid = AttributeValues.getUUID(message, KEY_DESTINATION_UUID, null);
-    final byte[] content = AttributeValues.getByteArray(message, KEY_CONTENT, null);
-    final UUID updatedPni = AttributeValues.getUUID(message, KEY_UPDATED_PNI, null);
+  private MessageProtos.Envelope convertItemToEnvelope(final Map<String, AttributeValue> item) {
+    final SortKey sortKey = convertSortKey(item.get(KEY_SORT).b().asByteArray());
+    final UUID messageUuid = convertLocalIndexMessageUuidSortKey(item.get(LOCAL_INDEX_MESSAGE_UUID_KEY_SORT).b().asByteArray());
+    final int type = AttributeValues.getInt(item, KEY_TYPE, 0);
+    final long timestamp = AttributeValues.getLong(item, KEY_TIMESTAMP, 0L);
+    final String source = AttributeValues.getString(item, KEY_SOURCE, null);
+    final UUID sourceUuid = AttributeValues.getUUID(item, KEY_SOURCE_UUID, null);
+    final int sourceDevice = AttributeValues.getInt(item, KEY_SOURCE_DEVICE, 0);
+    final UUID destinationUuid = AttributeValues.getUUID(item, KEY_DESTINATION_UUID, null);
+    final byte[] content = AttributeValues.getByteArray(item, KEY_CONTENT, null);
+    final UUID updatedPni = AttributeValues.getUUID(item, KEY_UPDATED_PNI, null);
+
     return new OutgoingMessageEntity(messageUuid, type, timestamp, source, sourceUuid, sourceDevice, destinationUuid,
-        updatedPni, content, sortKey.getServerTimestamp());
+        updatedPni, content, sortKey.getServerTimestamp()).toEnvelope();
   }
 
   private void deleteRowsMatchingQuery(AttributeValue partitionKey, QueryRequest querySpec) {

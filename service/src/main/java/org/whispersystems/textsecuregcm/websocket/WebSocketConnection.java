@@ -48,6 +48,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessageAvailabilityListener;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Constants;
+import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.TimestampHeaderUtil;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
@@ -305,22 +306,25 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
   private void sendNextMessagePage(final boolean cachedMessagesOnly, final CompletableFuture<Void> queueClearedFuture) {
     try {
-      final OutgoingMessageEntityList messages = messagesManager
+      final Pair<List<Envelope>, Boolean> messagesAndHasMore = messagesManager
           .getMessagesForDevice(auth.getAccount().getUuid(), device.getId(), client.getUserAgent(), cachedMessagesOnly);
 
-      final CompletableFuture<?>[] sendFutures = new CompletableFuture[messages.messages().size()];
+      final List<Envelope> messages = messagesAndHasMore.first();
+      final boolean hasMore = messagesAndHasMore.second();
 
-      for (int i = 0; i < messages.messages().size(); i++) {
-        final OutgoingMessageEntity message = messages.messages().get(i);
-        final Envelope envelope = message.toEnvelope();
+      final CompletableFuture<?>[] sendFutures = new CompletableFuture[messages.size()];
+
+      for (int i = 0; i < messages.size(); i++) {
+        final Envelope envelope = messages.get(i);
+        final UUID messageGuid = UUID.fromString(envelope.getServerGuid());
 
         if (envelope.getSerializedSize() > MAX_DESKTOP_MESSAGE_SIZE && isDesktopClient) {
-          messagesManager.delete(auth.getAccount().getUuid(), device.getId(), message.guid(), message.serverTimestamp());
+          messagesManager.delete(auth.getAccount().getUuid(), device.getId(), messageGuid, envelope.getServerTimestamp());
           discardedMessagesMeter.mark();
 
           sendFutures[i] = CompletableFuture.completedFuture(null);
         } else {
-          sendFutures[i] = sendMessage(envelope, Optional.of(new StoredMessageInfo(message.guid(), message.serverTimestamp())));
+          sendFutures[i] = sendMessage(envelope, Optional.of(new StoredMessageInfo(messageGuid, envelope.getServerTimestamp())));
         }
       }
 
@@ -329,7 +333,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
           .orTimeout(sendFuturesTimeoutMillis, TimeUnit.MILLISECONDS)
           .whenComplete((v, cause) -> {
             if (cause == null) {
-              if (messages.more()) {
+              if (hasMore) {
                 sendNextMessagePage(cachedMessagesOnly, queueClearedFuture);
               } else {
                 queueClearedFuture.complete(null);

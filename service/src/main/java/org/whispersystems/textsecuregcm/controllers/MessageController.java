@@ -21,7 +21,6 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -414,11 +413,19 @@ public class MessageController {
       RedisOperation.unchecked(() -> apnFallbackManager.cancel(auth.getAccount(), auth.getAuthenticatedDevice()));
     }
 
-    final OutgoingMessageEntityList outgoingMessages = messagesManager.getMessagesForDevice(
-        auth.getAccount().getUuid(),
-        auth.getAuthenticatedDevice().getId(),
-        userAgent,
-        false);
+    final OutgoingMessageEntityList outgoingMessages;
+    {
+      final Pair<List<Envelope>, Boolean> messagesAndHasMore = messagesManager.getMessagesForDevice(
+          auth.getAccount().getUuid(),
+          auth.getAuthenticatedDevice().getId(),
+          userAgent,
+          false);
+
+      outgoingMessages = new OutgoingMessageEntityList(messagesAndHasMore.first().stream()
+          .map(OutgoingMessageEntity::fromEnvelope)
+          .collect(Collectors.toList()),
+          messagesAndHasMore.second());
+    }
 
     {
       String platform;
@@ -450,24 +457,22 @@ public class MessageController {
   @DELETE
   @Path("/uuid/{uuid}")
   public void removePendingMessage(@Auth AuthenticatedAccount auth, @PathParam("uuid") UUID uuid) {
-    try {
-      Optional<OutgoingMessageEntity> message = messagesManager.delete(
-          auth.getAccount().getUuid(),
-          auth.getAuthenticatedDevice().getId(),
-          uuid,
-          null);
+    messagesManager.delete(
+        auth.getAccount().getUuid(),
+        auth.getAuthenticatedDevice().getId(),
+        uuid,
+        null).ifPresent(deletedMessage -> {
 
-      if (message.isPresent()) {
-        WebSocketConnection.recordMessageDeliveryDuration(message.get().timestamp(), auth.getAuthenticatedDevice());
-        if (!Util.isEmpty(message.get().source())
-            && message.get().type() != Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE) {
-          receiptSender.sendReceipt(auth, message.get().sourceUuid(), message.get().timestamp());
+      WebSocketConnection.recordMessageDeliveryDuration(deletedMessage.getTimestamp(), auth.getAuthenticatedDevice());
+
+      if (deletedMessage.hasSourceUuid() && deletedMessage.getType() != Type.SERVER_DELIVERY_RECEIPT) {
+        try {
+          receiptSender.sendReceipt(auth, UUID.fromString(deletedMessage.getSourceUuid()), deletedMessage.getTimestamp());
+        } catch (Exception e) {
+          logger.warn("Failed to send delivery receipt", e);
         }
       }
-
-    } catch (NoSuchUserException e) {
-      logger.warn("Sending delivery receipt", e);
-    }
+    });
   }
 
   @Timed
