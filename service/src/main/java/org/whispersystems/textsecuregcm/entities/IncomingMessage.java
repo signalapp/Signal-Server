@@ -4,6 +4,6 @@
  */
 package org.whispersystems.textsecuregcm.entities;
 
-public record IncomingMessage(int type, String destination, long destinationDeviceId, int destinationRegistrationId,
+public record IncomingMessage(int type, long destinationDeviceId, int destinationRegistrationId,
                               String content) {
 }

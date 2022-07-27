@@ -155,8 +155,8 @@ public class ChangeNumberManagerTest {
     when(account.getDevices()).thenReturn(devices);
 
     final List<IncomingMessage> messages = List.of(
-        new IncomingMessage(1, null, 2, 1, "foo"),
-        new IncomingMessage(1, null, 3, 1, "foo"));
+        new IncomingMessage(1, 2, 1, "foo"),
+        new IncomingMessage(1, 3, 1, "foo"));
 
     final Map<Long, SignedPreKey> preKeys = Map.of(1L, new SignedPreKey(), 2L, new SignedPreKey(), 3L, new SignedPreKey());
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 47, 3L, 89);
@@ -185,8 +185,8 @@ public class ChangeNumberManagerTest {
     when(account.getDevices()).thenReturn(devices);
 
     final List<IncomingMessage> messages = List.of(
-        new IncomingMessage(1, null, 2, 2, "foo"),
-        new IncomingMessage(1, null, 3, 3, "foo"));
+        new IncomingMessage(1, 2, 2, "foo"),
+        new IncomingMessage(1, 3, 3, "foo"));
 
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 47, 3L, 89);
 
