@@ -310,45 +310,45 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       final OutgoingMessageEntityList messages = messagesManager
           .getMessagesForDevice(auth.getAccount().getUuid(), device.getId(), client.getUserAgent(), cachedMessagesOnly);
 
-      final CompletableFuture<?>[] sendFutures = new CompletableFuture[messages.getMessages().size()];
+      final CompletableFuture<?>[] sendFutures = new CompletableFuture[messages.messages().size()];
 
-      for (int i = 0; i < messages.getMessages().size(); i++) {
-        final OutgoingMessageEntity message = messages.getMessages().get(i);
+      for (int i = 0; i < messages.messages().size(); i++) {
+        final OutgoingMessageEntity message = messages.messages().get(i);
         final Envelope.Builder builder = Envelope.newBuilder()
-            .setType(Envelope.Type.forNumber(message.getType()))
-            .setTimestamp(message.getTimestamp())
-            .setServerTimestamp(message.getServerTimestamp());
+            .setType(Envelope.Type.forNumber(message.type()))
+            .setTimestamp(message.timestamp())
+            .setServerTimestamp(message.serverTimestamp());
 
-        if (!Util.isEmpty(message.getSource())) {
-          builder.setSource(message.getSource())
-              .setSourceDevice(message.getSourceDevice());
-          if (message.getSourceUuid() != null) {
-            builder.setSourceUuid(message.getSourceUuid().toString());
+        if (!Util.isEmpty(message.source())) {
+          builder.setSource(message.source())
+              .setSourceDevice(message.sourceDevice());
+          if (message.sourceUuid() != null) {
+            builder.setSourceUuid(message.sourceUuid().toString());
           }
         }
 
-        if (message.getContent() != null) {
-          builder.setContent(ByteString.copyFrom(message.getContent()));
+        if (message.content() != null) {
+          builder.setContent(ByteString.copyFrom(message.content()));
         }
 
-        builder.setDestinationUuid(message.getDestinationUuid().toString());
+        builder.setDestinationUuid(message.destinationUuid().toString());
 
-        if (message.getUpdatedPni() != null) {
-          builder.setUpdatedPni(message.getUpdatedPni().toString());
+        if (message.updatedPni() != null) {
+          builder.setUpdatedPni(message.updatedPni().toString());
         }
 
-        builder.setServerGuid(message.getGuid().toString());
+        builder.setServerGuid(message.guid().toString());
 
 
         final Envelope envelope = builder.build();
 
         if (envelope.getSerializedSize() > MAX_DESKTOP_MESSAGE_SIZE && isDesktopClient) {
-          messagesManager.delete(auth.getAccount().getUuid(), device.getId(), message.getGuid(), message.getServerTimestamp());
+          messagesManager.delete(auth.getAccount().getUuid(), device.getId(), message.guid(), message.serverTimestamp());
           discardedMessagesMeter.mark();
 
           sendFutures[i] = CompletableFuture.completedFuture(null);
         } else {
-          sendFutures[i] = sendMessage(builder.build(), Optional.of(new StoredMessageInfo(message.getGuid(), message.getServerTimestamp())));
+          sendFutures[i] = sendMessage(builder.build(), Optional.of(new StoredMessageInfo(message.guid(), message.serverTimestamp())));
         }
       }
 
@@ -357,7 +357,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
           .orTimeout(sendFuturesTimeoutMillis, TimeUnit.MILLISECONDS)
           .whenComplete((v, cause) -> {
             if (cause == null) {
-              if (messages.hasMore()) {
+              if (messages.more()) {
                 sendNextMessagePage(cachedMessagesOnly, queueClearedFuture);
               } else {
                 queueClearedFuture.complete(null);

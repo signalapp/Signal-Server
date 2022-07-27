@@ -182,16 +182,16 @@ public class MessageController {
       senderType = SENDER_TYPE_UNIDENTIFIED;
     }
 
-    for (final IncomingMessage message : messages.getMessages()) {
+    for (final IncomingMessage message : messages.messages()) {
 
       int contentLength = 0;
 
-      if (!Util.isEmpty(message.getContent())) {
-        contentLength += message.getContent().length();
+      if (!Util.isEmpty(message.content())) {
+        contentLength += message.content().length();
       }
 
       validateContentLength(contentLength, userAgent);
-      validateEnvelopeType(message.getType(), userAgent);
+      validateEnvelopeType(message.type(), userAgent);
     }
 
     try {
@@ -222,25 +222,25 @@ public class MessageController {
       }
 
       DestinationDeviceValidator.validateCompleteDeviceList(destination.get(),
-          messages.getMessages().stream().map(IncomingMessage::getDestinationDeviceId).collect(Collectors.toSet()),
+          messages.messages().stream().map(IncomingMessage::destinationDeviceId).collect(Collectors.toSet()),
           excludedDeviceIds);
 
       DestinationDeviceValidator.validateRegistrationIds(destination.get(),
-          messages.getMessages(),
-          IncomingMessage::getDestinationDeviceId,
-          IncomingMessage::getDestinationRegistrationId,
+          messages.messages(),
+          IncomingMessage::destinationDeviceId,
+          IncomingMessage::destinationRegistrationId,
           destination.get().getPhoneNumberIdentifier().equals(destinationUuid));
 
       final List<Tag> tags = List.of(UserAgentTagUtil.getPlatformTag(userAgent),
-          Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(messages.isOnline())),
+          Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(messages.online())),
           Tag.of(SENDER_TYPE_TAG_NAME, senderType));
 
-      for (IncomingMessage incomingMessage : messages.getMessages()) {
-        Optional<Device> destinationDevice = destination.get().getDevice(incomingMessage.getDestinationDeviceId());
+      for (IncomingMessage incomingMessage : messages.messages()) {
+        Optional<Device> destinationDevice = destination.get().getDevice(incomingMessage.destinationDeviceId());
 
         if (destinationDevice.isPresent()) {
           Metrics.counter(SENT_MESSAGE_COUNTER_NAME, tags).increment();
-          sendMessage(source, destination.get(), destinationDevice.get(), destinationUuid, messages.getTimestamp(), messages.isOnline(), incomingMessage, userAgent);
+          sendMessage(source, destination.get(), destinationDevice.get(), destinationUuid, messages.timestamp(), messages.online(), incomingMessage, userAgent);
         }
       }
 
@@ -438,9 +438,9 @@ public class MessageController {
   private static long estimateMessageListSizeBytes(final OutgoingMessageEntityList messageList) {
     long size = 0;
 
-    for (final OutgoingMessageEntity message : messageList.getMessages()) {
-      size += message.getContent() == null      ? 0 : message.getContent().length;
-      size += Util.isEmpty(message.getSource()) ? 0 : message.getSource().length();
+    for (final OutgoingMessageEntity message : messageList.messages()) {
+      size += message.content() == null      ? 0 : message.content().length;
+      size += Util.isEmpty(message.source()) ? 0 : message.source().length();
     }
 
     return size;
@@ -458,10 +458,10 @@ public class MessageController {
           null);
 
       if (message.isPresent()) {
-        WebSocketConnection.recordMessageDeliveryDuration(message.get().getTimestamp(), auth.getAuthenticatedDevice());
-        if (!Util.isEmpty(message.get().getSource())
-            && message.get().getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE) {
-          receiptSender.sendReceipt(auth, message.get().getSourceUuid(), message.get().getTimestamp());
+        WebSocketConnection.recordMessageDeliveryDuration(message.get().timestamp(), auth.getAuthenticatedDevice());
+        if (!Util.isEmpty(message.get().source())
+            && message.get().type() != Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE) {
+          receiptSender.sendReceipt(auth, message.get().sourceUuid(), message.get().timestamp());
         }
       }
 
@@ -523,10 +523,10 @@ public class MessageController {
       Optional<byte[]> messageContent = getMessageContent(incomingMessage);
       Envelope.Builder messageBuilder = Envelope.newBuilder();
 
-      final Envelope.Type envelopeType = Envelope.Type.forNumber(incomingMessage.getType());
+      final Envelope.Type envelopeType = Envelope.Type.forNumber(incomingMessage.type());
 
       if (envelopeType == null) {
-        logger.warn("Received bad envelope type {} from {}", incomingMessage.getType(), userAgentString);
+        logger.warn("Received bad envelope type {} from {}", incomingMessage.type(), userAgentString);
         throw new BadRequestException();
       }
 
@@ -621,10 +621,10 @@ public class MessageController {
   }
 
   public static Optional<byte[]> getMessageContent(IncomingMessage message) {
-    if (Util.isEmpty(message.getContent())) return Optional.empty();
+    if (Util.isEmpty(message.content())) return Optional.empty();
 
     try {
-      return Optional.of(Base64.getDecoder().decode(message.getContent()));
+      return Optional.of(Base64.getDecoder().decode(message.content()));
     } catch (IllegalArgumentException e) {
       logger.debug("Bad B64", e);
       return Optional.empty();

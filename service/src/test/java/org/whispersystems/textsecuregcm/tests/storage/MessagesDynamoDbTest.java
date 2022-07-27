@@ -194,15 +194,15 @@ class MessagesDynamoDbTest {
   }
 
   private static void verify(OutgoingMessageEntity retrieved, MessageProtos.Envelope inserted) {
-    assertThat(retrieved.getTimestamp()).isEqualTo(inserted.getTimestamp());
-    assertThat(retrieved.getSource()).isEqualTo(inserted.hasSource() ? inserted.getSource() : null);
-    assertThat(retrieved.getSourceUuid()).isEqualTo(inserted.hasSourceUuid() ? UUID.fromString(inserted.getSourceUuid()) : null);
-    assertThat(retrieved.getSourceDevice()).isEqualTo(inserted.getSourceDevice());
-    assertThat(retrieved.getType()).isEqualTo(inserted.getType().getNumber());
-    assertThat(retrieved.getContent()).isEqualTo(inserted.hasContent() ? inserted.getContent().toByteArray() : null);
-    assertThat(retrieved.getServerTimestamp()).isEqualTo(inserted.getServerTimestamp());
-    assertThat(retrieved.getGuid()).isEqualTo(UUID.fromString(inserted.getServerGuid()));
-    assertThat(retrieved.getDestinationUuid()).isEqualTo(UUID.fromString(inserted.getDestinationUuid()));
+    assertThat(retrieved.timestamp()).isEqualTo(inserted.getTimestamp());
+    assertThat(retrieved.source()).isEqualTo(inserted.hasSource() ? inserted.getSource() : null);
+    assertThat(retrieved.sourceUuid()).isEqualTo(inserted.hasSourceUuid() ? UUID.fromString(inserted.getSourceUuid()) : null);
+    assertThat(retrieved.sourceDevice()).isEqualTo(inserted.getSourceDevice());
+    assertThat(retrieved.type()).isEqualTo(inserted.getType().getNumber());
+    assertThat(retrieved.content()).isEqualTo(inserted.hasContent() ? inserted.getContent().toByteArray() : null);
+    assertThat(retrieved.serverTimestamp()).isEqualTo(inserted.getServerTimestamp());
+    assertThat(retrieved.guid()).isEqualTo(UUID.fromString(inserted.getServerGuid()));
+    assertThat(retrieved.destinationUuid()).isEqualTo(UUID.fromString(inserted.getDestinationUuid()));
   }
 
   private static VerifyMessage verify(MessageProtos.Envelope expected) {

@@ -64,7 +64,6 @@ import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator.AuthenticationResult;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
-import javax.annotation.Nullable;
 
 class WebSocketConnectionTest {
 
@@ -208,7 +207,7 @@ class WebSocketConnectionTest {
     futures.get(0).completeExceptionally(new IOException());
     futures.get(2).completeExceptionally(new IOException());
 
-    verify(storedMessages, times(1)).delete(eq(accountUuid), eq(2L), eq(outgoingMessages.get(1).getGuid()), eq(outgoingMessages.get(1).getServerTimestamp()));
+    verify(storedMessages, times(1)).delete(eq(accountUuid), eq(2L), eq(outgoingMessages.get(1).guid()), eq(outgoingMessages.get(1).serverTimestamp()));
     verify(receiptSender, times(1)).sendReceipt(eq(auth), eq(senderOneUuid), eq(2222L));
 
     connection.stop();

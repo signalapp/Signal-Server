@@ -17,7 +17,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
-import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.StaleDevicesException;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
@@ -25,7 +24,7 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
-import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 
 public class ChangeNumberManager {
   private static final Logger logger = LoggerFactory.getLogger(AccountController.class);
@@ -55,14 +54,14 @@ public class ChangeNumberManager {
       // Check that all except master ID are in device messages
       DestinationDeviceValidator.validateCompleteDeviceList(
           account,
-          deviceMessages.stream().map(IncomingMessage::getDestinationDeviceId).collect(Collectors.toSet()),
+          deviceMessages.stream().map(IncomingMessage::destinationDeviceId).collect(Collectors.toSet()),
           Set.of(Device.MASTER_ID));
 
       DestinationDeviceValidator.validateRegistrationIds(
           account,
           deviceMessages,
-          IncomingMessage::getDestinationDeviceId,
-          IncomingMessage::getDestinationRegistrationId,
+          IncomingMessage::destinationDeviceId,
+          IncomingMessage::destinationRegistrationId,
           false);
     } else if (!ObjectUtils.allNull(pniIdentityKey, deviceSignedPreKeys, deviceMessages, pniRegistrationIds)) {
       throw new IllegalArgumentException("PNI identity key, signed pre-keys, device messages, and registration IDs must be all null or all non-null");
@@ -83,7 +82,7 @@ public class ChangeNumberManager {
     // around the server crashed at/above this point.
     if (deviceMessages != null) {
       deviceMessages.forEach(message ->
-          sendMessageToSelf(updatedAccount, updatedAccount.getDevice(message.getDestinationDeviceId()), message));
+          sendMessageToSelf(updatedAccount, updatedAccount.getDevice(message.destinationDeviceId()), message));
     }
 
     return updatedAccount;
@@ -103,7 +102,7 @@ public class ChangeNumberManager {
     try {
       long serverTimestamp = System.currentTimeMillis();
       Envelope envelope = Envelope.newBuilder()
-          .setType(Envelope.Type.forNumber(message.getType()))
+          .setType(Envelope.Type.forNumber(message.type()))
           .setTimestamp(serverTimestamp)
           .setServerTimestamp(serverTimestamp)
           .setDestinationUuid(sourceAndDestinationAccount.getUuid().toString())

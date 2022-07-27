@@ -391,19 +391,19 @@ class MessageControllerTest {
             .accept(MediaType.APPLICATION_JSON_TYPE)
             .get(OutgoingMessageEntityList.class);
 
-    assertEquals(response.getMessages().size(), 2);
+    assertEquals(response.messages().size(), 2);
 
-    assertEquals(response.getMessages().get(0).getTimestamp(), timestampOne);
-    assertEquals(response.getMessages().get(1).getTimestamp(), timestampTwo);
+    assertEquals(response.messages().get(0).timestamp(), timestampOne);
+    assertEquals(response.messages().get(1).timestamp(), timestampTwo);
 
-    assertEquals(response.getMessages().get(0).getGuid(), messageGuidOne);
-    assertNull(response.getMessages().get(1).getGuid());
+    assertEquals(response.messages().get(0).guid(), messageGuidOne);
+    assertNull(response.messages().get(1).guid());
 
-    assertEquals(response.getMessages().get(0).getSourceUuid(), sourceUuid);
-    assertEquals(response.getMessages().get(1).getSourceUuid(), sourceUuid);
+    assertEquals(response.messages().get(0).sourceUuid(), sourceUuid);
+    assertEquals(response.messages().get(1).sourceUuid(), sourceUuid);
 
-    assertEquals(updatedPniOne, response.getMessages().get(0).getUpdatedPni());
-    assertNull(response.getMessages().get(1).getUpdatedPni());
+    assertEquals(updatedPniOne, response.messages().get(0).updatedPni());
+    assertNull(response.messages().get(1).updatedPni());
   }
 
   @Test

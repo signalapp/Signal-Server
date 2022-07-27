@@ -116,8 +116,8 @@ public class ChangeNumberManagerTest {
     final Map<Long, Integer> registrationIds = Map.of(1L, 17, 2L, 19);
 
     final IncomingMessage msg = mock(IncomingMessage.class);
-    when(msg.getDestinationDeviceId()).thenReturn(2L);
-    when(msg.getContent()).thenReturn(Base64.encodeBase64String(new byte[]{1}));
+    when(msg.destinationDeviceId()).thenReturn(2L);
+    when(msg.content()).thenReturn(Base64.encodeBase64String(new byte[]{1}));
 
     changeNumberManager.changeNumber(account, changedE164, pniIdentityKey, prekeys, List.of(msg), registrationIds);
 
