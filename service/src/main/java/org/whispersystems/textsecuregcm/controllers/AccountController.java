@@ -446,9 +446,9 @@ public class AccountController {
           authenticatedAccount.getAccount(),
           request.number(),
           request.pniIdentityKey(),
-          Optional.ofNullable(request.devicePniSignedPrekeys()).orElse(Collections.emptyMap()),
-          Optional.ofNullable(request.deviceMessages()).orElse(Collections.emptyList()),
-          Optional.ofNullable(request.pniRegistrationIds()).orElse(Collections.emptyMap()));
+          request.devicePniSignedPrekeys(),
+          request.deviceMessages(),
+          request.pniRegistrationIds());
 
       return new AccountIdentityResponse(
           updatedAccount.getUuid(),
