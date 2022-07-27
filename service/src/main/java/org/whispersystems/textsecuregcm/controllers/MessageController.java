@@ -22,6 +22,7 @@ import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -90,6 +91,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
+import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
@@ -226,9 +228,9 @@ public class MessageController {
           excludedDeviceIds);
 
       DestinationDeviceValidator.validateRegistrationIds(destination.get(),
-          messages.getMessages().stream().collect(Collectors.toMap(
-              IncomingMessage::getDestinationDeviceId,
-              IncomingMessage::getDestinationRegistrationId)),
+          messages.getMessages(),
+          IncomingMessage::getDestinationDeviceId,
+          IncomingMessage::getDestinationRegistrationId,
           destination.get().getPhoneNumberIdentifier().equals(destinationUuid));
 
       final List<Tag> tags = List.of(UserAgentTagUtil.getPlatformTag(userAgent),
@@ -333,9 +335,9 @@ public class MessageController {
 
       DestinationDeviceValidator.validateRegistrationIds(
           destination.get(),
-          Arrays.stream(messages).collect(Collectors.toMap(
-              IncomingDeviceMessage::getDeviceId,
-              IncomingDeviceMessage::getRegistrationId)),
+          Arrays.stream(messages).toList(),
+          IncomingDeviceMessage::getDeviceId,
+          IncomingDeviceMessage::getRegistrationId,
           destination.get().getPhoneNumberIdentifier().equals(destinationUuid));
 
       final List<Tag> tags = List.of(UserAgentTagUtil.getPlatformTag(userAgent),
@@ -395,29 +397,33 @@ public class MessageController {
         }));
     checkAccessKeys(accessKeys, uuidToAccountMap);
 
-    final Map<Account, Map<Long, Integer>> accountToDeviceIdAndRegistrationIdMap = Arrays.stream(multiRecipientMessage.getRecipients())
-        .collect(Collectors.toMap(
-            recipient -> uuidToAccountMap.get(recipient.getUuid()),
-            recipient -> Map.of(recipient.getDeviceId(), recipient.getRegistrationId()),
-            (a, b) -> {
-              final Map<Long, Integer> combined = new HashMap<>();
-              combined.putAll(a);
-              combined.putAll(b);
-
-              return combined;
-            }
-        ));
+    final Map<Account, HashSet<Pair<Long, Integer>>> accountToDeviceIdAndRegistrationIdMap =
+        Arrays
+            .stream(multiRecipientMessage.getRecipients())
+            .collect(Collectors.toMap(
+                recipient -> uuidToAccountMap.get(recipient.getUuid()),
+                recipient -> new HashSet<>(
+                    Collections.singletonList(new Pair<>(recipient.getDeviceId(), recipient.getRegistrationId()))),
+                (a, b) -> {
+                  a.addAll(b);
+                  return a;
+                }
+            ));
 
     Collection<AccountMismatchedDevices> accountMismatchedDevices = new ArrayList<>();
     Collection<AccountStaleDevices> accountStaleDevices = new ArrayList<>();
     uuidToAccountMap.values().forEach(account -> {
-      final Set<Long> deviceIds = accountToDeviceIdAndRegistrationIdMap.get(account).keySet();
+      final Set<Long> deviceIds = accountToDeviceIdAndRegistrationIdMap.get(account).stream().map(Pair::first)
+          .collect(Collectors.toSet());
       try {
         DestinationDeviceValidator.validateCompleteDeviceList(account, deviceIds, Collections.emptySet());
 
         // Multi-recipient messages are always sealed-sender messages, and so can never be sent to a phone number
         // identity
-        DestinationDeviceValidator.validateRegistrationIds(account, accountToDeviceIdAndRegistrationIdMap.get(account), false);
+        DestinationDeviceValidator.validateRegistrationIds(
+            account,
+            accountToDeviceIdAndRegistrationIdMap.get(account).stream(),
+            false);
       } catch (MismatchedDevicesException e) {
         accountMismatchedDevices.add(new AccountMismatchedDevices(account.getUuid(),
             new MismatchedDevices(e.getMissingDevices(), e.getExtraDevices())));

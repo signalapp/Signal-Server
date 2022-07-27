@@ -84,10 +84,17 @@ class DestinationDeviceValidatorTest {
       Set<Long> expectedStaleDeviceIds) throws Exception {
     if (expectedStaleDeviceIds != null) {
       Assertions.assertThat(assertThrows(StaleDevicesException.class,
-          () -> DestinationDeviceValidator.validateRegistrationIds(account, registrationIdsByDeviceId, false)).getStaleDevices())
+              () -> DestinationDeviceValidator.validateRegistrationIds(
+                  account,
+                  registrationIdsByDeviceId.entrySet(),
+                  Map.Entry::getKey,
+                  Map.Entry::getValue,
+                  false))
+              .getStaleDevices())
           .hasSameElementsAs(expectedStaleDeviceIds);
     } else {
-      DestinationDeviceValidator.validateRegistrationIds(account, registrationIdsByDeviceId, false);
+      DestinationDeviceValidator.validateRegistrationIds(account, registrationIdsByDeviceId.entrySet(),
+          Map.Entry::getKey, Map.Entry::getValue, false);
     }
   }
 
@@ -184,6 +191,18 @@ class DestinationDeviceValidatorTest {
   }
 
   @Test
+  void testDuplicateDeviceIds() {
+    final Account account = mockAccountWithDeviceAndRegId(Map.of(Device.MASTER_ID, 17));
+    try {
+      DestinationDeviceValidator.validateRegistrationIds(account,
+          Stream.of(new Pair<>(Device.MASTER_ID, 16), new Pair<>(Device.MASTER_ID, 17)), false);
+      Assertions.fail("duplicate devices should throw StaleDevicesException");
+    } catch (StaleDevicesException e) {
+      Assertions.assertThat(e.getStaleDevices()).hasSameElementsAs(Collections.singletonList(Device.MASTER_ID));
+    }
+  }
+
+  @Test
   void testValidatePniRegistrationIds() {
     final Device device = mock(Device.class);
     when(device.getId()).thenReturn(Device.MASTER_ID);
@@ -199,16 +218,35 @@ class DestinationDeviceValidatorTest {
     when(device.getRegistrationId()).thenReturn(aciRegistrationId);
     when(device.getPhoneNumberIdentityRegistrationId()).thenReturn(OptionalInt.of(pniRegistrationId));
 
-    assertDoesNotThrow(() -> DestinationDeviceValidator.validateRegistrationIds(account, Map.of(Device.MASTER_ID, aciRegistrationId), false));
-    assertDoesNotThrow(() -> DestinationDeviceValidator.validateRegistrationIds(account, Map.of(Device.MASTER_ID, pniRegistrationId), true));
-    assertThrows(StaleDevicesException.class, () -> DestinationDeviceValidator.validateRegistrationIds(account, Map.of(Device.MASTER_ID, aciRegistrationId), true));
-    assertThrows(StaleDevicesException.class, () -> DestinationDeviceValidator.validateRegistrationIds(account, Map.of(Device.MASTER_ID, pniRegistrationId), false));
+    assertDoesNotThrow(
+        () -> DestinationDeviceValidator.validateRegistrationIds(account,
+            Stream.of(new Pair<>(Device.MASTER_ID, aciRegistrationId)), false));
+    assertDoesNotThrow(
+        () -> DestinationDeviceValidator.validateRegistrationIds(account,
+            Stream.of(new Pair<>(Device.MASTER_ID, pniRegistrationId)),
+            true));
+    assertThrows(StaleDevicesException.class,
+        () -> DestinationDeviceValidator.validateRegistrationIds(account,
+            Stream.of(new Pair<>(Device.MASTER_ID, aciRegistrationId)),
+            true));
+    assertThrows(StaleDevicesException.class,
+        () -> DestinationDeviceValidator.validateRegistrationIds(account,
+            Stream.of(new Pair<>(Device.MASTER_ID, pniRegistrationId)),
+            false));
 
     when(device.getPhoneNumberIdentityRegistrationId()).thenReturn(OptionalInt.empty());
 
-    assertDoesNotThrow(() -> DestinationDeviceValidator.validateRegistrationIds(account, Map.of(Device.MASTER_ID, aciRegistrationId), false));
-    assertDoesNotThrow(() -> DestinationDeviceValidator.validateRegistrationIds(account, Map.of(Device.MASTER_ID, aciRegistrationId), true));
-    assertThrows(StaleDevicesException.class, () -> DestinationDeviceValidator.validateRegistrationIds(account, Map.of(Device.MASTER_ID, incorrectRegistrationId), true));
-    assertThrows(StaleDevicesException.class, () -> DestinationDeviceValidator.validateRegistrationIds(account, Map.of(Device.MASTER_ID, incorrectRegistrationId), false));
+    assertDoesNotThrow(
+        () -> DestinationDeviceValidator.validateRegistrationIds(account,
+            Stream.of(new Pair<>(Device.MASTER_ID, aciRegistrationId)),
+            false));
+    assertDoesNotThrow(
+        () -> DestinationDeviceValidator.validateRegistrationIds(account,
+            Stream.of(new Pair<>(Device.MASTER_ID, aciRegistrationId)),
+            true));
+    assertThrows(StaleDevicesException.class, () -> DestinationDeviceValidator.validateRegistrationIds(account,
+        Stream.of(new Pair<>(Device.MASTER_ID, incorrectRegistrationId)), true));
+    assertThrows(StaleDevicesException.class, () -> DestinationDeviceValidator.validateRegistrationIds(account,
+        Stream.of(new Pair<>(Device.MASTER_ID, incorrectRegistrationId)), false));
   }
 }

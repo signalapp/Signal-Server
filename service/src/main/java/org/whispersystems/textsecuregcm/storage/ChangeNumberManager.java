@@ -25,6 +25,7 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
+import org.whispersystems.textsecuregcm.util.Pair;
 
 public class ChangeNumberManager {
   private static final Logger logger = LoggerFactory.getLogger(AccountController.class);
@@ -59,10 +60,9 @@ public class ChangeNumberManager {
 
       DestinationDeviceValidator.validateRegistrationIds(
           account,
-          deviceMessages.stream()
-              .collect(Collectors.toMap(
-                  IncomingMessage::getDestinationDeviceId,
-                  IncomingMessage::getDestinationRegistrationId)),
+          deviceMessages,
+          IncomingMessage::getDestinationDeviceId,
+          IncomingMessage::getDestinationRegistrationId,
           false);
     } else if (!ObjectUtils.allNull(pniIdentityKey, deviceSignedPreKeys, deviceMessages, pniRegistrationIds)) {
       throw new IllegalArgumentException("PNI identity key, signed pre-keys, device messages, and registration IDs must be all null or all non-null");
