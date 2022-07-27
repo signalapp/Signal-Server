@@ -152,7 +152,7 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
         configuration.getDynamoDbTables().getKeys().getTableName());
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient,
         configuration.getDynamoDbTables().getMessages().getTableName(),
-        configuration.getDynamoDbTables().getMessages().getExpiration(), dynamicConfigurationManager);
+        configuration.getDynamoDbTables().getMessages().getExpiration());
     FaultTolerantRedisCluster messageInsertCacheCluster = new FaultTolerantRedisCluster("message_insert_cluster",
         configuration.getMessageCacheConfiguration().getRedisClusterConfiguration(), redisClusterClientResources);
     FaultTolerantRedisCluster messageReadDeleteCluster = new FaultTolerantRedisCluster("message_read_delete_cluster",

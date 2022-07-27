@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.storage;
 import static com.codahale.metrics.MetricRegistry.name;
 import static io.micrometer.core.instrument.Metrics.timer;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.micrometer.core.instrument.Counter;
@@ -24,7 +25,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
@@ -48,16 +48,33 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   private static final String LOCAL_INDEX_MESSAGE_UUID_NAME = "Message_UUID_Index";
   private static final String LOCAL_INDEX_MESSAGE_UUID_KEY_SORT = "U";
 
-  private static final String KEY_TYPE = "T";
-  private static final String KEY_TIMESTAMP = "TS";
-  private static final String KEY_SOURCE = "SN";
-  private static final String KEY_SOURCE_UUID = "SU";
-  private static final String KEY_SOURCE_DEVICE = "SD";
-  private static final String KEY_DESTINATION_UUID = "DU";
-  private static final String KEY_UPDATED_PNI = "UP";
-  private static final String KEY_CONTENT = "C";
   private static final String KEY_TTL = "E";
   private static final String KEY_ENVELOPE_BYTES = "EB";
+
+  // TODO Stop reading messages by attribute value after DATE
+  @Deprecated
+  private static final String KEY_TYPE = "T";
+
+  @Deprecated
+  private static final String KEY_TIMESTAMP = "TS";
+
+  @Deprecated
+  private static final String KEY_SOURCE = "SN";
+
+  @Deprecated
+  private static final String KEY_SOURCE_UUID = "SU";
+
+  @Deprecated
+  private static final String KEY_SOURCE_DEVICE = "SD";
+
+  @Deprecated
+  private static final String KEY_DESTINATION_UUID = "DU";
+
+  @Deprecated
+  private static final String KEY_UPDATED_PNI = "UP";
+
+  @Deprecated
+  private static final String KEY_CONTENT = "C";
 
   private final Timer storeTimer = timer(name(getClass(), "store"));
   private final Timer loadTimer = timer(name(getClass(), "load"));
@@ -69,20 +86,16 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   private final String tableName;
   private final Duration timeToLive;
 
-  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
-
   private static final Counter GET_MESSAGE_WITH_ATTRIBUTES_COUNTER = Metrics.counter(name(MessagesDynamoDb.class, "loadMessage"), "format", "attributes");
   private static final Counter GET_MESSAGE_WITH_ENVELOPE_COUNTER = Metrics.counter(name(MessagesDynamoDb.class, "loadMessage"), "format", "envelope");
 
   private static final Logger logger = LoggerFactory.getLogger(MessagesDynamoDb.class);
 
-  public MessagesDynamoDb(DynamoDbClient dynamoDb, String tableName, Duration timeToLive,
-      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+  public MessagesDynamoDb(DynamoDbClient dynamoDb, String tableName, Duration timeToLive) {
     super(dynamoDb);
 
     this.tableName = tableName;
     this.timeToLive = timeToLive;
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
   public void store(final List<MessageProtos.Envelope> messages, final UUID destinationAccountUuid, final long destinationDeviceId) {
@@ -103,31 +116,8 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
           .put(KEY_PARTITION, partitionKey)
           .put(KEY_SORT, convertSortKey(destinationDeviceId, message.getServerTimestamp(), messageUuid))
           .put(LOCAL_INDEX_MESSAGE_UUID_KEY_SORT, convertLocalIndexMessageUuidSortKey(messageUuid))
-          .put(KEY_TTL, AttributeValues.fromLong(getTtlForMessage(message)));
-
-      if (dynamicConfigurationManager.getConfiguration().getMessageTableConfiguration().isWriteEnvelopes()) {
-        item.put(KEY_ENVELOPE_BYTES, AttributeValue.builder().b(SdkBytes.fromByteArray(message.toByteArray())).build());
-      } else {
-        item.put(KEY_TYPE, AttributeValues.fromInt(message.getType().getNumber()))
-            .put(KEY_TIMESTAMP, AttributeValues.fromLong(message.getTimestamp()))
-            .put(KEY_DESTINATION_UUID, AttributeValues.fromUUID(UUID.fromString(message.getDestinationUuid())));
-
-        if (message.hasUpdatedPni()) {
-          item.put(KEY_UPDATED_PNI, AttributeValues.fromUUID(UUID.fromString(message.getUpdatedPni())));
-        }
-        if (message.hasSource()) {
-          item.put(KEY_SOURCE, AttributeValues.fromString(message.getSource()));
-        }
-        if (message.hasSourceUuid()) {
-          item.put(KEY_SOURCE_UUID, AttributeValues.fromUUID(UUID.fromString(message.getSourceUuid())));
-        }
-        if (message.hasSourceDevice()) {
-          item.put(KEY_SOURCE_DEVICE, AttributeValues.fromInt(message.getSourceDevice()));
-        }
-        if (message.hasContent()) {
-          item.put(KEY_CONTENT, AttributeValues.fromByteArray(message.getContent().toByteArray()));
-        }
-      }
+          .put(KEY_TTL, AttributeValues.fromLong(getTtlForMessage(message)))
+          .put(KEY_ENVELOPE_BYTES, AttributeValue.builder().b(SdkBytes.fromByteArray(message.toByteArray())).build());
 
       writeItems.add(WriteRequest.builder().putRequest(PutRequest.builder()
           .item(item.build())
@@ -272,7 +262,8 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     });
   }
 
-  private MessageProtos.Envelope convertItemToEnvelope(final Map<String, AttributeValue> item)
+  @VisibleForTesting
+  static MessageProtos.Envelope convertItemToEnvelope(final Map<String, AttributeValue> item)
       throws InvalidProtocolBufferException {
     final MessageProtos.Envelope envelope;
 

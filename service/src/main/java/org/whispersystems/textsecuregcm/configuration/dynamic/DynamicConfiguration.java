@@ -64,10 +64,6 @@ public class DynamicConfiguration {
   @Valid
   DynamicMessagePersisterConfiguration messagePersister = new DynamicMessagePersisterConfiguration();
 
-  @JsonProperty
-  @Valid
-  DynamicMessageTableConfiguration messageTable = new DynamicMessageTableConfiguration();
-
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -129,9 +125,5 @@ public class DynamicConfiguration {
 
   public DynamicMessagePersisterConfiguration getMessagePersisterConfiguration() {
     return messagePersister;
-  }
-
-  public DynamicMessageTableConfiguration getMessageTableConfiguration() {
-    return messageTable;
   }
 }

@@ -6,8 +6,6 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
 import java.time.Duration;
@@ -17,10 +15,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessageTableConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.tests.util.MessagesDynamoDbExtension;
 
@@ -67,7 +61,6 @@ class MessagesDynamoDbTest {
     MESSAGE3 = builder.build();
   }
 
-  private DynamicMessageTableConfiguration dynamicMessageTableConfiguration;
   private MessagesDynamoDb messagesDynamoDb;
 
 
@@ -76,24 +69,12 @@ class MessagesDynamoDbTest {
 
   @BeforeEach
   void setup() {
-    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
-        mock(DynamicConfigurationManager.class);
-
-    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    dynamicMessageTableConfiguration = mock(DynamicMessageTableConfiguration.class);
-
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
-    when(dynamicConfiguration.getMessageTableConfiguration()).thenReturn(dynamicMessageTableConfiguration);
-
     messagesDynamoDb = new MessagesDynamoDb(dynamoDbExtension.getDynamoDbClient(), MessagesDynamoDbExtension.TABLE_NAME,
-        Duration.ofDays(14), dynamicConfigurationManager);
+        Duration.ofDays(14));
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testSimpleFetchAfterInsert(final boolean writeEnvelopes) {
-    when(dynamicMessageTableConfiguration.isWriteEnvelopes()).thenReturn(writeEnvelopes);
-
+  @Test
+  void testSimpleFetchAfterInsert() {
     final UUID destinationUuid = UUID.randomUUID();
     final int destinationDeviceId = random.nextInt(255) + 1;
     messagesDynamoDb.store(List.of(MESSAGE1, MESSAGE2, MESSAGE3), destinationUuid, destinationDeviceId);
