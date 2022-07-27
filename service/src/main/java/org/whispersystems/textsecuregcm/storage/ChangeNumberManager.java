@@ -64,8 +64,8 @@ public class ChangeNumberManager {
                   IncomingMessage::getDestinationDeviceId,
                   IncomingMessage::getDestinationRegistrationId)),
           false);
-    } else if (!ObjectUtils.allNull(deviceSignedPreKeys, deviceMessages, pniRegistrationIds)) {
-      throw new IllegalArgumentException("Signed pre-keys, device messages, and registration IDs must be all null or all non-null");
+    } else if (!ObjectUtils.allNull(pniIdentityKey, deviceSignedPreKeys, deviceMessages, pniRegistrationIds)) {
+      throw new IllegalArgumentException("PNI identity key, signed pre-keys, device messages, and registration IDs must be all null or all non-null");
     }
 
     final Account updatedAccount;
