@@ -1,26 +1,26 @@
 /*
- * Copyright 2021 Signal Messenger, LLC
+ * Copyright 2013-2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-package org.whispersystems.textsecuregcm.tests.storage;
+package org.whispersystems.textsecuregcm.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.google.protobuf.ByteString;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
-import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
-import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
-import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.tests.util.MessagesDynamoDbExtension;
+import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 
 class MessagesDynamoDbTest {
 
@@ -92,6 +92,31 @@ class MessagesDynamoDbTest {
     assertThat(messagesStored).element(0).isEqualTo(firstMessage);
     assertThat(messagesStored).element(1).isEqualTo(secondMessage);
     assertThat(messagesStored).element(2).isEqualTo(MESSAGE2);
+  }
+
+  @Test
+  void testFetchBareEnvelope() {
+    final UUID destinationUuid = UUID.randomUUID();
+    final long destinationDeviceId = Device.MASTER_ID;
+    final long serverTimestamp = System.currentTimeMillis();
+    final UUID messageGuid = UUID.randomUUID();
+
+    final MessageProtos.Envelope envelope = MessageProtos.Envelope.newBuilder()
+        .setServerGuid(messageGuid.toString())
+        .setDestinationUuid(destinationUuid.toString())
+        .setServerTimestamp(serverTimestamp)
+        .build();
+
+    dynamoDbExtension.getDynamoDbClient().putItem(PutItemRequest.builder()
+            .tableName(dynamoDbExtension.getTableName())
+            .item(Map.of(
+                MessagesDynamoDb.KEY_PARTITION, MessagesDynamoDb.convertPartitionKey(destinationUuid),
+                MessagesDynamoDb.KEY_SORT, MessagesDynamoDb.convertSortKey(destinationDeviceId, serverTimestamp, messageGuid),
+                MessagesDynamoDb.KEY_ENVELOPE_BYTES, AttributeValue.builder().b(SdkBytes.fromByteArray(envelope.toByteArray())).build()))
+        .build());
+
+    assertThat(messagesDynamoDb.load(destinationUuid, destinationDeviceId, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE))
+        .isEqualTo(List.of(envelope));
   }
 
   @Test
