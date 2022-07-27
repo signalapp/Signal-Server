@@ -5,8 +5,8 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.protobuf.ByteString;
+import org.apache.commons.lang3.StringUtils;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.UUID;
@@ -14,6 +14,34 @@ import java.util.UUID;
 public record OutgoingMessageEntity(UUID guid, int type, long timestamp, String source, UUID sourceUuid,
                                     int sourceDevice, UUID destinationUuid, UUID updatedPni, byte[] content,
                                     long serverTimestamp) {
+
+  public MessageProtos.Envelope toEnvelope() {
+    final MessageProtos.Envelope.Builder builder = MessageProtos.Envelope.newBuilder()
+        .setType(MessageProtos.Envelope.Type.forNumber(type()))
+        .setTimestamp(timestamp())
+        .setServerTimestamp(serverTimestamp())
+        .setDestinationUuid(destinationUuid().toString())
+        .setServerGuid(guid().toString());
+
+    if (StringUtils.isNotEmpty(source())) {
+      builder.setSource(source())
+          .setSourceDevice(sourceDevice());
+
+      if (sourceUuid() != null) {
+        builder.setSourceUuid(sourceUuid().toString());
+      }
+    }
+
+    if (content() != null) {
+      builder.setContent(ByteString.copyFrom(content()));
+    }
+
+    if (updatedPni() != null) {
+      builder.setUpdatedPni(updatedPni().toString());
+    }
+
+    return builder.build();
+  }
 
   @Override
   public boolean equals(final Object o) {

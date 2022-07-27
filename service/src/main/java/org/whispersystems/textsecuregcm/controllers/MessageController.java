@@ -520,29 +520,19 @@ public class MessageController {
       String userAgentString)
       throws NoSuchUserException {
     try {
-      Optional<byte[]> messageContent = getMessageContent(incomingMessage);
-      Envelope.Builder messageBuilder = Envelope.newBuilder();
+      final Envelope envelope;
 
-      final Envelope.Type envelopeType = Envelope.Type.forNumber(incomingMessage.type());
-
-      if (envelopeType == null) {
+      try {
+        envelope = incomingMessage.toEnvelope(destinationUuid,
+            source.map(AuthenticatedAccount::getAccount).orElse(null),
+            source.map(authenticatedAccount -> authenticatedAccount.getAuthenticatedDevice().getId()).orElse(null),
+            timestamp == 0 ? System.currentTimeMillis() : timestamp);
+      } catch (final IllegalArgumentException e) {
         logger.warn("Received bad envelope type {} from {}", incomingMessage.type(), userAgentString);
-        throw new BadRequestException();
+        throw new BadRequestException(e);
       }
 
-      messageBuilder.setType(envelopeType)
-          .setTimestamp(timestamp == 0 ? System.currentTimeMillis() : timestamp)
-          .setServerTimestamp(System.currentTimeMillis())
-          .setDestinationUuid(destinationUuid.toString());
-
-      source.ifPresent(authenticatedAccount ->
-          messageBuilder.setSource(authenticatedAccount.getAccount().getNumber())
-              .setSourceUuid(authenticatedAccount.getAccount().getUuid().toString())
-              .setSourceDevice((int) authenticatedAccount.getAuthenticatedDevice().getId()));
-
-      messageContent.ifPresent(bytes -> messageBuilder.setContent(ByteString.copyFrom(bytes)));
-
-      messageSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build(), online);
+      messageSender.sendMessage(destinationAccount, destinationDevice, envelope, online);
     } catch (NotPushRegisteredException e) {
       if (destinationDevice.isMaster()) throw new NoSuchUserException(e);
       else                              logger.debug("Not registered", e);

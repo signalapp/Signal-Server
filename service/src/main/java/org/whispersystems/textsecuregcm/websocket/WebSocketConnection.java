@@ -13,9 +13,9 @@ import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.protobuf.ByteString;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -33,7 +33,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import javax.ws.rs.WebApplicationException;
-import io.micrometer.core.instrument.Tags;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,7 +49,6 @@ import org.whispersystems.textsecuregcm.storage.MessageAvailabilityListener;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.TimestampHeaderUtil;
-import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
@@ -314,33 +312,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
       for (int i = 0; i < messages.messages().size(); i++) {
         final OutgoingMessageEntity message = messages.messages().get(i);
-        final Envelope.Builder builder = Envelope.newBuilder()
-            .setType(Envelope.Type.forNumber(message.type()))
-            .setTimestamp(message.timestamp())
-            .setServerTimestamp(message.serverTimestamp());
-
-        if (!Util.isEmpty(message.source())) {
-          builder.setSource(message.source())
-              .setSourceDevice(message.sourceDevice());
-          if (message.sourceUuid() != null) {
-            builder.setSourceUuid(message.sourceUuid().toString());
-          }
-        }
-
-        if (message.content() != null) {
-          builder.setContent(ByteString.copyFrom(message.content()));
-        }
-
-        builder.setDestinationUuid(message.destinationUuid().toString());
-
-        if (message.updatedPni() != null) {
-          builder.setUpdatedPni(message.updatedPni().toString());
-        }
-
-        builder.setServerGuid(message.guid().toString());
-
-
-        final Envelope envelope = builder.build();
+        final Envelope envelope = message.toEnvelope();
 
         if (envelope.getSerializedSize() > MAX_DESKTOP_MESSAGE_SIZE && isDesktopClient) {
           messagesManager.delete(auth.getAccount().getUuid(), device.getId(), message.guid(), message.serverTimestamp());
@@ -348,7 +320,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
           sendFutures[i] = CompletableFuture.completedFuture(null);
         } else {
-          sendFutures[i] = sendMessage(builder.build(), Optional.of(new StoredMessageInfo(message.guid(), message.serverTimestamp())));
+          sendFutures[i] = sendMessage(envelope, Optional.of(new StoredMessageInfo(message.guid(), message.serverTimestamp())));
         }
       }
 
