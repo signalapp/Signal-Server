@@ -11,6 +11,6 @@ import javax.annotation.Nullable;
 
 public record GroupCredentials(List<GroupCredential> credentials, @Nullable UUID pni) {
 
-  public record GroupCredential(byte[] credential, int redemptionTime) {
+  public record GroupCredential(byte[] credential, long redemptionTime) {
   }
 }
