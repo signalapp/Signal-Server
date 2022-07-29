@@ -231,7 +231,9 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     }
 
     try {
-      receiptSender.sendReceipt(auth, UUID.fromString(message.getSourceUuid()), message.getTimestamp());
+      receiptSender.sendReceipt(UUID.fromString(message.getDestinationUuid()),
+          auth.getAuthenticatedDevice().getId(), UUID.fromString(message.getSourceUuid()),
+          message.getTimestamp());
     } catch (NoSuchUserException e) {
       logger.info("No longer registered: {}", e.getMessage());
     } catch (WebApplicationException e) {

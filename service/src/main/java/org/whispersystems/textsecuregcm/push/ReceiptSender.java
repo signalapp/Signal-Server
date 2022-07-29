@@ -12,7 +12,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.controllers.NoSuchUserException;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
@@ -38,9 +37,9 @@ public class ReceiptSender {
         MetricsUtil.name(ReceiptSender.class, "executor"));
   }
 
-  public CompletableFuture<Void> sendReceipt(AuthenticatedAccount source, UUID destinationUuid, long messageId) throws NoSuchUserException {
-    final Account sourceAccount = source.getAccount();
-    if (sourceAccount.getUuid().equals(destinationUuid)) {
+  public CompletableFuture<Void> sendReceipt(UUID sourceUuid, long sourceDeviceId, UUID destinationUuid, long messageId)
+      throws NoSuchUserException {
+    if (sourceUuid.equals(destinationUuid)) {
       return CompletableFuture.completedFuture(null);
     }
 
@@ -49,8 +48,8 @@ public class ReceiptSender {
 
     final Envelope.Builder message = Envelope.newBuilder()
         .setServerTimestamp(System.currentTimeMillis())
-        .setSourceUuid(sourceAccount.getUuid().toString())
-        .setSourceDevice((int) source.getAuthenticatedDevice().getId())
+        .setSourceUuid(sourceUuid.toString())
+        .setSourceDevice((int) sourceDeviceId)
         .setDestinationUuid(destinationUuid.toString())
         .setTimestamp(messageId)
         .setType(Envelope.Type.SERVER_DELIVERY_RECEIPT);

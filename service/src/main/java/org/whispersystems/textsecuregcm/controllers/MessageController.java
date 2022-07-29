@@ -467,7 +467,9 @@ public class MessageController {
 
       if (deletedMessage.hasSourceUuid() && deletedMessage.getType() != Type.SERVER_DELIVERY_RECEIPT) {
         try {
-          receiptSender.sendReceipt(auth, UUID.fromString(deletedMessage.getSourceUuid()), deletedMessage.getTimestamp());
+          receiptSender.sendReceipt(
+              UUID.fromString(deletedMessage.getDestinationUuid()), auth.getAuthenticatedDevice().getId(),
+              UUID.fromString(deletedMessage.getSourceUuid()), deletedMessage.getTimestamp());
         } catch (Exception e) {
           logger.warn("Failed to send delivery receipt", e);
         }

@@ -465,7 +465,8 @@ class MessageControllerTest {
         .delete();
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
-    verify(receiptSender).sendReceipt(any(AuthenticatedAccount.class), eq(sourceUuid), eq(timestamp));
+    verify(receiptSender).sendReceipt(eq(AuthHelper.VALID_UUID), eq(1L),
+        eq(sourceUuid), eq(timestamp));
 
     response = resources.getJerseyTest()
         .target(String.format("/v1/messages/uuid/%s", uuid2))
