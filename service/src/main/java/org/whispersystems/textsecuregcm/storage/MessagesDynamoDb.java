@@ -57,11 +57,6 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
 
   @Deprecated
   private static final String KEY_TIMESTAMP = "TS";
-
-  @Deprecated
-  private static final String KEY_SOURCE = "SN";
-
-  @Deprecated
   private static final String KEY_SOURCE_UUID = "SU";
 
   @Deprecated
@@ -276,14 +271,13 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
       final UUID messageUuid = convertLocalIndexMessageUuidSortKey(item.get(LOCAL_INDEX_MESSAGE_UUID_KEY_SORT).b().asByteArray());
       final int type = AttributeValues.getInt(item, KEY_TYPE, 0);
       final long timestamp = AttributeValues.getLong(item, KEY_TIMESTAMP, 0L);
-      final String source = AttributeValues.getString(item, KEY_SOURCE, null);
       final UUID sourceUuid = AttributeValues.getUUID(item, KEY_SOURCE_UUID, null);
       final int sourceDevice = AttributeValues.getInt(item, KEY_SOURCE_DEVICE, 0);
       final UUID destinationUuid = AttributeValues.getUUID(item, KEY_DESTINATION_UUID, null);
       final byte[] content = AttributeValues.getByteArray(item, KEY_CONTENT, null);
       final UUID updatedPni = AttributeValues.getUUID(item, KEY_UPDATED_PNI, null);
 
-      envelope = new OutgoingMessageEntity(messageUuid, type, timestamp, source, sourceUuid, sourceDevice, destinationUuid,
+      envelope = new OutgoingMessageEntity(messageUuid, type, timestamp, sourceUuid, sourceDevice, destinationUuid,
           updatedPni, content, sortKey.getServerTimestamp()).toEnvelope();
 
       GET_MESSAGE_WITH_ATTRIBUTES_COUNTER.increment();

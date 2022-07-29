@@ -6,15 +6,14 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import com.google.protobuf.ByteString;
-import org.apache.commons.lang3.StringUtils;
-import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.UUID;
+import javax.annotation.Nullable;
 
-public record OutgoingMessageEntity(UUID guid, int type, long timestamp, @Nullable String source,
-                                    @Nullable UUID sourceUuid, int sourceDevice, UUID destinationUuid,
-                                    @Nullable UUID updatedPni, byte[] content, long serverTimestamp) {
+public record OutgoingMessageEntity(UUID guid, int type, long timestamp, @Nullable UUID sourceUuid, int sourceDevice,
+                                    UUID destinationUuid, @Nullable UUID updatedPni, byte[] content,
+                                    long serverTimestamp) {
 
   public MessageProtos.Envelope toEnvelope() {
     final MessageProtos.Envelope.Builder builder = MessageProtos.Envelope.newBuilder()
@@ -24,13 +23,9 @@ public record OutgoingMessageEntity(UUID guid, int type, long timestamp, @Nullab
         .setDestinationUuid(destinationUuid().toString())
         .setServerGuid(guid().toString());
 
-    if (StringUtils.isNotEmpty(source())) {
-      builder.setSource(source())
-          .setSourceDevice(sourceDevice());
-
-      if (sourceUuid() != null) {
-        builder.setSourceUuid(sourceUuid().toString());
-      }
+    if (sourceUuid() != null) {
+      builder.setSourceUuid(sourceUuid().toString());
+      builder.setSourceDevice(sourceDevice());
     }
 
     if (content() != null) {
@@ -49,7 +44,6 @@ public record OutgoingMessageEntity(UUID guid, int type, long timestamp, @Nullab
         UUID.fromString(envelope.getServerGuid()),
         envelope.getType().getNumber(),
         envelope.getTimestamp(),
-        envelope.hasSource() ? envelope.getSource() : null,
         envelope.hasSourceUuid() ? UUID.fromString(envelope.getSourceUuid()) : null,
         envelope.getSourceDevice(),
         envelope.hasDestinationUuid() ? UUID.fromString(envelope.getDestinationUuid()) : null,
@@ -68,14 +62,14 @@ public record OutgoingMessageEntity(UUID guid, int type, long timestamp, @Nullab
     }
     final OutgoingMessageEntity that = (OutgoingMessageEntity) o;
     return type == that.type && timestamp == that.timestamp && sourceDevice == that.sourceDevice
-        && serverTimestamp == that.serverTimestamp && guid.equals(that.guid) && Objects.equals(source, that.source)
+        && serverTimestamp == that.serverTimestamp && guid.equals(that.guid)
         && Objects.equals(sourceUuid, that.sourceUuid) && destinationUuid.equals(that.destinationUuid)
         && Objects.equals(updatedPni, that.updatedPni) && Arrays.equals(content, that.content);
   }
 
   @Override
   public int hashCode() {
-    int result = Objects.hash(guid, type, timestamp, source, sourceUuid, sourceDevice, destinationUuid, updatedPni,
+    int result = Objects.hash(guid, type, timestamp, sourceUuid, sourceDevice, destinationUuid, updatedPni,
         serverTimestamp);
     result = 31 * result + Arrays.hashCode(content);
     return result;

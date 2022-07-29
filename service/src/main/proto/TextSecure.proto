@@ -32,7 +32,6 @@ message Envelope {
   }
 
   optional Type   type = 1;
-  optional string source = 2;
   optional string source_uuid = 11;
   optional uint32 source_device = 7;
   optional uint64 timestamp = 5;

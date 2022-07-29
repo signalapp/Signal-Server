@@ -20,7 +20,7 @@ class OutgoingMessageEntityTest {
 
   @ParameterizedTest
   @MethodSource
-  void toFromEnvelope(@Nullable final String source, @Nullable final UUID sourceUuid, @Nullable final UUID updatedPni) {
+  void toFromEnvelope(@Nullable final UUID sourceUuid, @Nullable final UUID updatedPni) {
     final byte[] messageContent = new byte[16];
     new Random().nextBytes(messageContent);
 
@@ -30,9 +30,8 @@ class OutgoingMessageEntityTest {
     final OutgoingMessageEntity outgoingMessageEntity = new OutgoingMessageEntity(UUID.randomUUID(),
         MessageProtos.Envelope.Type.CIPHERTEXT_VALUE,
         messageTimestamp,
-        source,
-        sourceUuid,
-        source != null ? (int) Device.MASTER_ID : 0,
+        UUID.randomUUID(),
+        sourceUuid != null ? (int) Device.MASTER_ID : 0,
         UUID.randomUUID(),
         updatedPni,
         messageContent,
@@ -43,8 +42,8 @@ class OutgoingMessageEntityTest {
 
   private static Stream<Arguments> toFromEnvelope() {
     return Stream.of(
-        Arguments.of("+18005551234", UUID.randomUUID(), UUID.randomUUID()),
-        Arguments.of("+18005551234", UUID.randomUUID(), null),
-        Arguments.of(null, null, UUID.randomUUID()));
+        Arguments.of(UUID.randomUUID(), UUID.randomUUID()),
+        Arguments.of(UUID.randomUUID(), null),
+        Arguments.of(null, UUID.randomUUID()));
   }
 }

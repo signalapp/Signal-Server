@@ -6,12 +6,6 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import org.apache.commons.lang3.ObjectUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +19,12 @@ import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
+import javax.annotation.Nullable;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class ChangeNumberManager {
   private static final Logger logger = LoggerFactory.getLogger(AccountController.class);
@@ -92,10 +92,10 @@ public class ChangeNumberManager {
   void sendMessageToSelf(
       Account sourceAndDestinationAccount, Optional<Device> destinationDevice, IncomingMessage message) {
     Optional<byte[]> contents = MessageController.getMessageContent(message);
-    if (!contents.isPresent()) {
+    if (contents.isEmpty()) {
       logger.debug("empty message contents sending to self, ignoring");
       return;
-    } else if (!destinationDevice.isPresent()) {
+    } else if (destinationDevice.isEmpty()) {
       logger.debug("destination device not present");
       return;
     }
@@ -107,7 +107,6 @@ public class ChangeNumberManager {
           .setServerTimestamp(serverTimestamp)
           .setDestinationUuid(sourceAndDestinationAccount.getUuid().toString())
           .setContent(ByteString.copyFrom(contents.get()))
-          .setSource(sourceAndDestinationAccount.getNumber())
           .setSourceUuid(sourceAndDestinationAccount.getUuid().toString())
           .setSourceDevice((int) Device.MASTER_ID)
           .setUpdatedPni(sourceAndDestinationAccount.getPhoneNumberIdentifier().toString())

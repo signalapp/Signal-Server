@@ -49,7 +49,6 @@ public class ReceiptSender {
 
     final Envelope.Builder message = Envelope.newBuilder()
         .setServerTimestamp(System.currentTimeMillis())
-        .setSource(sourceAccount.getNumber())
         .setSourceUuid(sourceAccount.getUuid().toString())
         .setSourceDevice((int) source.getAuthenticatedDevice().getId())
         .setDestinationUuid(destinationUuid.toString())

@@ -446,8 +446,8 @@ public class MessageController {
     long size = 0;
 
     for (final OutgoingMessageEntity message : messageList.messages()) {
-      size += message.content() == null      ? 0 : message.content().length;
-      size += Util.isEmpty(message.source()) ? 0 : message.source().length();
+      size += message.content() == null ? 0 : message.content().length;
+      size += message.sourceUuid() == null ? 0 : 36;
     }
 
     return size;

@@ -39,8 +39,6 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.controllers.NoSuchUserException;
-import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
-import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.DisplacedPresenceListener;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -228,7 +226,9 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   }
 
   private void sendDeliveryReceiptFor(Envelope message) {
-    if (!message.hasSource()) return;
+    if (!message.hasSourceUuid()) {
+      return;
+    }
 
     try {
       receiptSender.sendReceipt(auth, UUID.fromString(message.getSourceUuid()), message.getTimestamp());

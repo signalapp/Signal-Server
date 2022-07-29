@@ -227,7 +227,7 @@ class MessagesCacheTest {
 
     if (!sealedSender) {
       envelopeBuilder.setSourceDevice(random.nextInt(256))
-          .setSource("+1" + RandomStringUtils.randomNumeric(10));
+          .setSourceUuid(UUID.randomUUID().toString());
     }
 
     return envelopeBuilder.build();

@@ -5,11 +5,11 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import com.google.protobuf.ByteString;
-import org.apache.commons.lang3.StringUtils;
-import org.whispersystems.textsecuregcm.storage.Account;
-import javax.annotation.Nullable;
 import java.util.Base64;
 import java.util.UUID;
+import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
+import org.whispersystems.textsecuregcm.storage.Account;
 
 public record IncomingMessage(int type, long destinationDeviceId, int destinationRegistrationId, String content) {
 
@@ -28,8 +28,7 @@ public record IncomingMessage(int type, long destinationDeviceId, int destinatio
         .setDestinationUuid(destinationUuid.toString());
 
     if (sourceAccount != null && sourceDeviceId != null) {
-      envelopeBuilder.setSource(sourceAccount.getNumber())
-          .setSourceUuid(sourceAccount.getUuid().toString())
+      envelopeBuilder.setSourceUuid(sourceAccount.getUuid().toString())
           .setSourceDevice(sourceDeviceId.intValue());
     }
 

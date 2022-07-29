@@ -34,7 +34,6 @@ import io.dropwizard.testing.junit5.ResourceExtension;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -44,7 +43,6 @@ import java.util.stream.Stream;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -207,7 +205,7 @@ class MessageControllerTest {
     ArgumentCaptor<Envelope> captor = ArgumentCaptor.forClass(Envelope.class);
     verify(messageSender, times(1)).sendMessage(any(Account.class), any(Device.class), captor.capture(), eq(false));
 
-    assertTrue(captor.getValue().hasSource());
+    assertTrue(captor.getValue().hasSourceUuid());
     assertTrue(captor.getValue().hasSourceDevice());
   }
 
@@ -227,7 +225,7 @@ class MessageControllerTest {
     ArgumentCaptor<Envelope> captor = ArgumentCaptor.forClass(Envelope.class);
     verify(messageSender, times(1)).sendMessage(any(Account.class), any(Device.class), captor.capture(), eq(false));
 
-    assertTrue(captor.getValue().hasSource());
+    assertTrue(captor.getValue().hasSourceUuid());
     assertTrue(captor.getValue().hasSourceDevice());
   }
 
@@ -260,7 +258,7 @@ class MessageControllerTest {
     ArgumentCaptor<Envelope> captor = ArgumentCaptor.forClass(Envelope.class);
     verify(messageSender, times(1)).sendMessage(any(Account.class), any(Device.class), captor.capture(), eq(false));
 
-    assertFalse(captor.getValue().hasSource());
+    assertFalse(captor.getValue().hasSourceUuid());
     assertFalse(captor.getValue().hasSourceDevice());
   }
 
@@ -381,8 +379,10 @@ class MessageControllerTest {
     final UUID updatedPniOne = UUID.randomUUID();
 
     List<Envelope> messages = List.of(
-        generateEnvelope(messageGuidOne, Envelope.Type.CIPHERTEXT_VALUE, timestampOne, "+14152222222", sourceUuid, 2, AuthHelper.VALID_UUID, updatedPniOne, "hi there".getBytes(), 0),
-        generateEnvelope(messageGuidTwo, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, timestampTwo, "+14152222222", sourceUuid, 2, AuthHelper.VALID_UUID, null, null, 0)
+        generateEnvelope(messageGuidOne, Envelope.Type.CIPHERTEXT_VALUE, timestampOne, sourceUuid, 2,
+            AuthHelper.VALID_UUID, updatedPniOne, "hi there".getBytes(), 0),
+        generateEnvelope(messageGuidTwo, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, timestampTwo, sourceUuid, 2,
+            AuthHelper.VALID_UUID, null, null, 0)
     );
 
     OutgoingMessageEntityList messagesList = new OutgoingMessageEntityList(messages.stream()
@@ -420,8 +420,10 @@ class MessageControllerTest {
     final long timestampTwo = 313388;
 
     final List<Envelope> messages = List.of(
-        generateEnvelope(UUID.randomUUID(), Envelope.Type.CIPHERTEXT_VALUE, timestampOne, "+14152222222", UUID.randomUUID(), 2, AuthHelper.VALID_UUID, null, "hi there".getBytes(), 0),
-        generateEnvelope(UUID.randomUUID(), Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, timestampTwo, "+14152222222", UUID.randomUUID(), 2, AuthHelper.VALID_UUID, null, null, 0)
+        generateEnvelope(UUID.randomUUID(), Envelope.Type.CIPHERTEXT_VALUE, timestampOne, UUID.randomUUID(), 2,
+            AuthHelper.VALID_UUID, null, "hi there".getBytes(), 0),
+        generateEnvelope(UUID.randomUUID(), Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, timestampTwo,
+            UUID.randomUUID(), 2, AuthHelper.VALID_UUID, null, null, 0)
     );
 
     when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq(1L), anyString(), anyBoolean()))
@@ -446,12 +448,12 @@ class MessageControllerTest {
     UUID uuid1 = UUID.randomUUID();
     when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid1, null)).thenReturn(Optional.of(generateEnvelope(
         uuid1, Envelope.Type.CIPHERTEXT_VALUE,
-        timestamp, "+14152222222", sourceUuid, 1, AuthHelper.VALID_UUID, null, "hi".getBytes(), 0)));
+        timestamp, sourceUuid, 1, AuthHelper.VALID_UUID, null, "hi".getBytes(), 0)));
 
     UUID uuid2 = UUID.randomUUID();
     when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid2, null)).thenReturn(Optional.of(generateEnvelope(
         uuid2, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE,
-        System.currentTimeMillis(), "+14152222222", sourceUuid, 1, AuthHelper.VALID_UUID, null, null, 0)));
+        System.currentTimeMillis(), sourceUuid, 1, AuthHelper.VALID_UUID, null, null, 0)));
 
     UUID uuid3 = UUID.randomUUID();
     when(messagesManager.delete(AuthHelper.VALID_UUID, 1, uuid3, null)).thenReturn(Optional.empty());
@@ -631,8 +633,8 @@ class MessageControllerTest {
         Arguments.of("fixtures/current_message_single_device_server_receipt_type.json", false)
     );
   }
-  
-  private static Envelope generateEnvelope(UUID guid, int type, long timestamp, String source, UUID sourceUuid,
+
+  private static Envelope generateEnvelope(UUID guid, int type, long timestamp, UUID sourceUuid,
       int sourceDevice, UUID destinationUuid, UUID updatedPni, byte[] content, long serverTimestamp) {
 
     final MessageProtos.Envelope.Builder builder = MessageProtos.Envelope.newBuilder()
@@ -642,13 +644,9 @@ class MessageControllerTest {
         .setDestinationUuid(destinationUuid.toString())
         .setServerGuid(guid.toString());
 
-    if (StringUtils.isNotEmpty(source)) {
-      builder.setSource(source)
-          .setSourceDevice(sourceDevice);
-
-      if (sourceUuid != null) {
-        builder.setSourceUuid(sourceUuid.toString());
-      }
+    if (sourceUuid != null) {
+      builder.setSourceUuid(sourceUuid.toString());
+      builder.setSourceDevice(sourceDevice);
     }
 
     if (content != null) {

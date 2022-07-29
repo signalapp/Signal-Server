@@ -130,7 +130,6 @@ public class ChangeNumberManagerTest {
 
     assertEquals(aci, UUID.fromString(envelope.getDestinationUuid()));
     assertEquals(aci, UUID.fromString(envelope.getSourceUuid()));
-    assertEquals(changedE164, envelope.getSource());
     assertEquals(Device.MASTER_ID, envelope.getSourceDevice());
     assertEquals(updatedPhoneNumberIdentifiersByAccount.get(account), UUID.fromString(envelope.getUpdatedPni()));
   }

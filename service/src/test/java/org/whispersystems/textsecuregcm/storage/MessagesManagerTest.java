@@ -28,10 +28,8 @@ class MessagesManagerTest {
 
   @Test
   void insert() {
-    final String sourceNumber = "+12025551212";
     final UUID sourceAci = UUID.randomUUID();
     final Envelope message = Envelope.newBuilder()
-        .setSource(sourceNumber)
         .setSourceUuid(sourceAci.toString())
         .build();
 

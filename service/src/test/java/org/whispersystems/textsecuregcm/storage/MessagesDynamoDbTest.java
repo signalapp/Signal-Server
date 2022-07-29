@@ -39,7 +39,6 @@ class MessagesDynamoDbTest {
     MESSAGE1 = builder.build();
 
     builder.setType(MessageProtos.Envelope.Type.CIPHERTEXT);
-    builder.setSource("12348675309");
     builder.setSourceUuid(UUID.randomUUID().toString());
     builder.setSourceDevice(1);
     builder.setContent(ByteString.copyFromUtf8("MOO"));
@@ -50,7 +49,6 @@ class MessagesDynamoDbTest {
     MESSAGE2 = builder.build();
 
     builder.setType(MessageProtos.Envelope.Type.UNIDENTIFIED_SENDER);
-    builder.clearSource();
     builder.clearSourceUuid();
     builder.clearSourceDevice();
     builder.setContent(ByteString.copyFromUtf8("COW"));

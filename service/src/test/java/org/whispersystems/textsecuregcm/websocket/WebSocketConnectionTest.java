@@ -272,7 +272,6 @@ class WebSocketConnectionTest {
 
     final Envelope firstMessage = Envelope.newBuilder()
         .setServerGuid(UUID.randomUUID().toString())
-        .setSource("sender1")
         .setSourceUuid(UUID.randomUUID().toString())
         .setDestinationUuid(UUID.randomUUID().toString())
         .setUpdatedPni(UUID.randomUUID().toString())
@@ -283,7 +282,6 @@ class WebSocketConnectionTest {
 
     final Envelope secondMessage = Envelope.newBuilder()
         .setServerGuid(UUID.randomUUID().toString())
-        .setSource("sender2")
         .setSourceUuid(senderTwoUuid.toString())
         .setDestinationUuid(UUID.randomUUID().toString())
         .setTimestamp(System.currentTimeMillis())
@@ -854,7 +852,6 @@ class WebSocketConnectionTest {
         .setType(Envelope.Type.CIPHERTEXT)
         .setTimestamp(timestamp)
         .setServerTimestamp(0)
-        .setSource(sender)
         .setSourceUuid(senderUuid.toString())
         .setSourceDevice(1)
         .setDestinationUuid(destinationUuid.toString())
