@@ -294,11 +294,12 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
           }
         } else {
           if (client.isOpen()) {
-            logger.debug("Failed to clear queue", cause);
 
             if (consecutiveRetries.incrementAndGet() > MAX_CONSECUTIVE_RETRIES) {
+              logger.warn("Max consecutive retries exceeded", cause);
               client.close(1011, "Failed to retrieve messages");
             } else {
+              logger.debug("Failed to clear queue", cause);
               final List<Tag> tags = List.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()));
 
               Metrics.counter(QUEUE_DRAIN_RETRY_COUNTER_NAME, tags).increment();
