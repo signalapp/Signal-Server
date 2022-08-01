@@ -12,7 +12,15 @@ package org.whispersystems.textsecuregcm.storage;
  */
 public interface MessageAvailabilityListener {
 
-  void handleNewMessagesAvailable();
+  /**
+   * @return whether the listener is still active. {@code false} indicates the listener can no longer handle messages
+   * and may be discarded
+   */
+  boolean handleNewMessagesAvailable();
 
-  void handleMessagesPersisted();
+  /**
+   * @return whether the listener is still active. {@code false} indicates the listener can no longer handle messages
+   * and may be discarded
+   */
+  boolean handleMessagesPersisted();
 }

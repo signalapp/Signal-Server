@@ -21,10 +21,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -287,15 +289,18 @@ class MessagesCacheTest {
 
     final MessageAvailabilityListener listener = new MessageAvailabilityListener() {
       @Override
-      public void handleNewMessagesAvailable() {
+      public boolean handleNewMessagesAvailable() {
         synchronized (notified) {
           notified.set(true);
           notified.notifyAll();
+
+          return true;
         }
       }
 
       @Override
-      public void handleMessagesPersisted() {
+      public boolean handleMessagesPersisted() {
+        return true;
       }
     };
 
@@ -320,14 +325,17 @@ class MessagesCacheTest {
 
     final MessageAvailabilityListener listener = new MessageAvailabilityListener() {
       @Override
-      public void handleNewMessagesAvailable() {
+      public boolean handleNewMessagesAvailable() {
+        return true;
       }
 
       @Override
-      public void handleMessagesPersisted() {
+      public boolean handleMessagesPersisted() {
         synchronized (notified) {
           notified.set(true);
           notified.notifyAll();
+
+          return true;
         }
       }
     };
@@ -348,4 +356,72 @@ class MessagesCacheTest {
     });
   }
 
+
+  /**
+   * Helper class that implements {@link MessageAvailabilityListener#handleNewMessagesAvailable()} by always returning
+   * {@code false}. Its {@code counter} field tracks how many times {@code handleNewMessagesAvailable} has been called.
+   * <p>
+   * It uses a parameterized {@code AtomicBoolean} for asynchronous observation. It <em>must</em> be reset to
+   * {@code false} between observations.
+   */
+  private static class NewMessagesAvailabilityClosedListener implements MessageAvailabilityListener {
+
+    private int counter;
+
+    private final Consumer<Integer> messageHandledCallback;
+    private final CompletableFuture<Void> firstMessageHandled = new CompletableFuture<>();
+
+    private NewMessagesAvailabilityClosedListener(final Consumer<Integer> messageHandledCallback) {
+      this.messageHandledCallback = messageHandledCallback;
+    }
+
+    @Override
+    public boolean handleNewMessagesAvailable() {
+      counter++;
+      messageHandledCallback.accept(counter);
+      firstMessageHandled.complete(null);
+
+      return false;
+
+    }
+
+    @Override
+    public boolean handleMessagesPersisted() {
+      return true;
+    }
+  }
+
+  @Test
+  void testAvailabilityListenerResponses() {
+    final NewMessagesAvailabilityClosedListener listener1 = new NewMessagesAvailabilityClosedListener(
+        count -> assertEquals(1, count));
+    final NewMessagesAvailabilityClosedListener listener2 = new NewMessagesAvailabilityClosedListener(
+        count -> assertEquals(1, count));
+
+    assertTimeoutPreemptively(Duration.ofSeconds(30), () -> {
+      messagesCache.addMessageAvailabilityListener(DESTINATION_UUID, DESTINATION_DEVICE_ID, listener1);
+      final UUID messageGuid1 = UUID.randomUUID();
+      messagesCache.insert(messageGuid1, DESTINATION_UUID, DESTINATION_DEVICE_ID,
+          generateRandomMessage(messageGuid1, true));
+
+      listener1.firstMessageHandled.get();
+
+      // Avoid a race condition by blocking on the message handled future *and* the current notification executor task—
+      // the notification executor task includes unsubscribing `listener1`, and, if we don’t wait, sometimes
+      // `listener2` will get subscribed before `listener1` is cleaned up
+      notificationExecutorService.submit(() -> listener1.firstMessageHandled.get()).get();
+
+      final UUID messageGuid2 = UUID.randomUUID();
+      messagesCache.insert(messageGuid2, DESTINATION_UUID, DESTINATION_DEVICE_ID,
+          generateRandomMessage(messageGuid2, true));
+
+      messagesCache.addMessageAvailabilityListener(DESTINATION_UUID, DESTINATION_DEVICE_ID, listener2);
+
+      final UUID messageGuid3 = UUID.randomUUID();
+      messagesCache.insert(messageGuid3, DESTINATION_UUID, DESTINATION_DEVICE_ID,
+          generateRandomMessage(messageGuid3, true));
+
+      listener2.firstMessageHandled.get();
+    });
+  }
 }

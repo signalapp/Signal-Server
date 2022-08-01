@@ -351,7 +351,11 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
       newMessageNotificationCounter.increment();
       notificationExecutorService.execute(() -> {
         try {
-          findListener(channel).ifPresent(MessageAvailabilityListener::handleNewMessagesAvailable);
+          findListener(channel).ifPresent(listener -> {
+            if (!listener.handleNewMessagesAvailable()) {
+              removeMessageAvailabilityListener(listener);
+            }
+          });
         } catch (final Exception e) {
           logger.warn("Unexpected error handling new message", e);
         }
@@ -360,7 +364,11 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
       queuePersistedNotificationCounter.increment();
       notificationExecutorService.execute(() -> {
         try {
-          findListener(channel).ifPresent(MessageAvailabilityListener::handleMessagesPersisted);
+          findListener(channel).ifPresent(listener -> {
+            if (!listener.handleMessagesPersisted()) {
+              removeMessageAvailabilityListener(listener);
+            }
+          });
         } catch (final Exception e) {
           logger.warn("Unexpected error handling messages persisted", e);
         }

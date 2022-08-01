@@ -220,6 +220,7 @@ class WebSocketConnectionTest {
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(accountUuid);
     when(device.getId()).thenReturn(1L);
+    when(client.isOpen()).thenReturn(true);
     when(client.getUserAgent()).thenReturn("Test-UA");
 
     when(messagesManager.getMessagesForDevice(eq(accountUuid), eq(1L), eq("Test-UA"), anyBoolean()))
@@ -360,6 +361,7 @@ class WebSocketConnectionTest {
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(UUID.randomUUID());
     when(device.getId()).thenReturn(1L);
+    when(client.isOpen()).thenReturn(true);
     when(client.getUserAgent()).thenReturn("Test-UA");
 
     final AtomicBoolean threadWaiting = new AtomicBoolean(false);
@@ -426,6 +428,7 @@ class WebSocketConnectionTest {
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(UUID.randomUUID());
     when(device.getId()).thenReturn(1L);
+    when(client.isOpen()).thenReturn(true);
     when(client.getUserAgent()).thenReturn("Test-UA");
 
     final List<Envelope> firstPageMessages =
@@ -469,6 +472,7 @@ class WebSocketConnectionTest {
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(UUID.randomUUID());
     when(device.getId()).thenReturn(1L);
+    when(client.isOpen()).thenReturn(true);
     when(client.getUserAgent()).thenReturn("Test-UA");
 
     final UUID senderUuid = UUID.randomUUID();
@@ -525,6 +529,7 @@ class WebSocketConnectionTest {
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(accountUuid);
     when(device.getId()).thenReturn(1L);
+    when(client.isOpen()).thenReturn(true);
     when(client.getUserAgent()).thenReturn("Test-UA");
 
     when(messagesManager.getMessagesForDevice(eq(accountUuid), eq(1L), eq("Test-UA"), anyBoolean()))
@@ -554,6 +559,7 @@ class WebSocketConnectionTest {
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(accountUuid);
     when(device.getId()).thenReturn(1L);
+    when(client.isOpen()).thenReturn(true);
     when(client.getUserAgent()).thenReturn("Test-UA");
 
     final List<Envelope> firstPageMessages =
@@ -602,6 +608,7 @@ class WebSocketConnectionTest {
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(accountUuid);
     when(device.getId()).thenReturn(1L);
+    when(client.isOpen()).thenReturn(true);
     when(client.getUserAgent()).thenReturn("Test-UA");
 
     when(messagesManager.getMessagesForDevice(eq(accountUuid), eq(1L), eq("Test-UA"), anyBoolean()))

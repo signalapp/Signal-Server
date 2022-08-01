@@ -124,14 +124,16 @@ class MessagePersisterIntegrationTest {
 
       messagesManager.addMessageAvailabilityListener(account.getUuid(), 1, new MessageAvailabilityListener() {
         @Override
-        public void handleNewMessagesAvailable() {
+        public boolean handleNewMessagesAvailable() {
+          return true;
         }
 
         @Override
-        public void handleMessagesPersisted() {
+        public boolean handleMessagesPersisted() {
           synchronized (messagesPersisted) {
             messagesPersisted.set(true);
             messagesPersisted.notifyAll();
+            return true;
           }
         }
       });

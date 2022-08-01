@@ -57,24 +57,33 @@ import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class WebSocketConnection implements MessageAvailabilityListener, DisplacedPresenceListener {
 
-  private static final MetricRegistry metricRegistry                 = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
-  private static final Histogram      messageTime                    = metricRegistry.histogram(name(MessageController.class, "message_delivery_duration"));
-  private static final Histogram      primaryDeviceMessageTime       = metricRegistry.histogram(name(MessageController.class, "primary_device_message_delivery_duration"));
-  private static final Meter          sendMessageMeter               = metricRegistry.meter(name(WebSocketConnection.class, "send_message"));
-  private static final Meter          messageAvailableMeter          = metricRegistry.meter(name(WebSocketConnection.class, "messagesAvailable"));
-  private static final Meter          messagesPersistedMeter         = metricRegistry.meter(name(WebSocketConnection.class, "messagesPersisted"));
-  private static final Meter          bytesSentMeter                 = metricRegistry.meter(name(WebSocketConnection.class, "bytes_sent"));
-  private static final Meter          sendFailuresMeter              = metricRegistry.meter(name(WebSocketConnection.class, "send_failures"));
-  private static final Meter          discardedMessagesMeter         = metricRegistry.meter(name(WebSocketConnection.class, "discardedMessages"));
+  private static final MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(Constants.METRICS_NAME);
+  private static final Histogram messageTime = metricRegistry.histogram(
+      name(MessageController.class, "message_delivery_duration"));
+  private static final Histogram primaryDeviceMessageTime = metricRegistry.histogram(
+      name(MessageController.class, "primary_device_message_delivery_duration"));
+  private static final Meter sendMessageMeter = metricRegistry.meter(name(WebSocketConnection.class, "send_message"));
+  private static final Meter messageAvailableMeter = metricRegistry.meter(
+      name(WebSocketConnection.class, "messagesAvailable"));
+  private static final Meter messagesPersistedMeter = metricRegistry.meter(
+      name(WebSocketConnection.class, "messagesPersisted"));
+  private static final Meter bytesSentMeter = metricRegistry.meter(name(WebSocketConnection.class, "bytes_sent"));
+  private static final Meter sendFailuresMeter = metricRegistry.meter(name(WebSocketConnection.class, "send_failures"));
+  private static final Meter discardedMessagesMeter = metricRegistry.meter(
+      name(WebSocketConnection.class, "discardedMessages"));
 
-  private static final String INITIAL_QUEUE_LENGTH_DISTRIBUTION_NAME = name(WebSocketConnection.class, "initialQueueLength");
-  private static final String INITIAL_QUEUE_DRAIN_TIMER_NAME         = name(WebSocketConnection.class, "drainInitialQueue");
-  private static final String SLOW_QUEUE_DRAIN_COUNTER_NAME          = name(WebSocketConnection.class, "slowQueueDrain");
-  private static final String QUEUE_DRAIN_RETRY_COUNTER_NAME         = name(WebSocketConnection.class, "queueDrainRetry");
-  private static final String DISPLACEMENT_COUNTER_NAME              = name(WebSocketConnection.class, "displacement");
-  private static final String NON_SUCCESS_RESPONSE_COUNTER_NAME      = name(WebSocketConnection.class, "clientNonSuccessResponse");
-  private static final String STATUS_CODE_TAG                        = "status";
-  private static final String STATUS_MESSAGE_TAG                     = "message";
+  private static final String INITIAL_QUEUE_LENGTH_DISTRIBUTION_NAME = name(WebSocketConnection.class,
+      "initialQueueLength");
+  private static final String INITIAL_QUEUE_DRAIN_TIMER_NAME = name(WebSocketConnection.class, "drainInitialQueue");
+  private static final String SLOW_QUEUE_DRAIN_COUNTER_NAME = name(WebSocketConnection.class, "slowQueueDrain");
+  private static final String QUEUE_DRAIN_RETRY_COUNTER_NAME = name(WebSocketConnection.class, "queueDrainRetry");
+  private static final String DISPLACEMENT_COUNTER_NAME = name(WebSocketConnection.class, "displacement");
+  private static final String NON_SUCCESS_RESPONSE_COUNTER_NAME = name(WebSocketConnection.class,
+      "clientNonSuccessResponse");
+  private static final String CLIENT_CLOSED_MESSAGE_AVAILABLE_COUNTER_NAME = name(WebSocketConnection.class,
+      "messageAvailableAfterClientClosed");
+  private static final String STATUS_CODE_TAG = "status";
+  private static final String STATUS_MESSAGE_TAG = "message";
 
   private static final long SLOW_DRAIN_THRESHOLD = 10_000;
 
@@ -350,19 +359,34 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   }
 
   @Override
-  public void handleNewMessagesAvailable() {
+  public boolean handleNewMessagesAvailable() {
+    if (!client.isOpen()) {
+      // The client may become closed without successful removal of references to the `MessageAvailabilityListener`
+      Metrics.counter(CLIENT_CLOSED_MESSAGE_AVAILABLE_COUNTER_NAME).increment();
+      return false;
+    }
+
     messageAvailableMeter.mark();
 
     storedMessageState.compareAndSet(StoredMessageState.EMPTY, StoredMessageState.CACHED_NEW_MESSAGES_AVAILABLE);
     processStoredMessages();
+
+    return true;
   }
 
   @Override
-  public void handleMessagesPersisted() {
+  public boolean handleMessagesPersisted() {
+    if (!client.isOpen()) {
+      // The client may become without successful removal of references to the `MessageAvailabilityListener`
+      Metrics.counter(CLIENT_CLOSED_MESSAGE_AVAILABLE_COUNTER_NAME).increment();
+      return false;
+    }
     messagesPersistedMeter.mark();
 
     storedMessageState.set(StoredMessageState.PERSISTED_NEW_MESSAGES_AVAILABLE);
     processStoredMessages();
+
+    return true;
   }
 
   @Override
