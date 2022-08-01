@@ -369,7 +369,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
         UserAgentTagUtil.getPlatformTag(client.getUserAgent()),
         Tag.of("connectedElsewhere", String.valueOf(connectedElsewhere)));
 
-    Metrics.counter(DISPLACEMENT_COUNTER_NAME, tags);
+    Metrics.counter(DISPLACEMENT_COUNTER_NAME, tags).increment();
 
     final int code;
     final String message;
