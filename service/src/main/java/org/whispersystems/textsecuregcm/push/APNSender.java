@@ -9,6 +9,7 @@ import com.eatthepath.pushy.apns.ApnsClientBuilder;
 import com.eatthepath.pushy.apns.DeliveryPriority;
 import com.eatthepath.pushy.apns.PushType;
 import com.eatthepath.pushy.apns.auth.ApnsSigningKey;
+import com.eatthepath.pushy.apns.util.SimpleApnsPayloadBuilder;
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.lifecycle.Managed;
@@ -28,16 +29,16 @@ public class APNSender implements Managed, PushNotificationSender {
   private final ApnsClient apnsClient;
 
   @VisibleForTesting
-  static final String APN_VOIP_NOTIFICATION_PAYLOAD    = "{\"aps\":{\"sound\":\"default\",\"alert\":{\"loc-key\":\"APN_Message\"}}}";
+  static final String APN_VOIP_NOTIFICATION_PAYLOAD = new SimpleApnsPayloadBuilder()
+      .setSound("default")
+      .setLocalizedAlertMessage("APN_Message")
+      .build();
 
   @VisibleForTesting
-  static final String APN_NSE_NOTIFICATION_PAYLOAD     = "{\"aps\":{\"mutable-content\":1,\"alert\":{\"loc-key\":\"APN_Message\"}}}";
-
-  @VisibleForTesting
-  static final String APN_CHALLENGE_PAYLOAD            = "{\"aps\":{\"sound\":\"default\",\"alert\":{\"loc-key\":\"APN_Message\"}}, \"challenge\" : \"%s\"}";
-
-  @VisibleForTesting
-  static final String APN_RATE_LIMIT_CHALLENGE_PAYLOAD = "{\"aps\":{\"sound\":\"default\",\"alert\":{\"loc-key\":\"APN_Message\"}}, \"rateLimitChallenge\" : \"%s\"}";
+  static final String APN_NSE_NOTIFICATION_PAYLOAD = new SimpleApnsPayloadBuilder()
+      .setMutableContent(true)
+      .setLocalizedAlertMessage("APN_Message")
+      .build();
 
   @VisibleForTesting
   static final Instant MAX_EXPIRATION = Instant.ofEpochMilli(Integer.MAX_VALUE * 1000L);
@@ -76,8 +77,18 @@ public class APNSender implements Managed, PushNotificationSender {
 
     final String payload = switch (notification.notificationType()) {
       case NOTIFICATION -> isVoip ? APN_VOIP_NOTIFICATION_PAYLOAD : APN_NSE_NOTIFICATION_PAYLOAD;
-      case CHALLENGE -> String.format(APN_CHALLENGE_PAYLOAD, notification.data());
-      case RATE_LIMIT_CHALLENGE -> String.format(APN_RATE_LIMIT_CHALLENGE_PAYLOAD, notification.data());
+
+      case CHALLENGE -> new SimpleApnsPayloadBuilder()
+          .setSound("default")
+          .setLocalizedAlertMessage("APN_Message")
+          .addCustomProperty("challenge", notification.data())
+          .build();
+
+      case RATE_LIMIT_CHALLENGE -> new SimpleApnsPayloadBuilder()
+          .setSound("default")
+          .setLocalizedAlertMessage("APN_Message")
+          .addCustomProperty("rateLimitChallenge", notification.data())
+          .build();
     };
 
     final String collapseId =
