@@ -27,6 +27,7 @@ import org.whispersystems.textsecuregcm.configuration.DirectoryV2Configuration;
 import org.whispersystems.textsecuregcm.configuration.DonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbClientConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbTables;
+import org.whispersystems.textsecuregcm.configuration.FcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GiftConfiguration;
@@ -167,6 +168,11 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private GcmConfiguration gcm;
+
+  @Valid
+  @NotNull
+  @JsonProperty
+  private FcmConfiguration fcm;
 
   @Valid
   @NotNull
@@ -338,6 +344,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public GcmConfiguration getGcmConfiguration() {
     return gcm;
+  }
+
+  public FcmConfiguration getFcmConfiguration() {
+    return fcm;
   }
 
   public ApnConfiguration getApnConfiguration() {
