@@ -30,11 +30,11 @@ class OutgoingMessageEntityTest {
     final OutgoingMessageEntity outgoingMessageEntity = new OutgoingMessageEntity(UUID.randomUUID(),
         MessageProtos.Envelope.Type.CIPHERTEXT_VALUE,
         messageTimestamp,
-        "+18005551234",
-        UUID.randomUUID(),
+        source,
+        sourceUuid,
         source != null ? (int) Device.MASTER_ID : 0,
         UUID.randomUUID(),
-        UUID.randomUUID(),
+        updatedPni,
         messageContent,
         serverTimestamp);
 

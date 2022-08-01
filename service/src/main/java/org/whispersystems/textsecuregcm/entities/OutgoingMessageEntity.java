@@ -49,7 +49,7 @@ public record OutgoingMessageEntity(UUID guid, int type, long timestamp, @Nullab
         UUID.fromString(envelope.getServerGuid()),
         envelope.getType().getNumber(),
         envelope.getTimestamp(),
-        envelope.getSource(),
+        envelope.hasSource() ? envelope.getSource() : null,
         envelope.hasSourceUuid() ? UUID.fromString(envelope.getSourceUuid()) : null,
         envelope.getSourceDevice(),
         envelope.hasDestinationUuid() ? UUID.fromString(envelope.getDestinationUuid()) : null,
