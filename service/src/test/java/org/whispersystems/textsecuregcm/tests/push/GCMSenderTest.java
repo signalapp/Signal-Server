@@ -19,6 +19,8 @@ import org.junit.jupiter.api.Test;
 import org.whispersystems.gcm.server.Message;
 import org.whispersystems.gcm.server.Result;
 import org.whispersystems.gcm.server.Sender;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
+import org.whispersystems.textsecuregcm.push.FcmSender;
 import org.whispersystems.textsecuregcm.push.GCMSender;
 import org.whispersystems.textsecuregcm.push.GcmMessage;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -45,7 +47,7 @@ class GCMSenderTest {
     AccountsHelper.setupMockUpdate(accountsManager);
 
     GcmMessage message = new GcmMessage("foo", UUID.randomUUID(), 1, GcmMessage.Type.NOTIFICATION, Optional.empty());
-    GCMSender gcmSender = new GCMSender(executorService, accountsManager, sender);
+    GCMSender gcmSender = new GCMSender(executorService, accountsManager, sender, mock(ExperimentEnrollmentManager.class), mock(FcmSender.class));
 
     CompletableFuture<Result> successFuture = CompletableFuture.completedFuture(successResult);
 
@@ -81,7 +83,7 @@ class GCMSenderTest {
     when(invalidResult.isSuccess()).thenReturn(true);
 
     GcmMessage message = new GcmMessage(gcmId, destinationUuid, 1, GcmMessage.Type.NOTIFICATION, Optional.empty());
-    GCMSender gcmSender = new GCMSender(executorService, accountsManager, sender);
+    GCMSender gcmSender = new GCMSender(executorService, accountsManager, sender, mock(ExperimentEnrollmentManager.class), mock(FcmSender.class));
 
     CompletableFuture<Result> invalidFuture = CompletableFuture.completedFuture(invalidResult);
 
@@ -122,7 +124,7 @@ class GCMSenderTest {
     when(canonicalResult.getCanonicalRegistrationId()).thenReturn(canonicalId);
 
     GcmMessage message = new GcmMessage(gcmId, destinationUuid, 1, GcmMessage.Type.NOTIFICATION, Optional.empty());
-    GCMSender gcmSender = new GCMSender(executorService, accountsManager, sender);
+    GCMSender gcmSender = new GCMSender(executorService, accountsManager, sender, mock(ExperimentEnrollmentManager.class), mock(FcmSender.class));
 
     CompletableFuture<Result> invalidFuture = CompletableFuture.completedFuture(canonicalResult);
 

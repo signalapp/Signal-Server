@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.gcm.server.Message;
 import org.whispersystems.gcm.server.Result;
 import org.whispersystems.gcm.server.Sender;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -54,55 +55,75 @@ public class GCMSender {
   private final Sender            signalSender;
   private final ExecutorService   executor;
 
-  public GCMSender(ExecutorService executor, AccountsManager accountsManager, String signalKey) {
-    this(executor, accountsManager, new Sender(signalKey, SystemMapper.getMapper(), 6));
+  private final ExperimentEnrollmentManager experimentEnrollmentManager;
+  private final FcmSender fcmSender;
+
+  public GCMSender(ExecutorService executor, AccountsManager accountsManager, String signalKey, ExperimentEnrollmentManager experimentEnrollmentManager, FcmSender fcmSender) {
+    this(executor, accountsManager, new Sender(signalKey, SystemMapper.getMapper(), 6), experimentEnrollmentManager, fcmSender);
 
     CircuitBreakerUtil.registerMetrics(metricRegistry, signalSender.getRetry(), Sender.class);
   }
 
   @VisibleForTesting
-  public GCMSender(ExecutorService executor, AccountsManager accountsManager, Sender sender) {
+  public GCMSender(ExecutorService executor, AccountsManager accountsManager, Sender sender, ExperimentEnrollmentManager experimentEnrollmentManager, FcmSender fcmSender) {
     this.accountsManager = accountsManager;
     this.signalSender    = sender;
     this.executor        = executor;
+    this.experimentEnrollmentManager = experimentEnrollmentManager;
+    this.fcmSender = fcmSender;
   }
 
   public void sendMessage(GcmMessage message) {
-    Message.Builder builder = Message.newBuilder()
-                                     .withDestination(message.getGcmId())
-                                     .withPriority("high");
+    final boolean useFcmSender = message.getUuid()
+        .map(uuid -> experimentEnrollmentManager.isEnrolled(uuid, "fcmSender"))
+        .orElse(false);
 
-    String key;
+    if (useFcmSender) {
+      fcmSender.sendMessage(message);
+    } else {
+      Message.Builder builder = Message.newBuilder()
+          .withDestination(message.getGcmId())
+          .withPriority("high");
 
-    switch (message.getType()) {
-      case NOTIFICATION:         key = "notification";         break;
-      case CHALLENGE:            key = "challenge";            break;
-      case RATE_LIMIT_CHALLENGE: key = "rateLimitChallenge"; break;
-      default:                   throw new AssertionError();
-    }
+      String key;
 
-    Message request = builder.withDataPart(key, message.getData().orElse("")).build();
-
-    CompletableFuture<Result> future = signalSender.send(request);
-    markOutboundMeter(key);
-
-    future.handle((result, throwable) -> {
-      if (result != null && message.getType() != GcmMessage.Type.CHALLENGE) {
-        if (result.isUnregistered() || result.isInvalidRegistrationId()) {
-          executor.submit(() -> handleBadRegistration(message));
-        } else if (result.hasCanonicalRegistrationId()) {
-          executor.submit(() -> handleCanonicalRegistrationId(message, result));
-        } else if (!result.isSuccess()) {
-          executor.submit(() -> handleGenericError(message, result));
-        } else {
-          success.mark();
-        }
-      } else {
-        logger.warn("FCM Failed: " + throwable + ", " + throwable.getCause());
+      switch (message.getType()) {
+        case NOTIFICATION:
+          key = "notification";
+          break;
+        case CHALLENGE:
+          key = "challenge";
+          break;
+        case RATE_LIMIT_CHALLENGE:
+          key = "rateLimitChallenge";
+          break;
+        default:
+          throw new AssertionError();
       }
 
-      return null;
-    });
+      Message request = builder.withDataPart(key, message.getData().orElse("")).build();
+
+      CompletableFuture<Result> future = signalSender.send(request);
+      markOutboundMeter(key);
+
+      future.handle((result, throwable) -> {
+        if (result != null && message.getType() != GcmMessage.Type.CHALLENGE) {
+          if (result.isUnregistered() || result.isInvalidRegistrationId()) {
+            executor.submit(() -> handleBadRegistration(message));
+          } else if (result.hasCanonicalRegistrationId()) {
+            executor.submit(() -> handleCanonicalRegistrationId(message, result));
+          } else if (!result.isSuccess()) {
+            executor.submit(() -> handleGenericError(message, result));
+          } else {
+            success.mark();
+          }
+        } else {
+          logger.warn("FCM Failed: " + throwable + ", " + throwable.getCause());
+        }
+
+        return null;
+      });
+    }
   }
 
   private void handleBadRegistration(GcmMessage message) {
