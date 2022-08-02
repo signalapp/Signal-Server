@@ -87,7 +87,16 @@ public class FcmSender {
         sendFuture.get();
       } catch (ExecutionException e) {
         if (e.getCause() instanceof final FirebaseMessagingException firebaseMessagingException) {
-          tags = tags.and("errorCode", firebaseMessagingException.getMessagingErrorCode().name().toLowerCase());
+          final String errorCode;
+
+          if (firebaseMessagingException.getMessagingErrorCode() != null) {
+            errorCode = firebaseMessagingException.getMessagingErrorCode().name().toLowerCase();
+          } else {
+            logger.warn("Received an FCM exception with no error code", firebaseMessagingException);
+            errorCode = "unknown";
+          }
+
+          tags = tags.and("errorCode", errorCode);
 
           switch (firebaseMessagingException.getMessagingErrorCode()) {
 
