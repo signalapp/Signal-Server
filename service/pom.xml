@@ -35,11 +35,6 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.whispersystems.textsecure</groupId>
-      <artifactId>gcm-sender-async</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
       <groupId>org.signal</groupId>
       <artifactId>libsignal-server</artifactId>
     </dependency>
