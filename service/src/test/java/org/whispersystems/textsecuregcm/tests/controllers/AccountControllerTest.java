@@ -82,7 +82,7 @@ import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberResponse
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.ApnMessage;
-import org.whispersystems.textsecuregcm.push.GCMSender;
+import org.whispersystems.textsecuregcm.push.FcmSender;
 import org.whispersystems.textsecuregcm.push.GcmMessage;
 import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
@@ -147,7 +147,7 @@ class AccountControllerTest {
   private static Account                senderHasStorage       = mock(Account.class);
   private static Account                senderTransfer         = mock(Account.class);
   private static RecaptchaClient        recaptchaClient        = mock(RecaptchaClient.class);
-  private static GCMSender              gcmSender              = mock(GCMSender.class);
+  private static FcmSender              fcmSender              = mock(FcmSender.class);
   private static APNSender              apnSender              = mock(APNSender.class);
   private static ChangeNumberManager    changeNumberManager    = mock(ChangeNumberManager.class);
 
@@ -179,7 +179,7 @@ class AccountControllerTest {
           turnTokenGenerator,
           Map.of(TEST_NUMBER, TEST_VERIFICATION_CODE),
           recaptchaClient,
-          gcmSender,
+          fcmSender,
           apnSender,
           verifyExperimentEnrollmentManager,
           changeNumberManager,
@@ -322,7 +322,7 @@ class AccountControllerTest {
         senderHasStorage,
         senderTransfer,
         recaptchaClient,
-        gcmSender,
+        fcmSender,
         apnSender,
         verifyExperimentEnrollmentManager,
         changeNumberManager);
@@ -341,7 +341,7 @@ class AccountControllerTest {
 
     ArgumentCaptor<GcmMessage> captor = ArgumentCaptor.forClass(GcmMessage.class);
 
-    verify(gcmSender, times(1)).sendMessage(captor.capture());
+    verify(fcmSender, times(1)).sendMessage(captor.capture());
     assertThat(captor.getValue().getGcmId()).isEqualTo("mytoken");
     assertThat(captor.getValue().getData().isPresent()).isTrue();
     assertThat(captor.getValue().getData().get().length()).isEqualTo(32);
@@ -360,7 +360,7 @@ class AccountControllerTest {
 
     ArgumentCaptor<GcmMessage> captor = ArgumentCaptor.forClass(GcmMessage.class);
 
-    verify(gcmSender, times(1)).sendMessage(captor.capture());
+    verify(fcmSender, times(1)).sendMessage(captor.capture());
     assertThat(captor.getValue().getGcmId()).isEqualTo("mytoken");
     assertThat(captor.getValue().getData().isPresent()).isTrue();
     assertThat(captor.getValue().getData().get().length()).isEqualTo(32);
@@ -386,7 +386,7 @@ class AccountControllerTest {
     assertThat(captor.getValue().getMessage()).contains("\"challenge\" : \"" + captor.getValue().getChallengeData().get() + "\"");
     assertThat(captor.getValue().isVoip()).isTrue();
 
-    verifyNoMoreInteractions(gcmSender);
+    verifyNoMoreInteractions(fcmSender);
   }
 
   @Test
@@ -408,7 +408,7 @@ class AccountControllerTest {
     assertThat(captor.getValue().getMessage()).contains("\"challenge\" : \"" + captor.getValue().getChallengeData().get() + "\"");
     assertThat(captor.getValue().isVoip()).isTrue();
 
-    verifyNoMoreInteractions(gcmSender);
+    verifyNoMoreInteractions(fcmSender);
   }
 
   @Test
@@ -430,7 +430,7 @@ class AccountControllerTest {
     assertThat(captor.getValue().getMessage()).contains("\"challenge\" : \"" + captor.getValue().getChallengeData().get() + "\"");
     assertThat(captor.getValue().isVoip()).isFalse();
 
-    verifyNoMoreInteractions(gcmSender);
+    verifyNoMoreInteractions(fcmSender);
   }
 
   @Test
@@ -443,7 +443,7 @@ class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(400);
     assertThat(response.readEntity(String.class)).isBlank();
 
-    verifyNoMoreInteractions(gcmSender);
+    verifyNoMoreInteractions(fcmSender);
     verifyNoMoreInteractions(apnSender);
   }
 
@@ -462,7 +462,7 @@ class AccountControllerTest {
     assertThat(responseEntity.getOriginalNumber()).isEqualTo(number);
     assertThat(responseEntity.getNormalizedNumber()).isEqualTo("+447700900111");
 
-    verifyNoMoreInteractions(gcmSender);
+    verifyNoMoreInteractions(fcmSender);
     verifyNoMoreInteractions(apnSender);
   }
 

@@ -17,7 +17,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.ApnMessage;
 import org.whispersystems.textsecuregcm.push.ApnMessage.Type;
-import org.whispersystems.textsecuregcm.push.GCMSender;
+import org.whispersystems.textsecuregcm.push.FcmSender;
 import org.whispersystems.textsecuregcm.push.GcmMessage;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -28,7 +28,7 @@ import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 public class PushChallengeManager {
   private final APNSender apnSender;
-  private final GCMSender gcmSender;
+  private final FcmSender fcmSender;
 
   private final PushChallengeDynamoDb pushChallengeDynamoDb;
 
@@ -45,11 +45,11 @@ public class PushChallengeManager {
   private static final String SUCCESS_TAG_NAME = "success";
   private static final String SOURCE_COUNTRY_TAG_NAME = "sourceCountry";
 
-  public PushChallengeManager(final APNSender apnSender, final GCMSender gcmSender,
+  public PushChallengeManager(final APNSender apnSender, final FcmSender fcmSender,
       final PushChallengeDynamoDb pushChallengeDynamoDb) {
 
     this.apnSender = apnSender;
-    this.gcmSender = gcmSender;
+    this.fcmSender = fcmSender;
     this.pushChallengeDynamoDb = pushChallengeDynamoDb;
   }
 
@@ -71,7 +71,7 @@ public class PushChallengeManager {
       sent = true;
 
       if (StringUtils.isNotBlank(masterDevice.getGcmId())) {
-        gcmSender.sendMessage(new GcmMessage(masterDevice.getGcmId(), account.getUuid(), 0, GcmMessage.Type.RATE_LIMIT_CHALLENGE, Optional.of(tokenHex)));
+        fcmSender.sendMessage(new GcmMessage(masterDevice.getGcmId(), account.getUuid(), 0, GcmMessage.Type.RATE_LIMIT_CHALLENGE, Optional.of(tokenHex)));
         platform = ClientPlatform.ANDROID.name().toLowerCase();
       } else if (StringUtils.isNotBlank(masterDevice.getApnId())) {
         apnSender.sendMessage(new ApnMessage(masterDevice.getApnId(), account.getUuid(), 0, false, Type.RATE_LIMIT_CHALLENGE, Optional.of(tokenHex)));

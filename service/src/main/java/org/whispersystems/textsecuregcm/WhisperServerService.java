@@ -145,7 +145,6 @@ import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.FcmSender;
-import org.whispersystems.textsecuregcm.push.GCMSender;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.ProvisioningManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -449,7 +448,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     PubSubManager              pubSubManager              = new PubSubManager(pubsubClient, dispatchManager);
     APNSender                  apnSender                  = new APNSender(apnSenderExecutor, accountsManager, config.getApnConfiguration());
     FcmSender                  fcmSender                  = new FcmSender(gcmSenderExecutor, accountsManager, config.getFcmConfiguration().credentials());
-    GCMSender                  gcmSender                  = new GCMSender(gcmSenderExecutor, accountsManager, config.getGcmConfiguration().getApiKey(), experimentEnrollmentManager, fcmSender);
     RateLimiters               rateLimiters               = new RateLimiters(config.getLimitsConfiguration(), rateLimitersCluster);
     DynamicRateLimiters        dynamicRateLimiters        = new DynamicRateLimiters(rateLimitersCluster, dynamicConfigurationManager);
     ProvisioningManager        provisioningManager        = new ProvisioningManager(pubSubManager);
@@ -475,14 +473,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ApnFallbackManager       apnFallbackManager = new ApnFallbackManager(pushSchedulerCluster, apnSender, accountsManager);
     TwilioSmsSender          twilioSmsSender    = new TwilioSmsSender(config.getTwilioConfiguration(), dynamicConfigurationManager);
     SmsSender                smsSender          = new SmsSender(twilioSmsSender);
-    MessageSender            messageSender      = new MessageSender(apnFallbackManager, clientPresenceManager, messagesManager, gcmSender, apnSender, pushLatencyManager);
+    MessageSender            messageSender      = new MessageSender(apnFallbackManager, clientPresenceManager, messagesManager, fcmSender, apnSender, pushLatencyManager);
     ReceiptSender            receiptSender      = new ReceiptSender(accountsManager, messageSender, receiptSenderExecutor);
     TurnTokenGenerator       turnTokenGenerator = new TurnTokenGenerator(dynamicConfigurationManager);
     RecaptchaClient recaptchaClient = new RecaptchaClient(
         config.getRecaptchaConfiguration().getProjectPath(),
         config.getRecaptchaConfiguration().getCredentialConfigurationJson(),
         dynamicConfigurationManager);
-    PushChallengeManager pushChallengeManager = new PushChallengeManager(apnSender, gcmSender, pushChallengeDynamoDb);
+    PushChallengeManager pushChallengeManager = new PushChallengeManager(apnSender, fcmSender, pushChallengeDynamoDb);
     RateLimitChallengeManager rateLimitChallengeManager = new RateLimitChallengeManager(pushChallengeManager,
         recaptchaClient, dynamicRateLimiters);
     RateLimitChallengeOptionManager rateLimitChallengeOptionManager =
@@ -621,7 +619,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(
         new AccountController(pendingAccountsManager, accountsManager, abusiveHostRules, rateLimiters,
             smsSender, dynamicConfigurationManager, turnTokenGenerator, config.getTestDevices(),
-            recaptchaClient, gcmSender, apnSender, verifyExperimentEnrollmentManager,
+            recaptchaClient, fcmSender, apnSender, verifyExperimentEnrollmentManager,
             changeNumberManager, backupCredentialsGenerator));
     environment.jersey().register(new KeysController(rateLimiters, keys, accountsManager));
 

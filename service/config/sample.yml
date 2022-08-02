@@ -202,10 +202,6 @@ apn: # Apple Push Notifications configuration
     AAAAAAAA
     -----END PRIVATE KEY-----
 
-gcm: # GCM Configuration
-  senderId: 123456789
-  apiKey: unset
-
 fcm: # FCM configuration
   credentials: |
     { "json": true }

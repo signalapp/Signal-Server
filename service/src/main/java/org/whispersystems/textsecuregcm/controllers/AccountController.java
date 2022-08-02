@@ -76,7 +76,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.ApnMessage;
-import org.whispersystems.textsecuregcm.push.GCMSender;
+import org.whispersystems.textsecuregcm.push.FcmSender;
 import org.whispersystems.textsecuregcm.push.GcmMessage;
 import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
@@ -137,7 +137,7 @@ public class AccountController {
   private final TurnTokenGenerator                 turnTokenGenerator;
   private final Map<String, Integer>               testDevices;
   private final RecaptchaClient recaptchaClient;
-  private final GCMSender                          gcmSender;
+  private final FcmSender                          fcmSender;
   private final APNSender                          apnSender;
   private final ExternalServiceCredentialGenerator backupServiceCredentialGenerator;
 
@@ -153,7 +153,7 @@ public class AccountController {
                            TurnTokenGenerator turnTokenGenerator,
                            Map<String, Integer> testDevices,
                            RecaptchaClient recaptchaClient,
-                           GCMSender gcmSender,
+                           FcmSender fcmSender,
                            APNSender apnSender,
                            TwilioVerifyExperimentEnrollmentManager verifyExperimentEnrollmentManager,
                            ChangeNumberManager changeNumberManager,
@@ -168,7 +168,7 @@ public class AccountController {
     this.testDevices                       = testDevices;
     this.turnTokenGenerator                = turnTokenGenerator;
     this.recaptchaClient = recaptchaClient;
-    this.gcmSender                         = gcmSender;
+    this.fcmSender                         = fcmSender;
     this.apnSender                         = apnSender;
     this.verifyExperimentEnrollmentManager = verifyExperimentEnrollmentManager;
     this.backupServiceCredentialGenerator = backupServiceCredentialGenerator;
@@ -200,7 +200,7 @@ public class AccountController {
     pendingAccounts.store(number, storedVerificationCode);
 
     if ("fcm".equals(pushType)) {
-      gcmSender.sendMessage(new GcmMessage(pushToken, null, 0, GcmMessage.Type.CHALLENGE, Optional.of(storedVerificationCode.getPushCode())));
+      fcmSender.sendMessage(new GcmMessage(pushToken, null, 0, GcmMessage.Type.CHALLENGE, Optional.of(storedVerificationCode.getPushCode())));
     } else if ("apn".equals(pushType)) {
       apnSender.sendMessage(new ApnMessage(pushToken, null, 0, useVoip.orElse(true), ApnMessage.Type.CHALLENGE, Optional.of(storedVerificationCode.getPushCode())));
     } else {

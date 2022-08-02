@@ -20,7 +20,6 @@ import org.whispersystems.textsecuregcm.configuration.AwsAttachmentsConfiguratio
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BoostConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
-import org.whispersystems.textsecuregcm.configuration.DatabaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DatadogConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryV2Configuration;
@@ -28,7 +27,6 @@ import org.whispersystems.textsecuregcm.configuration.DonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbClientConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbTables;
 import org.whispersystems.textsecuregcm.configuration.FcmConfiguration;
-import org.whispersystems.textsecuregcm.configuration.GcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GiftConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
@@ -163,11 +161,6 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private WebSocketConfiguration webSocket = new WebSocketConfiguration();
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private GcmConfiguration gcm;
 
   @Valid
   @NotNull
@@ -340,10 +333,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public RateLimitsConfiguration getLimitsConfiguration() {
     return limits;
-  }
-
-  public GcmConfiguration getGcmConfiguration() {
-    return gcm;
   }
 
   public FcmConfiguration getFcmConfiguration() {
