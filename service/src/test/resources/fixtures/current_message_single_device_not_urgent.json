@@ -1,0 +1,11 @@
+{
+  "urgent": false,
+  "messages": [
+    {
+      "type": 1,
+      "destinationDeviceId": 1,
+      "content": "Zm9vYmFyego",
+      "timestamp": 1234
+    }
+  ]
+}

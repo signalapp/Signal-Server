@@ -239,7 +239,7 @@ public class MessageController {
 
         if (destinationDevice.isPresent()) {
           Metrics.counter(SENT_MESSAGE_COUNTER_NAME, tags).increment();
-          sendMessage(source, destination.get(), destinationDevice.get(), destinationUuid, messages.timestamp(), messages.online(), incomingMessage, userAgent);
+          sendMessage(source, destination.get(), destinationDevice.get(), destinationUuid, messages.timestamp(), messages.online(), messages.urgent(), incomingMessage, userAgent);
         }
       }
 
@@ -523,6 +523,7 @@ public class MessageController {
       UUID destinationUuid,
       long timestamp,
       boolean online,
+      boolean urgent,
       IncomingMessage incomingMessage,
       String userAgentString)
       throws NoSuchUserException {
@@ -533,7 +534,8 @@ public class MessageController {
         envelope = incomingMessage.toEnvelope(destinationUuid,
             source.map(AuthenticatedAccount::getAccount).orElse(null),
             source.map(authenticatedAccount -> authenticatedAccount.getAuthenticatedDevice().getId()).orElse(null),
-            timestamp == 0 ? System.currentTimeMillis() : timestamp);
+            timestamp == 0 ? System.currentTimeMillis() : timestamp,
+            urgent);
       } catch (final IllegalArgumentException e) {
         logger.warn("Received bad envelope type {} from {}", incomingMessage.type(), userAgentString);
         throw new BadRequestException(e);

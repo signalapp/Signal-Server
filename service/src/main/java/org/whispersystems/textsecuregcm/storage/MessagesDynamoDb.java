@@ -278,7 +278,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
       final UUID updatedPni = AttributeValues.getUUID(item, KEY_UPDATED_PNI, null);
 
       envelope = new OutgoingMessageEntity(messageUuid, type, timestamp, sourceUuid, sourceDevice, destinationUuid,
-          updatedPni, content, sortKey.getServerTimestamp()).toEnvelope();
+          updatedPni, content, sortKey.getServerTimestamp(), true).toEnvelope();
 
       GET_MESSAGE_WITH_ATTRIBUTES_COUNTER.increment();
     }

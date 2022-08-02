@@ -13,7 +13,7 @@ import javax.annotation.Nullable;
 
 public record OutgoingMessageEntity(UUID guid, int type, long timestamp, @Nullable UUID sourceUuid, int sourceDevice,
                                     UUID destinationUuid, @Nullable UUID updatedPni, byte[] content,
-                                    long serverTimestamp) {
+                                    long serverTimestamp, boolean urgent) {
 
   public MessageProtos.Envelope toEnvelope() {
     final MessageProtos.Envelope.Builder builder = MessageProtos.Envelope.newBuilder()
@@ -21,7 +21,8 @@ public record OutgoingMessageEntity(UUID guid, int type, long timestamp, @Nullab
         .setTimestamp(timestamp())
         .setServerTimestamp(serverTimestamp())
         .setDestinationUuid(destinationUuid().toString())
-        .setServerGuid(guid().toString());
+        .setServerGuid(guid().toString())
+        .setUrgent(urgent);
 
     if (sourceUuid() != null) {
       builder.setSourceUuid(sourceUuid().toString());
@@ -49,7 +50,8 @@ public record OutgoingMessageEntity(UUID guid, int type, long timestamp, @Nullab
         envelope.hasDestinationUuid() ? UUID.fromString(envelope.getDestinationUuid()) : null,
         envelope.hasUpdatedPni() ? UUID.fromString(envelope.getUpdatedPni()) : null,
         envelope.getContent().toByteArray(),
-        envelope.getServerTimestamp());
+        envelope.getServerTimestamp(),
+        envelope.getUrgent());
   }
 
   @Override
@@ -64,13 +66,13 @@ public record OutgoingMessageEntity(UUID guid, int type, long timestamp, @Nullab
     return type == that.type && timestamp == that.timestamp && sourceDevice == that.sourceDevice
         && serverTimestamp == that.serverTimestamp && guid.equals(that.guid)
         && Objects.equals(sourceUuid, that.sourceUuid) && destinationUuid.equals(that.destinationUuid)
-        && Objects.equals(updatedPni, that.updatedPni) && Arrays.equals(content, that.content);
+        && Objects.equals(updatedPni, that.updatedPni) && Arrays.equals(content, that.content) && urgent == that.urgent;
   }
 
   @Override
   public int hashCode() {
     int result = Objects.hash(guid, type, timestamp, sourceUuid, sourceDevice, destinationUuid, updatedPni,
-        serverTimestamp);
+        serverTimestamp, urgent);
     result = 31 * result + Arrays.hashCode(content);
     return result;
   }

@@ -207,6 +207,28 @@ class MessageControllerTest {
 
     assertTrue(captor.getValue().hasSourceUuid());
     assertTrue(captor.getValue().hasSourceDevice());
+    assertTrue(captor.getValue().getUrgent());
+  }
+
+  @Test
+  void testSingleDeviceCurrentNotUrgent() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_single_device_not_urgent.json"),
+                    IncomingMessageList.class),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat("Good Response", response.getStatus(), is(equalTo(200)));
+
+    ArgumentCaptor<Envelope> captor = ArgumentCaptor.forClass(Envelope.class);
+    verify(messageSender, times(1)).sendMessage(any(Account.class), any(Device.class), captor.capture(), eq(false));
+
+    assertTrue(captor.getValue().hasSourceUuid());
+    assertTrue(captor.getValue().hasSourceDevice());
+    assertFalse(captor.getValue().getUrgent());
   }
 
   @Test
@@ -328,7 +350,31 @@ class MessageControllerTest {
 
     assertThat("Good Response Code", response.getStatus(), is(equalTo(200)));
 
-    verify(messageSender, times(2)).sendMessage(any(Account.class), any(Device.class), any(Envelope.class), eq(false));
+    final ArgumentCaptor<Envelope> envelopeCaptor = ArgumentCaptor.forClass(Envelope.class);
+
+    verify(messageSender, times(2)).sendMessage(any(Account.class), any(Device.class), envelopeCaptor.capture(), eq(false));
+
+    envelopeCaptor.getAllValues().forEach(envelope -> assertTrue(envelope.getUrgent()));
+  }
+
+  @Test
+  void testMultiDeviceNotUrgent() throws Exception {
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/messages/%s", MULTI_DEVICE_UUID))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(SystemMapper.getMapper().readValue(jsonFixture("fixtures/current_message_multi_device_not_urgent.json"),
+                    IncomingMessageList.class),
+                MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat("Good Response Code", response.getStatus(), is(equalTo(200)));
+
+    final ArgumentCaptor<Envelope> envelopeCaptor = ArgumentCaptor.forClass(Envelope.class);
+
+    verify(messageSender, times(2)).sendMessage(any(Account.class), any(Device.class), envelopeCaptor.capture(), eq(false));
+
+    envelopeCaptor.getAllValues().forEach(envelope -> assertFalse(envelope.getUrgent()));
   }
 
   @Test
@@ -595,7 +641,7 @@ class MessageControllerTest {
             .request()
             .header(OptionalAccess.UNIDENTIFIED, Base64.getEncoder().encodeToString("1234".getBytes()))
             .put(Entity.entity(new IncomingMessageList(
-                    List.of(new IncomingMessage(1, 1L, 1, new String(contentBytes))), false,
+                    List.of(new IncomingMessage(1, 1L, 1, new String(contentBytes))), false, true,
                     System.currentTimeMillis()),
                 MediaType.APPLICATION_JSON_TYPE));
 

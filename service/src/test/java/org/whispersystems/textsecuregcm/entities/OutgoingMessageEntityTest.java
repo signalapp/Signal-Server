@@ -35,7 +35,8 @@ class OutgoingMessageEntityTest {
         UUID.randomUUID(),
         updatedPni,
         messageContent,
-        serverTimestamp);
+        serverTimestamp,
+        true);
 
     assertEquals(outgoingMessageEntity, OutgoingMessageEntity.fromEnvelope(outgoingMessageEntity.toEnvelope()));
   }

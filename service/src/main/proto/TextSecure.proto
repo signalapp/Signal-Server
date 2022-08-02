@@ -40,6 +40,7 @@ message Envelope {
   optional uint64 server_timestamp = 10;
   optional bool ephemeral = 12; // indicates that the message should not be persisted if the recipient is offline
   optional string destination_uuid = 13;
+  optional bool urgent = 14 [default=true];
   optional string updated_pni = 15;
   // next: 16
 }
