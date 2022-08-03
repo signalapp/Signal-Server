@@ -4,27 +4,28 @@
  */
 package org.whispersystems.textsecuregcm.push;
 
+import com.eatthepath.pushy.apns.ApnsClient;
+import com.eatthepath.pushy.apns.ApnsClientBuilder;
+import com.eatthepath.pushy.apns.DeliveryPriority;
+import com.eatthepath.pushy.apns.PushType;
+import com.eatthepath.pushy.apns.auth.ApnsSigningKey;
+import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.dropwizard.lifecycle.Managed;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
-import org.whispersystems.textsecuregcm.push.RetryingApnsClient.ApnResult;
 
 public class APNSender implements Managed, PushNotificationSender {
 
-  private final ExecutorService    executor;
-  private final String             bundleId;
-  private final boolean            sandbox;
-  private final RetryingApnsClient apnsClient;
+  private final ExecutorService executor;
+  private final String bundleId;
+  private final ApnsClient apnsClient;
 
   @VisibleForTesting
   static final String APN_VOIP_NOTIFICATION_PAYLOAD    = "{\"aps\":{\"sound\":\"default\",\"alert\":{\"loc-key\":\"APN_Message\"}}}";
@@ -41,24 +42,26 @@ public class APNSender implements Managed, PushNotificationSender {
   @VisibleForTesting
   static final Instant MAX_EXPIRATION = Instant.ofEpochMilli(Integer.MAX_VALUE * 1000L);
 
+  private static final String APNS_CA_FILENAME = "apns-certificates.pem";
+
   public APNSender(ExecutorService executor, ApnConfiguration configuration)
       throws IOException, NoSuchAlgorithmException, InvalidKeyException
   {
-    this.executor        = executor;
-    this.bundleId        = configuration.getBundleId();
-    this.sandbox         = configuration.isSandboxEnabled();
-    this.apnsClient      = new RetryingApnsClient(configuration.getSigningKey(),
-                                                  configuration.getTeamId(),
-                                                  configuration.getKeyId(),
-                                                  sandbox);
+    this.executor = executor;
+    this.bundleId = configuration.getBundleId();
+    this.apnsClient = new ApnsClientBuilder().setSigningKey(
+            ApnsSigningKey.loadFromInputStream(new ByteArrayInputStream(configuration.getSigningKey().getBytes()),
+                configuration.getTeamId(), configuration.getKeyId()))
+        .setTrustedServerCertificateChain(getClass().getResourceAsStream(APNS_CA_FILENAME))
+        .setApnsServer(configuration.isSandboxEnabled() ? ApnsClientBuilder.DEVELOPMENT_APNS_HOST : ApnsClientBuilder.PRODUCTION_APNS_HOST)
+        .build();
   }
 
   @VisibleForTesting
-  public APNSender(ExecutorService executor, RetryingApnsClient apnsClient, String bundleId, boolean sandbox) {
-    this.executor        = executor;
-    this.apnsClient      = apnsClient;
-    this.sandbox         = sandbox;
-    this.bundleId        = bundleId;
+  public APNSender(ExecutorService executor, ApnsClient apnsClient, String bundleId) {
+    this.executor = executor;
+    this.apnsClient = apnsClient;
+    this.bundleId = bundleId;
   }
 
   @Override
@@ -81,37 +84,30 @@ public class APNSender implements Managed, PushNotificationSender {
         (notification.notificationType() == PushNotification.NotificationType.NOTIFICATION && !isVoip)
             ? "incoming-message" : null;
 
-    final ListenableFuture<ApnResult> sendFuture = apnsClient.send(notification.deviceToken(),
+    return apnsClient.sendNotification(new SimpleApnsPushNotification(notification.deviceToken(),
         topic,
         payload,
         MAX_EXPIRATION,
-        isVoip,
-        collapseId);
+        DeliveryPriority.IMMEDIATE,
+        isVoip ? PushType.VOIP : PushType.ALERT,
+        collapseId))
+        .thenApplyAsync(response -> {
+          final boolean accepted;
+          final String rejectionReason;
+          final boolean unregistered;
 
-    final CompletableFuture<SendPushNotificationResult> completableSendFuture = new CompletableFuture<>();
+          if (response.isAccepted()) {
+            accepted = true;
+            rejectionReason = null;
+            unregistered = false;
+          } else {
+            accepted = false;
+            rejectionReason = response.getRejectionReason().orElse("unknown");
+            unregistered = ("Unregistered".equals(rejectionReason) || "BadDeviceToken".equals(rejectionReason));
+          }
 
-    Futures.addCallback(sendFuture, new FutureCallback<>() {
-      @Override
-      public void onSuccess(@Nullable ApnResult result) {
-        if (result == null) {
-          // This should never happen
-          completableSendFuture.completeExceptionally(new NullPointerException("apnResult was null"));
-        } else {
-          completableSendFuture.complete(switch (result.getStatus()) {
-            case SUCCESS -> new SendPushNotificationResult(true, null, false);
-            case NO_SUCH_USER -> new SendPushNotificationResult(false, result.getReason(), true);
-            case GENERIC_FAILURE -> new SendPushNotificationResult(false, result.getReason(), false);
-          });
-        }
-      }
-
-      @Override
-      public void onFailure(@Nullable Throwable t) {
-        completableSendFuture.completeExceptionally(t);
-      }
-    }, executor);
-
-    return completableSendFuture;
+          return new SendPushNotificationResult(accepted, rejectionReason, unregistered);
+        }, executor);
   }
 
   @Override
@@ -120,6 +116,6 @@ public class APNSender implements Managed, PushNotificationSender {
 
   @Override
   public void stop() {
-    this.apnsClient.disconnect();
+    this.apnsClient.close().join();
   }
 }

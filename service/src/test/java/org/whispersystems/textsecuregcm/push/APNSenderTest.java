@@ -59,9 +59,8 @@ class APNSenderTest {
     when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
         .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
 
-    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
     PushNotification   pushNotification   = new PushNotification(DESTINATION_APN_ID, PushNotification.TokenType.APN_VOIP, PushNotification.NotificationType.NOTIFICATION, null, destinationAccount, destinationDevice);
-    APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), retryingApnsClient, "foo", false);
+    APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), apnsClient, "foo");
 
     final SendPushNotificationResult result = apnSender.sendNotification(pushNotification).join();
 
@@ -89,9 +88,8 @@ class APNSenderTest {
     when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
         .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
 
-    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
     PushNotification   pushNotification   = new PushNotification(DESTINATION_APN_ID, PushNotification.TokenType.APN, PushNotification.NotificationType.NOTIFICATION, null, destinationAccount, destinationDevice);
-    APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), retryingApnsClient, "foo", false);
+    APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), apnsClient, "foo");
 
     final SendPushNotificationResult result = apnSender.sendNotification(pushNotification).join();
 
@@ -121,9 +119,8 @@ class APNSenderTest {
         .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
 
 
-    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
     PushNotification   pushNotification   = new PushNotification(DESTINATION_APN_ID, PushNotification.TokenType.APN_VOIP, PushNotification.NotificationType.NOTIFICATION, null, destinationAccount, destinationDevice);
-    APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), retryingApnsClient, "foo", false);
+    APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), apnsClient, "foo");
 
     when(destinationDevice.getApnId()).thenReturn(DESTINATION_APN_ID);
     when(destinationDevice.getPushTimestamp()).thenReturn(System.currentTimeMillis() - TimeUnit.SECONDS.toMillis(11));
@@ -154,9 +151,8 @@ class APNSenderTest {
     when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
         .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
 
-    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
     PushNotification   pushNotification   = new PushNotification(DESTINATION_APN_ID, PushNotification.TokenType.APN_VOIP, PushNotification.NotificationType.NOTIFICATION, null, destinationAccount, destinationDevice);
-    APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), retryingApnsClient, "foo", false);
+    APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), apnsClient, "foo");
 
     final SendPushNotificationResult result = apnSender.sendNotification(pushNotification).join();
 
@@ -181,9 +177,8 @@ class APNSenderTest {
     when(apnsClient.sendNotification(any(SimpleApnsPushNotification.class)))
         .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), new IOException("lost connection")));
 
-    RetryingApnsClient retryingApnsClient = new RetryingApnsClient(apnsClient);
     PushNotification   pushNotification   = new PushNotification(DESTINATION_APN_ID, PushNotification.TokenType.APN_VOIP, PushNotification.NotificationType.NOTIFICATION, null, destinationAccount, destinationDevice);
-    APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), retryingApnsClient, "foo", false);
+    APNSender          apnSender          = new APNSender(new SynchronousExecutorService(), apnsClient, "foo");
 
     assertThatThrownBy(() -> apnSender.sendNotification(pushNotification).join())
         .isInstanceOf(CompletionException.class)
