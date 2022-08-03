@@ -32,6 +32,7 @@ import javax.validation.constraints.NotNull;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.GET;
 import javax.ws.rs.HEAD;
@@ -74,10 +75,8 @@ import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
-import org.whispersystems.textsecuregcm.push.APNSender;
-import org.whispersystems.textsecuregcm.push.ApnMessage;
-import org.whispersystems.textsecuregcm.push.FcmSender;
-import org.whispersystems.textsecuregcm.push.GcmMessage;
+import org.whispersystems.textsecuregcm.push.PushNotification;
+import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sms.TwilioVerifyExperimentEnrollmentManager;
@@ -137,8 +136,7 @@ public class AccountController {
   private final TurnTokenGenerator                 turnTokenGenerator;
   private final Map<String, Integer>               testDevices;
   private final RecaptchaClient recaptchaClient;
-  private final FcmSender                          fcmSender;
-  private final APNSender                          apnSender;
+  private final PushNotificationManager            pushNotificationManager;
   private final ExternalServiceCredentialGenerator backupServiceCredentialGenerator;
 
   private final TwilioVerifyExperimentEnrollmentManager verifyExperimentEnrollmentManager;
@@ -153,8 +151,7 @@ public class AccountController {
                            TurnTokenGenerator turnTokenGenerator,
                            Map<String, Integer> testDevices,
                            RecaptchaClient recaptchaClient,
-                           FcmSender fcmSender,
-                           APNSender apnSender,
+                           PushNotificationManager pushNotificationManager,
                            TwilioVerifyExperimentEnrollmentManager verifyExperimentEnrollmentManager,
                            ChangeNumberManager changeNumberManager,
                            ExternalServiceCredentialGenerator backupServiceCredentialGenerator)
@@ -168,8 +165,7 @@ public class AccountController {
     this.testDevices                       = testDevices;
     this.turnTokenGenerator                = turnTokenGenerator;
     this.recaptchaClient = recaptchaClient;
-    this.fcmSender                         = fcmSender;
-    this.apnSender                         = apnSender;
+    this.pushNotificationManager           = pushNotificationManager;
     this.verifyExperimentEnrollmentManager = verifyExperimentEnrollmentManager;
     this.backupServiceCredentialGenerator = backupServiceCredentialGenerator;
     this.changeNumberManager = changeNumberManager;
@@ -179,15 +175,17 @@ public class AccountController {
   @GET
   @Path("/{type}/preauth/{token}/{number}")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response getPreAuth(@PathParam("type")   String pushType,
-                             @PathParam("token")  String pushToken,
+  public Response getPreAuth(@PathParam("type") String pushType,
+                             @PathParam("token") String pushToken,
                              @PathParam("number") String number,
-                             @QueryParam("voip")  Optional<Boolean> useVoip)
+                             @QueryParam("voip") @DefaultValue("true") boolean useVoip)
       throws ImpossiblePhoneNumberException, NonNormalizedPhoneNumberException {
 
-    if (!"apn".equals(pushType) && !"fcm".equals(pushType)) {
-      return Response.status(400).build();
-    }
+    final PushNotification.TokenType tokenType = switch(pushType) {
+      case "apn" -> useVoip ? PushNotification.TokenType.APN_VOIP : PushNotification.TokenType.APN;
+      case "fcm" -> PushNotification.TokenType.FCM;
+      default -> throw new BadRequestException();
+    };
 
     Util.requireNormalizedNumber(number);
 
@@ -198,14 +196,7 @@ public class AccountController {
                                                                                null);
 
     pendingAccounts.store(number, storedVerificationCode);
-
-    if ("fcm".equals(pushType)) {
-      fcmSender.sendMessage(new GcmMessage(pushToken, null, 0, GcmMessage.Type.CHALLENGE, Optional.of(storedVerificationCode.getPushCode())));
-    } else if ("apn".equals(pushType)) {
-      apnSender.sendMessage(new ApnMessage(pushToken, null, 0, useVoip.orElse(true), ApnMessage.Type.CHALLENGE, Optional.of(storedVerificationCode.getPushCode())));
-    } else {
-      throw new AssertionError();
-    }
+    pushNotificationManager.sendRegistrationChallengeNotification(pushToken, tokenType, storedVerificationCode.getPushCode());
 
     return Response.ok().build();
   }

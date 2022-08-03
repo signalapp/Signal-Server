@@ -54,7 +54,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
-import org.whispersystems.textsecuregcm.push.MessageSender;
+import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -104,7 +104,7 @@ class WebSocketConnectionTest {
     MessagesManager storedMessages = mock(MessagesManager.class);
     WebSocketAccountAuthenticator webSocketAuthenticator = new WebSocketAccountAuthenticator(accountAuthenticator);
     AuthenticatedConnectListener connectListener = new AuthenticatedConnectListener(receiptSender, storedMessages,
-        mock(MessageSender.class), apnFallbackManager, mock(ClientPresenceManager.class),
+        mock(PushNotificationManager.class), apnFallbackManager, mock(ClientPresenceManager.class),
         retrySchedulingExecutor);
     WebSocketSessionContext sessionContext = mock(WebSocketSessionContext.class);
 

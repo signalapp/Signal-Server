@@ -20,7 +20,8 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
-import org.whispersystems.textsecuregcm.push.MessageSender;
+import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
+import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -42,20 +43,21 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
   private final ReceiptSender         receiptSender;
   private final MessagesManager       messagesManager;
-  private final MessageSender         messageSender;
+  private final PushNotificationManager pushNotificationManager;
   private final ApnFallbackManager    apnFallbackManager;
   private final ClientPresenceManager clientPresenceManager;
   private final ScheduledExecutorService scheduledExecutorService;
 
   public AuthenticatedConnectListener(ReceiptSender receiptSender,
       MessagesManager messagesManager,
-      final MessageSender messageSender, ApnFallbackManager apnFallbackManager,
+      PushNotificationManager pushNotificationManager,
+      ApnFallbackManager apnFallbackManager,
       ClientPresenceManager clientPresenceManager,
       ScheduledExecutorService scheduledExecutorService)
   {
     this.receiptSender         = receiptSender;
     this.messagesManager       = messagesManager;
-    this.messageSender         = messageSender;
+    this.pushNotificationManager = pushNotificationManager;
     this.apnFallbackManager    = apnFallbackManager;
     this.clientPresenceManager = clientPresenceManager;
     this.scheduledExecutorService = scheduledExecutorService;
@@ -97,7 +99,10 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
             messagesManager.removeMessageAvailabilityListener(connection);
 
             if (messagesManager.hasCachedMessages(auth.getAccount().getUuid(), device.getId())) {
-              messageSender.sendNewMessageNotification(auth.getAccount(), device);
+              try {
+                pushNotificationManager.sendNewMessageNotification(auth.getAccount(), device.getId());
+              } catch (NotPushRegisteredException ignored) {
+              }
             }
           });
         }

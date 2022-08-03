@@ -80,10 +80,8 @@ import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMa
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberResponse;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
-import org.whispersystems.textsecuregcm.push.APNSender;
-import org.whispersystems.textsecuregcm.push.ApnMessage;
-import org.whispersystems.textsecuregcm.push.FcmSender;
-import org.whispersystems.textsecuregcm.push.GcmMessage;
+import org.whispersystems.textsecuregcm.push.PushNotification;
+import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.sms.SmsSender;
 import org.whispersystems.textsecuregcm.sms.TwilioVerifyExperimentEnrollmentManager;
@@ -147,8 +145,7 @@ class AccountControllerTest {
   private static Account                senderHasStorage       = mock(Account.class);
   private static Account                senderTransfer         = mock(Account.class);
   private static RecaptchaClient        recaptchaClient        = mock(RecaptchaClient.class);
-  private static FcmSender              fcmSender              = mock(FcmSender.class);
-  private static APNSender              apnSender              = mock(APNSender.class);
+  private static PushNotificationManager pushNotificationManager = mock(PushNotificationManager.class);
   private static ChangeNumberManager    changeNumberManager    = mock(ChangeNumberManager.class);
 
   private static DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
@@ -179,8 +176,7 @@ class AccountControllerTest {
           turnTokenGenerator,
           Map.of(TEST_NUMBER, TEST_VERIFICATION_CODE),
           recaptchaClient,
-          fcmSender,
-          apnSender,
+          pushNotificationManager,
           verifyExperimentEnrollmentManager,
           changeNumberManager,
           storageCredentialGenerator))
@@ -322,8 +318,7 @@ class AccountControllerTest {
         senderHasStorage,
         senderTransfer,
         recaptchaClient,
-        fcmSender,
-        apnSender,
+        pushNotificationManager,
         verifyExperimentEnrollmentManager,
         changeNumberManager);
 
@@ -339,14 +334,12 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    ArgumentCaptor<GcmMessage> captor = ArgumentCaptor.forClass(GcmMessage.class);
+    final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
 
-    verify(fcmSender, times(1)).sendMessage(captor.capture());
-    assertThat(captor.getValue().getGcmId()).isEqualTo("mytoken");
-    assertThat(captor.getValue().getData().isPresent()).isTrue();
-    assertThat(captor.getValue().getData().get().length()).isEqualTo(32);
+    verify(pushNotificationManager).sendRegistrationChallengeNotification(
+        eq("mytoken"), eq(PushNotification.TokenType.FCM), challengeTokenCaptor.capture());
 
-    verifyNoMoreInteractions(apnSender);
+    assertThat(challengeTokenCaptor.getValue().length()).isEqualTo(32);
   }
 
   @Test
@@ -358,14 +351,12 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    ArgumentCaptor<GcmMessage> captor = ArgumentCaptor.forClass(GcmMessage.class);
+    final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
 
-    verify(fcmSender, times(1)).sendMessage(captor.capture());
-    assertThat(captor.getValue().getGcmId()).isEqualTo("mytoken");
-    assertThat(captor.getValue().getData().isPresent()).isTrue();
-    assertThat(captor.getValue().getData().get().length()).isEqualTo(32);
+    verify(pushNotificationManager).sendRegistrationChallengeNotification(
+        eq("mytoken"), eq(PushNotification.TokenType.FCM), challengeTokenCaptor.capture());
 
-    verifyNoMoreInteractions(apnSender);
+    assertThat(challengeTokenCaptor.getValue().length()).isEqualTo(32);
   }
 
   @Test
@@ -377,16 +368,12 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    ArgumentCaptor<ApnMessage> captor = ArgumentCaptor.forClass(ApnMessage.class);
+    final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
 
-    verify(apnSender, times(1)).sendMessage(captor.capture());
-    assertThat(captor.getValue().getApnId()).isEqualTo("mytoken");
-    assertThat(captor.getValue().getChallengeData().isPresent()).isTrue();
-    assertThat(captor.getValue().getChallengeData().get().length()).isEqualTo(32);
-    assertThat(captor.getValue().getMessage()).contains("\"challenge\" : \"" + captor.getValue().getChallengeData().get() + "\"");
-    assertThat(captor.getValue().isVoip()).isTrue();
+    verify(pushNotificationManager).sendRegistrationChallengeNotification(
+        eq("mytoken"), eq(PushNotification.TokenType.APN_VOIP), challengeTokenCaptor.capture());
 
-    verifyNoMoreInteractions(fcmSender);
+    assertThat(challengeTokenCaptor.getValue().length()).isEqualTo(32);
   }
 
   @Test
@@ -399,16 +386,12 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    ArgumentCaptor<ApnMessage> captor = ArgumentCaptor.forClass(ApnMessage.class);
+    final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
 
-    verify(apnSender, times(1)).sendMessage(captor.capture());
-    assertThat(captor.getValue().getApnId()).isEqualTo("mytoken");
-    assertThat(captor.getValue().getChallengeData().isPresent()).isTrue();
-    assertThat(captor.getValue().getChallengeData().get().length()).isEqualTo(32);
-    assertThat(captor.getValue().getMessage()).contains("\"challenge\" : \"" + captor.getValue().getChallengeData().get() + "\"");
-    assertThat(captor.getValue().isVoip()).isTrue();
+    verify(pushNotificationManager).sendRegistrationChallengeNotification(
+        eq("mytoken"), eq(PushNotification.TokenType.APN_VOIP), challengeTokenCaptor.capture());
 
-    verifyNoMoreInteractions(fcmSender);
+    assertThat(challengeTokenCaptor.getValue().length()).isEqualTo(32);
   }
 
   @Test
@@ -421,16 +404,12 @@ class AccountControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(200);
 
-    ArgumentCaptor<ApnMessage> captor = ArgumentCaptor.forClass(ApnMessage.class);
+    final ArgumentCaptor<String> challengeTokenCaptor = ArgumentCaptor.forClass(String.class);
 
-    verify(apnSender, times(1)).sendMessage(captor.capture());
-    assertThat(captor.getValue().getApnId()).isEqualTo("mytoken");
-    assertThat(captor.getValue().getChallengeData().isPresent()).isTrue();
-    assertThat(captor.getValue().getChallengeData().get().length()).isEqualTo(32);
-    assertThat(captor.getValue().getMessage()).contains("\"challenge\" : \"" + captor.getValue().getChallengeData().get() + "\"");
-    assertThat(captor.getValue().isVoip()).isFalse();
+    verify(pushNotificationManager).sendRegistrationChallengeNotification(
+        eq("mytoken"), eq(PushNotification.TokenType.APN), challengeTokenCaptor.capture());
 
-    verifyNoMoreInteractions(fcmSender);
+    assertThat(challengeTokenCaptor.getValue().length()).isEqualTo(32);
   }
 
   @Test
@@ -443,8 +422,7 @@ class AccountControllerTest {
     assertThat(response.getStatus()).isEqualTo(400);
     assertThat(response.readEntity(String.class)).isBlank();
 
-    verifyNoMoreInteractions(fcmSender);
-    verifyNoMoreInteractions(apnSender);
+    verifyNoMoreInteractions(pushNotificationManager);
   }
 
   @Test
@@ -462,8 +440,7 @@ class AccountControllerTest {
     assertThat(responseEntity.getOriginalNumber()).isEqualTo(number);
     assertThat(responseEntity.getNormalizedNumber()).isEqualTo("+447700900111");
 
-    verifyNoMoreInteractions(fcmSender);
-    verifyNoMoreInteractions(apnSender);
+    verifyNoMoreInteractions(pushNotificationManager);
   }
 
   @ParameterizedTest

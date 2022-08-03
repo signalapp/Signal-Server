@@ -147,6 +147,7 @@ import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.FcmSender;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.ProvisioningManager;
+import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
 import org.whispersystems.textsecuregcm.redis.ConnectionEventLogger;
@@ -446,8 +447,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     RemoteConfigsManager       remoteConfigsManager       = new RemoteConfigsManager(remoteConfigs);
     DispatchManager            dispatchManager            = new DispatchManager(pubSubClientFactory, Optional.empty());
     PubSubManager              pubSubManager              = new PubSubManager(pubsubClient, dispatchManager);
-    APNSender                  apnSender                  = new APNSender(apnSenderExecutor, accountsManager, config.getApnConfiguration());
-    FcmSender                  fcmSender                  = new FcmSender(gcmSenderExecutor, accountsManager, config.getFcmConfiguration().credentials());
+    APNSender                  apnSender                  = new APNSender(apnSenderExecutor, config.getApnConfiguration());
+    FcmSender                  fcmSender                  = new FcmSender(gcmSenderExecutor, config.getFcmConfiguration().credentials());
+    ApnFallbackManager         apnFallbackManager         = new ApnFallbackManager(pushSchedulerCluster, apnSender, accountsManager);
+    PushNotificationManager    pushNotificationManager    = new PushNotificationManager(accountsManager, apnSender, fcmSender, apnFallbackManager);
     RateLimiters               rateLimiters               = new RateLimiters(config.getLimitsConfiguration(), rateLimitersCluster);
     DynamicRateLimiters        dynamicRateLimiters        = new DynamicRateLimiters(rateLimitersCluster, dynamicConfigurationManager);
     ProvisioningManager        provisioningManager        = new ProvisioningManager(pubSubManager);
@@ -470,17 +473,16 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     AccountAuthenticator                  accountAuthenticator                  = new AccountAuthenticator(accountsManager);
     DisabledPermittedAccountAuthenticator disabledPermittedAccountAuthenticator = new DisabledPermittedAccountAuthenticator(accountsManager);
 
-    ApnFallbackManager       apnFallbackManager = new ApnFallbackManager(pushSchedulerCluster, apnSender, accountsManager);
     TwilioSmsSender          twilioSmsSender    = new TwilioSmsSender(config.getTwilioConfiguration(), dynamicConfigurationManager);
     SmsSender                smsSender          = new SmsSender(twilioSmsSender);
-    MessageSender            messageSender      = new MessageSender(apnFallbackManager, clientPresenceManager, messagesManager, fcmSender, apnSender, pushLatencyManager);
+    MessageSender            messageSender      = new MessageSender(clientPresenceManager, messagesManager, pushNotificationManager, pushLatencyManager);
     ReceiptSender            receiptSender      = new ReceiptSender(accountsManager, messageSender, receiptSenderExecutor);
     TurnTokenGenerator       turnTokenGenerator = new TurnTokenGenerator(dynamicConfigurationManager);
     RecaptchaClient recaptchaClient = new RecaptchaClient(
         config.getRecaptchaConfiguration().getProjectPath(),
         config.getRecaptchaConfiguration().getCredentialConfigurationJson(),
         dynamicConfigurationManager);
-    PushChallengeManager pushChallengeManager = new PushChallengeManager(apnSender, fcmSender, pushChallengeDynamoDb);
+    PushChallengeManager pushChallengeManager = new PushChallengeManager(pushNotificationManager, pushChallengeDynamoDb);
     RateLimitChallengeManager rateLimitChallengeManager = new RateLimitChallengeManager(pushChallengeManager,
         recaptchaClient, dynamicRateLimiters);
     RateLimitChallengeOptionManager rateLimitChallengeOptionManager =
@@ -548,10 +550,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     FtxClient                 ftxClient       = new FtxClient(currencyClient);
     CurrencyConversionManager currencyManager = new CurrencyConversionManager(fixerClient, ftxClient, config.getPaymentsServiceConfiguration().getPaymentCurrencies());
 
-    apnSender.setApnFallbackManager(apnFallbackManager);
+    environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(apnFallbackManager);
     environment.lifecycle().manage(pubSubManager);
-    environment.lifecycle().manage(messageSender);
     environment.lifecycle().manage(accountDatabaseCrawler);
     environment.lifecycle().manage(directoryReconciliationAccountDatabaseCrawler);
     environment.lifecycle().manage(accountCleanerAccountDatabaseCrawler);
@@ -607,7 +608,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getWebSocketConfiguration(), 90000);
     webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(accountAuthenticator));
     webSocketEnvironment.setConnectListener(
-        new AuthenticatedConnectListener(receiptSender, messagesManager, messageSender, apnFallbackManager,
+        new AuthenticatedConnectListener(receiptSender, messagesManager, pushNotificationManager, apnFallbackManager,
             clientPresenceManager, websocketScheduledExecutor));
     webSocketEnvironment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
     webSocketEnvironment.jersey().register(new ContentLengthFilter(TrafficSource.WEBSOCKET));
@@ -619,7 +620,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(
         new AccountController(pendingAccountsManager, accountsManager, abusiveHostRules, rateLimiters,
             smsSender, dynamicConfigurationManager, turnTokenGenerator, config.getTestDevices(),
-            recaptchaClient, fcmSender, apnSender, verifyExperimentEnrollmentManager,
+            recaptchaClient, pushNotificationManager, verifyExperimentEnrollmentManager,
             changeNumberManager, backupCredentialsGenerator));
     environment.jersey().register(new KeysController(rateLimiters, keys, accountsManager));
 

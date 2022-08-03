@@ -100,14 +100,14 @@ class ApnFallbackManagerTest {
 
     assertEquals(1, worker.processNextSlot());
 
-    final ArgumentCaptor<ApnMessage> messageCaptor = ArgumentCaptor.forClass(ApnMessage.class);
-    verify(apnSender).sendMessage(messageCaptor.capture());
+    final ArgumentCaptor<PushNotification> notificationCaptor = ArgumentCaptor.forClass(PushNotification.class);
+    verify(apnSender).sendNotification(notificationCaptor.capture());
 
-    final ApnMessage message = messageCaptor.getValue();
+    final PushNotification pushNotification = notificationCaptor.getValue();
 
-    assertEquals(VOIP_APN_ID, message.getApnId());
-    assertEquals(Optional.of(ACCOUNT_UUID), message.getUuid());
-    assertEquals(DEVICE_ID, message.getDeviceId());
+    assertEquals(VOIP_APN_ID, pushNotification.deviceToken());
+    assertEquals(account, pushNotification.destination());
+    assertEquals(device, pushNotification.destinationDevice());
 
     assertEquals(0, worker.processNextSlot());
   }

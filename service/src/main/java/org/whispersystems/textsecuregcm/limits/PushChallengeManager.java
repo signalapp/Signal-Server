@@ -10,16 +10,11 @@ import static com.codahale.metrics.MetricRegistry.name;
 import io.micrometer.core.instrument.Metrics;
 import java.security.SecureRandom;
 import java.time.Duration;
-import java.util.Optional;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.StringUtils;
-import org.whispersystems.textsecuregcm.push.APNSender;
-import org.whispersystems.textsecuregcm.push.ApnMessage;
-import org.whispersystems.textsecuregcm.push.ApnMessage.Type;
-import org.whispersystems.textsecuregcm.push.FcmSender;
-import org.whispersystems.textsecuregcm.push.GcmMessage;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
+import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.PushChallengeDynamoDb;
@@ -27,9 +22,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 public class PushChallengeManager {
-  private final APNSender apnSender;
-  private final FcmSender fcmSender;
-
+  private final PushNotificationManager pushNotificationManager;
   private final PushChallengeDynamoDb pushChallengeDynamoDb;
 
   private final SecureRandom random = new SecureRandom();
@@ -45,20 +38,15 @@ public class PushChallengeManager {
   private static final String SUCCESS_TAG_NAME = "success";
   private static final String SOURCE_COUNTRY_TAG_NAME = "sourceCountry";
 
-  public PushChallengeManager(final APNSender apnSender, final FcmSender fcmSender,
+  public PushChallengeManager(final PushNotificationManager pushNotificationManager,
       final PushChallengeDynamoDb pushChallengeDynamoDb) {
 
-    this.apnSender = apnSender;
-    this.fcmSender = fcmSender;
+    this.pushNotificationManager = pushNotificationManager;
     this.pushChallengeDynamoDb = pushChallengeDynamoDb;
   }
 
   public void sendChallenge(final Account account) throws NotPushRegisteredException {
     final Device masterDevice = account.getMasterDevice().orElseThrow(NotPushRegisteredException::new);
-
-    if (StringUtils.isAllBlank(masterDevice.getGcmId(), masterDevice.getApnId())) {
-      throw new NotPushRegisteredException();
-    }
 
     final byte[] token = new byte[CHALLENGE_TOKEN_LENGTH];
     random.nextBytes(token);
@@ -67,17 +55,18 @@ public class PushChallengeManager {
     final String platform;
 
     if (pushChallengeDynamoDb.add(account.getUuid(), token, CHALLENGE_TTL)) {
-      final String tokenHex = Hex.encodeHexString(token);
+      pushNotificationManager.sendRateLimitChallengeNotification(account, Hex.encodeHexString(token));
+
       sent = true;
 
       if (StringUtils.isNotBlank(masterDevice.getGcmId())) {
-        fcmSender.sendMessage(new GcmMessage(masterDevice.getGcmId(), account.getUuid(), 0, GcmMessage.Type.RATE_LIMIT_CHALLENGE, Optional.of(tokenHex)));
         platform = ClientPlatform.ANDROID.name().toLowerCase();
       } else if (StringUtils.isNotBlank(masterDevice.getApnId())) {
-        apnSender.sendMessage(new ApnMessage(masterDevice.getApnId(), account.getUuid(), 0, false, Type.RATE_LIMIT_CHALLENGE, Optional.of(tokenHex)));
         platform = ClientPlatform.IOS.name().toLowerCase();
       } else {
-        throw new AssertionError();
+        // This should never happen; if the account has neither an APN nor FCM token, sending the challenge will result
+        // in a `NotPushRegisteredException`
+        platform = "unrecognized";
       }
     } else {
       sent = false;

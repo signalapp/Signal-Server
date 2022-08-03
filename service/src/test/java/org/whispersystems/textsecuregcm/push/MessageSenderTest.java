@@ -5,12 +5,14 @@
 
 package org.whispersystems.textsecuregcm.push;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -37,8 +39,7 @@ class MessageSenderTest {
 
   private ClientPresenceManager clientPresenceManager;
   private MessagesManager messagesManager;
-  private FcmSender fcmSender;
-  private APNSender apnSender;
+  private PushNotificationManager pushNotificationManager;
   private MessageSender messageSender;
 
   private static final UUID ACCOUNT_UUID = UUID.randomUUID();
@@ -53,13 +54,10 @@ class MessageSenderTest {
 
     clientPresenceManager = mock(ClientPresenceManager.class);
     messagesManager = mock(MessagesManager.class);
-    fcmSender = mock(FcmSender.class);
-    apnSender = mock(APNSender.class);
-    messageSender = new MessageSender(mock(ApnFallbackManager.class),
-        clientPresenceManager,
+    pushNotificationManager = mock(PushNotificationManager.class);
+    messageSender = new MessageSender(clientPresenceManager,
         messagesManager,
-        fcmSender,
-        apnSender,
+        pushNotificationManager,
         mock(PushLatencyManager.class));
 
     when(account.getUuid()).thenReturn(ACCOUNT_UUID);
@@ -80,8 +78,7 @@ class MessageSenderTest {
 
     assertTrue(envelopeArgumentCaptor.getValue().getEphemeral());
 
-    verifyNoInteractions(fcmSender);
-    verifyNoInteractions(apnSender);
+    verifyNoInteractions(pushNotificationManager);
   }
 
   @Test
@@ -92,8 +89,7 @@ class MessageSenderTest {
     messageSender.sendMessage(account, device, message, true);
 
     verify(messagesManager, never()).insert(any(), anyLong(), any());
-    verifyNoInteractions(fcmSender);
-    verifyNoInteractions(apnSender);
+    verifyNoInteractions(pushNotificationManager);
   }
 
   @Test
@@ -110,8 +106,7 @@ class MessageSenderTest {
 
     assertFalse(envelopeArgumentCaptor.getValue().getEphemeral());
     assertEquals(message, envelopeArgumentCaptor.getValue());
-    verifyNoInteractions(fcmSender);
-    verifyNoInteractions(apnSender);
+    verifyNoInteractions(pushNotificationManager);
   }
 
   @Test
@@ -122,8 +117,7 @@ class MessageSenderTest {
     messageSender.sendMessage(account, device, message, false);
 
     verify(messagesManager).insert(ACCOUNT_UUID, DEVICE_ID, message);
-    verify(fcmSender).sendMessage(any());
-    verifyNoInteractions(apnSender);
+    verify(pushNotificationManager).sendNewMessageNotification(account, device.getId());
   }
 
   @Test
@@ -134,8 +128,7 @@ class MessageSenderTest {
     messageSender.sendMessage(account, device, message, false);
 
     verify(messagesManager).insert(ACCOUNT_UUID, DEVICE_ID, message);
-    verifyNoInteractions(fcmSender);
-    verify(apnSender).sendMessage(any());
+    verify(pushNotificationManager).sendNewMessageNotification(account, device.getId());
   }
 
   @Test
@@ -143,11 +136,11 @@ class MessageSenderTest {
     when(clientPresenceManager.isPresent(ACCOUNT_UUID, DEVICE_ID)).thenReturn(false);
     when(device.getFetchesMessages()).thenReturn(true);
 
-    messageSender.sendMessage(account, device, message, false);
+    doThrow(NotPushRegisteredException.class)
+        .when(pushNotificationManager).sendNewMessageNotification(account, DEVICE_ID);
 
+    assertDoesNotThrow(() -> messageSender.sendMessage(account, device, message, false));
     verify(messagesManager).insert(ACCOUNT_UUID, DEVICE_ID, message);
-    verifyNoInteractions(fcmSender);
-    verifyNoInteractions(apnSender);
   }
 
   private MessageProtos.Envelope generateRandomMessage() {

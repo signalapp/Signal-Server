@@ -5,8 +5,12 @@
 
 package org.whispersystems.textsecuregcm.push;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -16,24 +20,18 @@ import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.MessagingErrorCode;
-import java.util.Optional;
-import java.util.UUID;
+import java.io.IOException;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.SynchronousExecutorService;
-import org.whispersystems.textsecuregcm.util.Util;
 
 class FcmSenderTest {
 
   private ExecutorService executorService;
-  private AccountsManager accountsManager;
   private FirebaseMessaging firebaseMessaging;
 
   private FcmSender fcmSender;
@@ -41,10 +39,9 @@ class FcmSenderTest {
   @BeforeEach
   void setUp() {
     executorService = new SynchronousExecutorService();
-    accountsManager = mock(AccountsManager.class);
     firebaseMessaging = mock(FirebaseMessaging.class);
 
-    fcmSender = new FcmSender(executorService, accountsManager, firebaseMessaging);
+    fcmSender = new FcmSender(executorService, firebaseMessaging);
   }
 
   @AfterEach
@@ -57,35 +54,44 @@ class FcmSenderTest {
 
   @Test
   void testSendMessage() {
-    AccountsHelper.setupMockUpdate(accountsManager);
-
-    final GcmMessage message = new GcmMessage("foo", UUID.randomUUID(), 1, GcmMessage.Type.NOTIFICATION, Optional.empty());
+    final PushNotification pushNotification = new PushNotification("foo", PushNotification.TokenType.FCM, PushNotification.NotificationType.NOTIFICATION, null, null, null);
 
     final SettableApiFuture<String> sendFuture = SettableApiFuture.create();
     sendFuture.set("message-id");
 
     when(firebaseMessaging.sendAsync(any())).thenReturn(sendFuture);
 
-    fcmSender.sendMessage(message);
+    final SendPushNotificationResult result = fcmSender.sendNotification(pushNotification).join();
 
     verify(firebaseMessaging).sendAsync(any(Message.class));
+    assertTrue(result.accepted());
+    assertNull(result.errorCode());
+    assertFalse(result.unregistered());
   }
 
   @Test
-  void testSendUninstalled() {
-    final UUID destinationUuid = UUID.randomUUID();
-    final String gcmId = "foo";
+  void testSendMessageRejected() {
+    final PushNotification pushNotification = new PushNotification("foo", PushNotification.TokenType.FCM, PushNotification.NotificationType.NOTIFICATION, null, null, null);
 
-    final Account destinationAccount = mock(Account.class);
-    final Device  destinationDevice  = mock(Device.class );
+    final FirebaseMessagingException invalidArgumentException = mock(FirebaseMessagingException.class);
+    when(invalidArgumentException.getMessagingErrorCode()).thenReturn(MessagingErrorCode.INVALID_ARGUMENT);
 
-    AccountsHelper.setupMockUpdate(accountsManager);
+    final SettableApiFuture<String> sendFuture = SettableApiFuture.create();
+    sendFuture.setException(invalidArgumentException);
 
-    when(destinationAccount.getDevice(1)).thenReturn(Optional.of(destinationDevice));
-    when(accountsManager.getByAccountIdentifier(destinationUuid)).thenReturn(Optional.of(destinationAccount));
-    when(destinationDevice.getGcmId()).thenReturn(gcmId);
+    when(firebaseMessaging.sendAsync(any())).thenReturn(sendFuture);
 
-    final GcmMessage message = new GcmMessage(gcmId, destinationUuid, 1, GcmMessage.Type.NOTIFICATION, Optional.empty());
+    final SendPushNotificationResult result = fcmSender.sendNotification(pushNotification).join();
+
+    verify(firebaseMessaging).sendAsync(any(Message.class));
+    assertFalse(result.accepted());
+    assertEquals("INVALID_ARGUMENT", result.errorCode());
+    assertFalse(result.unregistered());
+  }
+
+  @Test
+  void testSendMessageUnregistered() {
+    final PushNotification pushNotification = new PushNotification("foo", PushNotification.TokenType.FCM, PushNotification.NotificationType.NOTIFICATION, null, null, null);
 
     final FirebaseMessagingException unregisteredException = mock(FirebaseMessagingException.class);
     when(unregisteredException.getMessagingErrorCode()).thenReturn(MessagingErrorCode.UNREGISTERED);
@@ -95,11 +101,27 @@ class FcmSenderTest {
 
     when(firebaseMessaging.sendAsync(any())).thenReturn(sendFuture);
 
-    fcmSender.sendMessage(message);
+    final SendPushNotificationResult result = fcmSender.sendNotification(pushNotification).join();
 
     verify(firebaseMessaging).sendAsync(any(Message.class));
-    verify(accountsManager).getByAccountIdentifier(destinationUuid);
-    verify(accountsManager).updateDevice(eq(destinationAccount), eq(1L), any());
-    verify(destinationDevice).setUninstalledFeedbackTimestamp(Util.todayInMillis());
+    assertFalse(result.accepted());
+    assertEquals("UNREGISTERED", result.errorCode());
+    assertTrue(result.unregistered());
+  }
+
+  @Test
+  void testSendMessageException() {
+    final PushNotification pushNotification = new PushNotification("foo", PushNotification.TokenType.FCM, PushNotification.NotificationType.NOTIFICATION, null, null, null);
+
+    final SettableApiFuture<String> sendFuture = SettableApiFuture.create();
+    sendFuture.setException(new IOException());
+
+    when(firebaseMessaging.sendAsync(any())).thenReturn(sendFuture);
+
+    final CompletionException completionException =
+        assertThrows(CompletionException.class, () -> fcmSender.sendNotification(pushNotification).join());
+
+    verify(firebaseMessaging).sendAsync(any(Message.class));
+    assertTrue(completionException.getCause() instanceof IOException);
   }
 }

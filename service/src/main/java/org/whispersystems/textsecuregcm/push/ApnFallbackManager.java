@@ -15,7 +15,6 @@ import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.cluster.SlotHash;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.push.ApnMessage.Type;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -184,7 +183,7 @@ public class ApnFallbackManager implements Managed {
       return;
     }
 
-    apnSender.sendMessage(new ApnMessage(apnId, account.getUuid(), device.getId(), true, Type.NOTIFICATION, Optional.empty()));
+    apnSender.sendNotification(new PushNotification(apnId, PushNotification.TokenType.APN_VOIP, PushNotification.NotificationType.NOTIFICATION, null, account, device));
     retry.mark();
   }
 
