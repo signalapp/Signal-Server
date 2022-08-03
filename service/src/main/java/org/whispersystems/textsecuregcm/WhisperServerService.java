@@ -381,7 +381,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ScheduledExecutorService websocketScheduledExecutor           = environment.lifecycle().scheduledExecutorService(name(getClass(), "websocket-%d")).threads(8).build();
     ExecutorService          keyspaceNotificationDispatchExecutor = environment.lifecycle().executorService(name(getClass(), "keyspaceNotification-%d")).maxThreads(16).workQueue(keyspaceNotificationDispatchQueue).build();
     ExecutorService          apnSenderExecutor                    = environment.lifecycle().executorService(name(getClass(), "apnSender-%d")).maxThreads(1).minThreads(1).build();
-    ExecutorService          gcmSenderExecutor                    = environment.lifecycle().executorService(name(getClass(), "gcmSender-%d")).maxThreads(1).minThreads(1).build();
+    ExecutorService          fcmSenderExecutor                    = environment.lifecycle().executorService(name(getClass(), "fcmSender-%d")).maxThreads(32).minThreads(32).build();
     ExecutorService          backupServiceExecutor                = environment.lifecycle().executorService(name(getClass(), "backupService-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService          storageServiceExecutor               = environment.lifecycle().executorService(name(getClass(), "storageService-%d")).maxThreads(1).minThreads(1).build();
 
@@ -448,7 +448,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     DispatchManager            dispatchManager            = new DispatchManager(pubSubClientFactory, Optional.empty());
     PubSubManager              pubSubManager              = new PubSubManager(pubsubClient, dispatchManager);
     APNSender                  apnSender                  = new APNSender(apnSenderExecutor, config.getApnConfiguration());
-    FcmSender                  fcmSender                  = new FcmSender(gcmSenderExecutor, config.getFcmConfiguration().credentials());
+    FcmSender                  fcmSender                  = new FcmSender(fcmSenderExecutor, config.getFcmConfiguration().credentials());
     ApnFallbackManager         apnFallbackManager         = new ApnFallbackManager(pushSchedulerCluster, apnSender, accountsManager);
     PushNotificationManager    pushNotificationManager    = new PushNotificationManager(accountsManager, apnSender, fcmSender, apnFallbackManager);
     RateLimiters               rateLimiters               = new RateLimiters(config.getLimitsConfiguration(), rateLimitersCluster);

@@ -5,19 +5,25 @@
 
 package org.whispersystems.textsecuregcm.push;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutureCallback;
 import com.google.api.core.ApiFutures;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
+import com.google.firebase.ThreadManager;
 import com.google.firebase.messaging.AndroidConfig;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.MessagingErrorCode;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -25,12 +31,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Timer;
+import java.util.concurrent.ThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 public class FcmSender implements PushNotificationSender {
 
@@ -43,11 +46,27 @@ public class FcmSender implements PushNotificationSender {
 
   public FcmSender(ExecutorService executor, String credentials) throws IOException {
     try (final ByteArrayInputStream credentialInputStream = new ByteArrayInputStream(credentials.getBytes(StandardCharsets.UTF_8))) {
-      FirebaseOptions options = FirebaseOptions.builder()
+      FirebaseApp.initializeApp(FirebaseOptions.builder()
           .setCredentials(GoogleCredentials.fromStream(credentialInputStream))
-          .build();
+          .setThreadManager(new ThreadManager() {
+            @Override
+            protected ExecutorService getExecutor(final FirebaseApp app) {
+              return executor;
+            }
 
-      FirebaseApp.initializeApp(options);
+            @Override
+            protected void releaseExecutor(final FirebaseApp app, final ExecutorService executor) {
+              // Do nothing; the executor service is managed by Dropwizard
+            }
+
+            @Override
+            protected ThreadFactory getThreadFactory() {
+              return new ThreadFactoryBuilder()
+                  .setNameFormat("firebase-%d")
+                  .build();
+            }
+          })
+          .build());
     }
 
     this.executor = executor;
