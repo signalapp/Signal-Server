@@ -46,6 +46,7 @@ import java.util.ServiceLoader;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -376,12 +377,15 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final ArrayBlockingQueue<Runnable> receiptSenderQueue = new ArrayBlockingQueue<>(10_000);
     Metrics.gaugeCollectionSize(name(getClass(), "receiptSenderQueue"), Collections.emptyList(), receiptSenderQueue);
 
+    final BlockingQueue<Runnable> fcmSenderQueue = new LinkedBlockingQueue<>();
+    Metrics.gaugeCollectionSize(name(getClass(), "fcmSenderQueue"), Collections.emptyList(), fcmSenderQueue);
+
     ScheduledExecutorService recurringJobExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "recurringJob-%d")).threads(6).build();
     ScheduledExecutorService websocketScheduledExecutor           = environment.lifecycle().scheduledExecutorService(name(getClass(), "websocket-%d")).threads(8).build();
     ExecutorService          keyspaceNotificationDispatchExecutor = environment.lifecycle().executorService(name(getClass(), "keyspaceNotification-%d")).maxThreads(16).workQueue(keyspaceNotificationDispatchQueue).build();
     ExecutorService          apnSenderExecutor                    = environment.lifecycle().executorService(name(getClass(), "apnSender-%d")).maxThreads(1).minThreads(1).build();
-    ExecutorService          fcmSenderExecutor                    = environment.lifecycle().executorService(name(getClass(), "fcmSender-%d")).maxThreads(32).minThreads(32).build();
+    ExecutorService          fcmSenderExecutor                    = environment.lifecycle().executorService(name(getClass(), "fcmSender-%d")).maxThreads(32).minThreads(32).workQueue(fcmSenderQueue).build();
     ExecutorService          backupServiceExecutor                = environment.lifecycle().executorService(name(getClass(), "backupService-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService          storageServiceExecutor               = environment.lifecycle().executorService(name(getClass(), "storageService-%d")).maxThreads(1).minThreads(1).build();
 
