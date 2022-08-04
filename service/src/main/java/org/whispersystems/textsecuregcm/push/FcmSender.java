@@ -6,6 +6,8 @@
 package org.whispersystems.textsecuregcm.push;
 
 import com.google.api.core.ApiFuture;
+import com.google.api.core.ApiFutureCallback;
+import com.google.api.core.ApiFutures;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.firebase.FirebaseApp;
@@ -15,14 +17,13 @@ import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.MessagingErrorCode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class FcmSender implements PushNotificationSender {
 
@@ -69,12 +70,15 @@ public class FcmSender implements PushNotificationSender {
     final ApiFuture<String> sendFuture = firebaseMessagingClient.sendAsync(builder.build());
     final CompletableFuture<SendPushNotificationResult> completableSendFuture = new CompletableFuture<>();
 
-    sendFuture.addListener(() -> {
-      try {
-        sendFuture.get();
+    ApiFutures.addCallback(sendFuture, new ApiFutureCallback<>() {
+      @Override
+      public void onSuccess(final String result) {
         completableSendFuture.complete(new SendPushNotificationResult(true, null, false));
-      } catch (ExecutionException e) {
-        if (e.getCause() instanceof final FirebaseMessagingException firebaseMessagingException) {
+      }
+
+      @Override
+      public void onFailure(final Throwable cause) {
+        if (cause instanceof final FirebaseMessagingException firebaseMessagingException) {
           final String errorCode;
 
           if (firebaseMessagingException.getMessagingErrorCode() != null) {
@@ -88,12 +92,8 @@ public class FcmSender implements PushNotificationSender {
               errorCode,
               firebaseMessagingException.getMessagingErrorCode() == MessagingErrorCode.UNREGISTERED));
         } else {
-          completableSendFuture.completeExceptionally(e.getCause());
+          completableSendFuture.completeExceptionally(cause);
         }
-      } catch (InterruptedException e) {
-        // This should never happen; by definition, if we're in the future's listener, the future is done, and so
-        // `get()` should return immediately.
-        completableSendFuture.completeExceptionally(e);
       }
     }, executor);
 
