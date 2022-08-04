@@ -10,6 +10,7 @@ import com.google.api.core.ApiFutureCallback;
 import com.google.api.core.ApiFutures;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.messaging.AndroidConfig;
@@ -20,15 +21,23 @@ import com.google.firebase.messaging.MessagingErrorCode;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 public class FcmSender implements PushNotificationSender {
 
   private final ExecutorService executor;
   private final FirebaseMessaging firebaseMessagingClient;
+
+  private static final Timer SEND_NOTIFICATION_TIMER = Metrics.timer(name(FcmSender.class, "sendNotification"));
 
   private static final Logger logger = LoggerFactory.getLogger(FcmSender.class);
 
@@ -67,8 +76,16 @@ public class FcmSender implements PushNotificationSender {
 
     builder.putData(key, pushNotification.data() != null ? pushNotification.data() : "");
 
-    final ApiFuture<String> sendFuture = firebaseMessagingClient.sendAsync(builder.build());
+    final Instant start = Instant.now();
     final CompletableFuture<SendPushNotificationResult> completableSendFuture = new CompletableFuture<>();
+
+    final ApiFuture<String> sendFuture = firebaseMessagingClient.sendAsync(builder.build());
+
+    // We want to record the time taken to send the push notification as directly as possible; executing this very small
+    // bit of non-blocking measurement on the sender thread lets us do that without picking up any confounding factors
+    // like having a callback waiting in an executor's queue.
+    sendFuture.addListener(() -> SEND_NOTIFICATION_TIMER.record(Duration.between(start, Instant.now())),
+        MoreExecutors.directExecutor());
 
     ApiFutures.addCallback(sendFuture, new ApiFutureCallback<>() {
       @Override
