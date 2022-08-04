@@ -361,8 +361,8 @@ class MessagesCacheTest {
    * Helper class that implements {@link MessageAvailabilityListener#handleNewMessagesAvailable()} by always returning
    * {@code false}. Its {@code counter} field tracks how many times {@code handleNewMessagesAvailable} has been called.
    * <p>
-   * It uses a parameterized {@code AtomicBoolean} for asynchronous observation. It <em>must</em> be reset to
-   * {@code false} between observations.
+   * It uses a {@link CompletableFuture} to signal that it has received a “messages available” callback for the first
+   * time.
    */
   private static class NewMessagesAvailabilityClosedListener implements MessageAvailabilityListener {
 
