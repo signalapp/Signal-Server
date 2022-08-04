@@ -39,6 +39,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.controllers.NoSuchUserException;
+import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.DisplacedPresenceListener;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -195,6 +196,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     sendMessageMeter.mark();
     sentMessageCounter.increment();
     bytesSentMeter.mark(body.map(bytes -> bytes.length).orElse(0));
+    MessageMetrics.measureAccountEnvelopeUuidMismatches(auth.getAccount(), message);
 
     // X-Signal-Key: false must be sent until Android stops assuming it missing means true
     return client.sendRequest("PUT", "/api/v1/message", List.of("X-Signal-Key: false", TimestampHeaderUtil.getTimestampHeader()), body).whenComplete((response, throwable) -> {

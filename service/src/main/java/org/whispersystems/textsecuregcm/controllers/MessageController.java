@@ -74,6 +74,7 @@ import org.whispersystems.textsecuregcm.entities.SendMultiRecipientMessageRespon
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeException;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
 import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
@@ -423,6 +424,8 @@ public class MessageController {
 
       outgoingMessages = new OutgoingMessageEntityList(messagesAndHasMore.first().stream()
           .map(OutgoingMessageEntity::fromEnvelope)
+          .peek(outgoingMessageEntity -> MessageMetrics.measureAccountOutgoingMessageUuidMismatches(auth.getAccount(),
+              outgoingMessageEntity))
           .collect(Collectors.toList()),
           messagesAndHasMore.second());
     }
