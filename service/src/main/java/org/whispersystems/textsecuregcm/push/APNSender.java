@@ -17,10 +17,15 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
+
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 public class APNSender implements Managed, PushNotificationSender {
 
@@ -44,6 +49,8 @@ public class APNSender implements Managed, PushNotificationSender {
   static final Instant MAX_EXPIRATION = Instant.ofEpochMilli(Integer.MAX_VALUE * 1000L);
 
   private static final String APNS_CA_FILENAME = "apns-certificates.pem";
+
+  private static final Timer SEND_NOTIFICATION_TIMER = Metrics.timer(name(APNSender.class, "sendNotification"));
 
   public APNSender(ExecutorService executor, ApnConfiguration configuration)
       throws IOException, NoSuchAlgorithmException, InvalidKeyException
@@ -95,6 +102,8 @@ public class APNSender implements Managed, PushNotificationSender {
         (notification.notificationType() == PushNotification.NotificationType.NOTIFICATION && !isVoip)
             ? "incoming-message" : null;
 
+    final Instant start = Instant.now();
+
     return apnsClient.sendNotification(new SimpleApnsPushNotification(notification.deviceToken(),
         topic,
         payload,
@@ -102,6 +111,12 @@ public class APNSender implements Managed, PushNotificationSender {
         DeliveryPriority.IMMEDIATE,
         isVoip ? PushType.VOIP : PushType.ALERT,
         collapseId))
+        .whenComplete((response, throwable) -> {
+          // Note that we deliberately run this small bit of non-blocking measurement on the "send notification" thread
+          // to avoid any measurement noise that could arise from dispatching to another executor and waiting in its
+          // queue
+          SEND_NOTIFICATION_TIMER.record(Duration.between(start, Instant.now()));
+        })
         .thenApplyAsync(response -> {
           final boolean accepted;
           final String rejectionReason;
