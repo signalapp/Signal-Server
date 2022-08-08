@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.lettuce.core.cluster.SlotHash;
+import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -35,6 +36,7 @@ class ApnPushNotificationSchedulerTest {
   private Device device;
 
   private APNSender apnSender;
+  private Clock clock;
 
   private ApnPushNotificationScheduler apnPushNotificationScheduler;
 
@@ -61,19 +63,23 @@ class ApnPushNotificationSchedulerTest {
     when(accountsManager.getByAccountIdentifier(ACCOUNT_UUID)).thenReturn(Optional.of(account));
 
     apnSender = mock(APNSender.class);
+    clock = mock(Clock.class);
 
-    apnPushNotificationScheduler = new ApnPushNotificationScheduler(REDIS_CLUSTER_EXTENSION.getRedisCluster(), apnSender, accountsManager);
+    apnPushNotificationScheduler = new ApnPushNotificationScheduler(REDIS_CLUSTER_EXTENSION.getRedisCluster(), apnSender, accountsManager, clock);
   }
 
   @Test
   void testClusterInsert() {
     final String endpoint = apnPushNotificationScheduler.getEndpointKey(account, device);
+    final long currentTimeMillis = System.currentTimeMillis();
 
     assertTrue(
         apnPushNotificationScheduler.getPendingDestinationsForRecurringVoipNotifications(SlotHash.getSlot(endpoint), 1).isEmpty());
 
-    apnPushNotificationScheduler.scheduleRecurringVoipNotification(account, device, System.currentTimeMillis() - 30_000);
+    when(clock.millis()).thenReturn(currentTimeMillis - 30_000);
+    apnPushNotificationScheduler.scheduleRecurringVoipNotification(account, device);
 
+    when(clock.millis()).thenReturn(currentTimeMillis);
     final List<String> pendingDestinations = apnPushNotificationScheduler.getPendingDestinationsForRecurringVoipNotifications(SlotHash.getSlot(endpoint), 2);
     assertEquals(1, pendingDestinations.size());
 
@@ -91,12 +97,15 @@ class ApnPushNotificationSchedulerTest {
   @Test
   void testProcessNextSlot() {
     final ApnPushNotificationScheduler.NotificationWorker worker = apnPushNotificationScheduler.new NotificationWorker();
+    final long currentTimeMillis = System.currentTimeMillis();
 
-    apnPushNotificationScheduler.scheduleRecurringVoipNotification(account, device, System.currentTimeMillis() - 30_000);
+    when(clock.millis()).thenReturn(currentTimeMillis - 30_000);
+    apnPushNotificationScheduler.scheduleRecurringVoipNotification(account, device);
 
     final int slot = SlotHash.getSlot(apnPushNotificationScheduler.getEndpointKey(account, device));
     final int previousSlot = (slot + SlotHash.SLOT_COUNT - 1) % SlotHash.SLOT_COUNT;
 
+    when(clock.millis()).thenReturn(currentTimeMillis);
     REDIS_CLUSTER_EXTENSION.getRedisCluster().withCluster(connection -> connection.sync()
         .set(ApnPushNotificationScheduler.NEXT_SLOT_TO_PERSIST_KEY, String.valueOf(previousSlot)));
 

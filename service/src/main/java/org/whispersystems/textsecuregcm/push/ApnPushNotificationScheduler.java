@@ -12,6 +12,7 @@ import io.lettuce.core.cluster.SlotHash;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
+import java.time.Clock;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -48,6 +49,7 @@ public class ApnPushNotificationScheduler implements Managed {
   private final APNSender apnSender;
   private final AccountsManager accountsManager;
   private final FaultTolerantRedisCluster pushSchedulingCluster;
+  private final Clock clock;
 
   private final ClusterLuaScript getPendingVoipDestinationsScript;
   private final ClusterLuaScript insertPendingVoipDestinationScript;
@@ -109,13 +111,22 @@ public class ApnPushNotificationScheduler implements Managed {
   }
 
   public ApnPushNotificationScheduler(FaultTolerantRedisCluster pushSchedulingCluster,
-                            APNSender apnSender,
-                            AccountsManager accountsManager)
-      throws IOException
-  {
+      APNSender apnSender,
+      AccountsManager accountsManager) throws IOException {
+
+    this(pushSchedulingCluster, apnSender, accountsManager, Clock.systemUTC());
+  }
+
+  @VisibleForTesting
+  ApnPushNotificationScheduler(FaultTolerantRedisCluster pushSchedulingCluster,
+      APNSender apnSender,
+      AccountsManager accountsManager,
+      Clock clock) throws IOException {
+
     this.apnSender = apnSender;
     this.accountsManager = accountsManager;
     this.pushSchedulingCluster = pushSchedulingCluster;
+    this.clock = clock;
 
     this.getPendingVoipDestinationsScript = ClusterLuaScript.fromResource(pushSchedulingCluster, "lua/apn/get.lua", ScriptOutputType.MULTI);
     this.insertPendingVoipDestinationScript = ClusterLuaScript.fromResource(pushSchedulingCluster, "lua/apn/insert.lua", ScriptOutputType.VALUE);
@@ -127,13 +138,8 @@ public class ApnPushNotificationScheduler implements Managed {
   }
 
   public void scheduleRecurringVoipNotification(Account account, Device device) {
-    scheduleRecurringVoipNotification(account, device, System.currentTimeMillis());
-  }
-
-  @VisibleForTesting
-  void scheduleRecurringVoipNotification(Account account, Device device, long timestamp) {
     sent.increment();
-    insertRecurringVoipNotificationEntry(account, device, timestamp + (15 * 1000), (15 * 1000));
+    insertRecurringVoipNotificationEntry(account, device, clock.millis() + (15 * 1000), (15 * 1000));
   }
 
   public void cancelRecurringVoipNotification(Account account, Device device) {
@@ -170,7 +176,7 @@ public class ApnPushNotificationScheduler implements Managed {
 
     long deviceLastSeen = device.getLastSeen();
 
-    if (deviceLastSeen < System.currentTimeMillis() - TimeUnit.DAYS.toMillis(7)) {
+    if (deviceLastSeen < clock.millis() - TimeUnit.DAYS.toMillis(7)) {
       evicted.increment();
       removeRecurringVoipNotificationEntry(account, device);
       return;
@@ -214,7 +220,7 @@ public class ApnPushNotificationScheduler implements Managed {
   List<String> getPendingDestinationsForRecurringVoipNotifications(final int slot, final int limit) {
     return (List<String>) getPendingVoipDestinationsScript.execute(
         List.of(getPendingRecurringVoipNotificationQueueKey(slot)),
-        List.of(String.valueOf(System.currentTimeMillis()), String.valueOf(limit)));
+        List.of(String.valueOf(clock.millis()), String.valueOf(limit)));
   }
 
   private void insertRecurringVoipNotificationEntry(final Account account, final Device device, final long timestamp, final long interval) {
