@@ -185,7 +185,7 @@ class PushNotificationManagerTest {
     verifyNoInteractions(fcmSender);
     verify(accountsManager, never()).updateDevice(eq(account), eq(Device.MASTER_ID), any());
     verify(device, never()).setUninstalledFeedbackTimestamp(Util.todayInMillis());
-    verify(apnPushNotificationScheduler).cancelRecurringVoipNotification(account, device);
+    verify(apnPushNotificationScheduler).cancelScheduledNotifications(account, device);
   }
 
   @Test
@@ -201,6 +201,6 @@ class PushNotificationManagerTest {
     pushNotificationManager.handleMessagesRetrieved(account, device, userAgent);
 
     verify(pushLatencyManager).recordQueueRead(accountIdentifier, Device.MASTER_ID, userAgent);
-    verify(apnPushNotificationScheduler).cancelRecurringVoipNotification(account, device);
+    verify(apnPushNotificationScheduler).cancelScheduledNotifications(account, device);
   }
 }

@@ -70,7 +70,7 @@ public class PushNotificationManager {
 
   public void handleMessagesRetrieved(final Account account, final Device device, final String userAgent) {
     RedisOperation.unchecked(() -> pushLatencyManager.recordQueueRead(account.getUuid(), device.getId(), userAgent));
-    RedisOperation.unchecked(() -> apnPushNotificationScheduler.cancelRecurringVoipNotification(account, device));
+    RedisOperation.unchecked(() -> apnPushNotificationScheduler.cancelScheduledNotifications(account, device));
   }
 
   @VisibleForTesting
@@ -139,7 +139,7 @@ public class PushNotificationManager {
             d.setUninstalledFeedbackTimestamp(Util.todayInMillis()));
       }
     } else {
-      RedisOperation.unchecked(() -> apnPushNotificationScheduler.cancelRecurringVoipNotification(account, device));
+      RedisOperation.unchecked(() -> apnPushNotificationScheduler.cancelScheduledNotifications(account, device));
     }
   }
 }

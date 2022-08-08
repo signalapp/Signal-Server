@@ -6,13 +6,18 @@
 package org.whispersystems.textsecuregcm.push;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.lettuce.core.cluster.SlotHash;
 import java.time.Clock;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -43,6 +48,7 @@ class ApnPushNotificationSchedulerTest {
   private static final UUID ACCOUNT_UUID = UUID.randomUUID();
   private static final String ACCOUNT_NUMBER = "+18005551234";
   private static final long DEVICE_ID = 1L;
+  private static final String APN_ID = RandomStringUtils.randomAlphanumeric(32);
   private static final String VOIP_APN_ID = RandomStringUtils.randomAlphanumeric(32);
 
   @BeforeEach
@@ -50,6 +56,7 @@ class ApnPushNotificationSchedulerTest {
 
     device = mock(Device.class);
     when(device.getId()).thenReturn(DEVICE_ID);
+    when(device.getApnId()).thenReturn(APN_ID);
     when(device.getVoipApnId()).thenReturn(VOIP_APN_ID);
     when(device.getLastSeen()).thenReturn(System.currentTimeMillis());
 
@@ -70,7 +77,7 @@ class ApnPushNotificationSchedulerTest {
 
   @Test
   void testClusterInsert() {
-    final String endpoint = apnPushNotificationScheduler.getEndpointKey(account, device);
+    final String endpoint = ApnPushNotificationScheduler.getEndpointKey(account, device);
     final long currentTimeMillis = System.currentTimeMillis();
 
     assertTrue(
@@ -95,21 +102,18 @@ class ApnPushNotificationSchedulerTest {
   }
 
   @Test
-  void testProcessNextSlot() {
+  void testProcessRecurringVoipNotifications() {
     final ApnPushNotificationScheduler.NotificationWorker worker = apnPushNotificationScheduler.new NotificationWorker();
     final long currentTimeMillis = System.currentTimeMillis();
 
     when(clock.millis()).thenReturn(currentTimeMillis - 30_000);
     apnPushNotificationScheduler.scheduleRecurringVoipNotification(account, device);
 
-    final int slot = SlotHash.getSlot(apnPushNotificationScheduler.getEndpointKey(account, device));
-    final int previousSlot = (slot + SlotHash.SLOT_COUNT - 1) % SlotHash.SLOT_COUNT;
-
     when(clock.millis()).thenReturn(currentTimeMillis);
-    REDIS_CLUSTER_EXTENSION.getRedisCluster().withCluster(connection -> connection.sync()
-        .set(ApnPushNotificationScheduler.NEXT_SLOT_TO_PERSIST_KEY, String.valueOf(previousSlot)));
 
-    assertEquals(1, worker.processNextSlot());
+    final int slot = SlotHash.getSlot(ApnPushNotificationScheduler.getEndpointKey(account, device));
+
+    assertEquals(1, worker.processRecurringVoipNotifications(slot));
 
     final ArgumentCaptor<PushNotification> notificationCaptor = ArgumentCaptor.forClass(PushNotification.class);
     verify(apnSender).sendNotification(notificationCaptor.capture());
@@ -120,6 +124,96 @@ class ApnPushNotificationSchedulerTest {
     assertEquals(account, pushNotification.destination());
     assertEquals(device, pushNotification.destinationDevice());
 
-    assertEquals(0, worker.processNextSlot());
+    assertEquals(0, worker.processRecurringVoipNotifications(slot));
+  }
+
+  @Test
+  void testScheduleBackgroundNotificationWithNoRecentNotification() {
+    final Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+    when(clock.millis()).thenReturn(now.toEpochMilli());
+
+    assertEquals(Optional.empty(),
+        apnPushNotificationScheduler.getLastBackgroundNotificationTimestamp(account, device));
+
+    assertEquals(Optional.empty(),
+        apnPushNotificationScheduler.getNextScheduledBackgroundNotificationTimestamp(account, device));
+
+    apnPushNotificationScheduler.scheduleBackgroundNotification(account, device);
+
+    assertEquals(Optional.of(now),
+        apnPushNotificationScheduler.getNextScheduledBackgroundNotificationTimestamp(account, device));
+  }
+
+  @Test
+  void testScheduleBackgroundNotificationWithRecentNotification() {
+    final Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+    final Instant recentNotificationTimestamp =
+        now.minus(ApnPushNotificationScheduler.BACKGROUND_NOTIFICATION_PERIOD.dividedBy(2));
+
+    // Insert a timestamp for a recently-sent background push notification
+    when(clock.millis()).thenReturn(recentNotificationTimestamp.toEpochMilli());
+    apnPushNotificationScheduler.sendBackgroundNotification(account, device);
+
+    when(clock.millis()).thenReturn(now.toEpochMilli());
+    apnPushNotificationScheduler.scheduleBackgroundNotification(account, device);
+
+    final Instant expectedScheduledTimestamp =
+        recentNotificationTimestamp.plus(ApnPushNotificationScheduler.BACKGROUND_NOTIFICATION_PERIOD);
+
+    assertEquals(Optional.of(expectedScheduledTimestamp),
+        apnPushNotificationScheduler.getNextScheduledBackgroundNotificationTimestamp(account, device));
+  }
+
+  @Test
+  void testProcessScheduledBackgroundNotifications() {
+    final ApnPushNotificationScheduler.NotificationWorker worker = apnPushNotificationScheduler.new NotificationWorker();
+
+    final Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+
+    when(clock.millis()).thenReturn(now.toEpochMilli());
+    apnPushNotificationScheduler.scheduleBackgroundNotification(account, device);
+
+    final int slot =
+        SlotHash.getSlot(ApnPushNotificationScheduler.getPendingBackgroundNotificationQueueKey(account, device));
+
+    when(clock.millis()).thenReturn(now.minusMillis(1).toEpochMilli());
+    assertEquals(0, worker.processScheduledBackgroundNotifications(slot));
+
+    when(clock.millis()).thenReturn(now.toEpochMilli());
+    assertEquals(1, worker.processScheduledBackgroundNotifications(slot));
+
+    final ArgumentCaptor<PushNotification> notificationCaptor = ArgumentCaptor.forClass(PushNotification.class);
+    verify(apnSender).sendNotification(notificationCaptor.capture());
+
+    final PushNotification pushNotification = notificationCaptor.getValue();
+
+    assertEquals(PushNotification.TokenType.APN, pushNotification.tokenType());
+    assertEquals(APN_ID, pushNotification.deviceToken());
+    assertEquals(account, pushNotification.destination());
+    assertEquals(device, pushNotification.destinationDevice());
+    assertEquals(PushNotification.NotificationType.NOTIFICATION, pushNotification.notificationType());
+
+    // TODO Check urgency
+    // assertFalse(pushNotification.urgent());
+
+    assertEquals(0, worker.processRecurringVoipNotifications(slot));
+  }
+
+  @Test
+  void testProcessScheduledBackgroundNotificationsCancelled() {
+    final ApnPushNotificationScheduler.NotificationWorker worker = apnPushNotificationScheduler.new NotificationWorker();
+
+    final Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+
+    when(clock.millis()).thenReturn(now.toEpochMilli());
+    apnPushNotificationScheduler.scheduleBackgroundNotification(account, device);
+    apnPushNotificationScheduler.cancelScheduledNotifications(account, device);
+
+    final int slot =
+        SlotHash.getSlot(ApnPushNotificationScheduler.getPendingBackgroundNotificationQueueKey(account, device));
+
+    assertEquals(0, worker.processScheduledBackgroundNotifications(slot));
+
+    verify(apnSender, never()).sendNotification(any());
   }
 }
