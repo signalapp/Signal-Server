@@ -144,9 +144,9 @@ class WebSocketConnectionTest {
     UUID senderOneUuid = UUID.randomUUID();
     UUID senderTwoUuid = UUID.randomUUID();
 
-    List<Envelope> outgoingMessages = List.of(createMessage("sender1", senderOneUuid, accountUuid, 1111, "first"),
-        createMessage("sender1", senderOneUuid, accountUuid, 2222, "second"),
-        createMessage("sender2", senderTwoUuid, accountUuid, 3333, "third"));
+    List<Envelope> outgoingMessages = List.of(createMessage(senderOneUuid, accountUuid, 1111, "first"),
+        createMessage(senderOneUuid, accountUuid, 2222, "second"),
+        createMessage(senderTwoUuid, accountUuid, 3333, "third"));
 
     final long deviceId = 2L;
     when(device.getId()).thenReturn(deviceId);
@@ -225,8 +225,8 @@ class WebSocketConnectionTest {
 
     when(messagesManager.getMessagesForDevice(eq(accountUuid), eq(1L), eq("Test-UA"), anyBoolean()))
         .thenReturn(new Pair<>(Collections.emptyList(), false))
-        .thenReturn(new Pair<>(List.of(createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 1111, "first")), false))
-        .thenReturn(new Pair<>(List.of(createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 2222, "second")), false));
+        .thenReturn(new Pair<>(List.of(createMessage(UUID.randomUUID(), UUID.randomUUID(), 1111, "first")), false))
+        .thenReturn(new Pair<>(List.of(createMessage(UUID.randomUUID(), UUID.randomUUID(), 2222, "second")), false));
 
     final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
     when(successResponse.getStatus()).thenReturn(200);
@@ -432,11 +432,11 @@ class WebSocketConnectionTest {
     when(client.getUserAgent()).thenReturn("Test-UA");
 
     final List<Envelope> firstPageMessages =
-        List.of(createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 1111, "first"),
-            createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 2222, "second"));
+        List.of(createMessage(UUID.randomUUID(), UUID.randomUUID(), 1111, "first"),
+            createMessage(UUID.randomUUID(), UUID.randomUUID(), 2222, "second"));
 
     final List<Envelope> secondPageMessages =
-            List.of(createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 3333, "third"));
+        List.of(createMessage(UUID.randomUUID(), UUID.randomUUID(), 3333, "third"));
 
     when(messagesManager.getMessagesForDevice(account.getUuid(), 1L, client.getUserAgent(), false))
             .thenReturn(new Pair<>(firstPageMessages, true))
@@ -477,7 +477,7 @@ class WebSocketConnectionTest {
 
     final UUID senderUuid = UUID.randomUUID();
     final List<Envelope> messages = List.of(
-        createMessage("senderE164", senderUuid, UUID.randomUUID(), 1111L, "message the first"));
+        createMessage(senderUuid, UUID.randomUUID(), 1111L, "message the first"));
 
     when(messagesManager.getMessagesForDevice(account.getUuid(), 1L, client.getUserAgent(), false))
         .thenReturn(new Pair<>(messages, false));
@@ -563,11 +563,11 @@ class WebSocketConnectionTest {
     when(client.getUserAgent()).thenReturn("Test-UA");
 
     final List<Envelope> firstPageMessages =
-        List.of(createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 1111, "first"),
-            createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 2222, "second"));
+        List.of(createMessage(UUID.randomUUID(), UUID.randomUUID(), 1111, "first"),
+            createMessage(UUID.randomUUID(), UUID.randomUUID(), 2222, "second"));
 
     final List<Envelope> secondPageMessages =
-            List.of(createMessage("sender1", UUID.randomUUID(), UUID.randomUUID(), 3333, "third"));
+        List.of(createMessage(UUID.randomUUID(), UUID.randomUUID(), 3333, "third"));
 
     when(messagesManager.getMessagesForDevice(eq(accountUuid), eq(1L), eq("Test-UA"), anyBoolean()))
             .thenReturn(new Pair<>(firstPageMessages, false))
@@ -670,10 +670,10 @@ class WebSocketConnectionTest {
     UUID senderTwoUuid = UUID.randomUUID();
 
     List<Envelope> outgoingMessages = List.of(
-        createMessage("sender1", senderOneUuid, UUID.randomUUID(), 1111, "first"),
-        createMessage("sender1", senderOneUuid, UUID.randomUUID(), 2222,
+        createMessage(senderOneUuid, UUID.randomUUID(), 1111, "first"),
+        createMessage(senderOneUuid, UUID.randomUUID(), 2222,
             RandomStringUtils.randomAlphanumeric(WebSocketConnection.MAX_DESKTOP_MESSAGE_SIZE + 1)),
-        createMessage("sender2", senderTwoUuid, UUID.randomUUID(), 3333, "third"));
+        createMessage(senderTwoUuid, UUID.randomUUID(), 3333, "third"));
 
     when(device.getId()).thenReturn(2L);
 
@@ -736,14 +736,14 @@ class WebSocketConnectionTest {
   void testSendOversizedMessagesForNonDesktop() {
     MessagesManager storedMessages = mock(MessagesManager.class);
 
-    UUID accountUuid   = UUID.randomUUID();
+    UUID accountUuid = UUID.randomUUID();
     UUID senderOneUuid = UUID.randomUUID();
     UUID senderTwoUuid = UUID.randomUUID();
 
-    List<Envelope> outgoingMessages = List.of(createMessage("sender1", senderOneUuid, UUID.randomUUID(), 1111, "first"),
-        createMessage("sender1", senderOneUuid, UUID.randomUUID(), 2222,
+    List<Envelope> outgoingMessages = List.of(createMessage(senderOneUuid, UUID.randomUUID(), 1111, "first"),
+        createMessage(senderOneUuid, UUID.randomUUID(), 2222,
             RandomStringUtils.randomAlphanumeric(WebSocketConnection.MAX_DESKTOP_MESSAGE_SIZE + 1)),
-        createMessage("sender2", senderTwoUuid, UUID.randomUUID(), 3333, "third"));
+        createMessage(senderTwoUuid, UUID.randomUUID(), 3333, "third"));
 
     when(device.getId()).thenReturn(2L);
 
@@ -862,7 +862,7 @@ class WebSocketConnectionTest {
     verify(client, never()).close(anyInt(), anyString());
   }
 
-  private Envelope createMessage(String sender, UUID senderUuid, UUID destinationUuid, long timestamp, String content) {
+  private Envelope createMessage(UUID senderUuid, UUID destinationUuid, long timestamp, String content) {
     return Envelope.newBuilder()
         .setServerGuid(UUID.randomUUID().toString())
         .setType(Envelope.Type.CIPHERTEXT)

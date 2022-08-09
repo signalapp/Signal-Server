@@ -35,6 +35,7 @@ class MessageMetricsTest {
   void setup() {
     when(account.getUuid()).thenReturn(aci);
     when(account.getPhoneNumberIdentifier()).thenReturn(pni);
+    Metrics.globalRegistry.clear();
     simpleMeterRegistry = new SimpleMeterRegistry();
     Metrics.globalRegistry.add(simpleMeterRegistry);
   }
