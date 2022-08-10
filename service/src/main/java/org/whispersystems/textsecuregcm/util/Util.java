@@ -42,11 +42,30 @@ public class Util {
     }
 
     try {
-      final PhoneNumber phoneNumber = PHONE_NUMBER_UTIL.parse(number, null);
-      final String normalizedNumber = PHONE_NUMBER_UTIL.format(phoneNumber, PhoneNumberFormat.E164);
+      final PhoneNumber inputNumber = PHONE_NUMBER_UTIL.parse(number, null);
 
-      if (!number.equals(normalizedNumber)) {
-        throw new NonNormalizedPhoneNumberException(number, normalizedNumber);
+      // For normalization, we want to format from a version parsed with the country code removed.
+      // This handles some cases of "possible", but non-normalized input numbers with a doubled country code, that is
+      // with the format "+{country code} {country code} {national number}"
+      final int countryCode = inputNumber.getCountryCode();
+      final String region = PHONE_NUMBER_UTIL.getRegionCodeForCountryCode(countryCode);
+
+      final PhoneNumber normalizedNumber = switch (region) {
+        // the country code has no associated region. Be lenient (and simple) and accept the input number
+        case "ZZ", "001" -> inputNumber;
+        default -> {
+          final String maybeLeadingZero =
+              inputNumber.hasItalianLeadingZero() && inputNumber.isItalianLeadingZero() ? "0" : "";
+          yield PHONE_NUMBER_UTIL.parse(
+              maybeLeadingZero + inputNumber.getNationalNumber(), region);
+        }
+      };
+
+      final String normalizedE164 = PHONE_NUMBER_UTIL.format(normalizedNumber,
+          PhoneNumberFormat.E164);
+
+      if (!number.equals(normalizedE164)) {
+        throw new NonNormalizedPhoneNumberException(number, normalizedE164);
       }
     } catch (final NumberParseException e) {
       throw new ImpossiblePhoneNumberException(e);

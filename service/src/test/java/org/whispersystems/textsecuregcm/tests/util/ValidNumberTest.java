@@ -24,11 +24,13 @@ class ValidNumberTest {
       "+71234567890",
       "+447535742222",
       "+4915174108888",
+      "+2250707312345",
       "+298123456",
       "+299123456",
       "+376123456",
       "+68512345",
-      "+689123456"})
+      "+689123456",
+      "+80011111111"})
   void requireNormalizedNumber(final String number) {
     assertDoesNotThrow(() -> Util.requireNormalizedNumber(number));
   }
@@ -56,6 +58,8 @@ class ValidNumberTest {
   @ParameterizedTest
   @ValueSource(strings = {
       "+4407700900111",
+      "+49493023125000", // double country code - this e164 is "possible"
+      "+494915110000000", // double country code - this e164 is "possible" and "valid"
       "+1 415 123 1234",
       "+1 (415) 123-1234",
       "+1 415)123-1234",
