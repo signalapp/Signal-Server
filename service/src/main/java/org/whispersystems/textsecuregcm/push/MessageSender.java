@@ -8,8 +8,6 @@ import static com.codahale.metrics.MetricRegistry.name;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 
 import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tag;
-import java.util.List;
 import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
@@ -41,6 +39,7 @@ public class MessageSender {
   private static final String CHANNEL_TAG_NAME = "channel";
   private static final String EPHEMERAL_TAG_NAME = "ephemeral";
   private static final String CLIENT_ONLINE_TAG_NAME = "clientOnline";
+  private static final String URGENT_TAG_NAME = "urgent";
 
   public MessageSender(ClientPresenceManager clientPresenceManager,
       MessagesManager messagesManager,
@@ -97,11 +96,11 @@ public class MessageSender {
       }
     }
 
-    final List<Tag> tags = List.of(
-        Tag.of(CHANNEL_TAG_NAME, channel),
-        Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(online)),
-        Tag.of(CLIENT_ONLINE_TAG_NAME, String.valueOf(clientPresent)));
-
-    Metrics.counter(SEND_COUNTER_NAME, tags).increment();
+    Metrics.counter(SEND_COUNTER_NAME,
+            CHANNEL_TAG_NAME, channel,
+            EPHEMERAL_TAG_NAME, String.valueOf(online),
+            CLIENT_ONLINE_TAG_NAME, String.valueOf(clientPresent),
+            URGENT_TAG_NAME, String.valueOf(message.getUrgent()))
+        .increment();
   }
 }
