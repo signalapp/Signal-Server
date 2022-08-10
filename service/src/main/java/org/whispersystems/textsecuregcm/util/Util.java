@@ -8,12 +8,6 @@ import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberFormat;
 import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
-import java.nio.ByteBuffer;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.temporal.ChronoField;
@@ -22,7 +16,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Locale.LanguageRange;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -34,18 +27,6 @@ public class Util {
   private static final Pattern COUNTRY_CODE_PATTERN = Pattern.compile("^\\+([17]|2[07]|3[0123469]|4[013456789]|5[12345678]|6[0123456]|8[1246]|9[0123458]|\\d{3})");
 
   private static final PhoneNumberUtil PHONE_NUMBER_UTIL = PhoneNumberUtil.getInstance();
-
-  public static byte[] getContactToken(String number) {
-    try {
-      MessageDigest digest    = MessageDigest.getInstance("SHA1");
-      byte[]        result    = digest.digest(number.getBytes());
-      byte[]        truncated = Util.truncate(result, 10);
-
-      return truncated;
-    } catch (NoSuchAlgorithmException e) {
-      throw new AssertionError(e);
-    }
-  }
 
   /**
    * Checks that the given number is a valid, E164-normalized phone number.
@@ -85,24 +66,6 @@ public class Util {
     int    prefixLength = Math.min(4, remaining);
 
     return number.substring(0, 1 + countryCode.length() + prefixLength);
-  }
-
-  public static String encodeFormParams(Map<String, String> params) {
-    try {
-      StringBuffer buffer = new StringBuffer();
-
-      for (String key : params.keySet()) {
-        buffer.append(String.format("%s=%s",
-                                    URLEncoder.encode(key, "UTF-8"),
-                                    URLEncoder.encode(params.get(key), "UTF-8")));
-        buffer.append("&");
-      }
-
-      buffer.deleteCharAt(buffer.length()-1);
-      return buffer.toString();
-    } catch (UnsupportedEncodingException e) {
-      throw new AssertionError(e);
-    }
   }
 
   public static boolean isEmpty(String param) {
@@ -146,20 +109,6 @@ public class Util {
     return parts;
   }
 
-  public static byte[] generateSecretBytes(int size) {
-    byte[] data = new byte[size];
-    new SecureRandom().nextBytes(data);
-    return data;
-  }
-
-  public static byte[] longToByteArray(long value) {
-    final ByteBuffer longBuffer = ByteBuffer.allocate(Long.BYTES);
-
-    longBuffer.putLong(value);
-
-    return longBuffer.array();
-  }
-
   public static int toIntExact(long value) {
     if ((int) value != value) {
       throw new ArithmeticException("integer overflow");
@@ -169,16 +118,6 @@ public class Util {
 
   public static int currentDaysSinceEpoch(@Nonnull Clock clock) {
     return toIntExact(clock.millis() / 1000 / 60/ 60 / 24);
-  }
-
-  /**
-   * Returns the current number of days since the epoch.
-   *
-   * @deprecated use {@link #currentDaysSinceEpoch(Clock)} instead
-   */
-  @Deprecated
-  public static int currentDaysSinceEpoch() {
-    return currentDaysSinceEpoch(Clock.systemUTC());
   }
 
   public static void sleep(long i) {
@@ -205,10 +144,6 @@ public class Util {
 
   public static int hashCode(Object... objects) {
     return Arrays.hashCode(objects);
-  }
-
-  public static boolean isEquals(Object first, Object second) {
-    return (first == null && second == null) || (first == second) || (first != null && first.equals(second));
   }
 
   public static long todayInMillis() {

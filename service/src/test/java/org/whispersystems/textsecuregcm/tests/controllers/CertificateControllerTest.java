@@ -62,16 +62,17 @@ class CertificateControllerTest {
   private static final String caPrivateKey = "EO3Mnf0kfVlVnwSaqPoQnAxhnnGL1JTdXqktCKEe9Eo=";
 
   private static final String signingCertificate = "CiUIDBIhBbTz4h1My+tt+vw+TVscgUe/DeHS0W02tPWAWbTO2xc3EkD+go4bJnU0AcnFfbOLKoiBfCzouZtDYMOVi69rE7r4U9cXREEqOkUmU2WJBjykAxWPCcSTmVTYHDw7hkSp/puG";
-  private static final String signingKey         = "ABOxG29xrfq4E7IrW11Eg7+HBbtba9iiS0500YoBjn4=";
+  private static final String signingKey = "ABOxG29xrfq4E7IrW11Eg7+HBbtba9iiS0500YoBjn4=";
 
-  private static final ServerSecretParams     serverSecretParams = ServerSecretParams.generate();
-  private static final CertificateGenerator   certificateGenerator;
+  private static final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
+  private static final CertificateGenerator certificateGenerator;
   private static final ServerZkAuthOperations serverZkAuthOperations;
   private static final Clock clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
 
   static {
     try {
-      certificateGenerator   = new CertificateGenerator(Base64.getDecoder().decode(signingCertificate), Curve.decodePrivatePoint(Base64.getDecoder().decode(signingKey)), 1);
+      certificateGenerator = new CertificateGenerator(Base64.getDecoder().decode(signingCertificate),
+          Curve.decodePrivatePoint(Base64.getDecoder().decode(signingKey)), 1);
       serverZkAuthOperations = new ServerZkAuthOperations(serverSecretParams);
     } catch (IOException e) {
       throw new AssertionError(e);
@@ -91,86 +92,98 @@ class CertificateControllerTest {
   @Test
   void testValidCertificate() throws Exception {
     DeliveryCertificate certificateObject = resources.getJerseyTest()
-                                                     .target("/v1/certificate/delivery")
-                                                     .request()
-                                                     .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                                                     .get(DeliveryCertificate.class);
+        .target("/v1/certificate/delivery")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(DeliveryCertificate.class);
 
+    SenderCertificate certificateHolder = SenderCertificate.parseFrom(certificateObject.getCertificate());
+    SenderCertificate.Certificate certificate = SenderCertificate.Certificate.parseFrom(
+        certificateHolder.getCertificate());
 
-    SenderCertificate             certificateHolder = SenderCertificate.parseFrom(certificateObject.getCertificate());
-    SenderCertificate.Certificate certificate       = SenderCertificate.Certificate.parseFrom(certificateHolder.getCertificate());
+    ServerCertificate serverCertificateHolder = certificate.getSigner();
+    ServerCertificate.Certificate serverCertificate = ServerCertificate.Certificate.parseFrom(
+        serverCertificateHolder.getCertificate());
 
-    ServerCertificate             serverCertificateHolder = certificate.getSigner();
-    ServerCertificate.Certificate serverCertificate       = ServerCertificate.Certificate.parseFrom(serverCertificateHolder.getCertificate());
-
-    assertTrue(Curve.verifySignature(Curve.decodePoint(serverCertificate.getKey().toByteArray(), 0), certificateHolder.getCertificate().toByteArray(), certificateHolder.getSignature().toByteArray()));
-    assertTrue(Curve.verifySignature(Curve.decodePoint(Base64.getDecoder().decode(caPublicKey), 0), serverCertificateHolder.getCertificate().toByteArray(), serverCertificateHolder.getSignature().toByteArray()));
+    assertTrue(Curve.verifySignature(Curve.decodePoint(serverCertificate.getKey().toByteArray(), 0),
+        certificateHolder.getCertificate().toByteArray(), certificateHolder.getSignature().toByteArray()));
+    assertTrue(Curve.verifySignature(Curve.decodePoint(Base64.getDecoder().decode(caPublicKey), 0),
+        serverCertificateHolder.getCertificate().toByteArray(), serverCertificateHolder.getSignature().toByteArray()));
 
     assertEquals(certificate.getSender(), AuthHelper.VALID_NUMBER);
     assertEquals(certificate.getSenderDevice(), 1L);
     assertTrue(certificate.hasSenderUuid());
     assertEquals(AuthHelper.VALID_UUID.toString(), certificate.getSenderUuid());
-    assertArrayEquals(certificate.getIdentityKey().toByteArray(), Base64.getDecoder().decode(AuthHelper.VALID_IDENTITY));
+    assertArrayEquals(certificate.getIdentityKey().toByteArray(),
+        Base64.getDecoder().decode(AuthHelper.VALID_IDENTITY));
   }
 
   @Test
   void testValidCertificateWithUuid() throws Exception {
     DeliveryCertificate certificateObject = resources.getJerseyTest()
-                                                     .target("/v1/certificate/delivery")
-                                                     .queryParam("includeUuid", "true")
-                                                     .request()
-                                                     .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                                                     .get(DeliveryCertificate.class);
+        .target("/v1/certificate/delivery")
+        .queryParam("includeUuid", "true")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(DeliveryCertificate.class);
 
+    SenderCertificate certificateHolder = SenderCertificate.parseFrom(certificateObject.getCertificate());
+    SenderCertificate.Certificate certificate = SenderCertificate.Certificate.parseFrom(
+        certificateHolder.getCertificate());
 
-    SenderCertificate             certificateHolder = SenderCertificate.parseFrom(certificateObject.getCertificate());
-    SenderCertificate.Certificate certificate       = SenderCertificate.Certificate.parseFrom(certificateHolder.getCertificate());
+    ServerCertificate serverCertificateHolder = certificate.getSigner();
+    ServerCertificate.Certificate serverCertificate = ServerCertificate.Certificate.parseFrom(
+        serverCertificateHolder.getCertificate());
 
-    ServerCertificate             serverCertificateHolder = certificate.getSigner();
-    ServerCertificate.Certificate serverCertificate       = ServerCertificate.Certificate.parseFrom(serverCertificateHolder.getCertificate());
-
-    assertTrue(Curve.verifySignature(Curve.decodePoint(serverCertificate.getKey().toByteArray(), 0), certificateHolder.getCertificate().toByteArray(), certificateHolder.getSignature().toByteArray()));
-    assertTrue(Curve.verifySignature(Curve.decodePoint(Base64.getDecoder().decode(caPublicKey), 0), serverCertificateHolder.getCertificate().toByteArray(), serverCertificateHolder.getSignature().toByteArray()));
+    assertTrue(Curve.verifySignature(Curve.decodePoint(serverCertificate.getKey().toByteArray(), 0),
+        certificateHolder.getCertificate().toByteArray(), certificateHolder.getSignature().toByteArray()));
+    assertTrue(Curve.verifySignature(Curve.decodePoint(Base64.getDecoder().decode(caPublicKey), 0),
+        serverCertificateHolder.getCertificate().toByteArray(), serverCertificateHolder.getSignature().toByteArray()));
 
     assertEquals(certificate.getSender(), AuthHelper.VALID_NUMBER);
     assertEquals(certificate.getSenderDevice(), 1L);
     assertEquals(certificate.getSenderUuid(), AuthHelper.VALID_UUID.toString());
-    assertArrayEquals(certificate.getIdentityKey().toByteArray(), Base64.getDecoder().decode(AuthHelper.VALID_IDENTITY));
+    assertArrayEquals(certificate.getIdentityKey().toByteArray(),
+        Base64.getDecoder().decode(AuthHelper.VALID_IDENTITY));
   }
 
   @Test
   void testValidCertificateWithUuidNoE164() throws Exception {
     DeliveryCertificate certificateObject = resources.getJerseyTest()
-            .target("/v1/certificate/delivery")
-            .queryParam("includeUuid", "true")
-            .queryParam("includeE164", "false")
-            .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .get(DeliveryCertificate.class);
+        .target("/v1/certificate/delivery")
+        .queryParam("includeUuid", "true")
+        .queryParam("includeE164", "false")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(DeliveryCertificate.class);
 
+    SenderCertificate certificateHolder = SenderCertificate.parseFrom(certificateObject.getCertificate());
+    SenderCertificate.Certificate certificate = SenderCertificate.Certificate.parseFrom(
+        certificateHolder.getCertificate());
 
-    SenderCertificate             certificateHolder = SenderCertificate.parseFrom(certificateObject.getCertificate());
-    SenderCertificate.Certificate certificate       = SenderCertificate.Certificate.parseFrom(certificateHolder.getCertificate());
+    ServerCertificate serverCertificateHolder = certificate.getSigner();
+    ServerCertificate.Certificate serverCertificate = ServerCertificate.Certificate.parseFrom(
+        serverCertificateHolder.getCertificate());
 
-    ServerCertificate             serverCertificateHolder = certificate.getSigner();
-    ServerCertificate.Certificate serverCertificate       = ServerCertificate.Certificate.parseFrom(serverCertificateHolder.getCertificate());
-
-    assertTrue(Curve.verifySignature(Curve.decodePoint(serverCertificate.getKey().toByteArray(), 0), certificateHolder.getCertificate().toByteArray(), certificateHolder.getSignature().toByteArray()));
-    assertTrue(Curve.verifySignature(Curve.decodePoint(Base64.getDecoder().decode(caPublicKey), 0), serverCertificateHolder.getCertificate().toByteArray(), serverCertificateHolder.getSignature().toByteArray()));
+    assertTrue(Curve.verifySignature(Curve.decodePoint(serverCertificate.getKey().toByteArray(), 0),
+        certificateHolder.getCertificate().toByteArray(), certificateHolder.getSignature().toByteArray()));
+    assertTrue(Curve.verifySignature(Curve.decodePoint(Base64.getDecoder().decode(caPublicKey), 0),
+        serverCertificateHolder.getCertificate().toByteArray(), serverCertificateHolder.getSignature().toByteArray()));
 
     assertTrue(StringUtils.isBlank(certificate.getSender()));
     assertEquals(certificate.getSenderDevice(), 1L);
     assertEquals(certificate.getSenderUuid(), AuthHelper.VALID_UUID.toString());
-    assertArrayEquals(certificate.getIdentityKey().toByteArray(), Base64.getDecoder().decode(AuthHelper.VALID_IDENTITY));
+    assertArrayEquals(certificate.getIdentityKey().toByteArray(),
+        Base64.getDecoder().decode(AuthHelper.VALID_IDENTITY));
   }
 
   @Test
   void testBadAuthentication() {
     Response response = resources.getJerseyTest()
-                                 .target("/v1/certificate/delivery")
-                                 .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.INVALID_PASSWORD))
-                                 .get();
+        .target("/v1/certificate/delivery")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.INVALID_PASSWORD))
+        .get();
 
     assertEquals(response.getStatus(), 401);
   }
@@ -179,9 +192,9 @@ class CertificateControllerTest {
   @Test
   void testNoAuthentication() {
     Response response = resources.getJerseyTest()
-                                 .target("/v1/certificate/delivery")
-                                 .request()
-                                 .get();
+        .target("/v1/certificate/delivery")
+        .request()
+        .get();
 
     assertEquals(response.getStatus(), 401);
   }
@@ -190,10 +203,10 @@ class CertificateControllerTest {
   @Test
   void testUnidentifiedAuthentication() {
     Response response = resources.getJerseyTest()
-                                 .target("/v1/certificate/delivery")
-                                 .request()
-                                 .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("1234".getBytes()))
-                                 .get();
+        .target("/v1/certificate/delivery")
+        .request()
+        .header(OptionalAccess.UNIDENTIFIED, AuthHelper.getUnidentifiedAccessHeader("1234".getBytes()))
+        .get();
 
     assertEquals(response.getStatus(), 401);
   }
@@ -201,10 +214,10 @@ class CertificateControllerTest {
   @Test
   void testDisabledAuthentication() {
     Response response = resources.getJerseyTest()
-                                 .target("/v1/certificate/delivery")
-                                 .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
-                                 .get();
+        .target("/v1/certificate/delivery")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.DISABLED_UUID, AuthHelper.DISABLED_PASSWORD))
+        .get();
 
     assertEquals(response.getStatus(), 401);
   }
@@ -212,59 +225,62 @@ class CertificateControllerTest {
   @Test
   void testGetSingleAuthCredential() {
     GroupCredentials credentials = resources.getJerseyTest()
-                                            .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + Util.currentDaysSinceEpoch())
-                                            .request()
-                                            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                                            .get(GroupCredentials.class);
+        .target("/v1/certificate/group/" + currentDaysSinceEpoch() + "/" + currentDaysSinceEpoch())
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(GroupCredentials.class);
 
     assertThat(credentials.credentials().size()).isEqualTo(1);
-    assertThat(credentials.credentials().get(0).redemptionTime()).isEqualTo(Util.currentDaysSinceEpoch());
+    assertThat(credentials.credentials().get(0).redemptionTime()).isEqualTo(currentDaysSinceEpoch());
 
     ClientZkAuthOperations clientZkAuthOperations = new ClientZkAuthOperations(serverSecretParams.getPublicParams());
 
     assertThatCode(() ->
-        clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, Util.currentDaysSinceEpoch(), new AuthCredentialResponse(credentials.credentials().get(0).credential())))
+        clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, currentDaysSinceEpoch(),
+            new AuthCredentialResponse(credentials.credentials().get(0).credential())))
         .doesNotThrowAnyException();
   }
 
   @Test
   void testGetSingleAuthCredentialByPni() {
     GroupCredentials credentials = resources.getJerseyTest()
-        .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + Util.currentDaysSinceEpoch())
+        .target("/v1/certificate/group/" + currentDaysSinceEpoch() + "/" + currentDaysSinceEpoch())
         .queryParam("identity", "pni")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(GroupCredentials.class);
 
     assertThat(credentials.credentials().size()).isEqualTo(1);
-    assertThat(credentials.credentials().get(0).redemptionTime()).isEqualTo(Util.currentDaysSinceEpoch());
+    assertThat(credentials.credentials().get(0).redemptionTime()).isEqualTo(currentDaysSinceEpoch());
 
     ClientZkAuthOperations clientZkAuthOperations = new ClientZkAuthOperations(serverSecretParams.getPublicParams());
 
     assertThatExceptionOfType(VerificationFailedException.class)
         .isThrownBy(() ->
-            clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, Util.currentDaysSinceEpoch(), new AuthCredentialResponse(credentials.credentials().get(0).credential())));
+            clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, currentDaysSinceEpoch(),
+                new AuthCredentialResponse(credentials.credentials().get(0).credential())));
   }
 
   @Test
   void testGetWeekLongAuthCredentials() {
     GroupCredentials credentials = resources.getJerseyTest()
-                                            .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + (Util.currentDaysSinceEpoch() + 7))
-                                            .request()
-                                            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                                            .get(GroupCredentials.class);
+        .target("/v1/certificate/group/" + currentDaysSinceEpoch() + "/" + (currentDaysSinceEpoch() + 7))
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(GroupCredentials.class);
 
     assertThat(credentials.credentials().size()).isEqualTo(8);
 
-    for (int i=0;i<=7;i++) {
-      assertThat(credentials.credentials().get(i).redemptionTime()).isEqualTo(Util.currentDaysSinceEpoch() + i);
+    for (int i = 0; i <= 7; i++) {
+      assertThat(credentials.credentials().get(i).redemptionTime()).isEqualTo(currentDaysSinceEpoch() + i);
 
       ClientZkAuthOperations clientZkAuthOperations = new ClientZkAuthOperations(serverSecretParams.getPublicParams());
 
       final int time = i;
 
       assertThatCode(() ->
-          clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, Util.currentDaysSinceEpoch() + time , new AuthCredentialResponse(credentials.credentials().get(time).credential())))
+          clientZkAuthOperations.receiveAuthCredential(AuthHelper.VALID_UUID, currentDaysSinceEpoch() + time,
+              new AuthCredentialResponse(credentials.credentials().get(time).credential())))
           .doesNotThrowAnyException();
     }
   }
@@ -272,10 +288,10 @@ class CertificateControllerTest {
   @Test
   void testTooManyDaysOut() {
     Response response = resources.getJerseyTest()
-                                            .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + (Util.currentDaysSinceEpoch() + 8))
-                                            .request()
-                                            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                                            .get();
+        .target("/v1/certificate/group/" + currentDaysSinceEpoch() + "/" + (currentDaysSinceEpoch() + 8))
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get();
 
     assertThat(response.getStatus()).isEqualTo(400);
   }
@@ -283,10 +299,10 @@ class CertificateControllerTest {
   @Test
   void testBackwardsInTime() {
     Response response = resources.getJerseyTest()
-                                 .target("/v1/certificate/group/" + (Util.currentDaysSinceEpoch() - 1) + "/" + (Util.currentDaysSinceEpoch() + 7))
-                                 .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                                 .get();
+        .target("/v1/certificate/group/" + (currentDaysSinceEpoch() - 1) + "/" + (currentDaysSinceEpoch() + 7))
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get();
 
     assertThat(response.getStatus()).isEqualTo(400);
   }
@@ -294,10 +310,10 @@ class CertificateControllerTest {
   @Test
   void testBadAuth() {
     Response response = resources.getJerseyTest()
-                                 .target("/v1/certificate/group/" + Util.currentDaysSinceEpoch() + "/" + (Util.currentDaysSinceEpoch() + 7))
-                                 .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.INVALID_PASSWORD))
-                                 .get();
+        .target("/v1/certificate/group/" + currentDaysSinceEpoch() + "/" + (currentDaysSinceEpoch() + 7))
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.INVALID_PASSWORD))
+        .get();
 
     assertThat(response.getStatus()).isEqualTo(401);
   }
@@ -387,7 +403,8 @@ class CertificateControllerTest {
         Arguments.of(clock.instant().minus(Duration.ofDays(1)), clock.instant()),
 
         // End is too far in the future
-        Arguments.of(clock.instant(), clock.instant().plus(CertificateController.MAX_REDEMPTION_DURATION).plus(Duration.ofDays(1))),
+        Arguments.of(clock.instant(),
+            clock.instant().plus(CertificateController.MAX_REDEMPTION_DURATION).plus(Duration.ofDays(1))),
 
         // Start is not at a day boundary
         Arguments.of(clock.instant().plusSeconds(17), clock.instant().plus(Duration.ofDays(1))),
@@ -395,5 +412,9 @@ class CertificateControllerTest {
         // End is not at a day boundary
         Arguments.of(clock.instant(), clock.instant().plusSeconds(17))
     );
+  }
+
+  private static int currentDaysSinceEpoch() {
+    return Util.currentDaysSinceEpoch(Clock.systemUTC());
   }
 }
