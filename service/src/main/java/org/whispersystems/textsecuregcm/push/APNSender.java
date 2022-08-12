@@ -46,6 +46,11 @@ public class APNSender implements Managed, PushNotificationSender {
       .build();
 
   @VisibleForTesting
+  static final String APN_BACKGROUND_PAYLOAD = new SimpleApnsPayloadBuilder()
+      .setContentAvailable(true)
+      .build();
+
+  @VisibleForTesting
   static final Instant MAX_EXPIRATION = Instant.ofEpochMilli(Integer.MAX_VALUE * 1000L);
 
   private static final String APNS_CA_FILENAME = "apns-certificates.pem";
@@ -83,7 +88,13 @@ public class APNSender implements Managed, PushNotificationSender {
     final boolean isVoip = notification.tokenType() == PushNotification.TokenType.APN_VOIP;
 
     final String payload = switch (notification.notificationType()) {
-      case NOTIFICATION -> isVoip ? APN_VOIP_NOTIFICATION_PAYLOAD : APN_NSE_NOTIFICATION_PAYLOAD;
+      case NOTIFICATION -> {
+        if (isVoip) {
+          yield APN_VOIP_NOTIFICATION_PAYLOAD;
+        } else {
+          yield notification.urgent() ? APN_NSE_NOTIFICATION_PAYLOAD : APN_BACKGROUND_PAYLOAD;
+        }
+      }
 
       case CHALLENGE -> new SimpleApnsPayloadBuilder()
           .setSound("default")
@@ -98,8 +109,19 @@ public class APNSender implements Managed, PushNotificationSender {
           .build();
     };
 
+    final PushType pushType;
+
+    if (isVoip) {
+      pushType = PushType.VOIP;
+    } else {
+      pushType = notification.urgent() ? PushType.ALERT : PushType.BACKGROUND;
+    }
+
+    final DeliveryPriority deliveryPriority =
+        (notification.urgent() || isVoip) ? DeliveryPriority.IMMEDIATE : DeliveryPriority.CONSERVE_POWER;
+
     final String collapseId =
-        (notification.notificationType() == PushNotification.NotificationType.NOTIFICATION && !isVoip)
+        (notification.notificationType() == PushNotification.NotificationType.NOTIFICATION && notification.urgent() && !isVoip)
             ? "incoming-message" : null;
 
     final Instant start = Instant.now();
@@ -108,8 +130,8 @@ public class APNSender implements Managed, PushNotificationSender {
         topic,
         payload,
         MAX_EXPIRATION,
-        DeliveryPriority.IMMEDIATE,
-        isVoip ? PushType.VOIP : PushType.ALERT,
+        deliveryPriority,
+        pushType,
         collapseId))
         .whenComplete((response, throwable) -> {
           // Note that we deliberately run this small bit of non-blocking measurement on the "send notification" thread

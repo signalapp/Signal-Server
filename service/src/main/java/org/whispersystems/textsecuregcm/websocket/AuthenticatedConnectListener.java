@@ -96,7 +96,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
             if (messagesManager.hasCachedMessages(auth.getAccount().getUuid(), device.getId())) {
               try {
-                pushNotificationManager.sendNewMessageNotification(auth.getAccount(), device.getId());
+                pushNotificationManager.sendNewMessageNotification(auth.getAccount(), device.getId(), true);
               } catch (NotPushRegisteredException ignored) {
               }
             }

@@ -14,7 +14,8 @@ public record PushNotification(String deviceToken,
                                NotificationType notificationType,
                                @Nullable String data,
                                @Nullable Account destination,
-                               @Nullable Device destinationDevice) {
+                               @Nullable Device destinationDevice,
+                               boolean urgent) {
 
   public enum NotificationType {
     NOTIFICATION, CHALLENGE, RATE_LIMIT_CHALLENGE

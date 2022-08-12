@@ -110,7 +110,9 @@ public class ChangeNumberManager {
           .setSourceUuid(sourceAndDestinationAccount.getUuid().toString())
           .setSourceDevice((int) Device.MASTER_ID)
           .setUpdatedPni(sourceAndDestinationAccount.getPhoneNumberIdentifier().toString())
+          .setUrgent(true)
           .build();
+
       messageSender.sendMessage(sourceAndDestinationAccount, destinationDevice.get(), envelope, false);
     } catch (NotPushRegisteredException e) {
       logger.debug("Not registered", e);

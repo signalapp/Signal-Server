@@ -455,7 +455,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     APNSender                  apnSender                  = new APNSender(apnSenderExecutor, config.getApnConfiguration());
     FcmSender                  fcmSender                  = new FcmSender(fcmSenderExecutor, config.getFcmConfiguration().credentials());
     ApnPushNotificationScheduler apnPushNotificationScheduler = new ApnPushNotificationScheduler(pushSchedulerCluster, apnSender, accountsManager);
-    PushNotificationManager    pushNotificationManager    = new PushNotificationManager(accountsManager, apnSender, fcmSender, apnPushNotificationScheduler, pushLatencyManager);
+    PushNotificationManager    pushNotificationManager    = new PushNotificationManager(accountsManager, apnSender, fcmSender, apnPushNotificationScheduler, pushLatencyManager, dynamicConfigurationManager);
     RateLimiters               rateLimiters               = new RateLimiters(config.getLimitsConfiguration(), rateLimitersCluster);
     DynamicRateLimiters        dynamicRateLimiters        = new DynamicRateLimiters(rateLimitersCluster, dynamicConfigurationManager);
     ProvisioningManager        provisioningManager        = new ProvisioningManager(pubSubManager);

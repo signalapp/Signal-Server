@@ -250,7 +250,7 @@ public class ApnPushNotificationScheduler implements Managed {
       return;
     }
 
-    apnSender.sendNotification(new PushNotification(apnId, PushNotification.TokenType.APN_VOIP, PushNotification.NotificationType.NOTIFICATION, null, account, device));
+    apnSender.sendNotification(new PushNotification(apnId, PushNotification.TokenType.APN_VOIP, PushNotification.NotificationType.NOTIFICATION, null, account, device, true));
     retry.increment();
   }
 
@@ -263,8 +263,7 @@ public class ApnPushNotificationScheduler implements Managed {
           getLastBackgroundNotificationTimestampKey(account, device),
           String.valueOf(clock.millis()), new SetArgs().ex(BACKGROUND_NOTIFICATION_PERIOD)));
 
-      // TODO Set priority, etc.
-      apnSender.sendNotification(new PushNotification(device.getApnId(), PushNotification.TokenType.APN, PushNotification.NotificationType.NOTIFICATION, null, account, device));
+      apnSender.sendNotification(new PushNotification(device.getApnId(), PushNotification.TokenType.APN, PushNotification.NotificationType.NOTIFICATION, null, account, device, false));
 
       backgroundNotificationSentCounter.increment();
     }

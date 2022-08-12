@@ -116,7 +116,7 @@ class MessageSenderTest {
     messageSender.sendMessage(account, device, message, false);
 
     verify(messagesManager).insert(ACCOUNT_UUID, DEVICE_ID, message);
-    verify(pushNotificationManager).sendNewMessageNotification(account, device.getId());
+    verify(pushNotificationManager).sendNewMessageNotification(account, device.getId(), message.getUrgent());
   }
 
   @Test
@@ -127,7 +127,7 @@ class MessageSenderTest {
     messageSender.sendMessage(account, device, message, false);
 
     verify(messagesManager).insert(ACCOUNT_UUID, DEVICE_ID, message);
-    verify(pushNotificationManager).sendNewMessageNotification(account, device.getId());
+    verify(pushNotificationManager).sendNewMessageNotification(account, device.getId(), message.getUrgent());
   }
 
   @Test
@@ -136,7 +136,7 @@ class MessageSenderTest {
     when(device.getFetchesMessages()).thenReturn(true);
 
     doThrow(NotPushRegisteredException.class)
-        .when(pushNotificationManager).sendNewMessageNotification(account, DEVICE_ID);
+        .when(pushNotificationManager).sendNewMessageNotification(account, DEVICE_ID, message.getUrgent());
 
     assertDoesNotThrow(() -> messageSender.sendMessage(account, device, message, false));
     verify(messagesManager).insert(ACCOUNT_UUID, DEVICE_ID, message);

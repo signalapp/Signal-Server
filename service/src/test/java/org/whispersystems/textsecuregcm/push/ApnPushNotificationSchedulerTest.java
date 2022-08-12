@@ -192,9 +192,7 @@ class ApnPushNotificationSchedulerTest {
     assertEquals(account, pushNotification.destination());
     assertEquals(device, pushNotification.destinationDevice());
     assertEquals(PushNotification.NotificationType.NOTIFICATION, pushNotification.notificationType());
-
-    // TODO Check urgency
-    // assertFalse(pushNotification.urgent());
+    assertFalse(pushNotification.urgent());
 
     assertEquals(0, worker.processRecurringVoipNotifications(slot));
   }

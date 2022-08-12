@@ -50,7 +50,7 @@ public class MessageSender {
     this.pushLatencyManager = pushLatencyManager;
   }
 
-  public void sendMessage(final Account account, final Device device, final Envelope message, boolean online)
+  public void sendMessage(final Account account, final Device device, final Envelope message, final boolean online)
       throws NotPushRegisteredException {
 
     final String channel;
@@ -83,7 +83,7 @@ public class MessageSender {
 
       if (!clientPresent) {
         try {
-          pushNotificationManager.sendNewMessageNotification(account, device.getId());
+          pushNotificationManager.sendNewMessageNotification(account, device.getId(), message.getUrgent());
 
           final boolean useVoip = StringUtils.isNotBlank(device.getVoipApnId());
           RedisOperation.unchecked(() -> pushLatencyManager.recordPushSent(account.getUuid(), device.getId(), useVoip));

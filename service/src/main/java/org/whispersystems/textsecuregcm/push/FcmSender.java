@@ -84,7 +84,7 @@ public class FcmSender implements PushNotificationSender {
     Message.Builder builder = Message.builder()
         .setToken(pushNotification.deviceToken())
         .setAndroidConfig(AndroidConfig.builder()
-            .setPriority(AndroidConfig.Priority.HIGH)
+            .setPriority(pushNotification.urgent() ? AndroidConfig.Priority.HIGH : AndroidConfig.Priority.NORMAL)
             .build());
 
     final String key = switch (pushNotification.notificationType()) {

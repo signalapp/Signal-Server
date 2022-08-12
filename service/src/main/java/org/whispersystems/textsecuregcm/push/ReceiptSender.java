@@ -52,7 +52,8 @@ public class ReceiptSender {
         .setSourceDevice((int) sourceDeviceId)
         .setDestinationUuid(destinationUuid.toString())
         .setTimestamp(messageId)
-        .setType(Envelope.Type.SERVER_DELIVERY_RECEIPT);
+        .setType(Envelope.Type.SERVER_DELIVERY_RECEIPT)
+        .setUrgent(false);
 
     return CompletableFuture.runAsync(() -> {
       for (final Device destinationDevice : destinationAccount.getDevices()) {
