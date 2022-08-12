@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
+import org.whispersystems.textsecuregcm.push.PushLatencyManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.tests.util.MessagesDynamoDbExtension;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -73,8 +73,7 @@ class MessagePersisterIntegrationTest {
     notificationExecutorService = Executors.newSingleThreadExecutor();
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
         REDIS_CLUSTER_EXTENSION.getRedisCluster(), notificationExecutorService);
-    messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, mock(PushLatencyManager.class),
-        mock(ReportMessageManager.class));
+    messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, mock(ReportMessageManager.class));
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
         dynamicConfigurationManager, PERSIST_DELAY);
 

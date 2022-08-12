@@ -14,7 +14,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
-import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
+import org.whispersystems.textsecuregcm.push.PushLatencyManager;
 
 class MessagesManagerTest {
 
@@ -24,7 +24,7 @@ class MessagesManagerTest {
   private final ReportMessageManager reportMessageManager = mock(ReportMessageManager.class);
 
   private final MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache,
-      pushLatencyManager, reportMessageManager);
+      reportMessageManager);
 
   @Test
   void insert() {

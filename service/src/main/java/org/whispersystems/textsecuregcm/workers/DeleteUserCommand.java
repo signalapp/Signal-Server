@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
+import org.whispersystems.textsecuregcm.push.PushLatencyManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
@@ -183,8 +183,8 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
           configuration.getReportMessageConfiguration().getReportTtl());
       ReportMessageManager reportMessageManager = new ReportMessageManager(reportMessageDynamoDb, rateLimitersCluster,
               configuration.getReportMessageConfiguration().getCounterTtl());
-      MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, pushLatencyManager,
-          reportMessageManager);
+      MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache,
+              reportMessageManager);
       DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
           deletedAccountsLockDynamoDbClient,
           configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());

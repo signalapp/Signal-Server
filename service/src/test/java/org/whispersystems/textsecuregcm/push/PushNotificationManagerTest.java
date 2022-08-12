@@ -14,6 +14,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,7 +29,8 @@ class PushNotificationManagerTest {
   private AccountsManager accountsManager;
   private APNSender apnSender;
   private FcmSender fcmSender;
-  private ApnFallbackManager apnFallbackManager;
+  private ApnPushNotificationScheduler apnPushNotificationScheduler;
+  private PushLatencyManager pushLatencyManager;
 
   private PushNotificationManager pushNotificationManager;
 
@@ -37,11 +39,13 @@ class PushNotificationManagerTest {
     accountsManager = mock(AccountsManager.class);
     apnSender = mock(APNSender.class);
     fcmSender = mock(FcmSender.class);
-    apnFallbackManager = mock(ApnFallbackManager.class);
+    apnPushNotificationScheduler = mock(ApnPushNotificationScheduler.class);
+    pushLatencyManager = mock(PushLatencyManager.class);
 
     AccountsHelper.setupMockUpdate(accountsManager);
 
-    pushNotificationManager = new PushNotificationManager(accountsManager, apnSender, fcmSender, apnFallbackManager);
+    pushNotificationManager = new PushNotificationManager(accountsManager, apnSender, fcmSender,
+        apnPushNotificationScheduler, pushLatencyManager);
   }
 
   @Test
@@ -113,7 +117,7 @@ class PushNotificationManagerTest {
     verifyNoInteractions(apnSender);
     verify(accountsManager, never()).updateDevice(eq(account), eq(Device.MASTER_ID), any());
     verify(device, never()).setUninstalledFeedbackTimestamp(Util.todayInMillis());
-    verifyNoInteractions(apnFallbackManager);
+    verifyNoInteractions(apnPushNotificationScheduler);
   }
 
   @Test
@@ -136,7 +140,7 @@ class PushNotificationManagerTest {
     verifyNoInteractions(fcmSender);
     verify(accountsManager, never()).updateDevice(eq(account), eq(Device.MASTER_ID), any());
     verify(device, never()).setUninstalledFeedbackTimestamp(Util.todayInMillis());
-    verify(apnFallbackManager).schedule(account, device);
+    verify(apnPushNotificationScheduler).scheduleRecurringVoipNotification(account, device);
   }
 
   @Test
@@ -159,7 +163,7 @@ class PushNotificationManagerTest {
     verify(accountsManager).updateDevice(eq(account), eq(Device.MASTER_ID), any());
     verify(device).setUninstalledFeedbackTimestamp(Util.todayInMillis());
     verifyNoInteractions(apnSender);
-    verifyNoInteractions(apnFallbackManager);
+    verifyNoInteractions(apnPushNotificationScheduler);
   }
 
   @Test
@@ -181,6 +185,22 @@ class PushNotificationManagerTest {
     verifyNoInteractions(fcmSender);
     verify(accountsManager, never()).updateDevice(eq(account), eq(Device.MASTER_ID), any());
     verify(device, never()).setUninstalledFeedbackTimestamp(Util.todayInMillis());
-    verify(apnFallbackManager).cancel(account, device);
+    verify(apnPushNotificationScheduler).cancelRecurringVoipNotification(account, device);
+  }
+
+  @Test
+  void testHandleMessagesRetrieved() {
+    final UUID accountIdentifier = UUID.randomUUID();
+    final Account account = mock(Account.class);
+    final Device device = mock(Device.class);
+    final String userAgent = "User-Agent";
+
+    when(account.getUuid()).thenReturn(accountIdentifier);
+    when(device.getId()).thenReturn(Device.MASTER_ID);
+
+    pushNotificationManager.handleMessagesRetrieved(account, device, userAgent);
+
+    verify(pushLatencyManager).recordQueueRead(accountIdentifier, Device.MASTER_ID, userAgent);
+    verify(apnPushNotificationScheduler).cancelRecurringVoipNotification(account, device);
   }
 }

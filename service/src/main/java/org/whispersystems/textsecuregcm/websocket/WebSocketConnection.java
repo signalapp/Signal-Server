@@ -320,8 +320,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
   private void sendNextMessagePage(final boolean cachedMessagesOnly, final CompletableFuture<Void> queueClearedFuture) {
     try {
-      final Pair<List<Envelope>, Boolean> messagesAndHasMore = messagesManager
-          .getMessagesForDevice(auth.getAccount().getUuid(), device.getId(), client.getUserAgent(), cachedMessagesOnly);
+      final Pair<List<Envelope>, Boolean> messagesAndHasMore = messagesManager.getMessagesForDevice(
+          auth.getAccount().getUuid(), device.getId(), cachedMessagesOnly);
 
       final List<Envelope> messages = messagesAndHasMore.first();
       final boolean hasMore = messagesAndHasMore.second();

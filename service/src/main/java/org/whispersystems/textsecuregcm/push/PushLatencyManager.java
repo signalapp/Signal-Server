@@ -1,9 +1,9 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-package org.whispersystems.textsecuregcm.metrics;
+package org.whispersystems.textsecuregcm.push;
 
 import com.codahale.metrics.MetricRegistry;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -28,6 +28,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -103,7 +104,7 @@ public class PushLatencyManager {
     this.clock = clock;
   }
 
-  public void recordPushSent(final UUID accountUuid, final long deviceId, final boolean isVoip) {
+  void recordPushSent(final UUID accountUuid, final long deviceId, final boolean isVoip) {
     try {
       final String recordJson = SystemMapper.getMapper().writeValueAsString(
           new PushRecord(Instant.now(clock), isVoip ? PushType.VOIP : PushType.STANDARD));
@@ -118,7 +119,7 @@ public class PushLatencyManager {
     }
   }
 
-  public void recordQueueRead(final UUID accountUuid, final long deviceId, final String userAgentString) {
+  void recordQueueRead(final UUID accountUuid, final long deviceId, final String userAgentString) {
     takePushRecord(accountUuid, deviceId).thenAccept(pushRecord -> {
       if (pushRecord != null) {
         final Duration latency = Duration.between(pushRecord.getTimestamp(), Instant.now());

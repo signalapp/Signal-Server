@@ -26,7 +26,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Pair;
 
-class ApnFallbackManagerTest {
+class ApnPushNotificationSchedulerTest {
 
   @RegisterExtension
   static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
@@ -36,7 +36,7 @@ class ApnFallbackManagerTest {
 
   private APNSender apnSender;
 
-  private ApnFallbackManager apnFallbackManager;
+  private ApnPushNotificationScheduler apnPushNotificationScheduler;
 
   private static final UUID ACCOUNT_UUID = UUID.randomUUID();
   private static final String ACCOUNT_NUMBER = "+18005551234";
@@ -62,41 +62,43 @@ class ApnFallbackManagerTest {
 
     apnSender = mock(APNSender.class);
 
-    apnFallbackManager = new ApnFallbackManager(REDIS_CLUSTER_EXTENSION.getRedisCluster(), apnSender, accountsManager);
+    apnPushNotificationScheduler = new ApnPushNotificationScheduler(REDIS_CLUSTER_EXTENSION.getRedisCluster(), apnSender, accountsManager);
   }
 
   @Test
   void testClusterInsert() {
-    final String endpoint = apnFallbackManager.getEndpointKey(account, device);
+    final String endpoint = apnPushNotificationScheduler.getEndpointKey(account, device);
 
-    assertTrue(apnFallbackManager.getPendingDestinations(SlotHash.getSlot(endpoint), 1).isEmpty());
+    assertTrue(
+        apnPushNotificationScheduler.getPendingDestinationsForRecurringVoipNotifications(SlotHash.getSlot(endpoint), 1).isEmpty());
 
-    apnFallbackManager.schedule(account, device, System.currentTimeMillis() - 30_000);
+    apnPushNotificationScheduler.scheduleRecurringVoipNotification(account, device, System.currentTimeMillis() - 30_000);
 
-    final List<String> pendingDestinations = apnFallbackManager.getPendingDestinations(SlotHash.getSlot(endpoint), 2);
+    final List<String> pendingDestinations = apnPushNotificationScheduler.getPendingDestinationsForRecurringVoipNotifications(SlotHash.getSlot(endpoint), 2);
     assertEquals(1, pendingDestinations.size());
 
-    final Optional<Pair<String, Long>> maybeUuidAndDeviceId = ApnFallbackManager.getSeparated(
+    final Optional<Pair<String, Long>> maybeUuidAndDeviceId = ApnPushNotificationScheduler.getSeparated(
         pendingDestinations.get(0));
 
     assertTrue(maybeUuidAndDeviceId.isPresent());
     assertEquals(ACCOUNT_UUID.toString(), maybeUuidAndDeviceId.get().first());
     assertEquals(DEVICE_ID, (long) maybeUuidAndDeviceId.get().second());
 
-    assertTrue(apnFallbackManager.getPendingDestinations(SlotHash.getSlot(endpoint), 1).isEmpty());
+    assertTrue(
+        apnPushNotificationScheduler.getPendingDestinationsForRecurringVoipNotifications(SlotHash.getSlot(endpoint), 1).isEmpty());
   }
 
   @Test
   void testProcessNextSlot() {
-    final ApnFallbackManager.NotificationWorker worker = apnFallbackManager.new NotificationWorker();
+    final ApnPushNotificationScheduler.NotificationWorker worker = apnPushNotificationScheduler.new NotificationWorker();
 
-    apnFallbackManager.schedule(account, device, System.currentTimeMillis() - 30_000);
+    apnPushNotificationScheduler.scheduleRecurringVoipNotification(account, device, System.currentTimeMillis() - 30_000);
 
-    final int slot = SlotHash.getSlot(apnFallbackManager.getEndpointKey(account, device));
+    final int slot = SlotHash.getSlot(apnPushNotificationScheduler.getEndpointKey(account, device));
     final int previousSlot = (slot + SlotHash.SLOT_COUNT - 1) % SlotHash.SLOT_COUNT;
 
     REDIS_CLUSTER_EXTENSION.getRedisCluster().withCluster(connection -> connection.sync()
-        .set(ApnFallbackManager.NEXT_SLOT_TO_PERSIST_KEY, String.valueOf(previousSlot)));
+        .set(ApnPushNotificationScheduler.NEXT_SLOT_TO_PERSIST_KEY, String.valueOf(previousSlot)));
 
     assertEquals(1, worker.processNextSlot());
 

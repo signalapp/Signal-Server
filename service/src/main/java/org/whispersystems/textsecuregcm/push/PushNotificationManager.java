@@ -5,6 +5,8 @@
 
 package org.whispersystems.textsecuregcm.push;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
@@ -18,14 +20,13 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
-
 public class PushNotificationManager {
 
   private final AccountsManager accountsManager;
   private final APNSender apnSender;
   private final FcmSender fcmSender;
-  private final ApnFallbackManager fallbackManager;
+  private final ApnPushNotificationScheduler apnPushNotificationScheduler;
+  private final PushLatencyManager pushLatencyManager;
 
   private static final String SENT_NOTIFICATION_COUNTER_NAME = name(PushNotificationManager.class, "sentPushNotification");
   private static final String FAILED_NOTIFICATION_COUNTER_NAME = name(PushNotificationManager.class, "failedPushNotification");
@@ -35,12 +36,14 @@ public class PushNotificationManager {
   public PushNotificationManager(final AccountsManager accountsManager,
       final APNSender apnSender,
       final FcmSender fcmSender,
-      final ApnFallbackManager fallbackManager) {
+      final ApnPushNotificationScheduler apnPushNotificationScheduler,
+      final PushLatencyManager pushLatencyManager) {
 
     this.accountsManager = accountsManager;
     this.apnSender = apnSender;
     this.fcmSender = fcmSender;
-    this.fallbackManager = fallbackManager;
+    this.apnPushNotificationScheduler = apnPushNotificationScheduler;
+    this.pushLatencyManager = pushLatencyManager;
   }
 
   public void sendNewMessageNotification(final Account destination, final long destinationDeviceId) throws NotPushRegisteredException {
@@ -63,6 +66,11 @@ public class PushNotificationManager {
 
     sendNotification(new PushNotification(tokenAndType.first(), tokenAndType.second(),
         PushNotification.NotificationType.RATE_LIMIT_CHALLENGE, challengeToken, destination, device));
+  }
+
+  public void handleMessagesRetrieved(final Account account, final Device device, final String userAgent) {
+    RedisOperation.unchecked(() -> pushLatencyManager.recordQueueRead(account.getUuid(), device.getId(), userAgent));
+    RedisOperation.unchecked(() -> apnPushNotificationScheduler.cancelRecurringVoipNotification(account, device));
   }
 
   @VisibleForTesting
@@ -112,7 +120,7 @@ public class PushNotificationManager {
             pushNotification.destination() != null &&
             pushNotification.destinationDevice() != null) {
 
-          RedisOperation.unchecked(() -> fallbackManager.schedule(pushNotification.destination(),
+          RedisOperation.unchecked(() -> apnPushNotificationScheduler.scheduleRecurringVoipNotification(pushNotification.destination(),
               pushNotification.destinationDevice()));
         }
       } else {
@@ -131,7 +139,7 @@ public class PushNotificationManager {
             d.setUninstalledFeedbackTimestamp(Util.todayInMillis()));
       }
     } else {
-      RedisOperation.unchecked(() -> fallbackManager.cancel(account, device));
+      RedisOperation.unchecked(() -> apnPushNotificationScheduler.cancelRecurringVoipNotification(account, device));
     }
   }
 }

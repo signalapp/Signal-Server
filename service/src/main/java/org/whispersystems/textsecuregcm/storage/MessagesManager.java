@@ -15,8 +15,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
-import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
-import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.Pair;
 
@@ -32,17 +30,14 @@ public class MessagesManager {
 
   private final MessagesDynamoDb messagesDynamoDb;
   private final MessagesCache messagesCache;
-  private final PushLatencyManager pushLatencyManager;
   private final ReportMessageManager reportMessageManager;
 
   public MessagesManager(
       final MessagesDynamoDb messagesDynamoDb,
       final MessagesCache messagesCache,
-      final PushLatencyManager pushLatencyManager,
       final ReportMessageManager reportMessageManager) {
     this.messagesDynamoDb = messagesDynamoDb;
     this.messagesCache = messagesCache;
-    this.pushLatencyManager = pushLatencyManager;
     this.reportMessageManager = reportMessageManager;
   }
 
@@ -60,9 +55,7 @@ public class MessagesManager {
     return messagesCache.hasMessages(destinationUuid, destinationDevice);
   }
 
-  public Pair<List<Envelope>, Boolean> getMessagesForDevice(UUID destinationUuid, long destinationDevice, final String userAgent, final boolean cachedMessagesOnly) {
-    RedisOperation.unchecked(() -> pushLatencyManager.recordQueueRead(destinationUuid, destinationDevice, userAgent));
-
+  public Pair<List<Envelope>, Boolean> getMessagesForDevice(UUID destinationUuid, long destinationDevice, final boolean cachedMessagesOnly) {
     List<Envelope> messageList = new ArrayList<>();
 
     if (!cachedMessagesOnly) {

@@ -77,11 +77,10 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
-import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
+import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
-import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DeletedAccountsManager;
@@ -107,7 +106,7 @@ public class MessageController {
   private final AccountsManager accountsManager;
   private final DeletedAccountsManager deletedAccountsManager;
   private final MessagesManager messagesManager;
-  private final ApnFallbackManager apnFallbackManager;
+  private final PushNotificationManager pushNotificationManager;
   private final ReportMessageManager reportMessageManager;
   private final ExecutorService multiRecipientMessageExecutor;
 
@@ -138,7 +137,7 @@ public class MessageController {
       AccountsManager accountsManager,
       DeletedAccountsManager deletedAccountsManager,
       MessagesManager messagesManager,
-      ApnFallbackManager apnFallbackManager,
+      PushNotificationManager pushNotificationManager,
       ReportMessageManager reportMessageManager,
       @Nonnull ExecutorService multiRecipientMessageExecutor) {
     this.rateLimiters = rateLimiters;
@@ -147,7 +146,7 @@ public class MessageController {
     this.accountsManager = accountsManager;
     this.deletedAccountsManager = deletedAccountsManager;
     this.messagesManager = messagesManager;
-    this.apnFallbackManager = apnFallbackManager;
+    this.pushNotificationManager = pushNotificationManager;
     this.reportMessageManager = reportMessageManager;
     this.multiRecipientMessageExecutor = Objects.requireNonNull(multiRecipientMessageExecutor);
   }
@@ -408,18 +407,14 @@ public class MessageController {
   @Produces(MediaType.APPLICATION_JSON)
   public OutgoingMessageEntityList getPendingMessages(@Auth AuthenticatedAccount auth,
       @HeaderParam("User-Agent") String userAgent) {
-    assert auth.getAuthenticatedDevice() != null;
 
-    if (!Util.isEmpty(auth.getAuthenticatedDevice().getApnId())) {
-      RedisOperation.unchecked(() -> apnFallbackManager.cancel(auth.getAccount(), auth.getAuthenticatedDevice()));
-    }
+    pushNotificationManager.handleMessagesRetrieved(auth.getAccount(), auth.getAuthenticatedDevice(), userAgent);
 
     final OutgoingMessageEntityList outgoingMessages;
     {
       final Pair<List<Envelope>, Boolean> messagesAndHasMore = messagesManager.getMessagesForDevice(
           auth.getAccount().getUuid(),
           auth.getAuthenticatedDevice().getId(),
-          userAgent,
           false);
 
       outgoingMessages = new OutgoingMessageEntityList(messagesAndHasMore.first().stream()

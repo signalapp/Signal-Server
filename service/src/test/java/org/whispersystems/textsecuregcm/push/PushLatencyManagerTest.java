@@ -1,9 +1,9 @@
 /*
- * Copyright 2013-2020 Signal Messenger, LLC
+ * Copyright 2013-2022 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-package org.whispersystems.textsecuregcm.metrics;
+package org.whispersystems.textsecuregcm.push;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -23,8 +23,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicPushLatencyConfiguration;
-import org.whispersystems.textsecuregcm.metrics.PushLatencyManager.PushRecord;
-import org.whispersystems.textsecuregcm.metrics.PushLatencyManager.PushType;
+import org.whispersystems.textsecuregcm.push.PushLatencyManager;
+import org.whispersystems.textsecuregcm.push.PushLatencyManager.PushRecord;
+import org.whispersystems.textsecuregcm.push.PushLatencyManager.PushType;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 

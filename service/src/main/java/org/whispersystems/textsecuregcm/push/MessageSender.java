@@ -9,7 +9,6 @@ import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 
 import io.micrometer.core.instrument.Metrics;
 import org.apache.commons.lang3.StringUtils;
-import org.whispersystems.textsecuregcm.metrics.PushLatencyManager;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;

@@ -18,7 +18,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
-import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
@@ -44,21 +43,18 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private final ReceiptSender         receiptSender;
   private final MessagesManager       messagesManager;
   private final PushNotificationManager pushNotificationManager;
-  private final ApnFallbackManager    apnFallbackManager;
   private final ClientPresenceManager clientPresenceManager;
   private final ScheduledExecutorService scheduledExecutorService;
 
   public AuthenticatedConnectListener(ReceiptSender receiptSender,
       MessagesManager messagesManager,
       PushNotificationManager pushNotificationManager,
-      ApnFallbackManager apnFallbackManager,
       ClientPresenceManager clientPresenceManager,
       ScheduledExecutorService scheduledExecutorService)
   {
     this.receiptSender         = receiptSender;
     this.messagesManager       = messagesManager;
     this.pushNotificationManager = pushNotificationManager;
-    this.apnFallbackManager    = apnFallbackManager;
     this.clientPresenceManager = clientPresenceManager;
     this.scheduledExecutorService = scheduledExecutorService;
   }
@@ -75,7 +71,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
           scheduledExecutorService);
 
       openWebsocketCounter.inc();
-      RedisOperation.unchecked(() -> apnFallbackManager.cancel(auth.getAccount(), device));
+      pushNotificationManager.handleMessagesRetrieved(auth.getAccount(), device, context.getClient().getUserAgent());
 
       final AtomicReference<ScheduledFuture<?>> renewPresenceFutureReference = new AtomicReference<>();
 

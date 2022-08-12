@@ -67,8 +67,8 @@ import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
-import org.whispersystems.textsecuregcm.push.ApnFallbackManager;
 import org.whispersystems.textsecuregcm.push.MessageSender;
+import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -107,7 +107,7 @@ class MessageControllerTest {
   private static final MessagesManager messagesManager = mock(MessagesManager.class);
   private static final RateLimiters rateLimiters = mock(RateLimiters.class);
   private static final RateLimiter rateLimiter = mock(RateLimiter.class);
-  private static final ApnFallbackManager apnFallbackManager = mock(ApnFallbackManager.class);
+  private static final PushNotificationManager pushNotificationManager = mock(PushNotificationManager.class);
   private static final ReportMessageManager reportMessageManager = mock(ReportMessageManager.class);
   private static final ExecutorService multiRecipientMessageExecutor = mock(ExecutorService.class);
 
@@ -119,7 +119,7 @@ class MessageControllerTest {
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
           new MessageController(rateLimiters, messageSender, receiptSender, accountsManager, deletedAccountsManager,
-              messagesManager, apnFallbackManager, reportMessageManager, multiRecipientMessageExecutor))
+              messagesManager, pushNotificationManager, reportMessageManager, multiRecipientMessageExecutor))
       .build();
 
   @BeforeEach
@@ -170,7 +170,7 @@ class MessageControllerTest {
         messagesManager,
         rateLimiters,
         rateLimiter,
-        apnFallbackManager,
+        pushNotificationManager,
         reportMessageManager
     );
   }
@@ -435,13 +435,16 @@ class MessageControllerTest {
         .map(OutgoingMessageEntity::fromEnvelope)
         .toList(), false);
 
-    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq(1L), anyString(), anyBoolean()))
+    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq(1L), anyBoolean()))
         .thenReturn(new Pair<>(messages, false));
+
+    final String userAgent = "Test-UA";
 
     OutgoingMessageEntityList response =
         resources.getJerseyTest().target("/v1/messages/")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .header("USer-Agent", userAgent)
             .accept(MediaType.APPLICATION_JSON_TYPE)
             .get(OutgoingMessageEntityList.class);
 
@@ -458,6 +461,8 @@ class MessageControllerTest {
 
     assertEquals(updatedPniOne, response.messages().get(0).updatedPni());
     assertNull(response.messages().get(1).updatedPni());
+
+    verify(pushNotificationManager).handleMessagesRetrieved(AuthHelper.VALID_ACCOUNT, AuthHelper.VALID_DEVICE, userAgent);
   }
 
   @Test
@@ -472,7 +477,7 @@ class MessageControllerTest {
             UUID.randomUUID(), 2, AuthHelper.VALID_UUID, null, null, 0)
     );
 
-    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq(1L), anyString(), anyBoolean()))
+    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq(1L), anyBoolean()))
         .thenReturn(new Pair<>(messages, false));
 
     Response response =
