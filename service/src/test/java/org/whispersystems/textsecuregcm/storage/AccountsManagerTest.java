@@ -225,7 +225,7 @@ class AccountsManagerTest {
     UUID uuid = UUID.randomUUID();
     String username = "test";
 
-    when(commands.get(eq("AccountMap::" + username))).thenReturn(uuid.toString());
+    when(commands.get(eq("UAccountMap::" + username))).thenReturn(uuid.toString());
     when(commands.get(eq("Account3::" + uuid))).thenReturn("{\"number\": \"+14152222222\", \"pni\": \"de24dc73-fbd8-41be-a7d5-764c70d9da7e\", \"username\": \"test\"}");
 
     Optional<Account> account = accountsManager.getByUsername(username);
@@ -235,7 +235,7 @@ class AccountsManagerTest {
     assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifier());
     assertEquals(Optional.of(username), account.get().getUsername());
 
-    verify(commands).get(eq("AccountMap::" + username));
+    verify(commands).get(eq("UAccountMap::" + username));
     verify(commands).get(eq("Account3::" + uuid));
     verifyNoMoreInteractions(commands);
 
@@ -323,7 +323,7 @@ class AccountsManagerTest {
     Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, UUID.randomUUID(), new ArrayList<>(), new byte[16]);
     account.setUsername(username);
 
-    when(commands.get(eq("AccountMap::" + username))).thenReturn(null);
+    when(commands.get(eq("UAccountMap::" + username))).thenReturn(null);
     when(accounts.getByUsername(username)).thenReturn(Optional.of(account));
 
     Optional<Account> retrieved = accountsManager.getByUsername(username);
@@ -331,8 +331,8 @@ class AccountsManagerTest {
     assertTrue(retrieved.isPresent());
     assertSame(retrieved.get(), account);
 
-    verify(commands).get(eq("AccountMap::" + username));
-    verify(commands).setex(eq("AccountMap::" + username), anyLong(), eq(uuid.toString()));
+    verify(commands).get(eq("UAccountMap::" + username));
+    verify(commands).setex(eq("UAccountMap::" + username), anyLong(), eq(uuid.toString()));
     verify(commands).setex(eq("AccountMap::" + account.getPhoneNumberIdentifier()), anyLong(), eq(uuid.toString()));
     verify(commands).setex(eq("AccountMap::+14152222222"), anyLong(), eq(uuid.toString()));
     verify(commands).setex(eq("Account3::" + uuid), anyLong(), anyString());
@@ -423,7 +423,7 @@ class AccountsManagerTest {
     Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, UUID.randomUUID(), new ArrayList<>(), new byte[16]);
     account.setUsername(username);
 
-    when(commands.get(eq("AccountMap::" + username))).thenThrow(new RedisException("OH NO"));
+    when(commands.get(eq("UAccountMap::" + username))).thenThrow(new RedisException("OH NO"));
     when(accounts.getByUsername(username)).thenReturn(Optional.of(account));
 
     Optional<Account> retrieved = accountsManager.getByUsername(username);
@@ -431,8 +431,8 @@ class AccountsManagerTest {
     assertTrue(retrieved.isPresent());
     assertSame(retrieved.get(), account);
 
-    verify(commands).get(eq("AccountMap::" + username));
-    verify(commands).setex(eq("AccountMap::" + username), anyLong(), eq(uuid.toString()));
+    verify(commands).get(eq("UAccountMap::" + username));
+    verify(commands).setex(eq("UAccountMap::" + username), anyLong(), eq(uuid.toString()));
     verify(commands).setex(eq("AccountMap::" + account.getPhoneNumberIdentifier()), anyLong(), eq(uuid.toString()));
     verify(commands).setex(eq("AccountMap::+14152222222"), anyLong(), eq(uuid.toString()));
     verify(commands).setex(eq("Account3::" + uuid), anyLong(), anyString());

@@ -607,6 +607,10 @@ public class AccountsManager {
             clientPresenceManager.disconnectPresence(account.getUuid(), device.getId())));
   }
 
+  private String getUsernameAccountMapKey(String key) {
+    return "UAccountMap::" + key;
+  }
+
   private String getAccountMapKey(String key) {
     return "AccountMap::" + key;
   }
@@ -627,7 +631,7 @@ public class AccountsManager {
         commands.setex(getAccountEntityKey(account.getUuid()), CACHE_TTL_SECONDS, accountJson);
 
         account.getUsername().ifPresent(username ->
-            commands.setex(getAccountMapKey(username), CACHE_TTL_SECONDS, account.getUuid().toString()));
+            commands.setex(getUsernameAccountMapKey(username), CACHE_TTL_SECONDS, account.getUuid().toString()));
       });
     } catch (JsonProcessingException e) {
       throw new IllegalStateException(e);
@@ -635,20 +639,20 @@ public class AccountsManager {
   }
 
   private Optional<Account> redisGetByPhoneNumberIdentifier(UUID uuid) {
-    return redisGetBySecondaryKey(uuid.toString(), redisPniGetTimer);
+    return redisGetBySecondaryKey(getAccountMapKey(uuid.toString()), redisPniGetTimer);
   }
 
   private Optional<Account> redisGetByE164(String e164) {
-    return redisGetBySecondaryKey(e164, redisNumberGetTimer);
+    return redisGetBySecondaryKey(getAccountMapKey(e164), redisNumberGetTimer);
   }
 
   private Optional<Account> redisGetByUsername(String username) {
-    return redisGetBySecondaryKey(username, redisUsernameGetTimer);
+    return redisGetBySecondaryKey(getUsernameAccountMapKey(username), redisUsernameGetTimer);
   }
 
   private Optional<Account> redisGetBySecondaryKey(String secondaryKey, Timer timer) {
     try (Timer.Context ignored = timer.time()) {
-      final String uuid = cacheCluster.withCluster(connection -> connection.sync().get(getAccountMapKey(secondaryKey)));
+      final String uuid = cacheCluster.withCluster(connection -> connection.sync().get(secondaryKey));
 
       if (uuid != null) return redisGetByAccountIdentifier(UUID.fromString(uuid));
       else              return Optional.empty();
@@ -694,7 +698,7 @@ public class AccountsManager {
             getAccountMapKey(account.getPhoneNumberIdentifier().toString()),
             getAccountEntityKey(account.getUuid()));
 
-        account.getUsername().ifPresent(username -> connection.sync().del(getAccountMapKey(username)));
+        account.getUsername().ifPresent(username -> connection.sync().del(getUsernameAccountMapKey(username)));
       });
     }
   }
