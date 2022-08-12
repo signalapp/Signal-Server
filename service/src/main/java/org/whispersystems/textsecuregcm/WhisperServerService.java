@@ -185,7 +185,6 @@ import org.whispersystems.textsecuregcm.storage.MessagesCache;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.NonNormalizedAccountCrawlerListener;
-import org.whispersystems.textsecuregcm.storage.UsernameCleaner;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
@@ -535,17 +534,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getAccountDatabaseCrawlerConfiguration().getChunkIntervalMs()
     );
 
-
-    AccountDatabaseCrawlerCache usernameCleanerAccountDatabaseCrawlerCache =
-        new AccountDatabaseCrawlerCache(cacheCluster, AccountDatabaseCrawlerCache.USERNAME_CLEANER_PREFIX);
-    AccountDatabaseCrawler usernameCleanerAccountDatabaseCrawler = new AccountDatabaseCrawler("username cleaner crawler",
-        accountsManager,
-        usernameCleanerAccountDatabaseCrawlerCache,
-        List.of(new UsernameCleaner(accountsManager)),
-        config.getAccountDatabaseCrawlerConfiguration().getChunkSize(),
-        config.getAccountDatabaseCrawlerConfiguration().getChunkIntervalMs()
-    );
-
     // TODO listeners must be ordered so that ones that directly update accounts come last, so that read-only ones are not working with stale data
     final List<AccountDatabaseCrawlerListener> accountDatabaseCrawlerListeners = List.of(
         new NonNormalizedAccountCrawlerListener(accountsManager, metricsCluster),
@@ -575,7 +563,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(accountDatabaseCrawler);
     environment.lifecycle().manage(directoryReconciliationAccountDatabaseCrawler);
     environment.lifecycle().manage(accountCleanerAccountDatabaseCrawler);
-    environment.lifecycle().manage(usernameCleanerAccountDatabaseCrawler);
     environment.lifecycle().manage(deletedAccountsTableCrawler);
     environment.lifecycle().manage(messagesCache);
     environment.lifecycle().manage(messagePersister);
