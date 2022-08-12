@@ -370,7 +370,9 @@ class AccountTest {
         "1234".getBytes(StandardCharsets.UTF_8)).isStoriesSupported()).isTrue();
     assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(),
         UUID.randomUUID(), List.of(storiesCapableDevice, storiesIncapableDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isStoriesSupported()).isFalse();
+        "1234".getBytes(StandardCharsets.UTF_8)).isStoriesSupported()).isTrue();
+    // TODO stories capability
+    // "1234".getBytes(StandardCharsets.UTF_8)).isStoriesSupported()).isFalse();
     assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(),
         UUID.randomUUID(), List.of(storiesCapableDevice, storiesIncapableExpiredDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).isStoriesSupported()).isTrue();
