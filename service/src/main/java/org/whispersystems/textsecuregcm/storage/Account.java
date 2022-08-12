@@ -209,9 +209,7 @@ public class Account {
 
     return devices.stream()
         .filter(Device::isEnabled)
-        // TODO stories capability
-        // .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isStories());
-        .anyMatch(device -> device.getCapabilities() != null && device.getCapabilities().isStories());
+        .allMatch(device -> device.getCapabilities() != null && device.getCapabilities().isStories());
   }
 
   public boolean isGiftBadgesSupported() {
