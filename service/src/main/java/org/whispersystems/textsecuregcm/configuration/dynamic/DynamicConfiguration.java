@@ -50,10 +50,6 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
-  private DynamicUakMigrationConfiguration uakMigrationConfiguration = new DynamicUakMigrationConfiguration();
-
-  @JsonProperty
-  @Valid
   private DynamicTurnConfiguration turn = new DynamicTurnConfiguration();
 
   @JsonProperty
@@ -113,10 +109,6 @@ public class DynamicConfiguration {
 
   public DynamicPushLatencyConfiguration getPushLatencyConfiguration() {
     return pushLatency;
-  }
-
-  public DynamicUakMigrationConfiguration getUakMigrationConfiguration() {
-    return uakMigrationConfiguration;
   }
 
   public DynamicTurnConfiguration getTurnConfiguration() {
