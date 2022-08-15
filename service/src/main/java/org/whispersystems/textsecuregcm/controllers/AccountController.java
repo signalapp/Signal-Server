@@ -64,6 +64,7 @@ import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicCaptchaConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
+import org.whispersystems.textsecuregcm.entities.AccountIdentifierResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ChangePhoneNumberRequest;
@@ -73,6 +74,9 @@ import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
+import org.whispersystems.textsecuregcm.entities.UsernameRequest;
+import org.whispersystems.textsecuregcm.entities.UsernameResponse;
+import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.PushNotification;
@@ -93,7 +97,7 @@ import org.whispersystems.textsecuregcm.util.ForwardedIpUtil;
 import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.ImpossiblePhoneNumberException;
 import org.whispersystems.textsecuregcm.util.NonNormalizedPhoneNumberException;
-import org.whispersystems.textsecuregcm.util.Username;
+import org.whispersystems.textsecuregcm.util.UsernameGenerator;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
 
@@ -119,6 +123,7 @@ public class AccountController {
   private static final String TWILIO_VERIFY_ERROR_COUNTER_NAME = name(AccountController.class, "twilioVerifyError");
 
   private static final String INVALID_ACCEPT_LANGUAGE_COUNTER_NAME = name(AccountController.class, "invalidAcceptLanguage");
+  private static final String NONSTANDARD_USERNAME_COUNTER_NAME = name(AccountController.class, "nonStandardUsername");
 
   private static final String CHALLENGE_PRESENT_TAG_NAME = "present";
   private static final String CHALLENGE_MATCH_TAG_NAME = "matches";
@@ -126,6 +131,7 @@ public class AccountController {
   private static final String VERIFICATION_TRANSPORT_TAG_NAME = "transport";
 
   private static final String VERIFY_EXPERIMENT_TAG_NAME = "twilioVerify";
+
 
   private final StoredVerificationCodeManager      pendingAccounts;
   private final AccountsManager                    accounts;
@@ -628,6 +634,7 @@ public class AccountController {
         auth.getAccount().isStorageSupported());
   }
 
+  @Timed
   @DELETE
   @Path("/username")
   @Produces(MediaType.APPLICATION_JSON)
@@ -635,20 +642,66 @@ public class AccountController {
     accounts.clearUsername(auth.getAccount());
   }
 
+  @Timed
   @PUT
-  @Path("/username/{username}")
+  @Path("/username")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response setUsername(@Auth AuthenticatedAccount auth, @PathParam("username") @Username String username)
-      throws RateLimitExceededException {
+  @Consumes(MediaType.APPLICATION_JSON)
+  public UsernameResponse setUsername(
+      @Auth AuthenticatedAccount auth,
+      @HeaderParam("X-Signal-Agent") String userAgent,
+      @NotNull @Valid UsernameRequest usernameRequest) throws RateLimitExceededException {
     rateLimiters.getUsernameSetLimiter().validate(auth.getAccount().getUuid());
 
-    try {
-      accounts.setUsername(auth.getAccount(), username);
-    } catch (final UsernameNotAvailableException e) {
-      return Response.status(Response.Status.CONFLICT).build();
+    if (StringUtils.isNotBlank(usernameRequest.existingUsername()) &&
+        !UsernameGenerator.isStandardFormat(usernameRequest.existingUsername())) {
+      // Technically, a username may not be in the nickname#discriminator format
+      // if created through some out-of-band mechanism, but it is atypical.
+      Metrics.counter(NONSTANDARD_USERNAME_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
+          .increment();
     }
 
-    return Response.ok().build();
+    try {
+      final Account account = accounts.setUsername(auth.getAccount(), usernameRequest.nickname(),
+          usernameRequest.existingUsername());
+      return account
+          .getUsername()
+          .map(UsernameResponse::new)
+          .orElseThrow(() -> new IllegalStateException("Could not get username after setting"));
+    } catch (final UsernameNotAvailableException e) {
+      throw new WebApplicationException(Status.CONFLICT);
+    }
+  }
+
+  @Timed
+  @GET
+  @Path("/username/{username}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public AccountIdentifierResponse lookupUsername(
+      @HeaderParam("X-Signal-Agent") final String userAgent,
+      @HeaderParam("X-Forwarded-For") final String forwardedFor,
+      @PathParam("username") final String username,
+      @Context final HttpServletRequest request) throws RateLimitExceededException {
+
+    // Disallow clients from making authenticated requests to this endpoint
+    if (StringUtils.isNotBlank(request.getHeader("Authorization"))) {
+      throw new BadRequestException();
+    }
+
+    if (!UsernameGenerator.isStandardFormat(username)) {
+      // Technically, a username may not be in the nickname#discriminator format
+      // if created through some out-of-band mechanism, but it is atypical.
+      Metrics.counter(NONSTANDARD_USERNAME_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
+          .increment();
+    }
+
+    rateLimitByClientIp(rateLimiters.getUsernameLookupLimiter(), forwardedFor);
+
+    return accounts
+        .getByUsername(username)
+        .map(Account::getUuid)
+        .map(AccountIdentifierResponse::new)
+        .orElseThrow(() -> new WebApplicationException(Status.NOT_FOUND));
   }
 
   @HEAD
@@ -662,23 +715,26 @@ public class AccountController {
     if (StringUtils.isNotBlank(request.getHeader("Authorization"))) {
       throw new BadRequestException();
     }
-
-    final String mostRecentProxy = ForwardedIpUtil.getMostRecentProxy(forwardedFor)
-        .orElseThrow(() -> {
-          // Missing/malformed Forwarded-For, so we cannot check for a rate-limit.
-          // This shouldn't happen, so conservatively assume we're over the rate-limit
-          // and indicate that the client should retry
-          logger.error("Missing/bad Forwarded-For, cannot check account {}", uuid.toString());
-          return new RateLimitExceededException(Duration.ofHours(1));
-        });
-
-    rateLimiters.getCheckAccountExistenceLimiter().validate(mostRecentProxy);
+    rateLimitByClientIp(rateLimiters.getCheckAccountExistenceLimiter(), forwardedFor);
 
     final Status status = accounts.getByAccountIdentifier(uuid)
         .or(() -> accounts.getByPhoneNumberIdentifier(uuid))
         .isPresent() ? Status.OK : Status.NOT_FOUND;
 
     return Response.status(status).build();
+  }
+
+  private void rateLimitByClientIp(final RateLimiter rateLimiter, final String forwardedFor) throws RateLimitExceededException {
+    final String mostRecentProxy = ForwardedIpUtil.getMostRecentProxy(forwardedFor)
+        .orElseThrow(() -> {
+          // Missing/malformed Forwarded-For, so we cannot check for a rate-limit.
+          // This shouldn't happen, so conservatively assume we're over the rate-limit
+          // and indicate that the client should retry
+          logger.error("Missing/bad Forwarded-For: {}", forwardedFor);
+          return new RateLimitExceededException(Duration.ofHours(1));
+        });
+
+    rateLimiter.validate(mostRecentProxy);
   }
 
   private void verifyRegistrationLock(final Account existingAccount, @Nullable final String clientRegistrationLock)

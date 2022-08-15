@@ -10,10 +10,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.AdditionalMatchers.and;
+import static org.mockito.AdditionalMatchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -43,11 +46,14 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentMatcher;
 import org.mockito.stubbing.Answer;
+import org.whispersystems.textsecuregcm.configuration.UsernameConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -55,6 +61,7 @@ import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
+import org.whispersystems.textsecuregcm.util.UsernameGenerator;
 
 class AccountsManagerTest {
 
@@ -65,6 +72,7 @@ class AccountsManagerTest {
   private MessagesManager messagesManager;
   private ProfilesManager profilesManager;
   private ReservedUsernames reservedUsernames;
+  private ExperimentEnrollmentManager enrollmentManager;
 
   private Map<String, UUID> phoneNumberIdentifiersByE164;
 
@@ -129,6 +137,10 @@ class AccountsManagerTest {
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
+    enrollmentManager = mock(ExperimentEnrollmentManager.class);
+    when(enrollmentManager.isEnrolled(any(UUID.class), eq(AccountsManager.USERNAME_EXPERIMENT_NAME))).thenReturn(true);
+    when(accounts.usernameAvailable(any())).thenReturn(true);
+
     accountsManager = new AccountsManager(
         accounts,
         phoneNumberIdentifiers,
@@ -143,6 +155,8 @@ class AccountsManagerTest {
         storageClient,
         backupClient,
         mock(ClientPresenceManager.class),
+        new UsernameGenerator(new UsernameConfiguration()),
+        enrollmentManager,
         mock(Clock.class));
   }
 
@@ -716,45 +730,82 @@ class AccountsManagerTest {
   }
 
   @Test
-  void testSetUsername() throws UsernameNotAvailableException {
+  void testSetUsername() {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
-    final String username = "test";
-
-    assertDoesNotThrow(() -> accountsManager.setUsername(account, username));
-    verify(accounts).setUsername(account, username);
+    final String nickname = "test";
+    assertDoesNotThrow(() -> accountsManager.setUsername(account, nickname, null));
+    verify(accounts).setUsername(eq(account),  startsWith(nickname));
   }
 
   @Test
-  void testSetUsernameSameUsername() throws UsernameNotAvailableException {
+  void testSetUsernameSameUsername() {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
-    final String username = "test";
-    account.setUsername(username);
+    final String nickname = "test";
+    account.setUsername(nickname + "#123");
 
-    assertDoesNotThrow(() -> accountsManager.setUsername(account, username));
+    // should be treated as a replayed request
+    assertDoesNotThrow(() -> accountsManager.setUsername(account, nickname, null));
     verify(accounts, never()).setUsername(eq(account), any());
   }
 
   @Test
-  void testSetUsernameNotAvailable() throws UsernameNotAvailableException {
+  void testSetUsernameReroll() throws UsernameNotAvailableException {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
-    final String username = "test";
+    final String nickname = "test";
+    final String username = nickname + "#ZZZ";
+    account.setUsername(username);
 
-    doThrow(new UsernameNotAvailableException()).when(accounts).setUsername(account, username);
+    // given the correct old username, should reroll discriminator even if the nick matches
+    accountsManager.setUsername(account, nickname, username);
+    verify(accounts).setUsername(eq(account), and(startsWith(nickname), not(eq(username))));
+  }
 
-    assertThrows(UsernameNotAvailableException.class, () -> accountsManager.setUsername(account, username));
-    verify(accounts).setUsername(account, username);
+  @Test
+  void testSetUsernameExpandDiscriminator() throws UsernameNotAvailableException {
+    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
+    final String nickname = "test";
 
+    ArgumentMatcher<String> isWide = (String username) -> {
+      String[] spl = username.split(UsernameGenerator.SEPARATOR);
+      assertEquals(spl.length, 2);
+      int discriminator = Integer.parseInt(spl[1]);
+      // require a 7 digit discriminator
+      return discriminator > 1_000_000;
+    };
+    when(accounts.usernameAvailable(any())).thenReturn(false);
+    when(accounts.usernameAvailable(argThat(isWide))).thenReturn(true);
+
+    accountsManager.setUsername(account, nickname, null);
+    verify(accounts).setUsername(eq(account), and(startsWith(nickname), argThat(isWide)));
+  }
+
+  @Test
+  void testChangeUsername() throws UsernameNotAvailableException {
+    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
+    final String nickname = "test";
+    account.setUsername("old#123");
+    accountsManager.setUsername(account, nickname, "old#123");
+    verify(accounts).setUsername(eq(account),  startsWith(nickname));
+  }
+
+  @Test
+  void testSetUsernameNotAvailable() {
+    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
+    final String nickname = "unavailable";
+    when(accounts.usernameAvailable(startsWith(nickname))).thenReturn(false);
+    assertThrows(UsernameNotAvailableException.class, () -> accountsManager.setUsername(account, nickname, null));
+    verify(accounts, never()).setUsername(any(), any());
     assertTrue(account.getUsername().isEmpty());
   }
 
   @Test
   void testSetUsernameReserved() {
-    final String username = "reserved";
-    when(reservedUsernames.isReserved(eq(username), any())).thenReturn(true);
+    final String nickname = "reserved";
+    when(reservedUsernames.isReserved(eq(nickname), any())).thenReturn(true);
 
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
 
-    assertThrows(UsernameNotAvailableException.class, () -> accountsManager.setUsername(account, username));
+    assertThrows(UsernameNotAvailableException.class, () -> accountsManager.setUsername(account, nickname, null));
     assertTrue(account.getUsername().isEmpty());
   }
 
@@ -763,6 +814,13 @@ class AccountsManagerTest {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
 
     assertThrows(AssertionError.class, () -> accountsManager.update(account, a -> a.setUsername("test")));
+  }
+
+  @Test
+  void testSetUsernameDisabled() {
+    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
+    when(enrollmentManager.isEnrolled(account.getUuid(), AccountsManager.USERNAME_EXPERIMENT_NAME)).thenReturn(false);
+    assertThrows(UsernameNotAvailableException.class, () -> accountsManager.setUsername(account, "n00bkiller", null));
   }
 
   private static Device generateTestDevice(final long lastSeen) {

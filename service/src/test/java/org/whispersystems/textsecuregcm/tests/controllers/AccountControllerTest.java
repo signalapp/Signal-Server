@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doThrow;
@@ -23,6 +24,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableSet;
 import io.dropwizard.auth.PolymorphicAuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
@@ -66,6 +68,7 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
+import org.whispersystems.textsecuregcm.entities.AccountIdentifierResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ChangePhoneNumberRequest;
@@ -74,6 +77,8 @@ import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+import org.whispersystems.textsecuregcm.entities.UsernameRequest;
+import org.whispersystems.textsecuregcm.entities.UsernameResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
@@ -138,6 +143,7 @@ class AccountControllerTest {
   private static RateLimiter            smsVoicePrefixLimiter  = mock(RateLimiter.class);
   private static RateLimiter            autoBlockLimiter       = mock(RateLimiter.class);
   private static RateLimiter            usernameSetLimiter     = mock(RateLimiter.class);
+  private static RateLimiter            usernameLookupLimiter  = mock(RateLimiter.class);
   private static SmsSender              smsSender              = mock(SmsSender.class);
   private static TurnTokenGenerator     turnTokenGenerator     = mock(TurnTokenGenerator.class);
   private static Account                senderPinAccount       = mock(Account.class);
@@ -201,6 +207,7 @@ class AccountControllerTest {
     when(rateLimiters.getSmsVoicePrefixLimiter()).thenReturn(smsVoicePrefixLimiter);
     when(rateLimiters.getAutoBlockLimiter()).thenReturn(autoBlockLimiter);
     when(rateLimiters.getUsernameSetLimiter()).thenReturn(usernameSetLimiter);
+    when(rateLimiters.getUsernameLookupLimiter()).thenReturn(usernameLookupLimiter);
 
     when(senderPinAccount.getLastSeen()).thenReturn(System.currentTimeMillis());
     when(senderPinAccount.getRegistrationLock()).thenReturn(new StoredRegistrationLock(Optional.empty(), Optional.empty(), System.currentTimeMillis()));
@@ -246,7 +253,7 @@ class AccountControllerTest {
       return account;
     });
 
-    when(accountsManager.setUsername(AuthHelper.VALID_ACCOUNT, "takenusername"))
+    when(accountsManager.setUsername(AuthHelper.VALID_ACCOUNT, "takenusername", null))
         .thenThrow(new UsernameNotAvailableException());
 
     when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any())).thenAnswer((Answer<Account>) invocation -> {
@@ -311,6 +318,7 @@ class AccountControllerTest {
         smsVoicePrefixLimiter,
         autoBlockLimiter,
         usernameSetLimiter,
+        usernameLookupLimiter,
         smsSender,
         turnTokenGenerator,
         senderPinAccount,
@@ -1660,25 +1668,29 @@ class AccountControllerTest {
   }
 
   @Test
-  void testSetUsername() {
+  void testSetUsername() throws UsernameNotAvailableException {
+    Account account = mock(Account.class);
+    when(account.getUsername()).thenReturn(Optional.of("n00bkiller#1234"));
+    when(accountsManager.setUsername(any(), eq("n00bkiller"), isNull()))
+        .thenReturn(account);
     Response response =
         resources.getJerseyTest()
-                 .target("/v1/accounts/username/n00bkiller")
+                 .target("/v1/accounts/username")
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 .put(Entity.text(""));
-
+                 .put(Entity.json(new UsernameRequest("n00bkiller", null)));
     assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.readEntity(UsernameResponse.class).username()).isEqualTo("n00bkiller#1234");
   }
 
   @Test
   void testSetTakenUsername() {
     Response response =
         resources.getJerseyTest()
-                 .target("/v1/accounts/username/takenusername")
+                 .target("/v1/accounts/username/")
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 .put(Entity.text(""));
+                 .put(Entity.json(new UsernameRequest("takenusername", null)));
 
     assertThat(response.getStatus()).isEqualTo(409);
   }
@@ -1687,35 +1699,34 @@ class AccountControllerTest {
   void testSetInvalidUsername() {
     Response response =
         resources.getJerseyTest()
-                 .target("/v1/accounts/username/pаypal")
+                 .target("/v1/accounts/username")
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 .put(Entity.text(""));
+                 // contains non-ascii character
+                 .put(Entity.json(new UsernameRequest("pаypal", null)));
 
-    assertThat(response.getStatus()).isEqualTo(400);
+    assertThat(response.getStatus()).isEqualTo(422);
   }
 
   @Test
-  void testSetInvalidPrefixUsername() {
+  void testSetInvalidPrefixUsername() throws JsonProcessingException {
     Response response =
         resources.getJerseyTest()
-                 .target("/v1/accounts/username/0n00bkiller")
+                 .target("/v1/accounts/username")
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                 .put(Entity.text(""));
-
-    assertThat(response.getStatus()).isEqualTo(400);
+                 .put(Entity.json(new UsernameRequest("0n00bkiller", null)));
+    assertThat(response.getStatus()).isEqualTo(422);
   }
 
   @Test
   void testSetUsernameBadAuth() {
     Response response =
         resources.getJerseyTest()
-                 .target("/v1/accounts/username/n00bkiller")
+                 .target("/v1/accounts/username")
                  .request()
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.INVALID_PASSWORD))
-                 .put(Entity.text(""));
-
+                 .put(Entity.json(new UsernameRequest("n00bkiller", null)));
     assertThat(response.getStatus()).isEqualTo(401);
   }
 
@@ -1934,5 +1945,44 @@ class AccountControllerTest {
         .header("X-Forwarded-For", "127.0.0.1")
         .head()
         .getStatus()).isEqualTo(400);
+  }
+
+  @Test
+  void testLookupUsername() {
+    final Account account = mock(Account.class);
+    final UUID uuid = UUID.randomUUID();
+    when(account.getUuid()).thenReturn(uuid);
+
+    when(accountsManager.getByUsername(eq("n00bkiller#1234"))).thenReturn(Optional.of(account));
+    Response response = resources.getJerseyTest()
+        .target("v1/accounts/username/n00bkiller#1234")
+        .request()
+        .header("X-Forwarded-For", "127.0.0.1")
+        .get();
+    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.readEntity(AccountIdentifierResponse.class).uuid()).isEqualTo(uuid);
+  }
+
+  @Test
+  void testLookupUsernameDoesNotExist() {
+    when(accountsManager.getByUsername(eq("n00bkiller#1234"))).thenReturn(Optional.empty());
+    assertThat(resources.getJerseyTest()
+        .target("v1/accounts/username/n00bkiller#1234")
+        .request()
+        .header("X-Forwarded-For", "127.0.0.1")
+        .get().getStatus()).isEqualTo(404);
+  }
+
+  @Test
+  void testLookupUsernameRateLimited() throws RateLimitExceededException {
+    doThrow(new RateLimitExceededException(Duration.ofSeconds(13))).when(usernameLookupLimiter).validate("127.0.0.1");
+    final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/username/test#123")
+        .request()
+        .header("X-Forwarded-For", "127.0.0.1")
+        .get();
+
+    assertThat(response.getStatus()).isEqualTo(413);
+    assertThat(response.getHeaderString("Retry-After")).isEqualTo(String.valueOf(Duration.ofSeconds(13).toSeconds()));
   }
 }

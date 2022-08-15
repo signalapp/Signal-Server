@@ -205,6 +205,7 @@ import org.whispersystems.textsecuregcm.stripe.StripeManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
 import org.whispersystems.textsecuregcm.util.HostnameUtil;
+import org.whispersystems.textsecuregcm.util.UsernameGenerator;
 import org.whispersystems.textsecuregcm.util.logging.LoggingUnhandledExceptionMapper;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
@@ -444,11 +445,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     PushLatencyManager         pushLatencyManager         = new PushLatencyManager(metricsCluster, dynamicConfigurationManager);
     ReportMessageManager       reportMessageManager       = new ReportMessageManager(reportMessageDynamoDb, rateLimitersCluster, config.getReportMessageConfiguration().getCounterTtl());
     MessagesManager            messagesManager            = new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager);
+    UsernameGenerator          usernameGenerator          = new UsernameGenerator(config.getUsername());
     DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
         deletedAccountsLockDynamoDbClient, config.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         deletedAccountsManager, directoryQueue, keys, messagesManager, reservedUsernames, profilesManager,
-        pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager, clock);
+        pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager, usernameGenerator,
+        experimentEnrollmentManager, clock);
     RemoteConfigsManager       remoteConfigsManager       = new RemoteConfigsManager(remoteConfigs);
     DispatchManager            dispatchManager            = new DispatchManager(pubSubClientFactory, Optional.empty());
     PubSubManager              pubSubManager              = new PubSubManager(pubsubClient, dispatchManager);

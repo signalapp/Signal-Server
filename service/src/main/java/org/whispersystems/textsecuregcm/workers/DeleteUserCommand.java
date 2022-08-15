@@ -28,6 +28,7 @@ import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.push.PushLatencyManager;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
@@ -53,6 +54,7 @@ import org.whispersystems.textsecuregcm.storage.ReservedUsernames;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.VerificationCodeStore;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
+import org.whispersystems.textsecuregcm.util.UsernameGenerator;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
@@ -111,6 +113,9 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
           configuration.getAppConfig().getApplication(), configuration.getAppConfig().getEnvironment(),
           configuration.getAppConfig().getConfigurationName(), DynamicConfiguration.class);
       dynamicConfigurationManager.start();
+
+      ExperimentEnrollmentManager experimentEnrollmentManager = new ExperimentEnrollmentManager(
+          dynamicConfigurationManager);
 
       DynamoDbAsyncClient dynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(
           configuration.getDynamoDbClientConfiguration(),
@@ -189,9 +194,11 @@ public class DeleteUserCommand extends EnvironmentCommand<WhisperServerConfigura
           deletedAccountsLockDynamoDbClient,
           configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());
       StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
+      UsernameGenerator usernameGenerator = new UsernameGenerator(configuration.getUsername());
       AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
           deletedAccountsManager, directoryQueue, keys, messagesManager, reservedUsernames, profilesManager,
-          pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager, clock);
+          pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager, usernameGenerator,
+          experimentEnrollmentManager, clock);
 
       for (String user : users) {
         Optional<Account> account = accountsManager.getByE164(user);

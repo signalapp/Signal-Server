@@ -503,24 +503,6 @@ public class ProfileController {
         account.getPhoneNumberIdentifier());
   }
 
-  @Timed
-  @GET
-  @Produces(MediaType.APPLICATION_JSON)
-  @Path("/username/{username}")
-  public BaseProfileResponse getProfileByUsername(
-      @Auth AuthenticatedAccount auth,
-      @Context ContainerRequestContext containerRequestContext,
-      @PathParam("username") String username)
-      throws RateLimitExceededException {
-
-    rateLimiters.getUsernameLookupLimiter().validate(auth.getAccount().getUuid());
-
-    final Account targetAccount = accountsManager.getByUsername(username).orElseThrow(NotFoundException::new);
-    final boolean isSelf = auth.getAccount().getUuid().equals(targetAccount.getUuid());
-
-    return buildBaseProfileResponseForAccountIdentity(targetAccount, isSelf, containerRequestContext);
-  }
-
   private ProfileKeyCredentialResponse getProfileCredential(final String encodedProfileCredentialRequest,
       final VersionedProfile profile,
       final UUID uuid) {

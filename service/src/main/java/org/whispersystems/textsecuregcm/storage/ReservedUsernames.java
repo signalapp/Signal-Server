@@ -53,7 +53,7 @@ public class ReservedUsernames {
     this.tableName = tableName;
   }
 
-  public boolean isReserved(final String username, final UUID accountIdentifier) {
+  public boolean isReserved(final String nickname, final UUID accountIdentifier) {
     return IS_RESERVED_TIMER.record(() -> {
       final ScanIterable scanIterable = dynamoDbClient.scanPaginator(ScanRequest.builder()
           .tableName(tableName)
@@ -66,7 +66,7 @@ public class ReservedUsernames {
               final Pattern pattern = patternCache.get(item.get(KEY_PATTERN).s());
               final UUID reservedFor = AttributeValues.getUUID(item, ATTR_RESERVED_FOR_UUID, null);
 
-              if (pattern.matcher(username).matches() && !accountIdentifier.equals(reservedFor)) {
+              if (pattern.matcher(nickname).matches() && !accountIdentifier.equals(reservedFor)) {
                 return true;
               }
             } catch (final Exception e) {

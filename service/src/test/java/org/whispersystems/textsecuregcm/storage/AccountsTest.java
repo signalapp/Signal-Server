@@ -722,7 +722,7 @@ class AccountsTest {
     assertThat(maybeAccount).isPresent();
     verifyStoredState(firstAccount.getNumber(), firstAccount.getUuid(), firstAccount.getPhoneNumberIdentifier(), maybeAccount.get(), firstAccount);
 
-    assertThatExceptionOfType(UsernameNotAvailableException.class)
+    assertThatExceptionOfType(ContestedOptimisticLockException.class)
         .isThrownBy(() -> accounts.setUsername(secondAccount, username));
 
     assertThat(secondAccount.getUsername()).isEmpty();

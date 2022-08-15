@@ -45,6 +45,7 @@ import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TestDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
 import org.whispersystems.textsecuregcm.configuration.UnidentifiedDeliveryConfiguration;
+import org.whispersystems.textsecuregcm.configuration.UsernameConfiguration;
 import org.whispersystems.textsecuregcm.configuration.VoiceVerificationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ZkConfig;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
@@ -248,6 +249,11 @@ public class WhisperServerConfiguration extends Configuration {
   private ReportMessageConfiguration reportMessage = new ReportMessageConfiguration();
 
   @Valid
+  @NotNull
+  @JsonProperty
+  private UsernameConfiguration username = new UsernameConfiguration();
+
+  @Valid
   @JsonProperty
   private AbusiveMessageFilterConfiguration abusiveMessageFilter;
 
@@ -423,5 +429,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public AbusiveMessageFilterConfiguration getAbusiveMessageFilterConfiguration() {
     return abusiveMessageFilter;
+  }
+
+  public UsernameConfiguration getUsername() {
+    return username;
   }
 }

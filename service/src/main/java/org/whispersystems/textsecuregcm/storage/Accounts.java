@@ -345,8 +345,15 @@ public class Accounts extends AbstractDynamoDbStore {
     });
   }
 
+  /**
+   * Set the account username
+   *
+   * @param account to update
+   * @param username believed to be available
+   * @throws ContestedOptimisticLockException if the account has been updated or the username taken by someone else
+   */
   public void setUsername(final Account account, final String username)
-      throws ContestedOptimisticLockException, UsernameNotAvailableException {
+      throws ContestedOptimisticLockException {
     final long startNanos = System.nanoTime();
 
     final Optional<String> maybeOriginalUsername = account.getUsername();
@@ -405,18 +412,14 @@ public class Accounts extends AbstractDynamoDbStore {
     } catch (final JsonProcessingException e) {
       throw new IllegalArgumentException(e);
     } catch (final TransactionCanceledException e) {
-      if ("ConditionalCheckFailed".equals(e.cancellationReasons().get(0).code())) {
-        throw new UsernameNotAvailableException();
-      } else if ("ConditionalCheckFailed".equals(e.cancellationReasons().get(1).code())) {
+      if (e.cancellationReasons().stream().map(CancellationReason::code).anyMatch("ConditionalCheckFailed"::equals)) {
         throw new ContestedOptimisticLockException();
       }
-
       throw e;
     } finally {
       if (!succeeded) {
         account.setUsername(maybeOriginalUsername.orElse(null));
       }
-
       SET_USERNAME_TIMER.record(System.nanoTime() - startNanos, TimeUnit.NANOSECONDS);
     }
   }
@@ -561,6 +564,14 @@ public class Accounts extends AbstractDynamoDbStore {
       log.error("Unexpected checked exception thrown from dynamo update", e);
       throw e;
     }
+  }
+
+  public boolean usernameAvailable(final String username) {
+    final GetItemResponse response = client.getItem(GetItemRequest.builder()
+        .tableName(usernamesConstraintTableName)
+        .key(Map.of(ATTR_USERNAME, AttributeValues.fromString(username)))
+        .build());
+    return !response.hasItem();
   }
 
   public Optional<Account> getByE164(String number) {

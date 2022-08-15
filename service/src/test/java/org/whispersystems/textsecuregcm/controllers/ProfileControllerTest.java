@@ -80,8 +80,6 @@ import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicPaymentsConfiguration;
-import org.whispersystems.textsecuregcm.controllers.ProfileController;
-import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.entities.BaseProfileResponse;
@@ -363,23 +361,6 @@ class ProfileControllerTest {
   }
 
   @Test
-  void testProfileGetByUsername() throws RateLimitExceededException {
-    BaseProfileResponse profile = resources.getJerseyTest()
-                              .target("/v1/profile/username/n00bkiller")
-                              .request()
-                              .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                              .get(BaseProfileResponse.class);
-
-    assertThat(profile.getIdentityKey()).isEqualTo("bar");
-    assertThat(profile.getUuid()).isEqualTo(AuthHelper.VALID_UUID_TWO);
-    assertThat(profile.getBadges()).hasSize(1).element(0).has(new Condition<>(
-        badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
-
-    verify(accountsManager).getByUsername("n00bkiller");
-    verify(usernameRateLimiter, times(1)).validate(eq(AuthHelper.VALID_UUID));
-  }
-
-  @Test
   void testProfileGetUnauthorized() {
     Response response = resources.getJerseyTest()
                                  .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO)
@@ -387,31 +368,6 @@ class ProfileControllerTest {
                                  .get();
 
     assertThat(response.getStatus()).isEqualTo(401);
-  }
-
-  @Test
-  void testProfileGetByUsernameUnauthorized() {
-    Response response = resources.getJerseyTest()
-                                 .target("/v1/profile/username/n00bkiller")
-                                 .request()
-                                 .get();
-
-    assertThat(response.getStatus()).isEqualTo(401);
-  }
-
-
-  @Test
-  void testProfileGetByUsernameNotFound() throws RateLimitExceededException {
-    Response response = resources.getJerseyTest()
-                              .target("/v1/profile/username/n00bkillerzzzzz")
-                              .request()
-                              .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                              .get();
-
-    assertThat(response.getStatus()).isEqualTo(404);
-
-    verify(accountsManager).getByUsername("n00bkillerzzzzz");
-    verify(usernameRateLimiter).validate(eq(AuthHelper.VALID_UUID));
   }
 
 

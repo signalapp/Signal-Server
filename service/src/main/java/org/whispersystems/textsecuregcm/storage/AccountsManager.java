@@ -12,6 +12,7 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import io.micrometer.core.instrument.Metrics;
@@ -37,6 +38,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
@@ -46,7 +48,7 @@ import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
-import org.whispersystems.textsecuregcm.util.UsernameValidator;
+import org.whispersystems.textsecuregcm.util.UsernameGenerator;
 import org.whispersystems.textsecuregcm.util.Util;
 
 public class AccountsManager {
@@ -71,6 +73,9 @@ public class AccountsManager {
   private static final String COUNTRY_CODE_TAG_NAME     = "country";
   private static final String DELETION_REASON_TAG_NAME  = "reason";
 
+  @VisibleForTesting
+  public static final String USERNAME_EXPERIMENT_NAME  = "usernames";
+
   private final Logger logger = LoggerFactory.getLogger(AccountsManager.class);
 
   private final Accounts accounts;
@@ -86,7 +91,9 @@ public class AccountsManager {
   private final SecureStorageClient secureStorageClient;
   private final SecureBackupClient secureBackupClient;
   private final ClientPresenceManager clientPresenceManager;
+  private final ExperimentEnrollmentManager experimentEnrollmentManager;
   private final Clock clock;
+  private final UsernameGenerator usernameGenerator;
 
   private static final ObjectMapper mapper = SystemMapper.getMapper();
 
@@ -126,6 +133,8 @@ public class AccountsManager {
       final SecureStorageClient secureStorageClient,
       final SecureBackupClient secureBackupClient,
       final ClientPresenceManager clientPresenceManager,
+      final UsernameGenerator usernameGenerator,
+      final ExperimentEnrollmentManager experimentEnrollmentManager,
       final Clock clock) {
     this.accounts = accounts;
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
@@ -140,6 +149,8 @@ public class AccountsManager {
     this.secureBackupClient  = secureBackupClient;
     this.clientPresenceManager = clientPresenceManager;
     this.reservedUsernames = reservedUsernames;
+    this.usernameGenerator = usernameGenerator;
+    this.experimentEnrollmentManager = experimentEnrollmentManager;
     this.clock = Objects.requireNonNull(clock);
   }
 
@@ -276,32 +287,27 @@ public class AccountsManager {
 
       final Account numberChangedAccount;
 
-      try {
-        numberChangedAccount = updateWithRetries(
-            account,
-            a -> {
-              //noinspection ConstantConditions
-              if (pniSignedPreKeys != null && pniRegistrationIds != null) {
-                pniSignedPreKeys.forEach((deviceId, signedPreKey) ->
-                    a.getDevice(deviceId).ifPresent(device -> device.setPhoneNumberIdentitySignedPreKey(signedPreKey)));
+      numberChangedAccount = updateWithRetries(
+          account,
+          a -> {
+            //noinspection ConstantConditions
+            if (pniSignedPreKeys != null && pniRegistrationIds != null) {
+              pniSignedPreKeys.forEach((deviceId, signedPreKey) ->
+                  a.getDevice(deviceId).ifPresent(device -> device.setPhoneNumberIdentitySignedPreKey(signedPreKey)));
 
-                pniRegistrationIds.forEach((deviceId, registrationId) ->
-                    a.getDevice(deviceId).ifPresent(device -> device.setPhoneNumberIdentityRegistrationId(registrationId)));
-              }
+              pniRegistrationIds.forEach((deviceId, registrationId) ->
+                  a.getDevice(deviceId).ifPresent(device -> device.setPhoneNumberIdentityRegistrationId(registrationId)));
+            }
 
-              if (pniIdentityKey != null) {
-                a.setPhoneNumberIdentityKey(pniIdentityKey);
-              }
+            if (pniIdentityKey != null) {
+              a.setPhoneNumberIdentityKey(pniIdentityKey);
+            }
 
-              return true;
-            },
-            a -> accounts.changeNumber(a, number, phoneNumberIdentifier),
-            () -> accounts.getByAccountIdentifier(uuid).orElseThrow(),
-            AccountChangeValidator.NUMBER_CHANGE_VALIDATOR);
-      } catch (UsernameNotAvailableException e) {
-        // This should never happen when changing numbers
-        throw new RuntimeException(e);
-      }
+            return true;
+          },
+          a -> accounts.changeNumber(a, number, phoneNumberIdentifier),
+          () -> accounts.getByAccountIdentifier(uuid).orElseThrow(),
+          AccountChangeValidator.NUMBER_CHANGE_VALIDATOR);
 
       updatedAccount.set(numberChangedAccount);
       directoryQueue.changePhoneNumber(numberChangedAccount, originalNumber, number);
@@ -315,23 +321,31 @@ public class AccountsManager {
     return updatedAccount.get();
   }
 
-  public Account setUsername(final Account account, final String username) throws UsernameNotAvailableException {
-    final String canonicalUsername = UsernameValidator.getCanonicalUsername(username);
-
-    if (account.getUsername().map(canonicalUsername::equals).orElse(false)) {
-      return account;
+  public Account setUsername(final Account account, final String requestedNickname, final @Nullable String expectedOldUsername) throws UsernameNotAvailableException {
+    if (!experimentEnrollmentManager.isEnrolled(account.getUuid(), USERNAME_EXPERIMENT_NAME)) {
+      throw new UsernameNotAvailableException();
     }
 
-    if (reservedUsernames.isReserved(canonicalUsername, account.getUuid())) {
+    if (reservedUsernames.isReserved(requestedNickname, account.getUuid())) {
       throw new UsernameNotAvailableException();
+    }
+
+    final Optional<String> currentUsername = account.getUsername();
+    final Optional<String> currentNickname = currentUsername.map(UsernameGenerator::extractNickname);
+    if (currentNickname.map(requestedNickname::equals).orElse(false) && !Objects.equals(expectedOldUsername, currentUsername.orElse(null))) {
+      // The requested nickname matches what the server already has, and the
+      // client provided the wrong existing username. Treat this as a replayed
+      // request, assuming that the client has previously succeeded
+      return account;
     }
 
     redisDelete(account);
 
-    return updateWithRetries(
+    return failableUpdateWithRetries(
         account,
         a -> true,
-        a -> accounts.setUsername(a, canonicalUsername),
+        // In the future, this may also check for any forbidden discriminators
+        a -> accounts.setUsername(a, usernameGenerator.generateAvailableUsername(requestedNickname, accounts::usernameAvailable)),
         () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
         AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
   }
@@ -339,31 +353,20 @@ public class AccountsManager {
   public Account clearUsername(final Account account) {
     redisDelete(account);
 
-    try {
-      return updateWithRetries(
-          account,
-          a -> true,
-          accounts::clearUsername,
-          () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
-          AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
-    } catch (UsernameNotAvailableException e) {
-      // This should never happen
-      throw new RuntimeException(e);
-    }
+    return updateWithRetries(
+        account,
+        a -> true,
+        accounts::clearUsername,
+        () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
+        AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
   }
 
   public Account update(Account account, Consumer<Account> updater) {
-
-    try {
-      return update(account, a -> {
-        updater.accept(a);
-        // assume that all updaters passed to the public method actually modify the account
-        return true;
-      });
-    } catch (UsernameNotAvailableException e) {
-      // This should never happen for general-purpose, public account updates
-      throw new RuntimeException(e);
-    }
+    return update(account, a -> {
+      updater.accept(a);
+      // assume that all updaters passed to the public method actually modify the account
+      return true;
+    });
   }
 
   /**
@@ -371,34 +374,28 @@ public class AccountsManager {
    * redundant updates of {@code device.lastSeen}
    */
   public Account updateDeviceLastSeen(Account account, Device device, final long lastSeen) {
+    return update(account, a -> {
 
-    try {
-      return update(account, a -> {
+      final Optional<Device> maybeDevice = a.getDevice(device.getId());
 
-        final Optional<Device> maybeDevice = a.getDevice(device.getId());
+      return maybeDevice.map(d -> {
+        if (d.getLastSeen() >= lastSeen) {
+          return false;
+        }
 
-        return maybeDevice.map(d -> {
-          if (d.getLastSeen() >= lastSeen) {
-            return false;
-          }
+        d.setLastSeen(lastSeen);
 
-          d.setLastSeen(lastSeen);
+        return true;
 
-          return true;
-
-        }).orElse(false);
-      });
-    } catch (UsernameNotAvailableException e) {
-      // This should never happen when updating last-seen timestamps
-      throw new RuntimeException(e);
-    }
+      }).orElse(false);
+    });
   }
 
   /**
    * @param account account to update
    * @param updater must return {@code true} if the account was actually updated
    */
-  private Account update(Account account, Function<Account, Boolean> updater) throws UsernameNotAvailableException {
+  private Account update(Account account, Function<Account, Boolean> updater) {
 
     final boolean wasVisibleBeforeUpdate = account.shouldBeVisibleInDirectory();
 
@@ -429,6 +426,19 @@ public class AccountsManager {
   }
 
   private Account updateWithRetries(Account account,
+      final Function<Account, Boolean> updater,
+      final Consumer<Account> persister,
+      final Supplier<Account> retriever,
+      final AccountChangeValidator changeValidator) {
+    try {
+      return failableUpdateWithRetries(account, updater, persister::accept, retriever, changeValidator);
+    } catch (UsernameNotAvailableException e) {
+      // not possible
+      throw new IllegalStateException(e);
+    }
+  }
+
+  private Account failableUpdateWithRetries(Account account,
       final Function<Account, Boolean> updater,
       final AccountPersister persister,
       final Supplier<Account> retriever,
@@ -482,16 +492,11 @@ public class AccountsManager {
   }
 
   public Account updateDevice(Account account, long deviceId, Consumer<Device> deviceUpdater) {
-    try {
-      return update(account, a -> {
-        a.getDevice(deviceId).ifPresent(deviceUpdater);
-        // assume that all updaters passed to the public method actually modify the device
-        return true;
-      });
-    } catch (UsernameNotAvailableException e) {
-      // This should never happen when updating devices
-      throw new RuntimeException(e);
-    }
+    return update(account, a -> {
+      a.getDevice(deviceId).ifPresent(deviceUpdater);
+      // assume that all updaters passed to the public method actually modify the device
+      return true;
+    });
   }
 
   public Optional<Account> getByE164(String number) {
@@ -522,12 +527,10 @@ public class AccountsManager {
 
   public Optional<Account> getByUsername(final String username) {
     try (final Timer.Context ignored = getByUsernameTimer.time()) {
-      final String canonicalUsername = UsernameValidator.getCanonicalUsername(username);
-
-      Optional<Account> account = redisGetByUsername(canonicalUsername);
+      Optional<Account> account = redisGetByUsername(username);
 
       if (account.isEmpty()) {
-        account = accounts.getByUsername(canonicalUsername);
+        account = accounts.getByUsername(username);
         account.ifPresent(this::redisSet);
       }
 

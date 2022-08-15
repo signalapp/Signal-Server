@@ -26,11 +26,13 @@ import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialGenerator;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.push.PushLatencyManager;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.securebackup.SecureBackupClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.sqs.DirectoryQueue;
+import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DeletedAccounts;
@@ -50,6 +52,7 @@ import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.UsernameNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.VerificationCodeStore;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
+import org.whispersystems.textsecuregcm.util.UsernameGenerator;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
@@ -68,11 +71,11 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
   public void configure(Subparser subparser) {
     super.configure(subparser);
 
-    subparser.addArgument("-n", "--username")
-        .dest("username")
+    subparser.addArgument("-n", "--nickname")
+        .dest("nickname")
         .type(String.class)
         .required(true)
-        .help("The username to assign");
+        .help("The nickname (without discriminator) to assign");
 
     subparser.addArgument("-a", "--aci")
         .dest("aci")
@@ -108,6 +111,9 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
         configuration.getAppConfig().getApplication(), configuration.getAppConfig().getEnvironment(),
         configuration.getAppConfig().getConfigurationName(), DynamicConfiguration.class);
     dynamicConfigurationManager.start();
+
+    ExperimentEnrollmentManager experimentEnrollmentManager = new ExperimentEnrollmentManager(
+        dynamicConfigurationManager);
 
     DynamoDbAsyncClient dynamoDbAsyncClient = DynamoDbFromConfig.asyncClient(
         configuration.getDynamoDbClientConfiguration(),
@@ -185,17 +191,20 @@ public class AssignUsernameCommand extends EnvironmentCommand<WhisperServerConfi
     DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
         deletedAccountsLockDynamoDbClient,
         configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());
+    UsernameGenerator usernameGenerator = new UsernameGenerator(configuration.getUsername());
     StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         deletedAccountsManager, directoryQueue, keys, messagesManager, reservedUsernames, profilesManager,
-        pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager, Clock.systemUTC());
+        pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager, usernameGenerator,
+        experimentEnrollmentManager, Clock.systemUTC());
 
-    final String username = namespace.getString("username");
+    final String nickname = namespace.getString("nickname");
     final UUID accountIdentifier = UUID.fromString(namespace.getString("aci"));
 
     accountsManager.getByAccountIdentifier(accountIdentifier).ifPresentOrElse(account -> {
           try {
-            accountsManager.setUsername(account, username);
+            final Account result = accountsManager.setUsername(account, nickname, null);
+            System.out.println("New username: " + result.getUsername());
           } catch (final UsernameNotAvailableException e) {
             throw new IllegalArgumentException("Username already taken");
           }
