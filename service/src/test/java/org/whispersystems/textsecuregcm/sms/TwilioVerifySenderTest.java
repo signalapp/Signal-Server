@@ -216,9 +216,29 @@ class TwilioVerifySenderTest {
             .withHeader("Content-Type", "application/json")
             .withBody("{\"status\": \"approved\", \"sid\": \"" + VERIFICATION_SID + "\"}")));
 
-    final Boolean success = sender.reportVerificationSucceeded(VERIFICATION_SID).get();
+    final Boolean success = sender.reportVerificationSucceeded(VERIFICATION_SID, null, "test").get();
 
     assertThat(success).isTrue();
+
+    wireMock.verify(1,
+        postRequestedFor(urlEqualTo("/v2/Services/" + VERIFY_SERVICE_SID + "/Verifications/" + VERIFICATION_SID))
+            .withHeader("Content-Type", equalTo("application/x-www-form-urlencoded"))
+            .withRequestBody(equalTo("Status=approved")));
+  }
+
+  @Test
+  void reportVerificationFailed() throws Exception {
+
+    wireMock.stubFor(post(urlEqualTo("/v2/Services/" + VERIFY_SERVICE_SID + "/Verifications/" + VERIFICATION_SID))
+        .withBasicAuth(ACCOUNT_ID, ACCOUNT_TOKEN)
+        .willReturn(aResponse()
+            .withStatus(404)
+            .withHeader("Content-Type", "application/json")
+            .withBody("{\"status\": 404, \"code\": 20404}")));
+
+    final Boolean success = sender.reportVerificationSucceeded(VERIFICATION_SID, null, "test").get();
+
+    assertThat(success).isFalse();
 
     wireMock.verify(1,
         postRequestedFor(urlEqualTo("/v2/Services/" + VERIFY_SERVICE_SID + "/Verifications/" + VERIFICATION_SID))

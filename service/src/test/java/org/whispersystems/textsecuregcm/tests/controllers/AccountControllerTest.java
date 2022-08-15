@@ -1068,7 +1068,7 @@ class AccountControllerTest {
     verify(accountsManager).create(eq(SENDER), eq("bar"), any(), any(), anyList());
 
     if (enrolledInVerifyExperiment) {
-      verify(smsSender).reportVerificationSucceeded("VerificationSid");
+      verify(smsSender).reportVerificationSucceeded(eq("VerificationSid"), any(), eq("registration"));
     }
   }
 

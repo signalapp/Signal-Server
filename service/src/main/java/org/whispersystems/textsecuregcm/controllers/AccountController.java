@@ -364,7 +364,8 @@ public class AccountController {
     }
 
     storedVerificationCode.flatMap(StoredVerificationCode::getTwilioVerificationSid)
-        .ifPresent(smsSender::reportVerificationSucceeded);
+        .ifPresent(
+            verificationSid -> smsSender.reportVerificationSucceeded(verificationSid, userAgent, "registration"));
 
     Optional<Account> existingAccount = accounts.getByE164(number);
 
@@ -403,7 +404,9 @@ public class AccountController {
   @PUT
   @Path("/number")
   @Produces(MediaType.APPLICATION_JSON)
-  public AccountIdentityResponse changeNumber(@Auth final AuthenticatedAccount authenticatedAccount, @NotNull @Valid final ChangePhoneNumberRequest request)
+  public AccountIdentityResponse changeNumber(@Auth final AuthenticatedAccount authenticatedAccount,
+      @NotNull @Valid final ChangePhoneNumberRequest request,
+      @HeaderParam("User-Agent") String userAgent)
       throws RateLimitExceededException, InterruptedException, ImpossiblePhoneNumberException, NonNormalizedPhoneNumberException {
 
     if (!authenticatedAccount.getAuthenticatedDevice().isMaster()) {
@@ -426,7 +429,8 @@ public class AccountController {
       }
 
       storedVerificationCode.flatMap(StoredVerificationCode::getTwilioVerificationSid)
-          .ifPresent(smsSender::reportVerificationSucceeded);
+          .ifPresent(
+              verificationSid -> smsSender.reportVerificationSucceeded(verificationSid, userAgent, "changeNumber"));
 
       final Optional<Account> existingAccount = accounts.getByE164(number);
 

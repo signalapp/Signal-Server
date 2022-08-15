@@ -246,23 +246,27 @@ public class TwilioSmsSender {
     }
   }
 
-  public CompletableFuture<Optional<String>> deliverSmsVerificationWithVerify(String destination, Optional<String> clientType, String verificationCode, List<LanguageRange> languageRanges) {
+  public CompletableFuture<Optional<String>> deliverSmsVerificationWithVerify(String destination,
+      Optional<String> clientType, String verificationCode, List<LanguageRange> languageRanges) {
 
     smsMeter.mark();
 
-    return twilioVerifySender.deliverSmsVerificationWithVerify(destination, clientType, verificationCode, languageRanges);
+    return twilioVerifySender.deliverSmsVerificationWithVerify(destination, clientType, verificationCode,
+        languageRanges);
   }
 
-  public CompletableFuture<Optional<String>> deliverVoxVerificationWithVerify(String destination, String verificationCode, List<LanguageRange> languageRanges) {
+  public CompletableFuture<Optional<String>> deliverVoxVerificationWithVerify(String destination,
+      String verificationCode, List<LanguageRange> languageRanges) {
 
     voxMeter.mark();
 
     return twilioVerifySender.deliverVoxVerificationWithVerify(destination, verificationCode, languageRanges);
   }
 
-  public CompletableFuture<Boolean> reportVerificationSucceeded(String verificationSid) {
+  public CompletableFuture<Boolean> reportVerificationSucceeded(String verificationSid, @Nullable String userAgent,
+      String context) {
 
-    return twilioVerifySender.reportVerificationSucceeded(verificationSid);
+    return twilioVerifySender.reportVerificationSucceeded(verificationSid, userAgent, context);
   }
 
   public static class TwilioResponse {

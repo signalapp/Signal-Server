@@ -1,7 +1,12 @@
 package org.whispersystems.textsecuregcm.sms;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpRequest;
@@ -14,13 +19,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiFunction;
+import javax.annotation.Nullable;
 import javax.validation.constraints.NotEmpty;
-import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.TwilioConfiguration;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.http.FormDataBodyPublisher;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -28,6 +35,13 @@ import org.whispersystems.textsecuregcm.util.Util;
 class TwilioVerifySender {
 
   private static final Logger logger = LoggerFactory.getLogger(TwilioVerifySender.class);
+
+  private static final String VERIFICATION_SUCCEEDED_RESPONSE_COUNTER_NAME = name(TwilioVerifySender.class,
+      "verificationSucceeded");
+
+  private static final String CONTEXT_TAG_NAME = "context";
+  private static final String STATUS_CODE_TAG_NAME = "statusCode";
+  private static final String ERROR_CODE_TAG_NAME = "errorCode";
 
   static final Set<String> TWILIO_VERIFY_LANGUAGES = Set.of(
       "af",
@@ -170,11 +184,13 @@ class TwilioVerifySender {
         .uri(verifyServiceUri)
         .POST(FormDataBodyPublisher.of(requestParameters))
         .header("Content-Type", "application/x-www-form-urlencoded")
-        .header("Authorization", "Basic " + Base64.getEncoder().encodeToString((accountId + ":" + accountToken).getBytes()))
+        .header("Authorization",
+            "Basic " + Base64.getEncoder().encodeToString((accountId + ":" + accountToken).getBytes()))
         .build();
   }
 
-  public CompletableFuture<Boolean> reportVerificationSucceeded(String verificationSid) {
+  public CompletableFuture<Boolean> reportVerificationSucceeded(String verificationSid, @Nullable String userAgent,
+      String context) {
 
     final Map<String, String> requestParameters = new HashMap<>();
     requestParameters.put("Status", "approved");
@@ -183,14 +199,47 @@ class TwilioVerifySender {
         .uri(verifyApprovalBaseUri.resolve(verificationSid))
         .POST(FormDataBodyPublisher.of(requestParameters))
         .header("Content-Type", "application/x-www-form-urlencoded")
-        .header("Authorization", "Basic " + Base64.getEncoder().encodeToString((accountId + ":" + accountToken).getBytes()))
+        .header("Authorization",
+            "Basic " + Base64.getEncoder().encodeToString((accountId + ":" + accountToken).getBytes()))
         .build();
 
     return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
         .thenApply(this::parseResponse)
-        .handle((response, throwable) -> throwable == null
-            && response.isSuccess()
-            && "approved".equals(response.successResponse.getStatus()));
+        .handle((response, throwable) -> processVerificationSucceededResponse(response, throwable, userAgent, context));
+  }
+
+  private boolean processVerificationSucceededResponse(@Nullable final TwilioVerifyResponse response,
+      @Nullable final Throwable throwable,
+      final String userAgent,
+      final String context) {
+
+    if (throwable == null) {
+
+      assert response != null;
+
+      final Tags tags = Tags.of(Tag.of(CONTEXT_TAG_NAME, context), UserAgentTagUtil.getPlatformTag(userAgent));
+
+      if (response.isSuccess() && "approved".equals(response.successResponse.getStatus())) {
+        // the other possible values of `status` are `pending` or `canceled`, but these can never happen in a response
+        // to this POST, so we don‘t consider them
+        Metrics.counter(VERIFICATION_SUCCEEDED_RESPONSE_COUNTER_NAME, tags)
+            .increment();
+
+        return true;
+      }
+
+      // at this point, response.isFailure() == true
+      Metrics.counter(
+              VERIFICATION_SUCCEEDED_RESPONSE_COUNTER_NAME,
+              Tags.of(ERROR_CODE_TAG_NAME, String.valueOf(response.failureResponse.code),
+                      STATUS_CODE_TAG_NAME, String.valueOf(response.failureResponse.status))
+                  .and(tags))
+          .increment();
+    } else {
+      logger.warn("Failed to send verification succeeded", throwable);
+    }
+
+    return false;
   }
 
   public static class TwilioVerifyResponse {

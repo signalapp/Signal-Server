@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale.LanguageRange;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nullable;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class SmsSender {
@@ -32,7 +33,8 @@ public class SmsSender {
     twilioSender.deliverVoxVerification(destination, verificationCode, languageRanges);
   }
 
-  public CompletableFuture<Optional<String>> deliverSmsVerificationWithTwilioVerify(String destination, Optional<String> clientType,
+  public CompletableFuture<Optional<String>> deliverSmsVerificationWithTwilioVerify(String destination,
+      Optional<String> clientType,
       String verificationCode, List<LanguageRange> languageRanges) {
     // Fix up mexico numbers to 'mobile' format just for SMS delivery.
     if (destination.startsWith("+52") && !destination.startsWith("+521")) {
@@ -42,13 +44,14 @@ public class SmsSender {
     return twilioSender.deliverSmsVerificationWithVerify(destination, clientType, verificationCode, languageRanges);
   }
 
-  public CompletableFuture<Optional<String>> deliverVoxVerificationWithTwilioVerify(String destination, String verificationCode,
+  public CompletableFuture<Optional<String>> deliverVoxVerificationWithTwilioVerify(String destination,
+      String verificationCode,
       List<LanguageRange> languageRanges) {
 
-      return twilioSender.deliverVoxVerificationWithVerify(destination, verificationCode, languageRanges);
+    return twilioSender.deliverVoxVerificationWithVerify(destination, verificationCode, languageRanges);
   }
 
-  public void reportVerificationSucceeded(String verificationSid) {
-    twilioSender.reportVerificationSucceeded(verificationSid);
+  public void reportVerificationSucceeded(String verificationSid, @Nullable String userAgent, String context) {
+    twilioSender.reportVerificationSucceeded(verificationSid, userAgent, context);
   }
 }
