@@ -5,10 +5,15 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
+import java.time.Instant;
+import java.util.Map;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
@@ -19,11 +24,6 @@ import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
-import java.time.Instant;
-import java.util.Map;
-import java.util.Optional;
-
-import static com.codahale.metrics.MetricRegistry.name;
 
 public class VerificationCodeStore {
 
@@ -83,13 +83,24 @@ public class VerificationCodeStore {
 
       try {
         return response.hasItem()
-            ? Optional.of(SystemMapper.getMapper().readValue(response.item().get(ATTR_STORED_CODE).s(), StoredVerificationCode.class))
+            ? filterMaybeExpiredCode(
+            SystemMapper.getMapper().readValue(response.item().get(ATTR_STORED_CODE).s(), StoredVerificationCode.class))
             : Optional.empty();
       } catch (final JsonProcessingException e) {
         log.error("Failed to parse stored verification code", e);
         return Optional.empty();
       }
     });
+  }
+
+  private Optional<StoredVerificationCode> filterMaybeExpiredCode(StoredVerificationCode storedVerificationCode) {
+    // It's possible for DynamoDB to return items after their expiration time (although it is very unlikely for small
+    // tables)
+    if (getExpirationTimestamp(storedVerificationCode) < Instant.now().getEpochSecond()) {
+      return Optional.empty();
+    }
+
+    return Optional.of(storedVerificationCode);
   }
 
   public void remove(final String number) {

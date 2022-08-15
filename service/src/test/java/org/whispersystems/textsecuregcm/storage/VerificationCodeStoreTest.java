@@ -5,26 +5,32 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Objects;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.auth.StoredVerificationCode;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
-import java.util.Objects;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VerificationCodeStoreTest {
 
   private VerificationCodeStore verificationCodeStore;
 
   private static final String TABLE_NAME = "verification_code_test";
-  
+
   private static final String PHONE_NUMBER = "+14151112222";
+
+  private static final long VALID_TIMESTAMP = Instant.now().toEpochMilli();
+  private static final long EXPIRED_TIMESTAMP = Instant.now().minus(StoredVerificationCode.EXPIRATION).minus(
+      Duration.ofHours(1)).toEpochMilli();
 
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = DynamoDbExtension.builder()
@@ -45,8 +51,8 @@ class VerificationCodeStoreTest {
   void testStoreAndFind() {
     assertEquals(Optional.empty(), verificationCodeStore.findForNumber(PHONE_NUMBER));
 
-    final StoredVerificationCode originalCode = new StoredVerificationCode("1234", 1111, "abcd", "0987");
-    final StoredVerificationCode secondCode = new StoredVerificationCode("5678", 2222, "efgh", "7890");
+    final StoredVerificationCode originalCode = new StoredVerificationCode("1234", VALID_TIMESTAMP, "abcd", "0987");
+    final StoredVerificationCode secondCode = new StoredVerificationCode("5678", VALID_TIMESTAMP, "efgh", "7890");
 
     verificationCodeStore.insert(PHONE_NUMBER, originalCode);
     {
@@ -69,10 +75,13 @@ class VerificationCodeStoreTest {
   void testRemove() {
     assertEquals(Optional.empty(), verificationCodeStore.findForNumber(PHONE_NUMBER));
 
-    verificationCodeStore.insert(PHONE_NUMBER, new StoredVerificationCode("1234", 1111, "abcd", "0987"));
+    verificationCodeStore.insert(PHONE_NUMBER, new StoredVerificationCode("1234", VALID_TIMESTAMP, "abcd", "0987"));
     assertTrue(verificationCodeStore.findForNumber(PHONE_NUMBER).isPresent());
 
     verificationCodeStore.remove(PHONE_NUMBER);
+    assertFalse(verificationCodeStore.findForNumber(PHONE_NUMBER).isPresent());
+
+    verificationCodeStore.insert(PHONE_NUMBER, new StoredVerificationCode("1234", EXPIRED_TIMESTAMP, "abcd", "0987"));
     assertFalse(verificationCodeStore.findForNumber(PHONE_NUMBER).isPresent());
   }
 

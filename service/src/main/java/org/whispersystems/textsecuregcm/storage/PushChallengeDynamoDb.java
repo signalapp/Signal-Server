@@ -5,11 +5,11 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
-import com.google.common.annotations.VisibleForTesting;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
@@ -29,7 +29,8 @@ public class PushChallengeDynamoDb extends AbstractDynamoDbStore {
   static final String ATTR_TTL = "T";
 
   private static final Map<String, String> UUID_NAME_MAP = Map.of("#uuid", KEY_ACCOUNT_UUID);
-  private static final Map<String, String> CHALLENGE_TOKEN_NAME_MAP = Map.of("#challenge", ATTR_CHALLENGE_TOKEN);
+  private static final Map<String, String> CHALLENGE_TOKEN_NAME_MAP = Map.of("#challenge", ATTR_CHALLENGE_TOKEN, "#ttl",
+      ATTR_TTL);
 
   public PushChallengeDynamoDb(final DynamoDbClient dynamoDB, final String tableName) {
     this(dynamoDB, tableName, Clock.systemUTC());
@@ -87,9 +88,10 @@ public class PushChallengeDynamoDb extends AbstractDynamoDbStore {
       db().deleteItem(DeleteItemRequest.builder()
           .tableName(tableName)
           .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(accountUuid)))
-          .conditionExpression("#challenge = :challenge")
+          .conditionExpression("#challenge = :challenge AND #ttl >= :currentTime")
           .expressionAttributeNames(CHALLENGE_TOKEN_NAME_MAP)
-          .expressionAttributeValues(Map.of(":challenge", AttributeValues.fromByteArray(challengeToken)))
+          .expressionAttributeValues(Map.of(":challenge", AttributeValues.fromByteArray(challengeToken),
+              ":currentTime", AttributeValues.fromLong(clock.instant().getEpochSecond())))
           .build());
       return true;
     } catch (final ConditionalCheckFailedException e) {

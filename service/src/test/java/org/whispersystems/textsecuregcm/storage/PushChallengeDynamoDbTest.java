@@ -62,6 +62,8 @@ class PushChallengeDynamoDbTest {
     assertFalse(pushChallengeDynamoDb.remove(uuid, token));
     assertTrue(pushChallengeDynamoDb.add(uuid, token, Duration.ofMinutes(1)));
     assertTrue(pushChallengeDynamoDb.remove(uuid, token));
+    assertTrue(pushChallengeDynamoDb.add(uuid, token, Duration.ofMinutes(-1)));
+    assertFalse(pushChallengeDynamoDb.remove(uuid, token));
   }
 
   @Test
