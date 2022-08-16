@@ -1,5 +1,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
@@ -10,6 +12,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 public class ReportMessageDynamoDb {
 
   static final String KEY_HASH = "H";
@@ -18,6 +22,9 @@ public class ReportMessageDynamoDb {
   private final DynamoDbClient db;
   private final String tableName;
   private final Duration ttl;
+
+  private static final String REMOVED_MESSAGE_COUNTER_NAME = name(ReportMessageDynamoDb.class, "removed");
+  private static final Timer REMOVED_MESSAGE_AGE_TIMER = Metrics.timer(name(ReportMessageDynamoDb.class, "removedMessageAge"));
 
   public ReportMessageDynamoDb(final DynamoDbClient dynamoDB, final String tableName, final Duration ttl) {
     this.db = dynamoDB;
@@ -41,6 +48,22 @@ public class ReportMessageDynamoDb {
         .key(Map.of(KEY_HASH, AttributeValues.fromByteArray(hash)))
         .returnValues(ReturnValue.ALL_OLD)
         .build());
-    return !deleteItemResponse.attributes().isEmpty();
+
+    final boolean found = !deleteItemResponse.attributes().isEmpty();
+
+    if (found) {
+      if (deleteItemResponse.attributes().containsKey(ATTR_TTL)) {
+        final Instant expiration =
+            Instant.ofEpochSecond(Long.parseLong(deleteItemResponse.attributes().get(ATTR_TTL).n()));
+
+        final Duration approximateAge = ttl.minus(Duration.between(Instant.now(), expiration));
+
+        REMOVED_MESSAGE_AGE_TIMER.record(approximateAge);
+      }
+    }
+
+    Metrics.counter(REMOVED_MESSAGE_COUNTER_NAME, "found", String.valueOf(found)).increment();
+
+    return found;
   }
 }
