@@ -39,6 +39,7 @@ public class MessageSender {
   private static final String EPHEMERAL_TAG_NAME = "ephemeral";
   private static final String CLIENT_ONLINE_TAG_NAME = "clientOnline";
   private static final String URGENT_TAG_NAME = "urgent";
+  private static final String SEALED_SENDER_TAG_NAME = "sealedSender";
 
   public MessageSender(ClientPresenceManager clientPresenceManager,
       MessagesManager messagesManager,
@@ -99,7 +100,8 @@ public class MessageSender {
             CHANNEL_TAG_NAME, channel,
             EPHEMERAL_TAG_NAME, String.valueOf(online),
             CLIENT_ONLINE_TAG_NAME, String.valueOf(clientPresent),
-            URGENT_TAG_NAME, String.valueOf(message.getUrgent()))
+            URGENT_TAG_NAME, String.valueOf(message.getUrgent()),
+            SEALED_SENDER_TAG_NAME, String.valueOf(!message.hasSourceUuid()))
         .increment();
   }
 }
