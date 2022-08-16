@@ -43,11 +43,6 @@
     </dependency>
     <dependency>
       <groupId>org.whispersystems.textsecure</groupId>
-      <artifactId>redis-dispatch</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.whispersystems.textsecure</groupId>
       <artifactId>websocket-resources</artifactId>
       <version>${project.version}</version>
     </dependency>

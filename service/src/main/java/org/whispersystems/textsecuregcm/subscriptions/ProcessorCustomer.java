@@ -6,11 +6,16 @@
 package org.whispersystems.textsecuregcm.subscriptions;
 
 import java.nio.charset.StandardCharsets;
-import org.whispersystems.dispatch.util.Util;
 
 public record ProcessorCustomer(String customerId, SubscriptionProcessor processor) {
 
   public byte[] toDynamoBytes() {
-    return Util.combine(new byte[]{processor.getId()}, customerId.getBytes(StandardCharsets.UTF_8));
+    final byte[] customerIdBytes = customerId.getBytes(StandardCharsets.UTF_8);
+    final byte[] combinedBytes = new byte[customerIdBytes.length + 1];
+
+    combinedBytes[0] = processor.getId();
+    System.arraycopy(customerIdBytes, 0, combinedBytes, 1, customerIdBytes.length);
+
+    return combinedBytes;
   }
 }
