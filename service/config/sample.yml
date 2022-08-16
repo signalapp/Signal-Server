@@ -91,9 +91,7 @@ clientPresenceCluster: # Redis server configuration for client presence cluster
   configurationUri: redis://redis.example.com:6379/
 
 pubsub: # Redis server configuration for pubsub cluster
-  url: redis://redis.example.com:6379/
-  replicaUrls:
-    - redis://redis.example.com:6379/
+  uri: redis://redis.example.com:6379/
 
 pushSchedulerCluster: # Redis server configuration for push scheduler cluster
   configurationUri: redis://redis.example.com:6379/

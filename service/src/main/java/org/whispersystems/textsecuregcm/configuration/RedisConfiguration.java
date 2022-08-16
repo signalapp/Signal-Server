@@ -16,11 +16,7 @@ public class RedisConfiguration {
 
   @JsonProperty
   @NotEmpty
-  private String url;
-
-  @JsonProperty
-  @NotNull
-  private List<String> replicaUrls;
+  private String uri;
 
   @JsonProperty
   @NotNull
@@ -31,12 +27,8 @@ public class RedisConfiguration {
   @Valid
   private CircuitBreakerConfiguration circuitBreaker = new CircuitBreakerConfiguration();
 
-  public String getUrl() {
-    return url;
-  }
-
-  public List<String> getReplicaUrls() {
-    return replicaUrls;
+  public String getUri() {
+    return uri;
   }
 
   public Duration getTimeout() {

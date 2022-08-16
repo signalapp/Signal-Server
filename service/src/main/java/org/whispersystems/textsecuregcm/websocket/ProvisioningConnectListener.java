@@ -5,30 +5,41 @@
 
 package org.whispersystems.textsecuregcm.websocket;
 
-import org.whispersystems.textsecuregcm.storage.PubSubManager;
+import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.push.ProvisioningManager;
+import org.whispersystems.textsecuregcm.storage.PubSubProtos;
+import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 import org.whispersystems.websocket.setup.WebSocketConnectListener;
+import java.util.List;
+import java.util.Optional;
 
 public class ProvisioningConnectListener implements WebSocketConnectListener {
 
-  private final PubSubManager pubSubManager;
+  private final ProvisioningManager provisioningManager;
 
-  public ProvisioningConnectListener(PubSubManager pubSubManager) {
-    this.pubSubManager = pubSubManager;
+  public ProvisioningConnectListener(final ProvisioningManager provisioningManager) {
+    this.provisioningManager = provisioningManager;
   }
 
   @Override
   public void onWebSocketConnect(WebSocketSessionContext context) {
-    final ProvisioningConnection connection          = new ProvisioningConnection(context.getClient());
-    final ProvisioningAddress    provisioningAddress = ProvisioningAddress.generate();
+    final ProvisioningAddress provisioningAddress = ProvisioningAddress.generate();
+    context.addListener((context1, statusCode, reason) -> provisioningManager.removeListener(provisioningAddress));
 
-    pubSubManager.subscribe(provisioningAddress, connection);
+    provisioningManager.addListener(provisioningAddress, message -> {
+      assert message.getType() == PubSubProtos.PubSubMessage.Type.DELIVER;
 
-    context.addListener(new WebSocketSessionContext.WebSocketEventListener() {
-      @Override
-      public void onWebSocketClose(WebSocketSessionContext context, int statusCode, String reason) {
-        pubSubManager.unsubscribe(provisioningAddress, connection);
-      }
+      final Optional<byte[]> body = Optional.of(message.getContent().toByteArray());
+
+      context.getClient().sendRequest("PUT", "/v1/message", List.of(HeaderUtils.getTimestampHeader()), body)
+          .whenComplete((ignored, throwable) -> context.getClient().close(1000, "Closed"));
     });
+
+    context.getClient().sendRequest("PUT", "/v1/address", List.of(HeaderUtils.getTimestampHeader()),
+        Optional.of(MessageProtos.ProvisioningUuid.newBuilder()
+            .setUuid(provisioningAddress.getAddress())
+            .build()
+            .toByteArray()));
   }
 }

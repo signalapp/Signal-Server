@@ -41,7 +41,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -65,7 +64,6 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.dispatch.DispatchManager;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
@@ -147,7 +145,6 @@ import org.whispersystems.textsecuregcm.metrics.OperatingSystemMemoryGauge;
 import org.whispersystems.textsecuregcm.metrics.ReportedMessageMetricsListener;
 import org.whispersystems.textsecuregcm.metrics.TrafficSource;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
-import org.whispersystems.textsecuregcm.providers.RedisClientFactory;
 import org.whispersystems.textsecuregcm.providers.RedisClusterHealthCheck;
 import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.ApnPushNotificationScheduler;
@@ -160,7 +157,6 @@ import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.redis.ConnectionEventLogger;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
-import org.whispersystems.textsecuregcm.redis.ReplicatedJedisPool;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
@@ -198,7 +194,6 @@ import org.whispersystems.textsecuregcm.storage.NonNormalizedAccountCrawlerListe
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
-import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.storage.PushChallengeDynamoDb;
 import org.whispersystems.textsecuregcm.storage.PushFeedbackProcessor;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
@@ -387,11 +382,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final VerificationSessions verificationSessions = new VerificationSessions(dynamoDbAsyncClient,
         config.getDynamoDbTables().getVerificationSessions().getTableName(), clock);
 
-    RedisClientFactory pubSubClientFactory = new RedisClientFactory("pubsub_cache",
-        config.getPubsubCacheConfiguration().getUrl(), config.getPubsubCacheConfiguration().getReplicaUrls(),
-        config.getPubsubCacheConfiguration().getCircuitBreakerConfiguration());
-    ReplicatedJedisPool pubsubClient = pubSubClientFactory.getRedisClientPool();
-
     ClientResources redisClientResources = ClientResources.builder().build();
     ConnectionEventLogger.logConnectionEvents(redisClientResources);
 
@@ -530,14 +520,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         pendingAccountsManager, secureStorageClient, secureBackupClient, secureValueRecovery2Client, clientPresenceManager,
         experimentEnrollmentManager, registrationRecoveryPasswordsManager, clock);
     RemoteConfigsManager       remoteConfigsManager       = new RemoteConfigsManager(remoteConfigs);
-    DispatchManager            dispatchManager            = new DispatchManager(pubSubClientFactory, Optional.empty());
-    PubSubManager              pubSubManager              = new PubSubManager(pubsubClient, dispatchManager);
     APNSender                  apnSender                  = new APNSender(apnSenderExecutor, config.getApnConfiguration());
     FcmSender                  fcmSender                  = new FcmSender(fcmSenderExecutor, config.getFcmConfiguration().credentials());
     ApnPushNotificationScheduler apnPushNotificationScheduler = new ApnPushNotificationScheduler(pushSchedulerCluster, apnSender, accountsManager);
     PushNotificationManager    pushNotificationManager    = new PushNotificationManager(accountsManager, apnSender, fcmSender, apnPushNotificationScheduler, pushLatencyManager, dynamicConfigurationManager);
     RateLimiters               rateLimiters               = RateLimiters.createAndValidate(config.getLimitsConfiguration(), dynamicConfigurationManager, rateLimitersCluster);
-    ProvisioningManager        provisioningManager        = new ProvisioningManager(pubSubManager);
+    ProvisioningManager        provisioningManager        = new ProvisioningManager(config.getPubsubCacheConfiguration().getUri(), redisClientResources, config.getPubsubCacheConfiguration().getTimeout(), config.getPubsubCacheConfiguration().getCircuitBreakerConfiguration());
     IssuedReceiptsManager issuedReceiptsManager = new IssuedReceiptsManager(
         config.getDynamoDbTables().getIssuedReceipts().getTableName(),
         config.getDynamoDbTables().getIssuedReceipts().getExpiration(),
@@ -647,7 +635,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(apnPushNotificationScheduler);
-    environment.lifecycle().manage(pubSubManager);
+    environment.lifecycle().manage(provisioningManager);
     environment.lifecycle().manage(accountDatabaseCrawler);
     environment.lifecycle().manage(directoryReconciliationAccountDatabaseCrawler);
     environment.lifecycle().manage(accountCleanerAccountDatabaseCrawler);
@@ -821,7 +809,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     WebSocketEnvironment<AuthenticatedAccount> provisioningEnvironment = new WebSocketEnvironment<>(environment,
         webSocketEnvironment.getRequestLog(), 60000);
     provisioningEnvironment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
-    provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(pubSubManager));
+    provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(provisioningManager));
     provisioningEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET));
     provisioningEnvironment.jersey().register(new KeepAliveController(clientPresenceManager));
 
