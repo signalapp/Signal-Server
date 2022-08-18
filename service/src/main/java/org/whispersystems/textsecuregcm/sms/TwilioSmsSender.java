@@ -133,7 +133,8 @@ public class TwilioSmsSender {
     smsMeter.mark();
 
     return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                     .thenApply(this::parseResponse).handle(this::processResponse);
+        .thenApply(this::parseResponse)
+        .handle((response, throwable) -> processResponse(response, throwable, destination));
   }
 
   private String getBodyFormatString(@Nonnull String destination, @Nullable String clientType) {
@@ -198,25 +199,28 @@ public class TwilioSmsSender {
     voxMeter.mark();
 
     return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                     .thenApply(this::parseResponse)
-                     .handle(this::processResponse);
+        .thenApply(this::parseResponse)
+        .handle((response, throwable) -> processResponse(response, throwable, destination));
   }
 
   private String getRandom(Random random, List<String> elements) {
     return elements.get(random.nextInt(elements.size()));
   }
 
-  private boolean processResponse(TwilioResponse response, Throwable throwable) {
+  private boolean processResponse(TwilioResponse response, Throwable throwable, String destination) {
     if (response != null && response.isSuccess()) {
       priceMeter.mark((long) (response.successResponse.price * 1000));
       return true;
     } else if (response != null && response.isFailure()) {
-      logger.debug("Twilio request failed: " + response.failureResponse.status + "(code " + response.failureResponse.code + "), " + response.failureResponse.message);
 
       Metrics.counter(FAILED_REQUEST_COUNTER_NAME,
           SERVICE_NAME_TAG, "classic",
           STATUS_CODE_TAG_NAME, String.valueOf(response.failureResponse.status),
           ERROR_CODE_TAG_NAME, String.valueOf(response.failureResponse.code)).increment();
+
+      logger.info("Failed with code={}, country={}",
+          response.failureResponse.code,
+          Util.getCountryCode(destination));
 
       return false;
     } else if (throwable != null) {

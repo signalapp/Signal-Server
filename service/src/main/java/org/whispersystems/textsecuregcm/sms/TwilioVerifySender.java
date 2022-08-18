@@ -19,7 +19,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotEmpty;
 import org.slf4j.Logger;
@@ -113,7 +112,7 @@ class TwilioVerifySender {
 
     return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
         .thenApply(this::parseResponse)
-        .handle(this::extractVerifySid);
+        .handle((response, throwable) -> extractVerifySid(response, throwable, destination));
   }
 
   private Optional<String> findBestLocale(List<LanguageRange> priorityList) {
@@ -138,18 +137,19 @@ class TwilioVerifySender {
     }
   }
 
-  CompletableFuture<Optional<String>> deliverVoxVerificationWithVerify(String destination, String verificationCode,
-      List<LanguageRange> languageRanges) {
+  CompletableFuture<Optional<String>> deliverVoxVerificationWithVerify(String destination,
+      String verificationCode, List<LanguageRange> languageRanges) {
 
     HttpRequest request = buildVerifyRequest("call", destination, verificationCode, findBestLocale(languageRanges),
         Optional.empty());
 
     return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
         .thenApply(this::parseResponse)
-        .handle(this::extractVerifySid);
+        .handle((response, throwable) -> extractVerifySid(response, throwable, destination));
   }
 
-  private Optional<String> extractVerifySid(TwilioVerifyResponse twilioVerifyResponse, Throwable throwable) {
+  private Optional<String> extractVerifySid(TwilioVerifyResponse twilioVerifyResponse, Throwable throwable,
+      String destination) {
 
     if (throwable != null) {
       logger.warn("Failed to send Twilio request", throwable);
@@ -161,6 +161,10 @@ class TwilioVerifySender {
           TwilioSmsSender.SERVICE_NAME_TAG, "verify",
           TwilioSmsSender.STATUS_CODE_TAG_NAME, String.valueOf(twilioVerifyResponse.failureResponse.status),
           TwilioSmsSender.ERROR_CODE_TAG_NAME, String.valueOf(twilioVerifyResponse.failureResponse.code)).increment();
+
+      logger.info("Failed with code={}, country={}",
+          twilioVerifyResponse.failureResponse.code,
+          Util.getCountryCode(destination));
 
       return Optional.empty();
     }
