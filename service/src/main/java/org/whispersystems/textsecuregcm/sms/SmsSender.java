@@ -21,10 +21,7 @@ public class SmsSender {
   }
 
   public void deliverSmsVerification(String destination, Optional<String> clientType, String verificationCode) {
-    // Fix up mexico numbers to 'mobile' format just for SMS delivery.
-    if (destination.startsWith("+52") && !destination.startsWith("+521")) {
-      destination = "+521" + destination.substring("+52".length());
-    }
+    destination = fixMexicoNumbers(destination);
 
     twilioSender.deliverSmsVerification(destination, clientType, verificationCode);
   }
@@ -36,10 +33,8 @@ public class SmsSender {
   public CompletableFuture<Optional<String>> deliverSmsVerificationWithTwilioVerify(String destination,
       Optional<String> clientType,
       String verificationCode, List<LanguageRange> languageRanges) {
-    // Fix up mexico numbers to 'mobile' format just for SMS delivery.
-    if (destination.startsWith("+52") && !destination.startsWith("+521")) {
-      destination = "+521" + destination.substring(3);
-    }
+
+    destination = fixMexicoNumbers(destination);
 
     return twilioSender.deliverSmsVerificationWithVerify(destination, clientType, verificationCode, languageRanges);
   }
@@ -53,5 +48,13 @@ public class SmsSender {
 
   public void reportVerificationSucceeded(String verificationSid, @Nullable String userAgent, String context) {
     twilioSender.reportVerificationSucceeded(verificationSid, userAgent, context);
+  }
+
+  private String fixMexicoNumbers(String destination) {
+    // Fix up mexico numbers to 'mobile' format just for SMS delivery.
+    if (destination.startsWith("+52") && !destination.startsWith("+521")) {
+      destination = "+521" + destination.substring("+52".length());
+    }
+    return destination;
   }
 }
