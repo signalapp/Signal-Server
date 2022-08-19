@@ -70,7 +70,7 @@ public class UsernameGenerator {
       // check discriminators of the current width up to attemptsPerWidth times
       for (int i = 0; i < attemptsPerWidth; i++) {
         int discriminator = ThreadLocalRandom.current().nextInt(rangeMin, rangeMax);
-        String username = UsernameGenerator.fromParts(nickname, discriminator);
+        String username = fromParts(nickname, discriminator);
         attempts++;
         if (usernameAvailableFun.test(username)) {
           DISCRIMINATOR_ATTEMPT_COUNTER.record(attempts);
@@ -101,11 +101,12 @@ public class UsernameGenerator {
   /**
    * Generate a username from a nickname and discriminator
    */
-  public static String fromParts(final String nickname, final int discriminator) throws IllegalArgumentException {
+  public String fromParts(final String nickname, final int discriminator) throws IllegalArgumentException {
     if (!isValidNickname(nickname)) {
       throw new IllegalArgumentException("Invalid nickname " + nickname);
     }
-    return nickname + SEPARATOR + discriminator;
+    // zero pad discriminators less than the discriminator initial width
+    return String.format("%s#%0" + initialWidth + "d", nickname, discriminator);
   }
 
   public static boolean isValidNickname(final String nickname) {

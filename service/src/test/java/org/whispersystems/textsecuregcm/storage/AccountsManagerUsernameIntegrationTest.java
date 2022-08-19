@@ -64,6 +64,7 @@ class AccountsManagerUsernameIntegrationTest {
 
   private AccountsManager accountsManager;
   private Accounts accounts;
+  private UsernameGenerator usernameGenerator;
 
   @BeforeEach
   void setup() throws InterruptedException {
@@ -141,6 +142,7 @@ class AccountsManagerUsernameIntegrationTest {
     when(experimentEnrollmentManager.isEnrolled(any(UUID.class), eq(AccountsManager.USERNAME_EXPERIMENT_NAME)))
         .thenReturn(true);
 
+    usernameGenerator = new UsernameGenerator(1, 2, 10);
     accountsManager = new AccountsManager(
         accounts,
         phoneNumberIdentifiers,
@@ -155,7 +157,7 @@ class AccountsManagerUsernameIntegrationTest {
         mock(SecureStorageClient.class),
         mock(SecureBackupClient.class),
         mock(ClientPresenceManager.class),
-        new UsernameGenerator(1, 2, 10),
+        usernameGenerator,
         experimentEnrollmentManager,
         mock(Clock.class));
   }
@@ -197,7 +199,7 @@ class AccountsManagerUsernameIntegrationTest {
           .tableName(USERNAMES_TABLE_NAME)
           .item(Map.of(
               Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(UUID.randomUUID()),
-              Accounts.ATTR_USERNAME, AttributeValues.fromString(UsernameGenerator.fromParts("n00bkiller", i))))
+              Accounts.ATTR_USERNAME, AttributeValues.fromString(usernameGenerator.fromParts("n00bkiller", i))))
           .build());
     }
     assertThrows(UsernameNotAvailableException.class, () -> accountsManager.setUsername(account, "n00bkiller", null));
@@ -213,7 +215,7 @@ class AccountsManagerUsernameIntegrationTest {
           .tableName(USERNAMES_TABLE_NAME)
           .item(Map.of(
               Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(UUID.randomUUID()),
-              Accounts.ATTR_USERNAME, AttributeValues.fromString(UsernameGenerator.fromParts("n00bkiller", i))))
+              Accounts.ATTR_USERNAME, AttributeValues.fromString(usernameGenerator.fromParts("n00bkiller", i))))
           .build());
     }
 

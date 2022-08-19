@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.storage.UsernameNotAvailableException;
 import org.whispersystems.textsecuregcm.util.UsernameGenerator;
 
@@ -61,6 +60,15 @@ public class UsernameGeneratorTest {
         Arguments.of("test#1", true),
         Arguments.of("abc#1234", true)
     );
+  }
+
+  @Test
+  public void zeroPadDiscriminators() {
+    final UsernameGenerator generator = new UsernameGenerator(4, 5, 1);
+    assertThat(generator.fromParts("test", 1)).isEqualTo("test#0001");
+    assertThat(generator.fromParts("test", 123)).isEqualTo("test#0123");
+    assertThat(generator.fromParts("test", 9999)).isEqualTo("test#9999");
+    assertThat(generator.fromParts("test", 99999)).isEqualTo("test#99999");
   }
 
   @Test
