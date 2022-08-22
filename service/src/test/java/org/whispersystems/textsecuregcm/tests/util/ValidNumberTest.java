@@ -59,7 +59,6 @@ class ValidNumberTest {
   @ValueSource(strings = {
       "+4407700900111",
       "+49493023125000", // double country code - this e164 is "possible"
-      "+494915110000000", // double country code - this e164 is "possible" and "valid"
       "+1 415 123 1234",
       "+1 (415) 123-1234",
       "+1 415)123-1234",
