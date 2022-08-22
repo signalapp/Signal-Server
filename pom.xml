@@ -41,7 +41,7 @@
   </modules>
 
   <properties>
-    <aws.sdk.version>1.12.154</aws.sdk.version>
+    <aws.sdk.version>1.12.287</aws.sdk.version>
     <aws.sdk2.version>2.17.258</aws.sdk2.version>
     <commons-codec.version>1.15</commons-codec.version>
     <commons-csv.version>1.8</commons-csv.version>
