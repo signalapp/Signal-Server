@@ -415,14 +415,8 @@
     <dependency>
       <groupId>com.amazonaws</groupId>
       <artifactId>DynamoDBLocal</artifactId>
-      <version>1.16.0</version>
+      <version>1.17.2</version>
       <scope>test</scope>
-      <exclusions>
-        <exclusion>
-          <groupId>org.antlr</groupId>
-          <artifactId>antlr4-runtime</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>
