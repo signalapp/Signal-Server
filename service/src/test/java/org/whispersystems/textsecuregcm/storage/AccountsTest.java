@@ -16,7 +16,6 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.uuid.UUIDComparator;
-import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,14 +26,11 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import org.jdbi.v3.core.transaction.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
@@ -492,60 +488,6 @@ class AccountsTest {
 
     retrieved = accounts.getByAccountIdentifier(UUID.randomUUID());
     assertThat(retrieved.isPresent()).isFalse();
-  }
-
-  @Test
-  @Disabled("Need fault tolerant dynamodb")
-  void testBreaker() throws InterruptedException {
-
-    CircuitBreakerConfiguration configuration = new CircuitBreakerConfiguration();
-    configuration.setWaitDurationInOpenStateInSeconds(1);
-    configuration.setRingBufferSizeInHalfOpenState(1);
-    configuration.setRingBufferSizeInClosedState(2);
-    configuration.setFailureRateThreshold(50);
-
-    final DynamoDbClient client = mock(DynamoDbClient.class);
-    final DynamoDbAsyncClient asyncClient = mock(DynamoDbAsyncClient.class);
-
-    when(client.transactWriteItems(any(TransactWriteItemsRequest.class)))
-        .thenThrow(RuntimeException.class);
-
-    when(asyncClient.updateItem(any(UpdateItemRequest.class)))
-        .thenReturn(CompletableFuture.failedFuture(new RuntimeException()));
-
-    Accounts accounts = new Accounts(mockDynamicConfigManager, client, asyncClient, ACCOUNTS_TABLE_NAME, NUMBER_CONSTRAINT_TABLE_NAME,
-        PNI_CONSTRAINT_TABLE_NAME, USERNAME_CONSTRAINT_TABLE_NAME, SCAN_PAGE_SIZE);
-    Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID());
-
-    try {
-      accounts.update(account);
-      throw new AssertionError();
-    } catch (TransactionException e) {
-      // good
-    }
-
-    try {
-      accounts.update(account);
-      throw new AssertionError();
-    } catch (TransactionException e) {
-      // good
-    }
-
-    try {
-      accounts.update(account);
-      throw new AssertionError();
-    } catch (CallNotPermittedException e) {
-      // good
-    }
-
-    Thread.sleep(1100);
-
-    try {
-      accounts.update(account);
-      throw new AssertionError();
-    } catch (TransactionException e) {
-      // good
-    }
   }
 
   @Test
