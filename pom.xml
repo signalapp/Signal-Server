@@ -56,7 +56,7 @@
     <lettuce.version>6.1.9.RELEASE</lettuce.version>
     <libphonenumber.version>8.12.54</libphonenumber.version>
     <logstash.logback.version>7.0.1</logstash.logback.version>
-    <micrometer.version>1.5.3</micrometer.version>
+    <micrometer.version>1.9.3</micrometer.version>
     <mockito.version>4.7.0</mockito.version>
     <netty.version>4.1.79.Final</netty.version>
     <opentest4j.version>1.2.0</opentest4j.version>
