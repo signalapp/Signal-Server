@@ -19,8 +19,8 @@ import io.lettuce.core.RedisCommandTimeoutException;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
 import io.lettuce.core.cluster.pubsub.api.sync.RedisClusterPubSubCommands;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 
@@ -32,25 +32,28 @@ class FaultTolerantPubSubConnectionTest {
     @SuppressWarnings("unchecked")
     @BeforeEach
     public void setUp() {
-        final StatefulRedisClusterPubSubConnection<String, String> pubSubConnection = mock(StatefulRedisClusterPubSubConnection.class);
+      final StatefulRedisClusterPubSubConnection<String, String> pubSubConnection = mock(
+          StatefulRedisClusterPubSubConnection.class);
 
-        pubSubCommands = mock(RedisClusterPubSubCommands.class);
+      pubSubCommands = mock(RedisClusterPubSubCommands.class);
 
-        when(pubSubConnection.sync()).thenReturn(pubSubCommands);
+      when(pubSubConnection.sync()).thenReturn(pubSubCommands);
 
-        final CircuitBreakerConfiguration breakerConfiguration = new CircuitBreakerConfiguration();
-        breakerConfiguration.setFailureRateThreshold(100);
-        breakerConfiguration.setRingBufferSizeInClosedState(1);
-        breakerConfiguration.setWaitDurationInOpenStateInSeconds(Integer.MAX_VALUE);
+      final CircuitBreakerConfiguration breakerConfiguration = new CircuitBreakerConfiguration();
+      breakerConfiguration.setFailureRateThreshold(100);
+      breakerConfiguration.setSlidingWindowSize(1);
+      breakerConfiguration.setSlidingWindowMinimumNumberOfCalls(1);
+      breakerConfiguration.setWaitDurationInOpenStateInSeconds(Integer.MAX_VALUE);
 
-        final RetryConfiguration retryConfiguration = new RetryConfiguration();
-        retryConfiguration.setMaxAttempts(3);
-        retryConfiguration.setWaitDuration(0);
+      final RetryConfiguration retryConfiguration = new RetryConfiguration();
+      retryConfiguration.setMaxAttempts(3);
+      retryConfiguration.setWaitDuration(0);
 
-        final CircuitBreaker circuitBreaker = CircuitBreaker.of("test", breakerConfiguration.toCircuitBreakerConfig());
-        final Retry          retry          = Retry.of("test", retryConfiguration.toRetryConfig());
+      final CircuitBreaker circuitBreaker = CircuitBreaker.of("test", breakerConfiguration.toCircuitBreakerConfig());
+      final Retry retry = Retry.of("test", retryConfiguration.toRetryConfig());
 
-        faultTolerantPubSubConnection = new FaultTolerantPubSubConnection<>("test", pubSubConnection, circuitBreaker, retry);
+      faultTolerantPubSubConnection = new FaultTolerantPubSubConnection<>("test", pubSubConnection, circuitBreaker,
+          retry);
     }
 
     @Test

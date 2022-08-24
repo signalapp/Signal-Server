@@ -95,18 +95,19 @@ class FaultTolerantHttpClientTest {
   @Test
   void testNetworkFailureCircuitBreaker() throws InterruptedException {
     CircuitBreakerConfiguration circuitBreakerConfiguration = new CircuitBreakerConfiguration();
-    circuitBreakerConfiguration.setRingBufferSizeInClosedState(2);
-    circuitBreakerConfiguration.setRingBufferSizeInHalfOpenState(1);
+    circuitBreakerConfiguration.setSlidingWindowSize(2);
+    circuitBreakerConfiguration.setSlidingWindowMinimumNumberOfCalls(2);
+    circuitBreakerConfiguration.setPermittedNumberOfCallsInHalfOpenState(1);
     circuitBreakerConfiguration.setFailureRateThreshold(50);
     circuitBreakerConfiguration.setWaitDurationInOpenStateInSeconds(1);
 
     FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder()
-                                                            .withCircuitBreaker(circuitBreakerConfiguration)
-                                                            .withRetry(new RetryConfiguration())
-                                                            .withExecutor(Executors.newSingleThreadExecutor())
-                                                            .withName("test")
-                                                            .withVersion(HttpClient.Version.HTTP_2)
-                                                            .build();
+        .withCircuitBreaker(circuitBreakerConfiguration)
+        .withRetry(new RetryConfiguration())
+        .withExecutor(Executors.newSingleThreadExecutor())
+        .withName("test")
+        .withVersion(HttpClient.Version.HTTP_2)
+        .build();
 
     HttpRequest request = HttpRequest.newBuilder()
                                      .uri(URI.create("http://localhost:" + 39873 + "/failure"))

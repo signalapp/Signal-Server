@@ -22,8 +22,8 @@ import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
 import io.lettuce.core.event.EventBus;
 import io.lettuce.core.resource.ClientResources;
 import java.time.Duration;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import reactor.core.publisher.Flux;
@@ -44,23 +44,25 @@ class FaultTolerantRedisClusterTest {
 
         clusterCommands = mock(RedisAdvancedClusterCommands.class);
 
-        when(clusterClient.connect()).thenReturn(clusterConnection);
-        when(clusterClient.connectPubSub()).thenReturn(pubSubConnection);
-        when(clusterClient.getResources()).thenReturn(clientResources);
-        when(clusterConnection.sync()).thenReturn(clusterCommands);
-        when(clientResources.eventBus()).thenReturn(eventBus);
-        when(eventBus.get()).thenReturn(mock(Flux.class));
+      when(clusterClient.connect()).thenReturn(clusterConnection);
+      when(clusterClient.connectPubSub()).thenReturn(pubSubConnection);
+      when(clusterClient.getResources()).thenReturn(clientResources);
+      when(clusterConnection.sync()).thenReturn(clusterCommands);
+      when(clientResources.eventBus()).thenReturn(eventBus);
+      when(eventBus.get()).thenReturn(mock(Flux.class));
 
-        final CircuitBreakerConfiguration breakerConfiguration = new CircuitBreakerConfiguration();
-        breakerConfiguration.setFailureRateThreshold(100);
-        breakerConfiguration.setRingBufferSizeInClosedState(1);
-        breakerConfiguration.setWaitDurationInOpenStateInSeconds(Integer.MAX_VALUE);
+      final CircuitBreakerConfiguration breakerConfiguration = new CircuitBreakerConfiguration();
+      breakerConfiguration.setFailureRateThreshold(100);
+      breakerConfiguration.setSlidingWindowSize(1);
+      breakerConfiguration.setSlidingWindowMinimumNumberOfCalls(1);
+      breakerConfiguration.setWaitDurationInOpenStateInSeconds(Integer.MAX_VALUE);
 
-        final RetryConfiguration retryConfiguration = new RetryConfiguration();
-        retryConfiguration.setMaxAttempts(3);
-        retryConfiguration.setWaitDuration(0);
+      final RetryConfiguration retryConfiguration = new RetryConfiguration();
+      retryConfiguration.setMaxAttempts(3);
+      retryConfiguration.setWaitDuration(0);
 
-        faultTolerantCluster = new FaultTolerantRedisCluster("test", clusterClient, Duration.ofSeconds(2), breakerConfiguration, retryConfiguration);
+      faultTolerantCluster = new FaultTolerantRedisCluster("test", clusterClient, Duration.ofSeconds(2),
+          breakerConfiguration, retryConfiguration);
     }
 
     @Test

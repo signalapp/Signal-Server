@@ -118,17 +118,19 @@ class ReplicatedJedisPoolTest {
   void testCircuitBreakerOpen() {
     CircuitBreakerConfiguration configuration = new CircuitBreakerConfiguration();
     configuration.setFailureRateThreshold(50);
-    configuration.setRingBufferSizeInClosedState(2);
+    configuration.setSlidingWindowSize(2);
+    configuration.setSlidingWindowMinimumNumberOfCalls(2);
 
-    JedisPool master      = mock(JedisPool.class);
-    JedisPool slaveOne    = mock(JedisPool.class);
-    JedisPool slaveTwo    = mock(JedisPool.class);
+    JedisPool master = mock(JedisPool.class);
+    JedisPool slaveOne = mock(JedisPool.class);
+    JedisPool slaveTwo = mock(JedisPool.class);
 
     when(master.getResource()).thenReturn(null);
     when(slaveOne.getResource()).thenThrow(new JedisException("Connection failed!"));
     when(slaveTwo.getResource()).thenThrow(new JedisException("Also failed!"));
 
-    ReplicatedJedisPool replicatedJedisPool = new ReplicatedJedisPool("testCircuitBreakerOpen", master, Arrays.asList(slaveOne, slaveTwo), configuration);
+    ReplicatedJedisPool replicatedJedisPool = new ReplicatedJedisPool("testCircuitBreakerOpen", master,
+        Arrays.asList(slaveOne, slaveTwo), configuration);
     replicatedJedisPool.getWriteResource();
 
     when(master.getResource()).thenThrow(new JedisException("Master broken!"));
@@ -152,13 +154,14 @@ class ReplicatedJedisPoolTest {
   void testCircuitBreakerHalfOpen() throws InterruptedException {
     CircuitBreakerConfiguration configuration = new CircuitBreakerConfiguration();
     configuration.setFailureRateThreshold(50);
-    configuration.setRingBufferSizeInClosedState(2);
-    configuration.setRingBufferSizeInHalfOpenState(1);
+    configuration.setSlidingWindowSize(2);
+    configuration.setSlidingWindowMinimumNumberOfCalls(2);
+    configuration.setPermittedNumberOfCallsInHalfOpenState(1);
     configuration.setWaitDurationInOpenStateInSeconds(1);
 
-    JedisPool master      = mock(JedisPool.class);
-    JedisPool slaveOne    = mock(JedisPool.class);
-    JedisPool slaveTwo    = mock(JedisPool.class);
+    JedisPool master = mock(JedisPool.class);
+    JedisPool slaveOne = mock(JedisPool.class);
+    JedisPool slaveTwo = mock(JedisPool.class);
 
     when(master.getResource()).thenThrow(new JedisException("Master broken!"));
     when(slaveOne.getResource()).thenThrow(new JedisException("Connection failed!"));
