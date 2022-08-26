@@ -26,6 +26,11 @@
 
     <dependency>
       <groupId>org.whispersystems.textsecure</groupId>
+      <artifactId>event-logger</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.whispersystems.textsecure</groupId>
       <artifactId>redis-dispatch</artifactId>
       <version>${project.version}</version>
     </dependency>

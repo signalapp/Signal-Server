@@ -14,6 +14,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -31,6 +32,8 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import org.signal.event.Logger;
+import org.signal.event.RemoteConfigSetEvent;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.entities.UserRemoteConfig;
 import org.whispersystems.textsecuregcm.entities.UserRemoteConfigList;
@@ -42,13 +45,15 @@ import org.whispersystems.textsecuregcm.util.Conversions;
 public class RemoteConfigController {
 
   private final RemoteConfigsManager remoteConfigsManager;
-  private final List<String>         configAuthTokens;
-  private final Map<String, String>  globalConfig;
+  private final Logger eventLogger;
+  private final List<String> configAuthTokens;
+  private final Map<String, String> globalConfig;
 
   private static final String GLOBAL_CONFIG_PREFIX = "global.";
 
-  public RemoteConfigController(RemoteConfigsManager remoteConfigsManager, List<String> configAuthTokens, Map<String, String> globalConfig) {
+  public RemoteConfigController(RemoteConfigsManager remoteConfigsManager, Logger eventLogger, List<String> configAuthTokens, Map<String, String> globalConfig) {
     this.remoteConfigsManager = remoteConfigsManager;
+    this.eventLogger = Objects.requireNonNull(eventLogger);
     this.configAuthTokens = configAuthTokens;
     this.globalConfig = globalConfig;
   }
@@ -88,6 +93,15 @@ public class RemoteConfigController {
       throw new WebApplicationException(Response.Status.FORBIDDEN);
     }
 
+    eventLogger.logEvent(
+        new RemoteConfigSetEvent(
+            configToken,
+            config.getName(),
+            config.getPercentage(),
+            config.getDefaultValue(),
+            config.getValue(),
+            config.getHashKey(),
+            config.getUuids().stream().map(UUID::toString).collect(Collectors.toList())));
     remoteConfigsManager.set(config);
   }
 
