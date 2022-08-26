@@ -52,6 +52,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
@@ -984,7 +985,8 @@ class AccountControllerTest {
         .thenReturn(enrolledInVerifyExperiment);
 
     final String challenge = "challenge";
-    when(pendingAccountsManager.getCodeForNumber(RESTRICTED_NUMBER)).thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null)));
+    when(pendingAccountsManager.getCodeForNumber(RESTRICTED_NUMBER))
+        .thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null)));
 
     Response response =
         resources.getJerseyTest()
@@ -998,6 +1000,54 @@ class AccountControllerTest {
 
     verify(abusiveHostRules).isBlocked(eq(NICE_HOST));
     verifyNoMoreInteractions(smsSender);
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+      "+12025550123, true, true",
+      "+12025550123, false, true",
+      "+12505550199, true, false",
+      "+12505550199, false, false",
+  })
+  void testRestrictedRegion(final String number, final boolean enrolledInVerifyExperiment, final boolean expectSendCode) {
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+
+    final DynamicCaptchaConfiguration signupCaptchaConfig = new DynamicCaptchaConfiguration();
+    signupCaptchaConfig.setSignupRegions(Set.of("CA"));
+
+    when(dynamicConfiguration.getCaptchaConfiguration()).thenReturn(signupCaptchaConfig);
+
+    when(verifyExperimentEnrollmentManager.isEnrolled(any(), anyString(), anyList(), anyString()))
+        .thenReturn(enrolledInVerifyExperiment);
+
+    final String challenge = "challenge";
+    when(pendingAccountsManager.getCodeForNumber(number))
+        .thenReturn(Optional.of(new StoredVerificationCode("123456", System.currentTimeMillis(), challenge, null)));
+
+    when(smsSender.deliverSmsVerificationWithTwilioVerify(any(), any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+
+    Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/accounts/sms/code/%s", number))
+            .queryParam("challenge", challenge)
+            .request()
+            .header("X-Forwarded-For", NICE_HOST)
+            .get();
+
+    if (expectSendCode) {
+      assertThat(response.getStatus()).isEqualTo(200);
+
+      if (enrolledInVerifyExperiment) {
+        verify(smsSender).deliverSmsVerificationWithTwilioVerify(eq(number), any(), any(), any());
+      } else {
+        verify(smsSender).deliverSmsVerification(eq(number), any(), any());
+      }
+    } else {
+      assertThat(response.getStatus()).isEqualTo(402);
+      verifyNoMoreInteractions(smsSender);
+    }
   }
 
   @ParameterizedTest

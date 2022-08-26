@@ -21,6 +21,14 @@ public class DynamicCaptchaConfiguration {
   @NotNull
   private Set<String> signupCountryCodes = Collections.emptySet();
 
+  @JsonProperty
+  @NotNull
+  private Set<String> signupRegions = Collections.emptySet();
+
+  public BigDecimal getScoreFloor() {
+    return scoreFloor;
+  }
+
   public Set<String> getSignupCountryCodes() {
     return signupCountryCodes;
   }
@@ -30,7 +38,12 @@ public class DynamicCaptchaConfiguration {
     this.signupCountryCodes = numbers;
   }
 
-  public BigDecimal getScoreFloor() {
-    return scoreFloor;
+  @VisibleForTesting
+  public void setSignupRegions(final Set<String> signupRegions) {
+    this.signupRegions = signupRegions;
+  }
+
+  public Set<String> getSignupRegions() {
+    return signupRegions;
   }
 }

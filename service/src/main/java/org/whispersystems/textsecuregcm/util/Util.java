@@ -79,6 +79,15 @@ public class Util {
     else                return "0";
   }
 
+  public static String getRegion(final String number) {
+    try {
+      final PhoneNumber phoneNumber = PHONE_NUMBER_UTIL.parse(number, null);
+      return PHONE_NUMBER_UTIL.getRegionCodeForNumber(phoneNumber);
+    } catch (final NumberParseException e) {
+      return "ZZ";
+    }
+  }
+
   public static String getNumberPrefix(String number) {
     String countryCode  = getCountryCode(number);
     int    remaining    = number.length() - (1 + countryCode.length());

@@ -776,6 +776,8 @@ public class AccountController {
     }
 
     final String countryCode = Util.getCountryCode(number);
+    final String region = Util.getRegion(number);
+
     if (captchaToken.isPresent()) {
       boolean validToken = recaptchaClient.verify(captchaToken.get(), sourceHost);
 
@@ -822,7 +824,9 @@ public class AccountController {
 
     DynamicCaptchaConfiguration captchaConfig = dynamicConfigurationManager.getConfiguration()
         .getCaptchaConfiguration();
-    boolean countryFiltered = captchaConfig.getSignupCountryCodes().contains(countryCode);
+
+    boolean countryFiltered = captchaConfig.getSignupCountryCodes().contains(countryCode) ||
+        captchaConfig.getSignupRegions().contains(region);
 
     if (abusiveHostRules.isBlocked(sourceHost)) {
       blockedHostMeter.mark();
