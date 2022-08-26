@@ -18,5 +18,11 @@ data class RemoteConfigSetEvent(
         val defaultValue: String? = null,
         val value: String? = null,
         val hashKey: String? = null,
-        val uuids: Collection<String> = Collections.emptyList()
+        val uuids: Collection<String> = Collections.emptyList(),
+) : Event
+
+@Serializable
+data class RemoteConfigDeleteEvent(
+        val token: String,
+        val name: String,
 ) : Event

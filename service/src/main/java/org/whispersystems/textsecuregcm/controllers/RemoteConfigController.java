@@ -33,6 +33,7 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.signal.event.AdminEventLogger;
+import org.signal.event.RemoteConfigDeleteEvent;
 import org.signal.event.RemoteConfigSetEvent;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.entities.UserRemoteConfig;
@@ -117,6 +118,7 @@ public class RemoteConfigController {
       throw new WebApplicationException(Response.Status.FORBIDDEN);
     }
 
+    adminEventLogger.logEvent(new RemoteConfigDeleteEvent(configToken, name));
     remoteConfigsManager.delete(name);
   }
 
