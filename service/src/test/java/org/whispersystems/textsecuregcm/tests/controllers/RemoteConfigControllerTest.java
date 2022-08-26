@@ -35,7 +35,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.signal.event.NoOpLogger;
+import org.signal.event.NoOpAdminEventLogger;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
 import org.whispersystems.textsecuregcm.controllers.RemoteConfigController;
@@ -58,7 +58,7 @@ class RemoteConfigControllerTest {
           ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addProvider(new DeviceLimitExceededExceptionMapper())
-      .addResource(new RemoteConfigController(remoteConfigsManager, new NoOpLogger(), remoteConfigsAuth, Map.of("maxGroupSize", "42")))
+      .addResource(new RemoteConfigController(remoteConfigsManager, new NoOpAdminEventLogger(), remoteConfigsAuth, Map.of("maxGroupSize", "42")))
       .build();
 
 

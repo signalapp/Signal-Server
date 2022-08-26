@@ -3,6 +3,13 @@
 # `unset` values will need to be set to work properly.
 # Most other values are technically valid for a local/demonstration environment, but are probably not production-ready.
 
+adminEventLoggingConfiguration:
+  credentials: |
+    Some credentials text
+    blah blah blah
+  projectId: some-project-id
+  logName: some-log-name
+
 stripe:
   apiKey: unset
   idempotencyKeyGenerator: abcdefg12345678= # base64 for creating request idempotency hash

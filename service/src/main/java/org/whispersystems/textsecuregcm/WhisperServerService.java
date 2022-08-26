@@ -14,6 +14,8 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.cloud.logging.LoggingOptions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
@@ -34,7 +36,9 @@ import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import io.micrometer.datadog.DatadogMeterRegistry;
+import java.io.ByteArrayInputStream;
 import java.net.http.HttpClient;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -55,7 +59,8 @@ import javax.servlet.FilterRegistration;
 import javax.servlet.ServletRegistration;
 import org.eclipse.jetty.servlets.CrossOriginFilter;
 import org.glassfish.jersey.server.ServerProperties;
-import org.signal.event.NoOpLogger;
+import org.signal.event.AdminEventLogger;
+import org.signal.event.GoogleCloudAdminEventLogger;
 import org.signal.i18n.HeaderControlledResourceBundleLookup;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.auth.ServerZkAuthOperations;
@@ -407,6 +412,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .rejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy())
         .build();
 
+    final AdminEventLogger adminEventLogger = new GoogleCloudAdminEventLogger(
+        LoggingOptions.newBuilder().setProjectId(config.getAdminEventLoggingConfiguration().projectId())
+            .setCredentials(GoogleCredentials.fromStream(new ByteArrayInputStream(
+                config.getAdminEventLoggingConfiguration().credentials().getBytes(StandardCharsets.UTF_8))))
+            .build().getService(),
+        config.getAdminEventLoggingConfiguration().logName());
+
     StripeManager stripeManager = new StripeManager(config.getStripe().getApiKey(), stripeExecutor,
         config.getStripe().getIdempotencyKeyGenerator(), config.getStripe().getBoostDescription());
 
@@ -645,7 +657,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),
         new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager, profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner, config.getCdnConfiguration().getBucket(), zkProfileOperations, batchIdentityCheckExecutor),
         new ProvisioningController(rateLimiters, provisioningManager),
-        new RemoteConfigController(remoteConfigsManager, new NoOpLogger(), config.getRemoteConfigConfiguration().getAuthorizedTokens(), config.getRemoteConfigConfiguration().getGlobalConfig()),
+        new RemoteConfigController(remoteConfigsManager, adminEventLogger, config.getRemoteConfigConfiguration().getAuthorizedTokens(), config.getRemoteConfigConfiguration().getGlobalConfig()),
         new SecureBackupController(backupCredentialsGenerator),
         new SecureStorageController(storageCredentialsGenerator),
         new StickerController(rateLimiters, config.getCdnConfiguration().getAccessKey(),
