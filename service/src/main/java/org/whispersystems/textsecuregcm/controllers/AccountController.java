@@ -128,6 +128,7 @@ public class AccountController {
   private static final String CHALLENGE_PRESENT_TAG_NAME = "present";
   private static final String CHALLENGE_MATCH_TAG_NAME = "matches";
   private static final String COUNTRY_CODE_TAG_NAME = "countryCode";
+  private static final String REGION_TAG_NAME = "region";
   private static final String VERIFICATION_TRANSPORT_TAG_NAME = "transport";
 
   private static final String VERIFY_EXPERIMENT_TAG_NAME = "twilioVerify";
@@ -232,11 +233,11 @@ public class AccountController {
     if (requirement.isCaptchaRequired()) {
       captchaRequiredMeter.mark();
 
-      final Tags tags = Tags.of(
-          UserAgentTagUtil.getPlatformTag(userAgent),
-          Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)));
-
-      Metrics.counter(CHALLENGE_ISSUED_COUNTER_NAME, tags).increment();
+      Metrics.counter(CHALLENGE_ISSUED_COUNTER_NAME, Tags.of(
+              UserAgentTagUtil.getPlatformTag(userAgent),
+              Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)),
+              Tag.of(REGION_TAG_NAME, Util.getRegion(number))))
+          .increment();
 
       if (requirement.isAutoBlock() && shouldAutoBlock(sourceHost)) {
         logger.info("Auto-block: {}", sourceHost);
@@ -323,15 +324,13 @@ public class AccountController {
     // TODO Remove this meter when external dependencies have been resolved
     metricRegistry.meter(name(AccountController.class, "create", Util.getCountryCode(number))).mark();
 
-    {
-      final List<Tag> tags = new ArrayList<>();
-      tags.add(Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)));
-      tags.add(Tag.of(VERIFICATION_TRANSPORT_TAG_NAME, transport));
-      tags.add(UserAgentTagUtil.getPlatformTag(userAgent));
-      tags.add(Tag.of(VERIFY_EXPERIMENT_TAG_NAME, String.valueOf(enrolledInVerifyExperiment)));
-
-      Metrics.counter(ACCOUNT_CREATE_COUNTER_NAME, tags).increment();
-    }
+    Metrics.counter(ACCOUNT_CREATE_COUNTER_NAME, Tags.of(
+            UserAgentTagUtil.getPlatformTag(userAgent),
+            Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)),
+            Tag.of(REGION_TAG_NAME, Util.getRegion(number)),
+            Tag.of(VERIFICATION_TRANSPORT_TAG_NAME, transport),
+            Tag.of(VERIFY_EXPERIMENT_TAG_NAME, String.valueOf(enrolledInVerifyExperiment))))
+        .increment();
 
     return Response.ok().build();
   }
@@ -382,16 +381,13 @@ public class AccountController {
     Account account = accounts.create(number, password, signalAgent, accountAttributes,
         existingAccount.map(Account::getBadges).orElseGet(ArrayList::new));
 
-    {
-      metricRegistry.meter(name(AccountController.class, "verify", Util.getCountryCode(number))).mark();
+    metricRegistry.meter(name(AccountController.class, "verify", Util.getCountryCode(number))).mark();
 
-      final List<Tag> tags = new ArrayList<>();
-      tags.add(Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)));
-      tags.add(UserAgentTagUtil.getPlatformTag(userAgent));
-      tags.add(Tag.of(VERIFY_EXPERIMENT_TAG_NAME, String.valueOf(storedVerificationCode.get().getTwilioVerificationSid().isPresent())));
-
-      Metrics.counter(ACCOUNT_VERIFY_COUNTER_NAME, tags).increment();
-    }
+    Metrics.counter(ACCOUNT_VERIFY_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
+            Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)),
+            Tag.of(REGION_TAG_NAME, Util.getRegion(number)),
+            Tag.of(VERIFY_EXPERIMENT_TAG_NAME, String.valueOf(storedVerificationCode.get().getTwilioVerificationSid().isPresent()))))
+        .increment();
 
     return new AccountIdentityResponse(account.getUuid(),
         account.getNumber(),
@@ -781,13 +777,12 @@ public class AccountController {
     if (captchaToken.isPresent()) {
       boolean validToken = recaptchaClient.verify(captchaToken.get(), sourceHost);
 
-      {
-        final List<Tag> tags = new ArrayList<>();
-        tags.add(Tag.of("success", String.valueOf(validToken)));
-        tags.add(UserAgentTagUtil.getPlatformTag(userAgent));
-        tags.add(Tag.of(COUNTRY_CODE_TAG_NAME, countryCode));
-        Metrics.counter(CAPTCHA_ATTEMPT_COUNTER_NAME, tags).increment();
-      }
+      Metrics.counter(CAPTCHA_ATTEMPT_COUNTER_NAME, Tags.of(
+              Tag.of("success", String.valueOf(validToken)),
+              UserAgentTagUtil.getPlatformTag(userAgent),
+              Tag.of(COUNTRY_CODE_TAG_NAME, countryCode),
+              Tag.of(REGION_TAG_NAME, region)))
+          .increment();
 
       if (validToken) {
         return new CaptchaRequirement(false, false);
@@ -799,6 +794,7 @@ public class AccountController {
     {
       final List<Tag> tags = new ArrayList<>();
       tags.add(Tag.of(COUNTRY_CODE_TAG_NAME, countryCode));
+      tags.add(Tag.of(REGION_TAG_NAME, region));
 
       try {
         if (pushChallenge.isPresent()) {
