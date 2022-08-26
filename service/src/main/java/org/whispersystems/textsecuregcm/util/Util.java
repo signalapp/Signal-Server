@@ -8,7 +8,6 @@ import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberFormat;
 import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;
-import org.apache.commons.lang3.StringUtils;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.temporal.ChronoField;
@@ -22,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
 
 public class Util {
 
@@ -81,7 +80,6 @@ public class Util {
     else                return "0";
   }
 
-  @Nullable
   public static String getRegion(final String number) {
     try {
       final PhoneNumber phoneNumber = PHONE_NUMBER_UTIL.parse(number, null);
