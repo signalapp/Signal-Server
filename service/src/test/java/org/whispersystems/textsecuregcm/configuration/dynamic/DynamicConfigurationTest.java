@@ -54,6 +54,9 @@ class DynamicConfigurationTest {
             uuidsOnly:
               enrolledUuids:
                 - 71618739-114c-4b1f-bb0d-6478a44eb600
+            uuids-with-dash:
+              enrolledUuids:
+                - 71618739-114c-4b1f-bb0d-6478ffffffff
           """);
 
       final DynamicConfiguration config =
@@ -77,6 +80,11 @@ class DynamicConfigurationTest {
       assertEquals(0, config.getExperimentEnrollmentConfiguration("uuidsOnly").get().getEnrollmentPercentage());
       assertEquals(Set.of(UUID.fromString("71618739-114c-4b1f-bb0d-6478a44eb600")),
           config.getExperimentEnrollmentConfiguration("uuidsOnly").get().getEnrolledUuids());
+
+      assertTrue(config.getExperimentEnrollmentConfiguration("uuids-with-dash").isPresent());
+      assertEquals(0, config.getExperimentEnrollmentConfiguration("uuids-with-dash").get().getEnrollmentPercentage());
+      assertEquals(Set.of(UUID.fromString("71618739-114c-4b1f-bb0d-6478ffffffff")),
+          config.getExperimentEnrollmentConfiguration("uuids-with-dash").get().getEnrolledUuids());
     }
   }
 
