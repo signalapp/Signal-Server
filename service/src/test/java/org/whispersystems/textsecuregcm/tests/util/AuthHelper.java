@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.tests.util;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 
@@ -25,6 +26,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -189,10 +191,12 @@ public class AuthHelper {
       testAccount.setup(ACCOUNTS_MANAGER);
     }
 
+    ExperimentEnrollmentManager experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
+    when(experimentEnrollmentManager.isEnrolled(any(UUID.class), any())).thenReturn(true);
     AuthFilter<BasicCredentials, AuthenticatedAccount> accountAuthFilter = new BasicCredentialAuthFilter.Builder<AuthenticatedAccount>().setAuthenticator(
-        new AccountAuthenticator(ACCOUNTS_MANAGER)).buildAuthFilter();
+        new AccountAuthenticator(ACCOUNTS_MANAGER, experimentEnrollmentManager)).buildAuthFilter();
     AuthFilter<BasicCredentials, DisabledPermittedAuthenticatedAccount> disabledPermittedAccountAuthFilter = new BasicCredentialAuthFilter.Builder<DisabledPermittedAuthenticatedAccount>().setAuthenticator(
-        new DisabledPermittedAccountAuthenticator(ACCOUNTS_MANAGER)).buildAuthFilter();
+        new DisabledPermittedAccountAuthenticator(ACCOUNTS_MANAGER, experimentEnrollmentManager)).buildAuthFilter();
 
     return new PolymorphicAuthDynamicFeature<>(ImmutableMap.of(AuthenticatedAccount.class, accountAuthFilter,
         DisabledPermittedAuthenticatedAccount.class, disabledPermittedAccountAuthFilter));

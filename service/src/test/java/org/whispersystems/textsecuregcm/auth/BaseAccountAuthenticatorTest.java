@@ -14,6 +14,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,6 +31,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -54,7 +56,9 @@ class BaseAccountAuthenticatorTest {
   void setup() {
     accountsManager = mock(AccountsManager.class);
     clock = mock(Clock.class);
-    baseAccountAuthenticator = new BaseAccountAuthenticator(accountsManager, clock);
+    ExperimentEnrollmentManager enrollmentManager = mock(ExperimentEnrollmentManager.class);
+    when(enrollmentManager.isEnrolled(any(UUID.class), any())).thenReturn(true);
+    baseAccountAuthenticator = new BaseAccountAuthenticator(accountsManager, clock, enrollmentManager);
 
     // We use static UUIDs here because the UUID affects the "date last seen" offset
     acct1 = AccountsHelper.generateTestAccount("+14088675309", UUID.fromString("c139cb3e-f70c-4460-b221-815e8bdf778f"), UUID.randomUUID(), List.of(generateTestDevice(yesterday)), null);
@@ -164,6 +168,7 @@ class BaseAccountAuthenticatorTest {
     when(device.isEnabled()).thenReturn(true);
     when(device.getAuthenticationCredentials()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
+    when(credentials.getVersion()).thenReturn(AuthenticationCredentials.CURRENT_VERSION);
 
     final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
         baseAccountAuthenticator.authenticate(new BasicCredentials(uuid.toString(), password), true);
@@ -171,6 +176,7 @@ class BaseAccountAuthenticatorTest {
     assertThat(maybeAuthenticatedAccount).isPresent();
     assertThat(maybeAuthenticatedAccount.get().getAccount().getUuid()).isEqualTo(uuid);
     assertThat(maybeAuthenticatedAccount.get().getAuthenticatedDevice()).isEqualTo(device);
+    verify(accountsManager, never()).updateDeviceAuthentication(any(), any(), any());;
   }
 
   @Test
@@ -192,6 +198,7 @@ class BaseAccountAuthenticatorTest {
     when(device.isEnabled()).thenReturn(true);
     when(device.getAuthenticationCredentials()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
+    when(credentials.getVersion()).thenReturn(AuthenticationCredentials.CURRENT_VERSION);
 
     final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
         baseAccountAuthenticator.authenticate(new BasicCredentials(uuid + "." + deviceId, password), true);
@@ -199,6 +206,7 @@ class BaseAccountAuthenticatorTest {
     assertThat(maybeAuthenticatedAccount).isPresent();
     assertThat(maybeAuthenticatedAccount.get().getAccount().getUuid()).isEqualTo(uuid);
     assertThat(maybeAuthenticatedAccount.get().getAuthenticatedDevice()).isEqualTo(device);
+    verify(accountsManager, never()).updateDeviceAuthentication(any(), any(), any());
   }
 
   @ParameterizedTest
@@ -221,6 +229,7 @@ class BaseAccountAuthenticatorTest {
     when(device.isEnabled()).thenReturn(false);
     when(device.getAuthenticationCredentials()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
+    when(credentials.getVersion()).thenReturn(AuthenticationCredentials.CURRENT_VERSION);
 
     final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
         baseAccountAuthenticator.authenticate(new BasicCredentials(uuid.toString(), password), enabledRequired);
@@ -234,6 +243,37 @@ class BaseAccountAuthenticatorTest {
     }
   }
 
+  @Test
+  void testAuthenticateV1() {
+    final UUID uuid = UUID.randomUUID();
+    final long deviceId = 1;
+    final String password = "12345";
+
+    final Account account = mock(Account.class);
+    final Device device = mock(Device.class);
+    final AuthenticationCredentials credentials = mock(AuthenticationCredentials.class);
+
+    when(clock.instant()).thenReturn(Instant.now());
+    when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
+    when(account.getUuid()).thenReturn(uuid);
+    when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
+    when(account.isEnabled()).thenReturn(true);
+    when(device.getId()).thenReturn(deviceId);
+    when(device.isEnabled()).thenReturn(true);
+    when(device.getAuthenticationCredentials()).thenReturn(credentials);
+    when(credentials.verify(password)).thenReturn(true);
+    when(credentials.getVersion()).thenReturn(AuthenticationCredentials.Version.V1);
+
+    final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
+        baseAccountAuthenticator.authenticate(new BasicCredentials(uuid.toString(), password), true);
+
+    assertThat(maybeAuthenticatedAccount).isPresent();
+    assertThat(maybeAuthenticatedAccount.get().getAccount().getUuid()).isEqualTo(uuid);
+    assertThat(maybeAuthenticatedAccount.get().getAuthenticatedDevice()).isEqualTo(device);
+    verify(accountsManager, times(1)).updateDeviceAuthentication(
+        any(), // this won't be 'account', because it'll already be updated by updateDeviceLastSeen
+        eq(device), any());
+  }
   @Test
   void testAuthenticateAccountNotFound() {
     assertThat(baseAccountAuthenticator.authenticate(new BasicCredentials(UUID.randomUUID().toString(), "password"), true))
@@ -259,6 +299,7 @@ class BaseAccountAuthenticatorTest {
     when(device.isEnabled()).thenReturn(true);
     when(device.getAuthenticationCredentials()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
+    when(credentials.getVersion()).thenReturn(AuthenticationCredentials.CURRENT_VERSION);
 
     final Optional<AuthenticatedAccount> maybeAuthenticatedAccount =
         baseAccountAuthenticator.authenticate(new BasicCredentials(uuid + "." + (deviceId + 1), password), true);
@@ -286,6 +327,7 @@ class BaseAccountAuthenticatorTest {
     when(device.isEnabled()).thenReturn(true);
     when(device.getAuthenticationCredentials()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
+    when(credentials.getVersion()).thenReturn(AuthenticationCredentials.CURRENT_VERSION);
 
     final String incorrectPassword = password + "incorrect";
 

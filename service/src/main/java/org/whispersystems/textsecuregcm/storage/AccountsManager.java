@@ -13,6 +13,7 @@ import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import io.micrometer.core.instrument.Metrics;
@@ -388,6 +389,16 @@ public class AccountsManager {
         return true;
 
       }).orElse(false);
+    });
+  }
+
+  public Account updateDeviceAuthentication(final Account account, final Device device, final AuthenticationCredentials credentials) {
+    Preconditions.checkArgument(credentials.getVersion() == AuthenticationCredentials.CURRENT_VERSION);
+    return updateDevice(account, device.getId(), new Consumer<Device>() {
+      @Override
+      public void accept(final Device device) {
+        device.setAuthenticationCredentials(credentials);
+      }
     });
   }
 

@@ -8,13 +8,14 @@ package org.whispersystems.textsecuregcm.auth;
 import io.dropwizard.auth.Authenticator;
 import io.dropwizard.auth.basic.BasicCredentials;
 import java.util.Optional;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 
 public class DisabledPermittedAccountAuthenticator extends BaseAccountAuthenticator implements
     Authenticator<BasicCredentials, DisabledPermittedAuthenticatedAccount> {
 
-  public DisabledPermittedAccountAuthenticator(AccountsManager accountsManager) {
-    super(accountsManager);
+  public DisabledPermittedAccountAuthenticator(AccountsManager accountsManager, ExperimentEnrollmentManager enrollmentManager) {
+    super(accountsManager, enrollmentManager);
   }
 
   @Override

@@ -1630,7 +1630,7 @@ class AccountControllerTest {
     assertThat(pinCapture.getValue()).isNotEmpty();
     assertThat(pinSaltCapture.getValue()).isNotEmpty();
 
-    assertThat(pinCapture.getValue().length()).isEqualTo(40);
+    assertThat(pinCapture.getValue().length()).isEqualTo(66);
   }
 
   @Test

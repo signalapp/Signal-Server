@@ -17,7 +17,7 @@ class AuthenticationCredentialsTest {
     AuthenticationCredentials credentials = new AuthenticationCredentials("mypassword");
     assertThat(credentials.getSalt()).isNotEmpty();
     assertThat(credentials.getHashedAuthenticationToken()).isNotEmpty();
-    assertThat(credentials.getHashedAuthenticationToken().length()).isEqualTo(40);
+    assertThat(credentials.getHashedAuthenticationToken().length()).isEqualTo(66);
   }
 
   @Test

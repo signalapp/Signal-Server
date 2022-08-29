@@ -20,6 +20,7 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import org.mockito.MockingDetails;
 import org.mockito.stubbing.Stubbing;
+import org.whispersystems.textsecuregcm.auth.AuthenticationCredentials;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -69,10 +70,13 @@ public class AccountsHelper {
     });
 
     when(mockAccountsManager.updateDeviceLastSeen(any(), any(), anyLong())).thenAnswer(answer -> {
-
       answer.getArgument(1, Device.class).setLastSeen(answer.getArgument(2, Long.class));
-      return mockAccountsManager.update(answer.getArgument(0, Account.class), account -> {
-      });
+      return mockAccountsManager.update(answer.getArgument(0, Account.class), account -> {});
+    });
+
+    when(mockAccountsManager.updateDeviceAuthentication(any(), any(), any())).thenAnswer(answer -> {
+      answer.getArgument(1, Device.class).setAuthenticationCredentials(answer.getArgument(2, AuthenticationCredentials.class));
+      return mockAccountsManager.update(answer.getArgument(0, Account.class), account -> {});
     });
   }
 
