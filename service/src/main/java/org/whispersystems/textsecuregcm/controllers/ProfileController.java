@@ -388,6 +388,7 @@ public class ProfileController {
   private void checkFingerprintAndAdd(BatchIdentityCheckRequest.Element element,
       Collection<BatchIdentityCheckResponse.Element> responseElements, MessageDigest md) {
     accountsManager.getByAccountIdentifier(element.aci()).ifPresent(account -> {
+      if (account.getIdentityKey() == null) return;
       byte[] identityKeyBytes;
       try {
         identityKeyBytes = Base64.getDecoder().decode(account.getIdentityKey());
