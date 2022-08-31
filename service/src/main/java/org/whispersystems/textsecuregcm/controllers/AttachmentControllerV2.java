@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.auth.Auth;
+import java.security.SecureRandom;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import javax.ws.rs.GET;
@@ -19,19 +20,21 @@ import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
+import org.whispersystems.textsecuregcm.util.Conversions;
 import org.whispersystems.textsecuregcm.util.Pair;
 
 @Path("/v2/attachments")
-public class AttachmentControllerV2 extends AttachmentControllerBase {
+public class AttachmentControllerV2 {
 
   private final PostPolicyGenerator policyGenerator;
-  private final PolicySigner        policySigner;
-  private final RateLimiter         rateLimiter;
+  private final PolicySigner policySigner;
+  private final RateLimiter rateLimiter;
 
-  public AttachmentControllerV2(RateLimiters rateLimiters, String accessKey, String accessSecret, String region, String bucket) {
-    this.rateLimiter      = rateLimiters.getAttachmentLimiter();
-    this.policyGenerator  = new PostPolicyGenerator(region, bucket, accessKey);
-    this.policySigner     = new PolicySigner(accessSecret, region);
+  public AttachmentControllerV2(RateLimiters rateLimiters, String accessKey, String accessSecret, String region,
+      String bucket) {
+    this.rateLimiter = rateLimiters.getAttachmentLimiter();
+    this.policyGenerator = new PostPolicyGenerator(region, bucket, accessKey);
+    this.policySigner = new PolicySigner(accessSecret, region);
   }
 
   @Timed
@@ -54,5 +57,12 @@ public class AttachmentControllerV2 extends AttachmentControllerBase {
         policy.second(), signature);
   }
 
+  private long generateAttachmentId() {
+    byte[] attachmentBytes = new byte[8];
+    new SecureRandom().nextBytes(attachmentBytes);
+
+    attachmentBytes[0] = (byte) (attachmentBytes[0] & 0x7F);
+    return Conversions.byteArrayToLong(attachmentBytes);
+  }
 
 }

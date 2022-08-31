@@ -29,7 +29,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 
 @Path("/v3/attachments")
-public class AttachmentControllerV3 extends AttachmentControllerBase {
+public class AttachmentControllerV3 {
 
   @Nonnull
   private final RateLimiter rateLimiter;

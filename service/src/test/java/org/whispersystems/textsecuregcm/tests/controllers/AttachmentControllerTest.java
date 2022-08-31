@@ -35,13 +35,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedAccount;
 import org.whispersystems.textsecuregcm.auth.DisabledPermittedAuthenticatedAccount;
-import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV1;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV2;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV3;
-import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV1;
 import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV2;
 import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV3;
-import org.whispersystems.textsecuregcm.entities.AttachmentUri;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
@@ -83,7 +80,6 @@ class AttachmentControllerTest {
               ImmutableSet.of(AuthenticatedAccount.class, DisabledPermittedAuthenticatedAccount.class)))
               .setMapper(SystemMapper.getMapper())
               .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-              .addResource(new AttachmentControllerV1(rateLimiters, "accessKey", "accessSecret", "attachment-bucket"))
               .addResource(new AttachmentControllerV2(rateLimiters, "accessKey", "accessSecret", "us-east-1", "attachmentv2-bucket"))
               .addResource(new AttachmentControllerV3(rateLimiters, "some-cdn.signal.org", "signal@example.com", 1000, "/attach-here", RSA_PRIVATE_KEY_PEM))
               .build();
@@ -196,55 +192,6 @@ class AttachmentControllerTest {
                                  .get();
 
     assertThat(response.getStatus()).isEqualTo(401);
-  }
-
-
-  @Test
-  void testAcceleratedPut() {
-    AttachmentDescriptorV1 descriptor = resources.getJerseyTest()
-                                                 .target("/v1/attachments/")
-                                                 .request()
-                                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                                                 .get(AttachmentDescriptorV1.class);
-
-    assertThat(descriptor.getLocation()).startsWith("https://attachment-bucket.s3-accelerate.amazonaws.com");
-    assertThat(descriptor.getId()).isGreaterThan(0);
-    assertThat(descriptor.getIdString()).isNotBlank();
-  }
-
-  @Test
-  void testUnacceleratedPut() {
-    AttachmentDescriptorV1 descriptor = resources.getJerseyTest()
-                                                 .target("/v1/attachments/")
-                                                 .request()
-                                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-                                                 .get(AttachmentDescriptorV1.class);
-
-    assertThat(descriptor.getLocation()).startsWith("https://s3.amazonaws.com");
-    assertThat(descriptor.getId()).isGreaterThan(0);
-    assertThat(descriptor.getIdString()).isNotBlank();
-  }
-
-  @Test
-  void testAcceleratedGet() throws MalformedURLException {
-    AttachmentUri uri = resources.getJerseyTest()
-                                        .target("/v1/attachments/1234")
-                                        .request()
-                                        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                                        .get(AttachmentUri.class);
-
-    assertThat(uri.getLocation().getHost()).isEqualTo("attachment-bucket.s3-accelerate.amazonaws.com");
-  }
-
-  @Test
-  void testUnacceleratedGet() throws MalformedURLException {
-    AttachmentUri uri = resources.getJerseyTest()
-                                 .target("/v1/attachments/1234")
-                                 .request()
-                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-                                 .get(AttachmentUri.class);
-
-    assertThat(uri.getLocation().getHost()).isEqualTo("s3.amazonaws.com");
   }
 
 }

@@ -80,7 +80,6 @@ import org.whispersystems.textsecuregcm.badges.ResourceBundleLevelTranslator;
 import org.whispersystems.textsecuregcm.configuration.DirectoryServerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
-import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV1;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV2;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV3;
 import org.whispersystems.textsecuregcm.controllers.CertificateController;
@@ -136,7 +135,6 @@ import org.whispersystems.textsecuregcm.metrics.MicrometerRegistryManager;
 import org.whispersystems.textsecuregcm.metrics.NetworkReceivedGauge;
 import org.whispersystems.textsecuregcm.metrics.NetworkSentGauge;
 import org.whispersystems.textsecuregcm.metrics.OperatingSystemMemoryGauge;
-import org.whispersystems.textsecuregcm.push.PushLatencyManager;
 import org.whispersystems.textsecuregcm.metrics.ReportedMessageMetricsListener;
 import org.whispersystems.textsecuregcm.metrics.TrafficSource;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
@@ -148,6 +146,7 @@ import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.FcmSender;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.ProvisioningManager;
+import org.whispersystems.textsecuregcm.push.PushLatencyManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient;
@@ -632,7 +631,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(new KeysController(rateLimiters, keys, accountsManager));
 
     final List<Object> commonControllers = Lists.newArrayList(
-        new AttachmentControllerV1(rateLimiters, config.getAwsAttachmentsConfiguration().getAccessKey(), config.getAwsAttachmentsConfiguration().getAccessSecret(), config.getAwsAttachmentsConfiguration().getBucket()),
         new AttachmentControllerV2(rateLimiters, config.getAwsAttachmentsConfiguration().getAccessKey(), config.getAwsAttachmentsConfiguration().getAccessSecret(), config.getAwsAttachmentsConfiguration().getRegion(), config.getAwsAttachmentsConfiguration().getBucket()),
         new AttachmentControllerV3(rateLimiters, config.getGcpAttachmentsConfiguration().getDomain(), config.getGcpAttachmentsConfiguration().getEmail(), config.getGcpAttachmentsConfiguration().getMaxSizeInBytes(), config.getGcpAttachmentsConfiguration().getPathPrefix(), config.getGcpAttachmentsConfiguration().getRsaSigningKey()),
         new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().getCertificate(), config.getDeliveryCertificate().getPrivateKey(), config.getDeliveryCertificate().getExpiresDays()), zkAuthOperations, clock),
