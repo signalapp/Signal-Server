@@ -56,9 +56,7 @@ class BaseAccountAuthenticatorTest {
   void setup() {
     accountsManager = mock(AccountsManager.class);
     clock = mock(Clock.class);
-    ExperimentEnrollmentManager enrollmentManager = mock(ExperimentEnrollmentManager.class);
-    when(enrollmentManager.isEnrolled(any(UUID.class), any())).thenReturn(true);
-    baseAccountAuthenticator = new BaseAccountAuthenticator(accountsManager, clock, enrollmentManager);
+    baseAccountAuthenticator = new BaseAccountAuthenticator(accountsManager, clock);
 
     // We use static UUIDs here because the UUID affects the "date last seen" offset
     acct1 = AccountsHelper.generateTestAccount("+14088675309", UUID.fromString("c139cb3e-f70c-4460-b221-815e8bdf778f"), UUID.randomUUID(), List.of(generateTestDevice(yesterday)), null);

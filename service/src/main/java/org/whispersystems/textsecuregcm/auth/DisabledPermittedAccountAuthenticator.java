@@ -14,8 +14,8 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 public class DisabledPermittedAccountAuthenticator extends BaseAccountAuthenticator implements
     Authenticator<BasicCredentials, DisabledPermittedAuthenticatedAccount> {
 
-  public DisabledPermittedAccountAuthenticator(AccountsManager accountsManager, ExperimentEnrollmentManager enrollmentManager) {
-    super(accountsManager, enrollmentManager);
+  public DisabledPermittedAccountAuthenticator(AccountsManager accountsManager) {
+    super(accountsManager);
   }
 
   @Override

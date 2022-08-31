@@ -191,12 +191,10 @@ public class AuthHelper {
       testAccount.setup(ACCOUNTS_MANAGER);
     }
 
-    ExperimentEnrollmentManager experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
-    when(experimentEnrollmentManager.isEnrolled(any(UUID.class), any())).thenReturn(true);
     AuthFilter<BasicCredentials, AuthenticatedAccount> accountAuthFilter = new BasicCredentialAuthFilter.Builder<AuthenticatedAccount>().setAuthenticator(
-        new AccountAuthenticator(ACCOUNTS_MANAGER, experimentEnrollmentManager)).buildAuthFilter();
+        new AccountAuthenticator(ACCOUNTS_MANAGER)).buildAuthFilter();
     AuthFilter<BasicCredentials, DisabledPermittedAuthenticatedAccount> disabledPermittedAccountAuthFilter = new BasicCredentialAuthFilter.Builder<DisabledPermittedAuthenticatedAccount>().setAuthenticator(
-        new DisabledPermittedAccountAuthenticator(ACCOUNTS_MANAGER, experimentEnrollmentManager)).buildAuthFilter();
+        new DisabledPermittedAccountAuthenticator(ACCOUNTS_MANAGER)).buildAuthFilter();
 
     return new PolymorphicAuthDynamicFeature<>(ImmutableMap.of(AuthenticatedAccount.class, accountAuthFilter,
         DisabledPermittedAuthenticatedAccount.class, disabledPermittedAccountAuthFilter));

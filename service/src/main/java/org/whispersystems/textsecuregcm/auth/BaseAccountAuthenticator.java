@@ -17,7 +17,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
 import org.apache.commons.lang3.StringUtils;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -34,21 +33,18 @@ public class BaseAccountAuthenticator {
 
   private static final String DAYS_SINCE_LAST_SEEN_DISTRIBUTION_NAME = name(BaseAccountAuthenticator.class, "daysSinceLastSeen");
   private static final String IS_PRIMARY_DEVICE_TAG = "isPrimary";
-  private static final String AUTH_V2_REWRITE_EXPERIMENT_NAME = "authv2-rewrite";
 
   private final AccountsManager accountsManager;
   private final Clock           clock;
-  private final ExperimentEnrollmentManager enrollmentManager;
 
-  public BaseAccountAuthenticator(AccountsManager accountsManager, ExperimentEnrollmentManager enrollmentManager) {
-    this(accountsManager, Clock.systemUTC(), enrollmentManager);
+  public BaseAccountAuthenticator(AccountsManager accountsManager) {
+    this(accountsManager, Clock.systemUTC());
   }
 
   @VisibleForTesting
-  public BaseAccountAuthenticator(AccountsManager accountsManager, Clock clock, ExperimentEnrollmentManager enrollmentManager) {
+  public BaseAccountAuthenticator(AccountsManager accountsManager, Clock clock) {
     this.accountsManager   = accountsManager;
     this.clock             = clock;
-    this.enrollmentManager = enrollmentManager;
   }
 
   static Pair<String, Long> getIdentifierAndDeviceId(final String basicUsername) {
@@ -112,8 +108,7 @@ public class BaseAccountAuthenticator {
       if (deviceAuthenticationCredentials.verify(basicCredentials.getPassword())) {
         succeeded = true;
         Account authenticatedAccount = updateLastSeen(account.get(), device.get());
-        if (deviceAuthenticationCredentials.getVersion() != AuthenticationCredentials.CURRENT_VERSION
-            && enrollmentManager.isEnrolled(accountUuid, AUTH_V2_REWRITE_EXPERIMENT_NAME)) {
+        if (deviceAuthenticationCredentials.getVersion() != AuthenticationCredentials.CURRENT_VERSION) {
           authenticatedAccount = accountsManager.updateDeviceAuthentication(
               authenticatedAccount,
               device.get(),

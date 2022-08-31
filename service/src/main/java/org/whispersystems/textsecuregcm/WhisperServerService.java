@@ -477,8 +477,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ReportedMessageMetricsListener reportedMessageMetricsListener = new ReportedMessageMetricsListener(accountsManager);
     reportMessageManager.addListener(reportedMessageMetricsListener);
 
-    AccountAuthenticator                  accountAuthenticator                  = new AccountAuthenticator(accountsManager, experimentEnrollmentManager);
-    DisabledPermittedAccountAuthenticator disabledPermittedAccountAuthenticator = new DisabledPermittedAccountAuthenticator(accountsManager, experimentEnrollmentManager);
+    AccountAuthenticator                  accountAuthenticator                  = new AccountAuthenticator(accountsManager);
+    DisabledPermittedAccountAuthenticator disabledPermittedAccountAuthenticator = new DisabledPermittedAccountAuthenticator(accountsManager);
 
     TwilioSmsSender          twilioSmsSender    = new TwilioSmsSender(config.getTwilioConfiguration(), dynamicConfigurationManager);
     SmsSender                smsSender          = new SmsSender(twilioSmsSender);

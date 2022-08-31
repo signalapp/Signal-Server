@@ -13,8 +13,8 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 public class AccountAuthenticator extends BaseAccountAuthenticator implements
     Authenticator<BasicCredentials, AuthenticatedAccount> {
 
-  public AccountAuthenticator(AccountsManager accountsManager, ExperimentEnrollmentManager enrollmentManager) {
-    super(accountsManager, enrollmentManager);
+  public AccountAuthenticator(AccountsManager accountsManager) {
+    super(accountsManager);
   }
 
   @Override
