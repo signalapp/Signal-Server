@@ -193,7 +193,7 @@ class AccountsManagerChangeNumberIntegrationTest {
           mock(DirectoryQueue.class),
           mock(Keys.class),
           mock(MessagesManager.class),
-          mock(ReservedUsernames.class),
+          mock(ProhibitedUsernames.class),
           mock(ProfilesManager.class),
           mock(StoredVerificationCodeManager.class),
           secureStorageClient,

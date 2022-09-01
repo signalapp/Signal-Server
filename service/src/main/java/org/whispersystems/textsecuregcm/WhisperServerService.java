@@ -195,7 +195,7 @@ import org.whispersystems.textsecuregcm.storage.RemoteConfigs;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
-import org.whispersystems.textsecuregcm.storage.ReservedUsernames;
+import org.whispersystems.textsecuregcm.storage.ProhibitedUsernames;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.VerificationCodeStore;
@@ -337,7 +337,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbTables().getAccounts().getScanPageSize());
     PhoneNumberIdentifiers phoneNumberIdentifiers = new PhoneNumberIdentifiers(dynamoDbClient,
         config.getDynamoDbTables().getPhoneNumberIdentifiers().getTableName());
-    ReservedUsernames reservedUsernames = new ReservedUsernames(dynamoDbClient,
+    ProhibitedUsernames prohibitedUsernames = new ProhibitedUsernames(dynamoDbClient,
         config.getDynamoDbTables().getReservedUsernames().getTableName());
     Profiles profiles = new Profiles(dynamoDbClient, dynamoDbAsyncClient,
         config.getDynamoDbTables().getProfiles().getTableName());
@@ -447,7 +447,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     DeletedAccountsManager deletedAccountsManager = new DeletedAccountsManager(deletedAccounts,
         deletedAccountsLockDynamoDbClient, config.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
-        deletedAccountsManager, directoryQueue, keys, messagesManager, reservedUsernames, profilesManager,
+        deletedAccountsManager, directoryQueue, keys, messagesManager, prohibitedUsernames, profilesManager,
         pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager, usernameGenerator,
         experimentEnrollmentManager, clock);
     RemoteConfigsManager       remoteConfigsManager       = new RemoteConfigsManager(remoteConfigs);

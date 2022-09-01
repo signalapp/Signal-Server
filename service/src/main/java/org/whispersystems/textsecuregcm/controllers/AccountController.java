@@ -68,11 +68,14 @@ import org.whispersystems.textsecuregcm.entities.AccountIdentifierResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ChangePhoneNumberRequest;
+import org.whispersystems.textsecuregcm.entities.ConfirmUsernameRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceName;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
+import org.whispersystems.textsecuregcm.entities.ReserveUsernameRequest;
+import org.whispersystems.textsecuregcm.entities.ReserveUsernameResponse;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.entities.UsernameRequest;
 import org.whispersystems.textsecuregcm.entities.UsernameResponse;
@@ -92,6 +95,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.UsernameNotAvailableException;
+import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
 import org.whispersystems.textsecuregcm.util.Constants;
 import org.whispersystems.textsecuregcm.util.ForwardedIpUtil;
 import org.whispersystems.textsecuregcm.util.Hex;
@@ -642,6 +646,52 @@ public class AccountController {
     accounts.clearUsername(auth.getAccount());
   }
 
+
+  @Timed
+  @PUT
+  @Path("/username/reserved")
+  @Produces(MediaType.APPLICATION_JSON)
+  @Consumes(MediaType.APPLICATION_JSON)
+  public ReserveUsernameResponse reserveUsername(@Auth AuthenticatedAccount auth,
+      @HeaderParam("X-Signal-Agent") String userAgent,
+      @NotNull @Valid ReserveUsernameRequest usernameRequest) throws RateLimitExceededException {
+
+    rateLimiters.getUsernameReserveLimiter().validate(auth.getAccount().getUuid());
+
+    try {
+      final AccountsManager.UsernameReservation reservation = accounts.reserveUsername(
+          auth.getAccount(),
+          usernameRequest.nickname()
+      );
+      return new ReserveUsernameResponse(reservation.reservedUsername(), reservation.reservationToken());
+    } catch (final UsernameNotAvailableException e) {
+      throw new WebApplicationException(Status.CONFLICT);
+    }
+  }
+
+  @Timed
+  @PUT
+  @Path("/username/confirm")
+  @Produces(MediaType.APPLICATION_JSON)
+  @Consumes(MediaType.APPLICATION_JSON)
+  public UsernameResponse confirmUsername(@Auth AuthenticatedAccount auth,
+      @HeaderParam("X-Signal-Agent") String userAgent,
+      @NotNull @Valid ConfirmUsernameRequest confirmRequest) throws RateLimitExceededException {
+    rateLimiters.getUsernameSetLimiter().validate(auth.getAccount().getUuid());
+
+    try {
+      final Account account = accounts.confirmReservedUsername(auth.getAccount(), confirmRequest.usernameToConfirm(), confirmRequest.reservationToken());
+      return account
+          .getUsername()
+          .map(UsernameResponse::new)
+          .orElseThrow(() -> new IllegalStateException("Could not get username after setting"));
+    } catch (final UsernameReservationNotFoundException e) {
+      throw new WebApplicationException(Status.CONFLICT);
+    } catch (final UsernameNotAvailableException e) {
+      throw new WebApplicationException(Status.GONE);
+    }
+  }
+
   @Timed
   @PUT
   @Path("/username")
@@ -652,14 +702,7 @@ public class AccountController {
       @HeaderParam("X-Signal-Agent") String userAgent,
       @NotNull @Valid UsernameRequest usernameRequest) throws RateLimitExceededException {
     rateLimiters.getUsernameSetLimiter().validate(auth.getAccount().getUuid());
-
-    if (StringUtils.isNotBlank(usernameRequest.existingUsername()) &&
-        !UsernameGenerator.isStandardFormat(usernameRequest.existingUsername())) {
-      // Technically, a username may not be in the nickname#discriminator format
-      // if created through some out-of-band mechanism, but it is atypical.
-      Metrics.counter(NONSTANDARD_USERNAME_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
-          .increment();
-    }
+    checkUsername(usernameRequest.existingUsername(), userAgent);
 
     try {
       final Account account = accounts.setUsername(auth.getAccount(), usernameRequest.nickname(),
@@ -688,14 +731,9 @@ public class AccountController {
       throw new BadRequestException();
     }
 
-    if (!UsernameGenerator.isStandardFormat(username)) {
-      // Technically, a username may not be in the nickname#discriminator format
-      // if created through some out-of-band mechanism, but it is atypical.
-      Metrics.counter(NONSTANDARD_USERNAME_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
-          .increment();
-    }
-
     rateLimitByClientIp(rateLimiters.getUsernameLookupLimiter(), forwardedFor);
+
+    checkUsername(username, userAgent);
 
     return accounts
         .getByUsername(username)
@@ -864,6 +902,15 @@ public class AccountController {
   @Path("/me")
   public void deleteAccount(@Auth AuthenticatedAccount auth) throws InterruptedException {
     accounts.delete(auth.getAccount(), AccountsManager.DeletionReason.USER_REQUEST);
+  }
+
+  private void checkUsername(final String username, final String userAgent) {
+    if (StringUtils.isNotBlank(username) && !UsernameGenerator.isStandardFormat(username)) {
+      // Technically, a username may not be in the nickname#discriminator format
+      // if created through some out-of-band mechanism, but it is atypical.
+      Metrics.counter(NONSTANDARD_USERNAME_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
+          .increment();
+    }
   }
 
   private boolean shouldAutoBlock(String sourceHost) {

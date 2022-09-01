@@ -17,6 +17,9 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.uuid.UUIDComparator;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -26,6 +29,7 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -74,6 +78,7 @@ class AccountsTest {
           .build())
       .build();
 
+  private Clock mockClock;
   private DynamicConfigurationManager<DynamicConfiguration> mockDynamicConfigManager;
   private Accounts accounts;
 
@@ -130,7 +135,11 @@ class AccountsTest {
     when(mockDynamicConfigManager.getConfiguration())
         .thenReturn(new DynamicConfiguration());
 
+    mockClock = mock(Clock.class);
+    when(mockClock.instant()).thenReturn(Instant.EPOCH);
+
     this.accounts = new Accounts(
+        mockClock,
         mockDynamicConfigManager,
         dynamoDbExtension.getDynamoDbClient(),
         dynamoDbExtension.getDynamoDbAsyncClient(),
@@ -608,7 +617,7 @@ class AccountsTest {
   }
 
   @Test
-  void testSetUsername() throws UsernameNotAvailableException {
+  void testSetUsername() {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     accounts.create(account);
 
@@ -679,7 +688,7 @@ class AccountsTest {
   }
 
   @Test
-  void testClearUsername() throws UsernameNotAvailableException {
+  void testClearUsername() {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     accounts.create(account);
 
@@ -704,7 +713,7 @@ class AccountsTest {
   }
 
   @Test
-  void testClearUsernameVersionMismatch() throws UsernameNotAvailableException {
+  void testClearUsernameVersionMismatch() {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     accounts.create(account);
 
@@ -717,6 +726,154 @@ class AccountsTest {
     assertThatExceptionOfType(ContestedOptimisticLockException.class).isThrownBy(() -> accounts.clearUsername(account));
 
     assertThat(account.getUsername()).hasValueSatisfying(u -> assertThat(u).isEqualTo(username));
+  }
+
+  @Test
+  void testReservedUsername() {
+    final Account account1 = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
+    accounts.create(account1);
+    final Account account2 = generateAccount("+18005552222", UUID.randomUUID(), UUID.randomUUID());
+    accounts.create(account2);
+
+    final UUID token = accounts.reserveUsername(account1, "garfield", Duration.ofDays(1));
+    assertThat(account1.getReservedUsernameHash()).get().isEqualTo(Accounts.reservedUsernameHash(account1.getUuid(), "garfield"));
+    assertThat(account1.getUsername()).isEmpty();
+
+    // account 2 shouldn't be able to reserve the username
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.reserveUsername(account2, "garfield", Duration.ofDays(1)));
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.confirmUsername(account2, "garfield", UUID.randomUUID()));
+    assertThat(accounts.getByUsername("garfield")).isEmpty();
+
+    accounts.confirmUsername(account1, "garfield", token);
+    assertThat(account1.getReservedUsernameHash()).isEmpty();
+    assertThat(account1.getUsername()).get().isEqualTo("garfield");
+    assertThat(accounts.getByUsername("garfield").get().getUuid()).isEqualTo(account1.getUuid());
+
+    assertThat(dynamoDbExtension.getDynamoDbClient()
+        .getItem(GetItemRequest.builder()
+            .tableName(USERNAME_CONSTRAINT_TABLE_NAME)
+            .key(Map.of(Accounts.ATTR_USERNAME, AttributeValues.fromString("garfield")))
+            .build())
+        .item())
+        .doesNotContainKey(Accounts.ATTR_TTL);
+  }
+
+  @Test
+  void testUsernameAvailable() {
+    final Account account1 = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
+    accounts.create(account1);
+
+    final String username = "unsinkablesam";
+
+    final UUID token = accounts.reserveUsername(account1, username, Duration.ofDays(1));
+    assertThat(accounts.usernameAvailable(username)).isFalse();
+    assertThat(accounts.usernameAvailable(Optional.empty(), username)).isFalse();
+    assertThat(accounts.usernameAvailable(Optional.of(UUID.randomUUID()), username)).isFalse();
+    assertThat(accounts.usernameAvailable(Optional.of(token), username)).isTrue();
+
+    accounts.confirmUsername(account1, username, token);
+    assertThat(accounts.usernameAvailable(username)).isFalse();
+    assertThat(accounts.usernameAvailable(Optional.empty(), username)).isFalse();
+    assertThat(accounts.usernameAvailable(Optional.of(UUID.randomUUID()), username)).isFalse();
+    assertThat(accounts.usernameAvailable(Optional.of(token), username)).isFalse();
+  }
+
+
+    @Test
+  void testReservedUsernameWrongToken() {
+    final Account account = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
+    accounts.create(account);
+    accounts.reserveUsername(account, "grumpy", Duration.ofDays(1));
+    assertThat(account.getReservedUsernameHash())
+        .get()
+        .isEqualTo(Accounts.reservedUsernameHash(account.getUuid(), "grumpy"));
+    assertThat(account.getUsername()).isEmpty();
+
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.confirmUsername(account, "grumpy", UUID.randomUUID()));
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.setUsername(account, "grumpy"));
+  }
+
+  @Test
+  void testReserveExpiredReservedUsername() {
+    final Account account1 = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
+    accounts.create(account1);
+    final Account account2 = generateAccount("+18005552222", UUID.randomUUID(), UUID.randomUUID());
+    accounts.create(account2);
+
+    accounts.reserveUsername(account1, "snowball#0002", Duration.ofDays(2));
+
+    Supplier<UUID> take = () -> accounts.reserveUsername(account2, "snowball#0002", Duration.ofDays(2));
+
+    for (int i = 0; i <= 2; i++) {
+      when(mockClock.instant()).thenReturn(Instant.EPOCH.plus(Duration.ofDays(i)));
+      assertThrows(ContestedOptimisticLockException.class, take::get);
+    }
+
+    // after 2 days, can take the name
+    when(mockClock.instant()).thenReturn(Instant.EPOCH.plus(Duration.ofDays(2)).plus(Duration.ofSeconds(1)));
+    final UUID token = take.get();
+
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.reserveUsername(account1, "snowball#0002", Duration.ofDays(2)));
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.setUsername(account1, "snowball#0002"));
+
+    accounts.confirmUsername(account2, "snowball#0002", token);
+    assertThat(accounts.getByUsername("snowball#0002").get().getUuid()).isEqualTo(account2.getUuid());
+  }
+
+  @Test
+  void testTakeExpiredReservedUsername() {
+    final Account account1 = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
+    accounts.create(account1);
+    final Account account2 = generateAccount("+18005552222", UUID.randomUUID(), UUID.randomUUID());
+    accounts.create(account2);
+
+    accounts.reserveUsername(account1, "snowball#0002", Duration.ofDays(2));
+
+    Runnable take = () -> accounts.setUsername(account2, "snowball#0002");
+
+    for (int i = 0; i <= 2; i++) {
+      when(mockClock.instant()).thenReturn(Instant.EPOCH.plus(Duration.ofDays(i)));
+      assertThrows(ContestedOptimisticLockException.class, take::run);
+    }
+
+    // after 2 days, can take the name
+    when(mockClock.instant()).thenReturn(Instant.EPOCH.plus(Duration.ofDays(2)).plus(Duration.ofSeconds(1)));
+    take.run();
+
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.reserveUsername(account1, "snowball#0002", Duration.ofDays(2)));
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.setUsername(account1, "snowball#0002"));
+    assertThat(accounts.getByUsername("snowball#0002").get().getUuid()).isEqualTo(account2.getUuid());
+  }
+
+  @Test
+  void testRetryReserveUsername() {
+    final Account account = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
+    accounts.create(account);
+    accounts.reserveUsername(account, "jorts", Duration.ofDays(2));
+
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.reserveUsername(account, "jorts", Duration.ofDays(2)),
+        "Shouldn't be able to re-reserve same username (would extend ttl)");
+  }
+
+  @Test
+  void testReserveUsernameVersionConflict() {
+    final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
+    accounts.create(account);
+    account.setVersion(account.getVersion() + 12);
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.reserveUsername(account, "salem", Duration.ofDays(1)));
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.setUsername(account, "salem"));
+
   }
 
   private Device generateDevice(long id) {

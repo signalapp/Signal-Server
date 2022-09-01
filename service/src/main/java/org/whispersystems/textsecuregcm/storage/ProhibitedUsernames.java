@@ -26,7 +26,7 @@ import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 import software.amazon.awssdk.services.dynamodb.paginators.ScanIterable;
 
-public class ReservedUsernames {
+public class ProhibitedUsernames {
 
   private final DynamoDbClient dynamoDbClient;
   private final String tableName;
@@ -44,17 +44,17 @@ public class ReservedUsernames {
   static final String KEY_PATTERN = "P";
   private static final String ATTR_RESERVED_FOR_UUID = "U";
 
-  private static final Timer IS_RESERVED_TIMER = Metrics.timer(name(ReservedUsernames.class, "isReserved"));
+  private static final Timer IS_PROHIBITED_TIMER = Metrics.timer(name(ProhibitedUsernames.class, "isProhibited"));
 
-  private static final Logger log = LoggerFactory.getLogger(ReservedUsernames.class);
+  private static final Logger log = LoggerFactory.getLogger(ProhibitedUsernames.class);
 
-  public ReservedUsernames(final DynamoDbClient dynamoDbClient, final String tableName) {
+  public ProhibitedUsernames(final DynamoDbClient dynamoDbClient, final String tableName) {
     this.dynamoDbClient = dynamoDbClient;
     this.tableName = tableName;
   }
 
-  public boolean isReserved(final String nickname, final UUID accountIdentifier) {
-    return IS_RESERVED_TIMER.record(() -> {
+  public boolean isProhibited(final String nickname, final UUID accountIdentifier) {
+    return IS_PROHIBITED_TIMER.record(() -> {
       final ScanIterable scanIterable = dynamoDbClient.scanPaginator(ScanRequest.builder()
           .tableName(tableName)
           .build());
@@ -80,7 +80,13 @@ public class ReservedUsernames {
     });
   }
 
-  public void reserveUsername(final String pattern, final UUID reservedFor) {
+  /**
+   * Prohibits username except for all accounts except `reservedFor`
+   *
+   * @param pattern pattern to prohibit
+   * @param reservedFor an account that is allowed to use names in the pattern
+   */
+  public void prohibitUsername(final String pattern, final UUID reservedFor) {
     dynamoDbClient.putItem(PutItemRequest.builder()
         .tableName(tableName)
         .item(Map.of(

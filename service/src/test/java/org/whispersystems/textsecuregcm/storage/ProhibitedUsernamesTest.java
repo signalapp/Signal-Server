@@ -17,37 +17,37 @@ import org.junit.jupiter.params.provider.MethodSource;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
-class ReservedUsernamesTest {
+class ProhibitedUsernamesTest {
 
   private static final String RESERVED_USERNAMES_TABLE_NAME = "reserved_usernames_test";
 
   @RegisterExtension
   static DynamoDbExtension dynamoDbExtension = DynamoDbExtension.builder()
       .tableName(RESERVED_USERNAMES_TABLE_NAME)
-      .hashKey(ReservedUsernames.KEY_PATTERN)
+      .hashKey(ProhibitedUsernames.KEY_PATTERN)
       .attributeDefinition(AttributeDefinition.builder()
-          .attributeName(ReservedUsernames.KEY_PATTERN)
+          .attributeName(ProhibitedUsernames.KEY_PATTERN)
           .attributeType(ScalarAttributeType.S)
           .build())
       .build();
 
   private static final UUID RESERVED_FOR_UUID = UUID.randomUUID();
 
-  private ReservedUsernames reservedUsernames;
+  private ProhibitedUsernames prohibitedUsernames;
 
   @BeforeEach
   void setUp() {
-    reservedUsernames =
-        new ReservedUsernames(dynamoDbExtension.getDynamoDbClient(), RESERVED_USERNAMES_TABLE_NAME);
+    prohibitedUsernames =
+        new ProhibitedUsernames(dynamoDbExtension.getDynamoDbClient(), RESERVED_USERNAMES_TABLE_NAME);
   }
 
   @ParameterizedTest
   @MethodSource
   void isReserved(final String username, final UUID uuid, final boolean expectReserved) {
-    reservedUsernames.reserveUsername(".*myusername.*", RESERVED_FOR_UUID);
-    reservedUsernames.reserveUsername("^foobar$", RESERVED_FOR_UUID);
+    prohibitedUsernames.prohibitUsername(".*myusername.*", RESERVED_FOR_UUID);
+    prohibitedUsernames.prohibitUsername("^foobar$", RESERVED_FOR_UUID);
 
-    assertEquals(expectReserved, reservedUsernames.isReserved(username, uuid));
+    assertEquals(expectReserved, prohibitedUsernames.isProhibited(username, uuid));
   }
 
   private static Stream<Arguments> isReserved() {

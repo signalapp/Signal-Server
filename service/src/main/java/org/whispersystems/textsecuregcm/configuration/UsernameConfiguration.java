@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.validation.constraints.Min;
+import java.time.Duration;
 
 public class UsernameConfiguration {
 
@@ -22,6 +23,9 @@ public class UsernameConfiguration {
   @Min(1)
   private int attemptsPerWidth = 10;
 
+  @JsonProperty
+  private Duration reservationTtl = Duration.ofMinutes(5);
+
   public int getDiscriminatorInitialWidth() {
     return discriminatorInitialWidth;
   }
@@ -32,5 +36,9 @@ public class UsernameConfiguration {
 
   public int getAttemptsPerWidth() {
     return attemptsPerWidth;
+  }
+
+  public Duration getReservationTtl() {
+    return reservationTtl;
   }
 }

@@ -71,7 +71,7 @@ class AccountsManagerTest {
   private Keys keys;
   private MessagesManager messagesManager;
   private ProfilesManager profilesManager;
-  private ReservedUsernames reservedUsernames;
+  private ProhibitedUsernames prohibitedUsernames;
   private ExperimentEnrollmentManager enrollmentManager;
 
   private Map<String, UUID> phoneNumberIdentifiersByE164;
@@ -87,6 +87,8 @@ class AccountsManagerTest {
     return null;
   };
 
+  private static final UUID RESERVATION_TOKEN = UUID.randomUUID();
+
   @BeforeEach
   void setup() throws InterruptedException {
     accounts = mock(Accounts.class);
@@ -95,7 +97,7 @@ class AccountsManagerTest {
     keys = mock(Keys.class);
     messagesManager = mock(MessagesManager.class);
     profilesManager = mock(ProfilesManager.class);
-    reservedUsernames = mock(ReservedUsernames.class);
+    prohibitedUsernames = mock(ProhibitedUsernames.class);
 
     //noinspection unchecked
     commands = mock(RedisAdvancedClusterCommands.class);
@@ -149,7 +151,7 @@ class AccountsManagerTest {
         directoryQueue,
         keys,
         messagesManager,
-        reservedUsernames,
+        prohibitedUsernames,
         profilesManager,
         mock(StoredVerificationCodeManager.class),
         storageClient,
@@ -738,6 +740,65 @@ class AccountsManagerTest {
   }
 
   @Test
+  void testReserveUsername() throws UsernameNotAvailableException {
+    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
+    final String nickname = "beethoven";
+    accountsManager.reserveUsername(account, nickname);
+    verify(accounts).reserveUsername(eq(account),  startsWith(nickname), any());
+  }
+
+  @Test
+  void testSetReservedUsername() throws UsernameNotAvailableException, UsernameReservationNotFoundException {
+    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
+    final String reserved = "scooby#1234";
+    setReservationHash(account, reserved);
+    when(accounts.usernameAvailable(eq(Optional.of(RESERVATION_TOKEN)), eq(reserved))).thenReturn(true);
+    accountsManager.confirmReservedUsername(account, reserved, RESERVATION_TOKEN);
+    verify(accounts).confirmUsername(eq(account), eq(reserved), eq(RESERVATION_TOKEN));
+  }
+
+  @Test
+  void testSetReservedHashNameMismatch() {
+    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
+    setReservationHash(account, "pluto#1234");
+    when(accounts.usernameAvailable(eq(Optional.of(RESERVATION_TOKEN)), eq("pluto#1234"))).thenReturn(true);
+    assertThrows(UsernameReservationNotFoundException.class,
+        () -> accountsManager.confirmReservedUsername(account, "goofy#1234", RESERVATION_TOKEN));
+  }
+
+  @Test
+  void testSetReservedHashAciMismatch() {
+    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
+    final String reserved = "toto#1234";
+    account.setReservedUsernameHash(Accounts.reservedUsernameHash(UUID.randomUUID(), reserved));
+    when(accounts.usernameAvailable(eq(Optional.of(RESERVATION_TOKEN)), eq(reserved))).thenReturn(true);
+    assertThrows(UsernameReservationNotFoundException.class,
+        () -> accountsManager.confirmReservedUsername(account, reserved, RESERVATION_TOKEN));
+  }
+
+  @Test
+  void testSetReservedLapsed() {
+    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
+    final String reserved = "porkchop#1234";
+    // name was reserved, but the reservation lapsed and another account took it
+    setReservationHash(account, reserved);
+    when(accounts.usernameAvailable(eq(Optional.of(RESERVATION_TOKEN)), eq(reserved))).thenReturn(false);
+    assertThrows(UsernameNotAvailableException.class, () -> accountsManager.confirmReservedUsername(account, reserved, RESERVATION_TOKEN));
+    verify(accounts, never()).confirmUsername(any(), any(), any());
+  }
+
+  @Test
+  void testSetReservedRetry() throws UsernameNotAvailableException, UsernameReservationNotFoundException {
+    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
+    final String username = "santaslittlehelper#1234";
+    account.setUsername(username);
+
+    // reserved username already set, should be treated as a replay
+    accountsManager.confirmReservedUsername(account, username, RESERVATION_TOKEN);
+    verifyNoInteractions(accounts);
+  }
+
+  @Test
   void testSetUsernameSameUsername() {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
     final String nickname = "test";
@@ -761,7 +822,29 @@ class AccountsManagerTest {
   }
 
   @Test
-  void testSetUsernameExpandDiscriminator() throws UsernameNotAvailableException {
+  void testReserveUsernameReroll() throws UsernameNotAvailableException {
+    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
+    final String nickname = "clifford";
+    final String username = nickname + "#ZZZ";
+    account.setUsername(username);
+
+    // given the correct old username, should reroll discriminator even if the nick matches
+    accountsManager.reserveUsername(account, nickname);
+    verify(accounts).reserveUsername(eq(account), and(startsWith(nickname), not(eq(username))), any());
+  }
+
+  @Test
+  void testSetReservedUsernameWithNoReservation() {
+    final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
+        new ArrayList<>(), new byte[16]);
+    assertThrows(UsernameReservationNotFoundException.class,
+        () -> accountsManager.confirmReservedUsername(account, "laika#1234", RESERVATION_TOKEN));
+    verify(accounts, never()).confirmUsername(any(), any(), any());
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testUsernameExpandDiscriminator(boolean reserve) throws UsernameNotAvailableException {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
     final String nickname = "test";
 
@@ -775,8 +858,14 @@ class AccountsManagerTest {
     when(accounts.usernameAvailable(any())).thenReturn(false);
     when(accounts.usernameAvailable(argThat(isWide))).thenReturn(true);
 
-    accountsManager.setUsername(account, nickname, null);
-    verify(accounts).setUsername(eq(account), and(startsWith(nickname), argThat(isWide)));
+    if (reserve) {
+      accountsManager.reserveUsername(account, nickname);
+      verify(accounts).reserveUsername(eq(account), and(startsWith(nickname), argThat(isWide)), any());
+
+    } else {
+      accountsManager.setUsername(account, nickname, null);
+      verify(accounts).setUsername(eq(account), and(startsWith(nickname), argThat(isWide)));
+    }
   }
 
   @Test
@@ -801,7 +890,7 @@ class AccountsManagerTest {
   @Test
   void testSetUsernameReserved() {
     final String nickname = "reserved";
-    when(reservedUsernames.isReserved(eq(nickname), any())).thenReturn(true);
+    when(prohibitedUsernames.isProhibited(eq(nickname), any())).thenReturn(true);
 
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
 
@@ -821,6 +910,10 @@ class AccountsManagerTest {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
     when(enrollmentManager.isEnrolled(account.getUuid(), AccountsManager.USERNAME_EXPERIMENT_NAME)).thenReturn(false);
     assertThrows(UsernameNotAvailableException.class, () -> accountsManager.setUsername(account, "n00bkiller", null));
+  }
+
+  private void setReservationHash(final Account account, final String reservedUsername) {
+    account.setReservedUsernameHash(Accounts.reservedUsernameHash(account.getUuid(), reservedUsername));
   }
 
   private static Device generateTestDevice(final long lastSeen) {

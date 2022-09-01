@@ -13,6 +13,7 @@ import io.micrometer.core.instrument.Metrics;
 import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.configuration.UsernameConfiguration;
 import org.whispersystems.textsecuregcm.storage.UsernameNotAvailableException;
+import java.time.Duration;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -41,16 +42,21 @@ public class UsernameGenerator {
   private final int initialWidth;
   private final int discriminatorMaxWidth;
   private final int attemptsPerWidth;
+  private final Duration reservationTtl;
 
   public UsernameGenerator(UsernameConfiguration configuration) {
-    this(configuration.getDiscriminatorInitialWidth(), configuration.getDiscriminatorMaxWidth(), configuration.getAttemptsPerWidth());
+    this(configuration.getDiscriminatorInitialWidth(),
+        configuration.getDiscriminatorMaxWidth(),
+        configuration.getAttemptsPerWidth(),
+        configuration.getReservationTtl());
   }
 
   @VisibleForTesting
-  public UsernameGenerator(int initialWidth, int discriminatorMaxWidth, int attemptsPerWidth) {
+  public UsernameGenerator(int initialWidth, int discriminatorMaxWidth, int attemptsPerWidth, final Duration reservationTtl) {
     this.initialWidth = initialWidth;
     this.discriminatorMaxWidth = discriminatorMaxWidth;
     this.attemptsPerWidth = attemptsPerWidth;
+    this.reservationTtl = reservationTtl;
   }
 
   /**
@@ -107,6 +113,10 @@ public class UsernameGenerator {
     }
     // zero pad discriminators less than the discriminator initial width
     return String.format("%s#%0" + initialWidth + "d", nickname, discriminator);
+  }
+
+  public Duration getReservationTtl() {
+    return reservationTtl;
   }
 
   public static boolean isValidNickname(final String nickname) {

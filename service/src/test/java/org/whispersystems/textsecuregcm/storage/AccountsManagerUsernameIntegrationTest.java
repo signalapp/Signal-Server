@@ -8,6 +8,8 @@ package org.whispersystems.textsecuregcm.storage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -22,6 +24,8 @@ import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.UsernameGenerator;
 import software.amazon.awssdk.services.dynamodb.model.*;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.function.Consumer;
 
@@ -110,7 +114,11 @@ class AccountsManagerUsernameIntegrationTest {
         .build();
 
     ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbClient().createTable(createPhoneNumberIdentifierTableRequest);
+    buildAccountsManager(1, 2, 10);
+  }
 
+  private void buildAccountsManager(final int initialWidth, int discriminatorMaxWidth, int attemptsPerWidth)
+      throws InterruptedException {
     @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
         mock(DynamicConfigurationManager.class);
 
@@ -127,6 +135,8 @@ class AccountsManagerUsernameIntegrationTest {
         USERNAMES_TABLE_NAME,
         SCAN_PAGE_SIZE));
 
+    usernameGenerator = new UsernameGenerator(initialWidth, discriminatorMaxWidth, attemptsPerWidth,
+        Duration.ofDays(1));
     final DeletedAccountsManager deletedAccountsManager = mock(DeletedAccountsManager.class);
     doAnswer((final InvocationOnMock invocationOnMock) -> {
       @SuppressWarnings("unchecked")
@@ -141,8 +151,6 @@ class AccountsManagerUsernameIntegrationTest {
     final ExperimentEnrollmentManager experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
     when(experimentEnrollmentManager.isEnrolled(any(UUID.class), eq(AccountsManager.USERNAME_EXPERIMENT_NAME)))
         .thenReturn(true);
-
-    usernameGenerator = new UsernameGenerator(1, 2, 10);
     accountsManager = new AccountsManager(
         accounts,
         phoneNumberIdentifiers,
@@ -151,7 +159,7 @@ class AccountsManagerUsernameIntegrationTest {
         mock(DirectoryQueue.class),
         mock(Keys.class),
         mock(MessagesManager.class),
-        mock(ReservedUsernames.class),
+        mock(ProhibitedUsernames.class),
         mock(ProfilesManager.class),
         mock(StoredVerificationCodeManager.class),
         mock(SecureStorageClient.class),
@@ -190,19 +198,32 @@ class AccountsManagerUsernameIntegrationTest {
     assertThat(accountsManager.getByAccountIdentifier(account.getUuid()).orElseThrow().getUsername()).isEmpty();
   }
 
-  @Test
-  void testNoUsernames() throws InterruptedException {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testNoUsernames(boolean reserve) throws InterruptedException {
     Account account = accountsManager.create("+18005551111", "password", null, new AccountAttributes(),
         new ArrayList<>());
     for (int i = 1; i <= 99; i++) {
+      final Map<String, AttributeValue> item = new HashMap<>(Map.of(
+          Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(UUID.randomUUID()),
+          Accounts.ATTR_USERNAME, AttributeValues.fromString(usernameGenerator.fromParts("n00bkiller", i))));
+      // half of these are taken usernames, half are only reservations (have a TTL)
+      if (i % 2 == 0) {
+        item.put(Accounts.ATTR_TTL,
+            AttributeValues.fromLong(Instant.now().plus(Duration.ofMinutes(1)).getEpochSecond()));
+      }
       ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbClient().putItem(PutItemRequest.builder()
           .tableName(USERNAMES_TABLE_NAME)
-          .item(Map.of(
-              Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(UUID.randomUUID()),
-              Accounts.ATTR_USERNAME, AttributeValues.fromString(usernameGenerator.fromParts("n00bkiller", i))))
+          .item(item)
           .build());
     }
-    assertThrows(UsernameNotAvailableException.class, () -> accountsManager.setUsername(account, "n00bkiller", null));
+    assertThrows(UsernameNotAvailableException.class, () -> {
+      if (reserve) {
+        accountsManager.reserveUsername(account, "n00bkiller");
+      } else {
+        accountsManager.setUsername(account, "n00bkiller", null);
+      }
+    });
     assertThat(accountsManager.getByAccountIdentifier(account.getUuid()).orElseThrow().getUsername()).isEmpty();
   }
 
@@ -237,4 +258,112 @@ class AccountsManagerUsernameIntegrationTest {
     verify(accounts, times(1)).usernameAvailable(argThat(un -> discriminator(un) >= 10));
   }
 
+  @Test
+  public void testReserveSetClear()
+      throws InterruptedException, UsernameNotAvailableException, UsernameReservationNotFoundException {
+    Account account = accountsManager.create("+18005551111", "password", null, new AccountAttributes(),
+        new ArrayList<>());
+    AccountsManager.UsernameReservation reservation = accountsManager.reserveUsername(account, "n00bkiller");
+    account = reservation.account();
+    assertThat(account.getReservedUsernameHash()).isPresent();
+    assertThat(reservation.reservedUsername()).startsWith("n00bkiller");
+    int discriminator = discriminator(reservation.reservedUsername());
+    assertThat(discriminator).isGreaterThan(0).isLessThan(10);
+    assertThat(accountsManager.getByUsername(reservation.reservedUsername())).isEmpty();
+
+    account = accountsManager.confirmReservedUsername(
+        account,
+        reservation.reservedUsername(),
+        reservation.reservationToken());
+
+    assertThat(account.getUsername().get()).startsWith("n00bkiller");
+    assertThat(accountsManager.getByUsername(account.getUsername().get()).orElseThrow().getUuid()).isEqualTo(
+        account.getUuid());
+
+    // reroll
+    reservation = accountsManager.reserveUsername(account, "n00bkiller");
+    account = reservation.account();
+    account = accountsManager.confirmReservedUsername(
+        account,
+        reservation.reservedUsername(),
+        reservation.reservationToken());
+
+    final String newUsername = account.getUsername().orElseThrow();
+    assertThat(discriminator(account.getUsername().orElseThrow())).isNotEqualTo(discriminator);
+
+    // clear
+    account = accountsManager.clearUsername(account);
+    assertThat(accountsManager.getByUsername(newUsername)).isEmpty();
+    assertThat(accountsManager.getByAccountIdentifier(account.getUuid()).orElseThrow().getUsername()).isEmpty();
+
+  }
+
+  @Test
+  public void testReservationLapsed()
+      throws InterruptedException, UsernameNotAvailableException, UsernameReservationNotFoundException {
+    // use a username generator that can retry a lot
+    buildAccountsManager(1, 1, 1000000);
+
+    final Account account = accountsManager.create("+18005551111", "password", null, new AccountAttributes(),
+        new ArrayList<>());
+    AccountsManager.UsernameReservation reservation1 = accountsManager.reserveUsername(account, "n00bkiller");
+    final String reservedUsername = reservation1.reservedUsername();
+
+    long past = Instant.now().minus(Duration.ofMinutes(1)).getEpochSecond();
+    // force expiration
+    ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbClient().updateItem(UpdateItemRequest.builder()
+        .tableName(USERNAMES_TABLE_NAME)
+        .key(Map.of(Accounts.ATTR_USERNAME, AttributeValues.fromString(reservedUsername)))
+        .updateExpression("SET #ttl = :ttl")
+        .expressionAttributeNames(Map.of("#ttl", Accounts.ATTR_TTL))
+        .expressionAttributeValues(Map.of(":ttl", AttributeValues.fromLong(past)))
+        .build());
+
+    int discriminator = discriminator(reservedUsername);
+
+    // use up all names except the reserved one
+    for (int i = 1; i <= 9; i++) {
+      if (i == discriminator) {
+        continue;
+      }
+
+      ACCOUNTS_DYNAMO_EXTENSION.getDynamoDbClient().putItem(PutItemRequest.builder()
+          .tableName(USERNAMES_TABLE_NAME)
+          .item(Map.of(
+              Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(UUID.randomUUID()),
+              Accounts.ATTR_USERNAME, AttributeValues.fromString(usernameGenerator.fromParts("n00bkiller", i))))
+          .build());
+    }
+
+    // a different account should be able to reserve it
+    Account account2 = accountsManager.create("+18005552222", "password", null, new AccountAttributes(),
+        new ArrayList<>());
+    final AccountsManager.UsernameReservation reservation2 = accountsManager.reserveUsername(account2, "n00bkiller"
+    );
+    assertThat(reservation2.reservedUsername()).isEqualTo(reservedUsername);
+
+    assertThrows(UsernameNotAvailableException.class,
+        () -> accountsManager.confirmReservedUsername(reservation1.account(), reservedUsername, reservation1.reservationToken()));
+    accountsManager.confirmReservedUsername(reservation2.account(), reservedUsername, reservation2.reservationToken());
+  }
+
+  @Test
+  void testUsernameReserveClearSetReserved()
+      throws InterruptedException, UsernameNotAvailableException, UsernameReservationNotFoundException {
+    Account account = accountsManager.create("+18005551111", "password", null, new AccountAttributes(),
+        new ArrayList<>());
+    account = accountsManager.setUsername(account, "n00bkiller", null);
+    final AccountsManager.UsernameReservation reservation = accountsManager.reserveUsername(account, "other");
+    account = reservation.account();
+
+    assertThat(reservation.reservedUsername()).startsWith("other");
+    assertThat(account.getUsername()).hasValueSatisfying(s -> s.startsWith("n00bkiller"));
+
+    account = accountsManager.clearUsername(account);
+    assertThat(account.getReservedUsernameHash()).isPresent();
+    assertThat(account.getUsername()).isEmpty();
+
+    account = accountsManager.confirmReservedUsername(account, reservation.reservedUsername(), reservation.reservationToken());
+    assertThat(account.getUsername()).hasValueSatisfying(s -> s.startsWith("other"));
+  }
 }

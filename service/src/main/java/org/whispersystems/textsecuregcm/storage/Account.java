@@ -43,6 +43,10 @@ public class Account {
   private String username;
 
   @JsonProperty
+  @Nullable
+  private byte[] reservedUsernameHash;
+
+  @JsonProperty
   private List<Device> devices = new ArrayList<>();
 
   @JsonProperty
@@ -131,6 +135,18 @@ public class Account {
     requireNotStale();
 
     this.username = username;
+  }
+
+  public Optional<byte[]> getReservedUsernameHash() {
+    requireNotStale();
+
+    return Optional.ofNullable(reservedUsernameHash);
+  }
+
+  public void setReservedUsernameHash(final byte[] reservedUsernameHash) {
+    requireNotStale();
+
+    this.reservedUsernameHash = reservedUsernameHash;
   }
 
   public void addDevice(Device device) {

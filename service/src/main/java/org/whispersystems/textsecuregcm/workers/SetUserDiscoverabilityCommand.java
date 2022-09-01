@@ -48,7 +48,7 @@ import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
-import org.whispersystems.textsecuregcm.storage.ReservedUsernames;
+import org.whispersystems.textsecuregcm.storage.ProhibitedUsernames;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.VerificationCodeStore;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
@@ -157,7 +157,7 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
           configuration.getDynamoDbTables().getPhoneNumberIdentifiers().getTableName());
       Profiles profiles = new Profiles(dynamoDbClient, dynamoDbAsyncClient,
           configuration.getDynamoDbTables().getProfiles().getTableName());
-      ReservedUsernames reservedUsernames = new ReservedUsernames(dynamoDbClient,
+      ProhibitedUsernames prohibitedUsernames = new ProhibitedUsernames(dynamoDbClient,
           configuration.getDynamoDbTables().getReservedUsernames().getTableName());
       Keys keys = new Keys(dynamoDbClient,
           configuration.getDynamoDbTables().getKeys().getTableName());
@@ -197,7 +197,7 @@ public class SetUserDiscoverabilityCommand extends EnvironmentCommand<WhisperSer
       StoredVerificationCodeManager pendingAccountsManager = new StoredVerificationCodeManager(pendingAccounts);
       UsernameGenerator usernameGenerator = new UsernameGenerator(configuration.getUsername());
       AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
-          deletedAccountsManager, directoryQueue, keys, messagesManager, reservedUsernames, profilesManager,
+          deletedAccountsManager, directoryQueue, keys, messagesManager, prohibitedUsernames, profilesManager,
           pendingAccountsManager, secureStorageClient, secureBackupClient, clientPresenceManager, usernameGenerator,
           experimentEnrollmentManager, clock);
 

@@ -10,7 +10,7 @@ import io.dropwizard.setup.Bootstrap;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
-import org.whispersystems.textsecuregcm.storage.ReservedUsernames;
+import org.whispersystems.textsecuregcm.storage.ProhibitedUsernames;
 import org.whispersystems.textsecuregcm.util.DynamoDbFromConfig;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import java.util.UUID;
@@ -44,7 +44,7 @@ public class ReserveUsernameCommand extends ConfiguredCommand<WhisperServerConfi
     final DynamoDbClient dynamoDbClient = DynamoDbFromConfig.client(config.getDynamoDbClientConfiguration(),
         software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider.create());
 
-    final ReservedUsernames reservedUsernames = new ReservedUsernames(dynamoDbClient,
+    final ProhibitedUsernames prohibitedUsernames = new ProhibitedUsernames(dynamoDbClient,
         config.getDynamoDbTables().getReservedUsernames().getTableName());
 
     final String pattern = namespace.getString("pattern").trim();
@@ -57,7 +57,7 @@ public class ReserveUsernameCommand extends ConfiguredCommand<WhisperServerConfi
 
     final UUID aci = UUID.fromString(namespace.getString("uuid").trim());
 
-    reservedUsernames.reserveUsername(pattern, aci);
+    prohibitedUsernames.prohibitUsername(pattern, aci);
 
     System.out.format("Reserved %s for account %s\n", pattern, aci);
   }

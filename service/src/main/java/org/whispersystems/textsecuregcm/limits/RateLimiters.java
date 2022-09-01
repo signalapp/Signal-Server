@@ -33,6 +33,8 @@ public class RateLimiters {
   private final RateLimiter usernameLookupLimiter;
   private final RateLimiter usernameSetLimiter;
 
+  private final RateLimiter usernameReserveLimiter;
+
   private final RateLimiter checkAccountExistenceLimiter;
 
   public RateLimiters(RateLimitsConfiguration config, FaultTolerantRedisCluster cacheCluster) {
@@ -107,6 +109,11 @@ public class RateLimiters {
     this.usernameSetLimiter = new RateLimiter(cacheCluster, "usernameSet",
                                               config.getUsernameSet().getBucketSize(),
                                               config.getUsernameSet().getLeakRatePerMinute());
+
+    this.usernameReserveLimiter = new RateLimiter(cacheCluster, "usernameReserve",
+        config.getUsernameReserve().getBucketSize(),
+        config.getUsernameReserve().getLeakRatePerMinute());
+
 
     this.checkAccountExistenceLimiter = new RateLimiter(cacheCluster, "checkAccountExistence",
         config.getCheckAccountExistence().getBucketSize(),
@@ -183,6 +190,10 @@ public class RateLimiters {
 
   public RateLimiter getUsernameSetLimiter() {
     return usernameSetLimiter;
+  }
+
+  public RateLimiter getUsernameReserveLimiter() {
+    return usernameReserveLimiter;
   }
 
   public RateLimiter getCheckAccountExistenceLimiter() {

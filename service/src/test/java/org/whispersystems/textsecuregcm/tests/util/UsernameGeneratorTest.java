@@ -8,6 +8,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.storage.UsernameNotAvailableException;
 import org.whispersystems.textsecuregcm.util.UsernameGenerator;
 
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -16,6 +17,8 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class UsernameGeneratorTest {
+
+  private static final Duration TTL = Duration.ofMinutes(5);
 
   @ParameterizedTest(name = "[{index}]:{0} ({2})")
   @MethodSource
@@ -64,7 +67,7 @@ public class UsernameGeneratorTest {
 
   @Test
   public void zeroPadDiscriminators() {
-    final UsernameGenerator generator = new UsernameGenerator(4, 5, 1);
+    final UsernameGenerator generator = new UsernameGenerator(4, 5, 1, TTL);
     assertThat(generator.fromParts("test", 1)).isEqualTo("test#0001");
     assertThat(generator.fromParts("test", 123)).isEqualTo("test#0123");
     assertThat(generator.fromParts("test", 9999)).isEqualTo("test#9999");
@@ -73,16 +76,16 @@ public class UsernameGeneratorTest {
 
   @Test
   public void expectedWidth() throws UsernameNotAvailableException {
-    String username = new UsernameGenerator(1, 6, 1).generateAvailableUsername("test", t -> true);
+    String username = new UsernameGenerator(1, 6, 1, TTL).generateAvailableUsername("test", t -> true);
     assertThat(extractDiscriminator(username)).isGreaterThan(0).isLessThan(10);
 
-    username = new UsernameGenerator(2, 6, 1).generateAvailableUsername("test", t -> true);
+    username = new UsernameGenerator(2, 6, 1, TTL).generateAvailableUsername("test", t -> true);
     assertThat(extractDiscriminator(username)).isGreaterThan(0).isLessThan(100);
   }
 
   @Test
   public void expandDiscriminator() throws UsernameNotAvailableException {
-    UsernameGenerator ug = new UsernameGenerator(1, 6, 10);
+    UsernameGenerator ug = new UsernameGenerator(1, 6, 10, TTL);
     final String username = ug.generateAvailableUsername("test", allowDiscriminator(d -> d >= 10000));
     int discriminator = extractDiscriminator(username);
     assertThat(discriminator).isGreaterThanOrEqualTo(10000).isLessThan(100000);
@@ -90,7 +93,7 @@ public class UsernameGeneratorTest {
 
   @Test
   public void expandDiscriminatorToMax() throws UsernameNotAvailableException {
-    UsernameGenerator ug = new UsernameGenerator(1, 6, 10);
+    UsernameGenerator ug = new UsernameGenerator(1, 6, 10, TTL);
     final String username = ug.generateAvailableUsername("test", allowDiscriminator(d -> d >= 100000));
     int discriminator = extractDiscriminator(username);
     assertThat(discriminator).isGreaterThanOrEqualTo(100000).isLessThan(1000000);
@@ -98,7 +101,7 @@ public class UsernameGeneratorTest {
 
   @Test
   public void exhaustDiscriminator() {
-    UsernameGenerator ug = new UsernameGenerator(1, 6, 10);
+    UsernameGenerator ug = new UsernameGenerator(1, 6, 10, TTL);
     Assertions.assertThrows(UsernameNotAvailableException.class, () -> {
       // allow greater than our max width
       ug.generateAvailableUsername("test", allowDiscriminator(d -> d >= 1000000));
@@ -107,7 +110,7 @@ public class UsernameGeneratorTest {
 
   @Test
   public void randomCoverageMinWidth() throws UsernameNotAvailableException {
-    UsernameGenerator ug = new UsernameGenerator(1, 6, 10);
+    UsernameGenerator ug = new UsernameGenerator(1, 6, 10, TTL);
     final Set<Integer> seen = new HashSet<>();
     for (int i = 0; i < 1000 && seen.size() < 9; i++) {
       seen.add(extractDiscriminator(ug.generateAvailableUsername("test", ignored -> true)));
@@ -120,7 +123,7 @@ public class UsernameGeneratorTest {
 
   @Test
   public void randomCoverageMidWidth() throws UsernameNotAvailableException {
-    UsernameGenerator ug = new UsernameGenerator(1, 6, 10);
+    UsernameGenerator ug = new UsernameGenerator(1, 6, 10, TTL);
     final Set<Integer> seen = new HashSet<>();
     for (int i = 0; i < 100000 && seen.size() < 90; i++) {
       seen.add(extractDiscriminator(ug.generateAvailableUsername("test", allowDiscriminator(d -> d >= 10))));

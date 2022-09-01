@@ -73,10 +73,13 @@ import org.whispersystems.textsecuregcm.entities.AccountIdentifierResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ChangePhoneNumberRequest;
+import org.whispersystems.textsecuregcm.entities.ConfirmUsernameRequest;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
+import org.whispersystems.textsecuregcm.entities.ReserveUsernameRequest;
+import org.whispersystems.textsecuregcm.entities.ReserveUsernameResponse;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.entities.UsernameRequest;
 import org.whispersystems.textsecuregcm.entities.UsernameResponse;
@@ -99,6 +102,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.UsernameNotAvailableException;
+import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.Hex;
@@ -121,6 +125,7 @@ class AccountControllerTest {
 
   private static final UUID   SENDER_REG_LOCK_UUID = UUID.randomUUID();
   private static final UUID   SENDER_TRANSFER_UUID = UUID.randomUUID();
+  private static final UUID   RESERVATION_TOKEN    = UUID.randomUUID();
 
   private static final String ABUSIVE_HOST             = "192.168.1.1";
   private static final String NICE_HOST                = "127.0.0.1";
@@ -144,6 +149,7 @@ class AccountControllerTest {
   private static RateLimiter            smsVoicePrefixLimiter  = mock(RateLimiter.class);
   private static RateLimiter            autoBlockLimiter       = mock(RateLimiter.class);
   private static RateLimiter            usernameSetLimiter     = mock(RateLimiter.class);
+  private static RateLimiter            usernameReserveLimiter = mock(RateLimiter.class);
   private static RateLimiter            usernameLookupLimiter  = mock(RateLimiter.class);
   private static SmsSender              smsSender              = mock(SmsSender.class);
   private static TurnTokenGenerator     turnTokenGenerator     = mock(TurnTokenGenerator.class);
@@ -208,6 +214,7 @@ class AccountControllerTest {
     when(rateLimiters.getSmsVoicePrefixLimiter()).thenReturn(smsVoicePrefixLimiter);
     when(rateLimiters.getAutoBlockLimiter()).thenReturn(autoBlockLimiter);
     when(rateLimiters.getUsernameSetLimiter()).thenReturn(usernameSetLimiter);
+    when(rateLimiters.getUsernameReserveLimiter()).thenReturn(usernameReserveLimiter);
     when(rateLimiters.getUsernameLookupLimiter()).thenReturn(usernameLookupLimiter);
 
     when(senderPinAccount.getLastSeen()).thenReturn(System.currentTimeMillis());
@@ -319,6 +326,7 @@ class AccountControllerTest {
         smsVoicePrefixLimiter,
         autoBlockLimiter,
         usernameSetLimiter,
+        usernameReserveLimiter,
         usernameLookupLimiter,
         smsSender,
         turnTokenGenerator,
@@ -1731,6 +1739,63 @@ class AccountControllerTest {
                  .put(Entity.json(new UsernameRequest("n00bkiller", null)));
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.readEntity(UsernameResponse.class).username()).isEqualTo("n00bkiller#1234");
+  }
+
+  @Test
+  void testReserveUsername() throws UsernameNotAvailableException {
+    when(accountsManager.reserveUsername(any(), eq("n00bkiller")))
+        .thenReturn(new AccountsManager.UsernameReservation(null, "n00bkiller#1234", RESERVATION_TOKEN));
+    Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/username/reserved")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.json(new ReserveUsernameRequest("n00bkiller")));
+    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.readEntity(ReserveUsernameResponse.class))
+        .satisfies(r -> r.username().equals("n00bkiller#1234"))
+        .satisfies(r -> r.reservationToken().equals(RESERVATION_TOKEN));
+  }
+
+  @Test
+  void testCommitUsername() throws UsernameNotAvailableException, UsernameReservationNotFoundException {
+    Account account = mock(Account.class);
+    when(account.getUsername()).thenReturn(Optional.of("n00bkiller#1234"));
+    when(accountsManager.confirmReservedUsername(any(), eq("n00bkiller#1234"), eq(RESERVATION_TOKEN))).thenReturn(account);
+    Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/username/confirm")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.json(new ConfirmUsernameRequest("n00bkiller#1234", RESERVATION_TOKEN)));
+    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.readEntity(UsernameResponse.class).username()).isEqualTo("n00bkiller#1234");
+  }
+
+  @Test
+  void testCommitUnreservedUsername() throws UsernameNotAvailableException, UsernameReservationNotFoundException {
+    when(accountsManager.confirmReservedUsername(any(), eq("n00bkiller#1234"), eq(RESERVATION_TOKEN)))
+        .thenThrow(new UsernameReservationNotFoundException());
+    Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/username/confirm")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.json(new ConfirmUsernameRequest("n00bkiller#1234", RESERVATION_TOKEN)));
+    assertThat(response.getStatus()).isEqualTo(409);
+  }
+
+  @Test
+  void testCommitLapsedUsername() throws UsernameNotAvailableException, UsernameReservationNotFoundException {
+    when(accountsManager.confirmReservedUsername(any(), eq("n00bkiller#1234"), eq(RESERVATION_TOKEN)))
+        .thenThrow(new UsernameNotAvailableException());
+    Response response =
+        resources.getJerseyTest()
+            .target("/v1/accounts/username/confirm")
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.json(new ConfirmUsernameRequest("n00bkiller#1234", RESERVATION_TOKEN)));
+    assertThat(response.getStatus()).isEqualTo(410);
   }
 
   @Test

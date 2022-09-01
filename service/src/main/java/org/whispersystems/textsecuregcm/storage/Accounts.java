@@ -13,6 +13,10 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -70,7 +74,10 @@ public class Accounts extends AbstractDynamoDbStore {
   static final String ATTR_USERNAME = "N";
   // unidentified access key; byte[] or null
   static final String ATTR_UAK = "UAK";
+  // time to live; number
+  static final String ATTR_TTL = "TTL";
 
+  private final Clock clock;
   private final DynamoDbClient client;
   private final DynamoDbAsyncClient asyncClient;
 
@@ -81,9 +88,12 @@ public class Accounts extends AbstractDynamoDbStore {
 
   private final int scanPageSize;
 
+  private static final byte RESERVED_USERNAME_HASH_VERSION = 1;
+
   private static final Timer CREATE_TIMER = Metrics.timer(name(Accounts.class, "create"));
   private static final Timer CHANGE_NUMBER_TIMER = Metrics.timer(name(Accounts.class, "changeNumber"));
   private static final Timer SET_USERNAME_TIMER = Metrics.timer(name(Accounts.class, "setUsername"));
+  private static final Timer RESERVE_USERNAME_TIMER = Metrics.timer(name(Accounts.class, "reserveUsername"));
   private static final Timer CLEAR_USERNAME_TIMER = Metrics.timer(name(Accounts.class, "clearUsername"));
   private static final Timer UPDATE_TIMER = Metrics.timer(name(Accounts.class, "update"));
   private static final Timer GET_BY_NUMBER_TIMER = Metrics.timer(name(Accounts.class, "getByNumber"));
@@ -96,13 +106,16 @@ public class Accounts extends AbstractDynamoDbStore {
 
   private static final Logger log = LoggerFactory.getLogger(Accounts.class);
 
-  public Accounts(final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
+  @VisibleForTesting
+  public Accounts(
+      final Clock clock,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       DynamoDbClient client, DynamoDbAsyncClient asyncClient,
       String accountsTableName, String phoneNumberConstraintTableName,
       String phoneNumberIdentifierConstraintTableName, final String usernamesConstraintTableName,
       final int scanPageSize) {
-
     super(client);
+    this.clock = clock;
     this.client = client;
     this.asyncClient = asyncClient;
     this.phoneNumberConstraintTableName = phoneNumberConstraintTableName;
@@ -110,6 +123,16 @@ public class Accounts extends AbstractDynamoDbStore {
     this.accountsTableName = accountsTableName;
     this.usernamesConstraintTableName = usernamesConstraintTableName;
     this.scanPageSize = scanPageSize;
+  }
+
+  public Accounts(final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
+      DynamoDbClient client, DynamoDbAsyncClient asyncClient,
+      String accountsTableName, String phoneNumberConstraintTableName,
+      String phoneNumberIdentifierConstraintTableName, final String usernamesConstraintTableName,
+      final int scanPageSize) {
+    this(Clock.systemUTC(), dynamicConfigurationManager, client, asyncClient, accountsTableName,
+        phoneNumberConstraintTableName, phoneNumberIdentifierConstraintTableName, usernamesConstraintTableName,
+        scanPageSize);
   }
 
   public boolean create(Account account) {
@@ -331,22 +354,41 @@ public class Accounts extends AbstractDynamoDbStore {
     });
   }
 
+  public static byte[] reservedUsernameHash(final UUID accountId, final String reservedUsername) {
+    final MessageDigest sha256;
+    try {
+      sha256 = MessageDigest.getInstance("SHA-256");
+    } catch (NoSuchAlgorithmException e) {
+      throw new AssertionError(e);
+    }
+    final ByteBuffer byteBuffer = ByteBuffer.allocate(32 + 1);
+    sha256.update(reservedUsername.getBytes(StandardCharsets.UTF_8));
+    sha256.update(UUIDUtil.toBytes(accountId));
+    byteBuffer.put(RESERVED_USERNAME_HASH_VERSION);
+    byteBuffer.put(sha256.digest());
+    return byteBuffer.array();
+  }
+
   /**
-   * Set the account username
+   * Reserve a username under a token
    *
-   * @param account to update
-   * @param username believed to be available
-   * @throws ContestedOptimisticLockException if the account has been updated or the username taken by someone else
+   * @return a reservation token that must be provided when {@link #confirmUsername(Account, String, UUID)} is called
    */
-  public void setUsername(final Account account, final String username)
-      throws ContestedOptimisticLockException {
+  public UUID reserveUsername(
+      final Account account,
+      final String reservedUsername,
+      final Duration ttl) {
     final long startNanos = System.nanoTime();
 
-    final Optional<String> maybeOriginalUsername = account.getUsername();
-    account.setUsername(username);
+    // if there is an existing old reservation it will be cleaned up via ttl
+    final Optional<byte[]> maybeOriginalReservation = account.getReservedUsernameHash();
+    account.setReservedUsernameHash(reservedUsernameHash(account.getUuid(), reservedUsername));
 
     boolean succeeded = false;
 
+    long expirationTime = clock.instant().plus(ttl).getEpochSecond();
+
+    final UUID reservationToken = UUID.randomUUID();
     try {
       final List<TransactWriteItem> writeItems = new ArrayList<>();
 
@@ -354,10 +396,108 @@ public class Accounts extends AbstractDynamoDbStore {
           .put(Put.builder()
               .tableName(usernamesConstraintTableName)
               .item(Map.of(
+                  KEY_ACCOUNT_UUID, AttributeValues.fromUUID(reservationToken),
+                  ATTR_USERNAME, AttributeValues.fromString(reservedUsername),
+                  ATTR_TTL, AttributeValues.fromLong(expirationTime)))
+              .conditionExpression("attribute_not_exists(#username) OR (#ttl < :now)")
+              .expressionAttributeNames(Map.of("#username", ATTR_USERNAME, "#ttl", ATTR_TTL))
+              .expressionAttributeValues(Map.of(":now", AttributeValues.fromLong(clock.instant().getEpochSecond())))
+              .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
+              .build())
+          .build());
+
+      writeItems.add(
+          TransactWriteItem.builder()
+              .update(Update.builder()
+                  .tableName(accountsTableName)
+                  .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
+                  .updateExpression("SET #data = :data ADD #version :version_increment")
+                  .conditionExpression("#version = :version")
+                  .expressionAttributeNames(Map.of("#data", ATTR_ACCOUNT_DATA, "#version", ATTR_VERSION))
+                  .expressionAttributeValues(Map.of(
+                      ":data", AttributeValues.fromByteArray(SystemMapper.getMapper().writeValueAsBytes(account)),
+                      ":version", AttributeValues.fromInt(account.getVersion()),
+                      ":version_increment", AttributeValues.fromInt(1)))
+                  .build())
+              .build());
+
+      final TransactWriteItemsRequest request = TransactWriteItemsRequest.builder()
+          .transactItems(writeItems)
+          .build();
+
+      client.transactWriteItems(request);
+
+      account.setVersion(account.getVersion() + 1);
+      succeeded = true;
+    } catch (final JsonProcessingException e) {
+      throw new IllegalArgumentException(e);
+    } catch (final TransactionCanceledException e) {
+      if (e.cancellationReasons().stream().map(CancellationReason::code).anyMatch("ConditionalCheckFailed"::equals)) {
+        throw new ContestedOptimisticLockException();
+      }
+      throw e;
+    } finally {
+      if (!succeeded) {
+        account.setReservedUsernameHash(maybeOriginalReservation.orElse(null));
+      }
+      RESERVE_USERNAME_TIMER.record(System.nanoTime() - startNanos, TimeUnit.NANOSECONDS);
+    }
+    return reservationToken;
+  }
+
+  /**
+   * Confirm (set) a previously reserved username
+   *
+   * @param account to update
+   * @param username believed to be available
+   * @param reservationToken a token returned by the call to {@link #reserveUsername(Account, String, Duration)},
+   *                         only required if setting a reserved username
+   * @throws ContestedOptimisticLockException if the account has been updated or the username taken by someone else
+   */
+  public void confirmUsername(final Account account, final String username, final UUID reservationToken)
+      throws ContestedOptimisticLockException {
+    setUsername(account, username, Optional.of(reservationToken));
+  }
+
+  /**
+   * Set the account username
+   *
+   * @param account to update
+   * @param username believed to be available
+   * @throws ContestedOptimisticLockException if the account has been updated or the username taken by someone else
+   */
+  public void setUsername(final Account account, final String username) throws ContestedOptimisticLockException {
+    setUsername(account, username, Optional.empty());
+  }
+
+  private void setUsername(final Account account, final String username, final Optional<UUID> reservationToken)
+      throws ContestedOptimisticLockException {
+    final long startNanos = System.nanoTime();
+
+    final Optional<String> maybeOriginalUsername = account.getUsername();
+    final Optional<byte[]> maybeOriginalReservation = account.getReservedUsernameHash();
+
+    account.setUsername(username);
+    account.setReservedUsernameHash(null);
+
+    boolean succeeded = false;
+
+    try {
+      final List<TransactWriteItem> writeItems = new ArrayList<>();
+
+      // add the username to the constraint table, wiping out the ttl if we had already reserved the name
+      writeItems.add(TransactWriteItem.builder()
+          .put(Put.builder()
+              .tableName(usernamesConstraintTableName)
+              .item(Map.of(
                   KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid()),
                   ATTR_USERNAME, AttributeValues.fromString(username)))
-              .conditionExpression("attribute_not_exists(#username)")
-              .expressionAttributeNames(Map.of("#username", ATTR_USERNAME))
+              // it's not in the constraint table OR it's expired OR it was reserved by us
+              .conditionExpression("attribute_not_exists(#username) OR #ttl < :now OR #aci = :reservation ")
+              .expressionAttributeNames(Map.of("#username", ATTR_USERNAME, "#ttl", ATTR_TTL, "#aci", KEY_ACCOUNT_UUID))
+              .expressionAttributeValues(Map.of(
+                  ":now", AttributeValues.fromLong(clock.instant().getEpochSecond()),
+                  ":reservation", AttributeValues.fromUUID(reservationToken.orElseGet(UUID::randomUUID))))
               .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
               .build())
           .build());
@@ -405,6 +545,7 @@ public class Accounts extends AbstractDynamoDbStore {
     } finally {
       if (!succeeded) {
         account.setUsername(maybeOriginalUsername.orElse(null));
+        account.setReservedUsernameHash(maybeOriginalReservation.orElse(null));
       }
       SET_USERNAME_TIMER.record(System.nanoTime() - startNanos, TimeUnit.NANOSECONDS);
     }
@@ -553,11 +694,29 @@ public class Accounts extends AbstractDynamoDbStore {
   }
 
   public boolean usernameAvailable(final String username) {
+    return usernameAvailable(Optional.empty(), username);
+  }
+
+  public boolean usernameAvailable(final Optional<UUID> reservationToken, final String username) {
     final GetItemResponse response = client.getItem(GetItemRequest.builder()
         .tableName(usernamesConstraintTableName)
         .key(Map.of(ATTR_USERNAME, AttributeValues.fromString(username)))
         .build());
-    return !response.hasItem();
+    if (!response.hasItem()) {
+      // username is free
+      return true;
+    }
+    final Map<String, AttributeValue> item = response.item();
+
+    if (AttributeValues.getLong(item, ATTR_TTL, Long.MAX_VALUE) < clock.instant().getEpochSecond()) {
+      // username was reserved, but has expired
+      return true;
+    }
+
+    // username is reserved by us
+    return reservationToken
+        .map(AttributeValues.getUUID(item, KEY_ACCOUNT_UUID, new UUID(0, 0))::equals)
+        .orElse(false);
   }
 
   public Optional<Account> getByE164(String number) {
@@ -583,7 +742,10 @@ public class Accounts extends AbstractDynamoDbStore {
           .key(Map.of(ATTR_USERNAME, AttributeValues.fromString(username)))
           .build());
 
+
       return Optional.ofNullable(response.item())
+          // ignore items with a ttl (reservations)
+          .filter(item -> !item.containsKey(ATTR_TTL))
           .map(item -> item.get(KEY_ACCOUNT_UUID))
           .map(this::accountByUuid)
           .map(Accounts::fromItem);

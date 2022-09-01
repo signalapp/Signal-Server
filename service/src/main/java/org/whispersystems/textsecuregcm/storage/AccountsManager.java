@@ -21,6 +21,7 @@ import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -86,7 +87,7 @@ public class AccountsManager {
   private final DirectoryQueue directoryQueue;
   private final Keys keys;
   private final MessagesManager messagesManager;
-  private final ReservedUsernames reservedUsernames;
+  private final ProhibitedUsernames prohibitedUsernames;
   private final ProfilesManager profilesManager;
   private final StoredVerificationCodeManager pendingAccounts;
   private final SecureStorageClient secureStorageClient;
@@ -128,7 +129,7 @@ public class AccountsManager {
       final DirectoryQueue directoryQueue,
       final Keys keys,
       final MessagesManager messagesManager,
-      final ReservedUsernames reservedUsernames,
+      final ProhibitedUsernames prohibitedUsernames,
       final ProfilesManager profilesManager,
       final StoredVerificationCodeManager pendingAccounts,
       final SecureStorageClient secureStorageClient,
@@ -149,7 +150,7 @@ public class AccountsManager {
     this.secureStorageClient = secureStorageClient;
     this.secureBackupClient  = secureBackupClient;
     this.clientPresenceManager = clientPresenceManager;
-    this.reservedUsernames = reservedUsernames;
+    this.prohibitedUsernames = prohibitedUsernames;
     this.usernameGenerator = usernameGenerator;
     this.experimentEnrollmentManager = experimentEnrollmentManager;
     this.clock = Objects.requireNonNull(clock);
@@ -322,12 +323,112 @@ public class AccountsManager {
     return updatedAccount.get();
   }
 
+  public record UsernameReservation(Account account, String reservedUsername, UUID reservationToken){}
+
+  /**
+   * Generate a username from a nickname, and reserve it so no other accounts may take it.
+   *
+   * The reserved username can later be set with {@link #confirmReservedUsername(Account, String, UUID)}. The reservation
+   * will eventually expire, after which point confirmReservedUsername may fail if another account has taken the
+   * username.
+   *
+   * @param account the account to update
+   * @param requestedNickname the nickname to reserve a username for
+   * @return the reserved username and an updated Account object
+   * @throws UsernameNotAvailableException no username is available for the requested nickname
+   */
+  public UsernameReservation reserveUsername(final Account account, final String requestedNickname) throws UsernameNotAvailableException {
+    if (!experimentEnrollmentManager.isEnrolled(account.getUuid(), USERNAME_EXPERIMENT_NAME)) {
+      throw new UsernameNotAvailableException();
+    }
+
+    if (prohibitedUsernames.isProhibited(requestedNickname, account.getUuid())) {
+      throw new UsernameNotAvailableException();
+    }
+    redisDelete(account);
+
+    class Reserver implements AccountPersister {
+      UUID reservationToken;
+      String reservedUsername;
+
+      @Override
+      public void persistAccount(final Account account) throws UsernameNotAvailableException {
+        // In the future, this may also check for any forbidden discriminators
+        reservedUsername = usernameGenerator.generateAvailableUsername(requestedNickname, accounts::usernameAvailable);
+        reservationToken = accounts.reserveUsername(
+            account,
+            reservedUsername,
+            usernameGenerator.getReservationTtl());
+      }
+    }
+    final Reserver reserver = new Reserver();
+    final Account updatedAccount = failableUpdateWithRetries(
+        account,
+        a -> true,
+        reserver,
+        () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
+        AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
+    return new UsernameReservation(updatedAccount, reserver.reservedUsername, reserver.reservationToken);
+  }
+
+  /**
+   * Set a username previously reserved with {@link #reserveUsername(Account, String)}
+   *
+   * @param account the account to update
+   * @param reservedUsername the previously reserved username
+   * @param reservationToken the UUID returned from the reservation
+   * @return the updated account with the username field set
+   * @throws UsernameNotAvailableException if the reserved username has been taken (because the reservation expired)
+   * @throws UsernameReservationNotFoundException if `reservedUsername` was not reserved in the account
+   */
+  public Account confirmReservedUsername(final Account account, final String reservedUsername, final UUID reservationToken) throws UsernameNotAvailableException, UsernameReservationNotFoundException {
+    if (!experimentEnrollmentManager.isEnrolled(account.getUuid(), USERNAME_EXPERIMENT_NAME)) {
+      throw new UsernameNotAvailableException();
+    }
+
+    if (account.getUsername().map(reservedUsername::equals).orElse(false)) {
+      // the client likely already succeeded and is retrying
+      return account;
+    }
+
+    final byte[] newHash = Accounts.reservedUsernameHash(account.getUuid(), reservedUsername);
+    if (!account.getReservedUsernameHash().map(oldHash -> Arrays.equals(oldHash, newHash)).orElse(false)) {
+      // no such reservation existed, either there was no previous call to reserveUsername
+      // or the reservation changed
+      throw new UsernameReservationNotFoundException();
+    }
+
+    redisDelete(account);
+
+    return failableUpdateWithRetries(
+        account,
+        a -> true,
+        a -> {
+          // though we know this username was reserved, the reservation could have lapsed
+          if (!accounts.usernameAvailable(Optional.of(reservationToken), reservedUsername)) {
+            throw new UsernameNotAvailableException();
+          }
+          accounts.confirmUsername(a, reservedUsername, reservationToken);
+        },
+        () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
+        AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
+  }
+
+  /**
+   * Sets a username generated from `requestedNickname` with no prior reservation
+   *
+   * @param account the account to update
+   * @param requestedNickname the nickname to generate a username from
+   * @param expectedOldUsername the expected existing username of the account (for replay detection)
+   * @return the updated account with the username field set
+   * @throws UsernameNotAvailableException if no free username could be set for `requestedNickname`
+   */
   public Account setUsername(final Account account, final String requestedNickname, final @Nullable String expectedOldUsername) throws UsernameNotAvailableException {
     if (!experimentEnrollmentManager.isEnrolled(account.getUuid(), USERNAME_EXPERIMENT_NAME)) {
       throw new UsernameNotAvailableException();
     }
 
-    if (reservedUsernames.isReserved(requestedNickname, account.getUuid())) {
+    if (prohibitedUsernames.isProhibited(requestedNickname, account.getUuid())) {
       throw new UsernameNotAvailableException();
     }
 
@@ -346,7 +447,9 @@ public class AccountsManager {
         account,
         a -> true,
         // In the future, this may also check for any forbidden discriminators
-        a -> accounts.setUsername(a, usernameGenerator.generateAvailableUsername(requestedNickname, accounts::usernameAvailable)),
+        a -> accounts.setUsername(
+            a,
+            usernameGenerator.generateAvailableUsername(requestedNickname, accounts::usernameAvailable)),
         () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
         AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
   }
@@ -539,7 +642,6 @@ public class AccountsManager {
   public Optional<Account> getByUsername(final String username) {
     try (final Timer.Context ignored = getByUsernameTimer.time()) {
       Optional<Account> account = redisGetByUsername(username);
-
       if (account.isEmpty()) {
         account = accounts.getByUsername(username);
         account.ifPresent(this::redisSet);
