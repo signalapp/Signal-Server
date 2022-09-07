@@ -387,11 +387,25 @@ public class ProfileController {
 
   private void checkFingerprintAndAdd(BatchIdentityCheckRequest.Element element,
       Collection<BatchIdentityCheckResponse.Element> responseElements, MessageDigest md) {
-    accountsManager.getByAccountIdentifier(element.aci()).ifPresent(account -> {
-      if (account.getIdentityKey() == null) return;
+
+    final Optional<Account> maybeAccount;
+    final boolean usePhoneNumberIdentity;
+    if (element.aci() != null) {
+      maybeAccount = accountsManager.getByAccountIdentifier(element.aci());
+      usePhoneNumberIdentity = false;
+    } else {
+      maybeAccount = accountsManager.getByPhoneNumberIdentifier(element.pni());
+      usePhoneNumberIdentity = true;
+    }
+
+    maybeAccount.ifPresent(account -> {
+      if (account.getIdentityKey() == null || account.getPhoneNumberIdentityKey() == null) {
+        return;
+      }
       byte[] identityKeyBytes;
       try {
-        identityKeyBytes = Base64.getDecoder().decode(account.getIdentityKey());
+        identityKeyBytes = Base64.getDecoder().decode(usePhoneNumberIdentity ? account.getPhoneNumberIdentityKey()
+            : account.getIdentityKey());
       } catch (IllegalArgumentException ignored) {
         return;
       }
@@ -400,7 +414,7 @@ public class ProfileController {
       byte[] fingerprint = Util.truncate(digest, 4);
 
       if (!Arrays.equals(fingerprint, element.fingerprint())) {
-        responseElements.add(new BatchIdentityCheckResponse.Element(element.aci(), identityKeyBytes));
+        responseElements.add(new BatchIdentityCheckResponse.Element(element.aci(), element.pni(), identityKeyBytes));
       }
     });
   }
