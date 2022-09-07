@@ -7,6 +7,18 @@ package org.signal.event
 
 import java.util.Collections
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.polymorphic
+import kotlinx.serialization.modules.subclass
+
+val module = SerializersModule {
+    polymorphic(Event::class) {
+        subclass(RemoteConfigSetEvent::class)
+        subclass(RemoteConfigDeleteEvent::class)
+    }
+}
+val jsonFormat = Json { serializersModule = module }
 
 sealed interface Event
 

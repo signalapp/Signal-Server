@@ -12,7 +12,6 @@ import com.google.cloud.logging.Severity
 import com.google.protobuf.Struct
 import com.google.protobuf.util.JsonFormat
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
 interface AdminEventLogger {
     fun logEvent(event: Event, labels: Map<String, String>?)
@@ -26,7 +25,7 @@ class NoOpAdminEventLogger : AdminEventLogger {
 class GoogleCloudAdminEventLogger(private val logging: Logging, private val logName: String) : AdminEventLogger {
     override fun logEvent(event: Event, labels: Map<String, String>?) {
         val structBuilder = Struct.newBuilder()
-        JsonFormat.parser().merge(Json.encodeToString(event), structBuilder)
+        JsonFormat.parser().merge(jsonFormat.encodeToString(event), structBuilder)
         val struct = structBuilder.build()
 
         val logEntryBuilder = LogEntry.newBuilder(JsonPayload.of(struct))
