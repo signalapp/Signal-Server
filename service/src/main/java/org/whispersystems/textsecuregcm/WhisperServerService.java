@@ -193,6 +193,7 @@ import org.whispersystems.textsecuregcm.storage.NonNormalizedAccountCrawlerListe
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
+import org.whispersystems.textsecuregcm.storage.ProhibitedUsernames;
 import org.whispersystems.textsecuregcm.storage.PubSubManager;
 import org.whispersystems.textsecuregcm.storage.PushChallengeDynamoDb;
 import org.whispersystems.textsecuregcm.storage.PushFeedbackProcessor;
@@ -201,7 +202,6 @@ import org.whispersystems.textsecuregcm.storage.RemoteConfigs;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
-import org.whispersystems.textsecuregcm.storage.ProhibitedUsernames;
 import org.whispersystems.textsecuregcm.storage.StoredVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.VerificationCodeStore;
@@ -417,6 +417,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             .setCredentials(GoogleCredentials.fromStream(new ByteArrayInputStream(
                 config.getAdminEventLoggingConfiguration().credentials().getBytes(StandardCharsets.UTF_8))))
             .build().getService(),
+        config.getAdminEventLoggingConfiguration().projectId(),
         config.getAdminEventLoggingConfiguration().logName());
 
     StripeManager stripeManager = new StripeManager(config.getStripe().getApiKey(), stripeExecutor,

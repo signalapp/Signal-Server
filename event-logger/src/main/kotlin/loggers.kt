@@ -7,6 +7,7 @@ package org.signal.event
 
 import com.google.cloud.logging.LogEntry
 import com.google.cloud.logging.Logging
+import com.google.cloud.logging.MonitoredResourceUtil
 import com.google.cloud.logging.Payload.JsonPayload
 import com.google.cloud.logging.Severity
 import com.google.protobuf.Struct
@@ -22,7 +23,7 @@ class NoOpAdminEventLogger : AdminEventLogger {
     override fun logEvent(event: Event, labels: Map<String, String>?) {}
 }
 
-class GoogleCloudAdminEventLogger(private val logging: Logging, private val logName: String) : AdminEventLogger {
+class GoogleCloudAdminEventLogger(private val logging: Logging, private val projectId: String, private val logName: String) : AdminEventLogger {
     override fun logEvent(event: Event, labels: Map<String, String>?) {
         val structBuilder = Struct.newBuilder()
         JsonFormat.parser().merge(jsonFormat.encodeToString(event), structBuilder)
@@ -30,7 +31,8 @@ class GoogleCloudAdminEventLogger(private val logging: Logging, private val logN
 
         val logEntryBuilder = LogEntry.newBuilder(JsonPayload.of(struct))
                 .setLogName(logName)
-                .setSeverity(Severity.NOTICE);
+                .setSeverity(Severity.NOTICE)
+                .setResource(MonitoredResourceUtil.getResource(projectId, "project"));
         if (labels != null) {
             logEntryBuilder.setLabels(labels);
         }
