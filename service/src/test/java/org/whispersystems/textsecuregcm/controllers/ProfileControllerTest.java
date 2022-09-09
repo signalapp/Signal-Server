@@ -1237,6 +1237,8 @@ class ProfileControllerTest {
                 convertStringToFingerprint(ACCOUNT_IDENTITY_KEY)),
             new BatchIdentityCheckRequest.Element(null, AuthHelper.VALID_PNI_TWO,
                 convertStringToFingerprint(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY)),
+            new BatchIdentityCheckRequest.Element(null, AuthHelper.VALID_UUID_TWO,
+                convertStringToFingerprint(ACCOUNT_TWO_IDENTITY_KEY)),
             new BatchIdentityCheckRequest.Element(AuthHelper.INVALID_UUID, null,
                 convertStringToFingerprint(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY))
         ))))) {
@@ -1250,8 +1252,10 @@ class ProfileControllerTest {
     Condition<BatchIdentityCheckResponse.Element> isAnExpectedUuid = new Condition<>(element -> {
       if (AuthHelper.VALID_UUID.equals(element.aci())) {
         return Arrays.equals(Base64.getDecoder().decode(ACCOUNT_IDENTITY_KEY), element.identityKey());
-      } else if (AuthHelper.VALID_PNI_TWO.equals(element.pni())) {
+      } else if (AuthHelper.VALID_PNI_TWO.equals(element.uuid())) {
         return Arrays.equals(Base64.getDecoder().decode(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY), element.identityKey());
+      } else if (AuthHelper.VALID_UUID_TWO.equals(element.uuid())) {
+        return Arrays.equals(Base64.getDecoder().decode(ACCOUNT_TWO_IDENTITY_KEY), element.identityKey());
       } else {
         return false;
       }
@@ -1262,15 +1266,18 @@ class ProfileControllerTest {
             new BatchIdentityCheckRequest.Element(AuthHelper.VALID_UUID, null, convertStringToFingerprint("else1234")),
             new BatchIdentityCheckRequest.Element(null, AuthHelper.VALID_PNI_TWO,
                 convertStringToFingerprint("another1")),
+            new BatchIdentityCheckRequest.Element(null, AuthHelper.VALID_UUID_TWO,
+                convertStringToFingerprint("another2")),
             new BatchIdentityCheckRequest.Element(AuthHelper.INVALID_UUID, null, convertStringToFingerprint("456"))
         ))))) {
       assertThat(response).isNotNull();
       assertThat(response.getStatus()).isEqualTo(200);
       BatchIdentityCheckResponse identityCheckResponse = response.readEntity(BatchIdentityCheckResponse.class);
       assertThat(identityCheckResponse).isNotNull();
-      assertThat(identityCheckResponse.elements()).isNotNull().hasSize(2);
+      assertThat(identityCheckResponse.elements()).isNotNull().hasSize(3);
       assertThat(identityCheckResponse.elements()).element(0).isNotNull().is(isAnExpectedUuid);
       assertThat(identityCheckResponse.elements()).element(1).isNotNull().is(isAnExpectedUuid);
+      assertThat(identityCheckResponse.elements()).element(2).isNotNull().is(isAnExpectedUuid);
     }
 
     List<BatchIdentityCheckRequest.Element> largeElementList = new ArrayList<>(List.of(
@@ -1294,12 +1301,12 @@ class ProfileControllerTest {
   }
 
   @Test
-  void testBatchIdentityCheckDeserialization() {
+  void testBatchIdentityCheckDeserialization() throws Exception {
 
     Condition<BatchIdentityCheckResponse.Element> isAnExpectedUuid = new Condition<>(element -> {
       if (AuthHelper.VALID_UUID.equals(element.aci())) {
         return Arrays.equals(Base64.getDecoder().decode(ACCOUNT_IDENTITY_KEY), element.identityKey());
-      } else if (AuthHelper.VALID_PNI_TWO.equals(element.pni())) {
+      } else if (AuthHelper.VALID_PNI_TWO.equals(element.uuid())) {
         return Arrays.equals(Base64.getDecoder().decode(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY), element.identityKey());
       } else {
         return false;
@@ -1311,7 +1318,7 @@ class ProfileControllerTest {
             {
               "elements": [
                 { "aci": "%s", "fingerprint": "%s" },
-                { "pni": "%s", "fingerprint": "%s" },
+                { "uuid": "%s", "fingerprint": "%s" },
                 { "aci": "%s", "fingerprint": "%s" }
               ]
             }
@@ -1322,7 +1329,13 @@ class ProfileControllerTest {
         .post(Entity.entity(json, "application/json"))) {
       assertThat(response).isNotNull();
       assertThat(response.getStatus()).isEqualTo(200);
-      BatchIdentityCheckResponse identityCheckResponse = response.readEntity(BatchIdentityCheckResponse.class);
+      String responseJson = response.readEntity(String.class);
+
+      // `null` properties should be omitted from the response
+      assertThat(responseJson).doesNotContain("null");
+
+      BatchIdentityCheckResponse identityCheckResponse = SystemMapper.getMapper()
+          .readValue(responseJson, BatchIdentityCheckResponse.class);
       assertThat(identityCheckResponse).isNotNull();
       assertThat(identityCheckResponse.elements()).isNotNull().hasSize(2);
       assertThat(identityCheckResponse.elements()).element(0).isNotNull().is(isAnExpectedUuid);
@@ -1342,11 +1355,11 @@ class ProfileControllerTest {
 
   static Stream<Arguments> testBatchIdentityCheckDeserializationBadRequest() {
     return Stream.of(
-        Arguments.of( // aci and pni cannot both be null
+        Arguments.of( // aci and uuid cannot both be null
             """
                 {
                   "elements": [
-                    { "aci": null, "pni": null, "fingerprint": "%s" }
+                    { "aci": null, "uuid": null, "fingerprint": "%s" }
                   ]
                 }
                 """),
@@ -1354,7 +1367,7 @@ class ProfileControllerTest {
             """
                 {
                   "elements": [
-                    { "aci": "", "pni": null, "fingerprint": "%s" }
+                    { "aci": "", "uuid": null, "fingerprint": "%s" }
                   ]
                 }
                 """
@@ -1363,15 +1376,15 @@ class ProfileControllerTest {
             """
                 {
                   "elements": [
-                    { "aci": null, "pni": " ", "fingerprint": "%s" }
+                    { "aci": null, "uuid": " ", "fingerprint": "%s" }
                   ]
                 }
                 """),
-        Arguments.of( // aci and pni cannot both be non-null
+        Arguments.of( // aci and uuid cannot both be non-null
             String.format("""
                     {
                       "elements": [
-                        { "aci": "%s", "pni": "%s", "fingerprint": "%s" }
+                        { "aci": "%s", "uuid": "%s", "fingerprint": "%s" }
                       ]
                     }
                     """, AuthHelper.VALID_UUID, AuthHelper.VALID_PNI,

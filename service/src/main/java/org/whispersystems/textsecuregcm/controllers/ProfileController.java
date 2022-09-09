@@ -394,8 +394,15 @@ public class ProfileController {
       maybeAccount = accountsManager.getByAccountIdentifier(element.aci());
       usePhoneNumberIdentity = false;
     } else {
-      maybeAccount = accountsManager.getByPhoneNumberIdentifier(element.pni());
-      usePhoneNumberIdentity = true;
+      final Optional<Account> maybeAciAccount = accountsManager.getByAccountIdentifier(element.uuid());
+
+      if (maybeAciAccount.isEmpty()) {
+        maybeAccount = accountsManager.getByPhoneNumberIdentifier(element.uuid());
+        usePhoneNumberIdentity = true;
+      } else {
+        maybeAccount = maybeAciAccount;
+        usePhoneNumberIdentity = false;
+      }
     }
 
     maybeAccount.ifPresent(account -> {
@@ -414,7 +421,7 @@ public class ProfileController {
       byte[] fingerprint = Util.truncate(digest, 4);
 
       if (!Arrays.equals(fingerprint, element.fingerprint())) {
-        responseElements.add(new BatchIdentityCheckResponse.Element(element.aci(), element.pni(), identityKeyBytes));
+        responseElements.add(new BatchIdentityCheckResponse.Element(element.aci(), element.uuid(), identityKeyBytes));
       }
     });
   }

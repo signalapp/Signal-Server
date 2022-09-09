@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 import java.util.UUID;
 import javax.annotation.Nullable;
@@ -14,18 +15,17 @@ import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 public record BatchIdentityCheckResponse(@Valid List<Element> elements) {
 
-  /**
-   * Exactly one of {@code aci} and {@code pni} must be non-null
-   */
-  public record Element(@Nullable UUID aci, @Nullable UUID pni, @NotNull @ExactlySize(33) byte[] identityKey) {
+  public record Element(@Deprecated @JsonInclude(JsonInclude.Include.NON_EMPTY) @Nullable UUID aci,
+                        @JsonInclude(JsonInclude.Include.NON_EMPTY) @Nullable UUID uuid,
+                        @NotNull @ExactlySize(33) byte[] identityKey) {
 
     public Element {
-      if (aci == null && pni == null) {
-        throw new IllegalArgumentException("aci and pni cannot both be null");
+      if (aci == null && uuid == null) {
+        throw new IllegalArgumentException("aci and uuid cannot both be null");
       }
 
-      if (aci != null && pni != null) {
-        throw new IllegalArgumentException("aci and pni cannot both be non-null");
+      if (aci != null && uuid != null) {
+        throw new IllegalArgumentException("aci and uuid cannot both be non-null");
       }
     }
   }
