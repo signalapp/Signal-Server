@@ -72,7 +72,6 @@ import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
 import org.whispersystems.textsecuregcm.entities.SendMessageResponse;
 import org.whispersystems.textsecuregcm.entities.SendMultiRecipientMessageResponse;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
-import org.whispersystems.textsecuregcm.limits.RateLimitChallengeException;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -163,7 +162,7 @@ public class MessageController {
       @HeaderParam("X-Forwarded-For") String forwardedFor,
       @PathParam("destination") UUID destinationUuid,
       @NotNull @Valid IncomingMessageList messages)
-      throws RateLimitExceededException, RateLimitChallengeException {
+      throws RateLimitExceededException {
 
     if (source.isEmpty() && accessKey.isEmpty()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);

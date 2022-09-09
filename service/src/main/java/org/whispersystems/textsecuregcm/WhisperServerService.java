@@ -124,7 +124,6 @@ import org.whispersystems.textsecuregcm.mappers.IOExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.InvalidWebsocketAddressExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
-import org.whispersystems.textsecuregcm.mappers.RateLimitChallengeExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ServerRejectedExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.ApplicationShutdownMonitor;
@@ -716,13 +715,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     registerCorsFilter(environment);
     registerExceptionMappers(environment, webSocketEnvironment, provisioningEnvironment);
-
-    RateLimitChallengeExceptionMapper rateLimitChallengeExceptionMapper =
-        new RateLimitChallengeExceptionMapper(rateLimitChallengeOptionManager);
-
-    environment.jersey().register(rateLimitChallengeExceptionMapper);
-    webSocketEnvironment.jersey().register(rateLimitChallengeExceptionMapper);
-    provisioningEnvironment.jersey().register(rateLimitChallengeExceptionMapper);
 
     environment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
     webSocketEnvironment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
