@@ -171,7 +171,7 @@ class AccountsManagerUsernameIntegrationTest {
   }
 
   private static int discriminator(String username) {
-    return Integer.parseInt(username.split(UsernameGenerator.SEPARATOR)[1]);
+    return Integer.parseInt(username.substring(username.indexOf(UsernameGenerator.SEPARATOR) + 1));
   }
 
   @Test

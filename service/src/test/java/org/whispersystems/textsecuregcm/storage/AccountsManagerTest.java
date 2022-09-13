@@ -39,6 +39,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -750,7 +751,7 @@ class AccountsManagerTest {
   @Test
   void testSetReservedUsername() throws UsernameNotAvailableException, UsernameReservationNotFoundException {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
-    final String reserved = "scooby#1234";
+    final String reserved = "scooby.1234";
     setReservationHash(account, reserved);
     when(accounts.usernameAvailable(eq(Optional.of(RESERVATION_TOKEN)), eq(reserved))).thenReturn(true);
     accountsManager.confirmReservedUsername(account, reserved, RESERVATION_TOKEN);
@@ -760,16 +761,16 @@ class AccountsManagerTest {
   @Test
   void testSetReservedHashNameMismatch() {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
-    setReservationHash(account, "pluto#1234");
-    when(accounts.usernameAvailable(eq(Optional.of(RESERVATION_TOKEN)), eq("pluto#1234"))).thenReturn(true);
+    setReservationHash(account, "pluto.1234");
+    when(accounts.usernameAvailable(eq(Optional.of(RESERVATION_TOKEN)), eq("pluto.1234"))).thenReturn(true);
     assertThrows(UsernameReservationNotFoundException.class,
-        () -> accountsManager.confirmReservedUsername(account, "goofy#1234", RESERVATION_TOKEN));
+        () -> accountsManager.confirmReservedUsername(account, "goofy.1234", RESERVATION_TOKEN));
   }
 
   @Test
   void testSetReservedHashAciMismatch() {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
-    final String reserved = "toto#1234";
+    final String reserved = "toto.1234";
     account.setReservedUsernameHash(Accounts.reservedUsernameHash(UUID.randomUUID(), reserved));
     when(accounts.usernameAvailable(eq(Optional.of(RESERVATION_TOKEN)), eq(reserved))).thenReturn(true);
     assertThrows(UsernameReservationNotFoundException.class,
@@ -779,7 +780,7 @@ class AccountsManagerTest {
   @Test
   void testSetReservedLapsed() {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
-    final String reserved = "porkchop#1234";
+    final String reserved = "porkchop.1234";
     // name was reserved, but the reservation lapsed and another account took it
     setReservationHash(account, reserved);
     when(accounts.usernameAvailable(eq(Optional.of(RESERVATION_TOKEN)), eq(reserved))).thenReturn(false);
@@ -790,7 +791,7 @@ class AccountsManagerTest {
   @Test
   void testSetReservedRetry() throws UsernameNotAvailableException, UsernameReservationNotFoundException {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
-    final String username = "santaslittlehelper#1234";
+    final String username = "santaslittlehelper.1234";
     account.setUsername(username);
 
     // reserved username already set, should be treated as a replay
@@ -802,7 +803,7 @@ class AccountsManagerTest {
   void testSetUsernameSameUsername() {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
     final String nickname = "test";
-    account.setUsername(nickname + "#123");
+    account.setUsername(nickname + ".123");
 
     // should be treated as a replayed request
     assertDoesNotThrow(() -> accountsManager.setUsername(account, nickname, null));
@@ -813,7 +814,7 @@ class AccountsManagerTest {
   void testSetUsernameReroll() throws UsernameNotAvailableException {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
     final String nickname = "test";
-    final String username = nickname + "#ZZZ";
+    final String username = nickname + ".ZZZ";
     account.setUsername(username);
 
     // given the correct old username, should reroll discriminator even if the nick matches
@@ -825,7 +826,7 @@ class AccountsManagerTest {
   void testReserveUsernameReroll() throws UsernameNotAvailableException {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
     final String nickname = "clifford";
-    final String username = nickname + "#ZZZ";
+    final String username = nickname + ".ZZZ";
     account.setUsername(username);
 
     // given the correct old username, should reroll discriminator even if the nick matches
@@ -838,7 +839,7 @@ class AccountsManagerTest {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
         new ArrayList<>(), new byte[16]);
     assertThrows(UsernameReservationNotFoundException.class,
-        () -> accountsManager.confirmReservedUsername(account, "laika#1234", RESERVATION_TOKEN));
+        () -> accountsManager.confirmReservedUsername(account, "laika.1234", RESERVATION_TOKEN));
     verify(accounts, never()).confirmUsername(any(), any(), any());
   }
 
@@ -849,7 +850,7 @@ class AccountsManagerTest {
     final String nickname = "test";
 
     ArgumentMatcher<String> isWide = (String username) -> {
-      String[] spl = username.split(UsernameGenerator.SEPARATOR);
+      String[] spl = username.split(Pattern.quote(UsernameGenerator.SEPARATOR));
       assertEquals(spl.length, 2);
       int discriminator = Integer.parseInt(spl[1]);
       // require a 7 digit discriminator
@@ -872,8 +873,8 @@ class AccountsManagerTest {
   void testChangeUsername() throws UsernameNotAvailableException {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[16]);
     final String nickname = "test";
-    account.setUsername("old#123");
-    accountsManager.setUsername(account, nickname, "old#123");
+    account.setUsername("old.123");
+    accountsManager.setUsername(account, nickname, "old.123");
     verify(accounts).setUsername(eq(account),  startsWith(nickname));
   }
 

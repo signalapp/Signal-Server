@@ -13,7 +13,7 @@ public class UsernameConfiguration {
 
   @JsonProperty
   @Min(1)
-  private int discriminatorInitialWidth = 4;
+  private int discriminatorInitialWidth = 2;
 
   @JsonProperty
   @Min(1)

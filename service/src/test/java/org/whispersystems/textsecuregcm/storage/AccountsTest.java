@@ -803,10 +803,11 @@ class AccountsTest {
     accounts.create(account1);
     final Account account2 = generateAccount("+18005552222", UUID.randomUUID(), UUID.randomUUID());
     accounts.create(account2);
+    final String username = "snowball.02";
 
-    accounts.reserveUsername(account1, "snowball#0002", Duration.ofDays(2));
+    accounts.reserveUsername(account1, username, Duration.ofDays(2));
 
-    Supplier<UUID> take = () -> accounts.reserveUsername(account2, "snowball#0002", Duration.ofDays(2));
+    Supplier<UUID> take = () -> accounts.reserveUsername(account2, username, Duration.ofDays(2));
 
     for (int i = 0; i <= 2; i++) {
       when(mockClock.instant()).thenReturn(Instant.EPOCH.plus(Duration.ofDays(i)));
@@ -818,12 +819,12 @@ class AccountsTest {
     final UUID token = take.get();
 
     assertThrows(ContestedOptimisticLockException.class,
-        () -> accounts.reserveUsername(account1, "snowball#0002", Duration.ofDays(2)));
+        () -> accounts.reserveUsername(account1, username, Duration.ofDays(2)));
     assertThrows(ContestedOptimisticLockException.class,
-        () -> accounts.setUsername(account1, "snowball#0002"));
+        () -> accounts.setUsername(account1, username));
 
-    accounts.confirmUsername(account2, "snowball#0002", token);
-    assertThat(accounts.getByUsername("snowball#0002").get().getUuid()).isEqualTo(account2.getUuid());
+    accounts.confirmUsername(account2, username, token);
+    assertThat(accounts.getByUsername(username).get().getUuid()).isEqualTo(account2.getUuid());
   }
 
   @Test
@@ -832,10 +833,11 @@ class AccountsTest {
     accounts.create(account1);
     final Account account2 = generateAccount("+18005552222", UUID.randomUUID(), UUID.randomUUID());
     accounts.create(account2);
+    final String username = "simon.123";
 
-    accounts.reserveUsername(account1, "snowball#0002", Duration.ofDays(2));
+    accounts.reserveUsername(account1, username, Duration.ofDays(2));
 
-    Runnable take = () -> accounts.setUsername(account2, "snowball#0002");
+    Runnable take = () -> accounts.setUsername(account2, username);
 
     for (int i = 0; i <= 2; i++) {
       when(mockClock.instant()).thenReturn(Instant.EPOCH.plus(Duration.ofDays(i)));
@@ -847,10 +849,10 @@ class AccountsTest {
     take.run();
 
     assertThrows(ContestedOptimisticLockException.class,
-        () -> accounts.reserveUsername(account1, "snowball#0002", Duration.ofDays(2)));
+        () -> accounts.reserveUsername(account1, username, Duration.ofDays(2)));
     assertThrows(ContestedOptimisticLockException.class,
-        () -> accounts.setUsername(account1, "snowball#0002"));
-    assertThat(accounts.getByUsername("snowball#0002").get().getUuid()).isEqualTo(account2.getUuid());
+        () -> accounts.setUsername(account1, username));
+    assertThat(accounts.getByUsername(username).get().getUuid()).isEqualTo(account2.getUuid());
   }
 
   @Test

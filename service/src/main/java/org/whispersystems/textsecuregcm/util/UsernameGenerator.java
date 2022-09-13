@@ -34,7 +34,7 @@ public class UsernameGenerator {
    * Usernames typically consist of a nickname and an integer discriminator
    */
   public static final Pattern NICKNAME_PATTERN = Pattern.compile("^[_a-z][_a-z0-9]{2,31}$");
-  public static final String SEPARATOR = "#";
+  public static final String SEPARATOR = ".";
 
   private static final Counter USERNAME_NOT_AVAILABLE_COUNTER = Metrics.counter(name(UsernameGenerator.class, "usernameNotAvailable"));
   private static final DistributionSummary DISCRIMINATOR_ATTEMPT_COUNTER = Metrics.summary(name(UsernameGenerator.class, "discriminatorAttempts"));
@@ -112,7 +112,7 @@ public class UsernameGenerator {
       throw new IllegalArgumentException("Invalid nickname " + nickname);
     }
     // zero pad discriminators less than the discriminator initial width
-    return String.format("%s#%0" + initialWidth + "d", nickname, discriminator);
+    return String.format("%s%s%0" + initialWidth + "d",  nickname, SEPARATOR, discriminator);
   }
 
   public Duration getReservationTtl() {

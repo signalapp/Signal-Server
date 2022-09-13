@@ -34,6 +34,7 @@ public class UsernameGeneratorTest {
         Arguments.of("ab\uD83D\uDC1B", false, "illegal character"),
         Arguments.of("1test", false, "illegal start"),
         Arguments.of("test#123", false, "illegal character"),
+        Arguments.of("test.123", false, "illegal character"),
         Arguments.of("ab", false, "too short"),
         Arguments.of("", false, ""),
         Arguments.of("_123456789_123456789_123456789123", false, "33 characters"),
@@ -54,24 +55,24 @@ public class UsernameGeneratorTest {
 
   static Stream<Arguments> nonStandardUsernames() {
     return Stream.of(
-        Arguments.of("Test#123", false),
-        Arguments.of("test#-123", false),
-        Arguments.of("test#0", false),
-        Arguments.of("test#", false),
-        Arguments.of("test#1_00", false),
+        Arguments.of("Test.123", false),
+        Arguments.of("test.-123", false),
+        Arguments.of("test.0", false),
+        Arguments.of("test.", false),
+        Arguments.of("test.1_00", false),
 
-        Arguments.of("test#1", true),
-        Arguments.of("abc#1234", true)
+        Arguments.of("test.1", true),
+        Arguments.of("abc.1234", true)
     );
   }
 
   @Test
   public void zeroPadDiscriminators() {
     final UsernameGenerator generator = new UsernameGenerator(4, 5, 1, TTL);
-    assertThat(generator.fromParts("test", 1)).isEqualTo("test#0001");
-    assertThat(generator.fromParts("test", 123)).isEqualTo("test#0123");
-    assertThat(generator.fromParts("test", 9999)).isEqualTo("test#9999");
-    assertThat(generator.fromParts("test", 99999)).isEqualTo("test#99999");
+    assertThat(generator.fromParts("test", 1)).isEqualTo("test.0001");
+    assertThat(generator.fromParts("test", 123)).isEqualTo("test.0123");
+    assertThat(generator.fromParts("test", 9999)).isEqualTo("test.9999");
+    assertThat(generator.fromParts("test", 99999)).isEqualTo("test.99999");
   }
 
   @Test
@@ -139,6 +140,6 @@ public class UsernameGeneratorTest {
   }
 
   private static int extractDiscriminator(final String username) {
-    return Integer.parseInt(username.split(UsernameGenerator.SEPARATOR)[1]);
+    return Integer.parseInt(username.substring(username.indexOf(UsernameGenerator.SEPARATOR) + 1));
   }
 }

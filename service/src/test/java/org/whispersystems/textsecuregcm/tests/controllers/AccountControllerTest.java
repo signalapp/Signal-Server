@@ -1728,7 +1728,7 @@ class AccountControllerTest {
   @Test
   void testSetUsername() throws UsernameNotAvailableException {
     Account account = mock(Account.class);
-    when(account.getUsername()).thenReturn(Optional.of("n00bkiller#1234"));
+    when(account.getUsername()).thenReturn(Optional.of("n00bkiller.1234"));
     when(accountsManager.setUsername(any(), eq("n00bkiller"), isNull()))
         .thenReturn(account);
     Response response =
@@ -1738,13 +1738,13 @@ class AccountControllerTest {
                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
                  .put(Entity.json(new UsernameRequest("n00bkiller", null)));
     assertThat(response.getStatus()).isEqualTo(200);
-    assertThat(response.readEntity(UsernameResponse.class).username()).isEqualTo("n00bkiller#1234");
+    assertThat(response.readEntity(UsernameResponse.class).username()).isEqualTo("n00bkiller.1234");
   }
 
   @Test
   void testReserveUsername() throws UsernameNotAvailableException {
     when(accountsManager.reserveUsername(any(), eq("n00bkiller")))
-        .thenReturn(new AccountsManager.UsernameReservation(null, "n00bkiller#1234", RESERVATION_TOKEN));
+        .thenReturn(new AccountsManager.UsernameReservation(null, "n00bkiller.1234", RESERVATION_TOKEN));
     Response response =
         resources.getJerseyTest()
             .target("/v1/accounts/username/reserved")
@@ -1753,48 +1753,48 @@ class AccountControllerTest {
             .put(Entity.json(new ReserveUsernameRequest("n00bkiller")));
     assertThat(response.getStatus()).isEqualTo(200);
     assertThat(response.readEntity(ReserveUsernameResponse.class))
-        .satisfies(r -> r.username().equals("n00bkiller#1234"))
+        .satisfies(r -> r.username().equals("n00bkiller.1234"))
         .satisfies(r -> r.reservationToken().equals(RESERVATION_TOKEN));
   }
 
   @Test
   void testCommitUsername() throws UsernameNotAvailableException, UsernameReservationNotFoundException {
     Account account = mock(Account.class);
-    when(account.getUsername()).thenReturn(Optional.of("n00bkiller#1234"));
-    when(accountsManager.confirmReservedUsername(any(), eq("n00bkiller#1234"), eq(RESERVATION_TOKEN))).thenReturn(account);
+    when(account.getUsername()).thenReturn(Optional.of("n00bkiller.1234"));
+    when(accountsManager.confirmReservedUsername(any(), eq("n00bkiller.1234"), eq(RESERVATION_TOKEN))).thenReturn(account);
     Response response =
         resources.getJerseyTest()
             .target("/v1/accounts/username/confirm")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameRequest("n00bkiller#1234", RESERVATION_TOKEN)));
+            .put(Entity.json(new ConfirmUsernameRequest("n00bkiller.1234", RESERVATION_TOKEN)));
     assertThat(response.getStatus()).isEqualTo(200);
-    assertThat(response.readEntity(UsernameResponse.class).username()).isEqualTo("n00bkiller#1234");
+    assertThat(response.readEntity(UsernameResponse.class).username()).isEqualTo("n00bkiller.1234");
   }
 
   @Test
   void testCommitUnreservedUsername() throws UsernameNotAvailableException, UsernameReservationNotFoundException {
-    when(accountsManager.confirmReservedUsername(any(), eq("n00bkiller#1234"), eq(RESERVATION_TOKEN)))
+    when(accountsManager.confirmReservedUsername(any(), eq("n00bkiller.1234"), eq(RESERVATION_TOKEN)))
         .thenThrow(new UsernameReservationNotFoundException());
     Response response =
         resources.getJerseyTest()
             .target("/v1/accounts/username/confirm")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameRequest("n00bkiller#1234", RESERVATION_TOKEN)));
+            .put(Entity.json(new ConfirmUsernameRequest("n00bkiller.1234", RESERVATION_TOKEN)));
     assertThat(response.getStatus()).isEqualTo(409);
   }
 
   @Test
   void testCommitLapsedUsername() throws UsernameNotAvailableException, UsernameReservationNotFoundException {
-    when(accountsManager.confirmReservedUsername(any(), eq("n00bkiller#1234"), eq(RESERVATION_TOKEN)))
+    when(accountsManager.confirmReservedUsername(any(), eq("n00bkiller.1234"), eq(RESERVATION_TOKEN)))
         .thenThrow(new UsernameNotAvailableException());
     Response response =
         resources.getJerseyTest()
             .target("/v1/accounts/username/confirm")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .put(Entity.json(new ConfirmUsernameRequest("n00bkiller#1234", RESERVATION_TOKEN)));
+            .put(Entity.json(new ConfirmUsernameRequest("n00bkiller.1234", RESERVATION_TOKEN)));
     assertThat(response.getStatus()).isEqualTo(410);
   }
 
@@ -2068,9 +2068,9 @@ class AccountControllerTest {
     final UUID uuid = UUID.randomUUID();
     when(account.getUuid()).thenReturn(uuid);
 
-    when(accountsManager.getByUsername(eq("n00bkiller#1234"))).thenReturn(Optional.of(account));
+    when(accountsManager.getByUsername(eq("n00bkiller.1234"))).thenReturn(Optional.of(account));
     Response response = resources.getJerseyTest()
-        .target("v1/accounts/username/n00bkiller#1234")
+        .target("v1/accounts/username/n00bkiller.1234")
         .request()
         .header("X-Forwarded-For", "127.0.0.1")
         .get();
@@ -2080,9 +2080,9 @@ class AccountControllerTest {
 
   @Test
   void testLookupUsernameDoesNotExist() {
-    when(accountsManager.getByUsername(eq("n00bkiller#1234"))).thenReturn(Optional.empty());
+    when(accountsManager.getByUsername(eq("n00bkiller.1234"))).thenReturn(Optional.empty());
     assertThat(resources.getJerseyTest()
-        .target("v1/accounts/username/n00bkiller#1234")
+        .target("v1/accounts/username/n00bkiller.1234")
         .request()
         .header("X-Forwarded-For", "127.0.0.1")
         .get().getStatus()).isEqualTo(404);
@@ -2092,7 +2092,7 @@ class AccountControllerTest {
   void testLookupUsernameRateLimited() throws RateLimitExceededException {
     doThrow(new RateLimitExceededException(Duration.ofSeconds(13))).when(usernameLookupLimiter).validate("127.0.0.1");
     final Response response = resources.getJerseyTest()
-        .target("/v1/accounts/username/test#123")
+        .target("/v1/accounts/username/test.123")
         .request()
         .header("X-Forwarded-For", "127.0.0.1")
         .get();
