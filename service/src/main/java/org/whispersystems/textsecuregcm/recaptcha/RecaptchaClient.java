@@ -14,6 +14,7 @@ import com.google.cloud.recaptchaenterprise.v1.RecaptchaEnterpriseServiceSetting
 import com.google.common.annotations.VisibleForTesting;
 import com.google.recaptchaenterprise.v1.Assessment;
 import com.google.recaptchaenterprise.v1.Event;
+import com.google.recaptchaenterprise.v1.RiskAnalysis;
 import io.micrometer.core.instrument.Metrics;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -32,6 +33,9 @@ public class RecaptchaClient {
   @VisibleForTesting
   static final String V2_PREFIX = "signal-recaptcha-v2" + RecaptchaClient.SEPARATOR;
   private static final String ASSESSMENTS_COUNTER_NAME = name(RecaptchaClient.class, "assessments");
+
+  private static final String INVALID_REASON_COUNTER_NAME = name(RecaptchaClient.class, "invalidReason");
+  private static final String ASSESSMENT_REASON_COUNTER_NAME = name(RecaptchaClient.class, "assessmentReason");
 
   private final String projectPath;
   private final RecaptchaEnterpriseServiceClient client;
@@ -89,6 +93,14 @@ public class RecaptchaClient {
     }
   }
 
+  /*
+   * recaptcha enterprise scores are from [0.0, 1.0] in increments of .1
+   * map to [0, 100] for easier interpretation
+   */
+  private static String scoreString(final float score) {
+    return Integer.toString((int) score * 100);
+  }
+
 
   public AssessmentResult verify(final String input, final String ip) {
     final String[] parts = parseInputToken(input);
@@ -114,13 +126,23 @@ public class RecaptchaClient {
             "valid", String.valueOf(assessment.getTokenProperties().getValid()))
         .increment();
 
+
     if (assessment.getTokenProperties().getValid()) {
+      for (RiskAnalysis.ClassificationReason reason : assessment.getRiskAnalysis().getReasonsList()) {
+        Metrics.counter(ASSESSMENT_REASON_COUNTER_NAME,
+            "action", String.valueOf(expectedAction),
+            "score", scoreString(assessment.getRiskAnalysis().getScore()),
+            "reason", reason.name());
+      }
       final float score = assessment.getRiskAnalysis().getScore();
       return new AssessmentResult(
           score >=
               dynamicConfigurationManager.getConfiguration().getCaptchaConfiguration().getScoreFloor().floatValue(),
-          Integer.toString((int) score));
+          scoreString(score));
     } else {
+      Metrics.counter(INVALID_REASON_COUNTER_NAME,
+          "action", String.valueOf(expectedAction),
+          "reason", assessment.getTokenProperties().getInvalidReason().name());
       return AssessmentResult.invalid();
     }
   }
