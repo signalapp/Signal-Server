@@ -132,7 +132,8 @@ public class RecaptchaClient {
         Metrics.counter(ASSESSMENT_REASON_COUNTER_NAME,
             "action", String.valueOf(expectedAction),
             "score", scoreString(assessment.getRiskAnalysis().getScore()),
-            "reason", reason.name());
+            "reason", reason.name())
+            .increment();
       }
       final float score = assessment.getRiskAnalysis().getScore();
       return new AssessmentResult(
@@ -142,7 +143,8 @@ public class RecaptchaClient {
     } else {
       Metrics.counter(INVALID_REASON_COUNTER_NAME,
           "action", String.valueOf(expectedAction),
-          "reason", assessment.getTokenProperties().getInvalidReason().name());
+          "reason", assessment.getTokenProperties().getInvalidReason().name())
+          .increment();
       return AssessmentResult.invalid();
     }
   }
