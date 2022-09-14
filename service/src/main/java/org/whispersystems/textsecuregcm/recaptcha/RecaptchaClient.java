@@ -77,7 +77,20 @@ public class RecaptchaClient {
     return parts;
   }
 
-  public boolean verify(final String input, final String ip) {
+  /**
+   * A captcha assessment
+   *
+   * @param valid whether the captcha was passed
+   * @param score string representation of the risk level
+   */
+  public record AssessmentResult(boolean valid, String score) {
+    public static AssessmentResult invalid() {
+      return new AssessmentResult(false, "");
+    }
+  }
+
+
+  public AssessmentResult verify(final String input, final String ip) {
     final String[] parts = parseInputToken(input);
 
     final String sitekey = parts[0];
@@ -102,11 +115,13 @@ public class RecaptchaClient {
         .increment();
 
     if (assessment.getTokenProperties().getValid()) {
-      return assessment.getRiskAnalysis().getScore() >=
-          dynamicConfigurationManager.getConfiguration().getCaptchaConfiguration().getScoreFloor().floatValue();
-
+      final float score = assessment.getRiskAnalysis().getScore();
+      return new AssessmentResult(
+          score >=
+              dynamicConfigurationManager.getConfiguration().getCaptchaConfiguration().getScoreFloor().floatValue(),
+          Integer.toString((int) score));
     } else {
-      return false;
+      return AssessmentResult.invalid();
     }
   }
 }

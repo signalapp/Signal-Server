@@ -125,6 +125,7 @@ public class AccountController {
   private static final String CHALLENGE_ISSUED_COUNTER_NAME = name(AccountController.class, "challengeIssued");
 
   private static final String TWILIO_VERIFY_ERROR_COUNTER_NAME = name(AccountController.class, "twilioVerifyError");
+  private static final String TWILIO_VERIFY_UNDELIVERED_COUNTER_NAME = name(AccountController.class, "twilioUndelivered");
 
   private static final String INVALID_ACCEPT_LANGUAGE_COUNTER_NAME = name(AccountController.class, "invalidAcceptLanguage");
   private static final String NONSTANDARD_USERNAME_COUNTER_NAME = name(AccountController.class, "nonStandardUsername");
@@ -134,6 +135,7 @@ public class AccountController {
   private static final String COUNTRY_CODE_TAG_NAME = "countryCode";
   private static final String REGION_TAG_NAME = "region";
   private static final String VERIFICATION_TRANSPORT_TAG_NAME = "transport";
+  private static final String SCORE_TAG_NAME = "score";
 
   private static final String VERIFY_EXPERIMENT_TAG_NAME = "twilioVerify";
 
@@ -231,23 +233,34 @@ public class AccountController {
     String sourceHost = ForwardedIpUtil.getMostRecentProxy(forwardedFor).orElseThrow();
 
     Optional<StoredVerificationCode> storedChallenge = pendingAccounts.getCodeForNumber(number);
-    CaptchaRequirement requirement = requiresCaptcha(number, transport, forwardedFor, sourceHost, captcha,
-        storedChallenge, pushChallenge, userAgent);
 
-    if (requirement.isCaptchaRequired()) {
+    final String countryCode = Util.getCountryCode(number);
+    final String region = Util.getRegion(number);
+
+    // if there's a captcha, assess it, otherwise check if we need a captcha
+    final Optional<RecaptchaClient.AssessmentResult> assessmentResult = captcha
+        .map(captchaToken -> recaptchaClient.verify(captchaToken, sourceHost));
+
+    assessmentResult.ifPresent(result ->
+        Metrics.counter(CAPTCHA_ATTEMPT_COUNTER_NAME, Tags.of(
+                Tag.of("success", String.valueOf(result.valid())),
+                UserAgentTagUtil.getPlatformTag(userAgent),
+                Tag.of(COUNTRY_CODE_TAG_NAME, countryCode),
+                Tag.of(REGION_TAG_NAME, region),
+                Tag.of(SCORE_TAG_NAME, result.score())))
+            .increment());
+
+    final boolean requiresCaptcha = assessmentResult
+        .map(result -> !result.valid())
+        .orElseGet(() -> requiresCaptcha(number, transport, forwardedFor, sourceHost, storedChallenge, pushChallenge));
+
+    if (requiresCaptcha) {
       captchaRequiredMeter.mark();
-
       Metrics.counter(CHALLENGE_ISSUED_COUNTER_NAME, Tags.of(
               UserAgentTagUtil.getPlatformTag(userAgent),
               Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)),
               Tag.of(REGION_TAG_NAME, Util.getRegion(number))))
           .increment();
-
-      if (requirement.isAutoBlock() && shouldAutoBlock(sourceHost)) {
-        logger.info("Auto-block: {}", sourceHost);
-        abusiveHostRules.setBlockedHost(sourceHost);
-      }
-
       return Response.status(402).build();
     }
 
@@ -314,6 +327,14 @@ public class AccountController {
 
         logger.warn("Error with Twilio Verify", throwable);
         return;
+      }
+      if (enrolledInVerifyExperiment && maybeVerificationSid.isEmpty() && assessmentResult.isPresent()) {
+        Metrics.counter(TWILIO_VERIFY_UNDELIVERED_COUNTER_NAME, Tags.of(
+                Tag.of(COUNTRY_CODE_TAG_NAME, countryCode),
+                Tag.of(REGION_TAG_NAME, region),
+                UserAgentTagUtil.getPlatformTag(userAgent),
+                Tag.of(SCORE_TAG_NAME, assessmentResult.get().score())))
+            .increment();
       }
       maybeVerificationSid.ifPresent(twilioVerificationSid -> {
         StoredVerificationCode storedVerificationCodeWithVerificationSid = new StoredVerificationCode(
@@ -798,36 +819,16 @@ public class AccountController {
     }
   }
 
-  private CaptchaRequirement requiresCaptcha(String number, String transport, String forwardedFor,
+  private boolean requiresCaptcha(String number, String transport, String forwardedFor,
       String sourceHost,
-      Optional<String> captchaToken,
       Optional<StoredVerificationCode> storedVerificationCode,
-      Optional<String> pushChallenge,
-      String userAgent)
-  {
+      Optional<String> pushChallenge) {
     if (testDevices.containsKey(number)) {
-      return new CaptchaRequirement(false, false);
+      return false;
     }
 
     final String countryCode = Util.getCountryCode(number);
     final String region = Util.getRegion(number);
-
-    if (captchaToken.isPresent()) {
-      boolean validToken = recaptchaClient.verify(captchaToken.get(), sourceHost);
-
-      Metrics.counter(CAPTCHA_ATTEMPT_COUNTER_NAME, Tags.of(
-              Tag.of("success", String.valueOf(validToken)),
-              UserAgentTagUtil.getPlatformTag(userAgent),
-              Tag.of(COUNTRY_CODE_TAG_NAME, countryCode),
-              Tag.of(REGION_TAG_NAME, region)))
-          .increment();
-
-      if (validToken) {
-        return new CaptchaRequirement(false, false);
-      } else {
-        return new CaptchaRequirement(true, false);
-      }
-    }
 
     {
       final List<Tag> tags = new ArrayList<>();
@@ -842,14 +843,13 @@ public class AccountController {
 
           if (!pushChallenge.get().equals(storedPushChallenge.orElse(null))) {
             tags.add(Tag.of(CHALLENGE_MATCH_TAG_NAME, "false"));
-            return new CaptchaRequirement(true, false);
+            return true;
           } else {
             tags.add(Tag.of(CHALLENGE_MATCH_TAG_NAME, "true"));
           }
         } else {
           tags.add(Tag.of(CHALLENGE_PRESENT_TAG_NAME, "false"));
-
-          return new CaptchaRequirement(true, false);
+          return true;
         }
       } finally {
         Metrics.counter(PUSH_CHALLENGE_COUNTER_NAME, tags).increment();
@@ -870,7 +870,7 @@ public class AccountController {
         // would be caught by country filter as well
         countryFilterApplicable.mark();
       }
-      return new CaptchaRequirement(true, false);
+      return true;
     }
 
     try {
@@ -878,7 +878,11 @@ public class AccountController {
     } catch (RateLimitExceededException e) {
       logger.info("Rate limit exceeded: {}, {}, {} ({})", transport, number, sourceHost, forwardedFor);
       rateLimitedHostMeter.mark();
-      return new CaptchaRequirement(true, true);
+      if (shouldAutoBlock(sourceHost)) {
+        logger.info("Auto-block: {}", sourceHost);
+        abusiveHostRules.setBlockedHost(sourceHost);
+      }
+      return true;
     }
 
     try {
@@ -886,15 +890,18 @@ public class AccountController {
     } catch (RateLimitExceededException e) {
       logger.info("Prefix rate limit exceeded: {}, {}, {} ({})", transport, number, sourceHost, forwardedFor);
       rateLimitedPrefixMeter.mark();
-      return new CaptchaRequirement(true, true);
+      if (shouldAutoBlock(sourceHost)) {
+        logger.info("Auto-block: {}", sourceHost);
+        abusiveHostRules.setBlockedHost(sourceHost);
+      }
+      return true;
     }
 
     if (countryFiltered) {
       countryFilteredHostMeter.mark();
-      return new CaptchaRequirement(true, false);
+      return true;
     }
-
-    return new CaptchaRequirement(false, false);
+    return false;
   }
 
   @Timed
@@ -940,23 +947,5 @@ public class AccountController {
     random.nextBytes(challenge);
 
     return Hex.toStringCondensed(challenge);
-  }
-
-  private static class CaptchaRequirement {
-    private final boolean captchaRequired;
-    private final boolean autoBlock;
-
-    private CaptchaRequirement(boolean captchaRequired, boolean autoBlock) {
-      this.captchaRequired = captchaRequired;
-      this.autoBlock       = autoBlock;
-    }
-
-    boolean isCaptchaRequired() {
-      return captchaRequired;
-    }
-
-    boolean isAutoBlock() {
-      return autoBlock;
-    }
   }
 }

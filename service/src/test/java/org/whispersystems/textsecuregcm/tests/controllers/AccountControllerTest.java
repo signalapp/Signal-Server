@@ -300,8 +300,10 @@ class AccountControllerTest {
     when(abusiveHostRules.isBlocked(eq(ABUSIVE_HOST))).thenReturn(true);
     when(abusiveHostRules.isBlocked(eq(NICE_HOST))).thenReturn(false);
 
-    when(recaptchaClient.verify(eq(INVALID_CAPTCHA_TOKEN), anyString())).thenReturn(false);
-    when(recaptchaClient.verify(eq(VALID_CAPTCHA_TOKEN), anyString())).thenReturn(true);
+    when(recaptchaClient.verify(eq(INVALID_CAPTCHA_TOKEN), anyString()))
+        .thenReturn(RecaptchaClient.AssessmentResult.invalid());
+    when(recaptchaClient.verify(eq(VALID_CAPTCHA_TOKEN), anyString()))
+        .thenReturn(new RecaptchaClient.AssessmentResult(true, ""));
 
     doThrow(new RateLimitExceededException(Duration.ZERO)).when(pinLimiter).validate(eq(SENDER_OVER_PIN));
 
