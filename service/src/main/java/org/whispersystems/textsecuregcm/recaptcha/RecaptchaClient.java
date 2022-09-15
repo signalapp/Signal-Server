@@ -23,10 +23,13 @@ import java.util.Objects;
 import javax.annotation.Nonnull;
 import javax.ws.rs.BadRequestException;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
 public class RecaptchaClient {
+  private static final Logger log = LoggerFactory.getLogger(RecaptchaClient.class);
 
   @VisibleForTesting
   static final String SEPARATOR = ".";
@@ -97,8 +100,9 @@ public class RecaptchaClient {
    * recaptcha enterprise scores are from [0.0, 1.0] in increments of .1
    * map to [0, 100] for easier interpretation
    */
-  private static String scoreString(final float score) {
-    return Integer.toString((int) score * 100);
+  @VisibleForTesting
+  static String scoreString(final float score) {
+    return Integer.toString((int) (score * 100));
   }
 
 
@@ -128,14 +132,15 @@ public class RecaptchaClient {
 
 
     if (assessment.getTokenProperties().getValid()) {
+      final float score = assessment.getRiskAnalysis().getScore();
+      log.debug("assessment for {} was valid, score: {}", expectedAction, score);
       for (RiskAnalysis.ClassificationReason reason : assessment.getRiskAnalysis().getReasonsList()) {
         Metrics.counter(ASSESSMENT_REASON_COUNTER_NAME,
             "action", String.valueOf(expectedAction),
-            "score", scoreString(assessment.getRiskAnalysis().getScore()),
+            "score", scoreString(score),
             "reason", reason.name())
             .increment();
       }
-      final float score = assessment.getRiskAnalysis().getScore();
       return new AssessmentResult(
           score >=
               dynamicConfigurationManager.getConfiguration().getCaptchaConfiguration().getScoreFloor().floatValue(),

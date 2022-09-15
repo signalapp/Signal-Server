@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.recaptcha;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.whispersystems.textsecuregcm.recaptcha.RecaptchaClient.SEPARATOR;
@@ -41,6 +42,21 @@ class RecaptchaClientTest {
     assertThrows(BadRequestException.class, () -> {
       RecaptchaClient.parseInputToken(TOKEN);
     });
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void scoreString(float score, String expected) {
+    assertThat(RecaptchaClient.scoreString(score)).isEqualTo(expected);
+  }
+
+  static Stream<Arguments> scoreString() {
+    return Stream.of(
+        Arguments.of(0.3f, "30"),
+        Arguments.of(0.0f, "0"),
+        Arguments.of(0.333f, "33"),
+        Arguments.of(Float.NaN, "0")
+    );
   }
 
   static Stream<Arguments> parseInputToken() {
