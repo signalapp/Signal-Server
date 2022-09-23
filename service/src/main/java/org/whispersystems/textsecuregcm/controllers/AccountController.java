@@ -252,9 +252,14 @@ public class AccountController {
                 Tag.of(SCORE_TAG_NAME, result.score())))
             .increment());
 
+    boolean pushChallengeMatch = pushChallengeMatches(number, pushChallenge, storedChallenge);
+    if (pushChallenge.isPresent() && !pushChallengeMatch) {
+      throw new WebApplicationException(Response.status(403).build());
+    }
+
     final boolean requiresCaptcha = assessmentResult
         .map(result -> !result.valid())
-        .orElseGet(() -> requiresCaptcha(number, transport, forwardedFor, sourceHost, storedChallenge, pushChallenge));
+        .orElseGet(() -> requiresCaptcha(number, transport, forwardedFor, sourceHost, pushChallengeMatch));
 
     if (requiresCaptcha) {
       captchaRequiredMeter.mark();
@@ -821,42 +826,34 @@ public class AccountController {
     }
   }
 
-  private boolean requiresCaptcha(String number, String transport, String forwardedFor,
-      String sourceHost,
-      Optional<StoredVerificationCode> storedVerificationCode,
-      Optional<String> pushChallenge) {
+  private boolean pushChallengeMatches(
+      final String number,
+      final Optional<String> pushChallenge,
+      final Optional<StoredVerificationCode> storedVerificationCode) {
+    final String countryCode = Util.getCountryCode(number);
+    final String region = Util.getRegion(number);
+
+    final List<Tag> tags = new ArrayList<>();
+    tags.add(Tag.of(COUNTRY_CODE_TAG_NAME, countryCode));
+    tags.add(Tag.of(REGION_TAG_NAME, region));
+    tags.add(Tag.of(CHALLENGE_PRESENT_TAG_NAME, Boolean.toString(pushChallenge.isPresent())));
+    Optional<String> storedPushChallenge = storedVerificationCode.map(StoredVerificationCode::getPushCode);
+    boolean match = pushChallenge.isPresent() && storedPushChallenge.isPresent() && pushChallenge.get().equals(storedPushChallenge.get());
+    tags.add(Tag.of(CHALLENGE_MATCH_TAG_NAME, Boolean.toString(match)));
+    return match;
+  }
+
+  private boolean requiresCaptcha(String number, String transport, String forwardedFor, String sourceHost, boolean pushChallengeMatch) {
     if (testDevices.containsKey(number)) {
       return false;
     }
 
+    if (!pushChallengeMatch) {
+      return true;
+    }
+
     final String countryCode = Util.getCountryCode(number);
     final String region = Util.getRegion(number);
-
-    {
-      final List<Tag> tags = new ArrayList<>();
-      tags.add(Tag.of(COUNTRY_CODE_TAG_NAME, countryCode));
-      tags.add(Tag.of(REGION_TAG_NAME, region));
-
-      try {
-        if (pushChallenge.isPresent()) {
-          tags.add(Tag.of(CHALLENGE_PRESENT_TAG_NAME, "true"));
-
-          Optional<String> storedPushChallenge = storedVerificationCode.map(StoredVerificationCode::getPushCode);
-
-          if (!pushChallenge.get().equals(storedPushChallenge.orElse(null))) {
-            tags.add(Tag.of(CHALLENGE_MATCH_TAG_NAME, "false"));
-            return true;
-          } else {
-            tags.add(Tag.of(CHALLENGE_MATCH_TAG_NAME, "true"));
-          }
-        } else {
-          tags.add(Tag.of(CHALLENGE_PRESENT_TAG_NAME, "false"));
-          return true;
-        }
-      } finally {
-        Metrics.counter(PUSH_CHALLENGE_COUNTER_NAME, tags).increment();
-      }
-    }
 
     DynamicCaptchaConfiguration captchaConfig = dynamicConfigurationManager.getConfiguration()
         .getCaptchaConfiguration();

@@ -705,7 +705,7 @@ class AccountControllerTest {
                  .header("X-Forwarded-For", NICE_HOST)
                  .get();
 
-    assertThat(response.getStatus()).isEqualTo(402);
+    assertThat(response.getStatus()).isEqualTo(403);
 
     verifyNoMoreInteractions(smsSender);
     verifyNoMoreInteractions(abusiveHostRules);
