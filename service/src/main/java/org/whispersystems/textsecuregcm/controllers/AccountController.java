@@ -102,6 +102,7 @@ import org.whispersystems.textsecuregcm.util.ForwardedIpUtil;
 import org.whispersystems.textsecuregcm.util.Hex;
 import org.whispersystems.textsecuregcm.util.ImpossiblePhoneNumberException;
 import org.whispersystems.textsecuregcm.util.NonNormalizedPhoneNumberException;
+import org.whispersystems.textsecuregcm.util.Optionals;
 import org.whispersystems.textsecuregcm.util.UsernameGenerator;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.util.VerificationCode;
@@ -832,14 +833,14 @@ public class AccountController {
       final Optional<StoredVerificationCode> storedVerificationCode) {
     final String countryCode = Util.getCountryCode(number);
     final String region = Util.getRegion(number);
-
-    final List<Tag> tags = new ArrayList<>();
-    tags.add(Tag.of(COUNTRY_CODE_TAG_NAME, countryCode));
-    tags.add(Tag.of(REGION_TAG_NAME, region));
-    tags.add(Tag.of(CHALLENGE_PRESENT_TAG_NAME, Boolean.toString(pushChallenge.isPresent())));
     Optional<String> storedPushChallenge = storedVerificationCode.map(StoredVerificationCode::getPushCode);
-    boolean match = pushChallenge.isPresent() && storedPushChallenge.isPresent() && pushChallenge.get().equals(storedPushChallenge.get());
-    tags.add(Tag.of(CHALLENGE_MATCH_TAG_NAME, Boolean.toString(match)));
+    boolean match = Optionals.zipWith(pushChallenge, storedPushChallenge, String::equals).orElse(false);
+    Metrics.counter(PUSH_CHALLENGE_COUNTER_NAME,
+            COUNTRY_CODE_TAG_NAME, countryCode,
+            REGION_TAG_NAME, region,
+            CHALLENGE_PRESENT_TAG_NAME, Boolean.toString(pushChallenge.isPresent()),
+            CHALLENGE_MATCH_TAG_NAME, Boolean.toString(match))
+        .increment();
     return match;
   }
 
