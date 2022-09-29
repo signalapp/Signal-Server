@@ -157,14 +157,19 @@ class TwilioVerifySender {
     }
 
     if (twilioVerifyResponse.isFailure()) {
+      String countryCode = Util.getCountryCode(destination);
+      String region = Util.getRegion(destination);
+
       Metrics.counter(TwilioSmsSender.FAILED_REQUEST_COUNTER_NAME,
           TwilioSmsSender.SERVICE_NAME_TAG, "verify",
           TwilioSmsSender.STATUS_CODE_TAG_NAME, String.valueOf(twilioVerifyResponse.failureResponse.status),
-          TwilioSmsSender.ERROR_CODE_TAG_NAME, String.valueOf(twilioVerifyResponse.failureResponse.code)).increment();
+          TwilioSmsSender.ERROR_CODE_TAG_NAME, String.valueOf(twilioVerifyResponse.failureResponse.code),
+          TwilioSmsSender.COUNTRY_CODE_TAG_NAME, countryCode,
+          TwilioSmsSender.REGION_TAG_NAME, region).increment();
 
       logger.info("Failed with code={}, country={}",
           twilioVerifyResponse.failureResponse.code,
-          Util.getCountryCode(destination));
+          countryCode);
 
       return Optional.empty();
     }

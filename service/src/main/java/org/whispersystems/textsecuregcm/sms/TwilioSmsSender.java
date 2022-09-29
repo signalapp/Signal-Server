@@ -60,6 +60,8 @@ public class TwilioSmsSender {
   static final String SERVICE_NAME_TAG = "service";
   static final String STATUS_CODE_TAG_NAME = "statusCode";
   static final String ERROR_CODE_TAG_NAME = "errorCode";
+  static final String COUNTRY_CODE_TAG_NAME = "countryCode";
+  static final String REGION_TAG_NAME = "region";
 
   private final String            accountId;
   private final String            accountToken;
@@ -213,14 +215,19 @@ public class TwilioSmsSender {
       return true;
     } else if (response != null && response.isFailure()) {
 
+      String countryCode = Util.getCountryCode(destination);
+      String region = Util.getRegion(destination);
+
       Metrics.counter(FAILED_REQUEST_COUNTER_NAME,
           SERVICE_NAME_TAG, "classic",
           STATUS_CODE_TAG_NAME, String.valueOf(response.failureResponse.status),
-          ERROR_CODE_TAG_NAME, String.valueOf(response.failureResponse.code)).increment();
+          ERROR_CODE_TAG_NAME, String.valueOf(response.failureResponse.code),
+          COUNTRY_CODE_TAG_NAME, countryCode,
+          REGION_TAG_NAME, region).increment();
 
       logger.info("Failed with code={}, country={}",
           response.failureResponse.code,
-          Util.getCountryCode(destination));
+          countryCode);
 
       return false;
     } else if (throwable != null) {
