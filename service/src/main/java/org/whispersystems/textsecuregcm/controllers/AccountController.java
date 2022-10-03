@@ -135,7 +135,13 @@ public class AccountController {
   private static final String CHALLENGE_PRESENT_TAG_NAME = "present";
   private static final String CHALLENGE_MATCH_TAG_NAME = "matches";
   private static final String COUNTRY_CODE_TAG_NAME = "countryCode";
+
+  /**
+   * @deprecated "region" conflicts with cloud provider region tags; prefer "regionCode" instead
+   */
+  @Deprecated
   private static final String REGION_TAG_NAME = "region";
+  private static final String REGION_CODE_TAG_NAME = "regionCode";
   private static final String VERIFICATION_TRANSPORT_TAG_NAME = "transport";
   private static final String SCORE_TAG_NAME = "score";
 
@@ -250,6 +256,7 @@ public class AccountController {
                 UserAgentTagUtil.getPlatformTag(userAgent),
                 Tag.of(COUNTRY_CODE_TAG_NAME, countryCode),
                 Tag.of(REGION_TAG_NAME, region),
+                Tag.of(REGION_CODE_TAG_NAME, region),
                 Tag.of(SCORE_TAG_NAME, result.score())))
             .increment());
 
@@ -267,7 +274,8 @@ public class AccountController {
       Metrics.counter(CHALLENGE_ISSUED_COUNTER_NAME, Tags.of(
               UserAgentTagUtil.getPlatformTag(userAgent),
               Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)),
-              Tag.of(REGION_TAG_NAME, Util.getRegion(number))))
+              Tag.of(REGION_TAG_NAME, Util.getRegion(number)),
+              Tag.of(REGION_CODE_TAG_NAME, region)))
           .increment();
       return Response.status(402).build();
     }
@@ -419,6 +427,7 @@ public class AccountController {
     Metrics.counter(ACCOUNT_VERIFY_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
             Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)),
             Tag.of(REGION_TAG_NAME, Util.getRegion(number)),
+            Tag.of(REGION_CODE_TAG_NAME, Util.getRegion(number)),
             Tag.of(VERIFY_EXPERIMENT_TAG_NAME, String.valueOf(storedVerificationCode.get().getTwilioVerificationSid().isPresent()))))
         .increment();
 
@@ -838,6 +847,7 @@ public class AccountController {
     Metrics.counter(PUSH_CHALLENGE_COUNTER_NAME,
             COUNTRY_CODE_TAG_NAME, countryCode,
             REGION_TAG_NAME, region,
+            REGION_CODE_TAG_NAME, region,
             CHALLENGE_PRESENT_TAG_NAME, Boolean.toString(pushChallenge.isPresent()),
             CHALLENGE_MATCH_TAG_NAME, Boolean.toString(match))
         .increment();

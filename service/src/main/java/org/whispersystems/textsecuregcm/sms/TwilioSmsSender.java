@@ -61,7 +61,13 @@ public class TwilioSmsSender {
   static final String STATUS_CODE_TAG_NAME = "statusCode";
   static final String ERROR_CODE_TAG_NAME = "errorCode";
   static final String COUNTRY_CODE_TAG_NAME = "countryCode";
+
+  /**
+   * @deprecated "region" conflicts with cloud provider region tags; prefer "regionCode" instead
+   */
+  @Deprecated
   static final String REGION_TAG_NAME = "region";
+  static final String REGION_CODE_TAG_NAME = "regionCode";
 
   private final String            accountId;
   private final String            accountToken;
@@ -223,7 +229,8 @@ public class TwilioSmsSender {
           STATUS_CODE_TAG_NAME, String.valueOf(response.failureResponse.status),
           ERROR_CODE_TAG_NAME, String.valueOf(response.failureResponse.code),
           COUNTRY_CODE_TAG_NAME, countryCode,
-          REGION_TAG_NAME, region).increment();
+          REGION_TAG_NAME, region,
+          REGION_CODE_TAG_NAME, region).increment();
 
       logger.info("Failed with code={}, country={}",
           response.failureResponse.code,
