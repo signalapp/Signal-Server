@@ -676,7 +676,7 @@ class MessageControllerTest {
             .request()
             .header(OptionalAccess.UNIDENTIFIED, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES))
             .put(Entity.entity(new IncomingMessageList(
-                    List.of(new IncomingMessage(1, 1L, 1, new String(contentBytes))), false, true, false,
+                    List.of(new IncomingMessage(1, 1L, 1, new String(contentBytes))), false, true,
                     System.currentTimeMillis()),
                 MediaType.APPLICATION_JSON_TYPE));
 

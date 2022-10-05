@@ -165,10 +165,9 @@ public class MessageController {
       @HeaderParam("User-Agent") String userAgent,
       @HeaderParam("X-Forwarded-For") String forwardedFor,
       @PathParam("destination") UUID destinationUuid,
+      @QueryParam("story") boolean isStory,
       @NotNull @Valid IncomingMessageList messages)
       throws RateLimitExceededException {
-
-    boolean isStory = messages.story();
 
     if (source.isEmpty() && accessKey.isEmpty() && !isStory) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
