@@ -68,6 +68,9 @@ public class RateLimitsConfiguration {
   @JsonProperty
   private RateLimitConfiguration checkAccountExistence = new RateLimitConfiguration(1_000, 1_000 / 60.0);
 
+  @JsonProperty
+  private RateLimitConfiguration stories = new RateLimitConfiguration(10_000, 10_000 / (24.0 * 60.0));
+
   public RateLimitConfiguration getAutoBlock() {
     return autoBlock;
   }
@@ -147,6 +150,8 @@ public class RateLimitsConfiguration {
   public RateLimitConfiguration getCheckAccountExistence() {
     return checkAccountExistence;
   }
+
+  public RateLimitConfiguration getStories() { return stories; }
 
   public static class RateLimitConfiguration {
     @JsonProperty

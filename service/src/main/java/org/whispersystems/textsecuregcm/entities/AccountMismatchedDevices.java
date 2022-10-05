@@ -15,6 +15,10 @@ public class AccountMismatchedDevices {
   @JsonProperty
   public final MismatchedDevices devices;
 
+  public String toString() {
+    return "AccountMismatchedDevices(" + uuid + ", " + devices + ")";
+  }
+
   public AccountMismatchedDevices(final UUID uuid, final MismatchedDevices devices) {
     this.uuid = uuid;
     this.devices = devices;

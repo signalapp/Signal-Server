@@ -16,6 +16,10 @@ public class StaleDevices {
 
   public StaleDevices() {}
 
+  public String toString() {
+    return "StaleDevices(" + staleDevices + ")";
+  }
+
   public StaleDevices(List<Long> staleDevices) {
     this.staleDevices = staleDevices;
   }

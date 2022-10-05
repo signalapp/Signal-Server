@@ -37,6 +37,8 @@ public class RateLimiters {
 
   private final RateLimiter checkAccountExistenceLimiter;
 
+  private final RateLimiter storiesLimiter;
+
   public RateLimiters(RateLimitsConfiguration config, FaultTolerantRedisCluster cacheCluster) {
     this.smsDestinationLimiter = new RateLimiter(cacheCluster, "smsDestination",
                                                  config.getSmsDestination().getBucketSize(),
@@ -118,6 +120,10 @@ public class RateLimiters {
     this.checkAccountExistenceLimiter = new RateLimiter(cacheCluster, "checkAccountExistence",
         config.getCheckAccountExistence().getBucketSize(),
         config.getCheckAccountExistence().getLeakRatePerMinute());
+
+    this.storiesLimiter = new RateLimiter(cacheCluster, "stories",
+        config.getStories().getBucketSize(),
+        config.getStories().getLeakRatePerMinute());
   }
 
   public RateLimiter getAllocateDeviceLimiter() {
@@ -199,4 +205,6 @@ public class RateLimiters {
   public RateLimiter getCheckAccountExistenceLimiter() {
     return checkAccountExistenceLimiter;
   }
+
+  public RateLimiter getStoriesLimiter() { return storiesLimiter; }
 }

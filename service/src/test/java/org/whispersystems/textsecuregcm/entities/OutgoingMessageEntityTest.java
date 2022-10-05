@@ -36,7 +36,8 @@ class OutgoingMessageEntityTest {
         updatedPni,
         messageContent,
         serverTimestamp,
-        true);
+        true,
+        false);
 
     assertEquals(outgoingMessageEntity, OutgoingMessageEntity.fromEnvelope(outgoingMessageEntity.toEnvelope()));
   }

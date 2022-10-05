@@ -15,6 +15,10 @@ public class AccountStaleDevices {
   @JsonProperty
   public final StaleDevices devices;
 
+  public String toString() {
+    return "AccountStaleDevices(" + uuid + ", " + devices + ")";
+  }
+
   public AccountStaleDevices(final UUID uuid, final StaleDevices devices) {
     this.uuid = uuid;
     this.devices = devices;

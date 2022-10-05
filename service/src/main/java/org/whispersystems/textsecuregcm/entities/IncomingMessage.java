@@ -17,6 +17,7 @@ public record IncomingMessage(int type, long destinationDeviceId, int destinatio
       @Nullable Account sourceAccount,
       @Nullable Long sourceDeviceId,
       final long timestamp,
+      final boolean story,
       final boolean urgent) {
 
     final MessageProtos.Envelope.Type envelopeType = MessageProtos.Envelope.Type.forNumber(type());
@@ -31,6 +32,7 @@ public record IncomingMessage(int type, long destinationDeviceId, int destinatio
         .setTimestamp(timestamp)
         .setServerTimestamp(System.currentTimeMillis())
         .setDestinationUuid(destinationUuid.toString())
+        .setStory(story)
         .setUrgent(urgent);
 
     if (sourceAccount != null && sourceDeviceId != null) {

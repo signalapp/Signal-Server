@@ -42,7 +42,8 @@ message Envelope {
   optional string destination_uuid = 13;
   optional bool urgent = 14 [default=true];
   optional string updated_pni = 15;
-  // next: 16
+  optional bool story = 16; // indicates that the content is a story.
+  // next: 17
 }
 
 message ProvisioningUuid {

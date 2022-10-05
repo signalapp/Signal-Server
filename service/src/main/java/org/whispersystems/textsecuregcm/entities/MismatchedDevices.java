@@ -21,6 +21,10 @@ public class MismatchedDevices {
   @VisibleForTesting
   public MismatchedDevices() {}
 
+  public String toString() {
+    return "MismatchedDevices(" + missingDevices + ", " + extraDevices + ")";
+  }
+
   public MismatchedDevices(List<Long> missingDevices, List<Long> extraDevices) {
     this.missingDevices = missingDevices;
     this.extraDevices   = extraDevices;

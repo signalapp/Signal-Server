@@ -332,7 +332,16 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
         final Envelope envelope = messages.get(i);
         final UUID messageGuid = UUID.fromString(envelope.getServerGuid());
 
-        if (envelope.getSerializedSize() > MAX_DESKTOP_MESSAGE_SIZE && isDesktopClient) {
+        final boolean discard;
+        if (isDesktopClient && envelope.getSerializedSize() > MAX_DESKTOP_MESSAGE_SIZE) {
+          discard = true;
+        } else if (envelope.getStory() && !client.shouldDeliverStories()) {
+          discard = true;
+        } else {
+          discard = false;
+        }
+
+        if (discard) {
           messagesManager.delete(auth.getAccount().getUuid(), device.getId(), messageGuid, envelope.getServerTimestamp());
           discardedMessagesMeter.mark();
 

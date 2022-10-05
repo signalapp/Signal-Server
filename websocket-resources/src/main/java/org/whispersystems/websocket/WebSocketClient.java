@@ -35,13 +35,12 @@ public class WebSocketClient {
 
   public WebSocketClient(Session session, RemoteEndpoint remoteEndpoint,
                          WebSocketMessageFactory messageFactory,
-                         Map<Long, CompletableFuture<WebSocketResponseMessage>> pendingRequestMapper)
-  {
-    this.session              = session;
-    this.remoteEndpoint       = remoteEndpoint;
-    this.messageFactory       = messageFactory;
+                         Map<Long, CompletableFuture<WebSocketResponseMessage>> pendingRequestMapper) {
+    this.session = session;
+    this.remoteEndpoint = remoteEndpoint;
+    this.messageFactory = messageFactory;
     this.pendingRequestMapper = pendingRequestMapper;
-    this.created              = System.currentTimeMillis();
+    this.created = System.currentTimeMillis();
   }
 
   public CompletableFuture<WebSocketResponseMessage> sendRequest(String verb, String path,
@@ -90,6 +89,11 @@ public class WebSocketClient {
 
   public void close(int code, String message) {
     session.close(code, message);
+  }
+
+  public boolean shouldDeliverStories() {
+    String value = session.getUpgradeRequest().getHeader(Stories.X_SIGNAL_RECEIVE_STORIES);
+    return Stories.parseReceiveStoriesHeader(value);
   }
 
   public void hardDisconnectQuietly() {
