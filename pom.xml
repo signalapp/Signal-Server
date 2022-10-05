@@ -63,7 +63,7 @@
     <mockito.version>4.7.0</mockito.version>
     <netty.version>4.1.79.Final</netty.version>
     <opentest4j.version>1.2.0</opentest4j.version>
-    <protobuf.version>3.19.4</protobuf.version>
+    <protobuf.version>3.21.7</protobuf.version>
     <pushy.version>0.15.1</pushy.version>
     <resilience4j.version>1.7.0</resilience4j.version>
     <semver4j.version>3.1.0</semver4j.version>
